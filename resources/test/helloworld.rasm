@@ -17,7 +17,7 @@ sprintln("Hello world")
 /**
  * Prints the string to standard output adding a line feed to the end.
  **/
-fun sprintln(s: &str) {
+fn sprintln(s: &str) {
     // to be generated
     // push    ebp
     // mov     ebp,esp
@@ -36,7 +36,7 @@ fun sprintln(s: &str) {
     // _rasm_s1    db     '\n', 0h
     // push    eax
     // push    _rasm_s1
-    // call    sprint      // call our sprint function
+    // call    sprint      // call our sprint fnction
     // pop     eax
     // pop     eax
 
@@ -49,7 +49,7 @@ fun sprintln(s: &str) {
 /** 
  * Prints the string to the standard output.
  **/
-asm fun sprint(s: &str) {
+asm fn sprint(s: &str) {
     // to be generated
     // push    ebp
     // mov     ebp,esp
@@ -83,7 +83,7 @@ asm fun sprint(s: &str) {
 }
 
 /** Returns the length of the string **/
-asm fun slen(s: &str) -> i32[eax] {
+asm fn slen(s: &str) -> i32[eax] {
     // to be generated
     // push    ebp             // Save the bottom pointer of the stack into the stack
     // mov     ebp, esp        // Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)

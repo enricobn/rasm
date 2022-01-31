@@ -12,6 +12,7 @@ pub enum Token {
     Bracket(BracketKind, BracketStatus),
     AlphaNumeric(String),
     Comment(String),
+    KeyWord(String)
 }
 
 #[derive(Debug, PartialEq)]
@@ -72,6 +73,7 @@ impl Lexer {
 }
 
 const END_OF_FILE: char = '\u{0}';
+const KEYWORDS: [&str; 1] = ["fn"];
 
 impl Iterator for Lexer {
     type Item = Token;
@@ -145,7 +147,11 @@ impl Iterator for Lexer {
                     if c.is_alphanumeric() {
                         actual.push(c);
                     } else {
-                        return Some(Token::AlphaNumeric(actual));
+                        if KEYWORDS.iter().any(|it| it == &actual) {
+                            return Some(Token::KeyWord(actual));
+                        } else {
+                            return Some(Token::AlphaNumeric(actual));
+                        }
                     }
                 }
                 LexStatus::Numeric => {
@@ -206,6 +212,7 @@ impl Lexer {
 mod tests {
     use crate::lexer::BracketKind::*;
     use crate::lexer::BracketStatus::*;
+    use crate::lexer::PunctuationKind::{Colon, Comma};
     use crate::lexer::Token::*;
 
     use super::*;
@@ -241,6 +248,48 @@ mod tests {
                         Bracket(Round, Open),
                         Number("100.123".into()),
                         Bracket(Round, Close)], lst);
+    }
+
+    #[test]
+    fn test4() {
+        let lexer = Lexer::from_file(Path::new("resources/test/test4.rasm")).unwrap();
+        let lst: Vec<Token> = lexer.collect();
+        assert_eq!(vec![Comment("// test4.rasm file".into()),
+                        KeyWord("fn".into()),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("add".into()),
+                        Bracket(Round, Open),
+                        AlphaNumeric("a".into()),
+                        Punctuation(Colon),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("i32".into()),
+                        Punctuation(Comma),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("b".into()),
+                        Punctuation(Colon),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("i32".into()),
+                        Bracket(Round, Close),
+                        WhiteSpaces(" ".into()),
+                        Bracket(Angle, Close),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("i32".into()),
+                        WhiteSpaces(" ".into()),
+                        Bracket(Brace, Open),
+                        EndOfLine,
+                        WhiteSpaces("    ".into()),
+                        AlphaNumeric("I32".into()),
+                        Punctuation(Colon),
+                        Punctuation(Colon),
+                        AlphaNumeric("add".into()),
+                        Bracket(Round, Open),
+                        AlphaNumeric("a".into()),
+                        Punctuation(Comma),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("b".into()),
+                        Bracket(Round, Close),
+                        EndOfLine,
+                        Bracket(Brace, Close)], lst);
     }
 }
 
