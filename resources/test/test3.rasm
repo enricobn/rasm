@@ -1,0 +1,3 @@
+// test3.rasm file
+println(100)
+println(100.123)

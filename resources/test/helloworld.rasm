@@ -1,64 +1,64 @@
-; to be generated
-; SECTION .data
-; _rasm_s0    db     'Hello world', 0h
-; push    eax
-; push    _rasm_s0
-; call    sprintln
-; pop     eax   (can I simple add to esp???? and remove the push at the beginning and the pops?) 
-; pop     eax
+// to be generated
+// SECTION .data
+// _rasm_s0    db     'Hello world', 0h
+// push    eax
+// push    _rasm_s0
+// call    sprintln
+// pop     eax   (can I simple add to esp???? and remove the push at the beginning and the pops?)
+// pop     eax
 sprintln("Hello world")
 
-; to be generated (quit)
-;    mov     ebx, 0
-;    mov     eax, 1
-;    int     80h
-;    ret
+// to be generated (quit)
+//    mov     ebx, 0
+//    mov     eax, 1
+//    int     80h
+//    ret
 
 /**
  * Prints the string to standard output adding a line feed to the end.
  **/
 fun sprintln(s: &str) {
-    ; to be generated
-    ; push    ebp
-    ; mov     ebp,esp
+    // to be generated
+    // push    ebp
+    // mov     ebp,esp
 
-    ; to be generated
-    ; push    eax
-    ; mov     eax,[ebp+4+4]
-    ; push    eax
-    ; call    sprint
-    ; pop     eax
-    ; pop     eax
+    // to be generated
+    // push    eax
+    // mov     eax,[ebp+4+4]
+    // push    eax
+    // call    sprint
+    // pop     eax
+    // pop     eax
     sprint(s)
 
-    ; to be generated
-    ; SECTION .data
-    ; _rasm_s1    db     '\n', 0h
-    ; push    eax
-    ; push    _rasm_s1
-    ; call    sprint      ; call our sprint function
-    ; pop     eax
-    ; pop     eax
+    // to be generated
+    // SECTION .data
+    // _rasm_s1    db     '\n', 0h
+    // push    eax
+    // push    _rasm_s1
+    // call    sprint      // call our sprint function
+    // pop     eax
+    // pop     eax
 
     sprint("\n")
 
-    ; to be generated   ; pop     ebp
-    ; to be generated   ; ret
+    // to be generated   // pop     ebp
+    // to be generated   // ret
 }
 
 /** 
  * Prints the string to the standard output.
  **/
 asm fun sprint(s: &str) {
-    ; to be generated
-    ; push    ebp
-    ; mov     ebp,esp
+    // to be generated
+    // push    ebp
+    // mov     ebp,esp
     push    eax
-    ; push    ebx
-    ; mov     ebx,[ebp+4+4]
-    ; push    ebx
-    ; call    slen
-    ; pop     ebx
+    // push    ebx
+    // mov     ebx,[ebp+4+4]
+    // push    ebx
+    // call    slen
+    // pop     ebx
     slen(s)
 
     push    edx
@@ -77,18 +77,18 @@ asm fun sprint(s: &str) {
     pop     ecx
     pop     edx
     pop     eax
-    ; to be generated
-    ; pop     ebp
-    ; ret
+    // to be generated
+    // pop     ebp
+    // ret
 }
 
 /** Returns the length of the string **/
 asm fun slen(s: &str) -> i32[eax] {
-    ; to be generated
-    ; push    ebp             ; Save the bottom pointer of the stack into the stack
-    ; mov     ebp, esp        ; Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)
-    push    ebx             ; Save ebx to the stack since we use it 
-    mov     eax, [ebp+4+4]  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
+    // to be generated
+    // push    ebp             // Save the bottom pointer of the stack into the stack
+    // mov     ebp, esp        // Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)
+    push    ebx             // Save ebx to the stack since we use it
+    mov     eax, [ebp+4+4]  // Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     ebx, eax
 
 nextchar:
@@ -100,7 +100,7 @@ nextchar:
 finished:
     sub     eax, ebx
     pop     ebx
-    ; to be generated
-    ; pop     ebp             ; Restore the top of the stack
-    ; ret
+    // to be generated
+    // pop     ebp             // Restore the top of the stack
+    // ret
 }
