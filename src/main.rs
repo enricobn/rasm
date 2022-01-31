@@ -12,9 +12,12 @@ fn main() {
 
     match Lexer::from_file(Path::new("resources/test/helloworld.rasm")) {
         Ok(lexer) => {
+            let mut count = 0;
             lexer.for_each(|it| {
-                println!("{:?}", it)
-            })
+                println!("{:?}", it);
+                count += 1;
+            });
+            println!("tokens {} ", count);
         }
         Err(err) => {
             println!("An error occurred: {}", err)
