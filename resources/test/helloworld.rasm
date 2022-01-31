@@ -49,7 +49,7 @@ fn sprintln(s: &str) {
 /** 
  * Prints the string to the standard output.
  **/
-asm fn sprint(s: &str) {
+asm sprint(s: &str) {
     // to be generated
     // push    ebp
     // mov     ebp,esp
@@ -83,7 +83,7 @@ asm fn sprint(s: &str) {
 }
 
 /** Returns the length of the string **/
-asm fn slen(s: &str) -> i32[eax] {
+asm slen(s: &str) -> i32[eax] {
     // to be generated
     // push    ebp             // Save the bottom pointer of the stack into the stack
     // mov     ebp, esp        // Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)

@@ -2,49 +2,71 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
-    WhiteSpaces(String),
-    EndOfLine,
-    Number(String),
-    StringLiteral(String),
-    Punctuation(PunctuationKind),
-    Bracket(BracketKind, BracketStatus),
     AlphaNumeric(String),
+    Bracket(BracketKind, BracketStatus),
     Comment(String),
-    KeyWord(String)
+    EndOfLine,
+    KeyWord(KeywordKind),
+    Number(String),
+    Punctuation(PunctuationKind),
+    StringLiteral(String),
+    WhiteSpaces(String),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum PunctuationKind {
     Dot,
-    Comma,
     Colon,
+    Comma,
     SemiColon,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum BracketKind {
+    Angle,
+    Brace,
     Round,
     Square,
-    Brace,
-    Angle,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum BracketStatus {
-    Open,
     Close,
+    Open,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum LexStatus {
     None,
-    WhiteSpace,
-    String,
     AlphaNumeric,
-    Numeric,
     Comment,
+    Numeric,
+    String,
+    WhiteSpace,
+}
+
+#[derive(Debug, PartialEq, EnumIter)]
+pub enum KeywordKind {
+    Asm,
+    Fn,
+}
+
+impl KeywordKind {
+    fn name(&self) -> String {
+        match self {
+            KeywordKind::Fn => "fn".into(),
+            KeywordKind::Asm => "asm".into()
+        }
+    }
+
+    fn from_name(name: &str) -> Option<Token> {
+        KeywordKind::iter().find(|it| it.name() == name).map(|it| Token::KeyWord(it))
+    }
 }
 
 pub struct Lexer {
@@ -73,7 +95,6 @@ impl Lexer {
 }
 
 const END_OF_FILE: char = '\u{0}';
-const KEYWORDS: [&str; 1] = ["fn"];
 
 impl Iterator for Lexer {
     type Item = Token;
@@ -147,8 +168,8 @@ impl Iterator for Lexer {
                     if c.is_alphanumeric() {
                         actual.push(c);
                     } else {
-                        if KEYWORDS.iter().any(|it| it == &actual) {
-                            return Some(Token::KeyWord(actual));
+                        if let Some(keyword) = KeywordKind::from_name(&actual) {
+                            return Some(keyword);
                         } else {
                             return Some(Token::AlphaNumeric(actual));
                         }
@@ -185,27 +206,28 @@ impl Iterator for Lexer {
 impl Lexer {
     fn get_bracket(c: char) -> Option<Token> {
         match c {
-            '(' => { Some(Token::Bracket(BracketKind::Round, BracketStatus::Open)) }
-            ')' => { Some(Token::Bracket(BracketKind::Round, BracketStatus::Close)) }
-            '[' => { Some(Token::Bracket(BracketKind::Square, BracketStatus::Open)) }
-            ']' => { Some(Token::Bracket(BracketKind::Square, BracketStatus::Close)) }
-            '{' => { Some(Token::Bracket(BracketKind::Brace, BracketStatus::Open)) }
-            '}' => { Some(Token::Bracket(BracketKind::Brace, BracketStatus::Close)) }
-            '<' => { Some(Token::Bracket(BracketKind::Angle, BracketStatus::Open)) }
-            '>' => { Some(Token::Bracket(BracketKind::Angle, BracketStatus::Close)) }
+            '(' => Some(Token::Bracket(BracketKind::Round, BracketStatus::Open)),
+            ')' => Some(Token::Bracket(BracketKind::Round, BracketStatus::Close)),
+            '[' => Some(Token::Bracket(BracketKind::Square, BracketStatus::Open)),
+            ']' => Some(Token::Bracket(BracketKind::Square, BracketStatus::Close)),
+            '{' => Some(Token::Bracket(BracketKind::Brace, BracketStatus::Open)),
+            '}' => Some(Token::Bracket(BracketKind::Brace, BracketStatus::Close)),
+            '<' => Some(Token::Bracket(BracketKind::Angle, BracketStatus::Open)),
+            '>' => Some(Token::Bracket(BracketKind::Angle, BracketStatus::Close)),
             _ => None
         }
     }
 
     fn get_punctuation(c: char) -> Option<Token> {
         match c {
-            '.' => { Some(Token::Punctuation(PunctuationKind::Dot)) }
-            ',' => { Some(Token::Punctuation(PunctuationKind::Comma)) }
-            ':' => { Some(Token::Punctuation(PunctuationKind::Colon)) }
-            ';' => { Some(Token::Punctuation(PunctuationKind::SemiColon)) }
+            '.' => Some(Token::Punctuation(PunctuationKind::Dot)),
+            ',' => Some(Token::Punctuation(PunctuationKind::Comma)),
+            ':' => Some(Token::Punctuation(PunctuationKind::Colon)),
+            ';' => Some(Token::Punctuation(PunctuationKind::SemiColon)),
             _ => None
         }
     }
+
 }
 
 #[cfg(test)]
@@ -255,7 +277,7 @@ mod tests {
         let lexer = Lexer::from_file(Path::new("resources/test/test4.rasm")).unwrap();
         let lst: Vec<Token> = lexer.collect();
         assert_eq!(vec![Comment("// test4.rasm file".into()),
-                        KeyWord("fn".into()),
+                        KeyWord(KeywordKind::Fn),
                         WhiteSpaces(" ".into()),
                         AlphaNumeric("add".into()),
                         Bracket(Round, Open),
@@ -289,6 +311,38 @@ mod tests {
                         AlphaNumeric("b".into()),
                         Bracket(Round, Close),
                         EndOfLine,
+                        Bracket(Brace, Close)], lst);
+    }
+
+    #[test]
+    fn test5() {
+        let lexer = Lexer::from_file(Path::new("resources/test/test5.rasm")).unwrap();
+        let lst: Vec<Token> = lexer.collect();
+        assert_eq!(vec![Comment("// test5.rasm file".into()),
+                        KeyWord(KeywordKind::Asm),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("add".into()),
+                        Bracket(Round, Open),
+                        AlphaNumeric("a".into()),
+                        Punctuation(Colon),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("i32".into()),
+                        Punctuation(Comma),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("b".into()),
+                        Punctuation(Colon),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("i32".into()),
+                        Bracket(Round, Close),
+                        WhiteSpaces(" ".into()),
+                        Bracket(Angle, Close),
+                        WhiteSpaces(" ".into()),
+                        AlphaNumeric("i32".into()),
+                        WhiteSpaces(" ".into()),
+                        Bracket(Brace, Open),
+                        EndOfLine,
+                        WhiteSpaces("    ".into()),
+                        Comment("// some assembler code".into()),
                         Bracket(Brace, Close)], lst);
     }
 }
