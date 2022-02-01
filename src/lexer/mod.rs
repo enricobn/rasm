@@ -1,45 +1,9 @@
+mod tokens;
+
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
-
-#[derive(Debug, PartialEq)]
-pub enum TokenKind {
-    AlphaNumeric(String),
-    AsmBLock(String),
-    Bracket(BracketKind, BracketStatus),
-    Comment(String),
-    EndOfLine,
-    KeyWord(KeywordKind),
-    Number(String),
-    Punctuation(PunctuationKind),
-    StringLiteral(String),
-    WhiteSpaces(String),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum PunctuationKind {
-    Dot,
-    Colon,
-    Comma,
-    SemiColon,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum BracketKind {
-    Angle,
-    Brace,
-    Round,
-    Square,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum BracketStatus {
-    Close,
-    Open,
-}
+use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 
 #[derive(Debug, PartialEq)]
 enum LexStatus {
@@ -50,32 +14,6 @@ enum LexStatus {
     Numeric,
     String,
     WhiteSpace,
-}
-
-#[derive(Debug, PartialEq, EnumIter)]
-pub enum KeywordKind {
-    Asm,
-    Fn,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Token {
-    kind: TokenKind,
-    row: usize,
-    column: usize
-}
-
-impl KeywordKind {
-    fn name(&self) -> String {
-        match self {
-            KeywordKind::Fn => "fn".into(),
-            KeywordKind::Asm => "asm".into()
-        }
-    }
-
-    fn from_name(name: &str) -> Option<TokenKind> {
-        KeywordKind::iter().find(|it| it.name() == name).map(|it| TokenKind::KeyWord(it))
-    }
 }
 
 pub struct Lexer {
@@ -106,7 +44,7 @@ impl Lexer {
     }
 
     fn some_token(&self, kind: TokenKind) -> Option<Token> {
-        Some(Token{ kind, row: self.row, column: self.column})
+        Some(Token::new(kind, self.row, self.column))
     }
 
     fn get_bracket(c: char) -> Option<TokenKind> {
@@ -144,6 +82,7 @@ impl Iterator for Lexer {
         let mut actual = String::new();
         let mut chars = self.source.chars();
         if self.index > 0 {
+            // TODO optimize, I don't like that
             chars.nth(self.index - 1);
         }
         let mut status = LexStatus::None;
@@ -167,7 +106,6 @@ impl Iterator for Lexer {
                     if actual == "//" || actual == "/*" {
                         actual.push(c);
                         status = LexStatus::Comment;
-                        println!("*** start comment at {},{}", self.row, self.column);
                     } else if c == '\n' {
                         let token = self.some_token(TokenKind::EndOfLine);
                         self.index += 1;
@@ -181,7 +119,8 @@ impl Iterator for Lexer {
                         status = LexStatus::AsmBlock;
                     } else if let Some(punctuation) = Lexer::get_punctuation(c) {
                         if !actual.is_empty() {
-                            panic!("Punctuation, but actual = {}", actual);
+                            // TODO handle error?
+                            panic!("Punctuation, but actual={}", actual);
                         }
                         let token = self.some_token(punctuation);
                         self.column += 1;
@@ -189,7 +128,8 @@ impl Iterator for Lexer {
                         return token;
                     } else if let Some(bracket) = Lexer::get_bracket(c) {
                         if !actual.is_empty() {
-                            panic!("Bracket, but actual = {}", actual);
+                            // TODO handle error?
+                            panic!("Bracket, but actual={}", actual);
                         }
                         let token = self.some_token(bracket);
                         self.column += 1;
@@ -207,7 +147,7 @@ impl Iterator for Lexer {
                         status = LexStatus::AlphaNumeric;
                         actual.push(c);
                     } else {
-                        println!("*** Unknown char '{}' at {},{}", c, self.row, self.column);
+                        println!("WARNING: unknown char '{}' at {},{} ***", c, self.row, self.column);
                     }
                 }
                 LexStatus::WhiteSpace => {
@@ -272,8 +212,6 @@ impl Iterator for Lexer {
                 LexStatus::AsmBlock => {
                     if actual.ends_with("}/") {
                         let token = self.some_token(TokenKind::AsmBLock(actual.split_at(actual.len() - 2).0.into()));
-                        self.index += 1;
-                        self.column += 1;
                         return token;
                     } else if c == '\n' {
                             self.row += 1;
@@ -299,10 +237,10 @@ impl Iterator for Lexer {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::BracketKind::*;
-    use crate::lexer::BracketStatus::*;
-    use crate::lexer::PunctuationKind::{Colon, Comma};
-    use crate::lexer::TokenKind::*;
+    use crate::lexer::tokens::BracketKind::*;
+    use crate::lexer::tokens::BracketStatus::*;
+    use crate::lexer::tokens::PunctuationKind::*;
+    use crate::lexer::tokens::TokenKind::*;
 
     use super::*;
 
@@ -400,4 +338,21 @@ mod tests {
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(vec![Comment("// test6.rasm file".into()), Comment("/*\n   A multi\n   line comment\n */".into())], lst);
     }
+
+    /*
+    TODO
+    #[test]
+    fn test_ro_col() {
+        let path = Path::new("resources/test/helloworld.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+
+        let mut s = String::new();
+        File::open(path).unwrap().read_to_string(&mut s).unwrap();
+
+        let lst: Vec<TokenKind> = lexer
+            .filter(|it| it.)
+        assert_eq!(vec![Comment("// test6.rasm file".into()), Comment("/*\n   A multi\n   line comment\n */".into())], lst);
+    }
+     */
+
 }
