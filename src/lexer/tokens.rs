@@ -30,9 +30,11 @@ pub enum TokenKind {
 
 #[derive(Debug, PartialEq)]
 pub enum PunctuationKind {
+    And,
     Dot,
     Colon,
     Comma,
+    RightArrow,
     SemiColon,
 }
 

@@ -61,12 +61,19 @@ impl Lexer {
         }
     }
 
-    fn get_punctuation(c: char) -> Option<TokenKind> {
-        match c {
-            '.' => Some(TokenKind::Punctuation(PunctuationKind::Dot)),
-            ',' => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
-            ':' => Some(TokenKind::Punctuation(PunctuationKind::Colon)),
-            ';' => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
+    fn get_punctuation(actual: &String, c: char) -> Option<TokenKind> {
+        let mut string = actual.clone();
+        string.push(c);
+
+        let s = string.as_str();
+
+        match s {
+            "." => Some(TokenKind::Punctuation(PunctuationKind::Dot)),
+            "," => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
+            ":" => Some(TokenKind::Punctuation(PunctuationKind::Colon)),
+            ";" => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
+            "&" => Some(TokenKind::Punctuation(PunctuationKind::And)),
+            "->" => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
             _ => None
         }
     }
@@ -88,7 +95,6 @@ impl Iterator for Lexer {
         let mut status = LexStatus::None;
         let mut exit = false;
         loop {
-            //println!("status {:?}, actual <{}>, /* {}", status, actual, actual == "/*");
             let c =
                 if let Some(a_char) = chars.next() {
                     a_char
@@ -101,6 +107,8 @@ impl Iterator for Lexer {
                     }
                 };
 
+            //println!("status {:?}, actual <{}>, c <{}>", status, actual, c);
+
             match status {
                 LexStatus::None => {
                     if actual == "//" || actual == "/*" {
@@ -112,16 +120,12 @@ impl Iterator for Lexer {
                         self.column = 1;
                         self.row += 1;
                         return token;
-                    } else if c == '/' || c == '*' {
+                    } else if c == '/' || c == '*' || c == '-' {
                         actual.push(c);
                     } else if actual == "/" && c == '{' {
                         actual.clear();
                         status = LexStatus::AsmBlock;
-                    } else if let Some(punctuation) = Lexer::get_punctuation(c) {
-                        if !actual.is_empty() {
-                            // TODO handle error?
-                            panic!("Punctuation, but actual={}", actual);
-                        }
+                    } else if let Some(punctuation) = Lexer::get_punctuation(&actual, c) {
                         let token = self.some_token(punctuation);
                         self.column += 1;
                         self.index += 1;
@@ -146,8 +150,8 @@ impl Iterator for Lexer {
                     } else if c.is_alphanumeric() {
                         status = LexStatus::AlphaNumeric;
                         actual.push(c);
-                    } else {
-                        println!("WARNING: unknown char '{}' at {},{} ***", c, self.row, self.column);
+                    } else if c != END_OF_FILE {
+                        println!("WARNING: unknown char '{}' ({}) at {},{} ***", c, c.escape_debug(), self.row, self.column);
                     }
                 }
                 LexStatus::WhiteSpace => {
@@ -298,7 +302,7 @@ mod tests {
                         AlphaNumeric("i32".into()),
                         Bracket(Round, Close),
                         WhiteSpaces(" ".into()),
-                        Bracket(Angle, Close),
+                        Punctuation(RightArrow),
                         WhiteSpaces(" ".into()),
                         AlphaNumeric("i32".into()),
                         WhiteSpaces(" ".into()),
@@ -337,6 +341,18 @@ mod tests {
         let lexer = Lexer::from_file(Path::new("resources/test/test6.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(vec![Comment("// test6.rasm file".into()), Comment("/*\n   A multi\n   line comment\n */".into())], lst);
+    }
+
+    #[test]
+    fn test7() {
+        let lexer = Lexer::from_file(Path::new("resources/test/test7.rasm")).unwrap();
+        let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
+        assert_eq!(vec![Comment("// test7.rasm file".into()), KeyWord(KeywordKind::Fn),
+                        WhiteSpaces(" ".into()), AlphaNumeric("add".into()), Bracket(Round, Open),
+                        AlphaNumeric("s".into()), Punctuation(Colon), WhiteSpaces(" ".into()),
+                        Punctuation(And),
+                        AlphaNumeric("str".into()), Bracket(Round, Close),
+                        WhiteSpaces(" ".into()), Bracket(Brace, Open), Bracket(Brace, Close)], lst);
     }
 
     /*
