@@ -1,8 +1,12 @@
+extern crate core;
+
 use std::env;
 use std::path::Path;
 use crate::lexer::Lexer;
 
-mod lexer;
+pub(crate) mod lexer;
+pub(crate) mod parser;
+pub(crate) mod codegen;
 
 fn main() {
 

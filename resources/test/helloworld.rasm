@@ -6,7 +6,7 @@
 // call    sprintln
 // pop     eax   (can I simple add to esp???? and remove the push at the beginning and the pops?)
 // pop     eax
-sprintln("Hello world")
+sprintln("Hello world");
 
 // to be generated (quit)
 //    mov     ebx, 0

@@ -1,4 +1,4 @@
-mod tokens;
+pub(crate) mod tokens;
 
 use std::fs::File;
 use std::io::Read;
