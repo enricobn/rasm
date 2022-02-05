@@ -2,8 +2,14 @@
 pub struct ASTFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
-    pub return_type: Option<ASTTypeRef>,
+    pub return_type: Option<ASTReturnType>,
     pub body: ASTFunctionBody
+}
+
+#[derive(Debug, Clone)]
+pub struct ASTReturnType {
+    pub type_ref: ASTTypeRef,
+    pub register: String,
 }
 
 #[derive(Debug, Clone)]
