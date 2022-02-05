@@ -1,8 +1,8 @@
 use crate::Lexer;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
-use crate::parser::ast::ASTFunctionBody::ASMBody;
-use crate::parser::ParserStackElement::{FunctionBody, FunctionCall, FunctionDef, FunctionDefName, FunctionParametersDef, TypeRef};
+use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
+use crate::parser::ParserStackElement::{FunctionCall, FunctionDef};
 use crate::parser::ParserState::FunctionCallArgument;
 
 pub(crate) mod ast;
@@ -20,10 +20,7 @@ pub struct Parser {
 enum ParserStackElement {
     FunctionCall(ASTFunctionCall),
     FunctionDef(ASTFunctionDef),
-    FunctionDefName,
-    FunctionBody,
     FunctionParametersDef(ASTParameterDef),
-    TypeRef(Option<ASTTypeRef>),
 }
 
 #[derive(Clone, Debug)]
@@ -31,10 +28,8 @@ enum ParserState {
     None,
     FunctionCallArgument,
     FunctionDef,
-    FunctionDefName,
     FunctionBody,
     FunctionParameterDef,
-    TypeRef,
 }
 
 impl Parser {
@@ -112,7 +107,20 @@ impl Parser {
                         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
                             if let Some(next_token) = self.next_token() {
                                 if let TokenKind::Punctuation(PunctuationKind::SemiColon) = next_token.kind {
-                                    self.body.push(call);
+                                    if let Some(FunctionDef(mut def)) = self.before_last_status() {
+                                        if let ASTFunctionBody::RASMBody(mut calls) = def.clone().body {
+                                            calls.push(call);
+                                            def.body = RASMBody(calls);
+                                            let l = self.statuses.len();
+                                            self.statuses[l - 2] = FunctionDef(def);
+                                            self.statuses.pop();
+                                            self.i += 2;
+                                            self.state = ParserState::FunctionBody;
+                                            continue;
+                                        }
+                                    } else {
+                                        self.body.push(call);
+                                    }
                                     self.statuses.pop();
                                     self.state = ParserState::None;
                                     self.i += 2;
@@ -120,6 +128,12 @@ impl Parser {
                                 }
                             }
                         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
+                            self.i += 1;
+                            continue;
+                        } else if let TokenKind::AlphaNumeric(name) = &token.kind {
+                            call.parameters.push(ASTExpression::Var(name.into()));
+                            let l = self.statuses.len();
+                            self.statuses[l - 1] = FunctionCall(call);
                             self.i += 1;
                             continue;
                         }
@@ -196,9 +210,14 @@ impl Parser {
                             continue;
                         }
                         self.debug_error("");
+                    } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
+                        self.statuses.push(ParserStackElement::FunctionCall(ASTFunctionCall{function_name: function_name.into(),
+                            parameters: Vec::new()}));
+                        self.state = FunctionCallArgument;
+                        self.i = next_i;
+                        continue;
                     }
                 }
-                _ => {}
             }
 
             self.i += 1;
@@ -210,20 +229,14 @@ impl Parser {
     }
 
     pub fn print(module: &ASTModule) {
+        println!("main() {{");
         module.body.iter().for_each(|call| {
-            print!("{}(", call.function_name);
-            call.parameters.iter().for_each(|par| {
-                match par {
-                    ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
-                    ASTExpression::ASTFunctionCallExpression(_) => {
-                        // TODO
-                    }
-                }
-            });
-            println!(");");
+            print!("  ");
+            Self::print_call(call, false);
         });
+        println!("}}");
         module.functions.iter().for_each(|f| {
-            match f.body {
+            match &f.body {
                 ASTFunctionBody::RASMBody(_) => print!("fn {}(", f.name),
                 ASMBody(_) => print!("asm {}(", f.name)
             }
@@ -241,8 +254,36 @@ impl Parser {
                     }
                 }
             });
-            println!(")");
+            print!(")");
+            match &f.body {
+                ASTFunctionBody::RASMBody(calls) => {
+                    println!(" {{");
+                    calls.iter().for_each(|call| {
+                        print!("  ");
+                        Self::print_call(call, false)
+                    });
+                    println!("}}");
+                },
+                ASMBody(_) => println!(" {{...}}")
+            }
+
         })
+    }
+
+    fn print_call(call: &ASTFunctionCall, as_expression: bool) {
+        print!("{}(", call.function_name);
+        call.parameters.iter().for_each(|par| {
+            match par {
+                ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
+                ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(&call, true),
+                ASTExpression::Var(name) => print!("{}", name)
+            }
+        });
+        if as_expression {
+            print!(")");
+        } else {
+            println!(");");
+        }
     }
 
     fn debug_error(&self, message: &str) {

@@ -263,7 +263,8 @@ mod tests {
                         AlphaNumeric("println".into()),
                         Bracket(Round, Open),
                         StringLiteral("hello world".into()),
-                        Bracket(Round, Close)], lst);
+                        Bracket(Round, Close),
+                        Punctuation(SemiColon)], lst);
     }
 
     #[test]

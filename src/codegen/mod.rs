@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTModule};
 
 pub fn gen_asm(module: ASTModule) -> String {
 
@@ -19,6 +19,9 @@ pub fn gen_asm(module: ASTModule) -> String {
                 }
                 ASTExpression::ASTFunctionCallExpression(_) => {
                     panic!("Unsupported...")
+                }
+                ASTExpression::Var(_) => {
+                    // TODO
                 }
             }
         }
