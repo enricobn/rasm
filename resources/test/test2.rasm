@@ -1,2 +1,2 @@
 // test2.rasm file
-println("hello world")
+println("hello world");

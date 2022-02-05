@@ -30,7 +30,7 @@ fn sprintln(s: &str) {
     // call    sprint
     // pop     eax
     // pop     eax
-    sprint(s)
+    sprint(s);
 
     // to be generated
     // SECTION .data
@@ -41,7 +41,7 @@ fn sprintln(s: &str) {
     // pop     eax
     // pop     eax
 
-    sprint("\n")
+    sprint("\n");
 
     // to be generated   // pop     ebp
     // to be generated   // ret
@@ -51,17 +51,17 @@ fn sprintln(s: &str) {
  * Prints the string to the standard output.
  **/
 asm sprint(s: &str) /{
-    // to be generated
-    // :sprint
-    // push    ebp
-    // mov     ebp,esp
+    ; to be generated
+    ; :sprint
+    ; push    ebp
+    ; mov     ebp,esp
     push    eax
-    // push    ebx
-    // mov     ebx,[ebp+4+4]
-    // push    ebx
-    // call    slen
-    // pop     ebx
-    slen(s)
+    ; push    ebx
+    ; mov     ebx,[ebp+4+4]
+    ; push    ebx
+    ; call    slen
+    ; pop     ebx
+    slen(s);
 
     push    edx
     push    ecx
@@ -79,19 +79,19 @@ asm sprint(s: &str) /{
     pop     ecx
     pop     edx
     pop     eax
-    // to be generated
-    // pop     ebp
-    // ret
+    ; to be generated
+    ; pop     ebp
+    ; ret
 }/
 
 /** Returns the length of the string **/
 asm slen(s: &str) -> i32[eax] /{
-    // to be generated
-    // slen:
-    // push    ebp             // Save the bottom pointer of the stack into the stack
-    // mov     ebp, esp        // Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)
-    push    ebx             // Save ebx to the stack since we use it
-    mov     eax, [ebp+4+4]  // Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
+    ; to be generated
+    ; slen:
+    ; push    ebp             ; Save the bottom pointer of the stack into the stack
+    ; mov     ebp, esp        ; Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)
+    push    ebx             ; Save ebx to the stack since we use it
+    mov     eax, [ebp+4+4]  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     ebx, eax
 
 nextchar:
@@ -103,7 +103,7 @@ nextchar:
 finished:
     sub     eax, ebx
     pop     ebx
-    // to be generated
-    // pop     ebp             // Restore the top of the stack
-    // ret
+    ; to be generated
+    ; pop     ebp             ; Restore the top of the stack
+    ; ret
 }/

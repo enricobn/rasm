@@ -1,8 +1,12 @@
 extern crate core;
 
 use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
+use crate::codegen::gen_asm;
 use crate::lexer::Lexer;
+use crate::parser::Parser;
 
 pub(crate) mod lexer;
 pub(crate) mod parser;
@@ -16,12 +20,15 @@ fn main() {
 
     match Lexer::from_file(Path::new("resources/test/helloworld.rasm")) {
         Ok(lexer) => {
-            let mut count = 0;
-            lexer.for_each(|it| {
-                println!("{:?}", it);
-                count += 1;
-            });
-            println!("tokens {} ", count);
+            let mut parser = Parser::new(lexer);
+            let module = parser.parse();
+
+            Parser::print(&module);
+
+            let asm = gen_asm(module);
+
+            let out_path = Path::new("helloworld.asm");
+            File::create(out_path).unwrap().write_all(asm.as_bytes()).unwrap();
         }
         Err(err) => {
             println!("An error occurred: {}", err)

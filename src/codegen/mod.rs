@@ -15,7 +15,7 @@ pub fn gen_asm(module: ASTModule) -> String {
                     let label = format!("_rasm_s{}", id);
                     id += 1;
                     statics.insert(label.clone(), value);
-                    body.push_str(&format!("push    {}", label));
+                    body.push_str(&format!("    push    {}\n", label));
                 }
                 ASTExpression::ASTFunctionCallExpression(_) => {
                     panic!("Unsupported...")
@@ -46,8 +46,8 @@ pub fn gen_asm(module: ASTModule) -> String {
         asm.push_str("SECTION .data\n");
         for (id, value) in statics {
             asm.push_str(&id);
-            asm.push_str("    ");
-            asm.push_str(&format!("'{}', 0h", value));
+            asm.push_str("    db    ");
+            asm.push_str(&format!("'{}', 0h\n", value));
         }
     }
 

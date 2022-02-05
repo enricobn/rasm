@@ -2,7 +2,7 @@
 pub struct ASTFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
-    pub return_type: ASTTypeRef,
+    pub return_type: Option<ASTTypeRef>,
     pub body: ASTFunctionBody
 }
 
@@ -26,13 +26,13 @@ pub enum ASTType {
 #[derive(Debug, Clone)]
 pub struct ASTParameterDef {
     pub name: String,
-    pub ast_type: ASTTypeRef,
+    pub type_ref: ASTTypeRef,
 }
 
 #[derive(Debug, Clone)]
 pub struct ASTTypeRef {
     pub ast_ref: bool,
-    pub ast_type: Option<ASTType>,
+    pub ast_type: ASTType,
 }
 
 #[derive(Debug,Clone)]
