@@ -26,12 +26,11 @@ mov     ebp,esp
     ; push    ebp
     ; mov     ebp,esp
     push    eax
-    ; push    ebx
-    ; mov     ebx,[ebp+4+4]
-    ; push    ebx
-    ; call    slen
-    ; pop     ebx
-    slen(s);
+    push    ebx
+    mov     ebx,[ebp+4+4]
+    push    ebx
+    call    slen
+    pop     ebx
 
     push    edx
     push    ecx
