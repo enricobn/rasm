@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTModule};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTModule};
 
 pub struct CodeGen {
     module: ASTModule,
@@ -20,24 +20,9 @@ impl CodeGen {
         self.body = String::new();
         self.definitions = String::new();
 
-        for function_call in &self.module.body {
-            for expr in &function_call.parameters {
-                match expr {
-                    ASTExpression::StringLiteral(value) => {
-                        let label = format!("_rasm_s{}", self.id);
-                        self.id += 1;
-                        self.statics.insert(label.clone(), value.clone());
-                        self.body.push_str(&format!("    push    {}\n", label));
-                    }
-                    ASTExpression::ASTFunctionCallExpression(_) => {
-                        panic!("Unsupported...")
-                    }
-                    ASTExpression::Var(_) => {
-                        // TODO
-                    }
-                }
-            }
-            self.body.push_str(&format!("    call    {}\n", function_call.function_name));
+        for function_call in &self.module.body.clone() {
+            let s = self.function_call(function_call);
+            self.body.push_str(&s);
         }
 
         for function_def in &self.module.functions {
@@ -80,6 +65,28 @@ impl CodeGen {
 
         asm.push_str(&self.definitions);
         asm
+    }
+
+    fn function_call(&mut self, function_call: &ASTFunctionCall) -> String {
+        let mut result = String::new();
+        for expr in &function_call.parameters {
+            match expr {
+                ASTExpression::StringLiteral(value) => {
+                    let label = format!("_rasm_s{}", self.id);
+                    self.id += 1;
+                    self.statics.insert(label.clone(), value.clone());
+                    result.push_str(&format!("    push    {}\n", label));
+                }
+                ASTExpression::ASTFunctionCallExpression(_) => {
+                    panic!("Unsupported...")
+                }
+                ASTExpression::Var(_) => {
+                    // TODO
+                }
+            }
+        }
+        result.push_str(&format!("    call    {}\n", function_call.function_name));
+        result
     }
 }
 
