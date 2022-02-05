@@ -4,7 +4,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use crate::codegen::gen_asm;
+use crate::codegen::CodeGen;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
@@ -25,7 +25,9 @@ fn main() {
 
             Parser::print(&module);
 
-            let asm = gen_asm(module);
+            let mut code_gen = CodeGen::new(module);
+
+            let asm = code_gen.asm();
 
             let out_path = Path::new("helloworld.asm");
             File::create(out_path).unwrap().write_all(asm.as_bytes()).unwrap();

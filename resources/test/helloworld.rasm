@@ -95,7 +95,7 @@ asm slen(s: &str) -> i32[eax] /{
     mov     ebx, eax
 
 nextchar:
-    cmp     byte [eax], 0 
+    cmp     byte [eax], 0
     jz      finished
     inc     eax
     jmp     nextchar

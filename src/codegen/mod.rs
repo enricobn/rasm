@@ -1,79 +1,94 @@
 use std::collections::HashMap;
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTModule};
 
-pub fn gen_asm(module: ASTModule) -> String {
+pub struct CodeGen {
+    module: ASTModule,
+    id: usize,
+    statics: HashMap<String,String>,
+    body: String,
+    definitions: String,
+}
 
-    let mut id: usize = 0;
-    let mut statics: HashMap<String,String> = HashMap::new();
-    let mut body = String::new();
-    let mut definitions = String::new();
+impl CodeGen {
+    pub fn new(module: ASTModule) -> Self {
+        Self { module, body: String::new(), statics: HashMap::new(), id: 0, definitions: String::new() }
+    }
 
-    for function_call in module.body {
-        for expr in function_call.parameters {
-            match expr {
-                ASTExpression::StringLiteral(value) => {
-                    let label = format!("_rasm_s{}", id);
-                    id += 1;
-                    statics.insert(label.clone(), value);
-                    body.push_str(&format!("    push    {}\n", label));
-                }
-                ASTExpression::ASTFunctionCallExpression(_) => {
-                    panic!("Unsupported...")
-                }
-                ASTExpression::Var(_) => {
-                    // TODO
+    pub fn asm(&mut self) -> String {
+        self.id = 0;
+        self.statics = HashMap::new();
+        self.body = String::new();
+        self.definitions = String::new();
+
+        for function_call in &self.module.body {
+            for expr in &function_call.parameters {
+                match expr {
+                    ASTExpression::StringLiteral(value) => {
+                        let label = format!("_rasm_s{}", self.id);
+                        self.id += 1;
+                        self.statics.insert(label.clone(), value.clone());
+                        self.body.push_str(&format!("    push    {}\n", label));
+                    }
+                    ASTExpression::ASTFunctionCallExpression(_) => {
+                        panic!("Unsupported...")
+                    }
+                    ASTExpression::Var(_) => {
+                        // TODO
+                    }
                 }
             }
-        }
-        body.push_str(&format!("    call    {}\n", function_call.function_name));
-    }
-
-    for function_def in module.functions {
-        definitions.push_str("\n");
-        definitions.push_str(&format!("{}:\n", function_def.name));
-        definitions.push_str("push    ebp\n");
-        definitions.push_str("mov     ebp,esp\n");
-
-        match function_def.body {
-            ASTFunctionBody::RASMBody(_) => {}
-            ASTFunctionBody::ASMBody(s) => definitions.push_str(&s)
+            self.body.push_str(&format!("    call    {}\n", function_call.function_name));
         }
 
-        definitions.push_str("pop     ebp\n");
-        definitions.push_str("ret\n");
-    }
+        for function_def in &self.module.functions {
+            self.definitions.push_str("\n");
+            self.definitions.push_str(&format!("{}:\n", function_def.name));
+            self.definitions.push_str("push    ebp\n");
+            self.definitions.push_str("mov     ebp,esp\n");
 
-    let mut asm = String::new();
+            match &function_def.body {
+                ASTFunctionBody::RASMBody(_) => {}
+                ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&s)
+            }
 
-    if !statics.is_empty() {
-        asm.push_str("SECTION .data\n");
-        for (id, value) in statics {
-            asm.push_str(&id);
-            asm.push_str("    db    ");
-            asm.push_str(&format!("'{}', 0h\n", value));
+            self.definitions.push_str("pop     ebp\n");
+            self.definitions.push_str("ret\n");
         }
+
+        let mut asm = String::new();
+
+        if !self.statics.is_empty() {
+            asm.push_str("SECTION .data\n");
+            for (id, value) in &self.statics {
+                asm.push_str(&id);
+                asm.push_str("    db    ");
+                asm.push_str(&format!("'{}', 0h\n", value));
+            }
+        }
+
+        asm.push_str("SECTION .text\n");
+        asm.push_str("global  _start\n");
+        asm.push_str("\n");
+        asm.push_str("_start:\n");
+
+        asm.push_str(&self.body);
+
+        asm.push_str("    mov     ebx, 01\n");
+        asm.push_str("    mov     eax, 1\n");
+        asm.push_str("    int     80h\n");
+        asm.push_str("    ret\n");
+
+        asm.push_str(&self.definitions);
+        asm
     }
-
-    asm.push_str("SECTION .text\n");
-    asm.push_str("global  _start\n");
-    asm.push_str("\n");
-    asm.push_str("_start:\n");
-
-    asm.push_str(&body);
-
-    asm.push_str("    mov     ebx, 01\n");
-    asm.push_str("    mov     eax, 1\n");
-    asm.push_str("    int     80h\n");
-    asm.push_str("    ret\n");
-
-    asm.push_str(&definitions);
-    asm
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::Read;
     use std::path::Path;
-    use crate::codegen::gen_asm;
+    use crate::codegen::CodeGen;
 
     use crate::Lexer;
     use crate::parser::Parser;
@@ -84,9 +99,14 @@ mod tests {
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
         let module = parser.parse();
+        let mut gen = CodeGen::new(module);
 
-        let asm = gen_asm(module);
+        let asm = gen.asm();
 
-        println!("{}", asm);
+        let path = Path::new("resources/test/helloworld.asm");
+        let mut expected = String::new();
+        File::open(path).unwrap().read_to_string(&mut expected).unwrap();
+
+        assert_eq!(asm, expected);
     }
 }
