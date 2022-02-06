@@ -1,70 +1,40 @@
-// to be generated
-// SECTION .data
-// _rasm_s0    db     'Hello world', 0h
-// push    eax
-// push    _rasm_s0
-// call    sprintln
-// pop     eax   (can I simple add to esp???? and remove the push at the beginning and the pops?)
-// pop     eax
-sprintln("Hello world");
+helloWorld();
 
-// to be generated (quit)
-//    mov     ebx, 0
-//    mov     eax, 1
-//    int     80h
-//    ret
+fn helloWorld() {
+    sprintln("Hello world");
+    sprintln("Hi");
+}
 
 /**
  * Prints the string to standard output adding a line feed to the end.
  **/
-fn sprintln(s: &str) {
-    // to be generated
-    // :sprintln
-    // push    ebp
-    // mov     ebp,esp
+asm sprintln(s: &str) /{
+    push    eax
+    mov     eax,[ebp+4+4]
+    push    eax
+    call    sprint
+    pop     eax
+    pop     eax
 
-    // to be generated
-    // push    eax
-    // mov     eax,[ebp+4+4]
-    // push    eax
-    // call    sprint
-    // pop     eax
-    // pop     eax
-    sprint(s);
-
-    // to be generated
-    // SECTION .data
-    // _rasm_s1    db     '\n', 0h
-    // push    eax
-    // push    _rasm_s1
-    // call    sprint      // call our sprint fnction
-    // pop     eax
-    // pop     eax
-
-    sprint("\n");
-
-    // to be generated   // pop     ebp
-    // to be generated   // ret
-}
+    mov     eax, 0Ah    ; move 0Ah into eax - 0Ah is the ascii character for a linefeed
+    push    eax         ; push the linefeed onto the stack so we can get the address
+    push    esp         ; push the address of the current stack pointer where is the \n char for sprint
+    call    sprint      ; call our sprint function
+    pop     eax         ; remove the linefeed char from the stack
+    pop     eax
+}/
 
 /** 
  * Prints the string to the standard output.
  **/
 asm sprint(s: &str) /{
-    ; to be generated
-    ; :sprint
-    ; push    ebp
-    ; mov     ebp,esp
-    push    eax
-    push    ebx
-    mov     ebx,[ebp+4+4]
-    push    ebx
-    call    slen
-    pop     ebx
-
     push    edx
     push    ecx
     push    ebx
+    push    eax
+    mov     eax,[ebp+4+4]
+    push    eax
+    call    slen
 
     mov     edx, eax
     pop     eax
@@ -74,21 +44,14 @@ asm sprint(s: &str) /{
     mov     eax, 4
     int     80h
 
+    pop     eax
     pop     ebx
     pop     ecx
     pop     edx
-    pop     eax
-    ; to be generated
-    ; pop     ebp
-    ; ret
 }/
 
 /** Returns the length of the string **/
 asm slen(s: &str) -> i32[eax] /{
-    ; to be generated
-    ; slen:
-    ; push    ebp             ; Save the bottom pointer of the stack into the stack
-    ; mov     ebp, esp        ; Set the bottom of the stack to the top of the stack (I guess so the stack seems to be empty)
     push    ebx             ; Save ebx to the stack since we use it
     mov     eax, [ebp+4+4]  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     ebx, eax
@@ -102,7 +65,4 @@ nextchar:
 finished:
     sub     eax, ebx
     pop     ebx
-    ; to be generated
-    ; pop     ebp             ; Restore the top of the stack
-    ; ret
 }/
