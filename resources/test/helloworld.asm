@@ -25,6 +25,11 @@ helloWorld:                                       ; generated
     push    10                                    ; generated
     call    nprintln                              ; generated
     add esp,4                                     ; generated
+    push    10                                    ; generated
+    push    20                                    ; generated
+    call    nadd                                  ; generated
+    add esp,4                                     ; generated
+    add esp,4                                     ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
                                                   ; generated
@@ -151,6 +156,18 @@ slen:                                             ; generated
 
 .finished:
     sub     eax, ebx
+    pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+                                                  ; generated
+nadd:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push    ebx
+    mov     eax, [ebp+4+4]
+    mov     ebx, [ebp+4+8]
+    add     eax, ebx
     pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated

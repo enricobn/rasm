@@ -56,8 +56,10 @@ impl Parser {
         while self.i < self.tokens.len() {
             let token = self.get_token().unwrap();
 
-            //self.debug("");
-            //println!();
+            /*
+            self.debug("");
+            println!();
+             */
 
             match self.get_state() {
                 None => {
@@ -146,7 +148,15 @@ impl Parser {
                     self.debug_error("Error");
                 }
                 Some(ParserState::FunctionDefState) => {
-                    if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
+                    if let Some(ParserData::FunctionDefParameterData(param_def)) = self.last_data() {
+                        if let Some(ParserData::FunctionDefData(mut def)) = self.before_last_data() {
+                            def.parameters.push(param_def.clone());
+                            let l = self.data.len();
+                            self.data[l - 2] = FunctionDefData(def);
+                            self.data.pop();
+                            continue;
+                        }
+                    } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
                         let return_type =
                             if let Some((type_ref, next_i)) = self.try_parse_type_ref() {
                                 self.i = next_i;
@@ -162,15 +172,7 @@ impl Parser {
                             } else {
                                 None
                             };
-                        if let Some(ParserData::FunctionDefParameterData(param_def)) = self.last_data() {
-                            if let Some(ParserData::FunctionDefData(mut def)) = self.before_last_data() {
-                                def.parameters.push(param_def.clone());
-                                def.return_type = return_type;
-                                let l = self.data.len();
-                                self.data[l - 2] = FunctionDefData(def);
-                                self.data.pop();
-                            }
-                        } else if let Some(ParserData::FunctionDefData(mut def)) = self.last_data() {
+                        if let Some(ParserData::FunctionDefData(mut def)) = self.last_data() {
                             def.return_type = return_type;
                             let l = self.data.len();
                             self.data[l - 1] = FunctionDefData(def);
@@ -202,7 +204,7 @@ impl Parser {
                     } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
                         self.state.push(ParserState::FunctionDefReturnTypeState);
                     } else {
-                        self.debug_error("Error parsing function definition parameter");
+                        self.debug_error("Error parsing function definition");
                     }
                 }
                 Some(ParserState::FunctionDefParameterState) => {
@@ -215,10 +217,7 @@ impl Parser {
                             self.state.pop();
                             continue;
                         } else {
-                            // TODO it's a trick to panic, since I don't know why, but if I don't do it,
-                            //   I get an error on self.i = next_i;
-                            self.state.pop();
-                            continue;
+                            self.debug_error("");
                         }
                     } else {
                         self.state.pop();
@@ -291,10 +290,15 @@ impl Parser {
                 ASTFunctionBody::RASMBody(_) => print!("fn {}(", f.name),
                 ASMBody(_) => print!("asm {}(", f.name)
             }
+            let mut first = true;
             f.parameters.iter().for_each(|p| {
+                if !first {
+                    print!(",");
+                }
                 print!("{}:", p.name);
                 let type_ref = &p.type_ref;
                 Self::print_type_ref(&type_ref);
+                first = false;
             });
             print!(")");
             if let Some(return_type) = &f.return_type {
@@ -337,13 +341,18 @@ impl Parser {
 
     fn print_call(call: &ASTFunctionCall, as_expression: bool) {
         print!("{}(", call.function_name);
+        let mut first = true;
         call.parameters.iter().for_each(|par| {
+            if !first {
+                print!(",");
+            }
             match par {
                 ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
                 ASTExpression::Number(n) => print!("{}", n),
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(&call, true),
                 ASTExpression::Var(name) => print!("{}", name)
             }
+            first = false;
         });
         if as_expression {
             print!(")");
@@ -529,6 +538,17 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let module = parser.parse();
 
-        Parser::print(&module);
+        assert_eq!(1, module.body.len());
+    }
+
+    #[test]
+    fn test8() {
+        let path = Path::new("resources/test/test8.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer);
+        let module = parser.parse();
+
+        assert!(!module.functions.is_empty());
+        assert_eq!(2, module.functions.get(0).unwrap().parameters.len());
     }
 }
