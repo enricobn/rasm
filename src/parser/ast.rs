@@ -51,7 +51,8 @@ pub struct ASTFunctionCall {
 pub enum ASTExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTFunctionCall),
-    Var(String) // TODO support ref (&)
+    Var(String),
+    Number(i32)
 }
 
 #[derive(Debug, Clone)]

@@ -109,6 +109,9 @@ impl CodeGen {
             }
         }
 
+        CodeGen::add_generated(&mut asm, "section .bss");
+        CodeGen::add_generated(&mut asm, "  _rasm_buffer_10b resb 10");
+
         CodeGen::add_generated(&mut asm, "SECTION .text");
         CodeGen::add_generated(&mut asm,"global  main");
         CodeGen::add_generated(&mut asm,"");
@@ -135,6 +138,11 @@ impl CodeGen {
                     self.id += 1;
                     self.statics.insert(label.clone(), MemoryValue::StringValue(value.clone()));
                     CodeGen::add_generated(&mut before, &format!("    push    {}", label));
+                    // after calling the function, we must remove the address from the stack
+                    CodeGen::add_generated(&mut after, "    add esp,4");
+                }
+                ASTExpression::Number(n) => {
+                    CodeGen::add_generated(&mut before, &format!("    push    {}", n));
                     // after calling the function, we must remove the address from the stack
                     CodeGen::add_generated(&mut after, "    add esp,4");
                 }
@@ -193,6 +201,6 @@ mod tests {
         let mut expected = String::new();
         File::open(path).unwrap().read_to_string(&mut expected).unwrap();
 
-        assert_eq!(asm, expected);
+        assert_eq!(asm.trim(), expected);
     }
 }

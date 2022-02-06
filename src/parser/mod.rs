@@ -103,6 +103,12 @@ impl Parser {
                             self.data[l - 1] = FunctionCallData(call);
                             self.i += 1;
                             continue;
+                        } else if let TokenKind::Number(value) = &token.kind {
+                            call.parameters.push(ASTExpression::Number(value.parse().unwrap()));
+                            let l = self.data.len();
+                            self.data[l - 1] = FunctionCallData(call);
+                            self.i += 1;
+                            continue;
                         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
                             if let Some(next_token) = self.next_token() {
                                 if let TokenKind::Punctuation(PunctuationKind::SemiColon) = next_token.kind {
@@ -334,6 +340,7 @@ impl Parser {
         call.parameters.iter().for_each(|par| {
             match par {
                 ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
+                ASTExpression::Number(n) => print!("{}", n),
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(&call, true),
                 ASTExpression::Var(name) => print!("{}", name)
             }
