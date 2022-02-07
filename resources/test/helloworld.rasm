@@ -4,7 +4,8 @@ fn helloWorld() {
     sprintln("Hello world");
     sprintln("Hi");
     nprintln(10);
-    nadd(10, 20);
+    nprintln(nadd(15, 25));
+    nprintln(nadd(15, nadd(10, 20)));
 }
 
 /**

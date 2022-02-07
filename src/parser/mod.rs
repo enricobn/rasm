@@ -113,44 +113,58 @@ impl Parser {
                             self.data[l - 1] = FunctionCallData(call);
                             self.i += 1;
                             continue;
-                        } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
-                            if let Some(next_token) = self.next_token() {
-                                if let TokenKind::Punctuation(PunctuationKind::SemiColon) = next_token.kind {
-                                    if let Some(FunctionDefData(def)) = self.before_last_data() {
-                                        let mut def = def.clone();
-                                        if let ASTFunctionBody::RASMBody(mut calls) = def.body {
-                                            calls.push(call.clone());
-                                            def.body = RASMBody(calls);
-                                            let l = self.data.len();
-                                            self.data[l - 2] = FunctionDefData(def);
-                                            self.data.pop();
-                                            self.i += 2;
-                                            self.state.pop();
-                                            continue;
-                                        }
-                                    } else {
-                                        let call = call.clone();
-                                        self.body.push(call);
-                                    }
-                                    self.data.pop();
-                                    self.state.pop();
-                                    self.i += 2;
-                                    continue;
-                                }
+                        } else if let TokenKind::AlphaNumeric(name) = &token.kind {
+                            if let Some((name, next_i)) = self.try_parse_function_call() {
+                                self.data.push(ParserData::FunctionCallData(ASTFunctionCall{function_name: name.into(),
+                                    parameters: Vec::new()}));
+                                self.state.push(FunctionCallParameterState);
+                                self.i = next_i;
+                            } else {
+                                let mut call = call.clone();
+                                call.parameters.push(ASTExpression::Var(name.into()));
+                                let l = self.data.len();
+                                self.data[l - 1] = FunctionCallData(call);
+                                self.i += 1;
                             }
+                            continue;
                         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
                             self.i += 1;
                             continue;
-                        } else if let TokenKind::AlphaNumeric(name) = &token.kind {
-                            let mut call = call.clone();
-                            call.parameters.push(ASTExpression::Var(name.into()));
-                            let l = self.data.len();
-                            self.data[l - 1] = FunctionCallData(call);
-                            self.i += 1;
-                            continue;
+                        } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
+                            if self.is_next_token_a_semicolon() {
+                                if let Some(FunctionDefData(def)) = self.before_last_data() {
+                                    let mut def = def.clone();
+                                    if let ASTFunctionBody::RASMBody(mut calls) = def.body {
+                                        calls.push(call.clone());
+                                        def.body = RASMBody(calls);
+                                        let l = self.data.len();
+                                        self.data[l - 2] = FunctionDefData(def);
+                                        self.data.pop();
+                                        self.i += 2;
+                                        self.state.pop();
+                                        continue;
+                                    }
+                                } else {
+                                    let call = call.clone();
+                                    self.body.push(call);
+                                }
+                                self.data.pop();
+                                self.state.pop();
+                                self.i += 2;
+                                continue;
+                            } else if let Some(FunctionCallData(before_call)) = self.before_last_data() {
+                                let mut before_call = before_call.clone();
+                                before_call.parameters.push(ASTExpression::ASTFunctionCallExpression(call.clone()));
+                                let l = self.data.len();
+                                self.data[l - 2] = FunctionCallData(before_call);
+                                self.data.pop();
+                                self.state.pop();
+                                self.i += 1;
+                                continue;
+                            }
                         }
                     }
-                    self.debug_error("Error");
+                    self.debug_error("Error parsing parameter");
                 }
                 Some(ParserState::FunctionDefState) => {
                     if let Some(ParserData::FunctionDefParameterData(param_def)) = self.last_data() {
@@ -268,6 +282,15 @@ impl Parser {
         }
 
         ASTModule { body: self.body.clone(), functions: self.functions.clone() }
+    }
+
+    fn is_next_token_a_semicolon(&self) -> bool{
+        if let Some(next_token) = self.next_token() {
+            if let TokenKind::Punctuation(PunctuationKind::SemiColon) = next_token.kind {
+                return true;
+            }
+        }
+        false
     }
 
     fn is_asm(def: &ASTFunctionDef) -> bool {
@@ -492,14 +515,6 @@ impl Parser {
         self.tokens.get(self.i + 2)
     }
 
-    fn last_token(&self) -> Option<&Token> {
-        if self.tokens.len() > 1 {
-            self.tokens.get(self.i - 1)
-        } else {
-            None
-        }
-    }
-
     fn before_last_data(&self) -> Option<&ParserData> {
         let i = self.data.len();
         if i > 1 {
@@ -519,6 +534,7 @@ mod tests {
     use std::path::Path;
 
     use crate::Lexer;
+    use crate::parser::ast::ASTExpression;
     use crate::parser::Parser;
 
     #[test]
@@ -550,5 +566,45 @@ mod tests {
 
         assert!(!module.functions.is_empty());
         assert_eq!(2, module.functions.get(0).unwrap().parameters.len());
+    }
+
+    #[test]
+    fn test9() {
+        let path = Path::new("resources/test/test9.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer);
+        let module = parser.parse();
+
+        assert!(!module.body.is_empty());
+        assert_eq!(1, module.body.get(0).unwrap().parameters.len());
+
+        let nprint_parameter = module.body.get(0).unwrap().parameters.get(0);
+
+        if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
+            assert_eq!("nadd", call.function_name);
+            assert_eq!(2, call.parameters.len());
+            if let Some(ASTExpression::Number(n)) = call.parameters.get(0) {
+                assert_eq!(10, *n);
+            } else {
+                panic!();
+            }
+            if let Some(ASTExpression::Number(n)) = call.parameters.get(1) {
+                assert_eq!(20, *n);
+            } else {
+                panic!();
+            }
+        } else {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn test10() {
+        let path = Path::new("resources/test/test10.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer);
+        let module = parser.parse();
+
+        // TODO for now I test only that it doesn't panic
     }
 }

@@ -1,0 +1,4 @@
+// test10.rasm file
+fn printAdd() {
+    nprint(nadd(10, 20));
+}
