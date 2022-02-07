@@ -5,7 +5,6 @@ use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTMod
 pub struct CodeGen {
     module: ASTModule,
     id: usize,
-    // TODO for test purposes we should let it be an aordered map, ordered bu insertion (https://crates.io/crates/indexmap)
     statics: HashMap<String, MemoryValue>, // key=memory_label
     body: String,
     definitions: String,
@@ -24,7 +23,7 @@ struct VarContext {
 
 #[derive(Clone)]
 enum VarKind {
-    ParameterRef(usize) // the parameter index
+    ParameterRef{index: usize, parameters_count: usize}
 }
 
 impl VarContext {
@@ -69,7 +68,7 @@ impl CodeGen {
             let mut i = 0;
             while i < function_def.parameters.len() {
                 if let Some(par) = function_def.parameters.get(i) {
-                    context.insert(par.name.clone(), VarKind::ParameterRef(i));
+                    context.insert(par.name.clone(), VarKind::ParameterRef{index: i, parameters_count: function_def.parameters.len()});
                 }
                 i += 1;
             }
@@ -92,11 +91,15 @@ impl CodeGen {
 
         if !self.statics.is_empty() {
             asm.push_str("SECTION .data\n");
-            for (id, value) in self.statics.iter() {
+            let mut keys: Vec<&String> = self.statics.keys().collect();
+            // sorted for test purposes
+            keys.sort();
+
+            for id in keys.iter() {
                 let mut def = String::new();
                 def.push_str(&id);
                 def.push_str("    db    ");
-                match value {
+                match self.statics.get(*id).unwrap() {
                     MemoryValue::StringValue(s) => {
                         def.push_str(&format!("'{}', 0h", s));
                     }
@@ -155,9 +158,11 @@ impl CodeGen {
                 ASTExpression::Var(name) => {
                     if let Some(var_kind) = context.get(name) {
                         match var_kind {
-                            VarKind::ParameterRef(par_index) => {
+                            VarKind::ParameterRef{index, parameters_count} => {
                                 CodeGen::add(&mut before, "    push    eax");
-                                CodeGen::add(&mut before, &format!("    mov     eax,[ebp+4+{}]", (par_index + 1) * 4));
+                                // the parameters relative to ebp are in reverse order:
+                                // push 10, push 20: [ebp+4+4] = 20, [ebp+4+8] = 10
+                                CodeGen::add(&mut before, &format!("    mov     eax,[ebp+4+{}]", (parameters_count - index) * 4));
                                 CodeGen::add(&mut before, "    push    eax");
                                 CodeGen::add(&mut after, "    pop     eax");
                                 CodeGen::add(&mut after, "    pop     eax");

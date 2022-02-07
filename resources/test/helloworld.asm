@@ -1,6 +1,8 @@
 SECTION .data
 _rasm_s0    db    'Hello world', 0h               ; generated
 _rasm_s1    db    'Hi', 0h                        ; generated
+_rasm_s2    db    'one', 0h                       ; generated
+_rasm_s3    db    'two', 0h                       ; generated
 section .bss                                      ; generated
   _rasm_buffer_10b resb 10                        ; generated
 SECTION .text                                     ; generated
@@ -63,6 +65,48 @@ helloWorld:                                       ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
 ; end calling function nprintln                   ; generated
+; calling function nprintln                       ; generated
+; calling function if                             ; generated
+    push    0                                     ; generated
+    push    10                                    ; generated
+    push    20                                    ; generated
+    call    if                                    ; generated
+    add     esp,4                                 ; generated
+    add     esp,4                                 ; generated
+    add     esp,4                                 ; generated
+; end calling function if                         ; generated
+    push    eax                                   ; generated
+    call    nprintln                              ; generated
+    add     esp,4                                 ; generated
+; end calling function nprintln                   ; generated
+; calling function sprintln2                      ; generated
+    push    _rasm_s2                              ; generated
+    push    _rasm_s3                              ; generated
+    call    sprintln2                             ; generated
+    add     esp,4                                 ; generated
+    add     esp,4                                 ; generated
+; end calling function sprintln2                  ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+sprintln2:                                        ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; calling function sprintln                       ; generated
+    push    eax                                   ; generated
+    mov     eax,[ebp+4+8]                         ; generated
+    push    eax                                   ; generated
+    call    sprintln                              ; generated
+    pop     eax                                   ; generated
+    pop     eax                                   ; generated
+; end calling function sprintln                   ; generated
+; calling function sprintln                       ; generated
+    push    eax                                   ; generated
+    mov     eax,[ebp+4+4]                         ; generated
+    push    eax                                   ; generated
+    call    sprintln                              ; generated
+    pop     eax                                   ; generated
+    pop     eax                                   ; generated
+; end calling function sprintln                   ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
 sprintln:                                         ; generated
@@ -203,5 +247,16 @@ nadd:                                             ; generated
     mov     ebx, [ebp+4+8]
     add     eax, ebx
     pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+if:                                               ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    mov     eax,[ebp+4+8] ; true value
+    cmp     word [ebp+4+12], 0
+    jnz     .finished
+    mov     eax,[ebp+4+4] ; false value
+    .finished
     pop     ebp                                   ; generated
     ret                                           ; generated

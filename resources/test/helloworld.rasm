@@ -6,6 +6,13 @@ fn helloWorld() {
     nprintln(10);
     nprintln(nadd(15, 25));
     nprintln(nadd(15, nadd(10, 20)));
+    nprintln(if(0, 10, 20));
+    sprintln2("one", "two");
+}
+
+fn sprintln2(s1: &str, s2: &str) {
+    sprintln(s1);
+    sprintln(s2);
 }
 
 /**
@@ -128,4 +135,13 @@ asm nadd(n1: i32, n2: i32) -> i32[eax] /{
     mov     ebx, [ebp+4+8]
     add     eax, ebx
     pop     ebx
+}/
+
+/** false = 0 true any other **/
+asm if(cond: i32, trueValue: i32, falseValue: i32) -> i32[eax] /{
+    mov     eax,[ebp+4+8] ; true value
+    cmp     word [ebp+4+12], 0
+    jnz     .finished
+    mov     eax,[ebp+4+4] ; false value
+    .finished
 }/
