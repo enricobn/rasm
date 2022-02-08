@@ -1,6 +1,8 @@
+use std::collections::hash_map::Iter;
 use std::collections::HashMap;
+use crate::Parser;
 
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTModule};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef};
 
 pub struct CodeGen {
     module: ASTModule,
@@ -8,6 +10,7 @@ pub struct CodeGen {
     statics: HashMap<String, MemoryValue>, // key=memory_label
     body: String,
     definitions: String,
+    lambdas: Vec<ASTFunctionDef>,
 }
 
 #[derive(Clone)]
@@ -21,9 +24,9 @@ struct VarContext {
     value_to_address: HashMap<String, VarKind>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum VarKind {
-    ParameterRef{index: usize, parameters_count: usize}
+    ParameterRef(usize)
 }
 
 impl VarContext {
@@ -38,11 +41,15 @@ impl VarContext {
     fn get(&self, key: &String) -> Option<&VarKind> {
         self.value_to_address.get(key)
     }
+
+    fn iter(&self) -> Iter<'_, String, VarKind> {
+        self.value_to_address.iter()
+    }
 }
 
 impl CodeGen {
     pub fn new(module: ASTModule) -> Self {
-        Self { module, body: String::new(), statics: HashMap::new(), id: 0, definitions: String::new() }
+        Self { module, body: String::new(), statics: HashMap::new(), id: 0, definitions: String::new(), lambdas: Vec::new() }
     }
 
     pub fn asm(&mut self) -> String {
@@ -55,36 +62,19 @@ impl CodeGen {
         let main_context = VarContext::new();
 
         for function_call in &self.module.body.clone() {
-            let s = self.function_call(function_call, &main_context);
+            let s = self.function_call(function_call, &main_context, None);
             self.body.push_str(&s);
         }
 
         for function_def in &self.module.functions.clone() {
-            CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name));
-            CodeGen::add(&mut self.definitions, "    push    ebp");
-            CodeGen::add(&mut self.definitions, "    mov     ebp,esp");
+            self.add_function_def(&function_def);
+        }
 
-            let mut context = VarContext::new();
-            let mut i = 0;
-            while i < function_def.parameters.len() {
-                if let Some(par) = function_def.parameters.get(i) {
-                    context.insert(par.name.clone(), VarKind::ParameterRef{index: i, parameters_count: function_def.parameters.len()});
-                }
-                i += 1;
-            }
+        Parser::print(&self.module);
 
-            match &function_def.body {
-                ASTFunctionBody::RASMBody(calls) => {
-                    for call in calls {
-                        let s = self.function_call(call, &context);
-                        self.definitions.push_str(&s);
-                    }
-                }
-                ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&s)
-            }
-
-            CodeGen::add(&mut self.definitions, "    pop     ebp");
-            CodeGen::add(&mut self.definitions, "    ret");
+        for function_def in &self.lambdas.clone() {
+            self.add_function_def(&function_def);
+            Parser::print_function_def(function_def);
         }
 
         let mut asm = String::new();
@@ -130,11 +120,40 @@ impl CodeGen {
         asm
     }
 
-    fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext) -> String {
+    fn add_function_def(&mut self, function_def: &ASTFunctionDef) {
+        CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name));
+        CodeGen::add(&mut self.definitions, "    push    ebp");
+        CodeGen::add(&mut self.definitions, "    mov     ebp,esp");
+
+        let mut context = VarContext::new();
+        let mut i = 0;
+        while i < function_def.parameters.len() {
+            if let Some(par) = function_def.parameters.get(i) {
+                context.insert(par.name.clone(), VarKind::ParameterRef(i));
+            }
+            i += 1;
+        }
+
+        match &function_def.body {
+            ASTFunctionBody::RASMBody(calls) => {
+                for call in calls {
+                    let s = self.function_call(call, &context, Some(&function_def));
+                    self.definitions.push_str(&s);
+                }
+            }
+            ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&s)
+        }
+
+        CodeGen::add(&mut self.definitions, "    pop     ebp");
+        CodeGen::add(&mut self.definitions, "    ret");
+    }
+
+    fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>) -> String {
         let mut before = String::new();
         CodeGen::add(&mut before, &format!("; calling function {}", function_call.function_name));
         let mut after = String::new();
-        for expr in &function_call.parameters {
+        // as for C calling conventions parameters are pushed in reverse order
+        for expr in function_call.parameters.iter().rev() {
             match expr {
                 ASTExpression::StringLiteral(value) => {
                     let label = format!("_rasm_s{}", self.id);
@@ -150,7 +169,7 @@ impl CodeGen {
                     CodeGen::add(&mut after, "    add     esp,4");
                 }
                 ASTExpression::ASTFunctionCallExpression(call) => {
-                    before.push_str(&self.function_call(call, context));
+                    before.push_str(&self.function_call(call, context, parent_def));
                     // TODO I must get the register that is returned, getting that from the function def of the called function
                     CodeGen::add(&mut before, &format!("    push    eax"));
                     CodeGen::add(&mut after, "    add     esp,4");
@@ -158,19 +177,36 @@ impl CodeGen {
                 ASTExpression::Var(name) => {
                     if let Some(var_kind) = context.get(name) {
                         match var_kind {
-                            VarKind::ParameterRef{index, parameters_count} => {
-                                CodeGen::add(&mut before, "    push    eax");
-                                // the parameters relative to ebp are in reverse order:
-                                // push 10, push 20: [ebp+4+4] = 20, [ebp+4+8] = 10
-                                CodeGen::add(&mut before, &format!("    mov     eax,[ebp+4+{}]", (parameters_count - index) * 4));
-                                CodeGen::add(&mut before, "    push    eax");
-                                CodeGen::add(&mut after, "    pop     eax");
-                                CodeGen::add(&mut after, "    pop     eax");
+                            VarKind::ParameterRef(index) => {
+                                CodeGen::add(&mut before, &format!("    push     dword [ebp+4+{}]", (index + 1) * 4));
+                                CodeGen::add(&mut after, "    add     esp,4");
                             }
                         }
                     } else {
-                        panic!("Cannot find variable {}", name);
+                        panic!("Cannot find variable {}, calling function {}", name, function_call.function_name);
                     }
+                }
+                ASTExpression::Lambda(function_def) => {
+                    let mut def = function_def.clone();
+                    def.name = format!("lambda{}", self.id);
+                    self.id += 1;
+                    context.iter().for_each(|(name, kind)| {
+                        if let Some(pdef) = parent_def {
+                            if let VarKind::ParameterRef(index) = kind {
+                                let par = pdef.parameters.get(*index).unwrap().clone();
+                                def.parameters.push(ASTParameterDef{name: name.into(), type_ref: par.type_ref})
+                            }
+                        }
+                    });
+
+                    if let ASTFunctionBody::RASMBody(_) = &function_def.body {
+                        CodeGen::add(&mut before, &format!("    push     {}", def.name));
+                        CodeGen::add(&mut after, "    add     esp,4");
+                        self.lambdas.push(def);
+                    } else {
+                        panic!("A lambda cannot have an asm body.")
+                    }
+
                 }
             }
         }
@@ -210,6 +246,7 @@ mod tests {
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
         let module = parser.parse();
+
         let mut gen = CodeGen::new(module);
 
         let asm = gen.asm();

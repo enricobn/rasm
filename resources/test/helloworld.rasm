@@ -6,9 +6,25 @@ fn helloWorld() {
     nprintln(10);
     nprintln(nadd(15, 25));
     nprintln(nadd(15, nadd(10, 20)));
-    nprintln(if(0, 10, 20));
+    //nprintln(if(0, 10, 20));
     sprintln2("one", "two");
+    nprintln(fib(5));
 }
+
+fn fib(n: i32) -> i32 {
+        /* static int fib(int n) {
+            if (n <= 1)
+               return n;
+            return fib(n-1) + fib(n-2);
+        }*/
+
+    //if(lessOrEqual(n, 1),{itn(n);},{nadd(fib(nadd(n,-1)), fib(nadd(n,-2)));});
+    if(0,{sprintln("True");},{sprintln("False");});
+}
+
+asm itn(n: i32) -> i32[eax] /{
+    mov     eax,[ebp+4+4]
+}/
 
 fn sprintln2(s1: &str, s2: &str) {
     sprintln(s1);
@@ -137,11 +153,31 @@ asm nadd(n1: i32, n2: i32) -> i32[eax] /{
     pop     ebx
 }/
 
-/** false = 0 true any other **/
-asm if(cond: i32, trueValue: i32, falseValue: i32) -> i32[eax] /{
-    mov     eax,[ebp+4+8] ; true value
-    cmp     word [ebp+4+12], 0
-    jnz     .finished
-    mov     eax,[ebp+4+4] ; false value
-    .finished
+/** false = 0 true = any other value **/
+asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
+    cmp     word [ebp+4+4], 0
+    jz     .falseValue
+    call     [ebp+4+8] ; true value
+    jmp      .finished
+.falseValue:
+    call     [ebp+4+12] ; false value
+.finished:
+}/
+
+/** TODO it should be a bool
+ *  a  <= b
+ *  false = 0 true = any other value
+ **/
+asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
+    push    ebx
+    push    ecx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+4+4] ; a
+    mov     ecx,[ebp+4+8] ; b
+    cmp     ebx,ecx
+    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,1 ; false
+.finished:
+    pop     ecx
+    pop     ebx
 }/

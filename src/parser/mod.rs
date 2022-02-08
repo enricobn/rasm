@@ -2,6 +2,7 @@ use crate::Lexer;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
+use crate::parser::ast::ASTType::BuiltinType;
 use crate::parser::ParserData::{FunctionCallData, FunctionDefData};
 use crate::parser::ParserState::FunctionCallParameterState;
 
@@ -53,8 +54,14 @@ impl Parser {
         self.data = Vec::new();
         self.state = Vec::new();
 
-        while self.i < self.tokens.len() {
-            let token = self.get_token().unwrap();
+        let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
+
+        while self.i <= self.tokens.len() {
+            let token = if self.i == self.tokens.len() {
+                &last_token
+            } else {
+                self.get_token().unwrap()
+            };
 
             /*
             self.debug("");
@@ -94,6 +101,8 @@ impl Parser {
                         self.state.push(ParserState::FunctionDefParameterState);
                         self.i = next_i;
                         continue;
+                    } else if let TokenKind::EndOfLine = token.kind {
+                        break;
                     }
                     panic!("Error {:?}", token);
                 }
@@ -130,6 +139,14 @@ impl Parser {
                         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
                             self.i += 1;
                             continue;
+                        } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
+                            // TODO return type of the lambda for now it's not supported
+                            let return_type = Some(ASTReturnType{type_ref: ASTTypeRef{ast_type: BuiltinType(BuiltinTypeKind::ASTI32), ast_ref: false}, register: "eax".into()});
+                            self.data.push(ParserData::FunctionDefData(ASTFunctionDef{name: "lambda".into(), parameters: Vec::new(),
+                                body: ASTFunctionBody::RASMBody(Vec::new()), return_type }));
+                            self.state.push(ParserState::FunctionBodyState);
+                            self.i += 1;
+                            continue;
                         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
                             if self.is_next_token_a_semicolon() {
                                 if let Some(FunctionDefData(def)) = self.before_last_data() {
@@ -162,6 +179,15 @@ impl Parser {
                                 self.i += 1;
                                 continue;
                             }
+                        }
+                    } else if let Some(FunctionDefData(def)) = self.last_data() {
+                        if let Some(FunctionCallData(call)) = self.before_last_data() {
+                            let mut actual_call = call.clone();
+                            actual_call.parameters.push(ASTExpression::Lambda(def.clone()));
+                            let l = self.data.len();
+                            self.data[l - 2] = FunctionCallData(actual_call);
+                            self.data.pop();
+                            continue;
                         }
                     }
                     self.debug_error("Error parsing parameter");
@@ -212,7 +238,7 @@ impl Parser {
                             self.data.pop();
                             self.state.pop();
                         }
-                    } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
+                    /*} else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
                         if let Some(FunctionDefData(def)) = self.last_data() {
                             let def = def.clone();
                             self.data.pop();
@@ -222,10 +248,19 @@ impl Parser {
                             continue;
                         }
                         self.debug_error("Error parsing function definition");
+
+                     */
                     } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
                         self.state.push(ParserState::FunctionDefParameterState);
                     } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
                         self.state.push(ParserState::FunctionDefReturnTypeState);
+                    } else if let Some(FunctionDefData(def)) = self.last_data() {
+                        let def = def.clone();
+                        self.data.pop();
+                        self.functions.push(def);
+                        self.state.pop();
+                        //self.i += 1;
+                        continue;
                     } else {
                         self.debug_error("Error parsing function definition");
                     }
@@ -250,6 +285,7 @@ impl Parser {
                 Some(ParserState::FunctionBodyState) => {
                     if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
                         self.state.pop();
+                        self.i += 1;
                         continue;
                     } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
                         self.data.push(ParserData::FunctionCallData(ASTFunctionCall{function_name: function_name.into(),
@@ -258,6 +294,7 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     }
+                    self.debug_error("Error parsing function body.");
                 }
                 Some(ParserState::FunctionDefReturnTypeState) => {
                     if let Some((type_ref, next_i)) = self.try_parse_type_ref() {
@@ -309,39 +346,42 @@ impl Parser {
         });
         println!("}}");
         module.functions.iter().for_each(|f| {
-            match &f.body {
-                ASTFunctionBody::RASMBody(_) => print!("fn {}(", f.name),
-                ASMBody(_) => print!("asm {}(", f.name)
-            }
-            let mut first = true;
-            f.parameters.iter().for_each(|p| {
-                if !first {
-                    print!(",");
-                }
-                print!("{}:", p.name);
-                let type_ref = &p.type_ref;
-                Self::print_type_ref(&type_ref);
-                first = false;
-            });
-            print!(")");
-            if let Some(return_type) = &f.return_type {
-                print!(" -> ");
-                Self::print_type_ref(&return_type.type_ref);
-                print!("[{}]", return_type.register);
-            }
-            match &f.body {
-                ASTFunctionBody::RASMBody(calls) => {
-                    println!(" {{");
-                    calls.iter().for_each(|call| {
-                        print!("  ");
-                        Self::print_call(call, false)
-                    });
-                    println!("}}");
-                },
-                ASMBody(_) => println!(" {{...}}")
-            }
-
+            Self::print_function_def(f)
         })
+    }
+
+    pub fn print_function_def(f: &ASTFunctionDef) {
+        match &f.body {
+            ASTFunctionBody::RASMBody(_) => print!("fn {}(", f.name),
+            ASMBody(_) => print!("asm {}(", f.name)
+        }
+        let mut first = true;
+        f.parameters.iter().for_each(|p| {
+            if !first {
+                print!(",");
+            }
+            print!("{}:", p.name);
+            let type_ref = &p.type_ref;
+            Self::print_type_ref(&type_ref);
+            first = false;
+        });
+        print!(")");
+        if let Some(return_type) = &f.return_type {
+            print!(" -> ");
+            Self::print_type_ref(&return_type.type_ref);
+            print!("[{}]", return_type.register);
+        }
+        match &f.body {
+            ASTFunctionBody::RASMBody(calls) => {
+                println!(" {{");
+                calls.iter().for_each(|call| {
+                    print!("  ");
+                    Self::print_call(call, false)
+                });
+                println!("}}");
+            },
+            ASMBody(_) => println!(" {{...}}")
+        }
     }
 
     fn print_type_ref(type_ref: &ASTTypeRef) {
@@ -352,7 +392,8 @@ impl Parser {
             ASTType::BuiltinType(bt) => {
                 match bt {
                     BuiltinTypeKind::ASTString => print!("str"),
-                    BuiltinTypeKind::ASTI32 => print!("i32")
+                    BuiltinTypeKind::ASTI32 => print!("i32"),
+                    BuiltinTypeKind::Lambda => print!("fn")
                 }
             }
         }
@@ -373,7 +414,19 @@ impl Parser {
                 ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
                 ASTExpression::Number(n) => print!("{}", n),
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(&call, true),
-                ASTExpression::Var(name) => print!("{}", name)
+                ASTExpression::Var(name) => print!("{}", name),
+                ASTExpression::Lambda(function_def) => {
+                    if let ASTFunctionBody::RASMBody(calls) = &function_def.body {
+                        print!("{{");
+                        calls.iter().for_each(|call| {
+                            Self::print_call(call, true);
+                            print!(";");
+                        });
+                        print!("}}");
+                    } else {
+                        panic!("A lambda cannot be an asm function.");
+                    }
+                }
             }
             first = false;
         });
@@ -385,9 +438,7 @@ impl Parser {
     }
 
     fn debug_error(&self, message: &str) {
-        println!("{} {:?}", message, self.get_token());
-        println!("state {:?}", self.state);
-        println!("data {:?}", self.data);
+        self.debug(message);
         panic!();
     }
 
@@ -395,6 +446,8 @@ impl Parser {
         println!("{} {:?}", message, self.get_token());
         println!("state {:?}", self.state);
         println!("data {:?}", self.data);
+        println!("body {:?}", self.body);
+        println!("functions {:?}", self.functions);
     }
 
     fn get_token(&self) -> Option<&Token> {
@@ -473,26 +526,36 @@ impl Parser {
 
     fn try_parse_type_ref(&self) -> Option<(ASTTypeRef, usize)> {
         if let Some(token) = self.get_token() {
-            if let TokenKind::AlphaNumeric(type_name) = &token.kind {
-                if type_name == "i32" {
-                    return Some((ASTTypeRef { ast_ref: false, ast_type: ASTType::BuiltinType(BuiltinTypeKind::ASTI32) }, self.i + 1))
-                } else if type_name == "str" {
-                    return Some((ASTTypeRef { ast_ref: false, ast_type: ASTType::BuiltinType(BuiltinTypeKind::ASTString) }, self.i + 1))
-                }
-            } else if let TokenKind::Punctuation(PunctuationKind::And) = &token.kind {
+            if let TokenKind::Punctuation(PunctuationKind::And) = &token.kind {
                 if let Some(next_token) = self.next_token() {
-                    if let TokenKind::AlphaNumeric(type_name) = &next_token.kind {
-                        if type_name == "i32" {
-                            return Some((ASTTypeRef { ast_ref: true, ast_type: ASTType::BuiltinType(BuiltinTypeKind::ASTI32) }, self.i + 2))
-                        } else if type_name == "str" {
-                            return Some((ASTTypeRef { ast_ref: true, ast_type: ASTType::BuiltinType(BuiltinTypeKind::ASTString) }, self.i + 2))
-                        }
+                    if let Some(ast_type) = self.try_parse_ast_type(&next_token) {
+                        return Some((ASTTypeRef { ast_ref: true, ast_type }, self.i + 2))
                     }
                 }
+            } else if let Some(ast_type) = self.try_parse_ast_type(&token) {
+                return Some((ASTTypeRef { ast_ref: false, ast_type }, self.i + 1))
             }
         }
         None
     }
+
+    fn try_parse_ast_type(&self, token: &Token) -> Option<ASTType> {
+        if let TokenKind::AlphaNumeric(type_name) = &token.kind {
+            if type_name == "i32" {
+                Some(ASTType::BuiltinType(BuiltinTypeKind::ASTI32))
+            } else if type_name == "str" {
+                Some(ASTType::BuiltinType(BuiltinTypeKind::ASTString))
+            } else {
+                self.debug_error(&format!("Unknown type {}", type_name));
+                None
+            }
+        } else if let TokenKind::KeyWord(KeywordKind::Fn) = &token.kind {
+            Some(ASTType::BuiltinType(BuiltinTypeKind::Lambda))
+        } else {
+            None
+        }
+    }
+
 
     fn try_parse_parameter_def_name(&self) -> Option<(String, usize)> {
         if let Some(token) = self.get_token() {
@@ -606,5 +669,17 @@ mod tests {
         let module = parser.parse();
 
         // TODO for now I test only that it doesn't panic
+        Parser::print(&module);
+    }
+
+    #[test]
+    fn test11() {
+        let path = Path::new("resources/test/test11.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer);
+        let module = parser.parse();
+
+        // TODO for now I test only that it doesn't panic
+        Parser::print(&module);
     }
 }

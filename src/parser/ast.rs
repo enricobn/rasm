@@ -22,6 +22,7 @@ pub enum ASTFunctionBody {
 pub enum BuiltinTypeKind {
     ASTString,
     ASTI32,
+    Lambda,
 }
 
 #[derive(Debug, Clone)]
@@ -52,7 +53,8 @@ pub enum ASTExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTFunctionCall),
     Var(String),
-    Number(i32)
+    Number(i32),
+    Lambda(ASTFunctionDef)
 }
 
 #[derive(Debug, Clone)]

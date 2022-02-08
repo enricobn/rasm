@@ -1,8 +1,10 @@
 SECTION .data
 _rasm_s0    db    'Hello world', 0h               ; generated
 _rasm_s1    db    'Hi', 0h                        ; generated
-_rasm_s2    db    'one', 0h                       ; generated
-_rasm_s3    db    'two', 0h                       ; generated
+_rasm_s2    db    'two', 0h                       ; generated
+_rasm_s3    db    'one', 0h                       ; generated
+_rasm_s6    db    'False', 0h                     ; generated
+_rasm_s7    db    'True', 0h                      ; generated
 section .bss                                      ; generated
   _rasm_buffer_10b resb 10                        ; generated
 SECTION .text                                     ; generated
@@ -36,27 +38,8 @@ helloWorld:                                       ; generated
 ; end calling function nprintln                   ; generated
 ; calling function nprintln                       ; generated
 ; calling function nadd                           ; generated
-    push    15                                    ; generated
     push    25                                    ; generated
-    call    nadd                                  ; generated
-    add     esp,4                                 ; generated
-    add     esp,4                                 ; generated
-; end calling function nadd                       ; generated
-    push    eax                                   ; generated
-    call    nprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function nprintln                   ; generated
-; calling function nprintln                       ; generated
-; calling function nadd                           ; generated
     push    15                                    ; generated
-; calling function nadd                           ; generated
-    push    10                                    ; generated
-    push    20                                    ; generated
-    call    nadd                                  ; generated
-    add     esp,4                                 ; generated
-    add     esp,4                                 ; generated
-; end calling function nadd                       ; generated
-    push    eax                                   ; generated
     call    nadd                                  ; generated
     add     esp,4                                 ; generated
     add     esp,4                                 ; generated
@@ -66,15 +49,20 @@ helloWorld:                                       ; generated
     add     esp,4                                 ; generated
 ; end calling function nprintln                   ; generated
 ; calling function nprintln                       ; generated
-; calling function if                             ; generated
-    push    0                                     ; generated
-    push    10                                    ; generated
+; calling function nadd                           ; generated
+; calling function nadd                           ; generated
     push    20                                    ; generated
-    call    if                                    ; generated
+    push    10                                    ; generated
+    call    nadd                                  ; generated
     add     esp,4                                 ; generated
     add     esp,4                                 ; generated
+; end calling function nadd                       ; generated
+    push    eax                                   ; generated
+    push    15                                    ; generated
+    call    nadd                                  ; generated
     add     esp,4                                 ; generated
-; end calling function if                         ; generated
+    add     esp,4                                 ; generated
+; end calling function nadd                       ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
@@ -86,26 +74,51 @@ helloWorld:                                       ; generated
     add     esp,4                                 ; generated
     add     esp,4                                 ; generated
 ; end calling function sprintln2                  ; generated
+; calling function nprintln                       ; generated
+; calling function fib                            ; generated
+    push    5                                     ; generated
+    call    fib                                   ; generated
+    add     esp,4                                 ; generated
+; end calling function fib                        ; generated
+    push    eax                                   ; generated
+    call    nprintln                              ; generated
+    add     esp,4                                 ; generated
+; end calling function nprintln                   ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+fib:                                              ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; calling function if                             ; generated
+    push     lambda4                              ; generated
+    push     lambda5                              ; generated
+    push    0                                     ; generated
+    call    if                                    ; generated
+    add     esp,4                                 ; generated
+    add     esp,4                                 ; generated
+    add     esp,4                                 ; generated
+; end calling function if                         ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+itn:                                              ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    mov     eax,[ebp+4+4]
     pop     ebp                                   ; generated
     ret                                           ; generated
 sprintln2:                                        ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 ; calling function sprintln                       ; generated
-    push    eax                                   ; generated
-    mov     eax,[ebp+4+8]                         ; generated
-    push    eax                                   ; generated
+    push     dword [ebp+4+4]                      ; generated
     call    sprintln                              ; generated
-    pop     eax                                   ; generated
-    pop     eax                                   ; generated
+    add     esp,4                                 ; generated
 ; end calling function sprintln                   ; generated
 ; calling function sprintln                       ; generated
-    push    eax                                   ; generated
-    mov     eax,[ebp+4+4]                         ; generated
-    push    eax                                   ; generated
+    push     dword [ebp+4+8]                      ; generated
     call    sprintln                              ; generated
-    pop     eax                                   ; generated
-    pop     eax                                   ; generated
+    add     esp,4                                 ; generated
 ; end calling function sprintln                   ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
@@ -113,12 +126,9 @@ sprintln:                                         ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 ; calling function sprint                         ; generated
-    push    eax                                   ; generated
-    mov     eax,[ebp+4+4]                         ; generated
-    push    eax                                   ; generated
+    push     dword [ebp+4+4]                      ; generated
     call    sprint                                ; generated
-    pop     eax                                   ; generated
-    pop     eax                                   ; generated
+    add     esp,4                                 ; generated
 ; end calling function sprint                     ; generated
 ; calling function println                        ; generated
     call    println                               ; generated
@@ -129,12 +139,9 @@ nprintln:                                         ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 ; calling function nprint                         ; generated
-    push    eax                                   ; generated
-    mov     eax,[ebp+4+4]                         ; generated
-    push    eax                                   ; generated
+    push     dword [ebp+4+4]                      ; generated
     call    nprint                                ; generated
-    pop     eax                                   ; generated
-    pop     eax                                   ; generated
+    add     esp,4                                 ; generated
 ; end calling function nprint                     ; generated
 ; calling function println                        ; generated
     call    println                               ; generated
@@ -253,10 +260,49 @@ if:                                               ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    mov     eax,[ebp+4+8] ; true value
-    cmp     word [ebp+4+12], 0
-    jnz     .finished
-    mov     eax,[ebp+4+4] ; false value
-    .finished
+    cmp     word [ebp+4+4], 0
+    jz     .falseValue
+    call     [ebp+4+8] ; true value
+    jmp      .finished
+.falseValue:
+    call     [ebp+4+12] ; false value
+.finished:
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lessOrEqual:                                      ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push    ebx
+    push    ecx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+4+4] ; a
+    mov     ecx,[ebp+4+8] ; b
+    cmp     ebx,ecx
+    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,1 ; false
+.finished:
+    pop     ecx
+    pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lambda4:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; calling function sprintln                       ; generated
+    push    _rasm_s6                              ; generated
+    call    sprintln                              ; generated
+    add     esp,4                                 ; generated
+; end calling function sprintln                   ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lambda5:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; calling function sprintln                       ; generated
+    push    _rasm_s7                              ; generated
+    call    sprintln                              ; generated
+    add     esp,4                                 ; generated
+; end calling function sprintln                   ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated

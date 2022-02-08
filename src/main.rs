@@ -18,18 +18,21 @@ fn main() {
 
     println!("Current dir: {:?}", path);
 
-    match Lexer::from_file(Path::new("resources/test/helloworld.rasm")) {
+    let args: Vec<String> = env::args().collect();
+    println!("{:?}", args);
+
+    let src = args.get(1).unwrap();
+    let out = args.get(2).unwrap();
+    match Lexer::from_file(Path::new(src)) { // resources/test/helloworld.rasm
         Ok(lexer) => {
             let mut parser = Parser::new(lexer);
             let module = parser.parse();
-
-            Parser::print(&module);
 
             let mut code_gen = CodeGen::new(module);
 
             let asm = code_gen.asm();
 
-            let out_path = Path::new("helloworld.asm");
+            let out_path = Path::new(out);
             File::create(out_path).unwrap().write_all(asm.as_bytes()).unwrap();
         }
         Err(err) => {
