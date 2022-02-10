@@ -45,6 +45,10 @@ impl VarContext {
     fn iter(&self) -> Iter<'_, String, VarKind> {
         self.value_to_address.iter()
     }
+
+    fn len(&self) -> usize {
+        self.value_to_address.len()
+    }
 }
 
 impl CodeGen {
@@ -151,7 +155,29 @@ impl CodeGen {
     fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>) -> String {
         let mut before = String::new();
         CodeGen::add(&mut before, &format!("; calling function {}", function_call.function_name));
-        let mut after = String::new();
+
+        let has_lambda = function_call.parameters.iter().any(|it| {
+            if let ASTExpression::Lambda(_) = it {
+                true
+            } else {
+                false
+            }
+        });
+
+        let mut to_remove_from_stack = 0;
+        if has_lambda {
+            context.iter().for_each(|(_, kind)| {
+                if let Some(_) = parent_def {
+                    if let VarKind::ParameterRef(index) = kind {
+                        CodeGen::add(&mut before, &format!("    push    dword[ebp+4+{}]", (index + 1) * 4));
+                        to_remove_from_stack += 1;
+                    }
+                }
+            });
+            CodeGen::add(&mut before, &format!("    push    dword {}", context.len()));
+            to_remove_from_stack += 1;
+        }
+
         // as for C calling conventions parameters are pushed in reverse order
         for expr in function_call.parameters.iter().rev() {
             match expr {
@@ -160,26 +186,24 @@ impl CodeGen {
                     self.id += 1;
                     self.statics.insert(label.clone(), MemoryValue::StringValue(value.clone()));
                     CodeGen::add(&mut before, &format!("    push    {}", label));
-                    // after calling the function, we must remove the address from the stack
-                    CodeGen::add(&mut after, "    add     esp,4");
+                    to_remove_from_stack += 1;
                 }
                 ASTExpression::Number(n) => {
                     CodeGen::add(&mut before, &format!("    push    {}", n));
-                    // after calling the function, we must remove the address from the stack
-                    CodeGen::add(&mut after, "    add     esp,4");
+                    to_remove_from_stack += 1;
                 }
                 ASTExpression::ASTFunctionCallExpression(call) => {
                     before.push_str(&self.function_call(call, context, parent_def));
                     // TODO I must get the register that is returned, getting that from the function def of the called function
                     CodeGen::add(&mut before, &format!("    push    eax"));
-                    CodeGen::add(&mut after, "    add     esp,4");
+                    to_remove_from_stack += 1;
                 }
                 ASTExpression::Var(name) => {
                     if let Some(var_kind) = context.get(name) {
                         match var_kind {
                             VarKind::ParameterRef(index) => {
                                 CodeGen::add(&mut before, &format!("    push     dword [ebp+4+{}]", (index + 1) * 4));
-                                CodeGen::add(&mut after, "    add     esp,4");
+                                to_remove_from_stack += 1;
                             }
                         }
                     } else {
@@ -201,7 +225,7 @@ impl CodeGen {
 
                     if let ASTFunctionBody::RASMBody(_) = &function_def.body {
                         CodeGen::add(&mut before, &format!("    push     {}", def.name));
-                        CodeGen::add(&mut after, "    add     esp,4");
+                        to_remove_from_stack += 1;
                         self.lambdas.push(def);
                     } else {
                         panic!("A lambda cannot have an asm body.")
@@ -211,7 +235,11 @@ impl CodeGen {
             }
         }
         CodeGen::add(&mut before, &format!("    call    {}", function_call.function_name));
-        before.push_str(&after);
+
+        if to_remove_from_stack > 0  {
+            CodeGen::add(&mut before, &format!("    add     esp,{}", 4 * to_remove_from_stack));
+        }
+
         CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));
         before
     }

@@ -12,8 +12,8 @@ Doing
 
     }/
   - lambda functions has parameters according to the context, but example functions (if) don't pass those parameters:
-    - when in codegen we call a function that has lambda as parameters, add to the stack, after all the parameters,
-      the count of the context variables, then the values of the context variables, pay attention that you must pass the context variables
+    - when in codegen we call a function that has lambda as parameters, add to the stack, the count of the context variables, 
+      then the values of the context variables, pay attention that you must pass the context variables
       in reverse order then the count, then the normal parameters, so when the function consumes the parameters, the parameter at 4+4 is
       the real first parameter. Example:
       if(0, { nadd(n1, n2);}, { nadd(n2, n3); }}

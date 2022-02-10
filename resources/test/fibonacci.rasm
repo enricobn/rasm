@@ -1,14 +1,7 @@
 helloWorld();
 
 fn helloWorld() {
-    sprintln("Hello world");
-    sprintln("Hi");
-    nprintln(10);
-    nprintln(nadd(15, 25));
-    nprintln(nadd(15, nadd(10, 20)));
-    //nprintln(if(0, 10, 20));
-    sprintln2("one", "two");
-    nprintln(fib(5));
+    nprintln(fib(40));
 }
 
 fn fib(n: i32) -> i32 {
@@ -17,26 +10,12 @@ fn fib(n: i32) -> i32 {
                return n;
             return fib(n-1) + fib(n-2);
         }*/
-
-    if(0,{sprintln("True");},{sprintln("False");});
+    if(lessOrEqual(n, 1),{itn(n);},{nadd(fib(nadd(n,-1)), fib(nadd(n,-2)));});
 }
 
 asm itn(n: i32) -> i32[eax] /{
     mov     eax,[ebp+4+4]
 }/
-
-fn sprintln2(s1: &str, s2: &str) {
-    sprintln(s1);
-    sprintln(s2);
-}
-
-/**
- * Prints the string to standard output adding a line feed to the end.
- **/
-fn sprintln(s: &str) {
-    sprint(s);
-    println();
-}
 
 /**
  * Prints the number to standard output adding a line feed to the end.
@@ -156,9 +135,33 @@ asm nadd(n1: i32, n2: i32) -> i32[eax] /{
 asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
     cmp     word [ebp+4+4], 0
     jz     .falseValue
+    ;[ebp+4+16] the count, for now we don't use it
+    push     dword [ebp+4+20] ; the context parameter
     call     [ebp+4+8] ; true value
+    add      esp,4
     jmp      .finished
 .falseValue:
+    ;[ebp+4+16] the count, for now we don't use it
+    push     dword [ebp+4+20] ; the context parameter
     call     [ebp+4+12] ; false value
+    add      esp,4
 .finished:
+}/
+
+/** TODO it should be a bool
+ *  a  <= b
+ *  false = 0 true = any other value
+ **/
+asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
+    push    ebx
+    push    ecx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+4+4] ; a
+    mov     ecx,[ebp+4+8] ; b
+    cmp     ebx,ecx
+    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+.finished:
+    pop     ecx
+    pop     ebx
 }/
