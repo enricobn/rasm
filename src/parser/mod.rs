@@ -1,3 +1,4 @@
+use std::path::Path;
 use crate::Lexer;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
@@ -15,6 +16,7 @@ pub struct Parser {
     i: usize,
     data: Vec<ParserData>,
     state: Vec<ParserState>,
+    included_functions: Vec<ASTFunctionDef>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,11 +45,18 @@ impl Parser {
                 _ => true
             }
         }).collect();
-        Self { tokens, body: Vec::new(), functions: Vec::new(), i: 0, data: Vec::new(),
-            state: Vec::new()}
+        Self {
+            tokens,
+            body: Vec::new(),
+            functions: Vec::new(),
+            i: 0,
+            data: Vec::new(),
+            state: Vec::new(),
+            included_functions: Vec::new()
+        }
     }
 
-    pub fn parse(&mut self) -> ASTModule {
+    pub fn parse(&mut self, path: &Path) -> ASTModule {
         self.body = Vec::new();
         self.functions = Vec::new();
         self.i = 0;
@@ -74,8 +83,10 @@ impl Parser {
                         self.debug_error("Error");
                     }
                     if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                        self.data.push(ParserData::FunctionCallData(ASTFunctionCall{function_name: function_name.into(),
-                            parameters: Vec::new()}));
+                        self.data.push(ParserData::FunctionCallData(ASTFunctionCall {
+                            function_name: function_name.into(),
+                            parameters: Vec::new(),
+                        }));
                         self.state.push(FunctionCallParameterState);
                         self.i = next_i;
                         continue;
@@ -101,6 +112,19 @@ impl Parser {
                         self.state.push(ParserState::FunctionDefParameterState);
                         self.i = next_i;
                         continue;
+                    } else if let Some((resource, next_i)) = self.try_parse_include() {
+                        let buf = path.with_file_name(resource);
+                        let resource_path = buf.as_path();
+                        if let Ok(lexer) = Lexer::from_file(resource_path) {
+                            let mut parser = Parser::new(lexer);
+                            let mut module = parser.parse(resource_path);
+                            if !module.body.is_empty() {
+                                self.debug_error("Cannot include a module with a body.");
+                            }
+                            self.included_functions.append(&mut module.functions);
+                        }
+                        self.i = next_i;
+                        continue;
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
                     }
@@ -124,8 +148,10 @@ impl Parser {
                             continue;
                         } else if let TokenKind::AlphaNumeric(name) = &token.kind {
                             if let Some((name, next_i)) = self.try_parse_function_call() {
-                                self.data.push(ParserData::FunctionCallData(ASTFunctionCall{function_name: name.into(),
-                                    parameters: Vec::new()}));
+                                self.data.push(ParserData::FunctionCallData(ASTFunctionCall {
+                                    function_name: name.into(),
+                                    parameters: Vec::new(),
+                                }));
                                 self.state.push(FunctionCallParameterState);
                                 self.i = next_i;
                             } else {
@@ -141,9 +167,13 @@ impl Parser {
                             continue;
                         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
                             // TODO return type of the lambda for now it's not supported
-                            let return_type = Some(ASTReturnType{type_ref: ASTTypeRef{ast_type: BuiltinType(BuiltinTypeKind::ASTI32), ast_ref: false}, register: "eax".into()});
-                            self.data.push(ParserData::FunctionDefData(ASTFunctionDef{name: "lambda".into(), parameters: Vec::new(),
-                                body: ASTFunctionBody::RASMBody(Vec::new()), return_type }));
+                            let return_type = Some(ASTReturnType { type_ref: ASTTypeRef { ast_type: BuiltinType(BuiltinTypeKind::ASTI32), ast_ref: false }, register: "eax".into() });
+                            self.data.push(ParserData::FunctionDefData(ASTFunctionDef {
+                                name: "lambda".into(),
+                                parameters: Vec::new(),
+                                body: ASTFunctionBody::RASMBody(Vec::new()),
+                                return_type,
+                            }));
                             self.state.push(ParserState::FunctionBodyState);
                             self.i += 1;
                             continue;
@@ -214,7 +244,7 @@ impl Parser {
                                         panic!();
                                     };
                                 self.i = next_i;
-                                Some(ASTReturnType{type_ref, register})
+                                Some(ASTReturnType { type_ref, register })
                             } else {
                                 None
                             };
@@ -238,18 +268,6 @@ impl Parser {
                             self.data.pop();
                             self.state.pop();
                         }
-                    /*} else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
-                        if let Some(FunctionDefData(def)) = self.last_data() {
-                            let def = def.clone();
-                            self.data.pop();
-                            self.functions.push(def);
-                            self.state.pop();
-                            self.i += 1;
-                            continue;
-                        }
-                        self.debug_error("Error parsing function definition");
-
-                     */
                     } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
                         self.state.push(ParserState::FunctionDefParameterState);
                     } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
@@ -271,7 +289,7 @@ impl Parser {
 
                         if let Some((type_ref, next_i)) = self.try_parse_type_ref() {
                             self.i = next_i;
-                            self.data.push(ParserData::FunctionDefParameterData(ASTParameterDef {name, type_ref}));
+                            self.data.push(ParserData::FunctionDefParameterData(ASTParameterDef { name, type_ref }));
                             self.state.pop();
                             continue;
                         } else {
@@ -288,8 +306,10 @@ impl Parser {
                         self.i += 1;
                         continue;
                     } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                        self.data.push(ParserData::FunctionCallData(ASTFunctionCall{function_name: function_name.into(),
-                            parameters: Vec::new()}));
+                        self.data.push(ParserData::FunctionCallData(ASTFunctionCall {
+                            function_name: function_name.into(),
+                            parameters: Vec::new(),
+                        }));
                         self.state.push(FunctionCallParameterState);
                         self.i = next_i;
                         continue;
@@ -303,7 +323,7 @@ impl Parser {
                             let mut def = def.clone();
                             let (register, next_i) = self.parse_register(Self::is_asm(&def));
                             self.i = next_i;
-                            def.return_type = Some(ASTReturnType{type_ref, register});
+                            def.return_type = Some(ASTReturnType { type_ref, register });
                             let l = self.data.len();
                             self.data[l - 1] = FunctionDefData(def);
                             self.state.pop();
@@ -318,10 +338,12 @@ impl Parser {
             //actual.push(token);
         }
 
+        self.functions.append(&mut self.included_functions);
+
         ASTModule { body: self.body.clone(), functions: self.functions.clone() }
     }
 
-    fn is_next_token_a_semicolon(&self) -> bool{
+    fn is_next_token_a_semicolon(&self) -> bool {
         if let Some(next_token) = self.next_token() {
             if let TokenKind::Punctuation(PunctuationKind::SemiColon) = next_token.kind {
                 return true;
@@ -379,7 +401,7 @@ impl Parser {
                     Self::print_call(call, false)
                 });
                 println!("}}");
-            },
+            }
             ASMBody(_) => println!(" {{...}}")
         }
     }
@@ -459,7 +481,7 @@ impl Parser {
             if let TokenKind::AlphaNumeric(function_name) = &token.kind {
                 if let Some(next_token) = self.next_token() {
                     if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Open) = next_token.kind {
-                        return Some((function_name.into(), self.i + 2))
+                        return Some((function_name.into(), self.i + 2));
                     }
                 }
             }
@@ -474,7 +496,7 @@ impl Parser {
                     if let TokenKind::AlphaNumeric(function_name) = &next_token.kind {
                         if let Some(next_token2) = self.next_token2() {
                             if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Open) = next_token2.kind {
-                                return Some((function_name.into(), self.i + 3))
+                                return Some((function_name.into(), self.i + 3));
                             }
                         }
                     }
@@ -491,9 +513,22 @@ impl Parser {
                     if let TokenKind::AlphaNumeric(function_name) = &next_token.kind {
                         if let Some(next_token2) = self.next_token2() {
                             if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Open) = next_token2.kind {
-                                return Some((function_name.into(), self.i + 3))
+                                return Some((function_name.into(), self.i + 3));
                             }
                         }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn try_parse_include(&self) -> Option<(String, usize)> {
+        if let Some(token) = self.get_token() {
+            if let TokenKind::KeyWord(KeywordKind::Include) = &token.kind {
+                if let Some(next_token) = self.next_token() {
+                    if let TokenKind::StringLiteral(include) = &next_token.kind {
+                        return Some((include.into(), self.i + 2));
                     }
                 }
             }
@@ -529,11 +564,11 @@ impl Parser {
             if let TokenKind::Punctuation(PunctuationKind::And) = &token.kind {
                 if let Some(next_token) = self.next_token() {
                     if let Some(ast_type) = self.try_parse_ast_type(&next_token) {
-                        return Some((ASTTypeRef { ast_ref: true, ast_type }, self.i + 2))
+                        return Some((ASTTypeRef { ast_ref: true, ast_type }, self.i + 2));
                     }
                 }
             } else if let Some(ast_type) = self.try_parse_ast_type(&token) {
-                return Some((ASTTypeRef { ast_ref: false, ast_type }, self.i + 1))
+                return Some((ASTTypeRef { ast_ref: false, ast_type }, self.i + 1));
             }
         }
         None
@@ -562,7 +597,7 @@ impl Parser {
             if let TokenKind::AlphaNumeric(name) = &token.kind {
                 if let Some(next_token) = self.next_token() {
                     if let TokenKind::Punctuation(PunctuationKind::Colon) = next_token.kind {
-                        return Some((name.into(), self.i + 2))
+                        return Some((name.into(), self.i + 2));
                     }
                 }
             }
@@ -605,7 +640,7 @@ mod tests {
         let path = Path::new("resources/test/helloworld.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         Parser::print(&module);
     }
@@ -615,7 +650,7 @@ mod tests {
         let path = Path::new("resources/test/test2.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         assert_eq!(1, module.body.len());
     }
@@ -625,7 +660,7 @@ mod tests {
         let path = Path::new("resources/test/test8.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         assert!(!module.functions.is_empty());
         assert_eq!(2, module.functions.get(0).unwrap().parameters.len());
@@ -636,7 +671,7 @@ mod tests {
         let path = Path::new("resources/test/test9.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         assert!(!module.body.is_empty());
         assert_eq!(1, module.body.get(0).unwrap().parameters.len());
@@ -666,7 +701,7 @@ mod tests {
         let path = Path::new("resources/test/test10.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         // TODO for now I test only that it doesn't panic
         Parser::print(&module);
@@ -677,7 +712,7 @@ mod tests {
         let path = Path::new("resources/test/test11.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         // TODO for now I test only that it doesn't panic
         Parser::print(&module);

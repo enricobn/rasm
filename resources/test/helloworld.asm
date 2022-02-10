@@ -3,8 +3,6 @@ _rasm_s0    db    'Hello world', 0h               ; generated
 _rasm_s1    db    'Hi', 0h                        ; generated
 _rasm_s2    db    'two', 0h                       ; generated
 _rasm_s3    db    'one', 0h                       ; generated
-_rasm_s6    db    'False', 0h                     ; generated
-_rasm_s7    db    'True', 0h                      ; generated
 section .bss                                      ; generated
   _rasm_buffer_10b resb 10                        ; generated
 SECTION .text                                     ; generated
@@ -70,29 +68,6 @@ helloWorld:                                       ; generated
     call    sprintln2                             ; generated
     add     esp,8                                 ; generated
 ; end calling function sprintln2                  ; generated
-; calling function nprintln                       ; generated
-; calling function fib                            ; generated
-    push    5                                     ; generated
-    call    fib                                   ; generated
-    add     esp,4                                 ; generated
-; end calling function fib                        ; generated
-    push    eax                                   ; generated
-    call    nprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function nprintln                   ; generated
-    pop     ebp                                   ; generated
-    ret                                           ; generated
-fib:                                              ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-; calling function if                             ; generated
-    push    dword[ebp+4+4]                        ; generated
-    push     lambda4                              ; generated
-    push     lambda5                              ; generated
-    push    0                                     ; generated
-    call    if                                    ; generated
-    add     esp,16                                ; generated
-; end calling function if                         ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
 itn:                                              ; generated
@@ -264,23 +239,20 @@ if:                                               ; generated
 .finished:
     pop     ebp                                   ; generated
     ret                                           ; generated
-lambda4:                                          ; generated
+lessOrEqual:                                      ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
-; calling function sprintln                       ; generated
-    push    _rasm_s6                              ; generated
-    call    sprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function sprintln                   ; generated
-    pop     ebp                                   ; generated
-    ret                                           ; generated
-lambda5:                                          ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-; calling function sprintln                       ; generated
-    push    _rasm_s7                              ; generated
-    call    sprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function sprintln                   ; generated
+
+    push    ebx
+    push    ecx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+4+4] ; a
+    mov     ecx,[ebp+4+8] ; b
+    cmp     ebx,ecx
+    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+.finished:
+    pop     ecx
+    pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated

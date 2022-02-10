@@ -281,7 +281,7 @@ mod tests {
         let path = Path::new("resources/test/helloworld.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse();
+        let module = parser.parse(path);
 
         let mut gen = CodeGen::new(module);
 

@@ -1,0 +1,159 @@
+asm itn(n: i32) -> i32[eax] /{
+    mov     eax,[ebp+4+4]
+}/
+
+fn sprintln2(s1: &str, s2: &str) {
+    sprintln(s1);
+    sprintln(s2);
+}
+
+/**
+ * Prints the string to standard output adding a line feed to the end.
+ **/
+fn sprintln(s: &str) {
+    sprint(s);
+    println();
+}
+
+/**
+ * Prints the number to standard output adding a line feed to the end.
+ **/
+fn nprintln(n: i32) {
+    nprint(n);
+    println();
+}
+
+/**
+ * Prints the number to standard output.
+ * TODO it supports only 10 digits
+ * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
+ **/
+asm nprint(n: i32) /{
+  push    esi
+  push    eax
+  push    ebx
+  push    ecx
+  push    edx
+  mov     eax,[ebp+4+4] ; integer value to convert
+  mov     esi,_rasm_buffer_10b
+  add     esi,9
+  mov     byte [esi],0    ; String terminator
+
+  mov ebx,10
+  xor ecx,ecx         ; initialize length
+.next_digit:
+  xor edx,edx         ; Clear edx prior to dividing edx:eax by ebx
+  div ebx             ; eax /= 10
+  add dl,'0'          ; Convert the remainder to ASCII
+  dec esi             ; store characters in reverse order
+  inc ecx             ; length
+
+  mov [esi],dl
+  test eax,eax
+  jnz .next_digit     ; Repeat until eax==0
+
+  mov    edx,ecx ; the length
+  mov     ecx,esi ; the pointer to the first digit (not necessarily the start of the provided buffer)
+  mov     ebx, 1  ; stdout
+  mov     eax, 4  ; write
+  int     80h
+
+  pop    edx
+  pop    ecx
+  pop    ebx
+  pop    eax
+  pop    esi
+}/
+
+/**
+ * Prints a new line to standard output.
+ */
+asm println() /{
+    mov     eax, 0Ah    ; move 0Ah into eax - 0Ah is the ascii character for a linefeed
+    push    eax         ; push the linefeed onto the stack so we can get the address
+    push    esp         ; push the address of the current stack pointer where is the \n char for sprint
+    call    sprint      ; call our sprint function
+    pop     eax         ; remove the linefeed char from the stack
+    pop     eax
+}/
+
+/**
+ * Prints the string to the standard output.
+ **/
+asm sprint(s: &str) /{
+    push    edx
+    push    ecx
+    push    ebx
+    push    eax
+    mov     eax,[ebp+4+4]
+    push    eax
+    call    slen
+
+    mov     edx, eax
+    pop     eax
+
+    mov     ecx, eax
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+
+    pop     eax
+    pop     ebx
+    pop     ecx
+    pop     edx
+}/
+
+/** Returns the length of the string **/
+asm slen(s: &str) -> i32[eax] /{
+    push    ebx             ; Save ebx to the stack since we use it
+    mov     eax, [ebp+4+4]  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
+    mov     ebx, eax
+
+.nextchar:
+    cmp     byte [eax], 0
+    jz      .finished
+    inc     eax
+    jmp     .nextchar
+
+.finished:
+    sub     eax, ebx
+    pop     ebx
+}/
+
+/** Adds two numbers **/
+asm nadd(n1: i32, n2: i32) -> i32[eax] /{
+    push    ebx
+    mov     eax, [ebp+4+4]
+    mov     ebx, [ebp+4+8]
+    add     eax, ebx
+    pop     ebx
+}/
+
+/** false = 0 true = any other value **/
+asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
+    cmp     word [ebp+4+4], 0
+    jz     .falseValue
+    call     [ebp+4+8] ; true value
+    jmp      .finished
+.falseValue:
+    call     [ebp+4+12] ; false value
+.finished:
+}/
+
+/** TODO it should be a bool
+ *  a  <= b
+ *  false = 0 true = any other value
+ **/
+asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
+    push    ebx
+    push    ecx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+4+4] ; a
+    mov     ecx,[ebp+4+8] ; b
+    cmp     ebx,ecx
+    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+.finished:
+    pop     ecx
+    pop     ebx
+}/

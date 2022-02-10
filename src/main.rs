@@ -23,10 +23,11 @@ fn main() {
 
     let src = args.get(1).unwrap();
     let out = args.get(2).unwrap();
-    match Lexer::from_file(Path::new(src)) { // resources/test/helloworld.rasm
+    let file_path = Path::new(src);
+    match Lexer::from_file(file_path) { // resources/test/helloworld.rasm
         Ok(lexer) => {
             let mut parser = Parser::new(lexer);
-            let module = parser.parse();
+            let module = parser.parse(file_path);
 
             let mut code_gen = CodeGen::new(module);
 
