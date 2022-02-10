@@ -10,7 +10,7 @@ pub struct CodeGen {
     statics: HashMap<String, MemoryValue>, // key=memory_label
     body: String,
     definitions: String,
-    lambdas: Vec<ASTFunctionDef>,
+    lambdas: Vec<LambdaCall>,
 }
 
 #[derive(Clone)]
@@ -27,6 +27,12 @@ struct VarContext {
 #[derive(Clone, Debug)]
 enum VarKind {
     ParameterRef(usize)
+}
+
+#[derive(Clone)]
+struct LambdaCall {
+    def: ASTFunctionDef,
+    parameters_offset: usize
 }
 
 impl VarContext {
@@ -71,14 +77,14 @@ impl CodeGen {
         }
 
         for function_def in &self.module.functions.clone() {
-            self.add_function_def(&function_def);
+            self.add_function_def(&function_def, 0);
         }
 
         Parser::print(&self.module);
 
-        for function_def in &self.lambdas.clone() {
-            self.add_function_def(&function_def);
-            Parser::print_function_def(function_def);
+        for lambda_call in &self.lambdas.clone() {
+            self.add_function_def(&lambda_call.def, lambda_call.parameters_offset);
+            Parser::print_function_def(&lambda_call.def);
         }
 
         let mut asm = String::new();
@@ -124,7 +130,7 @@ impl CodeGen {
         asm
     }
 
-    fn add_function_def(&mut self, function_def: &ASTFunctionDef) {
+    fn add_function_def(&mut self, function_def: &ASTFunctionDef, parameters_offset: usize) {
         CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name));
         CodeGen::add(&mut self.definitions, "    push    ebp");
         CodeGen::add(&mut self.definitions, "    mov     ebp,esp");
@@ -133,7 +139,7 @@ impl CodeGen {
         let mut i = 0;
         while i < function_def.parameters.len() {
             if let Some(par) = function_def.parameters.get(i) {
-                context.insert(par.name.clone(), VarKind::ParameterRef(i));
+                context.insert(par.name.clone(), VarKind::ParameterRef(i + parameters_offset));
             }
             i += 1;
         }
@@ -169,13 +175,14 @@ impl CodeGen {
             context.iter().for_each(|(_, kind)| {
                 if let Some(_) = parent_def {
                     if let VarKind::ParameterRef(index) = kind {
-                        CodeGen::add(&mut before, &format!("    push    dword[ebp+4+{}]", (index + 1) * 4));
+                        // parameters must be pushed in reverse order
+                        CodeGen::add(&mut before, &format!("    push    dword[ebp+4+{}]", (context.len() - index) * 4));
                         to_remove_from_stack += 1;
                     }
                 }
             });
-            CodeGen::add(&mut before, &format!("    push    dword {}", context.len()));
-            to_remove_from_stack += 1;
+            //CodeGen::add(&mut before, &format!("    push    dword {}", context.len()));
+            //to_remove_from_stack += 1;
         }
 
         // as for C calling conventions parameters are pushed in reverse order
@@ -226,7 +233,8 @@ impl CodeGen {
                     if let ASTFunctionBody::RASMBody(_) = &function_def.body {
                         CodeGen::add(&mut before, &format!("    push     {}", def.name));
                         to_remove_from_stack += 1;
-                        self.lambdas.push(def);
+                        // 2 I think is the PC that has been pushed to the stack
+                        self.lambdas.push(LambdaCall {def, parameters_offset: function_call.parameters.len() + 2});
                     } else {
                         panic!("A lambda cannot have an asm body.")
                     }

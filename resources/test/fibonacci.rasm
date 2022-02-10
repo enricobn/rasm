@@ -135,16 +135,10 @@ asm nadd(n1: i32, n2: i32) -> i32[eax] /{
 asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
     cmp     word [ebp+4+4], 0
     jz     .falseValue
-    ;[ebp+4+16] the count, for now we don't use it
-    push     dword [ebp+4+20] ; the context parameter
     call     [ebp+4+8] ; true value
-    add      esp,4
     jmp      .finished
 .falseValue:
-    ;[ebp+4+16] the count, for now we don't use it
-    push     dword [ebp+4+20] ; the context parameter
     call     [ebp+4+12] ; false value
-    add      esp,4
 .finished:
 }/
 

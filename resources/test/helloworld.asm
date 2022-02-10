@@ -87,12 +87,11 @@ fib:                                              ; generated
     mov     ebp,esp                               ; generated
 ; calling function if                             ; generated
     push    dword[ebp+4+4]                        ; generated
-    push    dword 1                               ; generated
     push     lambda4                              ; generated
     push     lambda5                              ; generated
     push    0                                     ; generated
     call    if                                    ; generated
-    add     esp,20                                ; generated
+    add     esp,16                                ; generated
 ; end calling function if                         ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
