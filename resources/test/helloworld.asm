@@ -221,17 +221,3 @@ slen:                                             ; generated
     pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
-lessOrEqual:                                      ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-
-    push    ebx
-    mov     eax,1 ; true
-    mov     ebx,[ebp+4+4] ; a
-    cmp     ebx,[ebp+4+8] ; a,b
-    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
-    mov     eax,0 ; false
-.finished:
-    pop     ebx
-    pop     ebp                                   ; generated
-    ret                                           ; generated

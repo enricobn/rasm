@@ -139,13 +139,12 @@ inline asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
  *  a  <= b
  *  false = 0 true = any other value
  **/
-asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
+inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
     push    ebx
     mov     eax,1 ; true
-    mov     ebx,[ebp+4+4] ; a
-    cmp     ebx,[ebp+4+8] ; a,b
-    jbe     .finished ; Jump if Below or Equal (unsigned comparison)
+    mov     ebx,[esp+4] ; a     esp +4 because I pushed ebx
+    cmp     ebx,[esp+8] ; a,b   esp +8 because I pushed ebx
+    jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-.finished:
     pop     ebx
 }/
