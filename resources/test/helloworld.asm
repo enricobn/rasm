@@ -76,13 +76,6 @@ helloWorld:                                       ; generated
 ; end calling function sprintln2                  ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
-itn:                                              ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-
-    mov     eax,[ebp+4+4]
-    pop     ebp                                   ; generated
-    ret                                           ; generated
 sprintln2:                                        ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated

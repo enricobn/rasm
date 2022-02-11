@@ -1,5 +1,5 @@
-asm itn(n: i32) -> i32[eax] /{
-    mov     eax,[ebp+4+4]
+inline asm itn(n: i32) -> i32[eax] /{
+    mov     eax,[esp]
 }/
 
 fn sprintln2(s1: &str, s2: &str) {
