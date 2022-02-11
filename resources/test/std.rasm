@@ -127,14 +127,12 @@ inline asm nadd(n1: i32, n2: i32) -> i32[eax] /{
 }/
 
 /** false = 0 true = any other value **/
-asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
-    cmp     word [ebp+4+4], 0
-    jz     .falseValue
-    call     [ebp+4+8] ; true value
-    jmp      .finished
-.falseValue:
-    call     [ebp+4+12] ; false value
-.finished:
+inline asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
+    cmp     word [esp], 0
+    jz      $+8
+    call    [esp+4] ; true value
+    jmp     $+6
+    call    [esp+8] ; false value
 }/
 
 /** TODO it should be a bool

@@ -92,7 +92,9 @@ impl CodeGen {
         }
 
         for function_def in &self.module.functions.clone() {
-            self.add_function_def(&function_def, 0);
+            if !function_def.inline {
+                self.add_function_def(&function_def, 0);
+            }
         }
 
         Parser::print(&self.module);
@@ -176,10 +178,10 @@ impl CodeGen {
     fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>) -> String {
         let mut before = String::new();
 
-        let function_def = self.functions.get(&function_call.function_name)
+        let call_function_def = self.functions.get(&function_call.function_name)
             .expect(&format!("Cannot find function '{}'", function_call.function_name)).clone();
 
-        if function_def.inline {
+        if call_function_def.inline {
             CodeGen::add(&mut before, &format!("; inlining function {}", function_call.function_name));
         } else {
             CodeGen::add(&mut before, &format!("; calling function {}", function_call.function_name));
@@ -256,8 +258,13 @@ impl CodeGen {
                     if let ASTFunctionBody::RASMBody(_) = &function_def.body {
                         CodeGen::add(&mut before, &format!("    push     {}", def.name));
                         to_remove_from_stack += 1;
-                        // 2 I think is the PC that has been pushed to the stack
-                        self.lambdas.push(LambdaCall { def, parameters_offset: function_call.parameters.len() + 2 });
+                        // 2 I think is the SP or PC that has been pushed to the stack, but it's not pushed for inline functions
+                        let offset = if call_function_def.inline {
+                            0
+                        } else {
+                            2
+                        };
+                        self.lambdas.push(LambdaCall { def, parameters_offset: function_call.parameters.len() + offset });
                     } else {
                         panic!("A lambda cannot have an asm body.")
                     }
@@ -265,8 +272,8 @@ impl CodeGen {
             }
         }
 
-        if function_def.inline {
-            if let ASTFunctionBody::ASMBody(body) = &function_def.body {
+        if call_function_def.inline {
+            if let ASTFunctionBody::ASMBody(body) = &call_function_def.body {
                 before.push_str(body);
             } else {
                 panic!("Only asm can be inlined, for now...");
@@ -279,7 +286,7 @@ impl CodeGen {
             CodeGen::add(&mut before, &format!("    add     esp,{}", 4 * to_remove_from_stack));
         }
 
-        if function_def.inline {
+        if call_function_def.inline {
             CodeGen::add(&mut before, &format!("; end inlining function {}", function_call.function_name));
         } else {
             CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));

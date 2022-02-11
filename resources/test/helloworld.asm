@@ -221,27 +221,6 @@ slen:                                             ; generated
     pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
-nadd:                                             ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-
-    mov     eax, [esp]
-    add     eax, [esp+4]
-    pop     ebp                                   ; generated
-    ret                                           ; generated
-if:                                               ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-
-    cmp     word [ebp+4+4], 0
-    jz     .falseValue
-    call     [ebp+4+8] ; true value
-    jmp      .finished
-.falseValue:
-    call     [ebp+4+12] ; false value
-.finished:
-    pop     ebp                                   ; generated
-    ret                                           ; generated
 lessOrEqual:                                      ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated

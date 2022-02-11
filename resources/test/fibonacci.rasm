@@ -1,10 +1,6 @@
 include "std.rasm"
 
-helloWorld();
-
-fn helloWorld() {
-    nprintln(fib(40));
-}
+nprintln(fib(40));
 
 fn fib(n: i32) -> i32 {
         /* static int fib(int n) {
