@@ -56,7 +56,8 @@ pub enum BracketStatus {
 pub enum KeywordKind {
     Asm,
     Fn,
-    Include
+    Include,
+    Inline
 }
 
 impl KeywordKind {
@@ -64,7 +65,8 @@ impl KeywordKind {
         match self {
             KeywordKind::Fn => "fn".into(),
             KeywordKind::Asm => "asm".into(),
-            KeywordKind::Include => "include".into()
+            KeywordKind::Include => "include".into(),
+            KeywordKind::Inline => "inline".into()
         }
     }
 

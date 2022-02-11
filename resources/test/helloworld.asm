@@ -35,29 +35,35 @@ helloWorld:                                       ; generated
     add     esp,4                                 ; generated
 ; end calling function nprintln                   ; generated
 ; calling function nprintln                       ; generated
-; calling function nadd                           ; generated
+; inlining function nadd                          ; generated
     push    25                                    ; generated
     push    15                                    ; generated
-    call    nadd                                  ; generated
+
+    mov     eax, [esp]
+    add     eax, [esp+4]
     add     esp,8                                 ; generated
-; end calling function nadd                       ; generated
+; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
 ; end calling function nprintln                   ; generated
 ; calling function nprintln                       ; generated
-; calling function nadd                           ; generated
-; calling function nadd                           ; generated
+; inlining function nadd                          ; generated
+; inlining function nadd                          ; generated
     push    20                                    ; generated
     push    10                                    ; generated
-    call    nadd                                  ; generated
+
+    mov     eax, [esp]
+    add     eax, [esp+4]
     add     esp,8                                 ; generated
-; end calling function nadd                       ; generated
+; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     push    15                                    ; generated
-    call    nadd                                  ; generated
+
+    mov     eax, [esp]
+    add     eax, [esp+4]
     add     esp,8                                 ; generated
-; end calling function nadd                       ; generated
+; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
@@ -219,11 +225,8 @@ nadd:                                             ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    push    ebx
-    mov     eax, [ebp+4+4]
-    mov     ebx, [ebp+4+8]
-    add     eax, ebx
-    pop     ebx
+    mov     eax, [esp]
+    add     eax, [esp+4]
     pop     ebp                                   ; generated
     ret                                           ; generated
 if:                                               ; generated
@@ -244,15 +247,12 @@ lessOrEqual:                                      ; generated
     mov     ebp,esp                               ; generated
 
     push    ebx
-    push    ecx
     mov     eax,1 ; true
     mov     ebx,[ebp+4+4] ; a
-    mov     ecx,[ebp+4+8] ; b
-    cmp     ebx,ecx
+    cmp     ebx,[ebp+4+8] ; a,b
     jbe     .finished ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
 .finished:
-    pop     ecx
     pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated

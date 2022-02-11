@@ -3,7 +3,8 @@ pub struct ASTFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
     pub return_type: Option<ASTReturnType>,
-    pub body: ASTFunctionBody
+    pub body: ASTFunctionBody,
+    pub inline: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -1,16 +1,18 @@
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
-use crate::Parser;
 
+use crate::Parser;
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef};
 
 pub struct CodeGen {
     module: ASTModule,
     id: usize,
-    statics: HashMap<String, MemoryValue>, // key=memory_label
+    statics: HashMap<String, MemoryValue>,
+    // key=memory_label
     body: String,
     definitions: String,
     lambdas: Vec<LambdaCall>,
+    functions: HashMap<String, ASTFunctionDef>,
 }
 
 #[derive(Clone)]
@@ -32,7 +34,7 @@ enum VarKind {
 #[derive(Clone)]
 struct LambdaCall {
     def: ASTFunctionDef,
-    parameters_offset: usize
+    parameters_offset: usize,
 }
 
 impl VarContext {
@@ -59,7 +61,15 @@ impl VarContext {
 
 impl CodeGen {
     pub fn new(module: ASTModule) -> Self {
-        Self { module, body: String::new(), statics: HashMap::new(), id: 0, definitions: String::new(), lambdas: Vec::new() }
+        Self {
+            module,
+            body: String::new(),
+            statics: HashMap::new(),
+            id: 0,
+            definitions: String::new(),
+            lambdas: Vec::new(),
+            functions: HashMap::new(),
+        }
     }
 
     pub fn asm(&mut self) -> String {
@@ -67,6 +77,11 @@ impl CodeGen {
         self.statics = HashMap::new();
         self.body = String::new();
         self.definitions = String::new();
+        self.functions = HashMap::new();
+        for function_def in &self.module.functions.clone() {
+            self.functions.insert(function_def.name.clone(), function_def.clone());
+        }
+
 
         // for now main has no context
         let main_context = VarContext::new();
@@ -160,7 +175,15 @@ impl CodeGen {
 
     fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>) -> String {
         let mut before = String::new();
-        CodeGen::add(&mut before, &format!("; calling function {}", function_call.function_name));
+
+        let function_def = self.functions.get(&function_call.function_name)
+            .expect(&format!("Cannot find function '{}'", function_call.function_name)).clone();
+
+        if function_def.inline {
+            CodeGen::add(&mut before, &format!("; inlining function {}", function_call.function_name));
+        } else {
+            CodeGen::add(&mut before, &format!("; calling function {}", function_call.function_name));
+        }
 
         let has_lambda = function_call.parameters.iter().any(|it| {
             if let ASTExpression::Lambda(_) = it {
@@ -225,7 +248,7 @@ impl CodeGen {
                         if let Some(pdef) = parent_def {
                             if let VarKind::ParameterRef(index) = kind {
                                 let par = pdef.parameters.get(*index).unwrap().clone();
-                                def.parameters.push(ASTParameterDef{name: name.into(), type_ref: par.type_ref})
+                                def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref })
                             }
                         }
                     });
@@ -234,21 +257,33 @@ impl CodeGen {
                         CodeGen::add(&mut before, &format!("    push     {}", def.name));
                         to_remove_from_stack += 1;
                         // 2 I think is the PC that has been pushed to the stack
-                        self.lambdas.push(LambdaCall {def, parameters_offset: function_call.parameters.len() + 2});
+                        self.lambdas.push(LambdaCall { def, parameters_offset: function_call.parameters.len() + 2 });
                     } else {
                         panic!("A lambda cannot have an asm body.")
                     }
-
                 }
             }
         }
-        CodeGen::add(&mut before, &format!("    call    {}", function_call.function_name));
 
-        if to_remove_from_stack > 0  {
+        if function_def.inline {
+            if let ASTFunctionBody::ASMBody(body) = &function_def.body {
+                before.push_str(body);
+            } else {
+                panic!("Only asm can be inlined, for now...");
+            }
+        } else {
+            CodeGen::add(&mut before, &format!("    call    {}", function_call.function_name));
+        }
+
+        if to_remove_from_stack > 0 {
             CodeGen::add(&mut before, &format!("    add     esp,{}", 4 * to_remove_from_stack));
         }
 
-        CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));
+        if function_def.inline {
+            CodeGen::add(&mut before, &format!("; end inlining function {}", function_call.function_name));
+        } else {
+            CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));
+        }
         before
     }
 

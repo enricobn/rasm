@@ -121,12 +121,9 @@ asm slen(s: &str) -> i32[eax] /{
 }/
 
 /** Adds two numbers **/
-asm nadd(n1: i32, n2: i32) -> i32[eax] /{
-    push    ebx
-    mov     eax, [ebp+4+4]
-    mov     ebx, [ebp+4+8]
-    add     eax, ebx
-    pop     ebx
+inline asm nadd(n1: i32, n2: i32) -> i32[eax] /{
+    mov     eax, [esp]
+    add     eax, [esp+4]
 }/
 
 /** false = 0 true = any other value **/
@@ -146,14 +143,11 @@ asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
  **/
 asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
     push    ebx
-    push    ecx
     mov     eax,1 ; true
     mov     ebx,[ebp+4+4] ; a
-    mov     ecx,[ebp+4+8] ; b
-    cmp     ebx,ecx
+    cmp     ebx,[ebp+4+8] ; a,b
     jbe     .finished ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
 .finished:
-    pop     ecx
     pop     ebx
 }/

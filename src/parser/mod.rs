@@ -96,17 +96,19 @@ impl Parser {
                             parameters: Vec::new(),
                             body: ASTFunctionBody::RASMBody(Vec::new()),
                             return_type: None,
+                            inline: false
                         }));
                         self.state.push(ParserState::FunctionDefState);
                         self.state.push(ParserState::FunctionDefParameterState);
                         self.i = next_i;
                         continue;
-                    } else if let Some((function_name, next_i)) = self.try_parse_asm_def() {
+                    } else if let Some((function_name, inline, next_i)) = self.try_parse_asm_def() {
                         self.data.push(ParserData::FunctionDefData(ASTFunctionDef {
                             name: function_name.into(),
                             parameters: Vec::new(),
                             body: ASTFunctionBody::ASMBody("".into()),
                             return_type: None,
+                            inline
                         }));
                         self.state.push(ParserState::FunctionDefState);
                         self.state.push(ParserState::FunctionDefParameterState);
@@ -128,7 +130,7 @@ impl Parser {
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
                     }
-                    panic!("Error {:?}", token);
+                   self.debug_error("Unknown statement");
                 }
                 Some(ParserState::FunctionCallParameterState) => {
                     if let Some(FunctionCallData(call)) = self.last_data() {
@@ -173,6 +175,7 @@ impl Parser {
                                 parameters: Vec::new(),
                                 body: ASTFunctionBody::RASMBody(Vec::new()),
                                 return_type,
+                                inline: false
                             }));
                             self.state.push(ParserState::FunctionBodyState);
                             self.i += 1;
@@ -476,6 +479,10 @@ impl Parser {
         self.tokens.get(self.i)
     }
 
+    fn get_token_n(&self, n: usize) -> Option<&Token> {
+        self.tokens.get(self.i + n)
+    }
+
     fn try_parse_function_call(&self) -> Option<(String, usize)> {
         if let Some(token) = self.get_token() {
             if let TokenKind::AlphaNumeric(function_name) = &token.kind {
@@ -506,14 +513,27 @@ impl Parser {
         None
     }
 
-    fn try_parse_asm_def(&self) -> Option<(String, usize)> {
+    fn try_parse_asm_def(&self) -> Option<(String, bool, usize)> {
         if let Some(token) = self.get_token() {
+            if let TokenKind::KeyWord(KeywordKind::Inline) = &token.kind {
+                if let Some((function_name, next_i)) = self.try_parse_asm_def_no_inline(1) {
+                    return Some((function_name.into(), true, next_i));
+                }
+            } else if let Some((function_name, next_i)) = self.try_parse_asm_def_no_inline(0) {
+                return Some((function_name.into(), false, next_i));
+            }
+        }
+        None
+    }
+
+    fn try_parse_asm_def_no_inline(&self, n: usize) -> Option<(String, usize)> {
+        if let Some(token) = self.get_token_n(n) {
             if let TokenKind::KeyWord(KeywordKind::Asm) = &token.kind {
-                if let Some(next_token) = self.next_token() {
+                if let Some(next_token) = self.get_token_n(n + 1) {
                     if let TokenKind::AlphaNumeric(function_name) = &next_token.kind {
-                        if let Some(next_token2) = self.next_token2() {
+                        if let Some(next_token2) = self.get_token_n(n + 2) {
                             if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Open) = next_token2.kind {
-                                return Some((function_name.into(), self.i + 3));
+                                return Some((function_name.into(), self.i + n + 3));
                             }
                         }
                     }
