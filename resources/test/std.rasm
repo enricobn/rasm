@@ -34,7 +34,7 @@ asm nprint(n: i32) /{
   push    ebx
   push    ecx
   push    edx
-  mov     eax,[ebp+4+4] ; integer value to convert
+  mov     eax,$n ; integer value to convert
   mov     esi,_rasm_buffer_10b
   add     esi,9
   mov     byte [esi],0    ; String terminator
@@ -85,7 +85,7 @@ asm sprint(s: &str) /{
     push    ecx
     push    ebx
     push    eax
-    mov     eax,[ebp+4+4]
+    mov     eax,$s
     push    eax
     call    slen
 
@@ -106,7 +106,7 @@ asm sprint(s: &str) /{
 /** Returns the length of the string **/
 asm slen(s: &str) -> i32[eax] /{
     push    ebx             ; Save ebx to the stack since we use it
-    mov     eax, [ebp+4+4]  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
+    mov     eax, $s  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     ebx, eax
 
 .nextchar:
@@ -122,17 +122,17 @@ asm slen(s: &str) -> i32[eax] /{
 
 /** Adds two numbers **/
 inline asm nadd(n1: i32, n2: i32) -> i32[eax] /{
-    mov     eax, [esp]
-    add     eax, [esp+4]
+    mov     eax, $n1
+    add     eax, $n2
 }/
 
 /** false = 0 true = any other value **/
 inline asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
-    cmp     word [esp], 0
-    jz      $+8
-    call    [esp+4] ; true value
-    jmp     $+6
-    call    [esp+8] ; false value
+    cmp     word $cond, 0
+    jz      $+7
+    call    $ftrue ; true value
+    jmp     $+5
+    call    $ffalse ; false value
 }/
 
 /** TODO it should be a bool
@@ -142,8 +142,8 @@ inline asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
 inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
     push    ebx
     mov     eax,1 ; true
-    mov     ebx,[esp+4] ; a     esp +4 because I pushed ebx
-    cmp     ebx,[esp+8] ; a,b   esp +8 because I pushed ebx
+    mov     ebx,$a
+    cmp     ebx,$b
     jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
     pop     ebx

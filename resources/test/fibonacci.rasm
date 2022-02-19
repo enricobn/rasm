@@ -3,10 +3,9 @@ include "std.rasm"
 nprintln(fib(40));
 
 fn fib(n: i32) -> i32 {
-        /* static int fib(int n) {
-            if (n <= 1)
-               return n;
-            return fib(n-1) + fib(n-2);
-        }*/
-    if(lessOrEqual(n, 1),{itn(n);},{nadd(fib(nadd(n,-1)), fib(nadd(n,-2)));});
+    if (lessOrEqual(n, 1),{
+        itn(n);
+    },{
+        nadd(fib(nadd(n,-1)), fib(nadd(n,-2)));
+    });
 }

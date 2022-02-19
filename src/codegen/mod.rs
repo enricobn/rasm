@@ -87,7 +87,7 @@ impl CodeGen {
         let main_context = VarContext::new();
 
         for function_call in &self.module.body.clone() {
-            let s = self.function_call(function_call, &main_context, None);
+            let s = self.function_call(function_call, &main_context, None, 0);
             self.body.push_str(&s);
         }
 
@@ -164,18 +164,18 @@ impl CodeGen {
         match &function_def.body {
             ASTFunctionBody::RASMBody(calls) => {
                 for call in calls {
-                    let s = self.function_call(call, &context, Some(&function_def));
+                    let s = self.function_call(call, &context, Some(&function_def), 0);
                     self.definitions.push_str(&s);
                 }
             }
-            ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&s)
+            ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&Self::resolve_asm_parameters(function_def, s, 0))
         }
 
         CodeGen::add(&mut self.definitions, "    pop     ebp");
         CodeGen::add(&mut self.definitions, "    ret");
     }
 
-    fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>) -> String {
+    fn function_call(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>, added_to_stack: usize) -> String {
         let mut before = String::new();
 
         let call_function_def = self.functions.get(&function_call.function_name)
@@ -225,7 +225,7 @@ impl CodeGen {
                     to_remove_from_stack += 1;
                 }
                 ASTExpression::ASTFunctionCallExpression(call) => {
-                    before.push_str(&self.function_call(call, context, parent_def));
+                    before.push_str(&self.function_call(call, context, parent_def, added_to_stack + to_remove_from_stack));
                     // TODO I must get the register that is returned, getting that from the function def of the called function
                     CodeGen::add(&mut before, &format!("    push    eax"));
                     to_remove_from_stack += 1;
@@ -274,7 +274,8 @@ impl CodeGen {
 
         if call_function_def.inline {
             if let ASTFunctionBody::ASMBody(body) = &call_function_def.body {
-                before.push_str(body);
+                CodeGen::add(&mut before, &format!("; To remove from stack  {} {}", call_function_def.name, added_to_stack + to_remove_from_stack));
+                before.push_str(&Self::resolve_asm_parameters(&call_function_def, body, added_to_stack + to_remove_from_stack));
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
@@ -292,6 +293,27 @@ impl CodeGen {
             CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));
         }
         before
+    }
+
+    fn resolve_asm_parameters(function_def: &ASTFunctionDef, body: &str, to_remove_from_stack: usize) -> String {
+        let mut result = body.to_string();
+        let mut i = 0;
+        for par in function_def.parameters.iter() {
+            let relative_address =
+            if function_def.inline {
+                (i as i32 -to_remove_from_stack as i32) * 4
+            } else {
+                (i + 2) * 4
+            };
+            let address = if relative_address < 0 {
+                format!("[ebp-{}]", -relative_address)
+            } else {
+                format!("[ebp+{}]", relative_address)
+            };
+            result = result.replace(&format!("${}", par.name), &address);
+            i += 1;
+        }
+        result
     }
 
     fn add(dest: &mut String, code: &str) {
@@ -330,6 +352,24 @@ mod tests {
         let asm = gen.asm();
 
         let path = Path::new("resources/test/helloworld.asm");
+        let mut expected = String::new();
+        File::open(path).unwrap().read_to_string(&mut expected).unwrap();
+
+        assert_eq!(asm.trim(), expected);
+    }
+
+    #[test]
+    fn test_fib() {
+        let path = Path::new("resources/test/fibonacci.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer);
+        let module = parser.parse(path);
+
+        let mut gen = CodeGen::new(module);
+
+        let asm = gen.asm();
+
+        let path = Path::new("resources/test/fibonacci.asm");
         let mut expected = String::new();
         File::open(path).unwrap().read_to_string(&mut expected).unwrap();
 

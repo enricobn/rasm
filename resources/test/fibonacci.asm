@@ -1,82 +1,54 @@
-SECTION .data
-_rasm_s0    db    'Hello world', 0h               ; generated
-_rasm_s1    db    'Hi', 0h                        ; generated
-_rasm_s2    db    'two', 0h                       ; generated
-_rasm_s3    db    'one', 0h                       ; generated
 section .bss                                      ; generated
   _rasm_buffer_10b resb 10                        ; generated
 SECTION .text                                     ; generated
 global  main                                      ; generated
                                                   ; generated
 main:                                             ; generated
-; calling function helloWorld                     ; generated
-    call    helloWorld                            ; generated
-; end calling function helloWorld                 ; generated
+; calling function nprintln                       ; generated
+; calling function fib                            ; generated
+    push    40                                    ; generated
+    call    fib                                   ; generated
+    add     esp,4                                 ; generated
+; end calling function fib                        ; generated
+    push    eax                                   ; generated
+    call    nprintln                              ; generated
+    add     esp,4                                 ; generated
+; end calling function nprintln                   ; generated
     mov     ebx, 01                               ; generated
     mov     eax, 1                                ; generated
     int     80h                                   ; generated
     ret                                           ; generated
-helloWorld:                                       ; generated
+fib:                                              ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
-; calling function sprintln                       ; generated
-    push    _rasm_s0                              ; generated
-    call    sprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function sprintln                   ; generated
-; calling function sprintln                       ; generated
-    push    _rasm_s1                              ; generated
-    call    sprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function sprintln                   ; generated
-; calling function nprintln                       ; generated
-    push    10                                    ; generated
-    call    nprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function nprintln                   ; generated
-; calling function nprintln                       ; generated
-; inlining function nadd                          ; generated
-    push    25                                    ; generated
-    push    15                                    ; generated
-; To remove from stack  nadd 2                    ; generated
+; inlining function if                            ; generated
+    push    dword[ebp+4+4]                        ; generated
+    push     lambda0                              ; generated
+    push     lambda1                              ; generated
+; inlining function lessOrEqual                   ; generated
+    push    1                                     ; generated
+    push     dword [ebp+4+4]                      ; generated
+; To remove from stack  lessOrEqual 5             ; generated
 
-    mov     eax, [ebp-8]
-    add     eax, [ebp-4]
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,[ebp-20]
+    cmp     ebx,[ebp-16]
+    jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+    pop     ebx
     add     esp,8                                 ; generated
-; end inlining function nadd                      ; generated
+; end inlining function lessOrEqual               ; generated
     push    eax                                   ; generated
-    call    nprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function nprintln                   ; generated
-; calling function nprintln                       ; generated
-; inlining function nadd                          ; generated
-; inlining function nadd                          ; generated
-    push    20                                    ; generated
-    push    10                                    ; generated
-; To remove from stack  nadd 2                    ; generated
+; To remove from stack  if 4                      ; generated
 
-    mov     eax, [ebp-8]
-    add     eax, [ebp-4]
-    add     esp,8                                 ; generated
-; end inlining function nadd                      ; generated
-    push    eax                                   ; generated
-    push    15                                    ; generated
-; To remove from stack  nadd 2                    ; generated
-
-    mov     eax, [ebp-8]
-    add     eax, [ebp-4]
-    add     esp,8                                 ; generated
-; end inlining function nadd                      ; generated
-    push    eax                                   ; generated
-    call    nprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function nprintln                   ; generated
-; calling function sprintln2                      ; generated
-    push    _rasm_s2                              ; generated
-    push    _rasm_s3                              ; generated
-    call    sprintln2                             ; generated
-    add     esp,8                                 ; generated
-; end calling function sprintln2                  ; generated
+    cmp     word [ebp-16], 0
+    jz      $+7
+    call    [ebp-12] ; true value
+    jmp     $+5
+    call    [ebp-8] ; false value
+    add     esp,16                                ; generated
+; end inlining function if                        ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
 sprintln2:                                        ; generated
@@ -215,5 +187,59 @@ slen:                                             ; generated
 .finished:
     sub     eax, ebx
     pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lambda0:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; inlining function nadd                          ; generated
+; calling function fib                            ; generated
+; inlining function nadd                          ; generated
+    push    -2                                    ; generated
+    push     dword [ebp+4+16]                     ; generated
+; To remove from stack  nadd 2                    ; generated
+
+    mov     eax, [ebp-8]
+    add     eax, [ebp-4]
+    add     esp,8                                 ; generated
+; end inlining function nadd                      ; generated
+    push    eax                                   ; generated
+    call    fib                                   ; generated
+    add     esp,4                                 ; generated
+; end calling function fib                        ; generated
+    push    eax                                   ; generated
+; calling function fib                            ; generated
+; inlining function nadd                          ; generated
+    push    -1                                    ; generated
+    push     dword [ebp+4+16]                     ; generated
+; To remove from stack  nadd 3                    ; generated
+
+    mov     eax, [ebp-12]
+    add     eax, [ebp-8]
+    add     esp,8                                 ; generated
+; end inlining function nadd                      ; generated
+    push    eax                                   ; generated
+    call    fib                                   ; generated
+    add     esp,4                                 ; generated
+; end calling function fib                        ; generated
+    push    eax                                   ; generated
+; To remove from stack  nadd 2                    ; generated
+
+    mov     eax, [ebp-8]
+    add     eax, [ebp-4]
+    add     esp,8                                 ; generated
+; end inlining function nadd                      ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lambda1:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; inlining function itn                           ; generated
+    push     dword [ebp+4+16]                     ; generated
+; To remove from stack  itn 1                     ; generated
+
+    mov     eax,[esp]
+    add     esp,4                                 ; generated
+; end inlining function itn                       ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
