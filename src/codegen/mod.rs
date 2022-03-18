@@ -231,14 +231,10 @@ impl CodeGen {
                         let label = format!("_rasm_s{}", self.id);
                         self.id += 1;
                         self.statics.insert(label.clone(), MemoryValue::StringValue(value.clone()));
-                        //CodeGen::add(&mut before, &format!("    push    {}", label));
                         call_parameters.add_string_literal(&param_name, label);
-                        //to_remove_from_stack += 1;
                     }
                     ASTExpression::Number(n) => {
-                        //CodeGen::add(&mut before, &format!("    push    {}", n));
                         call_parameters.add_number(&param_name, n);
-                        //to_remove_from_stack += 1;
                     }
                     ASTExpression::ASTFunctionCallExpression(call) => {
                         call_parameters.push(&self.function_call(call, context, parent_def, added_to_stack +
@@ -250,8 +246,6 @@ impl CodeGen {
                             match var_kind {
                                 VarKind::ParameterRef(index) => {
                                     call_parameters.add_var(*index);
-                                    //CodeGen::add(&mut before, &format!("    push     dword [ebp+4+{}]", (index + 1) * 4));
-                                    //to_remove_from_stack += 1;
                                 }
                             }
                         } else {
@@ -296,7 +290,6 @@ impl CodeGen {
                 CodeGen::add(&mut before, &format!("; To remove from stack  {} {}", call_function_def.name, added_to_stack +
                     to_remove_from_stack + call_parameters.to_remove_from_stack()));
                 before.push_str(&call_parameters.resolve_asm_parameters(&call_function_def, body, parent_def.is_some(), added_to_stack + to_remove_from_stack));
-                //before.push_str(&Self::resolve_asm_parameters(&call_function_def, body, added_to_stack + to_remove_from_stack, parent_def.is_some()));
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
