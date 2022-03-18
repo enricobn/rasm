@@ -36,13 +36,10 @@ helloWorld:                                       ; generated
 ; end calling function nprintln                   ; generated
 ; calling function nprintln                       ; generated
 ; inlining function nadd                          ; generated
-    push    25                                    ; generated
-    push    15                                    ; generated
-; To remove from stack  nadd 2                    ; generated
+; To remove from stack  nadd 0                    ; generated
 
-    mov     eax, [ebp-8]
-    add     eax, [ebp-4]
-    add     esp,8                                 ; generated
+    mov     eax, 15
+    add     eax, 25
 ; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated
@@ -51,21 +48,17 @@ helloWorld:                                       ; generated
 ; calling function nprintln                       ; generated
 ; inlining function nadd                          ; generated
 ; inlining function nadd                          ; generated
-    push    20                                    ; generated
-    push    10                                    ; generated
-; To remove from stack  nadd 2                    ; generated
+; To remove from stack  nadd 0                    ; generated
 
-    mov     eax, [ebp-8]
-    add     eax, [ebp-4]
-    add     esp,8                                 ; generated
+    mov     eax, 10
+    add     eax, 20
 ; end inlining function nadd                      ; generated
     push    eax                                   ; generated
-    push    15                                    ; generated
-; To remove from stack  nadd 2                    ; generated
+; To remove from stack  nadd 1                    ; generated
 
-    mov     eax, [ebp-8]
+    mov     eax, 15
     add     eax, [ebp-4]
-    add     esp,8                                 ; generated
+    add     esp,4                                 ; generated
 ; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated

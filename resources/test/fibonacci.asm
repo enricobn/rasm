@@ -26,18 +26,17 @@ fib:                                              ; generated
     push     lambda0                              ; generated
     push     lambda1                              ; generated
 ; inlining function lessOrEqual                   ; generated
-    push    1                                     ; generated
     push     dword [ebp+4+4]                      ; generated
-; To remove from stack  lessOrEqual 5             ; generated
+; To remove from stack  lessOrEqual 4             ; generated
 
     push    ebx
     mov     eax,1 ; true
-    mov     ebx,[ebp-20]
-    cmp     ebx,[ebp-16]
+    mov     ebx,[ebp-16]
+    cmp     ebx,1
     jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
     pop     ebx
-    add     esp,8                                 ; generated
+    add     esp,4                                 ; generated
 ; end inlining function lessOrEqual               ; generated
     push    eax                                   ; generated
 ; To remove from stack  if 4                      ; generated
@@ -195,13 +194,12 @@ lambda0:                                          ; generated
 ; inlining function nadd                          ; generated
 ; calling function fib                            ; generated
 ; inlining function nadd                          ; generated
-    push    -2                                    ; generated
     push     dword [ebp+4+16]                     ; generated
-; To remove from stack  nadd 2                    ; generated
+; To remove from stack  nadd 1                    ; generated
 
-    mov     eax, [ebp-8]
-    add     eax, [ebp-4]
-    add     esp,8                                 ; generated
+    mov     eax, [ebp-4]
+    add     eax, -2
+    add     esp,4                                 ; generated
 ; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    fib                                   ; generated
@@ -210,13 +208,12 @@ lambda0:                                          ; generated
     push    eax                                   ; generated
 ; calling function fib                            ; generated
 ; inlining function nadd                          ; generated
-    push    -1                                    ; generated
     push     dword [ebp+4+16]                     ; generated
-; To remove from stack  nadd 3                    ; generated
+; To remove from stack  nadd 2                    ; generated
 
-    mov     eax, [ebp-12]
-    add     eax, [ebp-8]
-    add     esp,8                                 ; generated
+    mov     eax, [ebp-8]
+    add     eax, -1
+    add     esp,4                                 ; generated
 ; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    fib                                   ; generated

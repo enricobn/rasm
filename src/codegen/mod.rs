@@ -1,5 +1,9 @@
+mod function_call_parameters;
+
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
+use std::ops::Add;
+use crate::codegen::function_call_parameters::FunctionCallParameters;
 
 use crate::Parser;
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef};
@@ -138,6 +142,7 @@ impl CodeGen {
 
         asm.push_str(&self.body);
 
+        // exit sys call
         CodeGen::add(&mut asm, "    mov     ebx, 01");
         CodeGen::add(&mut asm, "    mov     eax, 1");
         CodeGen::add(&mut asm, "    int     80h");
@@ -196,6 +201,7 @@ impl CodeGen {
         });
 
         let mut to_remove_from_stack = 0;
+
         if has_lambda {
             context.iter().for_each(|(_, kind)| {
                 if let Some(_) = parent_def {
@@ -210,72 +216,87 @@ impl CodeGen {
             //to_remove_from_stack += 1;
         }
 
-        // as for C calling conventions parameters are pushed in reverse order
-        for expr in function_call.parameters.iter().rev() {
-            match expr {
-                ASTExpression::StringLiteral(value) => {
-                    let label = format!("_rasm_s{}", self.id);
-                    self.id += 1;
-                    self.statics.insert(label.clone(), MemoryValue::StringValue(value.clone()));
-                    CodeGen::add(&mut before, &format!("    push    {}", label));
-                    to_remove_from_stack += 1;
-                }
-                ASTExpression::Number(n) => {
-                    CodeGen::add(&mut before, &format!("    push    {}", n));
-                    to_remove_from_stack += 1;
-                }
-                ASTExpression::ASTFunctionCallExpression(call) => {
-                    before.push_str(&self.function_call(call, context, parent_def, added_to_stack + to_remove_from_stack));
-                    // TODO I must get the register that is returned, getting that from the function def of the called function
-                    CodeGen::add(&mut before, &format!("    push    eax"));
-                    to_remove_from_stack += 1;
-                }
-                ASTExpression::Var(name) => {
-                    if let Some(var_kind) = context.get(name) {
-                        match var_kind {
-                            VarKind::ParameterRef(index) => {
-                                CodeGen::add(&mut before, &format!("    push     dword [ebp+4+{}]", (index + 1) * 4));
-                                to_remove_from_stack += 1;
-                            }
-                        }
-                    } else {
-                        panic!("Cannot find variable {}, calling function {}", name, function_call.function_name);
-                    }
-                }
-                ASTExpression::Lambda(function_def) => {
-                    let mut def = function_def.clone();
-                    def.name = format!("lambda{}", self.id);
-                    self.id += 1;
-                    context.iter().for_each(|(name, kind)| {
-                        if let Some(pdef) = parent_def {
-                            if let VarKind::ParameterRef(index) = kind {
-                                let par = pdef.parameters.get(*index).unwrap().clone();
-                                def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref })
-                            }
-                        }
-                    });
+        let mut call_parameters = FunctionCallParameters::new(call_function_def.clone());
 
-                    if let ASTFunctionBody::RASMBody(_) = &function_def.body {
-                        CodeGen::add(&mut before, &format!("    push     {}", def.name));
-                        to_remove_from_stack += 1;
-                        // 2 I think is the SP or PC that has been pushed to the stack, but it's not pushed for inline functions
-                        let offset = if call_function_def.inline {
-                            0
+        if !function_call.parameters.is_empty() {
+
+            let mut param_index = function_call.parameters.len();
+            // as for C calling conventions parameters are pushed in reverse order
+            for expr in function_call.parameters.iter().rev() {
+                let param_name = call_function_def.parameters.get(param_index - 1).unwrap().name.clone();
+                param_index -= 1;
+
+                match expr {
+                    ASTExpression::StringLiteral(value) => {
+                        let label = format!("_rasm_s{}", self.id);
+                        self.id += 1;
+                        self.statics.insert(label.clone(), MemoryValue::StringValue(value.clone()));
+                        //CodeGen::add(&mut before, &format!("    push    {}", label));
+                        call_parameters.add_string_literal(&param_name, label);
+                        //to_remove_from_stack += 1;
+                    }
+                    ASTExpression::Number(n) => {
+                        //CodeGen::add(&mut before, &format!("    push    {}", n));
+                        call_parameters.add_number(&param_name, n);
+                        //to_remove_from_stack += 1;
+                    }
+                    ASTExpression::ASTFunctionCallExpression(call) => {
+                        call_parameters.push(&self.function_call(call, context, parent_def, added_to_stack +
+                            to_remove_from_stack + call_parameters.to_remove_from_stack()));
+                        call_parameters.add_function_call();
+                    }
+                    ASTExpression::Var(name) => {
+                        if let Some(var_kind) = context.get(name) {
+                            match var_kind {
+                                VarKind::ParameterRef(index) => {
+                                    call_parameters.add_var(*index);
+                                    //CodeGen::add(&mut before, &format!("    push     dword [ebp+4+{}]", (index + 1) * 4));
+                                    //to_remove_from_stack += 1;
+                                }
+                            }
                         } else {
-                            2
-                        };
-                        self.lambdas.push(LambdaCall { def, parameters_offset: function_call.parameters.len() + offset });
-                    } else {
-                        panic!("A lambda cannot have an asm body.")
+                            panic!("Cannot find variable {}, calling function {}", name, function_call.function_name);
+                        }
+                    }
+                    ASTExpression::Lambda(function_def) => {
+                        let mut def = function_def.clone();
+                        def.name = format!("lambda{}", self.id);
+                        self.id += 1;
+                        context.iter().for_each(|(name, kind)| {
+                            if let Some(pdef) = parent_def {
+                                if let VarKind::ParameterRef(index) = kind {
+                                    let par = pdef.parameters.get(*index).unwrap().clone();
+                                    def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref })
+                                }
+                            }
+                        });
+
+                        if let ASTFunctionBody::RASMBody(_) = &function_def.body {
+                            CodeGen::add(&mut before, &format!("    push     {}", def.name));
+                            to_remove_from_stack += 1;
+                            // 2 I think is the SP or PC that has been pushed to the stack, but it's not pushed for inline functions
+                            let offset = if call_function_def.inline {
+                                0
+                            } else {
+                                2
+                            };
+                            self.lambdas.push(LambdaCall { def, parameters_offset: function_call.parameters.len() + offset });
+                        } else {
+                            panic!("A lambda cannot have an asm body.")
+                        }
                     }
                 }
             }
         }
 
+        before = before.add(call_parameters.before());
+
         if call_function_def.inline {
             if let ASTFunctionBody::ASMBody(body) = &call_function_def.body {
-                CodeGen::add(&mut before, &format!("; To remove from stack  {} {}", call_function_def.name, added_to_stack + to_remove_from_stack));
-                before.push_str(&Self::resolve_asm_parameters(&call_function_def, body, added_to_stack + to_remove_from_stack, parent_def.is_some()));
+                CodeGen::add(&mut before, &format!("; To remove from stack  {} {}", call_function_def.name, added_to_stack +
+                    to_remove_from_stack + call_parameters.to_remove_from_stack()));
+                before.push_str(&call_parameters.resolve_asm_parameters(&call_function_def, body, parent_def.is_some(), added_to_stack + to_remove_from_stack));
+                //before.push_str(&Self::resolve_asm_parameters(&call_function_def, body, added_to_stack + to_remove_from_stack, parent_def.is_some()));
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
@@ -283,8 +304,8 @@ impl CodeGen {
             CodeGen::add(&mut before, &format!("    call    {}", function_call.function_name));
         }
 
-        if to_remove_from_stack > 0 {
-            CodeGen::add(&mut before, &format!("    add     esp,{}", 4 * to_remove_from_stack));
+        if to_remove_from_stack + call_parameters.to_remove_from_stack() > 0 {
+            CodeGen::add(&mut before, &format!("    add     esp,{}", 4 * (to_remove_from_stack + call_parameters.to_remove_from_stack())));
         }
 
         if call_function_def.inline {
@@ -292,6 +313,7 @@ impl CodeGen {
         } else {
             CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));
         }
+
         before
     }
 

@@ -6,13 +6,10 @@ global  main                                      ; generated
 main:                                             ; generated
 ; calling function nprintln                       ; generated
 ; inlining function nadd                          ; generated
-    push    3                                     ; generated
-    push    2                                     ; generated
-; To remove from stack  nadd 2                    ; generated
+; To remove from stack  nadd 0                    ; generated
 
-    mov     eax, [esp+0]
-    add     eax, [esp+4]
-    add     esp,8                                 ; generated
+    mov     eax, 2
+    add     eax, 3
 ; end inlining function nadd                      ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated
