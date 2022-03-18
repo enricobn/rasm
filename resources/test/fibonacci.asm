@@ -50,21 +50,6 @@ fib:                                              ; generated
 ; end inlining function if                        ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
-sprintln2:                                        ; generated
-    push    ebp                                   ; generated
-    mov     ebp,esp                               ; generated
-; calling function sprintln                       ; generated
-    push     dword [ebp+4+4]                      ; generated
-    call    sprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function sprintln                   ; generated
-; calling function sprintln                       ; generated
-    push     dword [ebp+4+8]                      ; generated
-    call    sprintln                              ; generated
-    add     esp,4                                 ; generated
-; end calling function sprintln                   ; generated
-    pop     ebp                                   ; generated
-    ret                                           ; generated
 sprintln:                                         ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated

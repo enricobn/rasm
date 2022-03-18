@@ -2,11 +2,6 @@ inline asm itn(n: i32) -> i32[eax] /{
     mov     eax,[esp]
 }/
 
-fn sprintln2(s1: &str, s2: &str) {
-    sprintln(s1);
-    sprintln(s2);
-}
-
 /**
  * Prints the string to standard output adding a line feed to the end.
  **/
