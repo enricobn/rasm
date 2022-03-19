@@ -245,7 +245,7 @@ impl CodeGen {
                         if let Some(var_kind) = context.get(name) {
                             match var_kind {
                                 VarKind::ParameterRef(index) => {
-                                    call_parameters.add_var(*index);
+                                    call_parameters.add_var(&param_name, *index);
                                 }
                             }
                         } else {

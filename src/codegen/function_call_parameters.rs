@@ -38,15 +38,13 @@ impl FunctionCallParameters {
         self.to_remove_from_stack += 1;
     }
 
-    pub fn add_var(&mut self, index: usize) {
-        /*if self.call_function_def.inline {
-            self.parameters_values.insert(param_name.clone(), format!("{}", label));
+    pub fn add_var(&mut self, param_name: &String, index: usize) {
+        if self.call_function_def.inline {
+            self.parameters_values.insert(param_name.clone(), format!("[ebp+4+{}]", (index + 1) * 4));
         } else {
-
-         */
             Self::add(&mut self.before, &format!("    push     dword [ebp+4+{}]", (index + 1) * 4));
             self.to_remove_from_stack += 1;
-        //}
+        }
     }
 
     pub fn resolve_asm_parameters(&self, function_def: &ASTFunctionDef, body: &str, inside_function: bool, to_remove_from_stack: usize) -> String {
