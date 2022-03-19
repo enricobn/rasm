@@ -1,5 +1,5 @@
 inline asm itn(n: i32) -> i32[eax] /{
-    mov     eax,[esp]
+    mov     eax,$n
 }/
 
 /**
