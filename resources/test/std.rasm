@@ -143,3 +143,17 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
     mov     eax,0 ; false
     pop     ebx
 }/
+
+/** TODO it should be a bool
+ *  a  <= b
+ *  false = 0 true = any other value
+ **/
+inline asm greater(a: i32, b: i32) -> i32[eax] /{
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,$a
+    cmp     ebx,$b
+    jg     $+7  ; Jump if greater (unsigned comparison)
+    mov     eax,0 ; false
+    pop     ebx
+}/
