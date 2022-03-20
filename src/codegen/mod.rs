@@ -1,14 +1,16 @@
 mod function_call_parameters;
+pub mod backend;
 
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::ops::Add;
+use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
 use crate::Parser;
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTTypeRef};
 
-pub struct CodeGen {
+pub struct CodeGen<'a> {
     module: ASTModule,
     id: usize,
     statics: HashMap<String, MemoryValue>,
@@ -17,6 +19,7 @@ pub struct CodeGen {
     definitions: String,
     lambdas: Vec<LambdaCall>,
     functions: HashMap<String, ASTFunctionDef>,
+    backend: &'a dyn Backend
 }
 
 #[derive(Clone)]
@@ -32,7 +35,7 @@ struct VarContext {
 
 #[derive(Clone, Debug)]
 enum VarKind {
-    ParameterRef(usize)
+    ParameterRef(usize, ASTTypeRef)
 }
 
 #[derive(Clone)]
@@ -63,8 +66,8 @@ impl VarContext {
     }
 }
 
-impl CodeGen {
-    pub fn new(module: ASTModule) -> Self {
+impl <'a> CodeGen<'a> {
+    pub fn new(backend: &'a dyn Backend, module: ASTModule) -> Self {
         Self {
             module,
             body: String::new(),
@@ -73,6 +76,7 @@ impl CodeGen {
             definitions: String::new(),
             lambdas: Vec::new(),
             functions: HashMap::new(),
+            backend
         }
     }
 
@@ -85,7 +89,6 @@ impl CodeGen {
         for function_def in &self.module.functions.clone() {
             self.functions.insert(function_def.name.clone(), function_def.clone());
         }
-
 
         // for now main has no context
         let main_context = VarContext::new();
@@ -154,14 +157,18 @@ impl CodeGen {
 
     fn add_function_def(&mut self, function_def: &ASTFunctionDef, parameters_offset: usize) {
         CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name));
-        CodeGen::add(&mut self.definitions, "    push    ebp");
-        CodeGen::add(&mut self.definitions, "    mov     ebp,esp");
+
+        let sp = self.backend.stack_pointer();
+        let bp = self.backend.stack_base_pointer();
+
+        CodeGen::add(&mut self.definitions, &format!("    push    {}", bp));
+        CodeGen::add(&mut self.definitions, &format!("    mov     {},{}", bp, sp));
 
         let mut context = VarContext::new();
         let mut i = 0;
         while i < function_def.parameters.len() {
             if let Some(par) = function_def.parameters.get(i) {
-                context.insert(par.name.clone(), VarKind::ParameterRef(i + parameters_offset));
+                context.insert(par.name.clone(), VarKind::ParameterRef(i + parameters_offset, par.type_ref.clone()));
             }
             i += 1;
         }
@@ -176,7 +183,7 @@ impl CodeGen {
             ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&Self::resolve_asm_parameters(function_def, s, 0, true))
         }
 
-        CodeGen::add(&mut self.definitions, "    pop     ebp");
+        CodeGen::add(&mut self.definitions, &format!("    pop     {}", bp));
         CodeGen::add(&mut self.definitions, "    ret");
     }
 
@@ -205,9 +212,15 @@ impl CodeGen {
         if has_lambda {
             context.iter().for_each(|(_, kind)| {
                 if let Some(_) = parent_def {
-                    if let VarKind::ParameterRef(index) = kind {
+                    if let VarKind::ParameterRef(index, par_type_ref) = kind {
+                        let wl = self.backend.word_len() as usize;
+                        let bp = self.backend.stack_base_pointer();
+
+                        let type_size = self.backend.type_size(par_type_ref).expect(
+                            &format!("Unsupported type size: {:?}", par_type_ref));
+
                         // parameters must be pushed in reverse order
-                        CodeGen::add(&mut before, &format!("    push    dword[ebp+4+{}]", (context.len() - index) * 4));
+                        CodeGen::add(&mut before, &format!("    push    {} [{}+{}+{}]", type_size, bp, wl, (context.len() - index) * wl));
                         to_remove_from_stack += 1;
                     }
                 }
@@ -216,7 +229,7 @@ impl CodeGen {
             //to_remove_from_stack += 1;
         }
 
-        let mut call_parameters = FunctionCallParameters::new(call_function_def.clone());
+        let mut call_parameters = FunctionCallParameters::new(self.backend, call_function_def.clone());
 
         if !function_call.parameters.is_empty() {
 
@@ -244,8 +257,8 @@ impl CodeGen {
                     ASTExpression::Var(name) => {
                         if let Some(var_kind) = context.get(name) {
                             match var_kind {
-                                VarKind::ParameterRef(index) => {
-                                    call_parameters.add_var(&param_name, *index);
+                                VarKind::ParameterRef(index, par_type_ref) => {
+                                    call_parameters.add_var(&param_name, par_type_ref, *index);
                                 }
                             }
                         } else {
@@ -257,11 +270,8 @@ impl CodeGen {
                         def.name = format!("lambda{}", self.id);
                         self.id += 1;
                         context.iter().for_each(|(name, kind)| {
-                            if let Some(pdef) = parent_def {
-                                if let VarKind::ParameterRef(index) = kind {
-                                    let par = pdef.parameters.get(*index).unwrap().clone();
-                                    def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref })
-                                }
+                            if let VarKind::ParameterRef(_, par_type) = kind {
+                                def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par_type.clone() })
                             }
                         });
 
@@ -298,7 +308,9 @@ impl CodeGen {
         }
 
         if to_remove_from_stack + call_parameters.to_remove_from_stack() > 0 {
-            CodeGen::add(&mut before, &format!("    add     esp,{}", 4 * (to_remove_from_stack + call_parameters.to_remove_from_stack())));
+            let sp = self.backend.stack_pointer();
+            let wl = self.backend.word_len() as usize;
+            CodeGen::add(&mut before, &format!("    add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())));
         }
 
         if call_function_def.inline {
@@ -359,6 +371,7 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
     use std::path::Path;
+    use crate::codegen::backend::Backend386;
 
     use crate::codegen::CodeGen;
     use crate::Lexer;
@@ -371,7 +384,9 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let module = parser.parse(path);
 
-        let mut gen = CodeGen::new(module);
+        let backend = Backend386::new();
+
+        let mut gen = CodeGen::new(&backend, module);
 
         let asm = gen.asm();
 
@@ -389,7 +404,9 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let module = parser.parse(path);
 
-        let mut gen = CodeGen::new(module);
+        let backend = Backend386::new();
+
+        let mut gen = CodeGen::new(&backend, module);
 
         let asm = gen.asm();
 
@@ -407,7 +424,9 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let module = parser.parse(path);
 
-        let mut gen = CodeGen::new(module);
+        let backend = Backend386::new();
+
+        let mut gen = CodeGen::new(&backend, module);
 
         let asm = gen.asm();
 

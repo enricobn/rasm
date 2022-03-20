@@ -1,0 +1,12 @@
+include "std.rasm"
+
+nprintln(mc91(87));
+
+fn mc91(n: i32) -> i32 {
+    nprintln(n);
+    if (greater(n, 100), {
+        nadd(n, -10);
+    },{
+        mc91(mc91(nadd(n, 11)));
+    });
+}
