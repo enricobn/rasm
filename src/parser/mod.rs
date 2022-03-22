@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use crate::Lexer;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
@@ -52,7 +53,7 @@ impl Parser {
             i: 0,
             data: Vec::new(),
             state: Vec::new(),
-            included_functions: Vec::new()
+            included_functions: Vec::new(),
         }
     }
 
@@ -96,7 +97,7 @@ impl Parser {
                             parameters: Vec::new(),
                             body: ASTFunctionBody::RASMBody(Vec::new()),
                             return_type: None,
-                            inline: false
+                            inline: false,
                         }));
                         self.state.push(ParserState::FunctionDefState);
                         self.state.push(ParserState::FunctionDefParameterState);
@@ -108,7 +109,7 @@ impl Parser {
                             parameters: Vec::new(),
                             body: ASTFunctionBody::ASMBody("".into()),
                             return_type: None,
-                            inline
+                            inline,
                         }));
                         self.state.push(ParserState::FunctionDefState);
                         self.state.push(ParserState::FunctionDefParameterState);
@@ -130,7 +131,7 @@ impl Parser {
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
                     }
-                   self.debug_error("Unknown statement");
+                    self.debug_error("Unknown statement");
                 }
                 Some(ParserState::FunctionCallParameterState) => {
                     if let Some(FunctionCallData(call)) = self.last_data() {
@@ -175,7 +176,7 @@ impl Parser {
                                 parameters: Vec::new(),
                                 body: ASTFunctionBody::RASMBody(Vec::new()),
                                 return_type,
-                                inline: false
+                                inline: false,
                             }));
                             self.state.push(ParserState::FunctionBodyState);
                             self.i += 1;
@@ -347,10 +348,8 @@ impl Parser {
     }
 
     fn is_next_token_a_semicolon(&self) -> bool {
-        if let Some(next_token) = self.next_token() {
-            if let TokenKind::Punctuation(PunctuationKind::SemiColon) = next_token.kind {
-                return true;
-            }
+        if let Some(Token { row: _, column: _, kind: TokenKind::Punctuation(PunctuationKind::SemiColon) }) = self.next_token() {
+            return true;
         }
         false
     }
@@ -484,29 +483,19 @@ impl Parser {
     }
 
     fn try_parse_function_call(&self) -> Option<(String, usize)> {
-        if let Some(token) = self.get_token() {
-            if let TokenKind::AlphaNumeric(function_name) = &token.kind {
-                if let Some(next_token) = self.next_token() {
-                    if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Open) = next_token.kind {
-                        return Some((function_name.into(), self.i + 2));
-                    }
-                }
+        if let Some(Token { kind: TokenKind::AlphaNumeric(function_name), row: _, column: _ }) = self.get_token() {
+            if let Some(Token { kind: TokenKind::Bracket(BracketKind::Round, BracketStatus::Open), row: _, column: _ }) = self.next_token() {
+                return Some((function_name.into(), self.i + 2));
             }
         }
         None
     }
 
     fn try_parse_function_def(&self) -> Option<(String, usize)> {
-        if let Some(token) = self.get_token() {
-            if let TokenKind::KeyWord(KeywordKind::Fn) = &token.kind {
-                if let Some(next_token) = self.next_token() {
-                    if let TokenKind::AlphaNumeric(function_name) = &next_token.kind {
-                        if let Some(next_token2) = self.next_token2() {
-                            if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Open) = next_token2.kind {
-                                return Some((function_name.into(), self.i + 3));
-                            }
-                        }
-                    }
+        if let Some(Token { kind: TokenKind::KeyWord(KeywordKind::Fn), row: _, column: _ }) = self.get_token() {
+            if let Some( Token {kind: TokenKind::AlphaNumeric(function_name), row: _, column: _}) = self.next_token() {
+                if let Some(Token {kind: TokenKind::Bracket(BracketKind::Round, BracketStatus::Open), row:_, column:_}) = self.next_token2() {
+                    return Some((function_name.into(), self.i + 3));
                 }
             }
         }
