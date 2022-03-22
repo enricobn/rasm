@@ -1,7 +1,7 @@
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub row: usize,
@@ -14,7 +14,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
     AlphaNumeric(String),
     AsmBLock(String),
@@ -28,7 +28,7 @@ pub enum TokenKind {
     WhiteSpaces(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum PunctuationKind {
     And,
     Dot,
@@ -38,7 +38,7 @@ pub enum PunctuationKind {
     SemiColon,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BracketKind {
     Angle,
     Brace,
@@ -46,13 +46,13 @@ pub enum BracketKind {
     Square,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BracketStatus {
     Close,
     Open,
 }
 
-#[derive(Debug, PartialEq, EnumIter)]
+#[derive(Debug, PartialEq, EnumIter, Clone)]
 pub enum KeywordKind {
     Asm,
     Fn,
