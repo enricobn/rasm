@@ -16,7 +16,7 @@ pub struct ASTReturnType {
 #[derive(Debug, Clone)]
 pub enum ASTFunctionBody {
     RASMBody(Vec<ASTFunctionCall>),
-    ASMBody(String)
+    ASMBody(String),
 }
 
 #[derive(Debug, Clone)]
@@ -43,7 +43,7 @@ pub struct ASTTypeRef {
     pub ast_type: ASTType,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct ASTFunctionCall {
     pub function_name: String,
     pub parameters: Vec<ASTExpression>,
@@ -55,11 +55,11 @@ pub enum ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall),
     Var(String),
     Number(i32),
-    Lambda(ASTFunctionDef)
+    Lambda(ASTFunctionDef),
 }
 
 #[derive(Debug, Clone)]
 pub struct ASTModule {
     pub body: Vec<ASTFunctionCall>,
-    pub functions: Vec<ASTFunctionDef>
+    pub functions: Vec<ASTFunctionDef>,
 }

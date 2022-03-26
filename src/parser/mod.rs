@@ -81,7 +81,7 @@ impl Parser {
             match self.get_state() {
                 None => {
                     if !self.parser_data.is_empty() {
-                        self.debug_error("Error");
+                        self.panic("Error");
                     }
                     if let Some((function_name, next_i)) = self.try_parse_function_call() {
                         self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
@@ -122,7 +122,7 @@ impl Parser {
                             let mut parser = Parser::new(lexer);
                             let mut module = parser.parse(resource_path);
                             if !module.body.is_empty() {
-                                self.debug_error("Cannot include a module with a body.");
+                                self.panic("Cannot include a module with a body.");
                             }
                             self.included_functions.append(&mut module.functions);
                         }
@@ -131,7 +131,7 @@ impl Parser {
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
                     }
-                    self.debug_error("Unknown statement");
+                    self.panic("Unknown statement");
                 }
                 Some(ParserState::FunctionCallParameterState) => {
                     if let Some(FunctionCallData(call)) = self.last_parser_data() {
@@ -212,7 +212,7 @@ impl Parser {
                             continue;
                         }
                     }
-                    self.debug_error("Error parsing parameter");
+                    self.panic("Error parsing parameter");
                 }
                 Some(ParserState::FunctionDefState) => {
                     if let Some(ParserData::FunctionDefParameterData(param_def)) = self.last_parser_data() {
@@ -232,7 +232,7 @@ impl Parser {
                                     if let Some(ParserData::FunctionDefData(def)) = self.before_last_parser_data() {
                                         self.parse_register(Self::is_asm(def))
                                     } else {
-                                        self.debug_error("");
+                                        self.panic("");
                                         panic!();
                                     };
                                 self.i = next_i;
@@ -246,7 +246,7 @@ impl Parser {
                             let l = self.parser_data.len();
                             self.parser_data[l - 1] = FunctionDefData(def);
                         } else {
-                            self.debug_error("");
+                            self.panic("");
                         }
                         self.i += 1;
                         continue;
@@ -272,7 +272,7 @@ impl Parser {
                         //self.i += 1;
                         continue;
                     } else {
-                        self.debug_error("Error parsing function definition");
+                        self.panic("Error parsing function definition");
                     }
                 }
                 Some(ParserState::FunctionDefParameterState) => {
@@ -285,7 +285,7 @@ impl Parser {
                             self.state.pop();
                             continue;
                         } else {
-                            self.debug_error("");
+                            self.panic("");
                         }
                     } else {
                         self.state.pop();
@@ -306,7 +306,7 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     }
-                    self.debug_error("Error parsing function body.");
+                    self.panic("Error parsing function body.");
                 }
                 Some(ParserState::FunctionDefReturnTypeState) => {
                     if let Some((type_ref, next_i)) = self.try_parse_type_ref() {
@@ -457,9 +457,19 @@ impl Parser {
         }
     }
 
-    fn debug_error(&self, message: &str) {
-        self.debug(message);
-        panic!();
+    fn error_msg(&self, message: &str) -> String {
+        let option = self.get_token();
+
+        if let Some(token) = option {
+            //self.debug(message);
+            format!("{}: {},{}", message, token.row, token.column)
+        } else {
+            "it wasn't supposed to happen!".into()
+        }
+    }
+
+    fn panic(&self, message: &str) {
+        panic!("{}", self.error_msg(message));
     }
 
     fn debug(&self, message: &str) {
@@ -557,7 +567,7 @@ impl Parser {
         }
 
         if mandatory {
-            self.debug_error("Error parsing return type register");
+            self.panic("Error parsing return type register");
             // TODO I already panicked before
             panic!()
         }
@@ -586,7 +596,7 @@ impl Parser {
             } else if type_name == "str" {
                 Some(ASTType::BuiltinType(BuiltinTypeKind::ASTString))
             } else {
-                self.debug_error(&format!("Unknown type {}", type_name));
+                self.panic(&format!("Unknown type {}", type_name));
                 None
             }
         } else if let TokenKind::KeyWord(KeywordKind::Fn) = &token.kind {
