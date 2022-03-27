@@ -78,8 +78,7 @@ impl Backend for Backend386 {
 
     fn compile_and_link(&self, source_file: String) {
         let path = Path::new(&source_file);
-        let source_file_without_extension = path.file_stem().expect(
-            &format!("Error extracting file name without extension from '{}'", source_file));
+        let source_file_without_extension = path.file_stem().unwrap_or_else(|| panic!("Error extracting file name without extension from '{}'", source_file));
         let nasm_output = Command::new("nasm")
             .arg("-f")
             .arg("elf")
@@ -101,10 +100,10 @@ impl Backend for Backend386 {
                 .output()
                 .expect("failed to execute ld");
             if !ld_output.status.success() {
-               eprintln!("Error running ld")
+               panic!("Error running ld")
             }
         } else {
-            eprintln!("Error running nasm")
+            panic!("Error running nasm")
         }
     }
 
