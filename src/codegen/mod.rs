@@ -99,9 +99,7 @@ impl <'a> CodeGen<'a> {
         }
 
         for function_def in &self.module.functions.clone() {
-            //if !function_def.inline {
-                self.add_function_def(&function_def, 0);
-            //}
+            self.add_function_def(function_def, 0);
         }
 
         Parser::print(&self.module);
@@ -121,7 +119,7 @@ impl <'a> CodeGen<'a> {
 
             for id in keys.iter() {
                 let mut def = String::new();
-                def.push_str(&id);
+                def.push_str(id);
                 def.push_str("    db    ");
                 match self.statics.get(*id).unwrap() {
                     MemoryValue::StringValue(s) => {
@@ -180,7 +178,7 @@ impl <'a> CodeGen<'a> {
         match &function_def.body {
             ASTFunctionBody::RASMBody(calls) => {
                 for call in calls {
-                    let s = self.function_call(call, &context, Some(&function_def), 0);
+                    let s = self.function_call(call, &context, Some(function_def), 0);
                     self.definitions.push_str(&s);
                 }
             }
@@ -196,7 +194,7 @@ impl <'a> CodeGen<'a> {
         let mut before = String::new();
 
         let call_function_def = self.functions.get(&function_call.function_name)
-            .expect(&format!("Cannot find function '{}'", function_call.function_name)).clone();
+            .unwrap_or_else(|| panic!("Cannot find function '{}'", function_call.function_name)).clone();
 
         if call_function_def.inline && parent_def.is_some() {
             CodeGen::add(&mut before, &format!("; inlining function {}", function_call.function_name));
@@ -216,13 +214,12 @@ impl <'a> CodeGen<'a> {
 
         if has_lambda {
             context.iter().for_each(|(_, kind)| {
-                if let Some(_) = parent_def {
+                if parent_def.is_some() {
                     if let VarKind::ParameterRef(index, par_type_ref) = kind {
                         let wl = self.backend.word_len() as usize;
                         let bp = self.backend.stack_base_pointer();
 
-                        let type_size = self.backend.type_size(par_type_ref).expect(
-                            &format!("Unsupported type size: {:?}", par_type_ref));
+                        let type_size = self.backend.type_size(par_type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", par_type_ref));
 
                         // parameters must be pushed in reverse order
                         CodeGen::add(&mut before, &format!("    push    {} [{}+{}+{}]", type_size, bp, wl, (context.len() - index) * wl));
@@ -230,8 +227,6 @@ impl <'a> CodeGen<'a> {
                     }
                 }
             });
-            //CodeGen::add(&mut before, &format!("    push    dword {}", context.len()));
-            //to_remove_from_stack += 1;
         }
 
         let mut call_parameters = FunctionCallParameters::new(self.backend, call_function_def.clone(),

@@ -174,12 +174,10 @@ impl Iterator for Lexer {
                 LexStatus::AlphaNumeric => {
                     if c.is_alphanumeric() {
                         actual.push(c);
+                    } else if let Some(keyword) = KeywordKind::from_name(&actual) {
+                        return self.some_token(keyword);
                     } else {
-                        if let Some(keyword) = KeywordKind::from_name(&actual) {
-                            return self.some_token(keyword);
-                        } else {
-                            return self.some_token(TokenKind::AlphaNumeric(actual));
-                        }
+                        return self.some_token(TokenKind::AlphaNumeric(actual));
                     }
                 }
                 LexStatus::Numeric => {
@@ -231,7 +229,7 @@ impl Iterator for Lexer {
             self.column += 1;
         }
 
-        if actual.len() > 0 {
+        if !actual.is_empty() {
             println!("Do you have missed something? {}", actual);
         }
 
@@ -328,11 +326,7 @@ mod tests {
     fn test5() {
         let lexer = Lexer::from_file(Path::new("resources/test/test5.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).filter(|it| {
-            if let TokenKind::AsmBLock(_) = it {
-                true
-            } else {
-                false
-            }
+            matches!(it, TokenKind::AsmBLock(_))
         }).collect();
         assert_eq!(vec![AsmBLock("\n    add assembler code\n".into()), AsmBLock("\n    sub assembler code\n".into())], lst);
     }

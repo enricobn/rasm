@@ -71,6 +71,6 @@ impl KeywordKind {
     }
 
     pub fn from_name(name: &str) -> Option<TokenKind> {
-        KeywordKind::iter().find(|it| it.name() == name).map(|it| TokenKind::KeyWord(it))
+        KeywordKind::iter().find(|it| it.name() == name).map(TokenKind::KeyWord)
     }
 }
