@@ -45,12 +45,7 @@ enum ParserState {
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let tokens = lexer.filter(|it| {
-            match it.kind {
-                TokenKind::WhiteSpaces(_) => false,
-                TokenKind::Comment(_) => false,
-                TokenKind::EndOfLine => false,
-                _ => true
-            }
+            !matches!(it.kind, TokenKind::WhiteSpaces(_) | TokenKind::Comment(_) | TokenKind::EndOfLine)
         }).collect();
         Self {
             tokens,
@@ -91,15 +86,15 @@ impl Parser {
                     }
                     if let Some((function_name, next_i)) = self.try_parse_function_call() {
                         self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
-                            function_name: function_name.into(),
+                            function_name,
                             parameters: Vec::new(),
                         }));
                         self.state.push(FunctionCallState);
                         self.i = next_i;
                         continue;
-                    } else if let Some((function_name, next_i)) = self.try_parse_function_def() {
+                    } else if let Some((name, next_i)) = self.try_parse_function_def() {
                         self.parser_data.push(ParserData::FunctionDefData(ASTFunctionDef {
-                            name: function_name.into(),
+                            name,
                             parameters: Vec::new(),
                             body: ASTFunctionBody::RASMBody(Vec::new()),
                             return_type: None,
@@ -109,9 +104,9 @@ impl Parser {
                         self.state.push(ParserState::FunctionDefParameterState);
                         self.i = next_i;
                         continue;
-                    } else if let Some((function_name, inline, next_i)) = self.try_parse_asm_def() {
+                    } else if let Some((name, inline, next_i)) = self.try_parse_asm_def() {
                         self.parser_data.push(ParserData::FunctionDefData(ASTFunctionDef {
-                            name: function_name.into(),
+                            name,
                             parameters: Vec::new(),
                             body: ASTFunctionBody::ASMBody("".into()),
                             return_type: None,
@@ -185,7 +180,7 @@ impl Parser {
                         continue;
                     } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
                         self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
-                            function_name: function_name.into(),
+                            function_name,
                             parameters: Vec::new(),
                         }));
                         self.state.push(FunctionCallState);
@@ -224,21 +219,21 @@ impl Parser {
     fn process_function_call(&mut self, token: Token) -> ProcessResult {
         if let Some(FunctionCallData(call)) = self.last_parser_data() {
             if let TokenKind::StringLiteral(value) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(call.clone(), ASTExpression::StringLiteral(value.clone()));
+                self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::StringLiteral(value.clone()));
                 return ProcessResult::Continue;
             } else if let TokenKind::Number(value) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(call.clone(), ASTExpression::Number(value.parse().unwrap()));
+                self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::Number(value.parse().unwrap()));
                 return ProcessResult::Continue;
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
-                if let Some((name, next_i)) = self.try_parse_function_call() {
+                if let Some((function_name, next_i)) = self.try_parse_function_call() {
                     self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
-                        function_name: name.into(),
+                        function_name,
                         parameters: Vec::new(),
                     }));
                     self.state.push(FunctionCallState);
                     self.i = next_i;
                 } else {
-                    self.add_parameter_to_call_and_update_parser_data(call.clone(), ASTExpression::Var(name.into()));
+                    self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::Var(name.clone()));
                 }
                 return ProcessResult::Continue;
             } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
@@ -262,7 +257,7 @@ impl Parser {
                     if let Some(FunctionDefData(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
                         if let ASTFunctionBody::RASMBody(mut calls) = def.body {
-                            calls.push(call.clone());
+                            calls.push(call);
                             def.body = RASMBody(calls);
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = FunctionDefData(def);
@@ -272,7 +267,6 @@ impl Parser {
                             return ProcessResult::Continue;
                         }
                     } else {
-                        let call = call.clone();
                         self.body.push(call);
                     }
                     self.parser_data.pop();
@@ -281,7 +275,7 @@ impl Parser {
                     return ProcessResult::Continue;
                 } else if let Some(FunctionCallData(before_call)) = self.before_last_parser_data() {
                     let mut before_call = before_call.clone();
-                    before_call.parameters.push(ASTExpression::ASTFunctionCallExpression(call.clone()));
+                    before_call.parameters.push(ASTExpression::ASTFunctionCallExpression(call));
                     let l = self.parser_data.len();
                     self.parser_data[l - 2] = FunctionCallData(before_call);
                     self.parser_data.pop();
@@ -307,7 +301,7 @@ impl Parser {
         if let Some(ParserData::FunctionDefParameterData(param_def)) = self.last_parser_data() {
             if let Some(ParserData::FunctionDefData(def)) = self.before_last_parser_data() {
                 let mut def = def.clone();
-                def.parameters.push(param_def.clone());
+                def.parameters.push(param_def);
                 let l = self.parser_data.len();
                 self.parser_data[l - 2] = FunctionDefData(def);
                 self.parser_data.pop();
@@ -329,8 +323,7 @@ impl Parser {
                 } else {
                     None
                 };
-            if let Some(ParserData::FunctionDefData(def)) = self.last_parser_data() {
-                let mut def = def.clone();
+            if let Some(ParserData::FunctionDefData(mut def)) = self.last_parser_data() {
                 def.return_type = return_type;
                 let l = self.parser_data.len();
                 self.parser_data[l - 1] = FunctionDefData(def);
@@ -342,8 +335,7 @@ impl Parser {
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
             self.state.push(ParserState::FunctionBodyState);
         } else if let TokenKind::AsmBLock(body) = &token.kind {
-            if let Some(ParserData::FunctionDefData(def)) = self.last_parser_data() {
-                let mut def = def.clone();
+            if let Some(ParserData::FunctionDefData(mut def)) = self.last_parser_data() {
                 def.body = ASMBody(body.into());
                 self.functions.push(def);
                 self.parser_data.pop();
@@ -403,7 +395,7 @@ impl Parser {
             }
             print!("{}:", p.name);
             let type_ref = &p.type_ref;
-            Self::print_type_ref(&type_ref);
+            Self::print_type_ref(type_ref);
             first = false;
         });
         print!(")");
@@ -454,7 +446,7 @@ impl Parser {
             match par {
                 ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
                 ASTExpression::Number(n) => print!("{}", n),
-                ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(&call, true),
+                ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(call, true),
                 ASTExpression::Var(name) => print!("{}", name),
                 ASTExpression::Lambda(function_def) => {
                     if let ASTFunctionBody::RASMBody(calls) = &function_def.body {
@@ -599,7 +591,7 @@ impl Parser {
         if let Some(token) = self.get_token() {
             if let TokenKind::Punctuation(PunctuationKind::And) = &token.kind {
                 if let Some(next_token) = self.next_token() {
-                    if let Some(ast_type) = self.try_parse_ast_type(&next_token) {
+                    if let Some(ast_type) = self.try_parse_ast_type(next_token) {
                         return Some((ASTTypeRef { ast_ref: true, ast_type }, self.i + 2));
                     }
                 }
