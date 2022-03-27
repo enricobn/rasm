@@ -99,9 +99,9 @@ impl <'a> CodeGen<'a> {
         }
 
         for function_def in &self.module.functions.clone() {
-            if !function_def.inline {
+            //if !function_def.inline {
                 self.add_function_def(&function_def, 0);
-            }
+            //}
         }
 
         Parser::print(&self.module);
@@ -165,10 +165,14 @@ impl <'a> CodeGen<'a> {
         CodeGen::add(&mut self.definitions, &format!("    mov     {},{}", bp, sp));
 
         let mut context = VarContext::new();
+
+        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.clone(), false);
+
         let mut i = 0;
         while i < function_def.parameters.len() {
             if let Some(par) = function_def.parameters.get(i) {
                 context.insert(par.name.clone(), VarKind::ParameterRef(i + parameters_offset, par.type_ref.clone()));
+                function_call_parameters.add_var(&par.name, &par.type_ref, i);
             }
             i += 1;
         }
@@ -180,7 +184,8 @@ impl <'a> CodeGen<'a> {
                     self.definitions.push_str(&s);
                 }
             }
-            ASTFunctionBody::ASMBody(s) => self.definitions.push_str(&Self::resolve_asm_parameters(function_def, s, 0, true))
+            ASTFunctionBody::ASMBody(s) => self.definitions.push_str(
+                &function_call_parameters.resolve_asm_parameters(s, 0))
         }
 
         CodeGen::add(&mut self.definitions, &format!("    pop     {}", bp));
@@ -193,18 +198,18 @@ impl <'a> CodeGen<'a> {
         let call_function_def = self.functions.get(&function_call.function_name)
             .expect(&format!("Cannot find function '{}'", function_call.function_name)).clone();
 
-        if call_function_def.inline {
+        if call_function_def.inline && parent_def.is_some() {
             CodeGen::add(&mut before, &format!("; inlining function {}", function_call.function_name));
         } else {
+            if call_function_def.inline {
+                CodeGen::add(&mut before, "; function is inline, but not inside a function");
+                CodeGen::add(&mut before, "; so cannot be inlined.");
+            }
             CodeGen::add(&mut before, &format!("; calling function {}", function_call.function_name));
         }
 
         let has_lambda = function_call.parameters.iter().any(|it| {
-            if let ASTExpression::Lambda(_) = it {
-                true
-            } else {
-                false
-            }
+            matches!(it, ASTExpression::Lambda(_))
         });
 
         let mut to_remove_from_stack = 0;
@@ -229,14 +234,16 @@ impl <'a> CodeGen<'a> {
             //to_remove_from_stack += 1;
         }
 
-        let mut call_parameters = FunctionCallParameters::new(self.backend, call_function_def.clone());
+        let mut call_parameters = FunctionCallParameters::new(self.backend, call_function_def.clone(),
+                                                              call_function_def.inline && parent_def.is_some());
 
         if !function_call.parameters.is_empty() {
 
             let mut param_index = function_call.parameters.len();
             // as for C calling conventions parameters are pushed in reverse order
             for expr in function_call.parameters.iter().rev() {
-                let param_name = call_function_def.parameters.get(param_index - 1).unwrap().name.clone();
+                let param_opt = call_function_def.parameters.get(param_index - 1);
+                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}",param_index -1, function_call.function_name)).name.clone();
                 param_index -= 1;
 
                 match expr {
@@ -295,11 +302,13 @@ impl <'a> CodeGen<'a> {
 
         before = before.add(call_parameters.before());
 
-        if call_function_def.inline {
+        // I can only inline functions if are called inside another function, otherwise I cannot access to the base pointer and
+        // I must access to the stack pointer, but if the function, as usual,
+        if call_function_def.inline && parent_def.is_some() {
             if let ASTFunctionBody::ASMBody(body) = &call_function_def.body {
                 CodeGen::add(&mut before, &format!("; To remove from stack  {} {}", call_function_def.name, added_to_stack +
                     to_remove_from_stack + call_parameters.to_remove_from_stack()));
-                before.push_str(&call_parameters.resolve_asm_parameters(&call_function_def, body, parent_def.is_some(), added_to_stack + to_remove_from_stack));
+                before.push_str(&call_parameters.resolve_asm_parameters(body, added_to_stack + to_remove_from_stack));
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
@@ -313,43 +322,13 @@ impl <'a> CodeGen<'a> {
             CodeGen::add(&mut before, &format!("    add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())));
         }
 
-        if call_function_def.inline {
+        if call_function_def.inline && parent_def.is_some() {
             CodeGen::add(&mut before, &format!("; end inlining function {}", function_call.function_name));
         } else {
             CodeGen::add(&mut before, &format!("; end calling function {}", function_call.function_name));
         }
 
         before
-    }
-
-    fn resolve_asm_parameters(function_def: &ASTFunctionDef, body: &str, to_remove_from_stack: usize, inside_function: bool) -> String {
-        let mut result = body.to_string();
-        let mut i = 0;
-        for par in function_def.parameters.iter() {
-            let relative_address =
-                if function_def.inline {
-                    if inside_function {
-                        (i as i32 - to_remove_from_stack as i32) * 4
-                    } else {
-                        i * 4
-                    }
-                } else {
-                    (i + 2) * 4
-                };
-            let register = if inside_function {
-                "ebp"
-            } else {
-                "esp"
-            };
-            let address = if relative_address < 0 {
-                format!("[{}-{}]", register, -relative_address)
-            } else {
-                format!("[{}+{}]", register, relative_address)
-            };
-            result = result.replace(&format!("${}", par.name), &address);
-            i += 1;
-        }
-        result
     }
 
     fn add(dest: &mut String, code: &str) {

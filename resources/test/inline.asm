@@ -1,3 +1,5 @@
+SECTION .data
+_rasm_s2    db    'assertion failed', 0h          ; generated
 section .bss                                      ; generated
   _rasm_buffer_10b resb 10                        ; generated
 SECTION .text                                     ; generated
@@ -5,12 +7,14 @@ global  main                                      ; generated
                                                   ; generated
 main:                                             ; generated
 ; calling function nprintln                       ; generated
-; inlining function nadd                          ; generated
-; To remove from stack  nadd 0                    ; generated
-
-    mov     eax, 2
-    add     eax, 3
-; end inlining function nadd                      ; generated
+; function is inline, but not inside a function   ; generated
+; so cannot be inlined.                           ; generated
+; calling function nadd                           ; generated
+    push    3                                     ; generated
+    push    2                                     ; generated
+    call    nadd                                  ; generated
+    add     esp,8                                 ; generated
+; end calling function nadd                       ; generated
     push    eax                                   ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
@@ -18,6 +22,13 @@ main:                                             ; generated
     mov     ebx, 01                               ; generated
     mov     eax, 1                                ; generated
     int     80h                                   ; generated
+    ret                                           ; generated
+itn:                                              ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    mov     eax,[ebp+8]
+    pop     ebp                                   ; generated
     ret                                           ; generated
 sprintln:                                         ; generated
     push    ebp                                   ; generated
@@ -140,5 +151,110 @@ slen:                                             ; generated
 .finished:
     sub     eax, ebx
     pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+nadd:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    mov     eax, [ebp+8]
+    add     eax, [ebp+12]
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+if:                                               ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    cmp     word [ebp+8], 0
+    jz      $+7
+    call    [ebp+12] ; true value
+    jmp     $+5
+    call    [ebp+16] ; false value
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lessOrEqual:                                      ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+8]
+    cmp     ebx,[ebp+12]
+    jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+    pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+greater:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+8]
+    cmp     ebx,[ebp+12]
+    jg      $+7  ; Jump if greater (unsigned comparison)
+    mov     eax,0 ; false
+    pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+eq:                                               ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+8]
+    cmp     ebx,[ebp+12]
+    je      $+7  ; Jump if equals
+    mov     eax,0 ; false
+    pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+exit:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    mov     ebx, [ebp+8]    ; Arg one: the status
+    mov     eax, 1          ; Syscall number:
+    int     0x80
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+assert:                                           ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; inlining function if                            ; generated
+    push    dword [ebp+4+4]                       ; generated
+    push     lambda0                              ; generated
+    push     lambda1                              ; generated
+; To remove from stack  if 3                      ; generated
+
+    cmp     word [ebp+4+4], 0
+    jz      $+7
+    call    [ebp-12] ; true value
+    jmp     $+5
+    call    [ebp-8] ; false value
+    add     esp,12                                ; generated
+; end inlining function if                        ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lambda0:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+; calling function sprintln                       ; generated
+    push    _rasm_s2                              ; generated
+    call    sprintln                              ; generated
+    add     esp,4                                 ; generated
+; end calling function sprintln                   ; generated
+; calling function exit                           ; generated
+    push    1                                     ; generated
+    call    exit                                  ; generated
+    add     esp,4                                 ; generated
+; end calling function exit                       ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+lambda1:                                          ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
     pop     ebp                                   ; generated
     ret                                           ; generated
