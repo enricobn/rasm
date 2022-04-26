@@ -7,7 +7,6 @@ use std::ops::Add;
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::parser::Parser;
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTTypeRef};
 
 pub struct CodeGen<'a> {

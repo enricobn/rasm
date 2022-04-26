@@ -65,18 +65,17 @@ fib:                                              ; generated
 ; inlining function lessOrEqual                   ; generated
 ; To remove from stack  lessOrEqual 3             ; generated
 
-    push    ebx
+    mov     eax,[ebp+4+4]
+    cmp     eax,1
     mov     eax,1 ; true
-    mov     ebx,[ebp+4+4]
-    cmp     ebx,1
     jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 ; end inlining function lessOrEqual               ; generated
     push    eax                                   ; generated
 ; To remove from stack  if 4                      ; generated
 
-    cmp     word [ebp-16], 0
+    mov     eax,[ebp-16]
+    cmp     eax, 0
     jz      $+7
     call    [ebp-12] ; true value
     jmp     $+5
@@ -227,7 +226,8 @@ if:                                               ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    cmp     word [ebp+8], 0
+    mov     eax,[ebp+8]
+    cmp     eax, 0
     jz      $+7
     call    [ebp+12] ; true value
     jmp     $+5
@@ -238,52 +238,44 @@ lessOrEqual:                                      ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    push    ebx
+    mov     eax,[ebp+8]
+    cmp     eax,[ebp+12]
     mov     eax,1 ; true
-    mov     ebx,[ebp+8]
-    cmp     ebx,[ebp+12]
     jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
 less:                                             ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    push    ebx
+    mov     eax,[ebp+8]
+    cmp     eax,[ebp+12]
     mov     eax,1 ; true
-    mov     ebx,[ebp+8]
-    cmp     ebx,[ebp+12]
     jb     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
 greater:                                          ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    push    ebx
+    mov     eax,[ebp+8]
+    cmp     eax,[ebp+12]
     mov     eax,1 ; true
-    mov     ebx,[ebp+8]
-    cmp     ebx,[ebp+12]
     jg      $+7  ; Jump if greater (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
 eq:                                               ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-    push    ebx
+    mov     eax,[ebp+8]
+    cmp     eax,[ebp+12]
     mov     eax,1 ; true
-    mov     ebx,[ebp+8]
-    cmp     ebx,[ebp+12]
     je      $+7  ; Jump if equals
     mov     eax,0 ; false
-    pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
 exit:                                             ; generated
@@ -304,7 +296,8 @@ assert:                                           ; generated
     push     lambda3                              ; generated
 ; To remove from stack  if 3                      ; generated
 
-    cmp     word [ebp+4+4], 0
+    mov     eax,[ebp+4+4]
+    cmp     eax, 0
     jz      $+7
     call    [ebp-12] ; true value
     jmp     $+5
@@ -341,10 +334,8 @@ atoi:                                             ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
 
-  push    esi
-  push    ebx
-  push    ecx
-  push    edx
+    push    ecx
+    push    edx
     mov edx, [ebp+8] ; our string
     xor eax, eax ; zero a "result so far"
     .top:
@@ -359,10 +350,8 @@ atoi:                                             ; generated
     add eax, ecx ; add in current digit
     jmp .top ; until done
 .done:
-  pop    edx
-  pop    ecx
-  pop    ebx
-  pop    esi
+    pop    edx
+    pop    ecx
     pop     ebp                                   ; generated
     ret                                           ; generated
 lambda0:                                          ; generated

@@ -668,9 +668,7 @@ mod tests {
         let path = Path::new("resources/test/helloworld.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse(path);
-
-        //Parser::print(&module);
+        parser.parse(path);
     }
 
     #[test]
@@ -729,10 +727,7 @@ mod tests {
         let path = Path::new("resources/test/test10.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse(path);
-
-        // TODO for now I test only that it doesn't panic
-        //Parser::print(&module);
+        parser.parse(path);
     }
 
     #[test]
@@ -740,9 +735,6 @@ mod tests {
         let path = Path::new("resources/test/test11.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
-        let module = parser.parse(path);
-
-        // TODO for now I test only that it doesn't panic
-        //Parser::print(&module);
+        parser.parse(path);
     }
 }

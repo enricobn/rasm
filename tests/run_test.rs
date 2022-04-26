@@ -27,6 +27,16 @@ fn test_atoi() {
     test("atoi", Vec::new(),"1000\n");
 }
 
+#[test]
+fn test_conditionals() {
+    test("conditionals", Vec::new(),"False\nequal\nless\nnot greater\nless or equal\n");
+}
+
+#[test]
+fn test_mc91() {
+    test("mc91", Vec::new(),"91\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let status = test_bin::get_test_bin("rasm")
         .arg(format!("resources/test/{}.rasm", source))
@@ -37,11 +47,13 @@ fn test(source: &str, args: Vec<&str>, expected_output: &str) {
 
     assert!(status.success());
 
+    let failure_message = format!("failed to execute {}", source);
+
     let output = Command::new(format!("target/tmp/{}", source))
         .args(args)
         .stderr(Stdio::inherit())
         .output()
-        .expect("failed to execute fibonacci");
+        .expect(&failure_message);
 
     assert!(output.status.success());
 

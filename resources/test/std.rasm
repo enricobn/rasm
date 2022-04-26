@@ -123,7 +123,8 @@ inline asm nadd(n1: i32, n2: i32) -> i32[eax] /{
 
 /** false = 0 true = any other value **/
 inline asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
-    cmp     word $cond, 0
+    mov     eax,$cond
+    cmp     eax, 0
     jz      $+7
     call    $ftrue ; true value
     jmp     $+5
@@ -135,13 +136,11 @@ inline asm if(cond: i32, ftrue: fn, ffalse: fn) -> i32[eax] /{
  *  false = 0 true = any other value
  **/
 inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
-    push    ebx
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
-    mov     ebx,$a
-    cmp     ebx,$b
     jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 /** TODO it should be a bool
@@ -149,13 +148,11 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
  *  false = 0 true = any other value
  **/
 inline asm less(a: i32, b: i32) -> i32[eax] /{
-    push    ebx
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
-    mov     ebx,$a
-    cmp     ebx,$b
     jb     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 /** TODO it should be a bool
@@ -163,13 +160,11 @@ inline asm less(a: i32, b: i32) -> i32[eax] /{
  *  false = 0 true = any other value
  **/
 inline asm greater(a: i32, b: i32) -> i32[eax] /{
-    push    ebx
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
-    mov     ebx,$a
-    cmp     ebx,$b
     jg      $+7  ; Jump if greater (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 /** TODO it should be a bool
@@ -177,13 +172,11 @@ inline asm greater(a: i32, b: i32) -> i32[eax] /{
  *  false = 0 true = any other value
  **/
 inline asm eq(a: i32, b: i32) -> i32[eax] /{
-    push    ebx
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
-    mov     ebx,$a
-    cmp     ebx,$b
     je      $+7  ; Jump if equals
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 asm exit(status: i32) /{
@@ -220,12 +213,11 @@ asm argv(i: i32) -> i32[eax] /{
 
 /**
  * parse a string to a number
+ from https://stackoverflow.com/questions/19461476/convert-string-to-int-x86-32-bit-assembler-using-nasm
  **/
 asm atoi(s: &str) -> i32[eax] /{
-  push    esi
-  push    ebx
-  push    ecx
-  push    edx
+    push    ecx
+    push    edx
     mov edx, $s ; our string
     xor eax, eax ; zero a "result so far"
     .top:
@@ -240,8 +232,6 @@ asm atoi(s: &str) -> i32[eax] /{
     add eax, ecx ; add in current digit
     jmp .top ; until done
 .done:
-  pop    edx
-  pop    ecx
-  pop    ebx
-  pop    esi
+    pop    edx
+    pop    ecx
 }/

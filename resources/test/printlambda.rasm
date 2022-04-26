@@ -1,7 +1,0 @@
-include "std.rasm"
-
-print();
-
-fn print() {
-  if(0,{sprintln("True");},{sprintln("False");});
-}
