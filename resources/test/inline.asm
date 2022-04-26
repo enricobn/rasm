@@ -2,10 +2,35 @@ SECTION .data
 _rasm_s2    db    'assertion failed', 0h          ; generated
 section .bss                                      ; generated
   _rasm_buffer_10b resb 10                        ; generated
+  _rasm_args resw 12                              ; generated
 SECTION .text                                     ; generated
 global  main                                      ; generated
                                                   ; generated
 main:                                             ; generated
+mov     eax,[esp + 0]                             ; generated
+mov     [_rasm_args + 0], eax                     ; generated
+mov     eax,[esp + 4]                             ; generated
+mov     [_rasm_args + 4], eax                     ; generated
+mov     eax,[esp + 8]                             ; generated
+mov     [_rasm_args + 8], eax                     ; generated
+mov     eax,[esp + 12]                            ; generated
+mov     [_rasm_args + 12], eax                    ; generated
+mov     eax,[esp + 16]                            ; generated
+mov     [_rasm_args + 16], eax                    ; generated
+mov     eax,[esp + 20]                            ; generated
+mov     [_rasm_args + 20], eax                    ; generated
+mov     eax,[esp + 24]                            ; generated
+mov     [_rasm_args + 24], eax                    ; generated
+mov     eax,[esp + 28]                            ; generated
+mov     [_rasm_args + 28], eax                    ; generated
+mov     eax,[esp + 32]                            ; generated
+mov     [_rasm_args + 32], eax                    ; generated
+mov     eax,[esp + 36]                            ; generated
+mov     [_rasm_args + 36], eax                    ; generated
+mov     eax,[esp + 40]                            ; generated
+mov     [_rasm_args + 40], eax                    ; generated
+mov     eax,[esp + 44]                            ; generated
+mov     [_rasm_args + 44], eax                    ; generated
 ; calling function nprintln                       ; generated
 ; function is inline, but not inside a function   ; generated
 ; so cannot be inlined.                           ; generated
@@ -19,7 +44,7 @@ main:                                             ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
 ; end calling function nprintln                   ; generated
-    mov     ebx, 01                               ; generated
+    mov     ebx, 1                                ; generated
     mov     eax, 1                                ; generated
     int     80h                                   ; generated
     ret                                           ; generated
@@ -236,6 +261,29 @@ assert:                                           ; generated
     call    [ebp-8] ; false value
     add     esp,12                                ; generated
 ; end inlining function if                        ; generated
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+argc:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    mov     eax,[_rasm_args]
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+argv:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push ebx
+    push ecx
+    mov ebx, _rasm_args
+    mov ecx,4           ; i add 4*i to the base address (_rasm_args)
+    mov eax,[ebp+8]
+    mul ecx
+    add ebx,eax
+    mov eax,[ebx]
+    pop ecx
+    pop ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
 lambda0:                                          ; generated

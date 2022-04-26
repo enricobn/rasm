@@ -135,16 +135,24 @@ impl <'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "section .bss");
         CodeGen::add(&mut asm, "  _rasm_buffer_10b resb 10");
+        // command line arguments
+        CodeGen::add(&mut asm, "  _rasm_args resw 12");
 
         CodeGen::add(&mut asm, "SECTION .text");
         CodeGen::add(&mut asm, "global  main");
         CodeGen::add(&mut asm, "");
         CodeGen::add(&mut asm, "main:");
 
+        // command line arguments
+        for i in 0..12 {
+            CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()));
+            CodeGen::add(&mut asm, &format!("mov     [_rasm_args + {}], eax", i * self.backend.word_len()));
+        }
+
         asm.push_str(&self.body);
 
         // exit sys call
-        CodeGen::add(&mut asm, "    mov     ebx, 01");
+        CodeGen::add(&mut asm, "    mov     ebx, 1");
         CodeGen::add(&mut asm, "    mov     eax, 1");
         CodeGen::add(&mut asm, "    int     80h");
         CodeGen::add(&mut asm, "    ret");
@@ -353,47 +361,22 @@ mod tests {
 
     #[test]
     fn test() {
-        let path = Path::new("resources/test/helloworld.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
-        let module = parser.parse(path);
-
-        let backend = Backend386::new();
-
-        let mut gen = CodeGen::new(&backend, module);
-
-        let asm = gen.asm();
-
-        let path = Path::new("resources/test/helloworld.asm");
-        let mut expected = String::new();
-        File::open(path).unwrap().read_to_string(&mut expected).unwrap();
-
-        assert_eq!(asm.trim(), expected);
+        compare_asm("resources/test/helloworld");
     }
 
     #[test]
     fn test_fib() {
-        let path = Path::new("resources/test/fibonacci.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
-        let module = parser.parse(path);
-
-        let backend = Backend386::new();
-
-        let mut gen = CodeGen::new(&backend, module);
-
-        let asm = gen.asm();
-
-        let path = Path::new("resources/test/fibonacci.asm");
-        let mut expected = String::new();
-        File::open(path).unwrap().read_to_string(&mut expected).unwrap();
-
-        assert_eq!(asm.trim(), expected);
+        compare_asm("resources/test/fibonacci");
     }
 
     #[test]
     fn test_inline() {
-        let path = Path::new("resources/test/inline.rasm");
+        compare_asm("resources/test/inline");
+    }
+
+    fn compare_asm(resource_prefix: &str) {
+        let rasm_file = format!("{}.rasm", resource_prefix);
+        let path = Path::new(&rasm_file);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer);
         let module = parser.parse(path);
@@ -404,7 +387,8 @@ mod tests {
 
         let asm = gen.asm();
 
-        let path = Path::new("resources/test/inline.asm");
+        let asm_file = format!("{}.asm", resource_prefix);
+        let path = Path::new(&asm_file);
         let mut expected = String::new();
         File::open(path).unwrap().read_to_string(&mut expected).unwrap();
 

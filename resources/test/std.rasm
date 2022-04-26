@@ -184,3 +184,21 @@ fn assert(value: i32) {
         exit(1);
     });
 }
+
+asm argc() -> i32[eax] /{
+    mov     eax,[_rasm_args]
+}/
+
+// TODO unsafe
+asm argv(i: i32) -> i32[eax] /{
+    push ebx
+    push ecx
+    mov ebx, _rasm_args
+    mov ecx,4           ; i add 4*i to the base address (_rasm_args)
+    mov eax,$i
+    mul ecx
+    add ebx,eax
+    mov eax,[ebx]
+    pop ecx
+    pop ebx
+}/
