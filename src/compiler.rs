@@ -40,7 +40,7 @@ impl Compiler {
                 backend.compile_and_link(self.out.to_string());
             }
             Err(err) => {
-                println!("An error occurred: {}", err)
+                panic!("An error occurred: {}", err)
             }
         }
     }
