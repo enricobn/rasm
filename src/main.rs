@@ -7,12 +7,14 @@ use std::ops::Add;
 use std::path::Path;
 use crate::codegen::backend::{Backend, Backend386};
 use crate::codegen::CodeGen;
+use crate::compiler::Compiler;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
 pub(crate) mod lexer;
 pub(crate) mod parser;
 pub(crate) mod codegen;
+pub(crate) mod compiler;
 
 fn main() {
 
@@ -32,26 +34,6 @@ fn main() {
     } else {
         args.get(2).unwrap().clone().add(".asm")
     };
-    let file_path = Path::new(src);
-    match Lexer::from_file(file_path) {
-        Ok(lexer) => {
-            let mut parser = Parser::new(lexer);
-            let module = parser.parse(file_path);
 
-            let backend = Backend386::new();
-
-            let mut code_gen = CodeGen::new(&backend, module);
-
-            let asm = code_gen.asm();
-
-            let out_path = Path::new(&out);
-            File::create(out_path).unwrap().write_all(asm.as_bytes()).unwrap();
-
-            backend.compile_and_link(out.to_string());
-        }
-        Err(err) => {
-            println!("An error occurred: {}", err)
-        }
-    }
-
+    Compiler::compile(src.to_string(), out);
 }
