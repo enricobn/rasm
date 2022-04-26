@@ -25,7 +25,7 @@ fn test_cmdlineargs() {
 
 #[test]
 fn test_atoi() {
-    test("atoi", Vec::new(),"1000\n");
+    test("atoi", vec!["1000"],"1000\n");
 }
 
 #[test]
@@ -41,11 +41,11 @@ fn test_mc91() {
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
-    let temp_source = format!("{}/{}", dir.path().to_str().unwrap(), source);
+    let dest = format!("{}/{}", dir.path().to_str().unwrap(), source);
 
     let status = test_bin::get_test_bin("rasm")
         .arg(format!("resources/test/{}.rasm", source))
-        .arg(&temp_source)
+        .arg(&dest)
         .stderr(Stdio::inherit())
         .status()
         .expect("failed to start rasm");
@@ -54,7 +54,7 @@ fn test(source: &str, args: Vec<&str>, expected_output: &str) {
 
     let failure_message = format!("failed to execute {}", source);
 
-    let output = Command::new(&temp_source)
+    let output = Command::new(&dest)
         .args(args)
         .stderr(Stdio::inherit())
         .output()
