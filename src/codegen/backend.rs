@@ -77,8 +77,8 @@ impl Backend for Backend386 {
     }
 
     fn compile_and_link(&self, source_file: String) {
+        println!("source file : '{}'", source_file);
         let path = Path::new(&source_file);
-        let source_file_without_extension = path.file_stem().unwrap_or_else(|| panic!("Error extracting file name without extension from '{}'", source_file));
         let nasm_output = Command::new("nasm")
             .arg("-f")
             .arg("elf")
@@ -93,9 +93,9 @@ impl Backend for Backend386 {
             let ld_output = Command::new("ld")
                 .arg("-m")
                 .arg("elf_i386")
-                .arg(&format!("{}.o", source_file_without_extension.to_str().unwrap()))
+                .arg(path.with_extension("o"))
                 .arg("-o")
-                .arg(source_file_without_extension.to_str().unwrap())
+                .arg(path.with_extension(""))
                 .stderr(Stdio::inherit())
                 .output()
                 .expect("failed to execute ld");

@@ -24,7 +24,14 @@ fn main() {
     println!("{:?}", args);
 
     let src = args.get(1).unwrap();
-    let out = args.get(2).unwrap().clone().add(".asm");
+    let out = if args.len() < 3 {
+        let without_extension = Path::new(src).with_extension("");
+        let file_name = without_extension.file_name().unwrap();
+        let file_name_str = file_name.to_str().unwrap();
+        String::new().add(file_name_str).add(".asm")
+    } else {
+        args.get(2).unwrap().clone().add(".asm")
+    };
     let file_path = Path::new(src);
     match Lexer::from_file(file_path) {
         Ok(lexer) => {
