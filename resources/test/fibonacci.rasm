@@ -1,6 +1,6 @@
 include "std.rasm"
 
-assert(eq(102334155, fib(40)));
+nprintln(fib(40));
 
 fn fib(n: i32) -> i32 {
     if (lessOrEqual(n, 1),{

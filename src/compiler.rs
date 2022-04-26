@@ -1,7 +1,11 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use crate::{Backend, Backend386, CodeGen, Lexer, Parser};
+use crate::codegen::backend::Backend;
+use crate::codegen::backend::Backend386;
+use crate::codegen::CodeGen;
+use crate::lexer::Lexer;
+use crate::parser::Parser;
 
 pub struct Compiler {
     src: String,

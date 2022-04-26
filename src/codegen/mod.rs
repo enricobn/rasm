@@ -7,7 +7,7 @@ use std::ops::Add;
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::Parser;
+use crate::parser::Parser;
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTTypeRef};
 
 pub struct CodeGen<'a> {
@@ -152,7 +152,7 @@ impl <'a> CodeGen<'a> {
         asm.push_str(&self.body);
 
         // exit sys call
-        CodeGen::add(&mut asm, "    mov     ebx, 1");
+        CodeGen::add(&mut asm, "    mov     ebx, 0");
         CodeGen::add(&mut asm, "    mov     eax, 1");
         CodeGen::add(&mut asm, "    int     80h");
         CodeGen::add(&mut asm, "    ret");
@@ -356,7 +356,7 @@ mod tests {
     use crate::codegen::backend::Backend386;
 
     use crate::codegen::CodeGen;
-    use crate::Lexer;
+    use crate::lexer::Lexer;
     use crate::parser::Parser;
 
     #[test]

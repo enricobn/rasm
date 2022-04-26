@@ -6,6 +6,5 @@ Doing
 
 Next
 -----
-- integration tests that compile a program, run it and check the output
 - test command line arguments
 - safe command line arguments (we need Option)

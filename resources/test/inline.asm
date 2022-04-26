@@ -44,7 +44,7 @@ mov     [_rasm_args + 44], eax                    ; generated
     call    nprintln                              ; generated
     add     esp,4                                 ; generated
 ; end calling function nprintln                   ; generated
-    mov     ebx, 1                                ; generated
+    mov     ebx, 0                                ; generated
     mov     eax, 1                                ; generated
     int     80h                                   ; generated
     ret                                           ; generated

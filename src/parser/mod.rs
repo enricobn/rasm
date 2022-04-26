@@ -1,6 +1,6 @@
 use std::path::Path;
+use crate::lexer::Lexer;
 
-use crate::Lexer;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
@@ -85,7 +85,7 @@ impl Parser {
                         self.panic("Error");
                     }
                     if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                        self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
+                        self.parser_data.push(FunctionCallData(ASTFunctionCall {
                             function_name,
                             parameters: Vec::new(),
                         }));
@@ -93,10 +93,10 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, next_i)) = self.try_parse_function_def() {
-                        self.parser_data.push(ParserData::FunctionDefData(ASTFunctionDef {
+                        self.parser_data.push(FunctionDefData(ASTFunctionDef {
                             name,
                             parameters: Vec::new(),
-                            body: ASTFunctionBody::RASMBody(Vec::new()),
+                            body: RASMBody(Vec::new()),
                             return_type: None,
                             inline: false,
                         }));
@@ -105,10 +105,10 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, inline, next_i)) = self.try_parse_asm_def() {
-                        self.parser_data.push(ParserData::FunctionDefData(ASTFunctionDef {
+                        self.parser_data.push(FunctionDefData(ASTFunctionDef {
                             name,
                             parameters: Vec::new(),
-                            body: ASTFunctionBody::ASMBody("".into()),
+                            body: ASMBody("".into()),
                             return_type: None,
                             inline,
                         }));
@@ -134,7 +134,7 @@ impl Parser {
                     }
                     self.panic("Unknown statement");
                 }
-                Some(ParserState::FunctionCallState) => {
+                Some(FunctionCallState) => {
                     match self.process_function_call(token) {
                         ProcessResult::Next => {}
                         ProcessResult::Continue => {
@@ -179,7 +179,7 @@ impl Parser {
                         self.i += 1;
                         continue;
                     } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                        self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
+                        self.parser_data.push(FunctionCallData(ASTFunctionCall {
                             function_name,
                             parameters: Vec::new(),
                         }));
@@ -192,7 +192,7 @@ impl Parser {
                 Some(ParserState::FunctionDefReturnTypeState) => {
                     if let Some((type_ref, next_i)) = self.try_parse_type_ref() {
                         self.i = next_i;
-                        if let Some(ParserData::FunctionDefData(def)) = self.last_parser_data() {
+                        if let Some(FunctionDefData(def)) = self.last_parser_data() {
                             let mut def = def.clone();
                             let (register, next_i) = self.parse_register(Self::is_asm(&def));
                             self.i = next_i;
@@ -226,7 +226,7 @@ impl Parser {
                 return ProcessResult::Continue;
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
                 if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                    self.parser_data.push(ParserData::FunctionCallData(ASTFunctionCall {
+                    self.parser_data.push(FunctionCallData(ASTFunctionCall {
                         function_name,
                         parameters: Vec::new(),
                     }));
@@ -242,10 +242,10 @@ impl Parser {
             } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
                 // TODO return type of the lambda for now it's not supported
                 let return_type = Some(ASTReturnType { type_ref: ASTTypeRef { ast_type: BuiltinType(BuiltinTypeKind::ASTI32), ast_ref: false }, register: "eax".into() });
-                self.parser_data.push(ParserData::FunctionDefData(ASTFunctionDef {
+                self.parser_data.push(FunctionDefData(ASTFunctionDef {
                     name: "lambda".into(),
                     parameters: Vec::new(),
-                    body: ASTFunctionBody::RASMBody(Vec::new()),
+                    body: RASMBody(Vec::new()),
                     return_type,
                     inline: false,
                 }));
@@ -256,7 +256,7 @@ impl Parser {
                 if self.is_next_token_a_semicolon() {
                     if let Some(FunctionDefData(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
-                        if let ASTFunctionBody::RASMBody(mut calls) = def.body {
+                        if let RASMBody(mut calls) = def.body {
                             calls.push(call);
                             def.body = RASMBody(calls);
                             let l = self.parser_data.len();
@@ -299,7 +299,7 @@ impl Parser {
 
     fn process_function_def(&mut self, token: Token) -> ProcessResult {
         if let Some(ParserData::FunctionDefParameterData(param_def)) = self.last_parser_data() {
-            if let Some(ParserData::FunctionDefData(def)) = self.before_last_parser_data() {
+            if let Some(FunctionDefData(def)) = self.before_last_parser_data() {
                 let mut def = def.clone();
                 def.parameters.push(param_def);
                 let l = self.parser_data.len();
@@ -312,7 +312,7 @@ impl Parser {
                 if let Some((type_ref, next_i)) = self.try_parse_type_ref() {
                     self.i = next_i;
                     let (register, next_i) =
-                        if let Some(ParserData::FunctionDefData(def)) = self.before_last_parser_data() {
+                        if let Some(FunctionDefData(def)) = self.before_last_parser_data() {
                             self.parse_register(Self::is_asm(def))
                         } else {
                             self.panic("");
@@ -323,7 +323,7 @@ impl Parser {
                 } else {
                     None
                 };
-            if let Some(ParserData::FunctionDefData(mut def)) = self.last_parser_data() {
+            if let Some(FunctionDefData(mut def)) = self.last_parser_data() {
                 def.return_type = return_type;
                 let l = self.parser_data.len();
                 self.parser_data[l - 1] = FunctionDefData(def);
@@ -335,7 +335,7 @@ impl Parser {
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
             self.state.push(ParserState::FunctionBodyState);
         } else if let TokenKind::AsmBLock(body) = &token.kind {
-            if let Some(ParserData::FunctionDefData(mut def)) = self.last_parser_data() {
+            if let Some(FunctionDefData(mut def)) = self.last_parser_data() {
                 def.body = ASMBody(body.into());
                 self.functions.push(def);
                 self.parser_data.pop();
@@ -385,7 +385,7 @@ impl Parser {
 
     pub fn print_function_def(f: &ASTFunctionDef) {
         match &f.body {
-            ASTFunctionBody::RASMBody(_) => print!("fn {}(", f.name),
+            RASMBody(_) => print!("fn {}(", f.name),
             ASMBody(_) => print!("asm {}(", f.name)
         }
         let mut first = true;
@@ -405,7 +405,7 @@ impl Parser {
             print!("[{}]", return_type.register);
         }
         match &f.body {
-            ASTFunctionBody::RASMBody(calls) => {
+            RASMBody(calls) => {
                 println!(" {{");
                 calls.iter().for_each(|call| {
                     print!("  ");
@@ -422,7 +422,7 @@ impl Parser {
             print!("&");
         }
         match &type_ref.ast_type {
-            ASTType::BuiltinType(bt) => {
+            BuiltinType(bt) => {
                 match bt {
                     BuiltinTypeKind::ASTString => print!("str"),
                     BuiltinTypeKind::ASTI32 => print!("i32"),
@@ -449,7 +449,7 @@ impl Parser {
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(call, true),
                 ASTExpression::Var(name) => print!("{}", name),
                 ASTExpression::Lambda(function_def) => {
-                    if let ASTFunctionBody::RASMBody(calls) = &function_def.body {
+                    if let RASMBody(calls) = &function_def.body {
                         print!("{{");
                         calls.iter().for_each(|call| {
                             Self::print_call(call, true);
@@ -605,15 +605,15 @@ impl Parser {
     fn try_parse_ast_type(&self, token: &Token) -> Option<ASTType> {
         if let TokenKind::AlphaNumeric(type_name) = &token.kind {
             if type_name == "i32" {
-                Some(ASTType::BuiltinType(BuiltinTypeKind::ASTI32))
+                Some(BuiltinType(BuiltinTypeKind::ASTI32))
             } else if type_name == "str" {
-                Some(ASTType::BuiltinType(BuiltinTypeKind::ASTString))
+                Some(BuiltinType(BuiltinTypeKind::ASTString))
             } else {
                 self.panic(&format!("Unknown type {}", type_name));
                 None
             }
         } else if let TokenKind::KeyWord(KeywordKind::Fn) = &token.kind {
-            Some(ASTType::BuiltinType(BuiltinTypeKind::Lambda))
+            Some(BuiltinType(BuiltinTypeKind::Lambda))
         } else {
             None
         }
@@ -659,7 +659,7 @@ impl Parser {
 mod tests {
     use std::path::Path;
 
-    use crate::Lexer;
+    use crate::lexer::Lexer;
     use crate::parser::ast::ASTExpression;
     use crate::parser::Parser;
 

@@ -1,20 +1,12 @@
-extern crate core;
-
-use std::env;
-use std::fs::File;
-use std::io::Write;
-use std::ops::Add;
-use std::path::Path;
-use crate::codegen::backend::{Backend, Backend386};
-use crate::codegen::CodeGen;
-use crate::compiler::Compiler;
-use crate::lexer::Lexer;
-use crate::parser::Parser;
-
 pub(crate) mod lexer;
 pub(crate) mod parser;
 pub(crate) mod codegen;
-pub(crate) mod compiler;
+pub mod compiler;
+
+use std::env;
+use std::ops::Add;
+use std::path::Path;
+use crate::compiler::Compiler;
 
 fn main() {
 

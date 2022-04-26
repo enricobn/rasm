@@ -38,7 +38,7 @@ mov     [_rasm_args + 44], eax                    ; generated
 ; calling function helloWorld                     ; generated
     call    helloWorld                            ; generated
 ; end calling function helloWorld                 ; generated
-    mov     ebx, 1                                ; generated
+    mov     ebx, 0                                ; generated
     mov     eax, 1                                ; generated
     int     80h                                   ; generated
     ret                                           ; generated

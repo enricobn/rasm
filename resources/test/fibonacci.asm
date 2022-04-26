@@ -31,25 +31,17 @@ mov     eax,[esp + 40]                            ; generated
 mov     [_rasm_args + 40], eax                    ; generated
 mov     eax,[esp + 44]                            ; generated
 mov     [_rasm_args + 44], eax                    ; generated
-; calling function assert                         ; generated
-; function is inline, but not inside a function   ; generated
-; so cannot be inlined.                           ; generated
-; calling function eq                             ; generated
+; calling function nprintln                       ; generated
 ; calling function fib                            ; generated
     push    40                                    ; generated
     call    fib                                   ; generated
     add     esp,4                                 ; generated
 ; end calling function fib                        ; generated
     push    eax                                   ; generated
-    push    102334155                             ; generated
-    call    eq                                    ; generated
-    add     esp,8                                 ; generated
-; end calling function eq                         ; generated
-    push    eax                                   ; generated
-    call    assert                                ; generated
+    call    nprintln                              ; generated
     add     esp,4                                 ; generated
-; end calling function assert                     ; generated
-    mov     ebx, 1                                ; generated
+; end calling function nprintln                   ; generated
+    mov     ebx, 0                                ; generated
     mov     eax, 1                                ; generated
     int     80h                                   ; generated
     ret                                           ; generated
