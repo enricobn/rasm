@@ -1,7 +1,7 @@
 include "std.rasm"
 
 nprintln(argc());
-printargv(0);
+printargv(1);
 
 fn printargv(n: i32) {
     if(less(n,argc()),{

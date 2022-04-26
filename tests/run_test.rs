@@ -1,4 +1,5 @@
 use std::process::{Command, Stdio};
+use tempdir::TempDir;
 
 #[cfg(test)]
 
@@ -19,7 +20,7 @@ fn test_inline() {
 
 #[test]
 fn test_cmdlineargs() {
-    test("cmdlineargs", vec!["hello", "world"],"3\ntarget/tmp/cmdlineargs\nhello\nworld\n");
+    test("cmdlineargs", vec!["hello", "world"],"3\nhello\nworld\n");
 }
 
 #[test]
@@ -38,9 +39,13 @@ fn test_mc91() {
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
+    let dir = TempDir::new("rasm_int_test").unwrap();
+
+    let temp_source = format!("{}/{}", dir.path().to_str().unwrap(), source);
+
     let status = test_bin::get_test_bin("rasm")
         .arg(format!("resources/test/{}.rasm", source))
-        .arg(format!("target/tmp/{}", source))
+        .arg(&temp_source)
         .stderr(Stdio::inherit())
         .status()
         .expect("failed to start rasm");
@@ -49,7 +54,7 @@ fn test(source: &str, args: Vec<&str>, expected_output: &str) {
 
     let failure_message = format!("failed to execute {}", source);
 
-    let output = Command::new(format!("target/tmp/{}", source))
+    let output = Command::new(&temp_source)
         .args(args)
         .stderr(Stdio::inherit())
         .output()
