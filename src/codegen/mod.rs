@@ -102,11 +102,12 @@ impl <'a> CodeGen<'a> {
             self.add_function_def(function_def, 0);
         }
 
-        Parser::print(&self.module);
+        // TODO add a command line argument
+        //Parser::print(&self.module);
 
         for lambda_call in &self.lambdas.clone() {
             self.add_function_def(&lambda_call.def, lambda_call.parameters_offset);
-            Parser::print_function_def(&lambda_call.def);
+            //Parser::print_function_def(&lambda_call.def);
         }
 
         let mut asm = String::new();

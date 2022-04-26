@@ -145,6 +145,20 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
 }/
 
 /** TODO it should be a bool
+ *  a  < b
+ *  false = 0 true = any other value
+ **/
+inline asm less(a: i32, b: i32) -> i32[eax] /{
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,$a
+    cmp     ebx,$b
+    jb     $+7  ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+    pop     ebx
+}/
+
+/** TODO it should be a bool
  *  a  <= b
  *  false = 0 true = any other value
  **/
@@ -196,9 +210,38 @@ asm argv(i: i32) -> i32[eax] /{
     mov ebx, _rasm_args
     mov ecx,4           ; i add 4*i to the base address (_rasm_args)
     mov eax,$i
+    inc eax             ; we skip the length (argc)
     mul ecx
     add ebx,eax
     mov eax,[ebx]
     pop ecx
     pop ebx
+}/
+
+/**
+ * parse a string to a number
+ **/
+asm atoi(s: &str) -> i32[eax] /{
+  push    esi
+  push    ebx
+  push    ecx
+  push    edx
+    mov edx, $s ; our string
+    xor eax, eax ; zero a "result so far"
+    .top:
+    movzx ecx, byte [edx] ; get a character
+    inc edx ; ready for next one
+    cmp ecx, '0' ; valid?
+    jb .done
+    cmp ecx, '9'
+    ja .done
+    sub ecx, '0' ; "convert" character to number
+    imul eax, 10 ; multiply "result so far" by ten
+    add eax, ecx ; add in current digit
+    jmp .top ; until done
+.done:
+  pop    edx
+  pop    ecx
+  pop    ebx
+  pop    esi
 }/

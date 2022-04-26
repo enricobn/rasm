@@ -1,14 +1,10 @@
 include "std.rasm"
 
-printargs();
-
-fn printargs() {
-    nprintln(argc());
-    printargv(1);
-}
+nprintln(argc());
+printargv(0);
 
 fn printargv(n: i32) {
-    if(lessOrEqual(n,argc()),{
+    if(less(n,argc()),{
         sprintln(argv(n));
         printargv(nadd(n, 1));
     },{});

@@ -33,7 +33,17 @@ mov     eax,[esp + 44]                            ; generated
 mov     [_rasm_args + 44], eax                    ; generated
 ; calling function nprintln                       ; generated
 ; calling function fib                            ; generated
-    push    40                                    ; generated
+; calling function atoi                           ; generated
+; calling function argv                           ; generated
+    push    1                                     ; generated
+    call    argv                                  ; generated
+    add     esp,4                                 ; generated
+; end calling function argv                       ; generated
+    push    eax                                   ; generated
+    call    atoi                                  ; generated
+    add     esp,4                                 ; generated
+; end calling function atoi                       ; generated
+    push    eax                                   ; generated
     call    fib                                   ; generated
     add     esp,4                                 ; generated
 ; end calling function fib                        ; generated
@@ -237,6 +247,19 @@ lessOrEqual:                                      ; generated
     pop     ebx
     pop     ebp                                   ; generated
     ret                                           ; generated
+less:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+    push    ebx
+    mov     eax,1 ; true
+    mov     ebx,[ebp+8]
+    cmp     ebx,[ebp+12]
+    jb     $+7  ; Jump if Below or Equal (unsigned comparison)
+    mov     eax,0 ; false
+    pop     ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
 greater:                                          ; generated
     push    ebp                                   ; generated
     mov     ebp,esp                               ; generated
@@ -306,11 +329,40 @@ argv:                                             ; generated
     mov ebx, _rasm_args
     mov ecx,4           ; i add 4*i to the base address (_rasm_args)
     mov eax,[ebp+8]
+    inc eax             ; we skip the length (argc)
     mul ecx
     add ebx,eax
     mov eax,[ebx]
     pop ecx
     pop ebx
+    pop     ebp                                   ; generated
+    ret                                           ; generated
+atoi:                                             ; generated
+    push    ebp                                   ; generated
+    mov     ebp,esp                               ; generated
+
+  push    esi
+  push    ebx
+  push    ecx
+  push    edx
+    mov edx, [ebp+8] ; our string
+    xor eax, eax ; zero a "result so far"
+    .top:
+    movzx ecx, byte [edx] ; get a character
+    inc edx ; ready for next one
+    cmp ecx, '0' ; valid?
+    jb .done
+    cmp ecx, '9'
+    ja .done
+    sub ecx, '0' ; "convert" character to number
+    imul eax, 10 ; multiply "result so far" by ten
+    add eax, ecx ; add in current digit
+    jmp .top ; until done
+.done:
+  pop    edx
+  pop    ecx
+  pop    ebx
+  pop    esi
     pop     ebp                                   ; generated
     ret                                           ; generated
 lambda0:                                          ; generated

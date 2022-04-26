@@ -1,6 +1,6 @@
 include "std.rasm"
 
-nprintln(fib(40));
+nprintln(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
     if (lessOrEqual(n, 1),{

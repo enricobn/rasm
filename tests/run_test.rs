@@ -9,12 +9,22 @@ fn test_helloworld() {
 
 #[test]
 fn test_fibonacci() {
-    test("fibonacci", Vec::new(),"102334155\n");
+    test("fibonacci", vec!["10"],"55\n");
 }
 
 #[test]
 fn test_inline() {
     test("inline", Vec::new(),"5\n");
+}
+
+#[test]
+fn test_cmdlineargs() {
+    test("cmdlineargs", vec!["hello", "world"],"3\ntarget/tmp/cmdlineargs\nhello\nworld\n");
+}
+
+#[test]
+fn test_atoi() {
+    test("atoi", Vec::new(),"1000\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
@@ -27,7 +37,7 @@ fn test(source: &str, args: Vec<&str>, expected_output: &str) {
 
     assert!(status.success());
 
-    let mut output = Command::new(format!("target/tmp/{}", source))
+    let output = Command::new(format!("target/tmp/{}", source))
         .args(args)
         .stderr(Stdio::inherit())
         .output()

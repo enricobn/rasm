@@ -670,7 +670,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let module = parser.parse(path);
 
-        Parser::print(&module);
+        //Parser::print(&module);
     }
 
     #[test]
@@ -732,7 +732,7 @@ mod tests {
         let module = parser.parse(path);
 
         // TODO for now I test only that it doesn't panic
-        Parser::print(&module);
+        //Parser::print(&module);
     }
 
     #[test]
@@ -743,6 +743,6 @@ mod tests {
         let module = parser.parse(path);
 
         // TODO for now I test only that it doesn't panic
-        Parser::print(&module);
+        //Parser::print(&module);
     }
 }

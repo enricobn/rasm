@@ -6,5 +6,5 @@ Doing
 
 Next
 -----
-- test command line arguments
 - safe command line arguments (we need Option)
+- add command line argument to print the syntax tree (codegen/md.rs -> Parser::print(&self.module))
