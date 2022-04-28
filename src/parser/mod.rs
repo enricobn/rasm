@@ -18,6 +18,7 @@ mod type_params_parser;
 mod test_utils;
 mod asm_def_parser;
 mod type_parser;
+mod tokens_matcher;
 
 enum ProcessResult {
     Continue,
@@ -152,7 +153,6 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
-                        println!("found enum {}<{:?}>", name, type_params);
                         self.parser_data.push(EnumDefData(ASTEnumDef { name, type_parameters: type_params, variants: Vec::new()}));
                         self.state.push(EnumDefState);
                         self.i = next_i;
@@ -239,13 +239,15 @@ impl Parser {
                     }
                 }
                 Some(EnumDefState) => {
-                    if let Some(EnumDefData(def)) = self.last_parser_data() {
+                    if let Some(EnumDefData(mut def)) = self.last_parser_data() {
                         if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
 
                         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
                             self.enums.push(def);
                             self.state.pop();
                             self.parser_data.pop();
+                        } else {
+                            //def.add_variant
                         }
                     } else {
                         panic!("Expected enum data.")
@@ -356,7 +358,6 @@ impl Parser {
                 return ProcessResult::Continue;
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
-            let return_type =
                 if let Some(FunctionDefData(mut def)) = self.last_parser_data() {
                     if let Some((ref type_ref, next_i)) = self.try_parse_type_ref(&def.param_types) {
                         self.i = next_i;
