@@ -1,5 +1,5 @@
 use std::path::Path;
-use crate::parser::ast::{ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::ASTTypeRef;
 use std::process::{Command, Stdio};
 
 pub trait Backend {
@@ -42,7 +42,7 @@ impl Backend for Backend386 {
         format!("[esp+{}]", index * 4)
     }
 
-    fn type_len(&self, type_ref: &ASTTypeRef) -> u8 {
+    fn type_len(&self, _type_ref: &ASTTypeRef) -> u8 {
         4
     }
 

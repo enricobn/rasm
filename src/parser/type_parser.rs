@@ -5,17 +5,17 @@ use crate::parser::ParserTrait;
 use crate::parser::type_params_parser::TypeParamsParser;
 
 pub struct TypeParser<'a> {
-    parser: &'a dyn ParserTrait
+    parser: &'a dyn ParserTrait,
 }
 
-impl <'a> TypeParser<'a> {
+impl<'a> TypeParser<'a> {
     pub fn new(parser: &'a dyn ParserTrait) -> Self {
         Self { parser }
     }
 
     pub fn try_parse(&self, n: usize, context_param_types: &Vec<String>) -> Option<(ASTType, usize)> {
         if let Some(token) = self.parser.get_token_n(n) {
-            let mut next_i = self.parser.get_i() + n + 1;
+            let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::AlphaNumeric(type_name) = &token.kind {
                 if type_name == "i32" {
                     Some((BuiltinType(BuiltinTypeKind::ASTI32), next_i))
@@ -27,7 +27,7 @@ impl <'a> TypeParser<'a> {
                     let (param_types, next_i) = if let Some((param_types, next_i)) = TypeParamsParser::new(self.parser).try_parse(n + 1) {
                         (param_types, next_i)
                     } else {
-                        (vec![], self.parser.get_i() + next_i)
+                        (vec![], next_i)
                     };
 
                     Some((CustomType { name: type_name.into(), param_types }, next_i))
@@ -41,7 +41,6 @@ impl <'a> TypeParser<'a> {
             None
         }
     }
-
 }
 
 #[cfg(test)]
@@ -49,7 +48,7 @@ mod tests {
     use crate::parser::test_utils::get_parser;
     use super::*;
 
-    # [test]
+    #[test]
     fn test() {
         let parse_result = try_parse("i32");
         assert_eq!(Some((BuiltinType(BuiltinTypeKind::ASTI32), 1)), parse_result);

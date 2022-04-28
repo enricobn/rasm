@@ -239,7 +239,7 @@ impl Parser {
                     }
                 }
                 Some(EnumDefState) => {
-                    if let Some(EnumDefData(mut def)) = self.last_parser_data() {
+                    if let Some(EnumDefData(def)) = self.last_parser_data() {
                         if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
 
                         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
@@ -400,15 +400,6 @@ impl Parser {
             return ProcessResult::Panic;
         }
         ProcessResult::Next
-    }
-
-    fn find_function_def(&mut self) -> Option<&mut ASTFunctionDef> {
-        for data in self.parser_data.iter_mut().rev() {
-            if let FunctionDefData(def) = data {
-                return Some(def)
-            }
-        }
-        None
     }
 
     fn add_parameter_to_call_and_update_parser_data(&mut self, mut call: ASTFunctionCall, ast_expression: ASTExpression) {
