@@ -43,25 +43,7 @@ impl Backend for Backend386 {
     }
 
     fn type_len(&self, type_ref: &ASTTypeRef) -> u8 {
-        if type_ref.ast_ref {
-            4
-        } else {
-            match &type_ref.ast_type {
-                ASTType::BuiltinType(bt) => {
-                    match bt {
-                        BuiltinTypeKind::ASTString => {
-                            4
-                        }
-                        BuiltinTypeKind::ASTI32 => {
-                            4
-                        }
-                        BuiltinTypeKind::Lambda => {
-                            4
-                        }
-                    }
-                }
-            }
-        }
+        4
     }
 
     fn word_len(&self) -> u8 {

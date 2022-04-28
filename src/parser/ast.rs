@@ -5,6 +5,7 @@ pub struct ASTFunctionDef {
     pub return_type: Option<ASTReturnType>,
     pub body: ASTFunctionBody,
     pub inline: bool,
+    pub param_types: Vec<String>
 }
 
 #[derive(Debug, Clone)]
@@ -19,16 +20,18 @@ pub enum ASTFunctionBody {
     ASMBody(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BuiltinTypeKind {
     ASTString,
     ASTI32,
     Lambda,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTType {
-    BuiltinType(BuiltinTypeKind)
+    BuiltinType(BuiltinTypeKind),
+    ParametricType(String),
+    CustomType { name: String, param_types: Vec<String> },
 }
 
 #[derive(Debug, Clone)]
@@ -63,3 +66,17 @@ pub struct ASTModule {
     pub body: Vec<ASTFunctionCall>,
     pub functions: Vec<ASTFunctionDef>,
 }
+
+#[derive(Debug, Clone)]
+pub struct ASTEnumDef {
+    pub name: String,
+    pub type_parameters: Vec<String>,
+    pub variants: Vec<ASTEnumVariantDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ASTEnumVariantDef {
+    pub name: String,
+    pub parameters: Vec<ASTParameterDef>,
+}
+

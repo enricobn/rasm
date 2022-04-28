@@ -57,7 +57,8 @@ pub enum KeywordKind {
     Asm,
     Fn,
     Include,
-    Inline
+    Inline,
+    Enum
 }
 
 impl KeywordKind {
@@ -66,7 +67,8 @@ impl KeywordKind {
             KeywordKind::Fn => "fn".into(),
             KeywordKind::Asm => "asm".into(),
             KeywordKind::Include => "include".into(),
-            KeywordKind::Inline => "inline".into()
+            KeywordKind::Inline => "inline".into(),
+            KeywordKind::Enum => "enum".into()
         }
     }
 

@@ -1,0 +1,33 @@
+include "std.rasm"
+
+enum Option<T> {
+  Empty,
+  Some(value : T)
+}
+
+if(isSome(some("a value")),{sprintln("some");}, {sprintln("none");});
+if(isNone(some("a value")),{sprintln("none");}, {sprintln("some");});
+if(isSome(none()),{sprintln("some");}, {sprintln("none");});
+if(isNone(none()),{sprintln("none");}, {sprintln("some");});
+
+// TODO
+asm some<T>(value: T) -> Option<T>[eax] /{
+    mov     eax,0
+}/
+
+// TODO
+asm none<T>() -> Option<T>[eax] /{
+    mov     eax,0
+}/
+
+// TODO
+// TODO it should be boolean
+asm isNone<T>(opt: Option<T>) -> i32[eax] /{
+    mov     eax,0 ; false
+}/
+
+// TODO
+// TODO it should be boolean
+asm isSome<T>(opt: Option<T>) -> i32[eax] /{
+    mov     eax,0 ; false
+}/

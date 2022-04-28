@@ -38,6 +38,11 @@ fn test_mc91() {
     test("mc91", Vec::new(),"91\n");
 }
 
+#[test]
+fn test_enum() {
+    test("enum", Vec::new(),"none\nsome\nnone\nsome\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 

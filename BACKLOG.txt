@@ -1,5 +1,6 @@
 Doing
 ------
+- enum
 - optimizing inline for fibonacci
     - backend for 32 and 64 bit
     - move more code as possible from codegen to function_call_parameters

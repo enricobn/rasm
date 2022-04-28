@@ -1,0 +1,65 @@
+use crate::lexer::tokens::{KeywordKind, TokenKind};
+use crate::parser::ast::{ASTType, BuiltinTypeKind};
+use crate::parser::ast::ASTType::{BuiltinType, CustomType, ParametricType};
+use crate::parser::ParserTrait;
+use crate::parser::type_params_parser::TypeParamsParser;
+
+pub struct TypeParser<'a> {
+    parser: &'a dyn ParserTrait
+}
+
+impl <'a> TypeParser<'a> {
+    pub fn new(parser: &'a dyn ParserTrait) -> Self {
+        Self { parser }
+    }
+
+    pub fn try_parse(&self, n: usize, context_param_types: &Vec<String>) -> Option<(ASTType, usize)> {
+        if let Some(token) = self.parser.get_token_n(n) {
+            let mut next_i = self.parser.get_i() + n + 1;
+            if let TokenKind::AlphaNumeric(type_name) = &token.kind {
+                if type_name == "i32" {
+                    Some((BuiltinType(BuiltinTypeKind::ASTI32), next_i))
+                } else if type_name == "str" {
+                    Some((BuiltinType(BuiltinTypeKind::ASTString), next_i))
+                } else if context_param_types.contains(type_name) {
+                    Some((ParametricType(type_name.into()), next_i))
+                } else {
+                    let (param_types, next_i) = if let Some((param_types, next_i)) = TypeParamsParser::new(self.parser).try_parse(n + 1) {
+                        (param_types, next_i)
+                    } else {
+                        (vec![], self.parser.get_i() + next_i)
+                    };
+
+                    Some((CustomType { name: type_name.into(), param_types }, next_i))
+                }
+            } else if let TokenKind::KeyWord(KeywordKind::Fn) = &token.kind {
+                Some((BuiltinType(BuiltinTypeKind::Lambda), self.parser.get_i() + n + 1))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::test_utils::get_parser;
+    use super::*;
+
+    # [test]
+    fn test() {
+        let parse_result = try_parse("i32");
+        assert_eq!(Some((BuiltinType(BuiltinTypeKind::ASTI32), 1)), parse_result);
+    }
+
+    fn try_parse(source: &str) -> Option<(ASTType, usize)> {
+        let parser = get_parser(source);
+
+        let sut = TypeParser::new(&parser);
+
+        sut.try_parse(0, &vec![])
+    }
+}
