@@ -4,6 +4,12 @@ use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::parser::ParserTrait;
 
+pub trait TokensMatcherTrait {
+
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
+
+}
+
 struct TokensGroup {
     name: String,
     matchers: Vec<Box<dyn TokenMatcher>>,
@@ -36,7 +42,13 @@ impl TokensGroup {
         self.groups.push(self.groups_stack.pop().unwrap());
     }
 
-    pub fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
+
+    // TODO flush
+}
+
+impl TokensMatcherTrait for TokensGroup {
+
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         println!("n {}", n);
         let mut i = n;
 
@@ -48,31 +60,31 @@ impl TokensGroup {
 
             let mut num_of_matches = 0;
 
-                let mut matches = true;
+            let mut matches = true;
 
-                for matcher in self.matchers.iter() {
-                    if let Some(token) = parser.get_token_n(i) {
-                        if let Some(kind) = matcher.match_token(token) {
-                            kinds.push(kind);
-                            if let Some(value) = matcher.get_value(token) {
-                                values.push(value);
-                            }
-                            println!("matched {:?} matcher {:?}, {}", token, matcher, i);
-                        } else {
-                            println!("cannot match {:?} matcher {:?}, {}", token, matcher, i);
-                            matches = false;
-                            break;
+            for matcher in self.matchers.iter() {
+                if let Some(token) = parser.get_token_n(i) {
+                    if let Some(kind) = matcher.match_token(token) {
+                        kinds.push(kind);
+                        if let Some(value) = matcher.get_value(token) {
+                            values.push(value);
                         }
+                        println!("matched {:?} matcher {:?}, {}", token, matcher, i);
                     } else {
+                        println!("cannot match {:?} matcher {:?}, {}", token, matcher, i);
                         matches = false;
                         break;
                     }
-                    i += 1;
+                } else {
+                    matches = false;
+                    break;
                 }
+                i += 1;
+            }
 
-                if matches {
-                    num_of_matches += 1;
-                }
+            if matches {
+                num_of_matches += 1;
+            }
 
             if match self.quantifier {
                 Quantifier::One => num_of_matches == 1,
@@ -87,8 +99,8 @@ impl TokensGroup {
         } else {
             println!("groups is full");
 
-            let mut kinds : Vec<TokenKind> = Vec::new();
-            let mut values : Vec<String> = Vec::new();
+            let mut kinds: Vec<TokenKind> = Vec::new();
+            let mut values: Vec<String> = Vec::new();
 
             let mut num_of_matches = 0;
 
@@ -97,10 +109,10 @@ impl TokensGroup {
 
                 for group in self.groups.iter() {
                     if let Some(mut result) = group.match_tokens(parser, i) {
-                        let mut group_kinds = result.kinds_mut();
-                        kinds.append(&mut group_kinds);
-                        let mut group_values = result.values_mut();
-                        values.append(&mut group_values);
+                        let group_kinds = result.kinds_mut();
+                        kinds.append(group_kinds);
+                        let group_values = result.values_mut();
+                        values.append(group_values);
                         i = result.next_n;
                     } else {
                         matches = false;
@@ -128,7 +140,6 @@ impl TokensGroup {
         }
     }
 
-    // TODO flush
 }
 
 pub struct TokensMatcher {
@@ -152,33 +163,14 @@ impl TokensMatcher {
         self.group.end_group();
     }
 
-    pub fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
-        /*
-        let mut kinds = Vec::new();
-        let mut values = Vec::new();
+}
 
-        let mut i = n;
+impl TokensMatcherTrait for TokensMatcher {
 
-        for matcher in self.matchers.iter() {
-            if let Some(token) = parser.get_token_n(i) {
-                if let Some(kind) = matcher.match_token(token) {
-                    kinds.push(kind);
-                    if let Some(value) = matcher.get_value(token) {
-                        values.push(value);
-                    }
-                } else {
-                    return None;
-                }
-            } else {
-                return None;
-            }
-            i += 1;
-        }
-        Some(TokensMatcherResult::new(kinds, values, i))
-
-         */
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         self.group.match_tokens(parser, n)
     }
+
 }
 
 pub struct TokensMatcherResult {
@@ -258,10 +250,12 @@ impl TokenMatcher for AlphanumericTokenMatcher {
     }
 }
 
-pub trait TokenMatcher : Debug {
+pub trait TokenMatcher: Debug {
+
     fn match_token(&self, token: &Token) -> Option<TokenKind>;
 
     fn get_value(&self, token: &Token) -> Option<String>;
+
 }
 
 impl TokenMatcher for KindTokenMatcher {
@@ -338,7 +332,6 @@ mod tests {
 
     #[test]
     fn test_groups() {
-
         let mut matcher = TokensMatcher::new();
         matcher.add(Box::new(KindTokenMatcher::new(TokenKind::KeyWord(KeywordKind::Enum))));
         matcher.add(Box::new(AlphanumericTokenMatcher::new()));
@@ -353,6 +346,7 @@ mod tests {
         matcher.end_group();
         matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))));
 
+        /*
         let parser = get_parser("enum Option {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
@@ -366,6 +360,8 @@ mod tests {
             panic!()
         }
 
+         */
+
         let parser = get_parser("enum Option<T,Y> {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
@@ -377,14 +373,12 @@ mod tests {
                 TokenKind::Punctuation(PunctuationKind::Comma),
                 AlphaNumeric("Y".into()),
                 TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close),
-                TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)
+                TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open),
             ],
                        match_result.kinds());
             assert_eq!(&vec!["Option".to_string(), "T".to_string(), "Y".to_string()], match_result.values());
         } else {
             panic!()
         }
-
-
     }
 }
