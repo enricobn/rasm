@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::vec;
 use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::parser::ParserTrait;
@@ -19,26 +18,26 @@ struct TokensGroup {
 }
 
 impl TokensGroup {
-    pub fn new(name: String, quantifier: Quantifier) -> Self {
+    fn new(name: String, quantifier: Quantifier) -> Self {
         Self { name, matchers: Vec::new(), groups: Vec::new(), groups_stack: Vec::new(), quantifier }
     }
 
-    pub fn add(&mut self, matcher: Box<dyn TokenMatcher>) {
+    fn add(&mut self, matcher: Box<dyn TokenMatcher>) {
         if let Some(first) = self.groups_stack.first_mut() {
             first.add(matcher);
         } else {
-            let name = format!("_{}_", self.groups.len());
+            let name = format!("_{}{}_", self.name, self.groups.len());
             let mut group = TokensGroup::new(name, Quantifier::One);
             group.matchers.push(matcher);
             self.groups.push(group);
         }
     }
 
-    pub fn start_group(&mut self, name: &str, quantifier: Quantifier) {
+    fn start_group(&mut self, name: &str, quantifier: Quantifier) {
         self.groups_stack.push(TokensGroup::new(name.to_string(), quantifier));
     }
 
-    pub fn end_group(&mut self) {
+    fn end_group(&mut self) {
         self.groups.push(self.groups_stack.pop().unwrap());
     }
 
@@ -155,7 +154,18 @@ impl TokensMatcher {
         self.group.add(matcher);
     }
 
+    pub fn add_kind(&mut self, kind: TokenKind) {
+        self.group.add(Box::new(KindTokenMatcher::new(kind)));
+    }
+
+    pub fn add_alphanumeric(&mut self) {
+        self.group.add(Box::new(AlphanumericTokenMatcher::new()));
+    }
+
     pub fn start_group(&mut self, name: &str, quantifier: Quantifier) {
+        if name.starts_with("_") && name.ends_with("_") {
+            panic!("name cannot start and end with _")
+        }
         self.group.start_group(name, quantifier);
     }
 
@@ -213,21 +223,21 @@ pub enum Quantifier {
 }
 
 #[derive(Debug)]
-pub struct KindTokenMatcher {
+struct KindTokenMatcher {
     kind: TokenKind,
 }
 
 impl KindTokenMatcher {
-    pub fn new(kind: TokenKind) -> Self {
+    fn new(kind: TokenKind) -> Self {
         Self { kind }
     }
 }
 
 #[derive(Debug)]
-pub struct AlphanumericTokenMatcher {}
+struct AlphanumericTokenMatcher {}
 
 impl AlphanumericTokenMatcher {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {}
     }
 }
@@ -283,12 +293,12 @@ mod tests {
         let parser = get_parser("enum Option<T> {");
 
         let mut matcher = TokensMatcher::new();
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::KeyWord(KeywordKind::Enum))));
-        matcher.add(Box::new(AlphanumericTokenMatcher::new()));
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open))));
-        matcher.add(Box::new(AlphanumericTokenMatcher::new()));
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close))));
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))));
+        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
+        matcher.add_alphanumeric();
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+        matcher.add_alphanumeric();
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(&vec![
@@ -310,7 +320,7 @@ mod tests {
         let parser = get_parser("enum Option<T> {");
 
         let mut matcher = TokensMatcher::new();
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::KeyWord(KeywordKind::Asm))));
+        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Asm));
 
         let match_result = matcher.match_tokens(&parser, 0);
 
@@ -322,8 +332,8 @@ mod tests {
         let parser = get_parser("enum");
 
         let mut matcher = TokensMatcher::new();
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::KeyWord(KeywordKind::Enum))));
-        matcher.add(Box::new(AlphanumericTokenMatcher::new()));
+        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
+        matcher.add_alphanumeric();
 
         let match_result = matcher.match_tokens(&parser, 0);
 
@@ -333,20 +343,19 @@ mod tests {
     #[test]
     fn test_groups() {
         let mut matcher = TokensMatcher::new();
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::KeyWord(KeywordKind::Enum))));
-        matcher.add(Box::new(AlphanumericTokenMatcher::new()));
+        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
+        matcher.add_alphanumeric();
         matcher.start_group("paramTypes", Quantifier::AtMostOne);
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open))));
-        matcher.add(Box::new(AlphanumericTokenMatcher::new()));
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+        matcher.add_alphanumeric();
         matcher.start_group("type", Quantifier::ZeroOrMore);
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Punctuation(PunctuationKind::Comma))));
-        matcher.add(Box::new(AlphanumericTokenMatcher::new()));
+        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+        matcher.add_alphanumeric();
         matcher.end_group();
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close))));
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
         matcher.end_group();
-        matcher.add(Box::new(KindTokenMatcher::new(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))));
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        /*
         let parser = get_parser("enum Option {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
@@ -359,8 +368,6 @@ mod tests {
         } else {
             panic!()
         }
-
-         */
 
         let parser = get_parser("enum Option<T,Y> {");
 
