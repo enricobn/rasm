@@ -4,44 +4,49 @@ use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::parser::ParserTrait;
 
-pub trait TokensMatcherTrait {
+pub trait TokensMatcherTrait : Debug {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
+
+    fn name(&self) -> Vec<String>;
 }
 
 pub struct TokensGroup {
     name: Vec<String>,
-    matchers: HashMap<usize, Box<dyn TokenMatcher>>,
-    groups: HashMap<usize, TokensGroup>,
+    tokens_matchers: Vec<Box<dyn TokensMatcherTrait>>,
     quantifier: Quantifier,
     current_group: Vec<TokensGroup>,
 }
 
 impl Debug for TokensGroup {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let groups_names: Vec<String> = self.groups.values().map(|it| it.name.join(", ")).collect();
-        let groups_stack_names: Vec<String> = self.current_group.iter().map(|it| it.name.join(", ")).collect();
-        write!(f, "{} \n  groups: {}, \n  stack: {}", self.name.join(", "),
-               groups_names.join(" | "),
-               groups_stack_names.join(" | ")
-        )
+        write!(f, "group {:?} {:?}", self.name, self.quantifier)
     }
 }
 
 impl TokensGroup {
     pub fn new(name: Vec<String>, quantifier: Quantifier) -> Self {
-        Self { name, matchers: HashMap::new(), groups: HashMap::new(), current_group: Vec::new(), quantifier }
+        println!("created group {:?}", name);
+        Self { name, current_group: Vec::new(), tokens_matchers: Vec::new(), quantifier }
     }
 
-    fn add_matcher(&mut self, matcher: Box<dyn TokenMatcher>) {
+    fn add_matcher<T: 'static>(&mut self, matcher: T)
+        where T : TokensMatcherTrait {
+        println!("adding matcher {:?}", &matcher);
         if let Some(first) = self.current_group.first_mut() {
             first.add_matcher(matcher);
         } else {
-            self.matchers.insert(self.len(), matcher);
+            //self.matchers.insert(self.len(), matcher);
+            self.tokens_matchers.push(Box::new(matcher));
         }
+        println!("added to {:?}", self);
     }
 
-    fn len(&self) -> usize {
-        self.matchers.len() + self.groups.len()
+    pub fn add_kind(&mut self, kind: TokenKind) {
+        self.add_matcher(KindTokenMatcher::new(kind));
+    }
+
+    pub fn add_alphanumeric(&mut self) {
+        self.add_matcher(AlphanumericTokenMatcher::new());
     }
 
     fn start_group(&mut self, name: &str, quantifier: Quantifier) {
@@ -61,7 +66,8 @@ impl TokensGroup {
             return false;
         } else {
             if !self.current_group.first_mut().unwrap().end_group() {
-                self.groups.insert(self.len(), self.current_group.pop().unwrap());
+                //self.groups.insert(self.len(), self.current_group.pop().unwrap());
+                self.tokens_matchers.push(Box::new(self.current_group.pop().unwrap()));
                 return true;
             }
             return false;
@@ -74,15 +80,15 @@ impl TokensGroup {
         }
         map.get_mut(&key).unwrap().append(values);
     }
-
 }
 
 impl TokensMatcherTrait for TokensGroup {
+
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if !self.current_group.is_empty() {
             panic!("not ended group");
         }
-        //println!("match_tokens {:?}, {}", self, n);
+        println!("\nmatch_tokens for {:?}, n {}", self, n);
 
         let mut i = n;
 
@@ -95,50 +101,41 @@ impl TokensMatcherTrait for TokensGroup {
         loop {
             let mut matches = true;
 
-            for j in 0..self.len() {
-                if let Some(matcher) = self.matchers.get(&j) {
-                    if let Some(token) = parser.get_token_n(i) {
-                        if let Some(kind) = matcher.match_token(token) {
-                            kinds.push(kind);
-                            if let Some(value) = matcher.get_value(token) {
-                                values.push(value);
-                            }
-                            i += 1;
-                            println!("matched {:?} matcher {:?}, {} -> {:?}", token, matcher, i, self.name);
-                        } else {
-                            println!("cannot match {:?} matcher {:?}, {} -> {:?}", token, matcher, i, self.name);
-                            matches = false;
-                            break;
-                        }
+            for matcher in self.tokens_matchers.iter() {
+                if let Some(mut result) = matcher.match_tokens(parser, i) {
+                    let group_kinds = result.kinds_mut();
+                    kinds.append(group_kinds);
+
+                    println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
+
+                    if matcher.name().is_empty() {
+                        values.append(result.values_mut());
                     } else {
-                        matches = false;
-                        break;
-                    }
-                } else if let Some(group) = self.groups.get(&j) {
-                    if let Some(mut result) = group.match_tokens(parser, i) {
-                        let group_kinds = result.kinds_mut();
-                        kinds.append(group_kinds);
-
-                        println!("result {:?} -> {:?}", result, group.name);
-
-                        for k in group.name.iter() {
+                        for k in matcher.name().iter() {
                             let mut vec = result.values.clone();
                             TokensGroup::push_value(&mut groups_values, k.to_string(), &mut vec);
                         }
-
-                        for (k, v) in result.groups_values_mut().iter_mut() {
-                            TokensGroup::push_value(&mut groups_values, k.to_string(), v);
-                        }
-
-                        println!("groups_values {:?}\n", groups_values);
-
-                        i = result.next_n;
-                    } else {
-                        matches = false;
-                        break;
                     }
+
+                    /*
+                    for k in self.name().iter() {
+                        let mut vec = result.values.clone();
+                        TokensGroup::push_value(&mut groups_values, k.to_string(), &mut vec);
+                    }
+
+                     */
+
+                    for (k, v) in result.groups_values_mut().iter_mut() {
+                        TokensGroup::push_value(&mut groups_values, k.to_string(), v);
+                    }
+
+                    println!("groups_values {:?}", groups_values);
+
+                    i = result.next_n;
                 } else {
-                    panic!();
+                    println!("not matched matcher {:?}", matcher);
+                    matches = false;
+                    break;
                 }
             }
 
@@ -151,8 +148,9 @@ impl TokensMatcherTrait for TokensGroup {
             if match self.quantifier {
                 Quantifier::One => num_of_matches != 1,
                 Quantifier::AtMostOne => num_of_matches > 1,
-                _ => true,
+                _ => false,
             } {
+                println!("exited loop for {:?}", self);
                 break;
             }
         }
@@ -163,11 +161,16 @@ impl TokensMatcherTrait for TokensGroup {
             Quantifier::ZeroOrMore => true,
             Quantifier::AtMostOne => num_of_matches <= 1
         } {
-            println!("values: {:?}, group values: {:?} -> {:?}", values, groups_values, self.name);
+            println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_values);
             Some(TokensMatcherResult::new(kinds, values, groups_values, i))
         } else {
+            println!("not matched all for {:?}\n", self);
             None
         }
+    }
+
+    fn name(&self) -> Vec<String> {
+        self.name.clone()
     }
 }
 
@@ -175,27 +178,31 @@ pub struct TokensMatcher {
     group: TokensGroup,
 }
 
+impl Default for TokensMatcher {
+    fn default() -> Self {
+        TokensMatcher::new("main", Quantifier::One)
+    }
+}
+
 impl TokensMatcher {
-    pub fn new() -> Self {
-        Self { group: TokensGroup::new(Vec::new(), Quantifier::One) }
+    pub fn new(name: &str, quantifier: Quantifier) -> Self {
+        Self { group: TokensGroup::new(vec![name.to_string()], quantifier) }
     }
 
-    pub fn add(&mut self, matcher: Box<dyn TokenMatcher>) {
+    pub fn add_matcher<T: 'static>(&mut self, matcher: T)
+    where T : TokensMatcherTrait {
         self.group.add_matcher(matcher);
     }
 
     pub fn add_kind(&mut self, kind: TokenKind) {
-        self.group.add_matcher(Box::new(KindTokenMatcher::new(kind)));
+        self.group.add_matcher(KindTokenMatcher::new(kind));
     }
 
     pub fn add_alphanumeric(&mut self) {
-        self.group.add_matcher(Box::new(AlphanumericTokenMatcher::new()));
+        self.group.add_matcher(AlphanumericTokenMatcher::new());
     }
 
     pub fn start_group(&mut self, name: &str, quantifier: Quantifier) {
-        if name.starts_with("_") && name.ends_with("_") {
-            panic!("name cannot start and end with _")
-        }
         self.group.start_group(name, quantifier);
     }
 
@@ -204,9 +211,19 @@ impl TokensMatcher {
     }
 }
 
+impl Debug for TokensMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TokensMatcher")
+    }
+}
+
 impl TokensMatcherTrait for TokensMatcher {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         self.group.match_tokens(parser, n)
+    }
+
+    fn name(&self) -> Vec<String> {
+        self.group.name.clone()
     }
 }
 
@@ -223,17 +240,6 @@ pub struct TokensMatcherResult {
 impl TokensMatcherResult {
     pub fn new(kinds: Vec<TokenKind>, values: Vec<String>, group_values: HashMap<String, Vec<String>>, next_n: usize) -> Self {
         Self { kinds, values, next_n, groups_values: group_values, empty_vec: Vec::new() }
-    }
-
-    pub fn add_group_value(&mut self, name: &str, value: String) {
-        if !self.groups_values.contains_key(name) {
-            self.groups_values.insert(name.to_string(), Vec::new());
-        }
-        self.groups_values.get_mut(name).unwrap().push(value);
-    }
-
-    pub fn add_value(&mut self, value: String) {
-        self.values.push(value);
     }
 
     pub fn kinds(&self) -> &Vec<TokenKind> {
@@ -281,7 +287,7 @@ pub enum Quantifier {
     AtMostOne,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct KindTokenMatcher {
     kind: TokenKind,
 }
@@ -292,12 +298,35 @@ impl KindTokenMatcher {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct AlphanumericTokenMatcher {}
 
 impl AlphanumericTokenMatcher {
     fn new() -> Self {
         Self {}
+    }
+}
+
+impl TokensMatcherTrait for AlphanumericTokenMatcher {
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
+        if let Some(token) = parser.get_token_n(n) {
+            if let Some(kind) = self.match_token(token) {
+                let values = if let Some(value) = self.get_value(token) {
+                    vec![value]
+                } else {
+                    vec![]
+                };
+                Some(TokensMatcherResult::new(vec![kind], values, HashMap::new(), n + 1))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn name(&self) -> Vec<String> {
+        vec![]
     }
 }
 
@@ -319,10 +348,33 @@ impl TokenMatcher for AlphanumericTokenMatcher {
     }
 }
 
-pub trait TokenMatcher: Debug {
+pub trait TokenMatcher: Debug + TokensMatcherTrait {
     fn match_token(&self, token: &Token) -> Option<TokenKind>;
 
     fn get_value(&self, token: &Token) -> Option<String>;
+}
+
+impl TokensMatcherTrait for KindTokenMatcher {
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
+        if let Some(token) = parser.get_token_n(n) {
+            if let Some(kind) = self.match_token(token) {
+                let values = if let Some(value) = self.get_value(token) {
+                    vec![value]
+                } else {
+                    vec![]
+                };
+                Some(TokensMatcherResult::new(vec![kind], values, HashMap::new(), n + 1))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn name(&self) -> Vec<String> {
+        vec![]
+    }
 }
 
 impl TokenMatcher for KindTokenMatcher {
@@ -337,6 +389,7 @@ impl TokenMatcher for KindTokenMatcher {
     fn get_value(&self, _token: &Token) -> Option<String> {
         None
     }
+
 }
 
 #[cfg(test)]
@@ -349,9 +402,13 @@ mod tests {
     fn test_simple() {
         let parser = get_parser("n1 n2");
 
-        let mut matcher = TokensMatcher::new();
+        println!("hhhh 1");
+
+        let mut matcher = TokensMatcher::default();
         matcher.add_alphanumeric();
         matcher.add_alphanumeric();
+
+        println!("hhhh 2");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(&vec!["n1".to_string(), "n2".to_string()], match_result.values());
@@ -364,7 +421,7 @@ mod tests {
     fn test_group_simple() {
         let parser = get_parser("n1 n2");
 
-        let mut matcher = TokensMatcher::new();
+        let mut matcher = TokensMatcher::default();
         matcher.add_alphanumeric();
         matcher.start_group("g1", Quantifier::One);
         matcher.add_alphanumeric();
@@ -379,10 +436,30 @@ mod tests {
     }
 
     #[test]
+    fn test_group_simple_with_matcher() {
+        let parser = get_parser("n1 n2 n3 {");
+
+        let mut g1 = TokensMatcher::new("g1", Quantifier::AtLeastOne);
+        g1.add_alphanumeric();
+
+        let mut matcher = TokensMatcher::default();
+        matcher.add_alphanumeric();
+        matcher.add_matcher(g1);
+        matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
+
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
+            assert_eq!(&vec!["n1".to_string()], match_result.values());
+            assert_eq!(&vec!["n2".to_string(), "n3".to_string()], match_result.group_values("g1"));
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
     fn test() {
         let parser = get_parser("enum Option<T> {");
 
-        let mut matcher = TokensMatcher::new();
+        let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
         matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
@@ -411,7 +488,7 @@ mod tests {
     fn not_matching_test() {
         let parser = get_parser("enum Option<T> {");
 
-        let mut matcher = TokensMatcher::new();
+        let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Asm));
 
         let match_result = matcher.match_tokens(&parser, 0);
@@ -423,7 +500,7 @@ mod tests {
     fn few_tokens() {
         let parser = get_parser("enum");
 
-        let mut matcher = TokensMatcher::new();
+        let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
 
@@ -434,18 +511,21 @@ mod tests {
 
     #[test]
     fn test_groups() {
-        let mut matcher = TokensMatcher::new();
+
+        let mut param_types = TokensMatcher::new("paramTypes", Quantifier::AtMostOne);
+        param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+        param_types.add_alphanumeric();
+        param_types.start_group("type", Quantifier::ZeroOrMore);
+        param_types.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+        param_types.add_alphanumeric();
+        param_types.end_group();
+        param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
+
+        let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
-        matcher.start_group("paramTypes", Quantifier::AtMostOne);
-        matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
-        matcher.add_alphanumeric();
-        matcher.start_group("type", Quantifier::ZeroOrMore);
-        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
-        matcher.add_alphanumeric();
-        matcher.end_group();
-        matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
-        matcher.end_group();
+        matcher.add_matcher(param_types);
+
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         let parser = get_parser("enum Option {");
@@ -491,4 +571,26 @@ mod tests {
             panic!()
         }
     }
+
+    #[test]
+    fn test_groups1() {
+        let mut param_types = TokensGroup::new(vec!["paramTypes".to_string()], Quantifier::AtMostOne);
+        param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+        param_types.add_alphanumeric();
+        param_types.start_group("type", Quantifier::ZeroOrMore);
+        param_types.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+        param_types.add_alphanumeric();
+        param_types.end_group();
+        param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
+
+        let parser = get_parser("");
+
+        if let Some(match_result) = param_types.match_tokens(&parser, 0) {
+            println!("{:?}", match_result);
+        } else {
+            panic!()
+        }
+
+    }
+
 }
