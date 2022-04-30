@@ -220,7 +220,7 @@ mod tests {
         println!("hhhh 2");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            assert_eq!(&vec!["n1".to_string(), "n2".to_string()], match_result.values());
+            assert_eq!(&vec!["n1", "n2"], match_result.values());
         } else {
             panic!()
         }
@@ -237,8 +237,8 @@ mod tests {
         matcher.end_group();
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            assert_eq!(&vec!["n1".to_string()], match_result.values());
-            assert_eq!(&vec!["n2".to_string()], match_result.group_values("g1"));
+            assert_eq!(&vec!["n1"], match_result.values());
+            assert_eq!(&vec!["n2"], match_result.group_values("g1"));
         } else {
             panic!()
         }
@@ -257,8 +257,8 @@ mod tests {
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            assert_eq!(&vec!["n1".to_string()], match_result.values());
-            assert_eq!(&vec!["n2".to_string(), "n3".to_string()], match_result.group_values("g1"));
+            assert_eq!(&vec!["n1"], match_result.values());
+            assert_eq!(&vec!["n2", "n3"], match_result.group_values("g1"));
         } else {
             panic!()
         }
@@ -287,7 +287,7 @@ mod tests {
                 TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close),
                 TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)],
                        match_result.kinds());
-            assert_eq!(&vec!["Option".to_string(), "T".to_string()], match_result.values());
+            assert_eq!(&vec!["Option", "T"], match_result.values());
         } else {
             panic!();
         }
@@ -371,9 +371,9 @@ mod tests {
                 TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open),
             ],
                        match_result.kinds());
-            assert_eq!(&vec!["Option".to_string()], match_result.values());
-            assert_eq!(&vec!["T".to_string(), "Y".to_string()], match_result.group_values("paramTypes"));
-            assert_eq!(&vec!["Y".to_string()], match_result.group_values("type"));
+            assert_eq!(&vec!["Option"], match_result.values());
+            assert_eq!(&vec!["T", "Y"], match_result.group_values("paramTypes"));
+            assert_eq!(&vec!["Y"], match_result.group_values("type"));
             assert_eq!(8, match_result.next_n());
         } else {
             panic!()
