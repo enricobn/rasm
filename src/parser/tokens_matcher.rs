@@ -4,7 +4,7 @@ use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::parser::ParserTrait;
 
-pub trait TokensMatcherTrait : Debug {
+pub trait TokensMatcherTrait: Debug {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
 
     fn name(&self) -> Vec<String>;
@@ -30,7 +30,7 @@ impl TokensGroup {
     }
 
     fn add_matcher<T: 'static>(&mut self, matcher: T)
-        where T : TokensMatcherTrait {
+        where T: TokensMatcherTrait {
         println!("adding matcher {:?}", &matcher);
         if let Some(first) = self.current_group.first_mut() {
             first.add_matcher(matcher);
@@ -83,7 +83,6 @@ impl TokensGroup {
 }
 
 impl TokensMatcherTrait for TokensGroup {
-
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if !self.current_group.is_empty() {
             panic!("not ended group");
@@ -116,14 +115,6 @@ impl TokensMatcherTrait for TokensGroup {
                             TokensGroup::push_value(&mut groups_values, k.to_string(), &mut vec);
                         }
                     }
-
-                    /*
-                    for k in self.name().iter() {
-                        let mut vec = result.values.clone();
-                        TokensGroup::push_value(&mut groups_values, k.to_string(), &mut vec);
-                    }
-
-                     */
 
                     for (k, v) in result.groups_values_mut().iter_mut() {
                         TokensGroup::push_value(&mut groups_values, k.to_string(), v);
@@ -190,7 +181,7 @@ impl TokensMatcher {
     }
 
     pub fn add_matcher<T: 'static>(&mut self, matcher: T)
-    where T : TokensMatcherTrait {
+        where T: TokensMatcherTrait {
         self.group.add_matcher(matcher);
     }
 
@@ -307,7 +298,7 @@ impl AlphanumericTokenMatcher {
     }
 }
 
-impl TokensMatcherTrait for AlphanumericTokenMatcher {
+impl<T> TokensMatcherTrait for T where T: TokenMatcher {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(token) = parser.get_token_n(n) {
             if let Some(kind) = self.match_token(token) {
@@ -354,29 +345,6 @@ pub trait TokenMatcher: Debug + TokensMatcherTrait {
     fn get_value(&self, token: &Token) -> Option<String>;
 }
 
-impl TokensMatcherTrait for KindTokenMatcher {
-    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
-        if let Some(token) = parser.get_token_n(n) {
-            if let Some(kind) = self.match_token(token) {
-                let values = if let Some(value) = self.get_value(token) {
-                    vec![value]
-                } else {
-                    vec![]
-                };
-                Some(TokensMatcherResult::new(vec![kind], values, HashMap::new(), n + 1))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    fn name(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
 impl TokenMatcher for KindTokenMatcher {
     fn match_token(&self, token: &Token) -> Option<TokenKind> {
         if token.kind == self.kind {
@@ -389,7 +357,6 @@ impl TokenMatcher for KindTokenMatcher {
     fn get_value(&self, _token: &Token) -> Option<String> {
         None
     }
-
 }
 
 #[cfg(test)]
@@ -511,7 +478,6 @@ mod tests {
 
     #[test]
     fn test_groups() {
-
         let mut param_types = TokensMatcher::new("paramTypes", Quantifier::AtMostOne);
         param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
         param_types.add_alphanumeric();
@@ -590,7 +556,5 @@ mod tests {
         } else {
             panic!()
         }
-
     }
-
 }
