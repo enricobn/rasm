@@ -20,6 +20,7 @@ mod asm_def_parser;
 mod type_parser;
 mod tokens_matcher;
 mod tokens_group;
+mod matchers;
 
 enum ProcessResult {
     Continue,
@@ -601,7 +602,7 @@ impl Parser {
         ("eax".into(), self.i)
     }
 
-    fn try_parse_type_ref(&self, param_types: &Vec<String>) -> Option<(ASTTypeRef, usize)> {
+    fn try_parse_type_ref(&self, param_types: &[String]) -> Option<(ASTTypeRef, usize)> {
         if let Some(token) = self.get_token() {
             let parse_type = TypeParser::new(self);
 
