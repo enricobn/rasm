@@ -18,20 +18,20 @@ impl Debug for TokensGroup {
 
 impl TokensGroup {
     pub fn new(name: Vec<String>, quantifier: Quantifier) -> Self {
-        println!("created group {:?}", name);
+        //println!("created group {:?}", name);
         Self { name, current_group: Vec::new(), tokens_matchers: Vec::new(), quantifier }
     }
 
     pub fn add_matcher<T: 'static>(&mut self, matcher: T)
         where T: TokensMatcherTrait {
-        println!("adding matcher {:?}", &matcher);
+        //println!("adding matcher {:?}", &matcher);
         if let Some(first) = self.current_group.first_mut() {
             first.add_matcher(matcher);
         } else {
             //self.matchers.insert(self.len(), matcher);
             self.tokens_matchers.push(Box::new(matcher));
         }
-        println!("added to {:?}", self);
+        //println!("added to {:?}", self);
     }
 
     pub fn start_group(&mut self, name: &str, quantifier: Quantifier) {
@@ -123,7 +123,7 @@ impl TokensMatcherTrait for TokensGroup {
 
             if match self.quantifier {
                 Quantifier::One => num_of_matches != 1,
-                Quantifier::AtMostOne => num_of_matches > 1,
+                Quantifier::AtMostOne => true,
                 _ => false,
             } {
                 println!("exited loop for {:?}", self);
@@ -138,9 +138,9 @@ impl TokensMatcherTrait for TokensGroup {
             Quantifier::AtMostOne => num_of_matches <= 1
         } {
             println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_values);
-            Some(TokensMatcherResult::new(kinds, values, groups_values, i))
+            Some(TokensMatcherResult::new(kinds, values, groups_values, i, num_of_matches))
         } else {
-            println!("not matched all for {:?}\n", self);
+            println!("not matched all for {:?}, found {} matches\n", self, num_of_matches);
             None
         }
     }

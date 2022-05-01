@@ -1,35 +1,57 @@
-use crate::lexer::tokens::{KeywordKind, TokenKind};
+use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ParserTrait;
+use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 
-pub struct EnumParser<'a> {
-    parser: &'a dyn ParserTrait
+/*
+lazy_static! {
+pub static ref TYPES_MATCHER: TokensMatcher = {
+    let mut param_types = TokensMatcher::new("types", Quantifier::AtMostOne);
+    param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+    param_types.add_alphanumeric();
+    param_types.start_group("type", Quantifier::ZeroOrMore);
+    param_types.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+    param_types.add_alphanumeric();
+    param_types.end_group();
+    param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
+    param_types
+    };
 }
 
-impl <'a> EnumParser<'a> {
+ */
 
+pub struct EnumParser<'a> {
+    parser: &'a dyn ParserTrait,
+}
+
+impl<'a> EnumParser<'a> {
     pub fn new(parser: &'a dyn ParserTrait) -> Self {
         Self { parser }
     }
 
     pub fn try_parse(&self) -> Option<(String, Vec<String>, usize)> {
-        if let Some(token) = self.parser.get_token() {
-            if let TokenKind::KeyWord(KeywordKind::Enum) = &token.kind {
-                if let Some(token2) = self.parser.next_token() {
-                    if let TokenKind::AlphaNumeric(name) = &token2.kind {
-                        let type_params_parser = TypeParamsParser::new(self.parser);
-                        if let Some((type_params, next_i)) = type_params_parser.try_parse(self.parser.get_i() + 2) {
-                            return Some((name.into(), type_params, next_i));
-                        } else {
-                            return Some((name.into(), vec![], self.parser.get_i() + 2));
-                        }
-                    }
-                }
-            }
-        }
-        None
+        let param_types = Self::types_matcher();
+
+        let mut matcher = TokensMatcher::default();
+        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
+        matcher.add_alphanumeric();
+        matcher.add_matcher(param_types);
+
+        matcher.match_tokens(self.parser, 0)
+            .map(|result| (result.values().first().unwrap().clone(), result.group_values("types").clone(), result.next_n()))
     }
 
+    fn types_matcher() -> TokensMatcher {
+        let mut param_types = TokensMatcher::new("types", Quantifier::AtMostOne);
+        param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+        param_types.add_alphanumeric();
+        param_types.start_group("type", Quantifier::ZeroOrMore);
+        param_types.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+        param_types.add_alphanumeric();
+        param_types.end_group();
+        param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
+        param_types
+    }
 }
 
 #[cfg(test)]
@@ -62,6 +84,5 @@ mod tests {
 
         sut.try_parse()
     }
-
 }
 
