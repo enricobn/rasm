@@ -60,7 +60,7 @@ impl TokensMatcherTrait for TokensMatcher {
     }
 
     fn name(&self) -> Vec<String> {
-        self.group.name().clone()
+        self.group.name()
     }
 }
 
@@ -72,7 +72,7 @@ pub struct TokensMatcherResult {
     groups_values: HashMap<String, Vec<String>>,
     // TODO
     empty_vec: Vec<String>,
-    num_of_matches: usize
+    num_of_matches: usize,
 }
 
 impl TokensMatcherResult {
@@ -387,7 +387,6 @@ mod tests {
         } else {
             panic!()
         }
-
     }
 }
 

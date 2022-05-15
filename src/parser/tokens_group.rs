@@ -59,7 +59,7 @@ impl TokensGroup {
         }
     }
 
-    pub fn push_value(map: &mut HashMap<String, Vec<String>>, key: String, values: &mut Vec<String>) {
+    pub fn push_values(map: &mut HashMap<String, Vec<String>>, key: String, values: &mut Vec<String>) {
         if !map.contains_key(&key) {
             map.insert(key.clone(), Vec::new());
         }
@@ -92,17 +92,22 @@ impl TokensMatcherTrait for TokensGroup {
 
                     println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
 
-                    if matcher.name().is_empty() {
-                        values.append(result.values_mut());
-                    } else {
-                        for k in matcher.name().iter() {
-                            let mut vec = result.values().clone();
-                            TokensGroup::push_value(&mut groups_values, k.to_string(), &mut vec);
+                    if !result.values().is_empty() {
+                        // it's not a group I add the values directly to the result
+                        if matcher.name().is_empty() {
+                            let mut matcher_values = result.values().clone();
+                            values.append(&mut matcher_values);
+                        } else {
+                            for k in matcher.name().iter() {
+                                let mut vec = result.values().clone();
+                                println!("adding values to {} : {:?}", k, vec);
+                                TokensGroup::push_values(&mut groups_values, k.to_string(), &mut vec);
+                            }
                         }
                     }
 
                     for (k, v) in result.groups_values_mut().iter_mut() {
-                        TokensGroup::push_value(&mut groups_values, k.to_string(), v);
+                        TokensGroup::push_values(&mut groups_values, k.to_string(), v);
                     }
 
                     println!("groups_values {:?}", groups_values);

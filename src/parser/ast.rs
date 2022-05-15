@@ -34,13 +34,13 @@ pub enum ASTType {
     CustomType { name: String, param_types: Vec<String> },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTParameterDef {
     pub name: String,
     pub type_ref: ASTTypeRef,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypeRef {
     pub ast_ref: bool,
     pub ast_type: ASTType,
@@ -67,14 +67,14 @@ pub struct ASTModule {
     pub functions: Vec<ASTFunctionDef>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTEnumDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub variants: Vec<ASTEnumVariantDef>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTEnumVariantDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
