@@ -12,34 +12,32 @@ impl <'a> TypeParamsParser<'a> {
     }
 
     pub fn try_parse(&self, n: usize) -> Option<(Vec<String>, usize)> {
-        if let Some(token) = self.parser.get_token_n(n) {
-            if let TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open) = &token.kind {
-                let mut j = n + 1;
-                let mut types = Vec::new();
+        if let Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)) = self.parser.get_token_kind_n(n) {
+            let mut j = n + 1;
+            let mut types = Vec::new();
 
-                loop {
-                    if let Some(t) = self.parser.get_token_n(j) {
-                        if let TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close) = &t.kind {
-                            break;
-                        } else if let TokenKind::Punctuation(PunctuationKind::Comma) = &t.kind {
+            loop {
+                if let Some(kind) = self.parser.get_token_kind_n(j) {
+                    if let TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close) = kind {
+                        break;
+                    } else if let TokenKind::Punctuation(PunctuationKind::Comma) = kind {
 
-                        } else if let TokenKind::AlphaNumeric(type_name) = &t.kind {
-                            types.push(type_name.to_string());
-                        } else {
-                            self.parser.panic(&format!("expected a parametric type or a comma, found {:?}", t));
-                            break;
-                        }
+                    } else if let TokenKind::AlphaNumeric(type_name) = kind {
+                        types.push(type_name.to_string());
                     } else {
-                        self.parser.panic("error getting parametric types");
+                        self.parser.panic(&format!("expected a parametric type or a comma, found {:?}", kind));
                         break;
                     }
-                    j += 1;
+                } else {
+                    self.parser.panic("error getting parametric types");
+                    break;
                 }
-                if types.is_empty() {
-                    self.parser.panic("cannot find parametric types");
-                }
-                return Some((types, self.parser.get_i() + j + 1));
+                j += 1;
             }
+            if types.is_empty() {
+                self.parser.panic("cannot find parametric types");
+            }
+            return Some((types, self.parser.get_i() + j + 1));
         }
         None
     }

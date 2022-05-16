@@ -14,9 +14,9 @@ impl<'a> TypeParser<'a> {
     }
 
     pub fn try_parse(&self, n: usize, context_param_types: &[String]) -> Option<(ASTType, usize)> {
-        if let Some(token) = self.parser.get_token_n(n) {
+        if let Some(kind) = self.parser.get_token_kind_n(n) {
             let next_i = self.parser.get_i() + n + 1;
-            if let TokenKind::AlphaNumeric(type_name) = &token.kind {
+            if let TokenKind::AlphaNumeric(type_name) = kind {
                 if type_name == "i32" {
                     Some((BuiltinType(BuiltinTypeKind::ASTI32), next_i))
                 } else if type_name == "str" {
@@ -32,7 +32,7 @@ impl<'a> TypeParser<'a> {
 
                     Some((CustomType { name: type_name.into(), param_types }, next_i))
                 }
-            } else if let TokenKind::KeyWord(KeywordKind::Fn) = &token.kind {
+            } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
                 Some((BuiltinType(BuiltinTypeKind::Lambda), self.parser.get_i() + n + 1))
             } else {
                 None

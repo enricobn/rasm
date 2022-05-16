@@ -94,7 +94,7 @@ impl Parser {
             let token = if self.i == self.tokens.len() {
                 last_token.clone()
             } else {
-                self.get_token().unwrap()
+                self.tokens.get(self.i).unwrap().clone()
             };
 
             /*
@@ -522,7 +522,7 @@ impl Parser {
     }
 
     fn error_msg(&self, message: &str) -> String {
-        let option = self.get_token();
+        let option = self.tokens.get(self.i);
 
         if let Some(token) = option {
             //self.debug(message);
@@ -538,7 +538,7 @@ impl Parser {
     }
 
     fn debug(&self, message: &str) {
-        println!("{} {:?}", message, self.get_token());
+        println!("{} {:?}", message, self.get_token_kind());
         println!("state {:?}", self.state);
         println!("data {:?}", self.parser_data);
         println!("body {:?}", self.body);
@@ -546,9 +546,9 @@ impl Parser {
     }
 
     fn try_parse_function_call(&self) -> Option<(String, usize)> {
-        if let Some(Token { kind: TokenKind::AlphaNumeric(function_name), row: _, column: _ }) = self.get_token() {
+        if let Some(TokenKind::AlphaNumeric(function_name)) = self.get_token_kind() {
             if let Some(Token { kind: TokenKind::Bracket(BracketKind::Round, BracketStatus::Open), row: _, column: _ }) = self.next_token() {
-                return Some((function_name, self.i + 2));
+                return Some((function_name.clone(), self.i + 2));
             }
         }
         None
@@ -556,7 +556,7 @@ impl Parser {
 
     // TODO type params
     fn try_parse_function_def(&self) -> Option<(String, Vec<String>, usize)> {
-        if let Some(Token { kind: TokenKind::KeyWord(KeywordKind::Fn), row: _, column: _ }) = self.get_token() {
+        if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
             if let Some(Token { kind: TokenKind::AlphaNumeric(function_name), row: _, column: _ }) = self.next_token() {
                 if let Some(Token { kind: TokenKind::Bracket(BracketKind::Round, BracketStatus::Open), row: _, column: _ }) = self.next_token2() {
                     return Some((function_name.clone(), Vec::new(), self.i + 3));
@@ -567,12 +567,10 @@ impl Parser {
     }
 
     fn try_parse_include(&self) -> Option<(String, usize)> {
-        if let Some(token) = self.get_token() {
-            if let TokenKind::KeyWord(KeywordKind::Include) = &token.kind {
-                if let Some(next_token) = self.next_token() {
-                    if let TokenKind::StringLiteral(include) = &next_token.kind {
-                        return Some((include.into(), self.i + 2));
-                    }
+        if let Some(TokenKind::KeyWord(KeywordKind::Include)) = self.get_token_kind() {
+            if let Some(next_token) = self.next_token() {
+                if let TokenKind::StringLiteral(include) = &next_token.kind {
+                    return Some((include.into(), self.i + 2));
                 }
             }
         }
@@ -580,10 +578,10 @@ impl Parser {
     }
 
     fn parse_register(&self, mandatory: bool) -> (String, usize) {
-        if let Some(token) = self.get_token() {
+        if let Some(kind) = self.get_token_kind() {
             if let Some(token2) = self.next_token() {
                 if let Some(token3) = self.next_token2() {
-                    if let TokenKind::Bracket(BracketKind::Square, BracketStatus::Open) = token.kind {
+                    if let TokenKind::Bracket(BracketKind::Square, BracketStatus::Open) = kind {
                         if let TokenKind::AlphaNumeric(name) = &token2.kind {
                             if let TokenKind::Bracket(BracketKind::Square, BracketStatus::Close) = token3.kind {
                                 return (name.into(), self.i + 3);
@@ -603,10 +601,10 @@ impl Parser {
     }
 
     fn try_parse_type_ref(&self, param_types: &[String]) -> Option<(ASTTypeRef, usize)> {
-        if let Some(token) = self.get_token() {
+        if let Some(kind) = self.get_token_kind() {
             let parse_type = TypeParser::new(self);
 
-            if let TokenKind::Punctuation(PunctuationKind::And) = &token.kind {
+            if let TokenKind::Punctuation(PunctuationKind::And) = kind {
                 if let Some((ast_type, next_i)) = parse_type.try_parse(1, param_types) {
                     return Some((ASTTypeRef { ast_ref: true, ast_type }, next_i));
                 }
@@ -618,8 +616,8 @@ impl Parser {
     }
 
     fn try_parse_parameter_def_name(&self) -> Option<(String, usize)> {
-        if let Some(token) = self.get_token() {
-            if let TokenKind::AlphaNumeric(name) = &token.kind {
+        if let Some(kind) = self.get_token_kind() {
+            if let TokenKind::AlphaNumeric(name) = kind {
                 if let Some(next_token) = self.next_token() {
                     if let TokenKind::Punctuation(PunctuationKind::Colon) = next_token.kind {
                         return Some((name.into(), self.i + 2));
@@ -657,10 +655,6 @@ impl ParserTrait for Parser {
         self.i
     }
 
-    fn get_token(&self) -> Option<Token> {
-        self.tokens.get(self.i).cloned()
-    }
-
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.tokens.get(self.i + n)
     }
@@ -669,18 +663,22 @@ impl ParserTrait for Parser {
         self.panic(message);
     }
 
-    fn next_token(&self) -> Option<&Token> {
-        self.next_token()
-    }
 }
 
 //#[automock]
 pub trait ParserTrait {
     fn get_i(&self) -> usize;
-    fn get_token(&self) -> Option<Token>;
     fn get_token_n(&self, n: usize) -> Option<&Token>;
     fn panic(&self, message: &str);
-    fn next_token(&self) -> Option<&Token>;
+    fn get_token_kind(&self) -> Option<&TokenKind> {
+        self.get_token_kind_n(0)
+    }
+    fn get_token_kind_n(&self, n: usize) -> Option<&TokenKind> {
+        self.get_token_n(n).map(|token| &token.kind)
+    }
+    fn get_token(&self) -> Option<&Token> {
+        self.get_token_n(0)
+    }
 }
 
 #[cfg(test)]

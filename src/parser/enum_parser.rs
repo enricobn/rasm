@@ -1,9 +1,9 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTTypeRef};
 use crate::parser::matchers::types_matcher;
 use crate::parser::ParserTrait;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait};
-use crate::parser::type_params_parser::TypeParamsParser;
+use crate::parser::type_parser::TypeParser;
 
 /*
 lazy_static! {
@@ -68,6 +68,7 @@ impl<'a> EnumParser<'a> {
             matcher.end_group();
             matcher.end_group();
             matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
+
             if let Some(variants_result) = matcher.match_tokens(self.parser, result.next_n()) {
                 let results = variants_result.group_results("variants");
 
@@ -77,28 +78,19 @@ impl<'a> EnumParser<'a> {
                     let name = result.values().first().unwrap();
 
                     let parameters_s = result.group_values("parameter");
+                    let type_result = result.group_results("parameter_type");
 
                     let parameters = if parameters_s.is_empty() {
                         Vec::new()
                     } else {
-                        let type_s = parameters_s.get(1).unwrap();
-                        let ast_type = if type_s == "str" {
-                            ASTType::BuiltinType(BuiltinTypeKind::ASTString)
-                        } else if type_s == "i32" {
-                            ASTType::BuiltinType(BuiltinTypeKind::ASTI32)
-                        } else if type_parameters.contains(type_s) {
-                            ASTType::ParametricType(type_s.clone())
-                        } else {
-                            // TODO param types for custom type
-                            ASTType::CustomType {name: type_s.clone(), param_types: Vec::new() }
-                        };
-
+                        let type_parser = TypeParser::new(*type_result.first().unwrap());
+                        let option = type_parser.try_parse(0, &type_parameters);
                         // TODO ref
-                        let type_ref = ASTTypeRef {ast_ref: false, ast_type };
-                        vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref}]
+                        let type_ref = ASTTypeRef { ast_ref: false, ast_type: option.unwrap().0 };
+                        vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref }]
                     };
 
-                    ASTEnumVariantDef {name: name.clone(), parameters}
+                    ASTEnumVariantDef { name: name.clone(), parameters }
                 }).collect();
 
                 Some((ASTEnumDef { name, type_parameters, variants }, variants_result.next_n()))
@@ -110,23 +102,31 @@ impl<'a> EnumParser<'a> {
         }
     }
 
+    // TODO it seems to be more generic: it is a list of parameters surrounded by (), it can be used to match even function declarations
     fn variant_matcher(name: &str, quantifier: Quantifier) -> TokensMatcher {
         let mut matcher = TokensMatcher::new(name, quantifier);
         matcher.add_alphanumeric();
         matcher.start_group("parameters", Quantifier::AtMostOne);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
-        matcher.start_group("parameter", Quantifier::One);
-        matcher.add_alphanumeric();
-        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
-        matcher.add_alphanumeric();
+        matcher.start_group("parameter_list", Quantifier::One);
+        matcher.add_matcher(EnumParser::parameter_matcher());
         matcher.end_group();
-        matcher.start_group("parameter", Quantifier::ZeroOrMore);
-        matcher.add_alphanumeric();
-        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
-        matcher.add_alphanumeric();
+        matcher.start_group("parameter_list", Quantifier::ZeroOrMore);
         matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+        matcher.add_matcher(EnumParser::parameter_matcher());
         matcher.end_group();
         matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close));
+        matcher.end_group();
+        matcher
+    }
+
+    // TODO ref and function ref
+    fn parameter_matcher() -> TokensMatcher {
+        let mut matcher = TokensMatcher::new("parameter", Quantifier::One);
+        matcher.add_alphanumeric();
+        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
+        matcher.start_group("parameter_type", Quantifier::One);
+        matcher.add_alphanumeric();
         matcher.end_group();
         matcher
     }
@@ -191,7 +191,18 @@ mod tests {
 
         if let Some(result) = parse_result {
             assert_eq!("Some", result.values().first().unwrap());
-            assert_eq!(vec!["value", "T"], result.group_values("parameter"))
+            assert_eq!(vec!["value"], result.group_values("parameter"));
+            assert_eq!(vec!["T"], result.group_values("parameter_type"));
+        } else {
+            panic!()
+        }
+
+        let parse_result = try_parse_variant("Either(error: E, value: T)");
+
+        if let Some(result) = parse_result {
+            assert_eq!("Either", result.values().first().unwrap());
+            assert_eq!(vec!["error", "value"], result.group_values("parameter"));
+            assert_eq!(vec!["E", "T"], result.group_values("parameter_type"));
         } else {
             panic!()
         }
@@ -215,8 +226,6 @@ mod tests {
 
     fn try_parse_variant(source: &str) -> Option<TokensMatcherResult> {
         let parser = get_parser(source);
-
-        let sut = EnumParser::new(&parser);
 
         let matcher = EnumParser::variant_matcher("", Quantifier::One);
         matcher.match_tokens(&parser, 0)

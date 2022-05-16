@@ -1,8 +1,9 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::collections::HashMap;
 use crate::parser::ParserTrait;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
 
+#[derive(Debug)]
 pub struct TokensGroup {
     name: Vec<String>,
     tokens_matchers: Vec<Box<dyn TokensMatcherTrait>>,
@@ -10,11 +11,14 @@ pub struct TokensGroup {
     current_group: Vec<TokensGroup>,
 }
 
+/*
 impl Debug for TokensGroup {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "group {:?} {:?}", self.name, self.quantifier)
     }
 }
+
+ */
 
 impl TokensGroup {
     pub fn new(name: Vec<String>, quantifier: Quantifier) -> Self {
@@ -46,16 +50,16 @@ impl TokensGroup {
         }
     }
 
+    /// returns true if the group should be closed
     pub fn end_group(&mut self) -> bool {
         if self.current_group.is_empty() {
-            return false;
+            true
         } else {
-            if !self.current_group.first_mut().unwrap().end_group() {
+            if self.current_group.first_mut().unwrap().end_group() {
                 //self.groups.insert(self.len(), self.current_group.pop().unwrap());
                 self.tokens_matchers.push(Box::new(self.current_group.pop().unwrap()));
-                return true;
             }
-            return false;
+            false
         }
     }
 
@@ -70,13 +74,13 @@ impl TokensGroup {
 impl TokensMatcherTrait for TokensGroup {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if !self.current_group.is_empty() {
-            panic!("not ended group");
+            panic!("not ended group {:?}", self.current_group);
         }
         println!("\nmatch_tokens for {:?}, n {}", self, n);
 
         let mut i = n;
 
-        let mut kinds = Vec::new();
+        let mut tokens = Vec::new();
         let mut values = Vec::new();
         let mut groups_result: HashMap<String, Vec<TokensMatcherResult>> = HashMap::new();
 
@@ -86,9 +90,8 @@ impl TokensMatcherTrait for TokensGroup {
             let mut matches = true;
 
             for matcher in self.tokens_matchers.iter() {
-                if let Some(mut result) = matcher.match_tokens(parser, i) {
-                    let group_kinds = result.kinds_mut();
-                    kinds.append(group_kinds);
+                if let Some(result) = matcher.match_tokens(parser, i) {
+                    tokens.append(&mut result.tokens().clone());
 
                     println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
 
@@ -137,7 +140,7 @@ impl TokensMatcherTrait for TokensGroup {
             Quantifier::AtMostOne => num_of_matches <= 1
         } {
             println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_result);
-            Some(TokensMatcherResult::new(self.name.clone(), kinds, values, groups_result, i, num_of_matches))
+            Some(TokensMatcherResult::new(tokens, values, groups_result, i, num_of_matches))
         } else {
             println!("not matched all for {:?}, found {} matches\n", self, num_of_matches);
             None
@@ -147,4 +150,31 @@ impl TokensMatcherTrait for TokensGroup {
     fn name(&self) -> Vec<String> {
         self.name.clone()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::tokens_matcher::{AlphanumericTokenMatcher};
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut sut = TokensGroup::new(vec!["main".into()], Quantifier::One);
+        sut.add_matcher(AlphanumericTokenMatcher::new());
+        sut.start_group("g1", Quantifier::One);
+        sut.add_matcher(AlphanumericTokenMatcher::new());
+        sut.start_group("g2", Quantifier::One);
+        sut.add_matcher(AlphanumericTokenMatcher::new());
+        sut.end_group();
+        sut.start_group("g2", Quantifier::One);
+        sut.add_matcher(AlphanumericTokenMatcher::new());
+        sut.end_group();
+        sut.end_group();
+        sut.add_matcher(AlphanumericTokenMatcher::new());
+
+        let s = format!("sut {:?}", sut);
+        println!("format: {}", s);
+        assert_eq!(2, s.matches("\"main\", \"g1\", \"g2\"").count());
+    }
+
 }
