@@ -66,18 +66,19 @@ impl TokensMatcherTrait for TokensMatcher {
 
 #[derive(Debug)]
 pub struct TokensMatcherResult {
+    name: Vec<String>,
     kinds: Vec<TokenKind>,
     values: Vec<String>,
     next_n: usize,
-    groups_values: HashMap<String, Vec<String>>,
+    groups_results: HashMap<String, Vec<Self>>,
     // TODO
-    empty_vec: Vec<String>,
+    empty_vec: Vec<Self>,
     num_of_matches: usize,
 }
 
 impl TokensMatcherResult {
-    pub fn new(kinds: Vec<TokenKind>, values: Vec<String>, group_values: HashMap<String, Vec<String>>, next_n: usize, num_of_matches: usize) -> Self {
-        Self { kinds, values, next_n, groups_values: group_values, empty_vec: Vec::new(), num_of_matches }
+    pub fn new(name: Vec<String>, kinds: Vec<TokenKind>, values: Vec<String>, groups_results: HashMap<String, Vec<Self>>, next_n: usize, num_of_matches: usize) -> Self {
+        Self { name, kinds, values, next_n, groups_results, empty_vec: Vec::new(), num_of_matches }
     }
 
     pub fn kinds(&self) -> &Vec<TokenKind> {
@@ -96,20 +97,47 @@ impl TokensMatcherResult {
         &self.values
     }
 
-    pub fn group_values(&self, name: &str) -> &Vec<String> {
-        if let Some(values) = self.groups_values.get(name) {
-            values
-        } else {
-            &self.empty_vec
+    pub fn group_results(&self, name: &str) -> Vec<&Self> {
+        let mut result: Vec<&Self> =
+            if let Some(results) = self.groups_results.get(name) {
+                results.iter().collect()
+            } else {
+                Vec::new()
+            };
+
+        let mut x = self.groups_results.values().flatten()
+            .flat_map(|group_result| group_result.group_results(name))
+            .collect();
+
+        result.append(&mut x);
+
+        result
+    }
+
+    pub fn group_values(&self, name: &str) -> Vec<String> {
+        let mut result: Vec<String> =
+            if let Some(results) = self.groups_results.get(name) {
+                results.iter()
+                    .flat_map(|group_result| {
+                        group_result.values.iter().cloned()
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+        let mut x = self.groups_results.values()
+            .flatten()
+            .flat_map(|group_result| group_result.group_values(name))
+            .collect();
+
+        result.append(&mut x);
+
+        if !x.is_empty() {
+            println!("found in children {:?}: {:?}", self.name, x);
         }
-    }
 
-    pub fn values_mut(&mut self) -> &mut Vec<String> {
-        &mut self.values
-    }
-
-    pub fn groups_values_mut(&mut self) -> &mut HashMap<String, Vec<String>> {
-        &mut self.groups_values
+        result
     }
 
     pub fn num_of_matches(&self) -> usize {
@@ -155,7 +183,7 @@ impl<T> TokensMatcherTrait for T where T: TokenMatcher {
                 } else {
                     vec![]
                 };
-                Some(TokensMatcherResult::new(vec![kind], values, HashMap::new(), n + 1, 1))
+                Some(TokensMatcherResult::new(self.name(), vec![kind], values, HashMap::new(), n + 1, 1))
             } else {
                 None
             }
@@ -194,6 +222,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_result_values() {
+        let t = new_result_with_values(vec!["T".into(), "T1".into()]);
+        let t1 = new_result_with_values(vec!["T2".into()]);
+
+        let result = new_result_with_inner_results("type", vec![t, t1]);
+
+        assert_eq!(vec!["T", "T1", "T2"], result.group_values("type"));
+    }
+
+    #[test]
+    fn test_result_values_1() {
+        let t = new_result_with_values(vec!["T".into(), "T1".into()]);
+        let t1 = new_result_with_values(vec!["T2".into()]);
+
+        let result1 = new_result_with_inner_results("type", vec![t]);
+        let result2 = new_result_with_inner_results("type", vec![t1]);
+
+        let result = new_result_with_inner_results("parameters", vec![result1, result2]);
+
+        assert_eq!(vec!["T", "T1", "T2"], result.group_values("type"));
+    }
+
+    fn new_result_with_inner_results(name: &str, group_values: Vec<TokensMatcherResult>) -> TokensMatcherResult {
+        let mut results = HashMap::new();
+        results.insert(name.into(), group_values);
+
+        let result = TokensMatcherResult::new(Vec::new(), Vec::new(), Vec::new(), results, 0, 0);
+        result
+    }
+
+    fn new_result_with_values(values: Vec<String>) -> TokensMatcherResult {
+        TokensMatcherResult::new(Vec::new(), Vec::new(), values, HashMap::new(), 0, 0)
+    }
+
+    #[test]
     fn test_simple() {
         let parser = get_parser("n1 n2");
 
@@ -220,7 +283,7 @@ mod tests {
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(&vec!["n1"], match_result.values());
-            assert_eq!(&vec!["n2"], match_result.group_values("g1"));
+            assert_eq!(vec!["n2"], match_result.group_values("g1"));
         } else {
             panic!()
         }
@@ -240,7 +303,7 @@ mod tests {
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(&vec!["n1"], match_result.values());
-            assert_eq!(&vec!["n2", "n3"], match_result.group_values("g1"));
+            assert_eq!(vec!["n2", "n3"], match_result.group_values("g1"));
         } else {
             panic!()
         }
@@ -302,7 +365,9 @@ mod tests {
     fn test_groups() {
         let mut param_types = TokensMatcher::new("paramTypes", Quantifier::AtMostOne);
         param_types.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open));
+        param_types.start_group("type", Quantifier::One);
         param_types.add_alphanumeric();
+        param_types.end_group();
         param_types.start_group("type", Quantifier::ZeroOrMore);
         param_types.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
         param_types.add_alphanumeric();
@@ -327,7 +392,6 @@ mod tests {
                 TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)],
                        match_result.kinds());
             assert_eq!(&vec!["Option".to_string()], match_result.values());
-            assert!(match_result.group_values("paramTypes").is_empty());
             assert!(match_result.group_values("type").is_empty());
             assert!(match_result.group_values("unknown").is_empty());
             assert_eq!(3, match_result.next_n());
@@ -352,8 +416,7 @@ mod tests {
             ],
                        match_result.kinds());
             assert_eq!(&vec!["Option"], match_result.values());
-            assert_eq!(&vec!["T", "Y"], match_result.group_values("paramTypes"));
-            assert_eq!(&vec!["Y"], match_result.group_values("type"));
+            assert_eq!(vec!["T", "Y"], match_result.group_values("type"));
             assert_eq!(8, match_result.next_n());
         } else {
             panic!()

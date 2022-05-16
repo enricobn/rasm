@@ -59,11 +59,11 @@ impl TokensGroup {
         }
     }
 
-    pub fn push_values(map: &mut HashMap<String, Vec<String>>, key: String, values: &mut Vec<String>) {
+    pub fn push_result(map: &mut HashMap<String, Vec<TokensMatcherResult>>, key: String, result: TokensMatcherResult) {
         if !map.contains_key(&key) {
             map.insert(key.clone(), Vec::new());
         }
-        map.get_mut(&key).unwrap().append(values);
+        map.get_mut(&key).unwrap().push(result);
     }
 }
 
@@ -78,7 +78,7 @@ impl TokensMatcherTrait for TokensGroup {
 
         let mut kinds = Vec::new();
         let mut values = Vec::new();
-        let mut groups_values: HashMap<String, Vec<String>> = HashMap::new();
+        let mut groups_result: HashMap<String, Vec<TokensMatcherResult>> = HashMap::new();
 
         let mut num_of_matches = 0;
 
@@ -92,27 +92,21 @@ impl TokensMatcherTrait for TokensGroup {
 
                     println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
 
+                    i = result.next_n();
+
                     if !result.values().is_empty() {
                         // it's not a group I add the values directly to the result
                         if matcher.name().is_empty() {
                             let mut matcher_values = result.values().clone();
                             values.append(&mut matcher_values);
-                        } else {
-                            for k in matcher.name().iter() {
-                                let mut vec = result.values().clone();
-                                println!("adding values to {} : {:?}", k, vec);
-                                TokensGroup::push_values(&mut groups_values, k.to_string(), &mut vec);
-                            }
                         }
                     }
 
-                    for (k, v) in result.groups_values_mut().iter_mut() {
-                        TokensGroup::push_values(&mut groups_values, k.to_string(), v);
+                    if !matcher.name().is_empty() {
+                        let name = matcher.name().last().unwrap().clone();
+                        TokensGroup::push_result(&mut groups_result, name, result);
                     }
-
-                    println!("groups_values {:?}", groups_values);
-
-                    i = result.next_n();
+                    println!("groups_values {:?}", groups_result);
                 } else {
                     println!("not matched matcher {:?}", matcher);
                     matches = false;
@@ -142,8 +136,8 @@ impl TokensMatcherTrait for TokensGroup {
             Quantifier::ZeroOrMore => true,
             Quantifier::AtMostOne => num_of_matches <= 1
         } {
-            println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_values);
-            Some(TokensMatcherResult::new(kinds, values, groups_values, i, num_of_matches))
+            println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_result);
+            Some(TokensMatcherResult::new(self.name.clone(), kinds, values, groups_result, i, num_of_matches))
         } else {
             println!("not matched all for {:?}, found {} matches\n", self, num_of_matches);
             None

@@ -1,8 +1,8 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
-use crate::parser::ast::ASTEnumDef;
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::matchers::types_matcher;
 use crate::parser::ParserTrait;
-use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
+use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 
 /*
@@ -40,7 +40,10 @@ impl<'a> EnumParser<'a> {
         matcher.add_matcher(param_types);
 
         matcher.match_tokens(self.parser, 0)
-            .map(|result| (result.values().first().unwrap().clone(), result.group_values("type").clone(), result.next_n()))
+            .map(|result| {
+                let x = result.group_values("type");
+                (result.values().first().unwrap().clone(), x, result.next_n())
+            })
     }
 
     pub fn try_parse_enum(&self) -> Option<(ASTEnumDef, usize)> {
@@ -54,7 +57,7 @@ impl<'a> EnumParser<'a> {
 
         if let Some(result) = matcher.match_tokens(self.parser, 0) {
             let name = result.values().first().unwrap().clone();
-            let type_parameters = result.group_values("type").clone().into_iter().collect();
+            let type_parameters = result.group_values("type");
 
             let mut matcher = TokensMatcher::default();
             matcher.start_group("variants", Quantifier::AtLeastOne);
@@ -66,8 +69,28 @@ impl<'a> EnumParser<'a> {
             matcher.end_group();
             matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
             if let Some(variants_result) = matcher.match_tokens(self.parser, result.next_n()) {
-                println!("***** variants {:?}", variants_result);
-                Some((ASTEnumDef { name, type_parameters, variants: vec![] }, variants_result.next_n()))
+                let results = variants_result.group_results("variants");
+
+                let variant_results: Vec<&TokensMatcherResult> = results.iter().flat_map(|it| it.group_results("variant")).collect();
+
+                let variants = variant_results.iter().map(|result| {
+                    let name = result.values().first().unwrap();
+
+                    let parameters_s = result.group_values("parameter");
+
+                    let parameters = if parameters_s.is_empty() {
+                        Vec::new()
+                    } else {
+                        // TODO parse type
+                        let type_ref = ASTTypeRef {ast_ref: false, ast_type: ASTType::ParametricType("T".into())};
+                        vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref}]
+                    };
+
+                    ASTEnumVariantDef {name: name.clone(), parameters}
+                }).collect();
+
+                //println!("***** variants {:?}", variant_results);
+                Some((ASTEnumDef { name, type_parameters, variants }, variants_result.next_n()))
             } else {
                 println!("***** NO variants");
                 Some((ASTEnumDef { name, type_parameters, variants: vec![] }, result.next_n()))
@@ -87,7 +110,7 @@ impl<'a> EnumParser<'a> {
         matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
         matcher.add_alphanumeric();
         matcher.end_group();
-        matcher.start_group("parameter", Quantifier::AtMostOne);
+        matcher.start_group("parameter", Quantifier::ZeroOrMore);
         matcher.add_alphanumeric();
         matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
         matcher.add_alphanumeric();
@@ -119,7 +142,7 @@ mod tests {
     fn test() {
         let parse_result = try_parse_enum("enum Option<T> {
             Empty,
-            Some(value: i32)
+            Some(value: T)
         }");
 
         let some = ASTEnumVariantDef {
@@ -141,7 +164,7 @@ mod tests {
             variants: vec![
                 empty, some,
             ],
-        }, 5)), parse_result);
+        }, 15)), parse_result);
     }
 
     #[test]
@@ -158,7 +181,7 @@ mod tests {
 
         if let Some(result) = parse_result {
             assert_eq!("Some", result.values().first().unwrap());
-            assert_eq!(&vec!["value", "T"], result.group_values("parameter"))
+            assert_eq!(vec!["value", "T"], result.group_values("parameter"))
         } else {
             panic!()
         }
