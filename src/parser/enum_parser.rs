@@ -81,19 +81,29 @@ impl<'a> EnumParser<'a> {
                     let parameters = if parameters_s.is_empty() {
                         Vec::new()
                     } else {
-                        // TODO parse type
-                        let type_ref = ASTTypeRef {ast_ref: false, ast_type: ASTType::ParametricType("T".into())};
+                        let type_s = parameters_s.get(1).unwrap();
+                        let ast_type = if type_s == "str" {
+                            ASTType::BuiltinType(BuiltinTypeKind::ASTString)
+                        } else if type_s == "i32" {
+                            ASTType::BuiltinType(BuiltinTypeKind::ASTI32)
+                        } else if type_parameters.contains(type_s) {
+                            ASTType::ParametricType(type_s.clone())
+                        } else {
+                            // TODO param types for custom type
+                            ASTType::CustomType {name: type_s.clone(), param_types: Vec::new() }
+                        };
+
+                        // TODO ref
+                        let type_ref = ASTTypeRef {ast_ref: false, ast_type };
                         vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref}]
                     };
 
                     ASTEnumVariantDef {name: name.clone(), parameters}
                 }).collect();
 
-                //println!("***** variants {:?}", variant_results);
                 Some((ASTEnumDef { name, type_parameters, variants }, variants_result.next_n()))
             } else {
-                println!("***** NO variants");
-                Some((ASTEnumDef { name, type_parameters, variants: vec![] }, result.next_n()))
+                panic!("***** NO variants");
             }
         } else {
             None
