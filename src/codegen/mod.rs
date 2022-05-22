@@ -52,7 +52,7 @@ impl VarContext {
         self.value_to_address.insert(key, value)
     }
 
-    fn get(&self, key: &String) -> Option<&VarKind> {
+    fn get(&self, key: &str) -> Option<&VarKind> {
         self.value_to_address.get(key)
     }
 

@@ -28,7 +28,7 @@ impl Lexer {
     pub fn from_file(path: &Path) -> Result<Self, String> {
         let mut s = String::new();
         if let Ok(mut file) = File::open(path) {
-            if let Result::Ok(size) = file.read_to_string(&mut s) {
+            if let Ok(size) = file.read_to_string(&mut s) {
                 println!("Reading file {:?}, size {}", path, size);
                 Ok(Lexer::new(s))
             } else {
@@ -61,8 +61,8 @@ impl Lexer {
         }
     }
 
-    fn get_punctuation(actual: &String, c: char) -> Option<TokenKind> {
-        let mut string = actual.clone();
+    fn get_punctuation(actual: &str, c: char) -> Option<TokenKind> {
+        let mut string: String = actual.into();
         string.push(c);
 
         let s = string.as_str();

@@ -17,18 +17,18 @@ impl <'a> FunctionCallParameters<'a> {
         Self { function_def: call_function_def, to_remove_from_stack: 0, before: String::new(), parameters_values: HashMap::new(), backend, inline}
     }
 
-    pub fn add_string_literal(&mut self, param_name: &String, label: String) {
+    pub fn add_string_literal(&mut self, param_name: &str, label: String) {
         if self.inline {
-            self.parameters_values.insert(param_name.clone(), label);
+            self.parameters_values.insert(param_name.into(), label);
         } else {
             Self::add(&mut self.before, &format!("    push    {}", label));
             self.to_remove_from_stack += 1;
         }
     }
 
-    pub fn add_number(&mut self, param_name: &String, n: &i32) {
+    pub fn add_number(&mut self, param_name: &str, n: &i32) {
         if self.inline {
-            self.parameters_values.insert(param_name.clone(), format!("{}", n));
+            self.parameters_values.insert(param_name.into(), format!("{}", n));
         } else {
             Self::add(&mut self.before, &format!("    push    {}", n));
             self.to_remove_from_stack += 1;
@@ -41,11 +41,11 @@ impl <'a> FunctionCallParameters<'a> {
         self.to_remove_from_stack += 1;
     }
 
-    pub fn add_var(&mut self, param_name: &String, type_ref: &ASTTypeRef, index: usize) {
+    pub fn add_var(&mut self, param_name: &str, type_ref: &ASTTypeRef, index: usize) {
         let word_len = self.backend.word_len() as usize;
 
         if self.inline {
-            self.parameters_values.insert(param_name.clone(), format!("[{}+{}+{}]", self.backend.stack_base_pointer(), word_len, (index + 1) * word_len));
+            self.parameters_values.insert(param_name.into(), format!("[{}+{}+{}]", self.backend.stack_base_pointer(), word_len, (index + 1) * word_len));
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
@@ -89,7 +89,7 @@ impl <'a> FunctionCallParameters<'a> {
         &self.before
     }
 
-    pub fn push(&mut self, s: &String) {
+    pub fn push(&mut self, s: &str) {
         self.before.push_str(s);
     }
 
