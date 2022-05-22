@@ -241,15 +241,16 @@ impl Parser {
                     }
                 }
                 Some(EnumDefState) => {
-                    if let Some(EnumDefData(def)) = self.last_parser_data() {
-                        if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
-
-                        } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
+                    if let Some(EnumDefData(mut def)) = self.last_parser_data() {
+                        if let Some((variants, next_i)) = EnumParser::new(self).parse_variants(&def.type_parameters, 0) {
+                            def.variants = variants;
                             self.enums.push(def);
                             self.state.pop();
                             self.parser_data.pop();
+                            self.i = next_i;
+                            continue
                         } else {
-                            //def.add_variant
+                            panic!("Expected variants.")
                         }
                     } else {
                         panic!("Expected enum data.")
@@ -264,7 +265,9 @@ impl Parser {
 
         self.functions.append(&mut self.included_functions);
 
-        ASTModule { body: self.body.clone(), functions: self.functions.clone() }
+        //println!("ebums: \n{:?}", self.enums);
+
+        ASTModule { body: self.body.clone(), functions: self.functions.clone(), enums: self.enums.clone() }
     }
 
     fn process_function_call(&mut self, token: Token) -> ProcessResult {

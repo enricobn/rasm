@@ -65,6 +65,7 @@ pub enum ASTExpression {
 pub struct ASTModule {
     pub body: Vec<ASTFunctionCall>,
     pub functions: Vec<ASTFunctionDef>,
+    pub enums: Vec<ASTEnumDef>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

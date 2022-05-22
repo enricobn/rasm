@@ -76,7 +76,7 @@ impl TokensMatcherTrait for TokensGroup {
         if !self.current_group.is_empty() {
             panic!("not ended group {:?}", self.current_group);
         }
-        println!("\nmatch_tokens for {:?}, n {}", self, n);
+        //println!("\nmatch_tokens for {:?}, n {}", self, n);
 
         let mut i = n;
 
@@ -93,7 +93,7 @@ impl TokensMatcherTrait for TokensGroup {
                 if let Some(result) = matcher.match_tokens(parser, i) {
                     tokens.append(&mut result.tokens().clone());
 
-                    println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
+                    //println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
 
                     i = result.next_n();
 
@@ -109,9 +109,9 @@ impl TokensMatcherTrait for TokensGroup {
                         let name = matcher.name().last().unwrap().clone();
                         TokensGroup::push_result(&mut groups_result, name, result);
                     }
-                    println!("groups_values {:?}", groups_result);
+                    //println!("groups_values {:?}", groups_result);
                 } else {
-                    println!("not matched matcher {:?}", matcher);
+                    //println!("not matched matcher {:?}", matcher);
                     matches = false;
                     break;
                 }
@@ -128,7 +128,7 @@ impl TokensMatcherTrait for TokensGroup {
                 Quantifier::AtMostOne => true,
                 _ => false,
             } {
-                println!("exited loop for {:?}", self);
+                //println!("exited loop for {:?}", self);
                 break;
             }
         }
@@ -139,10 +139,10 @@ impl TokensMatcherTrait for TokensGroup {
             Quantifier::ZeroOrMore => true,
             Quantifier::AtMostOne => num_of_matches <= 1
         } {
-            println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_result);
+            //println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_result);
             Some(TokensMatcherResult::new(tokens, values, groups_result, i, num_of_matches))
         } else {
-            println!("not matched all for {:?}, found {} matches\n", self, num_of_matches);
+            //println!("not matched all for {:?}, found {} matches\n", self, num_of_matches);
             None
         }
     }
