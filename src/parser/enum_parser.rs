@@ -75,7 +75,7 @@ impl<'a> EnumParser<'a> {
                     Vec::new()
                 } else {
                     let type_parser = TypeParser::new(*type_result.first().unwrap());
-                    let option = type_parser.try_parse(0, &type_parameters);
+                    let option = type_parser.try_parse(0, type_parameters);
                     // TODO ref
                     let type_ref = ASTTypeRef { ast_ref: false, ast_type: option.unwrap().0 };
                     vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref }]
@@ -123,7 +123,7 @@ impl<'a> EnumParser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::{ASTEnumVariantDef, ASTParameterDef, ASTTypeRef};
-    use crate::parser::ast::ASTType::ParametricType;
+    use crate::parser::ast::ASTType::Parametric;
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
     use super::*;
@@ -147,7 +147,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                type_ref: ASTTypeRef { ast_type: ParametricType("T".into()), ast_ref: false },
+                type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
             }],
         };
 
@@ -207,7 +207,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                type_ref: ASTTypeRef { ast_type: ParametricType("T".into()), ast_ref: false },
+                type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
             }],
         };
 
@@ -236,7 +236,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        type_ref: ASTTypeRef { ast_type: ParametricType("T".into()), ast_ref: false },
+                        type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
                     }],
                 };
 

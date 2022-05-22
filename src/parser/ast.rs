@@ -29,9 +29,9 @@ pub enum BuiltinTypeKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTType {
-    BuiltinType(BuiltinTypeKind),
-    ParametricType(String),
-    CustomType { name: String, param_types: Vec<String> },
+    Builtin(BuiltinTypeKind),
+    Parametric(String),
+    Custom { name: String, param_types: Vec<String> },
 }
 
 #[derive(Debug, Clone, PartialEq)]

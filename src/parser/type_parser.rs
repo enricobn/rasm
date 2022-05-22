@@ -1,6 +1,6 @@
 use crate::lexer::tokens::{KeywordKind, TokenKind};
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
-use crate::parser::ast::ASTType::{BuiltinType, CustomType, ParametricType};
+use crate::parser::ast::ASTType::{Builtin, Custom, Parametric};
 use crate::parser::ParserTrait;
 use crate::parser::type_params_parser::TypeParamsParser;
 
@@ -18,11 +18,11 @@ impl<'a> TypeParser<'a> {
             let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::AlphaNumeric(type_name) = kind {
                 if type_name == "i32" {
-                    Some((BuiltinType(BuiltinTypeKind::ASTI32), next_i))
+                    Some((Builtin(BuiltinTypeKind::ASTI32), next_i))
                 } else if type_name == "str" {
-                    Some((BuiltinType(BuiltinTypeKind::ASTString), next_i))
+                    Some((Builtin(BuiltinTypeKind::ASTString), next_i))
                 } else if context_param_types.contains(type_name) {
-                    Some((ParametricType(type_name.into()), next_i))
+                    Some((Parametric(type_name.into()), next_i))
                 } else {
                     let (param_types, next_i) = if let Some((param_types, next_i)) = TypeParamsParser::new(self.parser).try_parse(n + 1) {
                         (param_types, next_i)
@@ -30,10 +30,10 @@ impl<'a> TypeParser<'a> {
                         (vec![], next_i)
                     };
 
-                    Some((CustomType { name: type_name.into(), param_types }, next_i))
+                    Some((Custom { name: type_name.into(), param_types }, next_i))
                 }
             } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
-                Some((BuiltinType(BuiltinTypeKind::Lambda), self.parser.get_i() + n + 1))
+                Some((Builtin(BuiltinTypeKind::Lambda), self.parser.get_i() + n + 1))
             } else {
                 None
             }
@@ -51,37 +51,37 @@ mod tests {
     #[test]
     fn test_i32() {
         let parse_result = try_parse("i32");
-        assert_eq!(Some((BuiltinType(BuiltinTypeKind::ASTI32), 1)), parse_result);
+        assert_eq!(Some((Builtin(BuiltinTypeKind::ASTI32), 1)), parse_result);
     }
 
     #[test]
     fn test_str() {
         let parse_result = try_parse("str");
-        assert_eq!(Some((BuiltinType(BuiltinTypeKind::ASTString), 1)), parse_result);
+        assert_eq!(Some((Builtin(BuiltinTypeKind::ASTString), 1)), parse_result);
     }
 
     #[test]
     fn test_lambda() {
         let parse_result = try_parse("fn");
-        assert_eq!(Some((BuiltinType(BuiltinTypeKind::Lambda), 1)), parse_result);
+        assert_eq!(Some((Builtin(BuiltinTypeKind::Lambda), 1)), parse_result);
     }
 
     #[test]
     fn test_custom_type() {
         let parse_result = try_parse("Dummy<T,T1>");
-        assert_eq!(Some((CustomType { name: "Dummy".into(),  param_types: vec!["T".into(), "T1".into()]}, 6)), parse_result);
+        assert_eq!(Some((Custom { name: "Dummy".into(),  param_types: vec!["T".into(), "T1".into()]}, 6)), parse_result);
     }
 
     #[test]
     fn test_param_type() {
         let parse_result = try_parse_with_context("T", &["T".into()]);
-        assert_eq!(Some((ParametricType("T".into()), 1)), parse_result);
+        assert_eq!(Some((Parametric("T".into()), 1)), parse_result);
     }
 
     #[test]
     fn test_not_param_type() {
         let parse_result = try_parse_with_context("T", &["F".into()]);
-        assert_eq!(Some((CustomType { name: "T".into(),  param_types: vec![]}, 1)), parse_result);
+        assert_eq!(Some((Custom { name: "T".into(),  param_types: vec![]}, 1)), parse_result);
     }
 
     fn try_parse(source: &str) -> Option<(ASTType, usize)> {
