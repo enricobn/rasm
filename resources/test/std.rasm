@@ -101,7 +101,7 @@ asm sprint(s: &str) /{
 /** Returns the length of the string **/
 asm slen(s: &str) -> i32[eax] /{
     push    ebx             ; Save ebx to the stack since we use it
-    mov     eax, $s  ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
+    mov     eax, $s         ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     ebx, eax
 
 .nextchar:
@@ -234,4 +234,13 @@ asm atoi(s: &str) -> i32[eax] /{
 .done:
     pop    edx
     pop    ecx
+}/
+
+asm malloc(size: i32) -> i32[eax] /{
+    push    ebx
+    mov     eax,[_heap]
+    mov     ebx,[_heap]
+    add     ebx,$size
+    mov    [_heap], ebx
+    pop ebx
 }/

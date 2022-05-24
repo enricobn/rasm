@@ -23,7 +23,7 @@ mod matchers;
 enum ProcessResult {
     Continue,
     Next,
-    Panic
+    Panic,
 }
 
 pub struct Parser {
@@ -34,7 +34,7 @@ pub struct Parser {
     parser_data: Vec<ParserData>,
     state: Vec<ParserState>,
     included_functions: Vec<ASTFunctionDef>,
-    enums: Vec<ASTEnumDef>
+    enums: Vec<ASTEnumDef>,
 }
 
 #[derive(Clone, Debug)]
@@ -42,7 +42,7 @@ enum ParserData {
     FunctionCall(ASTFunctionCall),
     FunctionDef(ASTFunctionDef),
     FunctionDefParameter(ASTParameterDef),
-    EnumDef(ASTEnumDef)
+    EnumDef(ASTEnumDef),
 }
 
 #[derive(Clone, Debug)]
@@ -52,7 +52,7 @@ enum ParserState {
     FunctionBody,
     FunctionDefParameter,
     FunctionDefReturnType,
-    EnumDef
+    EnumDef,
 }
 
 impl Parser {
@@ -68,7 +68,7 @@ impl Parser {
             parser_data: Vec::new(),
             state: Vec::new(),
             included_functions: Vec::new(),
-            enums: Vec::new()
+            enums: Vec::new(),
         }
     }
 
@@ -120,7 +120,7 @@ impl Parser {
                             body: RASMBody(Vec::new()),
                             return_type: None,
                             inline: false,
-                            param_types
+                            param_types,
                         }));
                         self.state.push(ParserState::FunctionDef);
                         self.state.push(ParserState::FunctionDefParameter);
@@ -133,7 +133,7 @@ impl Parser {
                             body: ASMBody("".into()),
                             return_type: None,
                             inline,
-                            param_types
+                            param_types,
                         }));
                         self.state.push(ParserState::FunctionDef);
                         self.state.push(ParserState::FunctionDefParameter);
@@ -153,7 +153,7 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
-                        self.parser_data.push(ParserData::EnumDef(ASTEnumDef { name, type_parameters: type_params, variants: Vec::new()}));
+                        self.parser_data.push(ParserData::EnumDef(ASTEnumDef { name, type_parameters: type_params, variants: Vec::new() }));
                         self.state.push(ParserState::EnumDef);
                         self.i = next_i;
                         continue;
@@ -246,7 +246,7 @@ impl Parser {
                             self.state.pop();
                             self.parser_data.pop();
                             self.i = next_i;
-                            continue
+                            continue;
                         } else {
                             panic!("Expected variants.")
                         }
@@ -277,7 +277,12 @@ impl Parser {
                 self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::Number(value.parse().unwrap()));
                 return ProcessResult::Continue;
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
-                if let Some((function_name, next_i)) = self.try_parse_function_call() {
+                if let Some((variant, next_i)) = self.try_parse_enum_constructor() {
+                    self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {function_name: name.to_owned() + "::" + &variant, parameters: Vec::new()}));
+                    self.state.push(ParserState::FunctionCall);
+                    self.i = next_i;
+                    return ProcessResult::Continue;
+                } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
                     self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {
                         function_name,
                         parameters: Vec::new(),
@@ -300,7 +305,7 @@ impl Parser {
                     body: RASMBody(Vec::new()),
                     return_type,
                     inline: false,
-                    param_types: Vec::new()
+                    param_types: Vec::new(),
                 }));
                 self.state.push(ParserState::FunctionBody);
                 self.i += 1;
@@ -361,26 +366,25 @@ impl Parser {
                 return ProcessResult::Continue;
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
-                if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                    if let Some((ref type_ref, next_i)) = self.try_parse_type_ref(&def.param_types) {
-                        self.i = next_i;
-                        let (register, next_i) =
-                            self.parse_register(Self::is_asm(&def));
-                        self.i = next_i;
+            if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
+                if let Some((ref type_ref, next_i)) = self.try_parse_type_ref(&def.param_types) {
+                    self.i = next_i;
+                    let (register, next_i) =
+                        self.parse_register(Self::is_asm(&def));
+                    self.i = next_i;
 
-                        def.return_type = Some(ASTReturnType { type_ref: type_ref.clone(), register });
-                    } else {
-                        def.return_type = None
-                    }
-                    let l = self.parser_data.len();
-                    self.parser_data[l - 1] = ParserData::FunctionDef(def);
-                    self.i += 1;
-                    return ProcessResult::Continue;
+                    def.return_type = Some(ASTReturnType { type_ref: type_ref.clone(), register });
                 } else {
-                    self.panic("");
-                    panic!();
-                };
-
+                    def.return_type = None
+                }
+                let l = self.parser_data.len();
+                self.parser_data[l - 1] = ParserData::FunctionDef(def);
+                self.i += 1;
+                return ProcessResult::Continue;
+            } else {
+                self.panic("");
+                panic!();
+            };
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
             self.state.push(ParserState::FunctionBody);
         } else if let TokenKind::AsmBLock(body) = &token.kind {
@@ -555,6 +559,16 @@ impl Parser {
         None
     }
 
+    fn try_parse_enum_constructor(&self) -> Option<(String, usize)> {
+        if let (Some(TokenKind::Punctuation(PunctuationKind::Colon)), Some(TokenKind::Punctuation(PunctuationKind::Colon)), Some(TokenKind::AlphaNumeric(variant)),
+            Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open))) =
+        (self.get_token_kind_n(1), self.get_token_kind_n(2), self.get_token_kind_n(3), self.get_token_kind_n(4)) {
+            Some((variant.clone(), self.i + 5))
+        } else {
+            None
+        }
+    }
+
     // TODO type params
     fn try_parse_function_def(&self) -> Option<(String, Vec<String>, usize)> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
@@ -659,7 +673,6 @@ impl ParserTrait for Parser {
     fn panic(&self, message: &str) {
         self.panic(message);
     }
-
 }
 
 //#[automock]

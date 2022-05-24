@@ -7,6 +7,9 @@ Doing
 
 Next
 -----
+- enum:
+  - match function should be enum::match, but it's not supported by parser, in general I would like to have some namespace for functions, to be xx.yy.zz::function_name
+  - to build a useful match I shoul support parameters in lambda, since every the lambda functions associated with an enum variant, should take the variant parameters as arguments
 - I can close an already closed TokensGroup (make a test)
 - safe command line arguments (we need Option)
 - add command line argument to print the syntax tree (codegen/md.rs -> Parser::print(&self.module))

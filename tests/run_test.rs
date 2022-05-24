@@ -40,7 +40,7 @@ fn test_mc91() {
 
 #[test]
 fn test_enum() {
-    test("enum", Vec::new(),"none\nsome\nnone\nsome\n");
+    test("enum", Vec::new(),"some\nnone\nsome\nnone\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

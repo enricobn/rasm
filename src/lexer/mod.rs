@@ -98,13 +98,11 @@ impl Iterator for Lexer {
             let c =
                 if let Some(a_char) = chars.next() {
                     a_char
+                } else if exit {
+                    break;
                 } else {
-                    if exit {
-                        break;
-                    } else {
-                        exit = true;
-                        END_OF_FILE
-                    }
+                    exit = true;
+                    END_OF_FILE
                 };
 
             //println!("status {:?}, actual <{}>, c <{}>", status, actual, c);

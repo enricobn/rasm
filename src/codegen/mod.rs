@@ -7,7 +7,7 @@ use std::ops::Add;
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTTypeRef};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
 
 pub struct CodeGen<'a> {
     module: ASTModule,
@@ -18,7 +18,7 @@ pub struct CodeGen<'a> {
     definitions: String,
     lambdas: Vec<LambdaCall>,
     functions: HashMap<String, ASTFunctionDef>,
-    backend: &'a dyn Backend
+    backend: &'a dyn Backend,
 }
 
 #[derive(Clone)]
@@ -65,7 +65,7 @@ impl VarContext {
     }
 }
 
-impl <'a> CodeGen<'a> {
+impl<'a> CodeGen<'a> {
     pub fn new(backend: &'a dyn Backend, module: ASTModule) -> Self {
         Self {
             module,
@@ -75,7 +75,7 @@ impl <'a> CodeGen<'a> {
             definitions: String::new(),
             lambdas: Vec::new(),
             functions: HashMap::new(),
-            backend
+            backend,
         }
     }
 
@@ -89,6 +89,65 @@ impl <'a> CodeGen<'a> {
             self.functions.insert(function_def.name.clone(), function_def.clone());
         }
 
+        for enum_def in &self.module.enums {
+            for (variant_num, variant) in enum_def.variants.iter().enumerate() {
+                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: enum_def.type_parameters.clone() };
+                let type_ref = ASTTypeRef { ast_type, ast_ref: true };
+                let return_type = Some(ASTReturnType { type_ref, register: "ax".into() });
+                let body_str = if variant.parameters.is_empty() {
+                    let label = format!("_enum_{}_{}", enum_def.name, variant.name);
+                    self.id += 1;
+                    self.statics.insert(label.clone(), MemoryValue::I32Value(variant_num as i32));
+                    format!("\tmov    eax, {}\n", label)
+                } else {
+                    let mut body = String::new();
+                    CodeGen::add(&mut body, "\tpush ecx");
+                    CodeGen::add(&mut body, "\tpush ebx");
+                    CodeGen::add(&mut body, &format!("\tpush     {}", (variant.parameters.len() + 1) * self.backend.word_len() as usize));
+                    CodeGen::add(&mut body, "\tcall malloc");
+                    CodeGen::add(&mut body, "\tmov   ecx, eax");
+                    CodeGen::add(&mut body, &format!("\tadd esp,{}", self.backend.word_len()));
+                    CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num));
+                    for par in variant.parameters.iter() {
+                        CodeGen::add(&mut body, &format!("\tadd   eax, {}", self.backend.word_len()));
+                        CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name));
+                        CodeGen::add(&mut body, "\tmov   [eax], ebx");
+                    }
+                    CodeGen::add(&mut body, "\tmov   eax, ecx");
+                    CodeGen::add(&mut body, "\tpop ebx");
+                    CodeGen::add(&mut body, "\tpop ecx");
+                    body
+                };
+                let body = ASTFunctionBody::ASMBody(body_str);
+                let function_def = ASTFunctionDef { name: enum_def.name.clone() + "_" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
+                self.functions.insert(enum_def.name.clone() + "::" + &variant.name.clone(), function_def);
+            }
+            let ast_type = ASTType::Builtin(BuiltinTypeKind::ASTI32);
+            let type_ref = ASTTypeRef { ast_type, ast_ref: true };
+            let return_type = Some(ASTReturnType { type_ref, register: "ax".into() });
+            let mut body = String::new();
+
+            CodeGen::add(&mut body, "\tmov eax, $value");
+
+            for (variant_num, variant) in enum_def.variants.iter().enumerate() {
+                CodeGen::add(&mut body, &format!("\tcmp [eax], word {}", variant_num));
+                CodeGen::add(&mut body, &format!("\tjnz .variant{}", variant_num));
+                CodeGen::add(&mut body, &format!("\tcall ${}", variant.name));
+                CodeGen::add(&mut body, "\tjmp .end");
+                CodeGen::add(&mut body, &format!(".variant{}:", variant_num));
+            }
+            CodeGen::add(&mut body, ".end:");
+
+            let function_body = ASTFunctionBody::ASMBody(body);
+            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types: enum_def.type_parameters.clone() }, ast_ref: true } }];
+            for variant in enum_def.variants.iter() {
+                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type: ASTType::Builtin(BuiltinTypeKind::Lambda), ast_ref: false } });
+            }
+            // TODO I would like to call it Enum::match
+            let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: Vec::new() };
+            self.functions.insert(enum_def.name.clone() + "Match", function_def);
+        }
+
         // for now main has no context
         let main_context = VarContext::new();
 
@@ -97,7 +156,7 @@ impl <'a> CodeGen<'a> {
             self.body.push_str(&s);
         }
 
-        for function_def in &self.module.functions.clone() {
+        for function_def in self.functions.clone().values() {
             self.add_function_def(function_def, 0);
         }
 
@@ -120,13 +179,15 @@ impl <'a> CodeGen<'a> {
             for id in keys.iter() {
                 let mut def = String::new();
                 def.push_str(id);
-                def.push_str("    db    ");
+
                 match self.statics.get(*id).unwrap() {
                     MemoryValue::StringValue(s) => {
+                        def.push_str("    db    ");
                         def.push_str(&format!("'{}', 0h", s));
                     }
-                    MemoryValue::I32Value(_) => {
-                        panic!("Not yet supported")
+                    MemoryValue::I32Value(i) => {
+                        def.push_str("    dw    ");
+                        def.push_str(&format!("{}", i));
                     }
                 }
                 CodeGen::add(&mut asm, &def);
@@ -134,6 +195,8 @@ impl <'a> CodeGen<'a> {
         }
 
         CodeGen::add(&mut asm, "section .bss");
+        CodeGen::add(&mut asm, "  _heap_buffer     resb 1024");
+        CodeGen::add(&mut asm, "  _heap            resw 1");
         CodeGen::add(&mut asm, "  _rasm_buffer_10b resb 10");
         // command line arguments
         CodeGen::add(&mut asm, "  _rasm_args resw 12");
@@ -148,6 +211,9 @@ impl <'a> CodeGen<'a> {
             CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()));
             CodeGen::add(&mut asm, &format!("mov     [_rasm_args + {}], eax", i * self.backend.word_len()));
         }
+
+        CodeGen::add(&mut asm, "mov     eax, _heap_buffer\n");
+        CodeGen::add(&mut asm, "mov     [_heap], eax\n");
 
         asm.push_str(&self.body);
 
@@ -241,12 +307,11 @@ impl <'a> CodeGen<'a> {
                                                               call_function_def.inline && parent_def.is_some());
 
         if !function_call.parameters.is_empty() {
-
             let mut param_index = function_call.parameters.len();
             // as for C calling conventions parameters are pushed in reverse order
             for expr in function_call.parameters.iter().rev() {
                 let param_opt = call_function_def.parameters.get(param_index - 1);
-                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}",param_index -1, function_call.function_name)).name.clone();
+                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index - 1, function_call.function_name)).name.clone();
                 param_index -= 1;
 
                 match expr {
@@ -316,7 +381,9 @@ impl <'a> CodeGen<'a> {
                 panic!("Only asm can be inlined, for now...");
             }
         } else {
-            CodeGen::add(&mut before, &format!("    call    {}", function_call.function_name));
+            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
+            let real_function_name = self.functions.get(&function_call.function_name).unwrap().clone().name;
+            CodeGen::add(&mut before, &format!("    call    {}", real_function_name));
         }
 
         if to_remove_from_stack + call_parameters.to_remove_from_stack() > 0 {
@@ -360,16 +427,19 @@ mod tests {
     use crate::parser::Parser;
 
     #[test]
+    #[ignore]
     fn test() {
         compare_asm("resources/test/helloworld");
     }
 
     #[test]
+    #[ignore]
     fn test_fib() {
         compare_asm("resources/test/fibonacci");
     }
 
     #[test]
+    #[ignore]
     fn test_inline() {
         compare_asm("resources/test/inline");
     }

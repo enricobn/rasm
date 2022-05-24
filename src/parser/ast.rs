@@ -5,7 +5,7 @@ pub struct ASTFunctionDef {
     pub return_type: Option<ASTReturnType>,
     pub body: ASTFunctionBody,
     pub inline: bool,
-    pub param_types: Vec<String>
+    pub param_types: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +59,7 @@ pub enum ASTExpression {
     Var(String),
     Number(i32),
     Lambda(ASTFunctionDef),
+    //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 
 #[derive(Debug, Clone)]
