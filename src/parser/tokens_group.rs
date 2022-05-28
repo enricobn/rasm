@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::collections::HashMap;
 use crate::parser::ParserTrait;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
@@ -11,14 +11,22 @@ pub struct TokensGroup {
     current_group: Vec<TokensGroup>,
 }
 
-/*
-impl Debug for TokensGroup {
+
+impl Display for TokensGroup {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "group {:?} {:?}", self.name, self.quantifier)
+        write!(f, "{}:{:?}(", self.name.last().unwrap(), self.quantifier).unwrap();
+        let mut first = true;
+        for matcher in self.tokens_matchers.iter() {
+            if !first {
+                write!(f, " ").unwrap();
+            }
+            write!(f, "{}", matcher).unwrap();
+
+            first = false;
+        }
+        write!(f, ")")
     }
 }
-
- */
 
 impl TokensGroup {
     pub fn new(name: Vec<String>, quantifier: Quantifier) -> Self {

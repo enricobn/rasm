@@ -7,7 +7,7 @@ use std::ops::Add;
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind, lambda_unit};
 
 pub struct CodeGen<'a> {
     module: ASTModule,
@@ -93,7 +93,7 @@ impl<'a> CodeGen<'a> {
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
                 let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: enum_def.type_parameters.clone() };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
-                let return_type = Some(ASTReturnType { type_ref, register: "ax".into() });
+                let return_type = Some(type_ref);
                 let body_str = if variant.parameters.is_empty() {
                     let label = format!("_enum_{}_{}", enum_def.name, variant.name);
                     self.id += 1;
@@ -124,7 +124,7 @@ impl<'a> CodeGen<'a> {
             }
             let ast_type = ASTType::Builtin(BuiltinTypeKind::ASTI32);
             let type_ref = ASTTypeRef { ast_type, ast_ref: true };
-            let return_type = Some(ASTReturnType { type_ref, register: "ax".into() });
+            let return_type = Some(type_ref);
             let mut body = String::new();
 
             CodeGen::add(&mut body, "\tmov eax, $value");
@@ -141,7 +141,7 @@ impl<'a> CodeGen<'a> {
             let function_body = ASTFunctionBody::ASMBody(body);
             let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types: enum_def.type_parameters.clone() }, ast_ref: true } }];
             for variant in enum_def.variants.iter() {
-                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type: ASTType::Builtin(BuiltinTypeKind::Lambda), ast_ref: false } });
+                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type: lambda_unit(), ast_ref: false } });
             }
             // TODO I would like to call it Enum::match
             let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: Vec::new() };

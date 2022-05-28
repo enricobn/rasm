@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::parser::ParserTrait;
 use crate::parser::tokens_group::TokensGroup;
 
-pub trait TokensMatcherTrait: Debug + Sync {
+pub trait TokensMatcherTrait: Debug + Sync + Display {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
 
     fn name(&self) -> Vec<String>;
@@ -14,6 +14,12 @@ pub trait TokensMatcherTrait: Debug + Sync {
 #[derive(Debug)]
 pub struct TokensMatcher {
     group: TokensGroup,
+}
+
+impl Display for TokensMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.group)
+    }
 }
 
 impl Default for TokensMatcher {
@@ -223,6 +229,12 @@ impl TokenMatcher for AlphanumericTokenMatcher {
         } else {
             None
         }
+    }
+}
+
+impl Display for AlphanumericTokenMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "a")
     }
 }
 
@@ -484,5 +496,11 @@ impl TokenMatcher for KindTokenMatcher {
 
     fn get_value(&self, _kind: &TokenKind) -> Option<String> {
         None
+    }
+}
+
+impl Display for KindTokenMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
     }
 }

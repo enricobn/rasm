@@ -2,16 +2,10 @@
 pub struct ASTFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
-    pub return_type: Option<ASTReturnType>,
+    pub return_type: Option<ASTTypeRef>,
     pub body: ASTFunctionBody,
     pub inline: bool,
     pub param_types: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ASTReturnType {
-    pub type_ref: ASTTypeRef,
-    pub register: String,
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +18,7 @@ pub enum ASTFunctionBody {
 pub enum BuiltinTypeKind {
     ASTString,
     ASTI32,
-    Lambda,
+    Lambda {parameters: Vec<ASTTypeRef>, return_type: Option<Box<ASTTypeRef>>},
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,3 +76,10 @@ pub struct ASTEnumVariantDef {
     pub parameters: Vec<ASTParameterDef>,
 }
 
+pub fn lambda(return_type: Option<Box<ASTTypeRef>>) -> ASTType {
+    ASTType::Builtin(BuiltinTypeKind::Lambda { parameters: Vec::new(), return_type })
+}
+
+pub fn lambda_unit() -> ASTType {
+    lambda(None)
+}

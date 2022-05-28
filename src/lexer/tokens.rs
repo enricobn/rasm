@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -26,6 +27,91 @@ pub enum TokenKind {
     Punctuation(PunctuationKind),
     StringLiteral(String),
     WhiteSpaces(String),
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenKind::AlphaNumeric(s) => {
+                write!(f, "'{}'", s)
+            }
+            TokenKind::AsmBLock(_) => {
+                write!(f, "asm")
+            }
+            TokenKind::Bracket(kind, status) => {
+                match kind {
+                    BracketKind::Angle => {
+                        if status == &BracketStatus::Open {
+                            write!(f, "<")
+                        } else {
+                            write!(f, ">")
+                        }
+                    }
+                    BracketKind::Brace => {
+                        if status == &BracketStatus::Open {
+                            write!(f, "{{")
+                        } else {
+                            write!(f, "}}")
+                        }
+                    }
+                    BracketKind::Round => {
+                        if status == &BracketStatus::Open {
+                            write!(f, "(")
+                        } else {
+                            write!(f, ")")
+                        }
+                    }
+                    BracketKind::Square => {
+                        if status == &BracketStatus::Open {
+                            write!(f, "[")
+                        } else {
+                            write!(f, "]")
+                        }
+                    }
+                }
+            }
+            TokenKind::Comment(_) => {
+                write!(f, "comment")
+            }
+            TokenKind::EndOfLine => {
+                write!(f, "EOL")
+            }
+            TokenKind::KeyWord(k) => {
+                write!(f, "{:?}", k)
+            }
+            TokenKind::Number(n) => {
+                write!(f, "{}", n)
+            }
+            TokenKind::Punctuation(p) => {
+                match p {
+                    PunctuationKind::And => {
+                        write!(f, "&")
+                    }
+                    PunctuationKind::Dot => {
+                        write!(f, ".")
+                    }
+                    PunctuationKind::Colon => {
+                        write!(f, ":")
+                    }
+                    PunctuationKind::Comma => {
+                        write!(f, ",")
+                    }
+                    PunctuationKind::RightArrow => {
+                        write!(f, "->")
+                    }
+                    PunctuationKind::SemiColon => {
+                        write!(f, ";")
+                    }
+                }
+            }
+            TokenKind::StringLiteral(s) => {
+                write!(f, "\"{}\"", s)
+            }
+            TokenKind::WhiteSpaces(_) => {
+                write!(f, "WS")
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

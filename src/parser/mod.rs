@@ -3,7 +3,7 @@ use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::asm_def_parser::AsmDefParser;
-use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTReturnType, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::ASTType::Builtin;
 use crate::parser::enum_parser::EnumParser;
@@ -228,7 +228,7 @@ impl Parser {
                             let mut def = def.clone();
                             let (register, next_i) = self.parse_register(Self::is_asm(&def));
                             self.i = next_i;
-                            def.return_type = Some(ASTReturnType { type_ref, register });
+                            def.return_type = Some(type_ref);
                             let l = self.parser_data.len();
                             self.parser_data[l - 1] = ParserData::FunctionDef(def);
                             self.state.pop();
@@ -298,7 +298,7 @@ impl Parser {
                 return ProcessResult::Continue;
             } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
                 // TODO return type of the lambda for now it's not supported
-                let return_type = Some(ASTReturnType { type_ref: ASTTypeRef { ast_type: Builtin(BuiltinTypeKind::ASTI32), ast_ref: false }, register: "eax".into() });
+                let return_type = Some(ASTTypeRef { ast_type: Builtin(BuiltinTypeKind::ASTI32), ast_ref: false });
                 self.parser_data.push(ParserData::FunctionDef(ASTFunctionDef {
                     name: "lambda".into(),
                     parameters: Vec::new(),
@@ -373,7 +373,7 @@ impl Parser {
                         self.parse_register(Self::is_asm(&def));
                     self.i = next_i;
 
-                    def.return_type = Some(ASTReturnType { type_ref: type_ref.clone(), register });
+                    def.return_type = Some(type_ref.clone());
                 } else {
                     def.return_type = None
                 }
@@ -454,8 +454,7 @@ impl Parser {
         print!(")");
         if let Some(return_type) = &f.return_type {
             print!(" -> ");
-            Self::print_type_ref(&return_type.type_ref);
-            print!("[{}]", return_type.register);
+            Self::print_type_ref(return_type);
         }
         match &f.body {
             RASMBody(calls) => {
@@ -479,7 +478,7 @@ impl Parser {
                 match bt {
                     BuiltinTypeKind::ASTString => print!("str"),
                     BuiltinTypeKind::ASTI32 => print!("i32"),
-                    BuiltinTypeKind::Lambda => print!("fn")
+                    BuiltinTypeKind::Lambda{ return_type: _return_type, parameters: _parameters} => print!("fn"), // TODO
                 }
             }
             ASTType::Parametric(name) => print!("{}", name),
