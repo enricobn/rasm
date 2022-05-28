@@ -15,7 +15,21 @@ impl<'a> TypeParser<'a> {
         Self { parser }
     }
 
-    pub fn try_parse(&self, n: usize, context_param_types: &[String]) -> Option<(ASTType, usize)> {
+    pub fn try_parse_type_ref(&self, n: usize, context_param_types: &[String]) -> Option<(ASTTypeRef, usize)> {
+        if let Some(kind) = self.parser.get_token_kind() {
+
+            if let TokenKind::Punctuation(PunctuationKind::And) = kind {
+                if let Some((ast_type, next_i)) = self.try_parse(n + 1, context_param_types) {
+                    return Some((ASTTypeRef { ast_ref: true, ast_type }, next_i));
+                }
+            } else if let Some((ast_type, next_i)) = self.try_parse(n, context_param_types) {
+                return Some((ASTTypeRef { ast_ref: false, ast_type }, next_i));
+            }
+        }
+        None
+    }
+
+    fn try_parse(&self, n: usize, context_param_types: &[String]) -> Option<(ASTType, usize)> {
         if let Some(kind) = self.parser.get_token_kind_n(n) {
             let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::AlphaNumeric(type_name) = kind {
@@ -59,17 +73,10 @@ impl<'a> TypeParser<'a> {
                     continue;
                 }
 
-                let ast_ref = if let Some(TokenKind::Punctuation(PunctuationKind::And)) = self.parser.get_token_kind_n(n) {
-                    n += 1;
-                    true
-                } else {
-                    false
-                };
-
-                let type_o = self.try_parse(n, context_param_types);
+                let type_o = self.try_parse_type_ref(n, context_param_types);
 
                 if let Some((t, next_i)) = type_o {
-                    parameters.push(ASTTypeRef { ast_ref, ast_type: t });
+                    parameters.push(t);
                     n = next_i - self.parser.get_i();
                     continue;
                 } else {
@@ -89,18 +96,11 @@ impl<'a> TypeParser<'a> {
                 n += 2;
                 None
             } else {
-                let ast_ref = if let Some(TokenKind::Punctuation(PunctuationKind::And)) = self.parser.get_token_kind_n(n) {
-                    n += 1;
-                    true
-                } else {
-                    false
-                };
-
-                let type_o = self.try_parse(n, context_param_types);
+                let type_o = self.try_parse_type_ref(n, context_param_types);
 
                 if let Some((t, next_i)) = type_o {
                     n = next_i - self.parser.get_i();
-                    Some(Box::new(ASTTypeRef { ast_ref, ast_type: t }))
+                    Some(Box::new(t))
                 } else {
                     self.parser.panic("Error parsing fn type parameter");
                     panic!();

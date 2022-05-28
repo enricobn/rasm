@@ -1,5 +1,5 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTTypeRef};
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef};
 use crate::parser::matchers::param_types_matcher;
 use crate::parser::ParserTrait;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait};
@@ -75,10 +75,12 @@ impl<'a> EnumParser<'a> {
                     Vec::new()
                 } else {
                     let type_parser = TypeParser::new(*type_result.first().unwrap());
-                    let option = type_parser.try_parse(0, type_parameters);
-                    // TODO ref
-                    let type_ref = ASTTypeRef { ast_ref: false, ast_type: option.unwrap().0 };
-                    vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref }]
+                    if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters) {
+                        vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref }]
+                    } else {
+                        self.parser.panic(&format!("Cannot parse type for enum variant {}:", name));
+                        panic!();
+                    }
                 };
 
                 ASTEnumVariantDef { name: name.clone(), parameters }

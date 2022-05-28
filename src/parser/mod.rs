@@ -188,7 +188,7 @@ impl Parser {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
                         if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
                             self.i = next_i;
-                            if let Some((type_ref, next_i)) = self.try_parse_type_ref(&def.param_types) {
+                            if let Some((type_ref, next_i)) = TypeParser::new(self).try_parse_type_ref(0, &def.param_types) {
                                 self.i = next_i;
                                 self.parser_data.push(ParserData::FunctionDefParameter(ASTParameterDef { name, type_ref }));
                                 self.state.pop();
@@ -222,7 +222,7 @@ impl Parser {
                 }
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
-                        if let Some((type_ref, next_i)) = self.try_parse_type_ref(&def.param_types) {
+                        if let Some((type_ref, next_i)) = TypeParser::new(self).try_parse_type_ref(0, &def.param_types) {
                             self.i = next_i;
 
                             let mut def = def.clone();
@@ -367,7 +367,7 @@ impl Parser {
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                if let Some((ref type_ref, next_i)) = self.try_parse_type_ref(&def.param_types) {
+                if let Some((ref type_ref, next_i)) = TypeParser::new(self).try_parse_type_ref(0, &def.param_types) {
                     self.i = next_i;
                     let (register, next_i) =
                         self.parse_register(Self::is_asm(&def));
@@ -612,21 +612,6 @@ impl Parser {
             panic!()
         }
         ("eax".into(), self.i)
-    }
-
-    fn try_parse_type_ref(&self, param_types: &[String]) -> Option<(ASTTypeRef, usize)> {
-        if let Some(kind) = self.get_token_kind() {
-            let parse_type = TypeParser::new(self);
-
-            if let TokenKind::Punctuation(PunctuationKind::And) = kind {
-                if let Some((ast_type, next_i)) = parse_type.try_parse(1, param_types) {
-                    return Some((ASTTypeRef { ast_ref: true, ast_type }, next_i));
-                }
-            } else if let Some((ast_type, next_i)) = parse_type.try_parse(0, param_types) {
-                return Some((ASTTypeRef { ast_ref: false, ast_type }, next_i));
-            }
-        }
-        None
     }
 
     fn try_parse_parameter_def_name(&self) -> Option<(String, usize)> {
