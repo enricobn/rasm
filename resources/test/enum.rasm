@@ -1,11 +1,15 @@
 include "std.rasm"
 
 enum Option<T> {
-  None,
-  Some(value : T)
+  Some(value : T),
+  None
 }
 
-OptionMatch(Option::Some("a value"), {sprintln("none");}, {sprintln("some");});
-OptionMatch(Option::None(), {sprintln("none");}, {sprintln("some");});
-OptionMatch(Option::Some("a value"), {sprintln("none");}, {sprintln("some");});
-OptionMatch(Option::None(), {sprintln("none");}, {sprintln("some");});
+printOption(Option::Some("a value"));
+printOption(Option::None());
+printOption(Option::Some("a value"));
+printOption(Option::None());
+
+fn printOption(o: Option<T>) {
+    OptionMatch(o, {sprintln("some");}, {sprintln("none");});
+}
