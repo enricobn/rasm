@@ -76,7 +76,7 @@ impl<'a> EnumParser<'a> {
                 } else {
                     let type_parser = TypeParser::new(*type_result.first().unwrap());
                     if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters) {
-                        vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref }]
+                        vec![ASTParameterDef { name: parameters_s.first().unwrap().clone(), type_ref, from_context: false }]
                     } else {
                         self.parser.panic(&format!("Cannot parse type for enum variant {}:", name));
                         panic!();
@@ -150,6 +150,7 @@ mod tests {
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
                 type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
+                from_context: false
             }],
         };
 
@@ -210,6 +211,7 @@ mod tests {
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
                 type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
+                from_context: false
             }],
         };
 
@@ -239,6 +241,7 @@ mod tests {
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
                         type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
+                        from_context: false
                     }],
                 };
 

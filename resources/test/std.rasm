@@ -122,7 +122,7 @@ inline asm nadd(n1: i32, n2: i32) -> i32[eax] /{
 }/
 
 /** false = 0 true = any other value **/
-inline asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32[eax] /{
+asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32[eax] /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+7
@@ -186,7 +186,7 @@ asm exit(status: i32) /{
 }/
 
 fn assert(value: i32) {
-    if(value,{},{
+    if(value,{ -> },{ ->
         sprintln("assertion failed");
         exit(1);
     });

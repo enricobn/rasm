@@ -9,6 +9,12 @@ pub struct ASTFunctionDef {
 }
 
 #[derive(Debug, Clone)]
+pub struct ASTLambdaDef {
+    pub parameter_names: Vec<String>,
+    pub body: ASTFunctionBody,
+}
+
+#[derive(Debug, Clone)]
 pub enum ASTFunctionBody {
     RASMBody(Vec<ASTFunctionCall>),
     ASMBody(String),
@@ -32,6 +38,7 @@ pub enum ASTType {
 pub struct ASTParameterDef {
     pub name: String,
     pub type_ref: ASTTypeRef,
+    pub from_context: bool
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,7 +59,7 @@ pub enum ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall),
     Var(String),
     Number(i32),
-    Lambda(ASTFunctionDef),
+    Lambda(ASTLambdaDef),
     //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 

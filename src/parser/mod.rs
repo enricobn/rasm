@@ -3,7 +3,7 @@ use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::asm_def_parser::AsmDefParser;
-use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::ASTType::Builtin;
 use crate::parser::enum_parser::EnumParser;
@@ -43,6 +43,7 @@ enum ParserData {
     FunctionDef(ASTFunctionDef),
     FunctionDefParameter(ASTParameterDef),
     EnumDef(ASTEnumDef),
+    LambdaDef(ASTLambdaDef),
 }
 
 #[derive(Clone, Debug)]
@@ -146,7 +147,7 @@ impl Parser {
                             let mut parser = Parser::new(lexer);
                             let mut module = parser.parse(resource_path);
                             if !module.body.is_empty() {
-                                self.panic("Cannot include a module with a body.");
+                                self.panic(&format!("Cannot include a module with a body: {:?}.", module.body));
                             }
                             self.included_functions.append(&mut module.functions);
                         }
@@ -190,7 +191,7 @@ impl Parser {
                             self.i = next_i;
                             if let Some((type_ref, next_i)) = TypeParser::new(self).try_parse_type_ref(0, &def.param_types) {
                                 self.i = next_i;
-                                self.parser_data.push(ParserData::FunctionDefParameter(ASTParameterDef { name, type_ref }));
+                                self.parser_data.push(ParserData::FunctionDefParameter(ASTParameterDef { name, type_ref, from_context: false }));
                                 self.state.pop();
                                 continue;
                             } else {
@@ -297,18 +298,13 @@ impl Parser {
                 self.i += 1;
                 return ProcessResult::Continue;
             } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
-                // TODO return type of the lambda for now it's not supported
-                let return_type = Some(ASTTypeRef { ast_type: Builtin(BuiltinTypeKind::ASTI32), ast_ref: false });
-                self.parser_data.push(ParserData::FunctionDef(ASTFunctionDef {
-                    name: "lambda".into(),
-                    parameters: Vec::new(),
+                let (parameter_names, next_i) = self.parse_lambda_parameters(1);
+                self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
+                    parameter_names,
                     body: RASMBody(Vec::new()),
-                    return_type,
-                    inline: false,
-                    param_types: Vec::new(),
                 }));
                 self.state.push(ParserState::FunctionBody);
-                self.i += 1;
+                self.i = next_i;
                 return ProcessResult::Continue;
             } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
                 if self.is_next_token_a_semicolon() {
@@ -319,6 +315,18 @@ impl Parser {
                             def.body = RASMBody(calls);
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = ParserData::FunctionDef(def);
+                            self.parser_data.pop();
+                            self.i += 2;
+                            self.state.pop();
+                            return ProcessResult::Continue;
+                        }
+                    } else if let Some(ParserData::LambdaDef(def)) = self.before_last_parser_data() {
+                        let mut def = def.clone();
+                        if let RASMBody(mut calls) = def.body {
+                            calls.push(call);
+                            def.body = RASMBody(calls);
+                            let l = self.parser_data.len();
+                            self.parser_data[l - 2] = ParserData::LambdaDef(def);
                             self.parser_data.pop();
                             self.i += 2;
                             self.state.pop();
@@ -342,7 +350,7 @@ impl Parser {
                     return ProcessResult::Continue;
                 }
             }
-        } else if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
+        } else if let Some(ParserData::LambdaDef(def)) = self.last_parser_data() {
             if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
                 let mut actual_call = call.clone();
                 actual_call.parameters.push(ASTExpression::Lambda(def));
@@ -551,7 +559,7 @@ impl Parser {
 
     fn try_parse_function_call(&self) -> Option<(String, usize)> {
         if let Some(TokenKind::AlphaNumeric(function_name)) = self.get_token_kind() {
-            if let Some(Token { kind: TokenKind::Bracket(BracketKind::Round, BracketStatus::Open), row: _, column: _ }) = self.next_token() {
+            if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) = self.get_token_kind_n(1) {
                 return Some((function_name.clone(), self.i + 2));
             }
         }
@@ -643,6 +651,36 @@ impl Parser {
     fn last_parser_data(&self) -> Option<ParserData> {
         self.parser_data.last().cloned()
     }
+
+    fn parse_lambda_parameters(&self, out_n: usize) -> (Vec<String>, usize) {
+        let mut n = out_n;
+        let mut parameter_names = Vec::new();
+        loop {
+            let kind_o = self.get_token_kind_n(n);
+            match kind_o {
+                None => {
+                    self.panic("No token parsing lambda parameters");
+                }
+                Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) => {
+                    n += 1;
+                    break;
+                }
+                Some(TokenKind::Punctuation(PunctuationKind::Comma)) => {
+                    n += 1;
+                    continue;
+                }
+                Some(TokenKind::AlphaNumeric(name)) => {
+                    parameter_names.push(name.to_string());
+                    n += 1;
+                    continue;
+                }
+                _ => {
+                    self.panic(&format!("Unexpected token {:?}", kind_o.unwrap()));
+                }
+            }
+        }
+        (parameter_names, self.i + n)
+    }
 }
 
 impl ParserTrait for Parser {
@@ -659,7 +697,6 @@ impl ParserTrait for Parser {
     }
 }
 
-//#[automock]
 pub trait ParserTrait {
     fn get_i(&self) -> usize;
     fn get_token_n(&self, n: usize) -> Option<&Token>;

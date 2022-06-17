@@ -1,0 +1,13 @@
+include "std.rasm"
+
+choose(atoi(argv(1)), { -> sprintln("0"); }, { -> sprintln("1"); }, { -> sprintln("2"); });
+
+fn choose(n: i32, l0: fn() -> (), l1: fn() -> (), l2: fn() -> ()) {
+    if (eq(0, n),
+        { -> l0(); },
+        { -> if (eq(1, n),
+                { -> l1(); },
+                { -> l2(); }
+                );
+        });
+}

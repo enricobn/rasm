@@ -3,13 +3,13 @@ include "std.rasm"
 print();
 
 fn print() {
-  if(0,{sprintln("True");},{sprintln("False");});
+  if(0,{ -> sprintln("True");},{ -> sprintln("False");});
 
-  if(eq(0,0),{sprintln("equal");},{sprintln("not equal");});
+  if(eq(0,0),{ -> sprintln("equal");},{ -> sprintln("not equal");});
 
-  if(less(0,1),{sprintln("less");},{sprintln("not less");});
+  if(less(0,1),{ -> sprintln("less");},{ -> sprintln("not less");});
 
-  if(greater(0,1),{sprintln("greater");},{sprintln("not greater");});
+  if(greater(0,1),{ -> sprintln("greater");},{ -> sprintln("not greater");});
 
-  if(lessOrEqual(0,1),{sprintln("less or equal");},{sprintln("not less o equal");});
+  if(lessOrEqual(0,1),{ -> sprintln("less or equal");},{ -> sprintln("not less o equal");});
 }

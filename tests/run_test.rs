@@ -40,7 +40,27 @@ fn test_mc91() {
 
 #[test]
 fn test_enum() {
-    test("enum", Vec::new(),"some\nnone\nsome\nnone\n");
+    test("enum", Vec::new(),"Some(a value)\nNone\n");
+}
+
+#[test]
+fn test_lambda_0() {
+    test("lambda", vec!["0"],"0\n");
+}
+
+#[test]
+fn test_lambda_1() {
+    test("lambda", vec!["1"],"1\n");
+}
+
+#[test]
+fn test_lambda_2() {
+    test("lambda", vec!["2"],"2\n");
+}
+
+#[test]
+fn test_lambda_params() {
+    test("lambda_params", vec!["20"],"35\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

@@ -1,5 +1,5 @@
 // test11.rasm file
-callLambda({print();print();});
+callLambda({ -> print();print();});
 
 fn callLambda(lambda: fn() -> ()) {}
 
