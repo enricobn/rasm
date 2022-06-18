@@ -7,7 +7,7 @@ use linked_hash_map::{Iter, LinkedHashMap};
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 
 pub struct CodeGen<'a> {
     module: ASTModule,
@@ -88,9 +88,6 @@ impl<'a> CodeGen<'a> {
         self.definitions = String::new();
         self.functions = HashMap::new();
 
-        let word_len = self.backend.word_len();
-        let sp = self.backend.stack_pointer();
-
         for function_def in &self.module.functions.clone() {
             self.functions.insert(function_def.name.clone(), function_def.clone());
         }
@@ -101,61 +98,24 @@ impl<'a> CodeGen<'a> {
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
                 println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
-                // TODO I don't like it because it's in asm32
+                // TODO I don't like it because it's a lot of code in asm32
                 let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
                 let return_type = Some(type_ref);
                 let body_str = if variant.parameters.is_empty() {
                     let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-                    self.id += 1;
                     self.statics.insert(label.clone(), MemoryValue::I32Value(variant_num as i32));
                     format!("\tmov    eax, {}\n", label)
                 } else {
-                    let mut body = String::new();
-                    CodeGen::add(&mut body, "\tpush ecx", None);
-                    CodeGen::add(&mut body, "\tpush ebx", None);
-                    CodeGen::add(&mut body, &format!("\tpush     {}", (variant.parameters.len() + 1) * self.backend.word_len() as usize), None);
-                    CodeGen::add(&mut body, "\tcall malloc", None);
-                    CodeGen::add(&mut body, "\tmov   ecx, eax", None);
-                    CodeGen::add(&mut body, &format!("\tadd esp,{}", self.backend.word_len()), None);
-                    CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
-                    for par in variant.parameters.iter().rev() {
-                        CodeGen::add(&mut body, &format!("\tadd   eax, {}", self.backend.word_len()), Some(&format!("parameter {}", par.name)));
-                        CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), None);
-                        CodeGen::add(&mut body, "\tmov   [eax], ebx", None);
-                    }
-                    CodeGen::add(&mut body, "\tmov   eax, ecx", None);
-                    CodeGen::add(&mut body, "\tpop   ebx", None);
-                    CodeGen::add(&mut body, "\tpop   ecx", None);
-                    body
+                    Self::enum_parametric_variant_constructor_body(self.backend, &variant_num, &variant)
                 };
                 let body = ASTFunctionBody::ASMBody(body_str);
                 let function_def = ASTFunctionDef { name: enum_def.name.clone() + "_" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
                 self.functions.insert(enum_def.name.clone() + "::" + &variant.name.clone(), function_def);
             }
             let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types));
-            let mut body = String::new();
 
-            CodeGen::add(&mut body, "\tmov eax, $value", None);
-
-            for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-                CodeGen::add(&mut body, &format!("\tcmp [eax], word {}", variant_num), None);
-                CodeGen::add(&mut body, &format!("\tjnz .variant{}", variant_num), None);
-
-                for (i, param) in variant.parameters.iter().enumerate() {
-                    CodeGen::add(&mut body, &format!("\tpush dword [eax + {}]", (i + 1) * word_len as usize), Some(&format!("param {}", param.name)));
-                }
-
-                CodeGen::add(&mut body, &format!("\tcall ${}", variant.name), None);
-
-                if !variant.parameters.is_empty() {
-                    CodeGen::add(&mut body, &format!("\tadd {}, {}", sp, variant.parameters.len() * word_len as usize), None);
-                }
-
-                CodeGen::add(&mut body, "\tjmp .end", None);
-                CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None);
-            }
-            CodeGen::add(&mut body, ".end:", None);
+            let body = Self::enum_match_body(self.backend, enum_def);
 
             let function_body = ASTFunctionBody::ASMBody(body);
             let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
@@ -251,6 +211,54 @@ impl<'a> CodeGen<'a> {
         asm.push_str(&self.definitions);
 
         asm
+    }
+
+    fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
+        let mut body = String::new();
+        CodeGen::add(&mut body, "\tpush ecx", None);
+        CodeGen::add(&mut body, "\tpush ebx", None);
+        CodeGen::add(&mut body, &format!("\tpush     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None);
+        CodeGen::add(&mut body, "\tcall malloc", None);
+        CodeGen::add(&mut body, "\tmov   ecx, eax", None);
+        CodeGen::add(&mut body, &format!("\tadd esp,{}", backend.word_len()), None);
+        CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
+        for par in variant.parameters.iter().rev() {
+            CodeGen::add(&mut body, &format!("\tadd   eax, {}", backend.word_len()), Some(&format!("parameter {}", par.name)));
+            CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), None);
+            CodeGen::add(&mut body, "\tmov   [eax], ebx", None);
+        }
+        CodeGen::add(&mut body, "\tmov   eax, ecx", None);
+        CodeGen::add(&mut body, "\tpop   ebx", None);
+        CodeGen::add(&mut body, "\tpop   ecx", None);
+        body
+    }
+
+    fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
+        let word_len = backend.word_len();
+        let sp = backend.stack_pointer();
+        let mut body = String::new();
+
+        CodeGen::add(&mut body, "\tmov eax, $value", None);
+
+        for (variant_num, variant) in enum_def.variants.iter().enumerate() {
+            CodeGen::add(&mut body, &format!("\tcmp [eax], word {}", variant_num), None);
+            CodeGen::add(&mut body, &format!("\tjnz .variant{}", variant_num), None);
+
+            for (i, param) in variant.parameters.iter().enumerate() {
+                CodeGen::add(&mut body, &format!("\tpush dword [eax + {}]", (i + 1) * word_len as usize), Some(&format!("param {}", param.name)));
+            }
+
+            CodeGen::add(&mut body, &format!("\tcall ${}", variant.name), None);
+
+            if !variant.parameters.is_empty() {
+                CodeGen::add(&mut body, &format!("\tadd {}, {}", sp, variant.parameters.len() * word_len as usize), None);
+            }
+
+            CodeGen::add(&mut body, "\tjmp .end", None);
+            CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None);
+        }
+        CodeGen::add(&mut body, ".end:", None);
+        body
     }
 
     fn create_all_functions(&mut self) {

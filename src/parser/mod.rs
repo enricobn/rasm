@@ -3,7 +3,7 @@ use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::asm_def_parser::AsmDefParser;
-use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::ASTType::Builtin;
 use crate::parser::enum_parser::EnumParser;
@@ -301,7 +301,7 @@ impl Parser {
                 self.i = next_i;
                 return ProcessResult::Continue;
             } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
-                if self.is_next_token_a_semicolon() {
+                if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = self.get_token_kind_n(1) {
                     if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
                         if let RASMBody(mut calls) = def.body {
@@ -412,14 +412,6 @@ impl Parser {
         let l = self.parser_data.len();
         self.parser_data[l - 1] = ParserData::FunctionCall(call);
         self.i += 1;
-    }
-
-    fn is_next_token_a_semicolon(&self) -> bool {
-        matches!(self.next_token(), Some(Token { row: _, column: _, kind: TokenKind::Punctuation(PunctuationKind::SemiColon) }))
-    }
-
-    fn is_asm(def: &ASTFunctionDef) -> bool {
-        matches!(def.body, ASTFunctionBody::ASMBody(_))
     }
 
     pub fn print(module: &ASTModule) {
@@ -586,6 +578,8 @@ impl Parser {
                 if let TokenKind::StringLiteral(include) = &next_token.kind {
                     return Some((include.into(), self.i + 2));
                 }
+            } else {
+                self.panic("Error parsing include");
             }
         }
         None

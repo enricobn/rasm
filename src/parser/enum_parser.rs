@@ -96,29 +96,18 @@ impl<'a> EnumParser<'a> {
         matcher.start_group("parameters", Quantifier::AtMostOne);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
         matcher.start_group("parameter_list", Quantifier::One);
-        matcher.add_matcher(EnumParser::parameter_matcher_full(type_parameters));
+        matcher.add_matcher(EnumParser::parameter_matcher(type_parameters));
         matcher.end_group();
         matcher.start_group("parameter_list", Quantifier::ZeroOrMore);
         matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
-        matcher.add_matcher(EnumParser::parameter_matcher_full(type_parameters));
+        matcher.add_matcher(EnumParser::parameter_matcher(type_parameters));
         matcher.end_group();
         matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close));
         matcher.end_group();
         matcher
     }
 
-    // TODO ref and function ref
-    fn parameter_matcher() -> TokensMatcher {
-        let mut matcher = TokensMatcher::new("parameter", Quantifier::One);
-        matcher.add_alphanumeric();
-        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
-        matcher.start_group("parameter_type", Quantifier::One);
-        matcher.add_alphanumeric();
-        matcher.end_group();
-        matcher
-    }
-
-    fn parameter_matcher_full(context_param_types: &[String]) -> ParameterMatcher {
+    fn parameter_matcher(context_param_types: &[String]) -> ParameterMatcher {
         ParameterMatcher { context_param_types: context_param_types.into() }
     }
 }

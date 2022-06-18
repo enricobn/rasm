@@ -180,14 +180,14 @@ mod tests {
     #[test]
     fn test_lambda1() {
         let parse_result = try_parse("fn(&i32,&str) -> &i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_ref: true, ast_type: Builtin(ASTI32) }, ASTTypeRef { ast_ref: true, ast_type: Builtin(ASTString) }], return_type: Some(ASTTypeRef { ast_ref: true, ast_type: Builtin(ASTI32) }) }), 11))");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }, ASTTypeRef { ast_type: Builtin(ASTString), ast_ref: true }], return_type: Some(ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }) }), 11))");
     }
 
     #[test]
     fn test_lambda2() {
         io::stdout().flush().unwrap();
         let parse_result = try_parse("fn(fn() -> (),&str) -> &i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_ref: false, ast_type: Builtin(Lambda { parameters: [], return_type: None }) }, ASTTypeRef { ast_ref: true, ast_type: Builtin(ASTString) }], return_type: Some(ASTTypeRef { ast_ref: true, ast_type: Builtin(ASTI32) }) }), 15))");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_type: Builtin(Lambda { parameters: [], return_type: None }), ast_ref: false }, ASTTypeRef { ast_type: Builtin(ASTString), ast_ref: true }], return_type: Some(ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }) }), 15))");
     }
 
     #[test]

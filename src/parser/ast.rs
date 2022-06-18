@@ -49,8 +49,8 @@ impl ASTParameterDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypeRef {
-    pub ast_ref: bool,
     pub ast_type: ASTType,
+    pub ast_ref: bool,
 }
 
 impl ASTTypeRef {
