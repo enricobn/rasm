@@ -63,6 +63,11 @@ fn test_lambda_params() {
     test("lambda_params", vec!["20"],"35\n");
 }
 
+#[test]
+fn test_list() {
+    test("list", Vec::new(),"10,20");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 

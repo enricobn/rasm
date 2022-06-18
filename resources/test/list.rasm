@@ -1,0 +1,12 @@
+include "std.rasm"
+
+enum List<T> {
+  Full(head: T, tail: List<T>),
+  Empty
+}
+
+nPrintList(List::Full(10, List::Full(20, List::Empty())));
+
+fn nPrintList(l: List<T>) {
+    ListMatch(l, { head,tail -> nprint(head); ListMatch(tail, { head1,tail1 -> sprint(",");}, { -> }); nPrintList(tail);}, { -> });
+}

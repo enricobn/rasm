@@ -97,7 +97,10 @@ impl<'a> CodeGen<'a> {
 
         for enum_def in &self.module.enums {
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: enum_def.type_parameters.clone() };
+                println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
+
+                let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
+                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
                 let return_type = Some(type_ref);
                 let body_str = if variant.parameters.is_empty() {
@@ -114,7 +117,7 @@ impl<'a> CodeGen<'a> {
                     CodeGen::add(&mut body, "\tmov   ecx, eax", None);
                     CodeGen::add(&mut body, &format!("\tadd esp,{}", self.backend.word_len()), None);
                     CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
-                    for par in variant.parameters.iter() {
+                    for par in variant.parameters.iter().rev() {
                         CodeGen::add(&mut body, &format!("\tadd   eax, {}", self.backend.word_len()), Some(&format!("parameter {}", par.name)));
                         CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), None);
                         CodeGen::add(&mut body, "\tmov   [eax], ebx", None);
@@ -156,7 +159,8 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut body, ".end:", None);
 
             let function_body = ASTFunctionBody::ASMBody(body);
-            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types: enum_def.type_parameters.clone()}, ast_ref: true }, from_context: false }];
+            let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
+            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types}, ast_ref: true }, from_context: false }];
             for variant in enum_def.variants.iter() {
                 let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
                 parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true }, from_context: false });

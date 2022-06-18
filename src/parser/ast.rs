@@ -24,27 +24,43 @@ pub enum ASTFunctionBody {
 pub enum BuiltinTypeKind {
     ASTString,
     ASTI32,
-    Lambda {parameters: Vec<ASTTypeRef>, return_type: Option<Box<ASTTypeRef>>},
+    Lambda { parameters: Vec<ASTTypeRef>, return_type: Option<Box<ASTTypeRef>> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
     Parametric(String),
-    Custom { name: String, param_types: Vec<String> },
+    Custom { name: String, param_types: Vec<ASTTypeRef> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTParameterDef {
     pub name: String,
     pub type_ref: ASTTypeRef,
-    pub from_context: bool
+    pub from_context: bool,
+}
+
+impl ASTParameterDef {
+    pub fn new(name: &str, type_ref: ASTTypeRef, from_context: bool) -> ASTParameterDef {
+        ASTParameterDef { name: name.into(), type_ref, from_context }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypeRef {
     pub ast_ref: bool,
     pub ast_type: ASTType,
+}
+
+impl ASTTypeRef {
+    pub fn parametric(name: &str, ast_ref: bool) -> ASTTypeRef {
+        ASTTypeRef { ast_type: ASTType::Parametric(name.into()), ast_ref }
+    }
+
+    pub fn custom(name: &str, ast_ref: bool, param_types: Vec<ASTTypeRef>) -> ASTTypeRef {
+        ASTTypeRef { ast_type: ASTType::Custom { name: name.into(), param_types}, ast_ref }
+    }
 }
 
 #[derive(Debug, Clone)]
