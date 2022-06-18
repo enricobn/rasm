@@ -33,26 +33,12 @@ impl<'a> EnumParser<'a> {
     }
 
     pub fn try_parse_enum(&self) -> Option<(ASTEnumDef, usize)> {
-        let param_types = param_types_matcher();
-
-        let mut matcher = TokensMatcher::default();
-        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
-        matcher.add_alphanumeric();
-        matcher.add_matcher(param_types);
-        matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
-
-        if let Some(result) = matcher.match_tokens(self.parser, 0) {
-            let name = result.values().first().unwrap().clone();
-            let type_parameters = result.group_values("type");
-
-            if let Some((variants, next_i)) = self.parse_variants(&type_parameters, result.next_n()) {
-                Some((ASTEnumDef { name, type_parameters, variants }, next_i))
-            } else {
-                panic!("***** NO variants");
+        if let Some((name, type_parameters, next_i)) = self.try_parse() {
+            if let Some((variants, next_i)) = self.parse_variants(&type_parameters, next_i - self.parser.get_i()) {
+                return Some((ASTEnumDef { name, type_parameters, variants }, next_i));
             }
-        } else {
-            None
         }
+        None
     }
 
     pub fn parse_variants(&self, type_parameters: &[String], n: usize) -> Option<(Vec<ASTEnumVariantDef>, usize)> {
@@ -233,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn test_variant() {
+    fn test_empty_variant() {
         let parse_result = try_parse_variant("Empty", &[]);
 
         if let Some(result) = parse_result {
@@ -244,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn test_variant1() {
+    fn test_some_variant() {
         let parse_result = parse_variants("Some(value: T)}", &["T".into()], 0);
 
         if let Some((variants, next_i)) = parse_result {
@@ -259,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn test_variant2() {
+    fn test_two_parameters_variant() {
         let parse_result = parse_variants("Something(v: T, v1: T1)}", &["T".into(), "T1".into()], 0);
 
         if let Some((variants, next_i)) = parse_result {
@@ -275,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn test_variant3() {
+    fn test_custom_type_variant_argument() {
         let parse_result = parse_variants("Full(head: T, tail: List<T>)}", &["T".into()], 0);
 
         if let Some((variants, next_i)) = parse_result {
@@ -316,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_and_variants() {
+    fn test_option() {
         let source = "enum Option<T> {
             Empty,
             Some(value: T)
@@ -353,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_and_variants1() {
+    fn test_list() {
         let source = "enum List<T> {
               Full(head: T, tail: List<T>),
               Empty
@@ -384,6 +370,40 @@ mod tests {
                 };
 
                 assert_eq!(variants, vec![full, empty]);
+                assert_eq!(next_i, 22);
+            } else {
+                panic!();
+            }
+        } else {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn test_either() {
+        let source = "enum Either<L,R> {
+            Left(l: L),
+            Right(r: R)
+        }";
+        let parse_result = try_parse(source);
+
+        if let Some((_name, type_parameters, next_i)) = parse_result {
+            println!("next_i {}", next_i);
+            let parse_result = parse_variants(source, &type_parameters, next_i);
+
+            if let Some((variants, next_i)) = parse_result {
+                let left = ASTEnumVariantDef {
+                    name: "Left".into(),
+                    parameters: vec![ASTParameterDef::new("l", ASTTypeRef::parametric("L", false), false)],
+                };
+
+                let right = ASTEnumVariantDef {
+                    name: "Right".into(),
+                    parameters: vec![ASTParameterDef::new("r", ASTTypeRef::parametric("R", false), false)],
+                };
+
+                assert_eq!(variants, vec![left, right]);
+                assert_eq!(type_parameters, vec!["L", "R"]);
                 assert_eq!(next_i, 22);
             } else {
                 panic!();
