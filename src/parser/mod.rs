@@ -227,7 +227,6 @@ impl Parser {
                             self.i = next_i;
 
                             let mut def = def.clone();
-                            let (register, next_i) = self.parse_register(Self::is_asm(&def));
                             self.i = next_i;
                             def.return_type = Some(type_ref);
                             let l = self.parser_data.len();
@@ -372,10 +371,6 @@ impl Parser {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
                 if let Some((ref type_ref, next_i)) = TypeParser::new(self).try_parse_type_ref(0, &def.param_types) {
                     self.i = next_i;
-                    let (register, next_i) =
-                        self.parse_register(Self::is_asm(&def));
-                    self.i = next_i;
-
                     def.return_type = Some(type_ref.clone());
                 } else {
                     def.return_type = None
@@ -594,29 +589,6 @@ impl Parser {
             }
         }
         None
-    }
-
-    fn parse_register(&self, mandatory: bool) -> (String, usize) {
-        if let Some(kind) = self.get_token_kind() {
-            if let Some(token2) = self.next_token() {
-                if let Some(token3) = self.next_token2() {
-                    if let TokenKind::Bracket(BracketKind::Square, BracketStatus::Open) = kind {
-                        if let TokenKind::AlphaNumeric(name) = &token2.kind {
-                            if let TokenKind::Bracket(BracketKind::Square, BracketStatus::Close) = token3.kind {
-                                return (name.into(), self.i + 3);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if mandatory {
-            self.panic("Error parsing return type register");
-            // TODO I already panicked before
-            panic!()
-        }
-        ("eax".into(), self.i)
     }
 
     fn try_parse_parameter_def_name(&self) -> Option<(String, usize)> {

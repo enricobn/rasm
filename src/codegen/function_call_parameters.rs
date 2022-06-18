@@ -35,7 +35,6 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn add_function_call(&mut self, comment: Option<&str>) {
-        // TODO I must get the register that is returned, getting that from the function def of the called function
         Self::add(&mut self.before, &"    push    eax".to_string(), comment);
         self.to_remove_from_stack += 1;
     }

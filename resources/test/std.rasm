@@ -1,4 +1,4 @@
-inline asm itn(n: i32) -> i32[eax] /{
+inline asm itn(n: i32) -> i32 /{
     mov     eax,$n
 }/
 
@@ -99,7 +99,7 @@ asm sprint(s: &str) /{
 }/
 
 /** Returns the length of the string **/
-asm slen(s: &str) -> i32[eax] /{
+asm slen(s: &str) -> i32 /{
     push    ebx             ; Save ebx to the stack since we use it
     mov     eax, $s         ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     ebx, eax
@@ -116,13 +116,13 @@ asm slen(s: &str) -> i32[eax] /{
 }/
 
 /** Adds two numbers **/
-inline asm nadd(n1: i32, n2: i32) -> i32[eax] /{
+inline asm nadd(n1: i32, n2: i32) -> i32 /{
     mov     eax, $n1
     add     eax, $n2
 }/
 
 /** false = 0 true = any other value **/
-asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32[eax] /{
+asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32 /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+7
@@ -135,7 +135,7 @@ asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32[eax] /{
  *  a  <= b
  *  false = 0 true = any other value
  **/
-inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
+inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -147,7 +147,7 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32[eax] /{
  *  a  < b
  *  false = 0 true = any other value
  **/
-inline asm less(a: i32, b: i32) -> i32[eax] /{
+inline asm less(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -159,7 +159,7 @@ inline asm less(a: i32, b: i32) -> i32[eax] /{
  *  a  <= b
  *  false = 0 true = any other value
  **/
-inline asm greater(a: i32, b: i32) -> i32[eax] /{
+inline asm greater(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -171,7 +171,7 @@ inline asm greater(a: i32, b: i32) -> i32[eax] /{
  *  a  == b
  *  false = 0 true = any other value
  **/
-inline asm eq(a: i32, b: i32) -> i32[eax] /{
+inline asm eq(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -192,12 +192,12 @@ fn assert(value: i32) {
     });
 }
 
-asm argc() -> i32[eax] /{
+asm argc() -> i32 /{
     mov     eax,[_rasm_args]
 }/
 
 // TODO unsafe
-asm argv(i: i32) -> i32[eax] /{
+asm argv(i: i32) -> i32 /{
     push ebx
     push ecx
     mov ebx, _rasm_args
@@ -215,7 +215,7 @@ asm argv(i: i32) -> i32[eax] /{
  * parse a string to a number
  from https://stackoverflow.com/questions/19461476/convert-string-to-int-x86-32-bit-assembler-using-nasm
  **/
-asm atoi(s: &str) -> i32[eax] /{
+asm atoi(s: &str) -> i32 /{
     push    ecx
     push    edx
     mov edx, $s ; our string
@@ -236,7 +236,7 @@ asm atoi(s: &str) -> i32[eax] /{
     pop    ecx
 }/
 
-asm malloc(size: i32) -> i32[eax] /{
+asm malloc(size: i32) -> i32 /{
     push    ebx
     mov     eax,[_heap]
     mov     ebx,[_heap]
