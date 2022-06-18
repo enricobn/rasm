@@ -68,6 +68,11 @@ fn test_list() {
     test("list", Vec::new(),"10,20");
 }
 
+#[test]
+fn test_list_map() {
+    test("list_map", Vec::new(),"25,35");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 

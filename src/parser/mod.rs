@@ -278,12 +278,7 @@ impl Parser {
                 self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::Number(value.parse().unwrap()));
                 return ProcessResult::Continue;
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
-                if let Some((variant, next_i)) = self.try_parse_enum_constructor() {
-                    self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {function_name: name.to_owned() + "::" + &variant, parameters: Vec::new()}));
-                    self.state.push(ParserState::FunctionCall);
-                    self.i = next_i;
-                    return ProcessResult::Continue;
-                } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
+                if let Some((function_name, next_i)) = self.try_parse_function_call() {
                     self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {
                         function_name,
                         parameters: Vec::new(),
@@ -559,7 +554,9 @@ impl Parser {
 
     fn try_parse_function_call(&self) -> Option<(String, usize)> {
         if let Some(TokenKind::AlphaNumeric(function_name)) = self.get_token_kind() {
-            if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) = self.get_token_kind_n(1) {
+            if let Some((variant, next_i)) = self.try_parse_enum_constructor() {
+                return Some((function_name.clone() + "::" + &variant, next_i));
+            } else if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) = self.get_token_kind_n(1) {
                 return Some((function_name.clone(), self.i + 2));
             }
         }

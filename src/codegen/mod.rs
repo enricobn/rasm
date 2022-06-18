@@ -101,6 +101,7 @@ impl<'a> CodeGen<'a> {
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
                 println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
+                // TODO I don't like it because it's in asm32
                 let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
                 let return_type = Some(type_ref);
