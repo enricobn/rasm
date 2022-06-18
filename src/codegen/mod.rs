@@ -96,11 +96,12 @@ impl<'a> CodeGen<'a> {
         }
 
         for enum_def in &self.module.enums {
+            let param_types: Vec<ASTTypeRef> = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
+
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
                 println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
-                let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types };
+                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
                 let return_type = Some(type_ref);
                 let body_str = if variant.parameters.is_empty() {
@@ -131,10 +132,7 @@ impl<'a> CodeGen<'a> {
                 let function_def = ASTFunctionDef { name: enum_def.name.clone() + "_" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
                 self.functions.insert(enum_def.name.clone() + "::" + &variant.name.clone(), function_def);
             }
-            // TODO which is the reurn type?
-            let ast_type = ASTType::Builtin(BuiltinTypeKind::ASTI32);
-            let type_ref = ASTTypeRef { ast_type, ast_ref: true };
-            let return_type = Some(type_ref);
+            let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types));
             let mut body = String::new();
 
             CodeGen::add(&mut body, "\tmov eax, $value", None);
