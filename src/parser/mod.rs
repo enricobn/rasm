@@ -532,18 +532,22 @@ impl Parser {
     }
 
     fn debug(&self, message: &str) {
-        println!("{} {:?}", message, self.get_token_kind());
+        println!("{}", message);
+        println!("i {}", self.i);
+        println!("token {:?}", self.get_token());
         println!("state {:?}", self.state);
         println!("data {:?}", self.parser_data);
-        println!("body {:?}", self.body);
-        println!("functions {:?}", self.functions);
+        //println!("body {:?}", self.body);
+        //println!("functions {:?}", self.functions);
     }
 
     fn try_parse_function_call(&self) -> Option<(String, usize)> {
+        // println!("try_parse_function_call {:?}", self.get_token_kind());
         if let Some(TokenKind::AlphaNumeric(function_name)) = self.get_token_kind() {
             if let Some((variant, next_i)) = self.try_parse_enum_constructor() {
                 return Some((function_name.clone() + "::" + &variant, next_i));
             } else if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) = self.get_token_kind_n(1) {
+                //println!("found function call {}", function_name);
                 return Some((function_name.clone(), self.i + 2));
             }
         }

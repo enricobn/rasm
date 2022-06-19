@@ -42,6 +42,7 @@ impl<'a> EnumParser<'a> {
     }
 
     pub fn parse_variants(&self, type_parameters: &[String], n: usize) -> Option<(Vec<ASTEnumVariantDef>, usize)> {
+        //println!("parse_variants n {}", n);
         let mut matcher = TokensMatcher::default();
         matcher.add_matcher(EnumParser::variant_matcher("variant", Quantifier::One, type_parameters));
         matcher.start_group("variant_", Quantifier::ZeroOrMore);
@@ -66,7 +67,7 @@ impl<'a> EnumParser<'a> {
                     let mut parameters = Vec::new();
                     let mut n = 0;
                     for i in 0..parameters_s.len() {
-                        println!("parsing parameter {}, n: {}", parameters_s.get(i).unwrap(), n);
+                        //println!("parsing parameter {}, n: {}", parameters_s.get(i).unwrap(), n);
                         let parser = *type_result.get(i).unwrap();
                         let type_parser = TypeParser::new(parser);
                         if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters) {
@@ -83,6 +84,7 @@ impl<'a> EnumParser<'a> {
                 ASTEnumVariantDef { name: name.clone(), parameters }
             }).collect();
 
+            //println!("parse_variants next_n: {}", variants_result.next_n());
             Some((variants, self.parser.get_i() + variants_result.next_n()))
         } else {
             None
@@ -142,7 +144,7 @@ impl TokensMatcherTrait for ParameterMatcher {
                         }
                     }
 
-                    //println!("match_tokens n: {}\ni: {}\nnext_i: {}\ntokens {:?}\ntype_ref: {:?}\ntype_tokens: {:?}", n, parser.get_i(), next_i, tokens, type_ref, type_tokens);
+                    //println!("match_tokens n: {}\ni: {}\nnext_i: {}\ntokens {:?}\ntype_ref: {:?}\ntype_tokens: {:?}", n, parser.get_i(), next_i, tokens, _type_ref, type_tokens);
 
                     let mut groups_results = HashMap::new();
                     // values is an empty array, it does not matter for now since who evaluates this resul gets only the tokens
@@ -213,6 +215,19 @@ mod tests {
 
         if let Some(result) = parse_result {
             assert_eq!("Empty", result.values().first().unwrap())
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
+    // It's for a use case that caused a bug
+    fn test_variant_with_a_function_call() {
+        let parse_result = try_parse_variant("Empty } call(15);", &[]);
+
+        if let Some(result) = parse_result {
+            assert_eq!("Empty", result.values().first().unwrap());
+            assert_eq!(1, result.next_n());
         } else {
             panic!()
         }
@@ -291,6 +306,20 @@ mod tests {
     }
 
     #[test]
+    // It's for a use case that caused a bug
+    fn test_no_variants_with_a_function_call() {
+        let parse_result = parse_variants("Empty} hello(15);", &["T".into()], 0);
+
+        let empty = ASTEnumVariantDef {
+            name: "Empty".into(),
+            parameters: vec![],
+        };
+
+        assert_eq!(parse_result, Some((vec![empty], 2)));
+    }
+
+
+    #[test]
     fn test_option() {
         let source = "enum Option<T> {
             Empty,
@@ -299,7 +328,6 @@ mod tests {
         let parse_result = try_parse(source);
 
         if let Some((_name, type_parameters, next_i)) = parse_result {
-            println!("next_i {}", next_i);
             let parse_result = parse_variants(source, &type_parameters, next_i);
 
             if let Some((variants, next_i)) = parse_result {
@@ -336,7 +364,6 @@ mod tests {
         let parse_result = try_parse(source);
 
         if let Some((_name, type_parameters, next_i)) = parse_result {
-            println!("next_i {}", next_i);
             let parse_result = parse_variants(source, &type_parameters, next_i);
 
             if let Some((variants, next_i)) = parse_result {
@@ -377,7 +404,6 @@ mod tests {
         let parse_result = try_parse(source);
 
         if let Some((_name, type_parameters, next_i)) = parse_result {
-            println!("next_i {}", next_i);
             let parse_result = parse_variants(source, &type_parameters, next_i);
 
             if let Some((variants, next_i)) = parse_result {

@@ -1,15 +1,28 @@
 Doing
 ------
-- enum
 - optimizing inline for fibonacci
     - backend for 32 and 64 bit
     - move more code as possible from codegen to function_call_parameters
 
 Next
 -----
+- change the way lambda context parameters are stored, because it does not work when the lambda is passed as a parameter to another function:
+  - for every lambda I should allocate memory to store the address of the lambda function and all the context parameters
+  - I think I need some library function, otherwise implementing a call to a lambda inside an asm function will be too difficult
+- refactor codegen lambda parameters: it's too complex
 - enum:
   - match function should be enum::match, but it's not supported by parser, in general I would like to have some namespace for functions, to be xx.yy.zz::function_name
 - I can close an already closed TokensGroup (make a test)
-- safe command line arguments (we need Option)
+- safe command line arguments (use Option?)
 - add command line argument to print the syntax tree (codegen/md.rs -> Parser::print(&self.module))
 - rename lambda to closure?
+- line errors in codegen
+- type checker
+- type parameters for functions
+- move std.rasm in another folder
+- split std.rasm
+  - a file for not asm functions
+  - io.rasm
+  - string.rasm
+  - enum.rasm
+-

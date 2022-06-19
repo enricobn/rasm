@@ -1,5 +1,3 @@
-use std::io;
-use std::io::Write;
 use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
@@ -102,9 +100,6 @@ impl<'a> TypeParser<'a> {
             panic!();
         }
 
-        println!("parse_fn {}", n);
-        io::stdout().flush().unwrap();
-
         if let Some(TokenKind::Bracket(Round, Open)) = self.parser.get_token_kind_n(n) {
             n += 1;
             loop {
@@ -117,7 +112,6 @@ impl<'a> TypeParser<'a> {
                 }
 
                 if let Some((t, next_i)) = self.try_parse_type_ref_rec(n, context_param_types, rec + 1) {
-                    println!("parsed parameter {:?}", t);
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
                     continue;
@@ -185,16 +179,12 @@ mod tests {
 
     #[test]
     fn test_lambda2() {
-        io::stdout().flush().unwrap();
         let parse_result = try_parse("fn(fn() -> (),&str) -> &i32");
         assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_type: Builtin(Lambda { parameters: [], return_type: None }), ast_ref: false }, ASTTypeRef { ast_type: Builtin(ASTString), ast_ref: true }], return_type: Some(ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }) }), 15))");
     }
 
     #[test]
     fn test_custom_type() {
-        println!("test_custom_type");
-        io::stdout().flush().unwrap();
-
         let parse_result = try_parse_with_context("Dummy<T,T1>", &["T".into(),"T1".into()]);
         assert_eq!(Some((Custom { name: "Dummy".into(), param_types: vec![ASTTypeRef::parametric("T", false), ASTTypeRef::parametric("T1", false)] }, 6)), parse_result);
     }

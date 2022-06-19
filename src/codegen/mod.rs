@@ -96,9 +96,8 @@ impl<'a> CodeGen<'a> {
             let param_types: Vec<ASTTypeRef> = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
 
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-                println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
+                //println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
-                // TODO I don't like it because it's a lot of code in asm32
                 let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
                 let return_type = Some(type_ref);
@@ -133,7 +132,6 @@ impl<'a> CodeGen<'a> {
         let main_context = VarContext::new();
 
         for function_call in &self.module.body.clone() {
-            println!("call_function 2");
             let (s, mut lambda_calls) = self.call_function(function_call, &main_context, None, 0);
             self.body.push_str(&s);
             self.lambdas.append(&mut lambda_calls);
@@ -141,11 +139,8 @@ impl<'a> CodeGen<'a> {
 
         // TODO add a command line argument
         //Parser::print(&self.module);
-        println!("**** First create lambdas");
 
         self.create_lambdas(self.lambdas.clone());
-
-        println!("**** Add functions defs");
 
         self.create_all_functions();
 
@@ -277,7 +272,7 @@ impl<'a> CodeGen<'a> {
             something_added = false;
             let functions_called = self.functions_called.clone();
 
-            println!("functions called {:?}", functions_called);
+            //println!("functions called {:?}", functions_called);
 
             for function_name in functions_called {
                 if !already_created_functions.contains(&function_name) {
@@ -298,7 +293,7 @@ impl<'a> CodeGen<'a> {
     fn create_lambdas(&mut self, lambdas: Vec<LambdaCall>) {
         let mut lambda_calls = Vec::new();
         for lambda_call in lambdas {
-            println!("Creating lambda {}", lambda_call.def.name);
+            //println!("Creating lambda {}", lambda_call.def.name);
             lambda_calls.append(&mut self.add_function_def(&lambda_call.def, lambda_call.context_parameters_offset));
             //Parser::print_function_def(&lambda_call.def);
         }
@@ -309,7 +304,7 @@ impl<'a> CodeGen<'a> {
 
     fn add_function_def(&mut self, function_def: &ASTFunctionDef, parameters_offset: usize) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
-        println!("add_function_def {}", function_def.name);
+        //println!("add_function_def {}", function_def.name);
         CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name), None);
 
         let sp = self.backend.stack_pointer();
@@ -325,7 +320,7 @@ impl<'a> CodeGen<'a> {
         let mut i_for_context = 0;
         let mut i = 0;
         for par in function_def.parameters.iter() {
-            println!("Inserting var {} in context, i {}, parameters_offset {}, from context {}", par.name, i, parameters_offset, par.from_context);
+            //println!("Inserting var {} in context, i {}, parameters_offset {}, from context {}", par.name, i, parameters_offset, par.from_context);
             let offset = if par.from_context {
                 i_for_context + parameters_offset
             } else {
@@ -344,7 +339,6 @@ impl<'a> CodeGen<'a> {
         match &function_def.body {
             ASTFunctionBody::RASMBody(calls) => {
                 for call in calls {
-                    println!("call_function 1");
                     let (s, mut lambda_calls_) = self.call_function(call, &context, Some(function_def), 0);
                     self.definitions.push_str(&s);
                     lambda_calls.append(&mut lambda_calls_);
@@ -376,7 +370,7 @@ impl<'a> CodeGen<'a> {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self.functions.get(&function_call.function_name).unwrap().clone().name;
-            println!("Calling function {} context {:?}", function_call.function_name, context);
+            //println!("Calling function {} context {:?}", function_call.function_name, context);
             self.call_function_(&function_call, &context, &parent_def, &added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name)
         } else if let Some(VarKind::ParameterRef(index, ast_type_ref)) = context.get(&function_call.function_name) {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: _, parameters }) = ast_type_ref.clone().ast_type {
@@ -385,7 +379,7 @@ impl<'a> CodeGen<'a> {
 
                 let parameters_defs = parameters.iter().map(|it| ASTParameterDef { name: "p".into(), type_ref: it.clone(), from_context:false }).collect();
 
-                println!("Calling lambda {} parameters {:?} context {:?} index {}", function_call.function_name, parameters,  context, index);
+                //println!("Calling lambda {} parameters {:?} context {:?} index {}", function_call.function_name, parameters,  context, index);
 
                 self.call_function_(&function_call, &context, &parent_def, &added_to_stack, &mut before, parameters_defs, false, None,
                                     format!("[{}+{}+{}]", bp, wl, (index + 1) * wl))
@@ -428,7 +422,7 @@ impl<'a> CodeGen<'a> {
 
                         let type_size = self.backend.type_size(par_type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", par_type_ref));
 
-                        println!("par {} context.len {}, index {}", name, context.len(), index);
+                        //println!("par {} context.len {}, index {}", name, context.len(), index);
                         CodeGen::add(before, &format!("    push    {} [{}+{}+{}]", type_size, bp, wl, (index + 1) * wl),
                                      Some(&format!("context parameter {}", name)));
                         to_remove_from_stack += 1;
@@ -460,13 +454,11 @@ impl<'a> CodeGen<'a> {
                         call_parameters.add_number(&param_name, n, None);
                     }
                     ASTExpression::ASTFunctionCallExpression(call) => {
-                        println!("call_function 3");
                         let (s, mut inner_lambda_calls) = self.call_function(call, context, *parent_def, added_to_stack +
                             to_remove_from_stack + call_parameters.to_remove_from_stack());
                         call_parameters.push(&s);
                         call_parameters.add_function_call(None);
                         lambda_calls.append(&mut inner_lambda_calls);
-                        println!("end call_function 3");
                     }
                     ASTExpression::Var(name) => {
                         if let Some(var_kind) = context.get(name) {
@@ -534,7 +526,7 @@ impl<'a> CodeGen<'a> {
 
                             //println!("Pushing lambda {}", def.name);
                             let lambda_call = LambdaCall { def, context_parameters_offset };
-                            println!("Lambda call {}", lambda_call.def.name);
+                            //println!("Lambda call {}", lambda_call.def.name);
                             self.functions_called.insert(lambda_call.def.name.clone());
                             lambda_calls.push(lambda_call);
                         } else {

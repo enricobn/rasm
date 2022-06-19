@@ -298,13 +298,9 @@ mod tests {
         let parser = get_parser("n1 n2");
 
         let mut matcher = TokensMatcher::default();
-        println!("matcher {:?}", matcher);
         matcher.add_alphanumeric();
-        println!("matcher {:?}", matcher);
         matcher.start_group("g1", Quantifier::One);
-        println!("matcher {:?}", matcher);
         matcher.add_alphanumeric();
-        println!("matcher {:?}", matcher);
         matcher.end_group();
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
@@ -410,8 +406,6 @@ mod tests {
         let parser = get_parser("enum Option {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            println!("{:?}", match_result);
-
             assert_eq!(vec![
                 TokenKind::KeyWord(KeywordKind::Enum),
                 AlphaNumeric("Option".into()),
@@ -428,8 +422,6 @@ mod tests {
         let parser = get_parser("enum Option<T,Y> {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            println!("{:?}", match_result);
-
             assert_eq!(vec![
                 TokenKind::KeyWord(KeywordKind::Enum),
                 AlphaNumeric("Option".into()),

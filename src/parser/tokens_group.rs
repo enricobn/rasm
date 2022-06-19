@@ -131,11 +131,7 @@ impl TokensMatcherTrait for TokensGroup {
                 break;
             }
 
-            if match self.quantifier {
-                Quantifier::One => num_of_matches != 1,
-                Quantifier::AtMostOne => true,
-                _ => false,
-            } {
+            if matches!(self.quantifier, Quantifier::One | Quantifier::AtMostOne) {
                 //println!("exited loop for {:?}", self);
                 break;
             }
@@ -181,7 +177,6 @@ mod tests {
         sut.add_matcher(AlphanumericTokenMatcher::new());
 
         let s = format!("sut {:?}", sut);
-        println!("format: {}", s);
         assert_eq!(2, s.matches("\"main\", \"g1\", \"g2\"").count());
     }
 
