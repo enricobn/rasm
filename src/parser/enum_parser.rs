@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use linked_hash_map::LinkedHashMap;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef};
 use crate::parser::matchers::param_types_matcher;
@@ -146,9 +146,9 @@ impl TokensMatcherTrait for ParameterMatcher {
 
                     //println!("match_tokens n: {}\ni: {}\nnext_i: {}\ntokens {:?}\ntype_ref: {:?}\ntype_tokens: {:?}", n, parser.get_i(), next_i, tokens, _type_ref, type_tokens);
 
-                    let mut groups_results = HashMap::new();
+                    let mut groups_results = LinkedHashMap::new();
                     // values is an empty array, it does not matter for now since who evaluates this resul gets only the tokens
-                    let types_result = TokensMatcherResult::new(type_tokens, Vec::new(), HashMap::new(), next_i - parser.get_i(), 1);
+                    let types_result = TokensMatcherResult::new(type_tokens, Vec::new(), LinkedHashMap::new(), next_i - parser.get_i(), 1);
                     groups_results.insert("parameter_type".into(), vec![types_result]);
                     return Some(TokensMatcherResult::new(tokens, vec![name.clone()], groups_results, next_i - parser.get_i(), 1));
                 }

@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 use crate::parser::ParserTrait;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
 
@@ -71,7 +71,7 @@ impl TokensGroup {
         }
     }
 
-    pub fn push_result(map: &mut HashMap<String, Vec<TokensMatcherResult>>, key: String, result: TokensMatcherResult) {
+    pub fn push_result(map: &mut LinkedHashMap<String, Vec<TokensMatcherResult>>, key: String, result: TokensMatcherResult) {
         if !map.contains_key(&key) {
             map.insert(key.clone(), Vec::new());
         }
@@ -90,7 +90,7 @@ impl TokensMatcherTrait for TokensGroup {
 
         let mut tokens = Vec::new();
         let mut values = Vec::new();
-        let mut groups_result: HashMap<String, Vec<TokensMatcherResult>> = HashMap::new();
+        let mut groups_result: LinkedHashMap<String, Vec<TokensMatcherResult>> = LinkedHashMap::new();
 
         let mut num_of_matches = 0;
 

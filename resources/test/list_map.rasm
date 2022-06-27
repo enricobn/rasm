@@ -5,10 +5,18 @@ enum List<T> {
   Empty
 }
 
-listApply(listMap(List::Full(10, List::Full(20, List::Empty())), { v -> nadd(v, 15);}), { v -> nprint(v);});
+printWith(15);
 
-fn listApply(l: List<T>, apply: fn(T) -> ()) {
-    ListMatch(l, { head,tail -> apply(head); ListMatch(tail, { head1,tail1 -> sprint(",");}, { -> }); listApply(tail, apply);}, { -> });
+fn printWith(v1: i32) {
+    listPrint(listMap(List::Full(10, List::Full(20, List::Empty())), { v -> nadd(v, v1);}), { v -> nprint(v);});
+}
+
+fn listPrint(l: List<T>, print: fn(T) -> ()) {
+    ListMatch(l, { head,tail ->
+        print(head);
+        ListMatch(tail, { head1,tail1 -> sprint(","); }, { -> });
+        listPrint(tail, print);
+    }, { -> });
 }
 
 fn listMap(l: List<T>, map: fn(T) -> T) -> List<T> {

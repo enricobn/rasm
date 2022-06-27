@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
+use linked_hash_map::LinkedHashMap;
 use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::parser::ParserTrait;
@@ -79,12 +79,12 @@ pub struct TokensMatcherResult {
     tokens: Vec<Token>,
     values: Vec<String>,
     next_n: usize,
-    groups_results: HashMap<String, Vec<Self>>,
+    groups_results: LinkedHashMap<String, Vec<Self>>,
     num_of_matches: usize,
 }
 
 impl TokensMatcherResult {
-    pub fn new(tokens: Vec<Token>, values: Vec<String>, groups_results: HashMap<String, Vec<Self>>, next_n: usize, num_of_matches: usize) -> Self {
+    pub fn new(tokens: Vec<Token>, values: Vec<String>, groups_results: LinkedHashMap<String, Vec<Self>>, next_n: usize, num_of_matches: usize) -> Self {
         Self { tokens, values, next_n, groups_results, num_of_matches }
     }
 
@@ -200,7 +200,7 @@ impl<T> TokensMatcherTrait for T where T: TokenMatcher {
                 } else {
                     vec![]
                 };
-                Some(TokensMatcherResult::new( vec![token.clone()], values, HashMap::new(), n + 1, 1))
+                Some(TokensMatcherResult::new( vec![token.clone()], values, LinkedHashMap::new(), n + 1, 1))
             } else {
                 None
             }
@@ -240,6 +240,7 @@ impl Display for AlphanumericTokenMatcher {
 
 #[cfg(test)]
 mod tests {
+    use linked_hash_map::LinkedHashMap;
     use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind};
     use crate::parser::test_utils::get_parser;
     use super::*;
@@ -268,14 +269,14 @@ mod tests {
     }
 
     fn new_result_with_inner_results(name: &str, group_values: Vec<TokensMatcherResult>) -> TokensMatcherResult {
-        let mut results = HashMap::new();
+        let mut results = LinkedHashMap::new();
         results.insert(name.into(), group_values);
 
         TokensMatcherResult::new(Vec::new(), Vec::new(), results, 0, 0)
     }
 
     fn new_result_with_values(values: Vec<String>) -> TokensMatcherResult {
-        TokensMatcherResult::new(Vec::new(), values, HashMap::new(), 0, 0)
+        TokensMatcherResult::new(Vec::new(), values, LinkedHashMap::new(), 0, 0)
     }
 
     #[test]
