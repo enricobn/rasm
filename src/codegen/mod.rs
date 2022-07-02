@@ -630,7 +630,6 @@ impl<'a> CodeGen<'a> {
             }
             if is_lambda {
                 if let Some(address) = lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name)) {
-                    //CodeGen::add(before, &format!("    mov eax, {}", address_to_call), None);
                     CodeGen::add(before, &format!("    mov eax, [{} + 8]", self.backend.stack_base_pointer()), None);
                     // we add the address to the "lambda space" as the last parameter to the lambda
                     CodeGen::add(before, &format!("add eax, {}", address * self.backend.word_len() as usize), Some("address to the \"lambda space\""));
@@ -638,8 +637,15 @@ impl<'a> CodeGen<'a> {
                     CodeGen::add(before, "mov eax, [eax]", Some("address to the \"lambda space\""));
                     CodeGen::add(before, "call [eax]", Some(&format!("Calling function {}", function_call.function_name)));
                     CodeGen::add(before, &format!("add  {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None);
+                } else if let Some(VarKind::ParameterRef(index, _)) = context.get(&function_call.function_name) {
+                    CodeGen::add(before, "", Some(&format!("calling lambda parameter reference to {}", &function_call.function_name)));
+                    CodeGen::add(before, &format!("    mov eax, [{} + {} + {}]", self.backend.stack_base_pointer(), self.backend.word_len(), (index + 1) * self.backend.word_len() as usize), None);
+                    // we add the address to the "lambda space" as the last parameter to the lambda
+                    CodeGen::add(before, &format!("push {} eax", self.backend.pointer_size()), Some("address to the \"lambda space\""));
+                    CodeGen::add(before, "call [eax]", Some(&format!("Calling function {}", function_call.function_name)));
+                    CodeGen::add(before, &format!("add  {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None);
                 } else {
-                    panic!()
+                    panic!("lambda space does not contain {}", function_call.function_name);
                 }
             } else {
                 CodeGen::add(before, &format!("    call    {}", address_to_call), Some(&format!("Calling function {}", function_call.function_name)));
