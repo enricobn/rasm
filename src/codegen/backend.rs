@@ -20,6 +20,8 @@ pub trait Backend {
 
     fn type_size(&self, type_ref: &ASTTypeRef) -> Option<String>;
 
+    fn pointer_size(&self) -> String;
+
 }
 
 pub struct Backend386 {}
@@ -105,4 +107,7 @@ impl Backend for Backend386 {
         }
     }
 
+    fn pointer_size(&self) -> String {
+        "dword".into()
+    }
 }

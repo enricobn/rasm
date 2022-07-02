@@ -123,12 +123,20 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
 
 /** false = 0 true = any other value **/
 asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32 /{
+    push    ebx
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+7
-    call    $ftrue ; true value
-    jmp     $+5
-    call    $ffalse ; false value
+    jz      $+13
+    mov     ebx, $ftrue     ; ftrue points to the lambda space
+    push    ebx
+    call    [ebx] ; true value
+    add     esp, 4
+    jmp     $+11
+    mov     ebx, $ffalse    ; ffalse points to the lambda space
+    push    ebx
+    call    [ebx] ; false value
+    add     esp, 4
+    pop ebx
 }/
 
 /** TODO it should be a bool

@@ -31,7 +31,7 @@ pub enum BuiltinTypeKind {
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
     Parametric(String),
-    Custom { name: String, param_types: Vec<ASTTypeRef> },
+    Custom { name: String, param_types: Vec<ASTTypeRef> }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -65,13 +65,11 @@ impl<'a> EnumParser<'a> {
                     Vec::new()
                 } else {
                     let mut parameters = Vec::new();
-                    let mut n = 0;
                     for i in 0..parameters_s.len() {
                         //println!("parsing parameter {}, n: {}", parameters_s.get(i).unwrap(), n);
                         let parser = *type_result.get(i).unwrap();
                         let type_parser = TypeParser::new(parser);
                         if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters) {
-                            n = next_i - parser.get_i();
                             parameters.push(ASTParameterDef { name: parameters_s.get(i).unwrap().clone(), type_ref, from_context: false });
                         } else {
                             self.parser.panic(&format!("Cannot parse type for enum variant {}:", name));

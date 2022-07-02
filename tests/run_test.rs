@@ -73,6 +73,11 @@ fn test_list_map() {
     test("list_map", Vec::new(),"25,35");
 }
 
+#[test]
+fn test_recurse() {
+    test("recurse", Vec::new(),"5\n4\n3\n2\n1\n0\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
