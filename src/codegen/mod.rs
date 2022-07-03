@@ -262,6 +262,7 @@ impl<'a> CodeGen<'a> {
         let mut body = String::new();
 
         CodeGen::add(&mut body, "\tmov eax, $value", None);
+        CodeGen::add(&mut body, "\tpush ebx", None);
 
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             CodeGen::add(&mut body, &format!("\tcmp [eax], word {}", variant_num), None);
@@ -271,7 +272,10 @@ impl<'a> CodeGen<'a> {
                 CodeGen::add(&mut body, &format!("\tpush dword [eax + {}]", (i + 1) * word_len as usize), Some(&format!("param {}", param.name)));
             }
 
-            CodeGen::add(&mut body, &format!("\tcall ${}", variant.name), None);
+            CodeGen::add(&mut body, &format!("\tmov ebx,${}", variant.name), None);
+            CodeGen::add(&mut body, "\tpush ebx", None);
+            CodeGen::add(&mut body, "\tcall [ebx]", None);
+            CodeGen::add(&mut body, &format!("\tadd {}, {}", sp, word_len), None);
 
             if !variant.parameters.is_empty() {
                 CodeGen::add(&mut body, &format!("\tadd {}, {}", sp, variant.parameters.len() * word_len as usize), None);
@@ -281,6 +285,8 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None);
         }
         CodeGen::add(&mut body, ".end:", None);
+        CodeGen::add(&mut body, "\tpop ebx", None);
+
         body
     }
 

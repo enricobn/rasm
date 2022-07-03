@@ -8,6 +8,7 @@ Next
 -----
 - deallocate, where possible...
 - optimize copy of parent lambda space: do not create parameters that are overridden by parent memcopy
+- test inner lambda that get a value from a parent lambda parameter
 - optimizing inline for fibonacci
     - backend for 32 and 64 bit
     - move more code as possible from codegen to function_call_parameters
