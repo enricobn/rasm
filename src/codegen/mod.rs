@@ -66,8 +66,14 @@ impl LambdaSpace {
 }
 
 impl VarContext {
-    fn new() -> Self {
-        Self { value_to_address: LinkedHashMap::new() }
+    fn new(parent_context: Option<&VarContext>) -> Self {
+        let mut map = LinkedHashMap::new();
+        if let Some(pc) = parent_context {
+            for (key, value) in pc.value_to_address.iter() {
+                map.insert(key.clone(), value.clone());
+            }
+        }
+        Self { value_to_address: map }
     }
 
     fn insert(&mut self, key: String, value: VarKind) -> Option<VarKind> {
@@ -150,7 +156,7 @@ impl<'a> CodeGen<'a> {
         }
 
         // for now main has no context
-        let main_context = VarContext::new();
+        let main_context = VarContext::new(None);
 
         for function_call in &self.module.body.clone() {
             let (s, mut lambda_calls) = self.call_function(function_call, &main_context, None, 0, None,
@@ -281,7 +287,7 @@ impl<'a> CodeGen<'a> {
     fn create_all_functions(&mut self) {
         for function_def in self.functions.clone().values() {
             // VarContext ???
-            let vec1 = self.add_function_def(function_def, None, &VarContext::new(), 0);
+            let vec1 = self.add_function_def(function_def, None, &VarContext::new(None), 0);
             self.create_lambdas(vec1, 0);
         }
     }
@@ -302,7 +308,7 @@ impl<'a> CodeGen<'a> {
                     let functions = self.functions.clone();
                     if let Some(function_def) = functions.get(&function_name) {
                         // TODO VarContext??
-                        let vec1 = self.add_function_def(function_def, None, &VarContext::new(), 0);
+                        let vec1 = self.add_function_def(function_def, None, &VarContext::new(None), 0);
                         self.create_lambdas(vec1, 0);
                         something_added = true;
                         already_created_functions.insert(function_name);
@@ -340,7 +346,7 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut self.definitions, &format!("    push    {}", bp), None);
         CodeGen::add(&mut self.definitions, &format!("    mov     {},{}", bp, sp), None);
 
-        let mut context = parent_context.clone();
+        let mut context = VarContext::new(Some(parent_context));
 
         let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false);
 
@@ -557,11 +563,11 @@ impl<'a> CodeGen<'a> {
 
                         CodeGen::add(before, &format!("    add {}, {}", sp, wl), None);
 
-                        CodeGen::add(before, &format!("    mov {} [eax], {}", pointer_size, def.name), None);
                         CodeGen::add(before, "    mov ecx, eax", None);
 
                         let mut i = 1;
 
+                        // TODO optimize: do not create parameters that are overridden by parent memcopy
                         context.iter().for_each(|(name, kind)| {
                             CodeGen::add(before, &format!("    add  ecx, {}", wl), None);
 
@@ -579,6 +585,21 @@ impl<'a> CodeGen<'a> {
                                 i += 1;
                             }
                         });
+
+                        // I copy the lambda space of the parent
+                        if let Some(parent_lambda) = lambda_space_opt {
+                            let parent_lambda_size = parent_lambda.parameters_indexes.len() + 1;
+                            CodeGen::add(before, "    push eax", None);
+                            CodeGen::add(before, &format!("    push {} {}", self.backend.pointer_size(), parent_lambda_size), None);
+                            CodeGen::add(before, "    push eax", None);
+                            CodeGen::add(before, &format!("    push {} [{}+8]", self.backend.pointer_size(), self.backend.stack_base_pointer()), None);
+                            CodeGen::add(before, "    call memcopy", None);
+                            CodeGen::add(before, &format!("    add {},{}", self.backend.stack_pointer(), 3 * wl), None);
+                            CodeGen::add(before, "    pop eax", None);
+                        }
+
+                        CodeGen::add(before, &format!("    mov {} [eax], {}", pointer_size, def.name), None);
+
                         CodeGen::add(before, "    pop ecx", None);
                         CodeGen::add(before, "    pop ebx", None);
                         //CodeGen::add(&mut after, "    pop eax", None);

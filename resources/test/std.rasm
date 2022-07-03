@@ -252,3 +252,25 @@ asm malloc(size: i32) -> i32 /{
     mov    [_heap], ebx
     pop ebx
 }/
+
+asm memcopy(source: &i32, dest: &i32, len: i32) /{
+    push    ebx
+    push    ecx
+    push    edx
+    mov     eax, $source
+    mov     ebx, $dest
+    mov     ecx, $len
+.loop:
+    cmp     ecx, 0
+    jz      .end
+    mov     dword edx,[eax]
+    mov     dword [ebx],edx
+    add     ebx,4
+    add     eax,4
+    sub     ecx,1
+    jmp     .loop
+.end:
+    pop edx
+    pop     ecx
+    pop     ebx
+}/

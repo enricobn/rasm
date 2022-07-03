@@ -59,6 +59,11 @@ fn test_lambda_2() {
 }
 
 #[test]
+fn test_lambda_3() {
+    test("lambda", vec!["3"],"3\n");
+}
+
+#[test]
 fn test_lambda_params() {
     test("lambda_params", vec!["20"],"35\n");
 }
