@@ -26,6 +26,7 @@ pub struct CodeGen<'a> {
 enum MemoryValue {
     StringValue(String),
     I32Value(i32),
+    Mem(usize)
 }
 
 #[derive(Clone, Debug)]
@@ -178,8 +179,11 @@ impl<'a> CodeGen<'a> {
 
         let mut asm = String::new();
 
+        let mut bss = String::new();
+
         if !self.statics.is_empty() {
-            asm.push_str("SECTION .data\n");
+            let mut data = String::new();
+
             let mut keys: Vec<&String> = self.statics.keys().collect();
             // sorted for test purposes
             keys.sort();
@@ -192,14 +196,22 @@ impl<'a> CodeGen<'a> {
                     MemoryValue::StringValue(s) => {
                         def.push_str("    db    ");
                         def.push_str(&format!("'{}', 0h", s));
+                        CodeGen::add(&mut data, &def, None);
                     }
                     MemoryValue::I32Value(i) => {
                         def.push_str("    dd    ");
                         def.push_str(&format!("{}", i));
+                        CodeGen::add(&mut data, &def, None);
+                    }
+                    MemoryValue::Mem(bytes) => {
+                        def.push_str("    resb ");
+                        def.push_str(&format!("{}", bytes));
+                        CodeGen::add(&mut bss, &def, None);
                     }
                 }
-                CodeGen::add(&mut asm, &def, None);
             }
+            asm.push_str("SECTION .data\n");
+            asm.push_str(&data);
         }
 
         CodeGen::add(&mut asm, "section .bss", None);
@@ -208,6 +220,7 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut asm, "  _rasm_buffer_10b resb 10", None);
         // command line arguments
         CodeGen::add(&mut asm, "  _rasm_args resw 12", None);
+        asm.push_str(&bss);
 
         CodeGen::add(&mut asm, "SECTION .text", None);
         CodeGen::add(&mut asm, "global  main", None);
