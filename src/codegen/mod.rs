@@ -215,11 +215,13 @@ impl<'a> CodeGen<'a> {
         }
 
         CodeGen::add(&mut asm, "section .bss", None);
-        CodeGen::add(&mut asm, "  _heap_buffer     resb 64 * 1024 * 1024", None);
-        CodeGen::add(&mut asm, "  _heap            resw 1", None);
-        CodeGen::add(&mut asm, "  _rasm_buffer_10b resb 10", None);
+        CodeGen::add(&mut asm, "  _heap            resb 4", None);
+        CodeGen::add(&mut asm, "  _heap_buffer:     resb 1024 * 1024", None);
+        CodeGen::add(&mut asm, "  _lambda_space_heap:            resb 4", None);
+        CodeGen::add(&mut asm, "  _lambda_space_heap_buffer:     resb 16 * 1024 * 1024", None);
+        CodeGen::add(&mut asm, "  _rasm_buffer_10b: resb 10", None);
         // command line arguments
-        CodeGen::add(&mut asm, "  _rasm_args resw 12", None);
+        CodeGen::add(&mut asm, "  _rasm_args: resw 12", None);
         asm.push_str(&bss);
 
         CodeGen::add(&mut asm, "SECTION .text", None);
@@ -235,6 +237,8 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "mov     eax, _heap_buffer\n", None);
         CodeGen::add(&mut asm, "mov     [_heap], eax\n", None);
+        CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer\n", None);
+        CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax\n", None);
 
         asm.push_str(&self.body);
 
@@ -254,9 +258,10 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut body, "\tpush ecx", None);
         CodeGen::add(&mut body, "\tpush ebx", None);
         CodeGen::add(&mut body, &format!("\tpush     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None);
+        CodeGen::add(&mut body, &format!("\tpush   {} _heap", backend.pointer_size()), None);
         CodeGen::add(&mut body, "\tcall malloc", None);
         CodeGen::add(&mut body, "\tmov   ecx, eax", None);
-        CodeGen::add(&mut body, &format!("\tadd esp,{}", backend.word_len()), None);
+        CodeGen::add(&mut body, &format!("\tadd esp,{}", backend.word_len() * 2), None);
         CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
         for par in variant.parameters.iter().rev() {
             CodeGen::add(&mut body, &format!("\tadd   eax, {}", backend.word_len()), Some(&format!("parameter {}", par.name)));
@@ -468,6 +473,7 @@ impl<'a> CodeGen<'a> {
 
         // TODO inline does not work with lambda space, so for now I disable it
         let inline = false;
+        let mut after = String::new();
 
         let mut lambda_calls = Vec::new();
         if inline && parent_def.is_some() {
@@ -529,9 +535,6 @@ impl<'a> CodeGen<'a> {
                                     }
                                 }
                             }
-                            /*                        } else if lambda_space_opt.is_some() && lambda_space_opt.unwrap().get(name).is_some() {
-                                                        call_parameters.add_lambda_param_from_lambda_space(name.clone(), name, &param_type, lambda_space_opt.unwrap(), None, indent);
-                                                        */
                         } else {
                             panic!("Cannot find variable {}, calling function {}", name, function_call.function_name);
                         }
@@ -578,11 +581,16 @@ impl<'a> CodeGen<'a> {
                         CodeGen::add(before, &format!("    push {} ebx", pointer_size), None);
                         CodeGen::add(before, &format!("    push {} ecx", pointer_size), None);
                         CodeGen::add(before, &format!("    push {}", (num_of_params + 1) * wl), None);
+                        CodeGen::add(before, &format!("\tpush   {} _lambda_space_heap", self.backend.pointer_size()), None);
                         CodeGen::add(before, "    call malloc", None);
-
-                        CodeGen::add(before, &format!("    add {}, {}", sp, wl), None);
+                        CodeGen::add(before, &format!("    add {}, {}", sp, wl * 2), None);
 
                         CodeGen::add(before, "    mov ecx, eax", None);
+
+                        CodeGen::add(&mut after, &format!("    push {}", (num_of_params + 1) * wl), None);
+                        CodeGen::add(&mut after, &format!("\tpush   {} _lambda_space_heap", self.backend.pointer_size()), None);
+                        CodeGen::add(&mut after, "    call mdealloc", None);
+                        CodeGen::add(&mut after, &format!("    add {}, {}", sp, wl * 2), None);
 
                         let mut i = 1;
 
@@ -698,6 +706,10 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(before, &format!("    add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())), None);
         }
 
+        for line in after.lines() {
+            CodeGen::add(before, line, None);
+        }
+
         if inline && parent_def.is_some() {
             CodeGen::add(before, &format!("; end inlining function {}", function_call.function_name), None);
         } else {
@@ -709,11 +721,11 @@ impl<'a> CodeGen<'a> {
 
     fn add(dest: &mut String, code: &str, comment: Option<&str>) {
         if code.is_empty() {
-            let string = " ".repeat(50);
+            let string = " ".repeat(60);
             dest.push_str(&string);
         } else {
-            let s = format!("{:width$}", code, width = 50);
-            assert_eq!(s.len(), 50);
+            let s = format!("{:width$}", code, width = 60);
+            assert_eq!(s.len(), 60);
             dest.push_str(&s);
         }
 

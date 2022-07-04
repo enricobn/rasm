@@ -1,15 +1,20 @@
 Doing
 ------
-- change the way lambda context parameters are stored, because it does not work when the lambda is passed as a parameter to another function:
-  - for every lambda I should allocate memory to store the address of the lambda function and all the context parameters
-  - I think I need some library function, otherwise implementing a call to a lambda inside an asm function will be too difficult
 
 Next
 -----
-- deallocate, where possible...
-- optimize copy of parent lambda space: do not create parameters that are overridden by parent memcopy
+- optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
-- optimizing inline for fibonacci
+- optimize memory for lambda space:
+  - if there are more lambda in a call, all share the same lambda space (but not the address of the function) now it's duplicated:
+    - I can create only one lambda space, then I can pass to the lambda the address to the real function and the address to the lambda space
+- try to re enable inline
+  - the problem arises with lambda space
+- implement range
+- rename asm to native
+- user cannot define native functions
+- some functions from the std library should not be called (tag with internal?), for example malloc, memcopy
+- optimize fibonacci
     - backend for 32 and 64 bit
     - move more code as possible from codegen to function_call_parameters
 - refactor codegen lambda parameters: it's too complex

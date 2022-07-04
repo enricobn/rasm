@@ -244,13 +244,29 @@ asm atoi(s: &str) -> i32 /{
     pop    ecx
 }/
 
-asm malloc(size: i32) -> i32 /{
+asm malloc(mem: &i32, size: i32) -> i32 /{
     push    ebx
-    mov     eax,[_heap]
-    mov     ebx,[_heap]
+    mov     eax,$mem
+    push    dword [eax]
+    mov     dword ebx,$mem
+    mov     dword ebx,[ebx]
     add     ebx,$size
-    mov    [_heap], ebx
-    pop ebx
+    mov     dword [eax],ebx
+    pop     eax
+    pop     ebx
+}/
+
+asm mdealloc(mem: &i32, size: i32) /{
+    push    ebx
+    push    eax
+    mov     eax,$mem
+
+    mov     dword ebx,$mem
+    mov     dword ebx,[ebx]
+    sub     ebx,$size
+    mov     dword [eax],ebx
+    pop     eax
+    pop     ebx
 }/
 
 asm memcopy(source: &i32, dest: &i32, len: i32) /{
