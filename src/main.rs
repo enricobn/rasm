@@ -8,16 +8,18 @@ pub mod compiler;
 use std::env;
 use std::ops::Add;
 use std::path::Path;
+use log::info;
 use crate::compiler::Compiler;
 
 fn main() {
+    env_logger::init();
 
     let path = env::current_dir();
 
-    println!("Current dir: {:?}", path);
+    info!("Current dir: {:?}", path);
 
     let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
+    info!("{:?}", args);
 
     let src = args.get(1).unwrap();
     let out = if args.len() < 3 {

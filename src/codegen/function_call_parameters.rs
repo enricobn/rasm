@@ -1,4 +1,5 @@
 use linked_hash_map::LinkedHashMap;
+use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::LambdaSpace;
 use crate::parser::ast::{ASTParameterDef, ASTTypeRef};
@@ -59,7 +60,7 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn add_val(&mut self, original_param_name: String, par: &ASTParameterDef, index: usize, comment: Option<&str>, indent: usize) {
-        println!("{}adding val {}, index {}, from context {}", " ".repeat(indent * 4), original_param_name, index, par.from_context);
+        debug!("{}adding val {}, index {}, from context {}", " ".repeat(indent * 4), original_param_name, index, par.from_context);
         self.add_val_(original_param_name, &par.type_ref, index, comment);
     }
 
@@ -82,7 +83,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_lambda_param_from_lambda_space(&mut self, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
         let lambda_space_index = lambda_space.get_index(param_name).unwrap();
-        println!("{}add_lambda_param_from_lambda_space, param {}, address {}", " ".repeat(indent * 4), param_name, lambda_space_index);
+        debug!("{}add_lambda_param_from_lambda_space, param {}, address {}", " ".repeat(indent * 4), param_name, lambda_space_index);
 
         let word_len = self.backend.word_len() as usize;
         let sbp = self.backend.stack_base_pointer();
@@ -107,12 +108,12 @@ impl<'a> FunctionCallParameters<'a> {
         let word_len = self.backend.word_len() as i32;
         for par in self.parameters.iter() {
             if let Some(par_value) = self.parameters_values.get(&par.name) {
-                println!("{}found parameter {}, value: {}", " ".repeat(ident * 4), par.name, par_value);
+                debug!("{}found parameter {}, value: {}", " ".repeat(ident * 4), par.name, par_value);
                 result = result.replace(&format!("${}", par.name), par_value);
                 continue;
             }
 
-            println!("{}cannot find parameter {}, parameters_values {:?}", " ".repeat(ident * 4), par.name, self.parameters_values);
+            debug!("{}cannot find parameter {}, parameters_values {:?}", " ".repeat(ident * 4), par.name, self.parameters_values);
 
             let relative_address =
                 if self.inline {

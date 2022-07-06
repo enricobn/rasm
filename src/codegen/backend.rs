@@ -1,6 +1,7 @@
 use std::path::Path;
 use crate::parser::ast::ASTTypeRef;
 use std::process::{Command, Stdio};
+use log::info;
 
 pub trait Backend {
 
@@ -61,7 +62,7 @@ impl Backend for Backend386 {
     }
 
     fn compile_and_link(&self, source_file: String) {
-        println!("source file : '{}'", source_file);
+        info!("source file : '{}'", source_file);
         let path = Path::new(&source_file);
         let nasm_output = Command::new("nasm")
             .arg("-f")

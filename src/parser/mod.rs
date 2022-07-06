@@ -1,4 +1,5 @@
 use std::path::Path;
+use log::debug;
 use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
@@ -84,13 +85,6 @@ impl Parser {
 
         let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
 
-        /*
-        for t in self.tokens.clone() {
-            println!("{:?}", t);
-        }
-
-         */
-
         while self.i <= self.tokens.len() {
             let token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -98,10 +92,8 @@ impl Parser {
                 self.tokens.get(self.i).unwrap().clone()
             };
 
-            /*
             self.debug("");
-            println!();
-             */
+            debug!("");
 
             match self.get_state() {
                 None => {
@@ -264,7 +256,7 @@ impl Parser {
                 Some(ParserState::Val) => {
                     if let Some(ParserData::Val(val_name)) = self.last_parser_data() {
                         if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
-                            println!("Found val {} in function {}", val_name, def.name);
+                            debug!("Found val {} in function {}", val_name, def.name);
                             let mut def = def.clone();
                             if let RASMBody(mut calls) = def.body {
                                 calls.push(ASTExpression::Val(val_name));
@@ -591,11 +583,11 @@ impl Parser {
     }
 
     fn debug(&self, message: &str) {
-        println!("{}", message);
-        println!("i {}", self.i);
-        println!("token {:?}", self.get_token());
-        println!("state {:?}", self.state);
-        println!("data {:?}", self.parser_data);
+        debug!("{}", message);
+        debug!("i {}", self.i);
+        debug!("token {:?}", self.get_token());
+        debug!("state {:?}", self.state);
+        debug!("data {:?}", self.parser_data);
         //println!("body {:?}", self.body);
         //println!("functions {:?}", self.functions);
     }

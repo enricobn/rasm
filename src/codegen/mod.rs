@@ -4,6 +4,7 @@ pub mod backend;
 use std::collections::HashSet;
 use std::ops::Deref;
 use linked_hash_map::{Iter, LinkedHashMap};
+use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
@@ -117,7 +118,7 @@ impl<'a> CodeGen<'a> {
         self.functions = LinkedHashMap::new();
 
         for function_def in &self.module.functions.clone() {
-            println!("function_def {}", function_def.name);
+            debug!("function_def {}", function_def.name);
             self.functions.insert(function_def.name.clone(), function_def.clone());
         }
 
@@ -125,7 +126,7 @@ impl<'a> CodeGen<'a> {
             let param_types: Vec<ASTTypeRef> = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
 
             for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-                //println!("variant parameters for {} : {:?}", variant.name, variant.parameters);
+                //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
                 let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
                 let type_ref = ASTTypeRef { ast_type, ast_ref: true };
@@ -265,8 +266,6 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut body, &format!("\tadd esp,{}", backend.word_len() * 2), None);
         CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
         for (i, par) in variant.parameters.iter().rev().enumerate() {
-            println!("***** i {}", i);
-            //CodeGen::add(&mut body, &format!("\tadd   eax, {}", backend.word_len()), Some(&format!("parameter {}", par.name)));
             CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)));
             CodeGen::add(&mut body, &format!("\tmov {}  [eax + {}], ebx", backend.pointer_size(), (i + 1) * backend.word_len() as usize), None);
         }
@@ -327,7 +326,7 @@ impl<'a> CodeGen<'a> {
             something_added = false;
             let functions_called = self.functions_called.clone();
 
-            //println!("functions called {:?}", functions_called);
+            //debug!("functions called {:?}", functions_called);
 
             for function_name in functions_called {
                 if !already_created_functions.contains(&function_name) {
@@ -349,7 +348,7 @@ impl<'a> CodeGen<'a> {
     fn create_lambdas(&mut self, lambdas: Vec<LambdaCall>, indent: usize) {
         let mut lambda_calls = Vec::new();
         for lambda_call in lambdas {
-            //println!("Creating lambda {}", lambda_call.def.name);
+            //debug!("Creating lambda {}", lambda_call.def.name);
             lambda_calls.append(&mut self.add_function_def(&lambda_call.def, Some(&lambda_call.space), &lambda_call.space.context, indent));
             //Parser::print_function_def(&lambda_call.def);
         }
@@ -361,9 +360,9 @@ impl<'a> CodeGen<'a> {
     fn add_function_def(&mut self, function_def: &ASTFunctionDef, lambda_space: Option<&LambdaSpace>, parent_context: &VarContext, indent: usize) -> Vec<LambdaCall> {
         let is_lambda = lambda_space.is_some();
 
-        println!("{}Adding function def {}", " ".repeat(indent * 4), function_def.name);
+        debug!("{}Adding function def {}", " ".repeat(indent * 4), function_def.name);
         let mut lambda_calls = Vec::new();
-        //println!("add_function_def {}", function_def.name);
+        //debug!("add_function_def {}", function_def.name);
         CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name), None);
 
         let sp = self.backend.stack_pointer();
@@ -397,7 +396,7 @@ impl<'a> CodeGen<'a> {
             } else {
                 function_call_parameters.add_val(par.name.clone(), par, i, Some(&format!("reference to parameter {}", par.name)), indent + 1);
                 i += 1;
-                println!("{}Inserted var {} in context, offset {}, from context {}", " ".repeat((indent + 1) * 4), par.name, offset,
+                debug!("{}Inserted var {} in context, offset {}, from context {}", " ".repeat((indent + 1) * 4), par.name, offset,
                          par.from_context);
                 context.insert(par.name.clone(), VarKind::ParameterRef(offset, par.clone()));
             }
@@ -459,7 +458,7 @@ impl<'a> CodeGen<'a> {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self.functions.get(&function_call.function_name).unwrap().clone().name;
-            println!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
+            debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
             self.call_function_(&function_call, &context, &parent_def, &added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
                                 lambda_space, indent, is_lambda)
         } else if let Some(VarKind::ParameterRef(index, par)) = context.get(&function_call.function_name) {
@@ -469,13 +468,13 @@ impl<'a> CodeGen<'a> {
 
                 let parameters_defs = parameters.iter().map(|it| ASTParameterDef { name: "p".into(), type_ref: it.clone(), from_context: false }).collect();
 
-                println!("{}Calling lambda {}", " ".repeat(indent * 4), function_call.function_name);
-                println!("{}parameters {:?}", " ".repeat((indent + 1) * 4), parameters);
-                println!("{}context {:?}", " ".repeat((indent + 1) * 4), context);
-                println!("{}index {}", " ".repeat((indent + 1) * 4), index);
-                println!("{}function_call.parameters {:?}", " ".repeat((indent + 1) * 4), function_call.parameters);
-                println!("{}parameters_defs {:?}", " ".repeat((indent + 1) * 4), parameters_defs);
-                println!("{}lambda_space {:?}", " ".repeat((indent + 1) * 4), lambda_space);
+                debug!("{}Calling lambda {}", " ".repeat(indent * 4), function_call.function_name);
+                debug!("{}parameters {:?}", " ".repeat((indent + 1) * 4), parameters);
+                debug!("{}context {:?}", " ".repeat((indent + 1) * 4), context);
+                debug!("{}index {}", " ".repeat((indent + 1) * 4), index);
+                debug!("{}function_call.parameters {:?}", " ".repeat((indent + 1) * 4), function_call.parameters);
+                debug!("{}parameters_defs {:?}", " ".repeat((indent + 1) * 4), parameters_defs);
+                debug!("{}lambda_space {:?}", " ".repeat((indent + 1) * 4), lambda_space);
 
                 self.call_function_(&function_call, &context, &parent_def, &added_to_stack, &mut before, parameters_defs, false, None,
                                     format!("[{}+{}+{}]", bp, wl, (index + 1) * wl), lambda_space, indent, true)
@@ -522,7 +521,7 @@ impl<'a> CodeGen<'a> {
                 let param_type = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index - 1, function_call.function_name)).type_ref.clone();
                 param_index -= 1;
 
-                println!("{}adding parameter {}: {:?}", " ".repeat(indent * 4), param_name, expr);
+                debug!("{}adding parameter {}: {:?}", " ".repeat(indent * 4), param_name, expr);
 
                 match expr {
                     ASTExpression::StringLiteral(value) => {
@@ -572,7 +571,7 @@ impl<'a> CodeGen<'a> {
 
                         let mut lambda_space = LambdaSpace::new(context.clone());
 
-                        println!("{}Preparing lambda_space and 'from_context' parameters for lambda {}", " ".repeat(indent * 4), param_name);
+                        debug!("{}Preparing lambda_space and 'from_context' parameters for lambda {}", " ".repeat(indent * 4), param_name);
 
                         let num_of_params = context.iter().filter(|(_, kind)| {
                             matches!(kind, VarKind::ParameterRef(_, _))
@@ -654,9 +653,9 @@ impl<'a> CodeGen<'a> {
 
                             to_remove_from_stack += 1;
 
-                            //println!("Pushing lambda {}", def.name);
+                            //debug!("Pushing lambda {}", def.name);
                             let lambda_call = LambdaCall { def, space: lambda_space };
-                            //println!("Lambda call {}", lambda_call.def.name);
+                            //debug!("Lambda call {}", lambda_call.def.name);
                             self.functions_called.insert(lambda_call.def.name.clone());
                             lambda_calls.push(lambda_call);
                         } else {
@@ -731,7 +730,7 @@ impl<'a> CodeGen<'a> {
             match var_kind {
                 VarKind::ParameterRef(index, par) => {
                     CodeGen::add(before, "", Some(&format!("{}Adding parameter ref param {}, for {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt)));
-                    //println!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
+                    //debug!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
 
                     if lambda_space_opt.map(|it| it.get_index(&name).is_some()).unwrap_or(false) {
                         //call_parameters.add_var(param_name, par, lambda_space_opt, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);

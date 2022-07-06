@@ -6,8 +6,8 @@ Next
 - optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:
-  - if there are more lambda in a call, all share the same lambda space (but not the address of the function) now it's duplicated:
-    - I can create only one lambda space, then I can pass to the lambda the address to the real function and the address to the lambda space
+  - if there are more lambda in a call, all share the same lambda space (but not the address to the function), now it's duplicated:
+    - I can create only one lambda space, then I can pass to the lambda, the address to the real function and the address to the lambda space
 - try to re enable inline
   - the problem arises with lambda space
 - implement range

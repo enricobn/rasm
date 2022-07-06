@@ -3,6 +3,7 @@ pub(crate) mod tokens;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use log::debug;
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 
 #[derive(Debug, PartialEq)]
@@ -29,7 +30,7 @@ impl Lexer {
         let mut s = String::new();
         if let Ok(mut file) = File::open(path) {
             if let Ok(size) = file.read_to_string(&mut s) {
-                println!("Reading file {:?}, size {}", path, size);
+                debug!("Reading file {:?}, size {}", path, size);
                 Ok(Lexer::new(s))
             } else {
                 Err(format!("Cannot read {:?}", path.to_str()))
@@ -105,7 +106,7 @@ impl Iterator for Lexer {
                     END_OF_FILE
                 };
 
-            //println!("status {:?}, actual <{}>, c <{}>", status, actual, c);
+            //debug!("status {:?}, actual <{}>, c <{}>", status, actual, c);
 
             match status {
                 LexStatus::None => {
@@ -149,7 +150,7 @@ impl Iterator for Lexer {
                         status = LexStatus::AlphaNumeric;
                         actual.push(c);
                     } else if c != END_OF_FILE {
-                        println!("WARNING: unknown char '{}' ({}) at {},{} ***", c, c.escape_debug(), self.row, self.column);
+                        debug!("WARNING: unknown char '{}' ({}) at {},{} ***", c, c.escape_debug(), self.row, self.column);
                     }
                 }
                 LexStatus::WhiteSpace => {
@@ -228,7 +229,7 @@ impl Iterator for Lexer {
         }
 
         if !actual.is_empty() {
-            println!("Do you have missed something? {}", actual);
+            debug!("Do you have missed something? {}", actual);
         }
 
         None
