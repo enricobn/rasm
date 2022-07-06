@@ -1,0 +1,7 @@
+include "std.rasm"
+
+nprintln(test(atoi(argv(1))));
+
+fn test(n: i32) -> i32 {
+    n;
+}

@@ -10,11 +10,29 @@ pub struct FunctionCallParameters<'a> {
     parameters_values: LinkedHashMap<String, String>,
     backend: &'a dyn Backend,
     inline: bool,
+    immediate: bool
 }
 
 impl<'a> FunctionCallParameters<'a> {
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool) -> Self {
-        Self { to_remove_from_stack: 0, before: String::new(), parameters_values: LinkedHashMap::new(), backend, inline, parameters }
+
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `backend`:
+    /// * `parameters`:
+    /// * `inline`:
+    /// * `immediate`: if true the result is not pushed on the stack, but moved to eax
+    ///
+    /// returns: FunctionCallParameters
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// ```
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool, immediate: bool) -> Self {
+        Self { to_remove_from_stack: 0, before: String::new(), parameters_values: LinkedHashMap::new(), backend, inline, parameters, immediate }
     }
 
     pub fn add_string_literal(&mut self, param_name: &str, label: String, comment: Option<&str>) {
@@ -40,12 +58,12 @@ impl<'a> FunctionCallParameters<'a> {
         self.to_remove_from_stack += 1;
     }
 
-    pub fn add_var(&mut self, original_param_name: String, par: &ASTParameterDef, index: usize, comment: Option<&str>, indent: usize) {
-        println!("{}adding var {}, index {}, from context {}", " ".repeat(indent * 4), original_param_name, index, par.from_context);
-        self.add_var_(original_param_name, &par.type_ref, index, comment);
+    pub fn add_val(&mut self, original_param_name: String, par: &ASTParameterDef, index: usize, comment: Option<&str>, indent: usize) {
+        println!("{}adding val {}, index {}, from context {}", " ".repeat(indent * 4), original_param_name, index, par.from_context);
+        self.add_val_(original_param_name, &par.type_ref, index, comment);
     }
 
-    fn add_var_(&mut self, original_param_name: String, type_ref: &ASTTypeRef, index: usize, comment: Option<&str>) {
+    fn add_val_(&mut self, original_param_name: String, type_ref: &ASTTypeRef, index: usize, comment: Option<&str>) {
         let word_len = self.backend.word_len() as usize;
 
         if self.inline {
@@ -53,7 +71,11 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
-            Self::add(&mut self.before, &format!("    push     {} [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment);
+            if self.immediate {
+                Self::add(&mut self.before, &format!("    mov {} eax, [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment);
+            } else {
+                Self::add(&mut self.before, &format!("    push     {} [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment);
+            }
             self.to_remove_from_stack += 1;
         }
     }
@@ -71,9 +93,10 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             Self::add(&mut self.before, "", comment);
             Self::add(&mut self.before, &format!("    mov     eax, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"));
-            Self::add(&mut self.before, &format!("    add     eax, {}", lambda_space_index * word_len), None);
-            //Self::add(&mut self.before, &format!("    add     esp, {}", word_len), comment);
-            Self::add(&mut self.before, &format!("    push   {} [eax]", self.backend.pointer_size()), None);
+            Self::add(&mut self.before, &format!("    push   {} [eax + {}]", self.backend.pointer_size(), lambda_space_index * word_len), None);
+            if self.immediate {
+                Self::add(&mut self.before, "    pop eax", Some(&format!("immediate reference to val '{}'", param_name)));
+            }
             self.to_remove_from_stack += 1;
         }
     }

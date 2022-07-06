@@ -1,7 +1,3 @@
-inline asm itn(n: i32) -> i32 /{
-    mov     eax,$n
-}/
-
 /**
  * Prints the string to standard output adding a line feed to the end.
  **/

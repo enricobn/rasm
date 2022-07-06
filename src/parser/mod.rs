@@ -44,6 +44,7 @@ enum ParserData {
     FunctionDefParameter(ASTParameterDef),
     EnumDef(ASTEnumDef),
     LambdaDef(ASTLambdaDef),
+    Val(String)
 }
 
 #[derive(Clone, Debug)]
@@ -54,6 +55,7 @@ enum ParserState {
     FunctionDefParameter,
     FunctionDefReturnType,
     EnumDef,
+    Val
 }
 
 impl Parser {
@@ -218,6 +220,11 @@ impl Parser {
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
                         continue;
+                    } else if let Some((val_name, next_i)) = self.try_parse_reference_to_val() {
+                        self.parser_data.push(ParserData::Val(val_name));
+                        self.state.push(ParserState::Val);
+                        self.i = next_i;
+                        continue;
                     }
                     self.panic("Error parsing function body.");
                 }
@@ -254,6 +261,41 @@ impl Parser {
                         panic!("Expected enum data.")
                     }
                 }
+                Some(ParserState::Val) => {
+                    if let Some(ParserData::Val(val_name)) = self.last_parser_data() {
+                        if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
+                            println!("Found val {} in function {}", val_name, def.name);
+                            let mut def = def.clone();
+                            if let RASMBody(mut calls) = def.body {
+                                calls.push(ASTExpression::Val(val_name));
+                                def.body = RASMBody(calls);
+                                let l = self.parser_data.len();
+                                self.parser_data[l - 2] = ParserData::FunctionDef(def);
+                                self.parser_data.pop();
+                                self.state.pop();
+                                continue;
+                            } else {
+                                panic!("expected rasm body, found {:?}", def.body);
+                            }
+                        } else if let Some(ParserData::LambdaDef(def)) = self.before_last_parser_data() {
+                            let mut def = def.clone();
+                            if let RASMBody(mut calls) = def.body {
+                                calls.push(ASTExpression::Val(val_name));
+                                def.body = RASMBody(calls);
+                                let l = self.parser_data.len();
+                                self.parser_data[l - 2] = ParserData::LambdaDef(def);
+                                self.parser_data.pop();
+                                self.state.pop();
+                                continue;
+                            } else {
+                                panic!("expected rasm body, found {:?}", def.body);
+                            }
+                        } else {
+                            panic!("Function def, found {:?}", self.before_last_parser_data());
+                        }
+                    }
+                    panic!("Expected val name, found {:?}", self.last_parser_data());
+                }
             }
 
             self.i += 1;
@@ -285,7 +327,7 @@ impl Parser {
                     self.state.push(ParserState::FunctionCall);
                     self.i = next_i;
                 } else {
-                    self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::Var(name.clone()));
+                    self.add_parameter_to_call_and_update_parser_data(call, ASTExpression::Val(name.clone()));
                 }
                 return ProcessResult::Continue;
             } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
@@ -305,7 +347,7 @@ impl Parser {
                     if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
                         if let RASMBody(mut calls) = def.body {
-                            calls.push(call);
+                            calls.push(ASTExpression::ASTFunctionCallExpression(call));
                             def.body = RASMBody(calls);
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = ParserData::FunctionDef(def);
@@ -317,7 +359,7 @@ impl Parser {
                     } else if let Some(ParserData::LambdaDef(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
                         if let RASMBody(mut calls) = def.body {
-                            calls.push(call);
+                            calls.push(ASTExpression::ASTFunctionCallExpression(call));
                             def.body = RASMBody(calls);
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = ParserData::LambdaDef(def);
@@ -447,11 +489,27 @@ impl Parser {
             Self::print_type_ref(return_type);
         }
         match &f.body {
-            RASMBody(calls) => {
+            RASMBody(expressions) => {
                 println!(" {{");
-                calls.iter().for_each(|call| {
+                expressions.iter().for_each(|call| {
+                    match call {
+                        ASTExpression::StringLiteral(s) => {
+                            println!("\"{}\";", s);
+                        }
+                        ASTExpression::ASTFunctionCallExpression(call) => {
+                            Self::print_call(call, false)
+                        }
+                        ASTExpression::Val(name) => {
+                            println!("{};", name);
+                        }
+                        ASTExpression::Number(n) => {
+                            println!("{};", n);
+                        }
+                        ASTExpression::Lambda(_) => {
+                            println!("{{ -> ... }};");
+                        }
+                    }
                     print!("  ");
-                    Self::print_call(call, false)
                 });
                 println!("}}");
             }
@@ -492,12 +550,13 @@ impl Parser {
                 ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
                 ASTExpression::Number(n) => print!("{}", n),
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(call, true),
-                ASTExpression::Var(name) => print!("{}", name),
+                ASTExpression::Val(name) => print!("{}", name),
                 ASTExpression::Lambda(function_def) => {
                     if let RASMBody(calls) = &function_def.body {
                         print!("{{");
                         calls.iter().for_each(|call| {
-                            Self::print_call(call, true);
+                            // TODO
+                            //Self::print_call(call, true);
                             print!(";");
                         });
                         print!("}}");
@@ -647,6 +706,15 @@ impl Parser {
             }
         }
         (parameter_names, self.i + n)
+    }
+
+    fn try_parse_reference_to_val(&self) -> Option<(String, usize)> {
+        if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = self.get_token_kind_n(1) {
+                return Some((name.clone(), self.get_i() + 2));
+            }
+        }
+        None
     }
 }
 

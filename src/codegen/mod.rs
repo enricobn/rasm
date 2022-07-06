@@ -117,6 +117,7 @@ impl<'a> CodeGen<'a> {
         self.functions = LinkedHashMap::new();
 
         for function_def in &self.module.functions.clone() {
+            println!("function_def {}", function_def.name);
             self.functions.insert(function_def.name.clone(), function_def.clone());
         }
 
@@ -263,10 +264,11 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut body, "\tmov   ecx, eax", None);
         CodeGen::add(&mut body, &format!("\tadd esp,{}", backend.word_len() * 2), None);
         CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
-        for par in variant.parameters.iter().rev() {
-            CodeGen::add(&mut body, &format!("\tadd   eax, {}", backend.word_len()), Some(&format!("parameter {}", par.name)));
-            CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), None);
-            CodeGen::add(&mut body, "\tmov   [eax], ebx", None);
+        for (i, par) in variant.parameters.iter().rev().enumerate() {
+            println!("***** i {}", i);
+            //CodeGen::add(&mut body, &format!("\tadd   eax, {}", backend.word_len()), Some(&format!("parameter {}", par.name)));
+            CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)));
+            CodeGen::add(&mut body, &format!("\tmov {}  [eax + {}], ebx", backend.pointer_size(), (i + 1) * backend.word_len() as usize), None);
         }
         CodeGen::add(&mut body, "\tmov   eax, ecx", None);
         CodeGen::add(&mut body, "\tpop   ebx", None);
@@ -372,7 +374,7 @@ impl<'a> CodeGen<'a> {
 
         let mut context = VarContext::new(Some(parent_context));
 
-        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false);
+        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false);
 
         // I think it's useless
         let mut i_for_context = 0;
@@ -393,7 +395,7 @@ impl<'a> CodeGen<'a> {
                 function_call_parameters.add_lambda_param_from_lambda_space(&par.name, lambda_space.unwrap(), Some(&format!("reference to parameter {} from context", par.name)), indent + 1);
                 i_for_context += 1;
             } else {
-                function_call_parameters.add_var(par.name.clone(), par, i, Some(&format!("reference to parameter {}", par.name)), indent + 1);
+                function_call_parameters.add_val(par.name.clone(), par, i, Some(&format!("reference to parameter {}", par.name)), indent + 1);
                 i += 1;
                 println!("{}Inserted var {} in context, offset {}, from context {}", " ".repeat((indent + 1) * 4), par.name, offset,
                          par.from_context);
@@ -404,10 +406,30 @@ impl<'a> CodeGen<'a> {
         match &function_def.body {
             ASTFunctionBody::RASMBody(calls) => {
                 for call in calls {
-                    let (s, mut lambda_calls_) = self.call_function(call, &context, Some(function_def), 0,
-                                                                    lambda_space, indent + 1, false);
-                    self.definitions.push_str(&s);
-                    lambda_calls.append(&mut lambda_calls_);
+                    match call {
+                        ASTExpression::ASTFunctionCallExpression(call_expression) => {
+                            let (s, mut lambda_calls_) = self.call_function(call_expression, &context, Some(function_def), 0,
+                                                                            lambda_space, indent + 1, false);
+                            self.definitions.push_str(&s);
+                            lambda_calls.append(&mut lambda_calls_);
+
+                        }
+                        ASTExpression::Val(val) => {
+                            // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
+                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true);
+                            Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, "".into(), &val, "".into(), "".into());
+                            self.definitions.push_str(parameters.before());
+                        }
+                        ASTExpression::StringLiteral(_) => {
+                            panic!("unsupported");
+                        }
+                        ASTExpression::Number(_) => {
+                            panic!("unsupported");
+                        }
+                        ASTExpression::Lambda(_) => {
+                            panic!("unsupported");
+                        }
+                    }
                 }
             }
             ASTFunctionBody::ASMBody(s) => {
@@ -489,7 +511,7 @@ impl<'a> CodeGen<'a> {
         let mut to_remove_from_stack = 0;
 
         let mut call_parameters = FunctionCallParameters::new(self.backend, parameters.clone(),
-                                                              inline && parent_def.is_some());
+                                                              inline && parent_def.is_some(), false);
 
         if !function_call.parameters.is_empty() {
             let mut param_index = function_call.parameters.len();
@@ -519,25 +541,10 @@ impl<'a> CodeGen<'a> {
                         call_parameters.add_function_call(None);
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
-                    ASTExpression::Var(name) => {
-                        if let Some(var_kind) = context.get(name) {
-                            match var_kind {
-                                VarKind::ParameterRef(index, par) => {
-                                    CodeGen::add(before, "", Some(&format!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, function_call.function_name, index, par.from_context, lambda_space_opt)));
-                                    println!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, function_call.function_name, index, par.from_context, lambda_space_opt);
-
-                                    if lambda_space_opt.map(|it| it.get_index(&name).is_some()).unwrap_or(false) {
-                                        //call_parameters.add_var(param_name, par, lambda_space_opt, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);
-                                        call_parameters.add_lambda_param_from_lambda_space(&name, lambda_space_opt.unwrap(),
-                                                                                           Some(&format!("var reference to lambda space parameter '{}' index {}, inside def: {:?}", name, index, parent_def.map(|it| it.name.clone()))), indent);
-                                    } else {
-                                        call_parameters.add_var(param_name, par, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);
-                                    }
-                                }
-                            }
-                        } else {
-                            panic!("Cannot find variable {}, calling function {}", name, function_call.function_name);
-                        }
+                    ASTExpression::Val(name) => {
+                        let error_msg = format!("Cannot find variable {}, calling function {}", name, function_call.function_name);
+                        let subject = &function_call.function_name;
+                        Self::add_val(context, parent_def, before, &lambda_space_opt, &indent, &mut call_parameters, &param_name, &name, &error_msg, &subject);
                     }
                     ASTExpression::Lambda(lambda_def) => {
                         let (return_type, parameters_types) = if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type, parameters }) = param_type.ast_type {
@@ -717,6 +724,27 @@ impl<'a> CodeGen<'a> {
         }
 
         lambda_calls
+    }
+
+    fn add_val(context: &VarContext, parent_def: &Option<&ASTFunctionDef>, before: &mut String, lambda_space_opt: &Option<&LambdaSpace>, indent: &usize, call_parameters: &mut FunctionCallParameters, param_name: &str, name: &str, error_msg: &str, subject: &str) {
+        if let Some(var_kind) = context.get(name) {
+            match var_kind {
+                VarKind::ParameterRef(index, par) => {
+                    CodeGen::add(before, "", Some(&format!("{}Adding parameter ref param {}, for {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt)));
+                    //println!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
+
+                    if lambda_space_opt.map(|it| it.get_index(&name).is_some()).unwrap_or(false) {
+                        //call_parameters.add_var(param_name, par, lambda_space_opt, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);
+                        call_parameters.add_lambda_param_from_lambda_space(&name, lambda_space_opt.unwrap(),
+                                                                           Some(&format!("var reference to lambda space parameter '{}' index {}, inside def: {:?}", name, index, parent_def.map(|it| it.name.clone()))), *indent);
+                    } else {
+                        call_parameters.add_val(param_name.into(), par, *index, Some(&format!("reference to parameter '{}' index {}", name, index)), *indent);
+                    }
+                }
+            }
+        } else {
+            panic!("{}", error_msg);
+        }
     }
 
     fn add(dest: &mut String, code: &str, comment: Option<&str>) {

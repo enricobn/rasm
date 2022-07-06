@@ -16,7 +16,7 @@ pub struct ASTLambdaDef {
 
 #[derive(Debug, Clone)]
 pub enum ASTFunctionBody {
-    RASMBody(Vec<ASTFunctionCall>),
+    RASMBody(Vec<ASTExpression>),
     ASMBody(String),
 }
 
@@ -73,7 +73,7 @@ pub struct ASTFunctionCall {
 pub enum ASTExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTFunctionCall),
-    Var(String),
+    Val(String),
     Number(i32),
     Lambda(ASTLambdaDef),
     //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },

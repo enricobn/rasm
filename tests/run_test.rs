@@ -83,6 +83,16 @@ fn test_recurse() {
     test("recurse", Vec::new(),"5\n4\n3\n2\n1\n0\n");
 }
 
+#[test]
+fn test_val() {
+    test("val", vec!["10"],"10\n");
+}
+
+#[test]
+fn test_val_in_lambda() {
+    test("val_in_lambda", vec!["10"],"10\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 

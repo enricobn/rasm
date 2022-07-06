@@ -3,9 +3,7 @@ include "std.rasm"
 nprintln(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
-    if (lessOrEqual(n, 1),{ ->
-        itn(n);
-    },{ ->
+    if (lessOrEqual(n, 1),{ -> n; },{ ->
         nadd(fib(nadd(n,-1)), fib(nadd(n,-2)));
     });
 }
