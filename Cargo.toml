@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-env_logger = "0.9.0"
+env_logger = "0.9"
 linked-hash-map = "0.5"
-log = "0.4.17"
+log = "0.4"
 strum = "0.23"
 strum_macros = "0.23"
 tempdir = "0.3"
