@@ -5,8 +5,21 @@ enum List<T> {
   Empty
 }
 
-nPrintList(List::Full(10, List::Full(20, List::Empty())));
+nListPrintln(range(0, atoi(argv(1))));
 
-fn nPrintList(l: List<T>) {
-    ListMatch(l, { head,tail -> nprint(head); ListMatch(tail, { head1,tail1 -> sprint(",");}, { -> }); nPrintList(tail);}, { -> });
+fn nListPrintln(l: List<T>) {
+    nListPrint(l);
+    sprintln("");
+}
+
+fn nListPrint(l: List<T>) {
+    ListMatch(l, { head,tail -> nprint(head); ListMatch(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
+}
+
+fn range(start: i32, end: i32) -> List<I32> {
+    if (eq(start, end), { ->
+        List::Full(start, List::Empty());
+    }, { ->
+        List::Full(start, range(nadd(start, 1), end));
+    });
 }

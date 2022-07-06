@@ -128,13 +128,13 @@ asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32 /{
     cmp     eax, 0
     jz      $+13
     mov     ebx, $ftrue     ; ftrue points to the lambda space
-    push    ebx
-    call    [ebx] ; true value
+    push    ebx             ; the address to the lambda space is the last argument of every lambda
+    call    [ebx]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
     jmp     $+11
     mov     ebx, $ffalse    ; ffalse points to the lambda space
     push    ebx
-    call    [ebx] ; false value
+    call    [ebx]           ; false value
     add     esp, 4
     pop ebx
 }/

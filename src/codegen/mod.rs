@@ -577,7 +577,6 @@ impl<'a> CodeGen<'a> {
                         let wl = self.backend.word_len() as usize;
                         let pointer_size = self.backend.pointer_size();
 
-                        //CodeGen::add(before, &format!("    push {} eax", pointer_size), None);
                         CodeGen::add(before, &format!("    push {} ebx", pointer_size), None);
                         CodeGen::add(before, &format!("    push {} ecx", pointer_size), None);
                         CodeGen::add(before, &format!("    push {}", (num_of_params + 1) * wl), None);
@@ -629,6 +628,7 @@ impl<'a> CodeGen<'a> {
 
                         CodeGen::add(before, "    pop ecx", None);
                         CodeGen::add(before, "    pop ebx", None);
+
                         //CodeGen::add(&mut after, "    pop eax", None);
                         //}
 
