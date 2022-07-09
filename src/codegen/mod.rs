@@ -518,13 +518,11 @@ impl<'a> CodeGen<'a> {
                                                               inline && parent_def.is_some(), false);
 
         if !function_call.parameters.is_empty() {
-            let mut param_index = 0;
             // as for C calling conventions parameters are pushed in reverse order
-            for expr in function_call.parameters.iter() {
+            for (param_index, expr) in function_call.parameters.iter().enumerate() {
                 let param_opt = parameters.get(param_index);
                 let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index, function_call.function_name)).name.clone();
                 let param_type = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index, function_call.function_name)).type_ref.clone();
-                param_index += 1;
 
                 debug!("{}adding parameter {}: {:?}", " ".repeat(indent * 4), param_name, expr);
 
@@ -580,76 +578,6 @@ impl<'a> CodeGen<'a> {
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
                         let mut lambda_space = call_parameters.add_lambda(&mut def, lambda_space_opt, context, None);
-
-                        /*
-                        let num_of_params = context.iter().filter(|(_, kind)| {
-                            matches!(kind, VarKind::ParameterRef(_, _))
-                        }).count();
-
-
-                        //if num_of_params > 0 {
-                        let bp = self.backend.stack_base_pointer();
-                        let sp = self.backend.stack_pointer();
-                        let wl = self.backend.word_len() as usize;
-                        let pointer_size = self.backend.pointer_size();
-
-                        CodeGen::add(before, &format!("    push {} ebx", pointer_size), None);
-                        CodeGen::add(before, &format!("    push {} ecx", pointer_size), None);
-                        CodeGen::add(before, &format!("    push {}", (num_of_params + 1) * wl), None);
-                        CodeGen::add(before, &format!("\tpush   {} _lambda_space_heap", self.backend.pointer_size()), None);
-                        CodeGen::add(before, "    call malloc", None);
-                        CodeGen::add(before, &format!("    add {}, {}", sp, wl * 2), None);
-
-                        CodeGen::add(before, "    mov ecx, eax", None);
-
-                        CodeGen::add(&mut after, &format!("    push {}", (num_of_params + 1) * wl), None);
-                        CodeGen::add(&mut after, &format!("\tpush   {} _lambda_space_heap", self.backend.pointer_size()), None);
-                        CodeGen::add(&mut after, "    call mdealloc", None);
-                        CodeGen::add(&mut after, &format!("    add {}, {}", sp, wl * 2), None);
-
-                        let mut i = 1;
-
-                        // TODO optimize: do not create parameters that are overridden by parent memcopy
-                        context.iter().for_each(|(name, kind)| {
-                            CodeGen::add(before, &format!("    add  ecx, {}", wl), None);
-
-                            if let VarKind::ParameterRef(index, par) = kind {
-                                let type_size = self.backend.type_size(&par.type_ref).unwrap();
-
-                                let address = format!("{}+{}+{}", bp, wl, (index + 1) * wl);
-
-                                CodeGen::add(before, &format!("    mov  {} ebx, [{}]", type_size, address),
-                                             Some(&format!("context parameter {}", name)));
-                                CodeGen::add(before, "    mov  dword [ecx], ebx", None);
-
-                                lambda_space.add_context_parameter(name.clone(), i);
-                                def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref.clone(), from_context: true });
-                                i += 1;
-                            }
-                        });
-
-                        // I copy the lambda space of the parent
-                        if let Some(parent_lambda) = lambda_space_opt {
-                            let parent_lambda_size = parent_lambda.parameters_indexes.len() + 1;
-                            CodeGen::add(before, "    push eax", None);
-                            CodeGen::add(before, &format!("    push {} {}", self.backend.pointer_size(), parent_lambda_size), None);
-                            CodeGen::add(before, "    push eax", None);
-                            CodeGen::add(before, &format!("    push {} [{}+8]", self.backend.pointer_size(), self.backend.stack_base_pointer()), None);
-                            CodeGen::add(before, "    call memcopy", None);
-                            CodeGen::add(before, &format!("    add {},{}", self.backend.stack_pointer(), 3 * wl), None);
-                            CodeGen::add(before, "    pop eax", None);
-                        }
-
-                        CodeGen::add(before, &format!("    mov {} [eax], {}", pointer_size, def.name), None);
-
-                        CodeGen::add(before, "    pop ecx", None);
-                        CodeGen::add(before, "    pop ebx", None);
-
-                         */
-
-
-                        //CodeGen::add(&mut after, "    pop eax", None);
-                        //}
 
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {

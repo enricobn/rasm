@@ -225,13 +225,9 @@ impl<'a> FunctionCallParameters<'a> {
                 } else {
                     (i + 2) * self.backend.word_len() as i32
                 };
-            let register = self.backend.stack_base_pointer();
-            let address = if relative_address < 0 {
-                // TODO what is this? - - means +  ???? Try to remove it when all works
-                format!("[{}-{}]", register, -relative_address)
-            } else {
-                format!("[{}+{}]", register, relative_address)
-            };
+
+            let address = format!("[{}+{}]", self.backend.stack_base_pointer(), relative_address);
+
             result = result.replace(&format!("${}", par.name), &address);
             i += 1;
         }
