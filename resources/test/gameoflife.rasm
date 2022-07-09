@@ -36,14 +36,6 @@ fn allCells(width: i32, height: i32) {
     }));
 }
 
-fn printCell(cell: &Cell) {
-    CellMatch(cell, { x, y ->
-        nprint(x);
-        sprint(", ");
-        nprint(y);
-    });
-}
-
 fn next(cells: &List<Cell>, width: i32, height: i32) -> List<Cell> {
     listFMap(allCells(width, height), { it ->
         if(isAlive(cells, it), { ->
@@ -77,14 +69,6 @@ fn adjacents(cell: &Cell) -> List<Cell> {
             Cell::Cell(nadd(x, 1), nadd(y, 1))
         );
     });
-}
-
-fn x(cell:&Cell) -> i32 {
-    CellMatch(cell, { x, y -> x; });
-}
-
-fn y(cell:&Cell) -> i32 {
-    CellMatch(cell, { x, y -> y; });
 }
 
 /** false = 0 true = any other value **/
