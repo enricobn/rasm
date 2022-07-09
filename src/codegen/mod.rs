@@ -262,13 +262,10 @@ impl<'a> CodeGen<'a> {
 
     fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
         let mut body = String::new();
-        CodeGen::add(&mut body, "push ecx", None, true);
         CodeGen::add(&mut body, "push ebx", None, true);
         CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None, true);
         CodeGen::add(&mut body, &format!("push   {} _heap", backend.pointer_size()), None, true);
         CodeGen::add(&mut body, "call malloc", None, true);
-        // TODO Why i store eax in ecx? It seem that I don't use it
-        CodeGen::add(&mut body, "mov   ecx, eax", None, true);
         CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len() * 2), None, true);
         // I put the variant number in the first location
         CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
@@ -276,9 +273,7 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), (i + 1) * backend.word_len() as usize), None, true);
         }
-        CodeGen::add(&mut body, "mov   eax, ecx", None, true);
         CodeGen::add(&mut body, "pop   ebx", None, true);
-        CodeGen::add(&mut body, "pop   ecx", None, true);
         body
     }
 
