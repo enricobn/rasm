@@ -703,14 +703,14 @@ impl<'a> CodeGen<'a> {
             let s = format!("{:width$}", code, width = max);
             assert_eq!(s.len(), max, "{}", s);
             if indent {
-                dest.push('\t');
+                dest.push_str("    ");
             }
             dest.push_str(&s);
         }
 
         if let Some(c) = comment {
             if code.is_empty() {
-                dest.push('\t');
+                dest.push_str("    ");
             }
             dest.push_str(&"; ".to_string());
             dest.push_str(c);
