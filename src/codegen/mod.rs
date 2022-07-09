@@ -267,8 +267,10 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None, true);
         CodeGen::add(&mut body, &format!("push   {} _heap", backend.pointer_size()), None, true);
         CodeGen::add(&mut body, "call malloc", None, true);
+        // TODO Why i store eax in ecx? It seem that I don't use it
         CodeGen::add(&mut body, "mov   ecx, eax", None, true);
         CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len() * 2), None, true);
+        // I put the variant number in the first location
         CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
         for (i, par) in variant.parameters.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
@@ -522,7 +524,7 @@ impl<'a> CodeGen<'a> {
             // as for C calling conventions parameters are pushed in reverse order
             for (param_index, expr) in function_call.parameters.iter().enumerate() {
                 let param_opt = parameters.get(param_index);
-                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index, function_call.function_name)).name.clone();
+                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} : {:?} of function call {}", param_index, expr, function_call.function_name)).name.clone();
                 let param_type = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index, function_call.function_name)).type_ref.clone();
 
                 debug!("{}adding parameter {}: {:?}", " ".repeat(indent * 4), param_name, expr);

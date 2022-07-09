@@ -1,0 +1,3 @@
+include "std.rasm"
+
+listPrintln(listFMap(range(0,2), { n -> listOf2(n, 5);}), { v -> nprint(v);});

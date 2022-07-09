@@ -24,7 +24,7 @@ mod matchers;
 enum ProcessResult {
     Continue,
     Next,
-    Panic,
+    Panic(String),
 }
 
 pub struct Parser {
@@ -164,8 +164,8 @@ impl Parser {
                         ProcessResult::Continue => {
                             continue;
                         }
-                        ProcessResult::Panic => {
-                            self.panic("Error parsing function call");
+                        ProcessResult::Panic(message) => {
+                            self.panic(&format!("Error {}: ", message));
                         }
                     }
                 }
@@ -175,8 +175,8 @@ impl Parser {
                         ProcessResult::Continue => {
                             continue;
                         }
-                        ProcessResult::Panic => {
-                            self.panic("Error parsing function definition");
+                        ProcessResult::Panic(message) => {
+                            self.panic(&format!("Error {}: ", message));
                         }
                     }
                 }
@@ -389,7 +389,7 @@ impl Parser {
                 return ProcessResult::Continue;
             }
         }
-        ProcessResult::Panic
+        ProcessResult::Panic("processing function call".into())
     }
 
     fn process_function_def(&mut self, token: Token) -> ProcessResult {
@@ -437,7 +437,7 @@ impl Parser {
             self.state.pop();
             return ProcessResult::Continue;
         } else {
-            return ProcessResult::Panic;
+            return ProcessResult::Panic("processing function definition".into());
         }
         ProcessResult::Next
     }

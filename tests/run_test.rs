@@ -40,7 +40,7 @@ fn test_mc91() {
 
 #[test]
 fn test_enum() {
-    test("enum", Vec::new(),"Some(a value)\nNone\n");
+    test("enum", Vec::new(),"Some(a value)\nNone\nT2\n10\nSome(a value)\n");
 }
 
 #[test]
@@ -96,6 +96,11 @@ fn test_val_in_lambda() {
 #[test]
 fn test_params_order() {
     test("params_order", vec![],"0\n1\n");
+}
+
+#[test]
+fn test_list_fmap() {
+    test("list_fmap", vec![],"0,5,1,5\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

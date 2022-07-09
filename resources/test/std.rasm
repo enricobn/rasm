@@ -338,3 +338,36 @@ fn listCount(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
 fn listAdd(l: &List<T>, value: T) -> List<T> {
     List::Full(value, l);
 }
+
+
+fn listOf2(v1: T, v2: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Empty()));
+}
+
+fn listPrintln(l: List<T>, print: fn(T) -> ()) {
+    listPrint(l, print);
+    sprintln("");
+}
+
+fn listPrint(l: List<T>, printFunction: fn(T) -> ()) {
+    ListMatch(l, { head,tail ->
+        printFunction(head);
+        ListMatch(tail, { head1,tail1 -> sprint(","); }, { -> });
+        listPrint(tail, printFunction);
+    }, { -> });
+}
+
+fn listFMap(l: List<T>, map: fn(T) -> List<T>) -> List<T> {
+    listFlatten(listMap(l, map));
+}
+
+fn listFlatten(l: List<List<T>>) -> List<T> {
+    ListMatch(l, { head, tail ->
+        listAppend(head, listFlatten(tail));
+    },
+    { -> List::Empty(); });
+}
+
+fn listAppend(dest: List<T>, source: List<T>) -> List<T> {
+    ListMatch(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
+}

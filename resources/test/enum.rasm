@@ -1,8 +1,26 @@
 include "std.rasm"
 
+enum Test {
+    T1(v1: i32, v2: i32, o: Option<&str>),
+    T2(v1: i32, o: Option<&str>)
+}
+
 printOption(Option::Some("a value"));
 printOption(Option::None());
 
-fn printOption(o: Option<T>) {
+TestMatch(
+    Test::T2(10, Option::Some("a value")),
+    { v1, v2, o ->
+        sprintln("T1");
+        nprintln(v1);
+        nprintln(v2);
+        printOption(o);
+    }, { v1, o ->
+       sprintln("T2");
+       nprintln(v1);
+       printOption(o);
+   });
+
+fn printOption(o: Option<&str>) {
     OptionMatch(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
 }
