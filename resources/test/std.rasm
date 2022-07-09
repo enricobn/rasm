@@ -286,3 +286,55 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     pop     ecx
     pop     ebx
 }/
+
+// TODO get rid of this, for now is used to return constants
+fn itn(n: i32) -> i32 {
+    $n;
+}
+
+/*  OPTION */
+enum Option<T> {
+  Some(value : T),
+  None
+}
+
+/*  LIST */
+
+enum List<T> {
+  Full(head: T, tail: List<T>),
+  Empty
+}
+
+fn nListPrintln(l: List<i32>) {
+    nListPrint(l);
+    sprintln("");
+}
+
+fn nListPrint(l: List<i32>) {
+    ListMatch(l, { head,tail -> nprint(head); ListMatch(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
+}
+
+fn range(start: i32, end: i32) -> List<i32> {
+    if (less(start, end), { ->
+        List::Full(start, range(nadd(start, 1), end));
+    }, { ->
+        List::Empty();
+    });
+}
+
+fn listMap(l: List<T>, map: fn(T) -> T) -> List<T> {
+    ListMatch(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
+}
+
+/** false = 0 true = any other value **/
+fn listAnyMatch(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
+    ListMatch(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
+}
+
+fn listCount(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
+    ListMatch(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listCount(tail, predicate); }); }, { -> itn(0); });
+}
+
+fn listAdd(l: &List<T>, value: T) -> List<T> {
+    List::Full(value, l);
+}

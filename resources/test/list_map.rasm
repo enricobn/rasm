@@ -1,10 +1,5 @@
 include "std.rasm"
 
-enum List<T> {
-  Full(head: T, tail: List<T>),
-  Empty
-}
-
 printWith(15);
 
 fn printWith(v1: i32) {
@@ -17,8 +12,4 @@ fn listPrint(l: List<T>, print: fn(T) -> ()) {
         ListMatch(tail, { head1,tail1 -> sprint(","); }, { -> });
         listPrint(tail, print);
     }, { -> });
-}
-
-fn listMap(l: List<T>, map: fn(T) -> T) -> List<T> {
-    ListMatch(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
 }
