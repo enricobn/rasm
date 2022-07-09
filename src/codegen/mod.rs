@@ -216,6 +216,7 @@ impl<'a> CodeGen<'a> {
             asm.push_str("    timeval:\n");
             asm.push_str("        tv_sec  dd 0\n");
             asm.push_str("        tv_usec dd 0\n");
+            asm.push_str("    _ESC	db    27, 0h\n");
             asm.push_str(&data);
         }
 

@@ -14,7 +14,7 @@ printCells(listFoldL(range(0, atoi(argv(1))), listOf7(
                               Cell::Cell(8, 3)
                           ), { prev, act ->
                             printCells(prev, 10, 10);
-                            moveUp();
+                            moveUp(10);
                             sleep(0, 250000000);
                             next(prev, 10, 10);
                           }), 10, 10);
@@ -95,33 +95,3 @@ fn isAlive(cells: &List<Cell>, cell: &Cell) -> i32 {
         });
     });
 }
-
-// https://man7.org/linux/man-pages/man4/console_codes.4.html
-fn moveUp() /{
-    push eax
-    push ebx
-    push ecx
-    push edx
-
-    push    5
-    push    dword _heap
-    call    malloc
-    add     esp, 8
-
-    mov byte [eax], 27 ; ESC
-    mov byte [eax + 1], 91 ; [
-    mov byte [eax + 2], 49 ; 1 first char of num of rows
-    mov byte [eax + 3], 48 ; 0 second char num of rows
-    mov byte [eax + 4], 65 ; A
-
-    mov     edx, 5 ; num of chars
-    mov     ecx, eax
-    mov     ebx, 1
-    mov     eax, 4
-    int     80h
-
-    pop edx
-    pop ecx
-    pop ebx
-    pop eax
-}/
