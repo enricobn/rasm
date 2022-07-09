@@ -1,0 +1,127 @@
+include "std.rasm"
+
+enum Cell {
+    Cell(x: i32, y: i32)
+}
+
+printCells(listFoldL(range(0, atoi(argv(1))), listOf7(
+                              Cell::Cell(7, 1),
+                              Cell::Cell(1, 2),
+                              Cell::Cell(2, 2),
+                              Cell::Cell(2, 3),
+                              Cell::Cell(6, 3),
+                              Cell::Cell(7, 3),
+                              Cell::Cell(8, 3)
+                          ), { prev, act ->
+                            printCells(prev, 10, 10);
+                            moveUp();
+                            sleep(0, 250000000);
+                            next(prev, 10, 10);
+                          }), 10, 10);
+
+fn printCells(cells: &List<&Cell>, width: i32, height: i32) {
+    listMap(range(0, height), { y ->
+        listMap(range(0, width), { x ->
+            if(isAlive(cells, Cell::Cell(x, y)), { -> sprint("*"); }, { -> sprint(" "); });
+        });
+        sprintln("");
+    });
+}
+
+fn allCells(width: i32, height: i32) {
+    listFlatten(listMap(range(0, height), { y ->
+        listMap(range(0, width), { x ->
+            Cell::Cell(x, y);
+        });
+    }));
+}
+
+fn printCell(cell: &Cell) {
+    CellMatch(cell, { x, y ->
+        nprint(x);
+        sprint(", ");
+        nprint(y);
+    });
+}
+
+fn next(cells: &List<Cell>, width: i32, height: i32) -> List<Cell> {
+    listFMap(allCells(width, height), { it ->
+        if(isAlive(cells, it), { ->
+            if(less(listCount(adjacents(it),  { a -> isAlive(cells, a); }), 2), { ->
+                List::Empty();
+            }, { ->
+                if(less(listCount(adjacents(it),  { a -> isAlive(cells, a); }), 4), { ->
+                    listOf(it);
+                }, { ->
+                    List::Empty();
+                });
+            });
+        }, { ->
+            if(eq(listCount(adjacents(it),  { a -> isAlive(cells, a); }), 3), { ->
+                listOf(it);
+            }, { -> List::Empty(); });
+        });
+    });
+}
+
+fn adjacents(cell: &Cell) -> List<Cell> {
+    listOf8(
+        Cell::Cell(nadd(x(cell), -1), nadd(y(cell), -1)),
+        Cell::Cell(nadd(x(cell), -1), nadd(y(cell), 0)),
+        Cell::Cell(nadd(x(cell), -1), nadd(y(cell), 1)),
+        Cell::Cell(nadd(x(cell),  0), nadd(y(cell), 1)),
+        Cell::Cell(nadd(x(cell),  0), nadd(y(cell), -1)),
+        Cell::Cell(nadd(x(cell), 1), nadd(y(cell), -1)),
+        Cell::Cell(nadd(x(cell), 1), nadd(y(cell), 0)),
+        Cell::Cell(nadd(x(cell), 1), nadd(y(cell), 1))
+    );
+}
+
+fn x(cell:&Cell) -> i32 {
+    CellMatch(cell, { x, y -> x; });
+}
+
+fn y(cell:&Cell) -> i32 {
+    CellMatch(cell, { x, y -> y; });
+}
+
+/** false = 0 true = any other value **/
+fn isAlive(cells: &List<Cell>, cell: &Cell) -> i32 {
+    listAnyMatch(cells, { it ->
+        CellMatch(cell, { x, y ->
+            CellMatch(it, { x1, y1 ->
+                and(eq(x, x1), eq(y, y1));
+            });
+        });
+    });
+}
+
+// https://man7.org/linux/man-pages/man4/console_codes.4.html
+fn moveUp() /{
+    push eax
+    push ebx
+    push ecx
+    push edx
+
+    push    5
+    push    dword _heap
+    call    malloc
+    add     esp, 8
+
+    mov byte [eax], 27 ; ESC
+    mov byte [eax + 1], 91 ; [
+    mov byte [eax + 2], 49 ; 1 first char of num of rows
+    mov byte [eax + 3], 48 ; 0 second char num of rows
+    mov byte [eax + 4], 65 ; A
+
+    mov     edx, 5 ; num of chars
+    mov     ecx, eax
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+
+    pop edx
+    pop ecx
+    pop ebx
+    pop eax
+}/
