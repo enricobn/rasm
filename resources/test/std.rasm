@@ -196,6 +196,13 @@ fn assert(value: i32) {
     });
 }
 
+fn assertFalse(value: i32) {
+    if(value,{ ->
+        sprintln("assertion failed");
+        exit(1);
+    }, { -> });
+}
+
 asm argc() -> i32 /{
     mov     eax,[_rasm_args]
 }/
@@ -286,6 +293,18 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     pop     ecx
     pop     ebx
 }/
+
+fn or(a: i32, b: i32) -> i32 {
+    if(a, { -> itn(1);}, { -> b; });
+}
+
+fn and(a: i32, b: i32) -> i32 {
+    if(a, { -> b;}, { -> a; });
+}
+
+fn not(b: i32) -> i32 {
+    if(b, { -> itn(0);}, { -> itn(1); });
+}
 
 // TODO get rid of this, for now is used to return constants
 fn itn(n: i32) -> i32 {

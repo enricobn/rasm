@@ -5,25 +5,38 @@ print();
 //False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
 
 fn print() {
-  if(0,{ -> sprintln("True");},{ -> sprintln("False");});
+    if(0,{ -> sprintln("True");},{ -> sprintln("False");});
 
-  if(1,{ -> sprintln("True");},{ -> sprintln("False");});
+    if(1,{ -> sprintln("True");},{ -> sprintln("False");});
 
-  if(eq(0,0),{ -> sprintln("equal");},{ -> sprintln("not equal");});
+    if(eq(0,0),{ -> sprintln("equal");},{ -> sprintln("not equal");});
 
-  if(eq(0,1),{ -> sprintln("equal");},{ -> sprintln("not equal");});
+    if(eq(0,1),{ -> sprintln("equal");},{ -> sprintln("not equal");});
 
-  if(less(0,1),{ -> sprintln("less");},{ -> sprintln("not less");});
+    if(less(0,1),{ -> sprintln("less");},{ -> sprintln("not less");});
 
-  if(less(0,0),{ -> sprintln("less");},{ -> sprintln("not less");});
+    if(less(0,0),{ -> sprintln("less");},{ -> sprintln("not less");});
 
-  if(greater(1,0),{ -> sprintln("greater");},{ -> sprintln("not greater");});
+    if(greater(1,0),{ -> sprintln("greater");},{ -> sprintln("not greater");});
 
-  if(greater(0,1),{ -> sprintln("greater");},{ -> sprintln("not greater");});
+    if(greater(0,1),{ -> sprintln("greater");},{ -> sprintln("not greater");});
 
-  if(lessOrEqual(0,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+    if(lessOrEqual(0,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
 
-  if(lessOrEqual(1,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+    if(lessOrEqual(1,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
 
-  if(lessOrEqual(2,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+    if(lessOrEqual(2,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+
+    // TODO I don't like it because, if am assertion fails I don't know which have failed and the program exits
+    assertFalse(or(0, 0));
+    assert(or(1, 0));
+    assert(or(0, 1));
+    assert(or(1, 1));
+
+    assertFalse(and(0, 0));
+    assertFalse(and(1, 0));
+    assertFalse(and(0, 1));
+    assert(and(1, 1));
+    assert(not(0));
+    assertFalse(not(1));
 }
