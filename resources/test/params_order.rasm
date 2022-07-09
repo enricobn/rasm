@@ -1,0 +1,11 @@
+include "std.rasm"
+
+test(nItPrint(0), nItPrint(1));
+
+fn test(p1: i32, p2: i32) {
+
+}
+
+fn nItPrint(it: i32) {
+    nprintln(it);
+}

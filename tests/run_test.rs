@@ -70,7 +70,7 @@ fn test_lambda_params() {
 
 #[test]
 fn test_list() {
-    test("list", vec!["5"],"0,1,2,3,4,5\n");
+    test("list", vec!["5"],"0,1,2,3,4\n");
 }
 
 #[test]
@@ -91,6 +91,11 @@ fn test_val() {
 #[test]
 fn test_val_in_lambda() {
     test("val_in_lambda", vec!["10"],"10\n");
+}
+
+#[test]
+fn test_params_order() {
+    test("params_order", vec![],"0\n1\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

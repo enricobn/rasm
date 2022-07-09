@@ -23,6 +23,8 @@ pub trait Backend {
 
     fn pointer_size(&self) -> String;
 
+    fn word_size(&self) -> String;
+
 }
 
 pub struct Backend386 {}
@@ -109,6 +111,10 @@ impl Backend for Backend386 {
     }
 
     fn pointer_size(&self) -> String {
+        "dword".into()
+    }
+
+    fn word_size(&self) -> String {
         "dword".into()
     }
 }

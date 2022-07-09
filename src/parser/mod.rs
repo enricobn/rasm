@@ -144,6 +144,7 @@ impl Parser {
                                 self.panic(&format!("Cannot include a module with a body: {:?}.", module.body));
                             }
                             self.included_functions.append(&mut module.functions);
+                            self.enums.append(&mut module.enums);
                         }
                         self.i = next_i;
                         continue;

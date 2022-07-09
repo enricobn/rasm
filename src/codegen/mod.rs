@@ -31,7 +31,7 @@ enum MemoryValue {
 }
 
 #[derive(Clone, Debug)]
-struct VarContext {
+pub struct VarContext {
     value_to_address: LinkedHashMap<String, VarKind>,
 }
 
@@ -237,12 +237,17 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut asm, &format!("mov     [_rasm_args + {}], eax", i * self.backend.word_len()), None);
         }
 
-        CodeGen::add(&mut asm, "mov     eax, _heap_buffer\n", None);
-        CodeGen::add(&mut asm, "mov     [_heap], eax\n", None);
-        CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer\n", None);
-        CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax\n", None);
+        CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None);
+        CodeGen::add(&mut asm, "mov     [_heap], eax", None);
+        CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer", None);
+        CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax", None);
+        CodeGen::add(&mut asm,"", None);
+        CodeGen::add(&mut asm,"push    ebp       ; save old call frame", None);
+        CodeGen::add(&mut asm,"mov     ebp, esp  ; initialize new call frame", None);
 
         asm.push_str(&self.body);
+
+        CodeGen::add(&mut asm,"pop    ebp       ; restore old call frame", None);
 
         // exit sys call
         CodeGen::add(&mut asm, "    mov     ebx, 0", None);
@@ -417,7 +422,7 @@ impl<'a> CodeGen<'a> {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
                             let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true);
                             Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, "".into(), &val, "".into(), "".into());
-                            self.definitions.push_str(parameters.before());
+                            self.definitions.push_str(&parameters.before());
                         }
                         ASTExpression::StringLiteral(_) => {
                             panic!("unsupported");
@@ -513,13 +518,13 @@ impl<'a> CodeGen<'a> {
                                                               inline && parent_def.is_some(), false);
 
         if !function_call.parameters.is_empty() {
-            let mut param_index = function_call.parameters.len();
+            let mut param_index = 0;
             // as for C calling conventions parameters are pushed in reverse order
-            for expr in function_call.parameters.iter().rev() {
-                let param_opt = parameters.get(param_index - 1);
-                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index - 1, function_call.function_name)).name.clone();
-                let param_type = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index - 1, function_call.function_name)).type_ref.clone();
-                param_index -= 1;
+            for expr in function_call.parameters.iter() {
+                let param_opt = parameters.get(param_index);
+                let param_name = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index, function_call.function_name)).name.clone();
+                let param_type = param_opt.unwrap_or_else(|| panic!("Cannot find param {} of function call {}", param_index, function_call.function_name)).type_ref.clone();
+                param_index += 1;
 
                 debug!("{}adding parameter {}: {:?}", " ".repeat(indent * 4), param_name, expr);
 
@@ -546,10 +551,13 @@ impl<'a> CodeGen<'a> {
                         Self::add_val(context, parent_def, before, &lambda_space_opt, &indent, &mut call_parameters, &param_name, &name, &error_msg, &subject);
                     }
                     ASTExpression::Lambda(lambda_def) => {
+                        if let ASTFunctionBody::ASMBody(_) = &lambda_def.body {
+                            panic!("A lambda cannot have an asm body.")
+                        }
                         let (return_type, parameters_types) = if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type, parameters }) = param_type.ast_type {
                             (return_type, parameters)
                         } else {
-                            panic!("Parameter is not a lambda");
+                            panic!("Parameter is not a lambda: {:?}", param_type.ast_type);
                         };
 
                         if parameters_types.len() != lambda_def.parameter_names.len() {
@@ -569,13 +577,15 @@ impl<'a> CodeGen<'a> {
 
                         self.id += 1;
 
-                        let mut lambda_space = LambdaSpace::new(context.clone());
+                        debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
-                        debug!("{}Preparing lambda_space and 'from_context' parameters for lambda {}", " ".repeat(indent * 4), param_name);
+                        let mut lambda_space = call_parameters.add_lambda(&mut def, lambda_space_opt, context, None);
 
+                        /*
                         let num_of_params = context.iter().filter(|(_, kind)| {
                             matches!(kind, VarKind::ParameterRef(_, _))
                         }).count();
+
 
                         //if num_of_params > 0 {
                         let bp = self.backend.stack_base_pointer();
@@ -635,6 +645,9 @@ impl<'a> CodeGen<'a> {
                         CodeGen::add(before, "    pop ecx", None);
                         CodeGen::add(before, "    pop ebx", None);
 
+                         */
+
+
                         //CodeGen::add(&mut after, "    pop eax", None);
                         //}
 
@@ -648,25 +661,24 @@ impl<'a> CodeGen<'a> {
                             // TODO check if the parameter name collides with some context var
                         }
 
-                        if let ASTFunctionBody::RASMBody(_) = &lambda_def.body {
-                            CodeGen::add(before, &format!("    push   {} eax", pointer_size), Some(&format!("reference to function {}", def.name)));
 
-                            to_remove_from_stack += 1;
+                        //call_parameters.add_function_call(Some(&format!("reference to function {}", def.name)));
+                        //CodeGen::add(before, &format!("    push   {} eax", pointer_size), Some(&format!("reference to function {}", def.name)));
 
-                            //debug!("Pushing lambda {}", def.name);
-                            let lambda_call = LambdaCall { def, space: lambda_space };
-                            //debug!("Lambda call {}", lambda_call.def.name);
-                            self.functions_called.insert(lambda_call.def.name.clone());
-                            lambda_calls.push(lambda_call);
-                        } else {
-                            panic!("A lambda cannot have an asm body.")
-                        }
+                        //to_remove_from_stack += 1;
+
+                        //debug!("Pushing lambda {}", def.name);
+                        let lambda_call = LambdaCall { def, space: lambda_space };
+                        //debug!("Lambda call {}", lambda_call.def.name);
+                        self.functions_called.insert(lambda_call.def.name.clone());
+                        lambda_calls.push(lambda_call);
+
                     }
                 }
             }
         }
 
-        before.push_str(call_parameters.before());
+        before.push_str(&call_parameters.before());
 
         // I can only inline functions if are called inside another function, otherwise I cannot access to the base pointer and
         // I must access the stack pointer, but if the function, as usual, pushes some values in the stack, I cannot use it ...
@@ -712,6 +724,10 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(before, &format!("    add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())), None);
         }
 
+        for line in call_parameters.after().lines() {
+            CodeGen::add(before, line, None);
+        }
+
         for line in after.lines() {
             CodeGen::add(before, line, None);
         }
@@ -746,7 +762,7 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    fn add(dest: &mut String, code: &str, comment: Option<&str>) {
+    pub fn add(dest: &mut String, code: &str, comment: Option<&str>) {
         if code.is_empty() {
             let string = " ".repeat(60);
             dest.push_str(&string);
