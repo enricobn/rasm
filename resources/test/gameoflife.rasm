@@ -65,16 +65,18 @@ fn next(cells: &List<Cell>, width: i32, height: i32) -> List<Cell> {
 }
 
 fn adjacents(cell: &Cell) -> List<Cell> {
-    listOf8(
-        Cell::Cell(nadd(x(cell), -1), nadd(y(cell), -1)),
-        Cell::Cell(nadd(x(cell), -1), nadd(y(cell), 0)),
-        Cell::Cell(nadd(x(cell), -1), nadd(y(cell), 1)),
-        Cell::Cell(nadd(x(cell),  0), nadd(y(cell), 1)),
-        Cell::Cell(nadd(x(cell),  0), nadd(y(cell), -1)),
-        Cell::Cell(nadd(x(cell), 1), nadd(y(cell), -1)),
-        Cell::Cell(nadd(x(cell), 1), nadd(y(cell), 0)),
-        Cell::Cell(nadd(x(cell), 1), nadd(y(cell), 1))
-    );
+    CellMatch(cell, { x, y ->
+        listOf8(
+            Cell::Cell(nadd(x, -1), nadd(y, -1)),
+            Cell::Cell(nadd(x, -1), y),
+            Cell::Cell(nadd(x, -1), nadd(y, 1)),
+            Cell::Cell(x, nadd(y, 1)),
+            Cell::Cell(x, nadd(y, -1)),
+            Cell::Cell(nadd(x, 1), nadd(y, -1)),
+            Cell::Cell(nadd(x, 1), y),
+            Cell::Cell(nadd(x, 1), nadd(y, 1))
+        );
+    });
 }
 
 fn x(cell:&Cell) -> i32 {
