@@ -134,7 +134,7 @@ impl<'a> CodeGen<'a> {
                 let body_str = if variant.parameters.is_empty() {
                     let label = format!("_enum_{}_{}", enum_def.name, variant.name);
                     self.statics.insert(label.clone(), MemoryValue::I32Value(variant_num as i32));
-                    format!("\tmov    eax, {}\n", label)
+                    format!("mov    eax, {}\n", label)
                 } else {
                     Self::enum_parametric_variant_constructor_body(self.backend, &variant_num, &variant)
                 };
@@ -196,19 +196,19 @@ impl<'a> CodeGen<'a> {
 
                 match self.statics.get(*id).unwrap() {
                     MemoryValue::StringValue(s) => {
-                        def.push_str("    db    ");
+                        def.push_str("\tdb    ");
                         def.push_str(&format!("'{}', 0h", s));
-                        CodeGen::add(&mut data, &def, None);
+                        CodeGen::add(&mut data, &def, None, true);
                     }
                     MemoryValue::I32Value(i) => {
-                        def.push_str("    dd    ");
+                        def.push_str("\tdd    ");
                         def.push_str(&format!("{}", i));
-                        CodeGen::add(&mut data, &def, None);
+                        CodeGen::add(&mut data, &def, None, true);
                     }
                     MemoryValue::Mem(bytes) => {
-                        def.push_str("    resb ");
+                        def.push_str("\tresb ");
                         def.push_str(&format!("{}", bytes));
-                        CodeGen::add(&mut bss, &def, None);
+                        CodeGen::add(&mut bss, &def, None, true);
                     }
                 }
             }
@@ -216,44 +216,44 @@ impl<'a> CodeGen<'a> {
             asm.push_str(&data);
         }
 
-        CodeGen::add(&mut asm, "section .bss", None);
-        CodeGen::add(&mut asm, "  _heap            resb 4", None);
-        CodeGen::add(&mut asm, "  _heap_buffer:     resb 1024 * 1024", None);
-        CodeGen::add(&mut asm, "  _lambda_space_heap:            resb 4", None);
-        CodeGen::add(&mut asm, "  _lambda_space_heap_buffer:     resb 16 * 1024 * 1024", None);
-        CodeGen::add(&mut asm, "  _rasm_buffer_10b: resb 10", None);
+        CodeGen::add(&mut asm, "section .bss", None, true);
+        CodeGen::add(&mut asm, "_heap            resb 4", None, true);
+        CodeGen::add(&mut asm, "_heap_buffer:     resb 1024 * 1024", None, true);
+        CodeGen::add(&mut asm, "_lambda_space_heap:            resb 4", None, true);
+        CodeGen::add(&mut asm, "_lambda_space_heap_buffer:     resb 16 * 1024 * 1024", None, true);
+        CodeGen::add(&mut asm, "_rasm_buffer_10b: resb 10", None, true);
         // command line arguments
-        CodeGen::add(&mut asm, "  _rasm_args: resw 12", None);
+        CodeGen::add(&mut asm, "_rasm_args: resw 12", None, true);
         asm.push_str(&bss);
 
-        CodeGen::add(&mut asm, "SECTION .text", None);
-        CodeGen::add(&mut asm, "global  main", None);
-        CodeGen::add(&mut asm, "", None);
-        CodeGen::add(&mut asm, "main:", None);
+        CodeGen::add(&mut asm, "SECTION .text", None, true);
+        CodeGen::add(&mut asm, "global  main", None, true);
+        CodeGen::add(&mut asm, "", None, true);
+        CodeGen::add(&mut asm, "main:", None, false);
 
         // command line arguments
         for i in 0..12 {
-            CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()), Some(&format!("command line argument {}", i)));
-            CodeGen::add(&mut asm, &format!("mov     [_rasm_args + {}], eax", i * self.backend.word_len()), None);
+            CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()), Some(&format!("command line argument {}", i)), true);
+            CodeGen::add(&mut asm, &format!("mov     [_rasm_args + {}], eax", i * self.backend.word_len()), None, true);
         }
 
-        CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None);
-        CodeGen::add(&mut asm, "mov     [_heap], eax", None);
-        CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer", None);
-        CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax", None);
-        CodeGen::add(&mut asm,"", None);
-        CodeGen::add(&mut asm,"push    ebp       ; save old call frame", None);
-        CodeGen::add(&mut asm,"mov     ebp, esp  ; initialize new call frame", None);
+        CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None, true);
+        CodeGen::add(&mut asm, "mov     [_heap], eax", None, true);
+        CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer", None, true);
+        CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax", None, true);
+        CodeGen::add(&mut asm, "", None, true);
+        CodeGen::add(&mut asm, "push    ebp       ; save old call frame", None, true);
+        CodeGen::add(&mut asm, "mov     ebp, esp  ; initialize new call frame", None, true);
 
         asm.push_str(&self.body);
 
-        CodeGen::add(&mut asm,"pop    ebp       ; restore old call frame", None);
+        CodeGen::add(&mut asm, "pop    ebp       ; restore old call frame", None, true);
 
         // exit sys call
-        CodeGen::add(&mut asm, "    mov     ebx, 0", None);
-        CodeGen::add(&mut asm, "    mov     eax, 1", None);
-        CodeGen::add(&mut asm, "    int     80h", None);
-        CodeGen::add(&mut asm, "    ret", None);
+        CodeGen::add(&mut asm, "mov     ebx, 0", None, true);
+        CodeGen::add(&mut asm, "mov     eax, 1", None, true);
+        CodeGen::add(&mut asm, "int     80h", None, true);
+        CodeGen::add(&mut asm, "ret", None, true);
 
         asm.push_str(&self.definitions);
 
@@ -262,21 +262,21 @@ impl<'a> CodeGen<'a> {
 
     fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
         let mut body = String::new();
-        CodeGen::add(&mut body, "\tpush ecx", None);
-        CodeGen::add(&mut body, "\tpush ebx", None);
-        CodeGen::add(&mut body, &format!("\tpush     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None);
-        CodeGen::add(&mut body, &format!("\tpush   {} _heap", backend.pointer_size()), None);
-        CodeGen::add(&mut body, "\tcall malloc", None);
-        CodeGen::add(&mut body, "\tmov   ecx, eax", None);
-        CodeGen::add(&mut body, &format!("\tadd esp,{}", backend.word_len() * 2), None);
-        CodeGen::add(&mut body, &format!("\tmov   [eax], word {}", variant_num), None);
+        CodeGen::add(&mut body, "push ecx", None, true);
+        CodeGen::add(&mut body, "push ebx", None, true);
+        CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None, true);
+        CodeGen::add(&mut body, &format!("push   {} _heap", backend.pointer_size()), None, true);
+        CodeGen::add(&mut body, "call malloc", None, true);
+        CodeGen::add(&mut body, "mov   ecx, eax", None, true);
+        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len() * 2), None, true);
+        CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
         for (i, par) in variant.parameters.iter().rev().enumerate() {
-            CodeGen::add(&mut body, &format!("\tmov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)));
-            CodeGen::add(&mut body, &format!("\tmov {}  [eax + {}], ebx", backend.pointer_size(), (i + 1) * backend.word_len() as usize), None);
+            CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
+            CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), (i + 1) * backend.word_len() as usize), None, true);
         }
-        CodeGen::add(&mut body, "\tmov   eax, ecx", None);
-        CodeGen::add(&mut body, "\tpop   ebx", None);
-        CodeGen::add(&mut body, "\tpop   ecx", None);
+        CodeGen::add(&mut body, "mov   eax, ecx", None, true);
+        CodeGen::add(&mut body, "pop   ebx", None, true);
+        CodeGen::add(&mut body, "pop   ecx", None, true);
         body
     }
 
@@ -285,31 +285,31 @@ impl<'a> CodeGen<'a> {
         let sp = backend.stack_pointer();
         let mut body = String::new();
 
-        CodeGen::add(&mut body, "\tmov eax, $value", None);
-        CodeGen::add(&mut body, "\tpush ebx", None);
+        CodeGen::add(&mut body, "mov eax, $value", None, true);
+        CodeGen::add(&mut body, "push ebx", None, true);
 
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-            CodeGen::add(&mut body, &format!("\tcmp [eax], word {}", variant_num), None);
-            CodeGen::add(&mut body, &format!("\tjnz .variant{}", variant_num), None);
+            CodeGen::add(&mut body, &format!("cmp [eax], word {}", variant_num), None, true);
+            CodeGen::add(&mut body, &format!("jnz .variant{}", variant_num), None, true);
 
             for (i, param) in variant.parameters.iter().enumerate() {
-                CodeGen::add(&mut body, &format!("\tpush dword [eax + {}]", (i + 1) * word_len as usize), Some(&format!("param {}", param.name)));
+                CodeGen::add(&mut body, &format!("push dword [eax + {}]", (i + 1) * word_len as usize), Some(&format!("param {}", param.name)), true);
             }
 
-            CodeGen::add(&mut body, &format!("\tmov ebx,${}", variant.name), None);
-            CodeGen::add(&mut body, "\tpush ebx", None);
-            CodeGen::add(&mut body, "\tcall [ebx]", None);
-            CodeGen::add(&mut body, &format!("\tadd {}, {}", sp, word_len), None);
+            CodeGen::add(&mut body, &format!("mov ebx,${}", variant.name), None, true);
+            CodeGen::add(&mut body, "push ebx", None, true);
+            CodeGen::add(&mut body, "call [ebx]", None, true);
+            CodeGen::add(&mut body, &format!("add {}, {}", sp, word_len), None, true);
 
             if !variant.parameters.is_empty() {
-                CodeGen::add(&mut body, &format!("\tadd {}, {}", sp, variant.parameters.len() * word_len as usize), None);
+                CodeGen::add(&mut body, &format!("add {}, {}", sp, variant.parameters.len() * word_len as usize), None, true);
             }
 
-            CodeGen::add(&mut body, "\tjmp .end", None);
-            CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None);
+            CodeGen::add(&mut body, "jmp .end", None, true);
+            CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, true);
         }
-        CodeGen::add(&mut body, ".end:", None);
-        CodeGen::add(&mut body, "\tpop ebx", None);
+        CodeGen::add(&mut body, ".end:", None, true);
+        CodeGen::add(&mut body, "pop ebx", None, true);
 
         body
     }
@@ -368,13 +368,13 @@ impl<'a> CodeGen<'a> {
         debug!("{}Adding function def {}", " ".repeat(indent * 4), function_def.name);
         let mut lambda_calls = Vec::new();
         //debug!("add_function_def {}", function_def.name);
-        CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name), None);
+        CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name), None, false);
 
         let sp = self.backend.stack_pointer();
         let bp = self.backend.stack_base_pointer();
 
-        CodeGen::add(&mut self.definitions, &format!("    push    {}", bp), None);
-        CodeGen::add(&mut self.definitions, &format!("    mov     {},{}", bp, sp), None);
+        CodeGen::add(&mut self.definitions, &format!("push    {}", bp), None, true);
+        CodeGen::add(&mut self.definitions, &format!("mov     {},{}", bp, sp), None, true);
 
         let mut context = VarContext::new(Some(parent_context));
 
@@ -450,8 +450,8 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        CodeGen::add(&mut self.definitions, &format!("    pop     {}", bp), None);
-        CodeGen::add(&mut self.definitions, "    ret", None);
+        CodeGen::add(&mut self.definitions, &format!("pop     {}", bp), None, true);
+        CodeGen::add(&mut self.definitions, "ret", None, true);
         lambda_calls
     }
 
@@ -503,13 +503,14 @@ impl<'a> CodeGen<'a> {
 
         let mut lambda_calls = Vec::new();
         if inline && parent_def.is_some() {
-            CodeGen::add(before, &format!("; inlining function {}", function_call.function_name), None);
+            CodeGen::add(before, &format!("; inlining function {}", function_call.function_name), None, true);
         } else {
             if inline {
-                CodeGen::add(before, "; function is inline, but not inside a function", None);
-                CodeGen::add(before, "; so cannot be inlined.", None);
+                CodeGen::add(before, "; function is inline, but not inside a function", None, true);
+                CodeGen::add(before, "; so cannot be inlined.", None, true);
             }
-            CodeGen::add(before, &format!("; calling function {}", function_call.function_name), None);
+            CodeGen::add_empty_line(before);
+            CodeGen::add(before, &format!("; calling function {}", function_call.function_name), None, true);
         }
 
         let mut to_remove_from_stack = 0;
@@ -591,7 +592,7 @@ impl<'a> CodeGen<'a> {
 
 
                         //call_parameters.add_function_call(Some(&format!("reference to function {}", def.name)));
-                        //CodeGen::add(before, &format!("    push   {} eax", pointer_size), Some(&format!("reference to function {}", def.name)));
+                        //CodeGen::add(before, &format!("push   {} eax", pointer_size), Some(&format!("reference to function {}", def.name)));
 
                         //to_remove_from_stack += 1;
 
@@ -613,7 +614,8 @@ impl<'a> CodeGen<'a> {
         if inline && parent_def.is_some() {
             if let Some(ASTFunctionBody::ASMBody(body)) = &body {
                 CodeGen::add(before, &format!("; To remove from stack  {}", added_to_stack +
-                    to_remove_from_stack + call_parameters.to_remove_from_stack()), None);
+                                    to_remove_from_stack + call_parameters.to_remove_from_stack()), None,
+                             true);
                 before.push_str(&call_parameters.resolve_asm_parameters(body, added_to_stack + to_remove_from_stack, indent));
             } else {
                 panic!("Only asm can be inlined, for now...");
@@ -624,47 +626,50 @@ impl<'a> CodeGen<'a> {
             }
             if is_lambda {
                 if let Some(address) = lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name)) {
-                    CodeGen::add(before, &format!("    mov eax, [{} + 8]", self.backend.stack_base_pointer()), None);
+                    CodeGen::add(before, &format!("mov eax, [{} + 8]", self.backend.stack_base_pointer()), None, true);
                     // we add the address to the "lambda space" as the last parameter to the lambda
-                    CodeGen::add(before, &format!("add eax, {}", address * self.backend.word_len() as usize), Some("address to the \"lambda space\""));
-                    CodeGen::add(before, &format!("push {} [eax]", self.backend.pointer_size()), Some("address to the \"lambda space\""));
-                    CodeGen::add(before, "mov eax, [eax]", Some("address to the \"lambda space\""));
-                    CodeGen::add(before, "call [eax]", Some(&format!("Calling function {}", function_call.function_name)));
-                    CodeGen::add(before, &format!("add  {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None);
+                    CodeGen::add(before, &format!("add eax, {}", address * self.backend.word_len() as usize), Some("address to the \"lambda space\""), true);
+                    CodeGen::add(before, &format!("push {} [eax]", self.backend.pointer_size()), Some("address to the \"lambda space\""), true);
+                    CodeGen::add(before, "mov eax, [eax]", Some("address to the \"lambda space\""), true);
+                    CodeGen::add(before, "call [eax]", Some(&format!("Calling function {}", function_call.function_name)), true);
+                    CodeGen::add(before, &format!("add  {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None, true);
                 } else if let Some(VarKind::ParameterRef(index, _)) = context.get(&function_call.function_name) {
-                    CodeGen::add(before, "", Some(&format!("calling lambda parameter reference to {}", &function_call.function_name)));
-                    CodeGen::add(before, &format!("    mov eax, [{} + {} + {}]", self.backend.stack_base_pointer(), self.backend.word_len(), (index + 1) * self.backend.word_len() as usize), None);
+                    CodeGen::add(before, "", Some(&format!("calling lambda parameter reference to {}", &function_call.function_name)), true);
+                    CodeGen::add(before, &format!("mov eax, [{} + {} + {}]", self.backend.stack_base_pointer(), self.backend.word_len(), (index + 1) * self.backend.word_len() as usize), None, true);
                     // we add the address to the "lambda space" as the last parameter to the lambda
-                    CodeGen::add(before, &format!("push {} eax", self.backend.pointer_size()), Some("address to the \"lambda space\""));
-                    CodeGen::add(before, "call [eax]", Some(&format!("Calling function {}", function_call.function_name)));
-                    CodeGen::add(before, &format!("add  {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None);
+                    CodeGen::add(before, &format!("push {} eax", self.backend.pointer_size()), Some("address to the \"lambda space\""), true);
+                    CodeGen::add(before, "call [eax]", Some(&format!("Calling function {}", function_call.function_name)), true);
+                    CodeGen::add(before, &format!("add  {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None, true);
                 } else {
                     panic!("lambda space does not contain {}", function_call.function_name);
                 }
             } else {
-                CodeGen::add(before, &format!("    call    {}", address_to_call), Some(&format!("Calling function {}", function_call.function_name)));
+                CodeGen::add(before, &format!("call    {}", address_to_call), Some(&format!("Calling function {}", function_call.function_name)), true);
             }
         }
 
         if to_remove_from_stack + call_parameters.to_remove_from_stack() > 0 {
             let sp = self.backend.stack_pointer();
             let wl = self.backend.word_len() as usize;
-            CodeGen::add(before, &format!("    add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())), None);
+            CodeGen::add(before, &format!("add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())), None, true);
         }
 
         for line in call_parameters.after().lines() {
-            CodeGen::add(before, line, None);
+            before.push_str(line);
+            before.push('\n');
         }
 
         for line in after.lines() {
-            CodeGen::add(before, line, None);
+            before.push_str(line);
+            before.push('\n');
         }
 
         if inline && parent_def.is_some() {
-            CodeGen::add(before, &format!("; end inlining function {}", function_call.function_name), None);
+            CodeGen::add(before, &format!("; end inlining function {}", function_call.function_name), None, true);
         } else {
-            CodeGen::add(before, &format!("; end calling function {}", function_call.function_name), None);
+            CodeGen::add(before, &format!("; end calling function {}", function_call.function_name), None, true);
         }
+        CodeGen::add_empty_line(before);
 
         lambda_calls
     }
@@ -673,7 +678,7 @@ impl<'a> CodeGen<'a> {
         if let Some(var_kind) = context.get(name) {
             match var_kind {
                 VarKind::ParameterRef(index, par) => {
-                    CodeGen::add(before, "", Some(&format!("{}Adding parameter ref param {}, for {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt)));
+                    CodeGen::add(before, "", Some(&format!("Adding parameter ref param {}, for {}, index {}, from context {}, lambda_space: {:?}", name, subject, index, par.from_context, lambda_space_opt)), true);
                     //debug!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
 
                     if lambda_space_opt.map(|it| it.get_index(&name).is_some()).unwrap_or(false) {
@@ -690,20 +695,30 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn add(dest: &mut String, code: &str, comment: Option<&str>) {
+    pub fn add(dest: &mut String, code: &str, comment: Option<&str>, indent: bool) {
         if code.is_empty() {
-            let string = " ".repeat(60);
-            dest.push_str(&string);
+            dest.push('\n');
         } else {
-            let s = format!("{:width$}", code, width = 60);
-            assert_eq!(s.len(), 60);
+            let max = 60;
+            let s = format!("{:width$}", code, width = max);
+            assert_eq!(s.len(), max, "{}", s);
+            if indent {
+                dest.push('\t');
+            }
             dest.push_str(&s);
         }
 
         if let Some(c) = comment {
+            if code.is_empty() {
+                dest.push('\t');
+            }
             dest.push_str(&"; ".to_string());
             dest.push_str(c);
         }
+        dest.push('\n');
+    }
+
+    pub fn add_empty_line(dest: &mut String) {
         dest.push('\n');
     }
 }
