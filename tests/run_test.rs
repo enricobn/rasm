@@ -70,7 +70,7 @@ fn test_lambda_params() {
 
 #[test]
 fn test_list() {
-    test("list", vec!["5"],"0,1,2,3,4\n");
+    test("list", vec!["5"],"0,1,2,3,4\n4,3,2,1,0\n");
 }
 
 #[test]
@@ -101,6 +101,11 @@ fn test_params_order() {
 #[test]
 fn test_list_fmap() {
     test("list_fmap", vec![],"0,5,1,5\n");
+}
+
+#[test]
+fn test_list_fold() {
+    test("list_fold", vec!["3"],"4\n10\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

@@ -339,6 +339,9 @@ fn listAdd(l: &List<T>, value: T) -> List<T> {
     List::Full(value, l);
 }
 
+fn listOf(v: T) -> List<T> {
+    List::Full(v, List::Empty());
+}
 
 fn listOf2(v1: T, v2: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Empty()));
@@ -371,3 +374,20 @@ fn listFlatten(l: List<List<T>>) -> List<T> {
 fn listAppend(dest: List<T>, source: List<T>) -> List<T> {
     ListMatch(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
 }
+
+fn listFoldL(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
+    ListMatch(l, { head, tail ->
+         listFoldL(tail, accum(zero, head), accum);
+    }, { -> zero; });
+}
+
+fn listFoldR(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
+    listFoldL(listReverse(l), zero, accum);
+}
+
+fn listReverse(l: List<T>) -> List<T> {
+    ListMatch(l, { head1, tail1 ->
+        listAppend(listReverse(tail1), listOf(head1));
+    }, { -> List::Empty(); });
+}
+

@@ -1,3 +1,5 @@
 include "std.rasm"
 
 nListPrintln(range(0, atoi(argv(1))));
+
+nListPrintln(listReverse(range(0, atoi(argv(1)))));

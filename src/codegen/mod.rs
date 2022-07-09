@@ -423,7 +423,7 @@ impl<'a> CodeGen<'a> {
                         ASTExpression::Val(val) => {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
                             let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true);
-                            Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, "".into(), &val, "".into(), "".into());
+                            Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, val, &val, "".into(), "".into());
                             self.definitions.push_str(&parameters.before());
                         }
                         ASTExpression::StringLiteral(_) => {
@@ -693,7 +693,7 @@ impl<'a> CodeGen<'a> {
                 }
             }
         } else {
-            panic!("{}", error_msg);
+            panic!("Error adding val {}: {}", param_name,  error_msg);
         }
     }
 

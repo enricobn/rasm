@@ -1,0 +1,5 @@
+include "std.rasm"
+
+nprintln(listFoldL(range(0, atoi(argv(1))), 0, { prev, actual -> nadd(prev, nadd(prev, actual)); }));
+
+nprintln(listFoldR(range(0, atoi(argv(1))), 0, { prev, actual -> nadd(prev, nadd(prev, actual)); }));
