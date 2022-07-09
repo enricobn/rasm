@@ -213,12 +213,20 @@ impl<'a> CodeGen<'a> {
                 }
             }
             asm.push_str("SECTION .data\n");
+            asm.push_str("    timeval:\n");
+            asm.push_str("        tv_sec  dd 0\n");
+            asm.push_str("        tv_usec dd 0\n");
+            asm.push_str("_char	db    ' ', 0h\n");
+            asm.push_str("_char2	db    '  ', 0h\n");
+            asm.push_str("_char3	db    '   ', 0h\n");
+            asm.push_str("_char4	db    '    ', 0h\n");
+            asm.push_str("_char5	db    '     ', 0h\n");
             asm.push_str(&data);
         }
 
         CodeGen::add(&mut asm, "section .bss", None, true);
         CodeGen::add(&mut asm, "_heap            resb 4", None, true);
-        CodeGen::add(&mut asm, "_heap_buffer:     resb 1024 * 1024", None, true);
+        CodeGen::add(&mut asm, "_heap_buffer:     resb 16 * 1024 * 1024", None, true);
         CodeGen::add(&mut asm, "_lambda_space_heap:            resb 4", None, true);
         CodeGen::add(&mut asm, "_lambda_space_heap_buffer:     resb 16 * 1024 * 1024", None, true);
         CodeGen::add(&mut asm, "_rasm_buffer_10b: resb 10", None, true);

@@ -294,6 +294,22 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     pop     ebx
 }/
 
+// from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
+fn sleep(sec: i32, nsec: i32) -> i32 /{
+    push ebx
+    push ecx
+    mov dword eax,$sec
+    mov dword [tv_sec], eax
+    mov dword eax,$nsec
+    mov dword [tv_usec], eax
+    mov eax, 162
+    mov ebx, timeval
+    mov ecx, 0
+    int 0x80
+    pop ecx
+    pop ebx
+}/
+
 fn or(a: i32, b: i32) -> i32 {
     if(a, { -> itn(1);}, { -> b; });
 }
@@ -351,7 +367,7 @@ fn listAnyMatch(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
 }
 
 fn listCount(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
-    ListMatch(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listCount(tail, predicate); }); }, { -> itn(0); });
+    ListMatch(l, { head,tail -> nadd(listCount(tail, predicate), if(predicate(head), { -> itn(1); }, { -> itn(0); })); }, { -> itn(0); });
 }
 
 fn listAdd(l: &List<T>, value: T) -> List<T> {
@@ -364,6 +380,30 @@ fn listOf(v: T) -> List<T> {
 
 fn listOf2(v1: T, v2: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Empty()));
+}
+
+fn listOf3(v1: T, v2: T, v3: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Full(v3, List::Empty())));
+}
+
+fn listOf4(v1: T, v2: T, v3: T, v4: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Empty()))));
+}
+
+fn listOf5(v1: T, v2: T, v3: T, v4: T, v5: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Empty())))));
+}
+
+fn listOf6(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Empty()))))));
+}
+
+fn listOf7(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Empty())))))));
+}
+
+fn listOf8(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T> {
+    List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Full(v8, List::Empty()))))))));
 }
 
 fn listPrintln(l: List<T>, print: fn(T) -> ()) {

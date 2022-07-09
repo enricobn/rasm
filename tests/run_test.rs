@@ -70,7 +70,7 @@ fn test_lambda_params() {
 
 #[test]
 fn test_list() {
-    test("list", vec!["5"],"0,1,2,3,4\n4,3,2,1,0\n");
+    test("list", vec!["5"],"0,1,2,3,4\n4,3,2,1,0\n4\n");
 }
 
 #[test]

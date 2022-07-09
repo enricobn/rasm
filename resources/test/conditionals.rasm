@@ -13,7 +13,7 @@ fn print() {
 
     if(eq(0,1),{ -> sprintln("equal");},{ -> sprintln("not equal");});
 
-    if(less(0,1),{ -> sprintln("less");},{ -> sprintln("not less");});
+    if(less(1,2),{ -> sprintln("less");},{ -> sprintln("not less");});
 
     if(less(0,0),{ -> sprintln("less");},{ -> sprintln("not less");});
 
