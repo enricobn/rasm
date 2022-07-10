@@ -268,15 +268,15 @@ asm atoi(s: &str) -> i32 /{
     pop    ecx
 }/
 
+/* mem is the pointer to a location in memory where is stored the next available memory location */
 asm malloc(mem: &i32, size: i32) -> i32 /{
     push    ebx
-    mov     eax,$mem
-    push    dword [eax]
-    mov     dword ebx,$mem
-    mov     dword ebx,[ebx]
+    mov     eax,$mem            ; we store in eax the pointer
+    push    dword [eax]         ; we save in the stack the actual next memory location that we must return (in eax)
+    mov     dword ebx,[eax]
     add     ebx,$size
     mov     dword [eax],ebx
-    pop     eax
+    pop     eax                 ; we restore from the stack the saved memory location
     pop     ebx
 }/
 
@@ -284,9 +284,7 @@ asm mdealloc(mem: &i32, size: i32) /{
     push    ebx
     push    eax
     mov     eax,$mem
-
-    mov     dword ebx,$mem
-    mov     dword ebx,[ebx]
+    mov     dword ebx,[eax]
     sub     ebx,$size
     mov     dword [eax],ebx
     pop     eax
