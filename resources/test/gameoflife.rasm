@@ -4,20 +4,30 @@ enum Cell {
     Cell(x: i32, y: i32)
 }
 
-printCells(listFoldL(range(0, atoi(argv(1))), listOf7(
-                              Cell::Cell(7, 1),
-                              Cell::Cell(1, 2),
-                              Cell::Cell(2, 2),
-                              Cell::Cell(2, 3),
-                              Cell::Cell(6, 3),
-                              Cell::Cell(7, 3),
-                              Cell::Cell(8, 3)
-                          ), { prev, act ->
-                            printCells(prev, 10, 10);
-                            moveUp(10);
-                            sleep(0, 250000000);
-                            next(prev, 10, 10);
-                          }), 10, 10);
+run(moveCells(
+        listOf7(
+           Cell::Cell(7, 1),
+           Cell::Cell(1, 2),
+           Cell::Cell(2, 2),
+           Cell::Cell(2, 3),
+           Cell::Cell(6, 3),
+           Cell::Cell(7, 3),
+           Cell::Cell(8, 3)), 10)
+        , 30, atoi(argv(1)));
+
+fn run(start: List<Cell>, size: i32, count: i32) {
+    printCells(
+        listFoldL(range(0, count), start, { prev, act ->
+            printCells(prev, size, size);
+            moveUp(30);
+            //sleep(0, 250000000);
+            next(prev, size, size);
+          }), size, size);
+}
+
+fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
+    listMap(cells, { it -> CellMatch(it, { x, y -> Cell::Cell(nadd(x, d), nadd(y, d)); });});
+}
 
 fn printCells(cells: &List<&Cell>, width: i32, height: i32) {
     listMap(range(0, height), { y ->
@@ -28,7 +38,7 @@ fn printCells(cells: &List<&Cell>, width: i32, height: i32) {
     });
 }
 
-fn allCells(width: i32, height: i32) {
+fn allCells(width: i32, height: i32) -> List<Cell> {
     listFlatten(listMap(range(0, height), { y ->
         listMap(range(0, width), { x ->
             Cell::Cell(x, y);

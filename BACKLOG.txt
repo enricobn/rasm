@@ -8,6 +8,7 @@ Next
   - I must process them in size order descending
 - bug when an enum variant starts the same as another : T T1
 - delete asm, object and executable file on compile
+- write and, or, not in asm
 - I think include messes up reporting error line
 - error if there's a function named the same way as a lambda parameter
 - put standard libraries in another path

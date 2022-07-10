@@ -222,7 +222,7 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "section .bss", None, true);
         CodeGen::add(&mut asm, "_heap            resb 4", None, true);
-        CodeGen::add(&mut asm, "_heap_buffer:     resb 16 * 1024 * 1024", None, true);
+        CodeGen::add(&mut asm, "_heap_buffer:     resb 64 * 1024 * 1024", None, true);
         CodeGen::add(&mut asm, "_lambda_space_heap:            resb 4", None, true);
         CodeGen::add(&mut asm, "_lambda_space_heap_buffer:     resb 16 * 1024 * 1024", None, true);
         CodeGen::add(&mut asm, "_rasm_buffer_10b: resb 10", None, true);
