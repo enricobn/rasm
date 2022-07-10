@@ -89,22 +89,19 @@ impl<'a> FunctionCallParameters<'a> {
         let pointer_size = self.backend.pointer_size();
 
         CodeGen::add(&mut self.before, &format!("push {}", (num_of_params + 1) * wl), None, true);
-        CodeGen::add(&mut self.before, &format!("push   {} _lambda_space_heap", self.backend.pointer_size()), None, true);
-        CodeGen::add(&mut self.before, "call malloc", None, true);
-        CodeGen::add(&mut self.before, &format!("add {}, {}", sp, wl * 2), None, true);
+        CodeGen::add(&mut self.before, "call lambdaSpaceMalloc", None, true);
+        CodeGen::add(&mut self.before, &format!("add {}, {}", sp, wl), None, true);
 
         // now in eax there is the address to the memory allocated for the lambda space
 
         CodeGen::add(&mut self.after, &format!("push {}", (num_of_params + 1) * wl), None, true);
-        CodeGen::add(&mut self.after, &format!("push   {} _lambda_space_heap", self.backend.pointer_size()), None, true);
-        CodeGen::add(&mut self.after, "call mdealloc", None, true);
-        CodeGen::add(&mut self.after, &format!("add {}, {}", sp, wl * 2), None, true);
+        CodeGen::add(&mut self.after, "call lambdaSpaceMdealloc", None, true);
+        CodeGen::add(&mut self.after, &format!("add {}, {}", sp, wl), None, true);
 
         CodeGen::add(&mut self.before, &format!("push {} ebx", pointer_size), None, true);
         CodeGen::add(&mut self.before, &format!("push {} ecx", pointer_size), None, true);
 
         CodeGen::add(&mut self.before, "mov ecx, eax", None, true);
-
 
         let mut i = 1;
 
