@@ -127,13 +127,11 @@ impl<'a> FunctionCallParameters<'a> {
         // I copy the lambda space of the parent
         if let Some(parent_lambda) = parent_lambda_space {
             let parent_lambda_size = parent_lambda.parameters_indexes.len() + 1;
-            CodeGen::add(&mut self.before, "push eax", None, true);
             CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), parent_lambda_size), None, true);
             CodeGen::add(&mut self.before, "push eax", None, true);
             CodeGen::add(&mut self.before, &format!("push {} [{}+8]", self.backend.pointer_size(), self.backend.stack_base_pointer()), None, true);
             CodeGen::add(&mut self.before, "call memcopy", None, true);
             CodeGen::add(&mut self.before, &format!("add {},{}", self.backend.stack_pointer(), 3 * wl), None, true);
-            CodeGen::add(&mut self.before, "pop eax", None, true);
         }
 
         CodeGen::add(&mut self.before, "pop ecx", None, true);

@@ -292,6 +292,7 @@ asm mdealloc(mem: &i32, size: i32) /{
 }/
 
 asm memcopy(source: &i32, dest: &i32, len: i32) /{
+    push    eax
     push    ebx
     push    ecx
     push    edx
@@ -308,9 +309,10 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     sub     ecx,1
     jmp     .loop
 .end:
-    pop edx
+    pop     edx
     pop     ecx
     pop     ebx
+    pop     eax
 }/
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
