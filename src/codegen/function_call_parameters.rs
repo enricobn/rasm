@@ -99,16 +99,11 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(&mut self.after, &format!("add {}, {}", sp, wl), None, true);
 
         CodeGen::add(&mut self.before, &format!("push {} ebx", pointer_size), None, true);
-        CodeGen::add(&mut self.before, &format!("push {} ecx", pointer_size), None, true);
-
-        CodeGen::add(&mut self.before, "mov ecx, eax", None, true);
 
         let mut i = 1;
 
         // TODO optimize: do not create parameters that are overridden by parent memcopy
         context.iter().for_each(|(name, kind)| {
-            CodeGen::add(&mut self.before, &format!("add  ecx, {}", wl), None, true);
-
             if let VarKind::ParameterRef(index, par) = kind {
                 let type_size = self.backend.type_size(&par.type_ref).unwrap();
 
@@ -117,7 +112,7 @@ impl<'a> FunctionCallParameters<'a> {
                 CodeGen::add(&mut self.before, &format!("mov  {} ebx, [{}]", type_size, address),
                              Some(&format!("context parameter {}", name)),
                              true);
-                CodeGen::add(&mut self.before, "mov  dword [ecx], ebx", None, true);
+                CodeGen::add(&mut self.before, &format!("mov  dword [eax + {}], ebx", i * wl), None, true);
 
                 lambda_space.add_context_parameter(name.clone(), i);
                 def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref.clone(), from_context: true });
@@ -135,7 +130,6 @@ impl<'a> FunctionCallParameters<'a> {
             CodeGen::add(&mut self.before, &format!("add {},{}", self.backend.stack_pointer(), 3 * wl), None, true);
         }
 
-        CodeGen::add(&mut self.before, "pop ecx", None, true);
         CodeGen::add(&mut self.before, "pop ebx", None, true);
 
         CodeGen::add(&mut self.before, &format!("mov {} [eax], {}", pointer_size, def.name), None, true);
