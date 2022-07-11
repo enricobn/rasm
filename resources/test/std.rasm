@@ -139,7 +139,7 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
 }/
 
 /** false = 0 true = any other value **/
-asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32 /{
+asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     push    ebx
     mov     eax,$cond
     cmp     eax, 0
@@ -154,6 +154,20 @@ asm if(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) -> i32 /{
     call    [ebx]           ; false value
     add     esp, 4
     pop ebx
+}/
+
+/**
+    ATTENTION: it is not short circuit, it always evaluates bot arguments before calling the function,
+    if you need a short circuit then use if function
+    false = 0 true = any other value
+**/
+asm ifImmediate(cond: i32, vtrue: T, vfalse: T) -> T /{
+    mov     eax,$cond
+    cmp     eax, 0
+    jz      $+7
+    mov     eax, $vtrue
+    jmp     $+5
+    mov     eax, $vfalse
 }/
 
 /** TODO it should be a bool
@@ -347,15 +361,15 @@ fn sleep(sec: i32, nsec: i32) -> i32 /{
 }/
 
 fn or(a: i32, b: i32) -> i32 {
-    if(a, { -> itn(1);}, { -> b; });
+    ifImmediate(a, itn(1), b);
 }
 
 fn and(a: i32, b: i32) -> i32 {
-    if(a, { -> b;}, { -> a; });
+    ifImmediate(a, b, a);
 }
 
 fn not(b: i32) -> i32 {
-    if(b, { -> itn(0);}, { -> itn(1); });
+    ifImmediate(b, itn(0), itn(1));
 }
 
 // TODO get rid of this, for now is used to return constants

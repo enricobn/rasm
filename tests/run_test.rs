@@ -30,7 +30,7 @@ fn test_atoi() {
 
 #[test]
 fn test_conditionals() {
-    test("conditionals", Vec::new(),"False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n");
+    test("conditionals", Vec::new(),"False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n200\n100\n");
 }
 
 #[test]
