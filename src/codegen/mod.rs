@@ -378,8 +378,7 @@ impl<'a> CodeGen<'a> {
 
         let mut context = VarContext::new(Some(parent_context));
 
-        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false,
-                                                                       0);
+        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false);
 
         // I think it's useless
         let mut i_for_context = 0;
@@ -421,7 +420,7 @@ impl<'a> CodeGen<'a> {
                         }
                         ASTExpression::Val(val) => {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
-                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true, 0);
+                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true);
                             Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, val, &val, "".into(), "".into());
                             self.definitions.push_str(&parameters.before());
                         }
@@ -512,7 +511,7 @@ impl<'a> CodeGen<'a> {
         }
 
         let mut call_parameters = FunctionCallParameters::new(self.backend, parameters.clone(),
-                                                              inline, false, added_to_stack);
+                                                              inline, false);
 
         if !function_call.parameters.is_empty() {
             // as for C calling conventions parameters are pushed in reverse order
