@@ -292,14 +292,14 @@ impl<'a> FunctionCallParameters<'a> {
         if self.has_inline_lambda_param {
             CodeGen::add(&mut result, &format!("mov     eax, [{}+{}]", self.backend.stack_base_pointer(), self.backend.word_len() * 2),
                          Some("The address to the lambda space for inline lambda param"), true);
-            if !self.immediate {
+            if !self.immediate && !self.before.is_empty() {
                 CodeGen::add(&mut result, "push    eax", None, true);
             }
         }
 
         result.push_str(&self.before);
 
-        if self.has_inline_lambda_param && !self.immediate {
+        if self.has_inline_lambda_param && !self.immediate && !self.before.is_empty() {
             CodeGen::add(&mut result, "pop    eax", None, true);
         }
         result
