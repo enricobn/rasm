@@ -44,10 +44,10 @@ asm nprint(n: i32) /{
     jnz .next_digit     ; Repeat until eax==0
 
     mov    edx,ecx ; the length
-    mov     ecx,esi ; the pointer to the first digit (not necessarily the start of the provided buffer)
-    mov     ebx, 1  ; stdout
-    mov     eax, 4  ; write
-    int     80h
+    mov    ecx,esi ; the pointer to the first digit (not necessarily the start of the provided buffer)
+    mov    ebx, 1  ; stdout
+    mov    eax, 4  ; write
+    int    80h
 
     pop    edx
     pop    ecx
@@ -143,17 +143,17 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
 }/
 
 /** false = 0 true = any other value **/
-asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+inline asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     push    ebx
-    mov     eax,$cond
-    cmp     eax, 0
+    mov     ebx,$cond
+    cmp     ebx, 0
     jz      $+13
     mov     ebx, $ftrue     ; ftrue points to the lambda space
     push    ebx             ; the address to the lambda space is the last argument of every lambda
     call    [ebx]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
     jmp     $+11
-    mov     ebx, $ffalse    ; ffalse points to the lambda space
+    mov     ebx, $ffalse    ; ffalse points to the lambda space, we do the same as above
     push    ebx
     call    [ebx]           ; false value
     add     esp, 4
@@ -161,7 +161,9 @@ asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
 }/
 
 /**
-    ATTENTION: it is not short circuit, it always evaluates bot arguments before calling the function,
+    false = 0 true = any other value
+
+    ATTENTION: it is not short circuit, it always evaluates both arguments before calling the function,
     if you need a short circuit then use if function
     false = 0 true = any other value
     It cannot be inlined because we don't know the size of instructions "mov     eax, $vtrue" and "mov     eax, $vfalse",
