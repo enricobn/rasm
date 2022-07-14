@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use log::info;
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::Backend386;
 use crate::codegen::CodeGen;
@@ -25,8 +26,11 @@ impl Compiler {
         let file_path = Path::new(&self.src);
         match Lexer::from_file(file_path) {
             Ok(lexer) => {
+                info!("Lexer ended");
                 let mut parser = Parser::new(lexer);
                 let module = parser.parse(file_path);
+
+                info!("Parser ended");
 
                 let backend = Backend386::new();
 
@@ -34,10 +38,14 @@ impl Compiler {
 
                 let asm = code_gen.asm();
 
+                info!("Code generation ended");
+
                 let out_path = Path::new(&self.out);
                 File::create(out_path).unwrap().write_all(asm.as_bytes()).unwrap();
 
                 backend.compile_and_link(self.out.to_string());
+
+                info!("Compilation and linking ended");
             }
             Err(err) => {
                 panic!("An error occurred: {}", err)
