@@ -497,9 +497,6 @@ impl<'a> CodeGen<'a> {
                       parameters: Vec<ASTParameterDef>, inline: bool, body: Option<ASTFunctionBody>, address_to_call: String,
                       lambda_space_opt: Option<&LambdaSpace>, indent: usize, is_lambda: bool) -> Vec<LambdaCall> {
 
-        // TODO inline does not work with lambda space, so for now I disable it
-        let mut after = String::new();
-
         let mut lambda_calls = Vec::new();
 
         CodeGen::add_empty_line(before);
@@ -573,7 +570,7 @@ impl<'a> CodeGen<'a> {
 
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
-                        let mut lambda_space = call_parameters.add_lambda(&mut def, lambda_space_opt, context, None);
+                        let lambda_space = call_parameters.add_lambda(&mut def, lambda_space_opt, context, None);
 
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {
@@ -585,16 +582,10 @@ impl<'a> CodeGen<'a> {
                             // TODO check if the parameter name collides with some context var
                         }
 
-
-                        //call_parameters.add_function_call(Some(&format!("reference to function {}", def.name)));
-                        //CodeGen::add(before, &format!("push   {} eax", pointer_size), Some(&format!("reference to function {}", def.name)));
-
-                        //to_remove_from_stack += 1;
-
-                        //debug!("Pushing lambda {}", def.name);
                         let lambda_call = LambdaCall { def, space: lambda_space };
-                        //debug!("Lambda call {}", lambda_call.def.name);
+
                         self.functions_called.insert(lambda_call.def.name.clone());
+
                         lambda_calls.push(lambda_call);
                     }
                 }
@@ -648,11 +639,6 @@ impl<'a> CodeGen<'a> {
         }
 
         for line in call_parameters.after().lines() {
-            before.push_str(line);
-            before.push('\n');
-        }
-
-        for line in after.lines() {
             before.push_str(line);
             before.push('\n');
         }
