@@ -48,20 +48,22 @@ fn allCells(width: i32, height: i32) -> List<Cell> {
 
 fn next(cells: &List<Cell>, width: i32, height: i32) -> List<Cell> {
     listFMap(allCells(width, height), { it ->
-        if(isAlive(cells, it), { ->
-            if(less(listCount(adjacents(it),  { a -> isAlive(cells, a); }), 2), { ->
-                List::Empty();
-            }, { ->
-                if(less(listCount(adjacents(it),  { a -> isAlive(cells, a); }), 4), { ->
-                    listOf(it);
-                }, { ->
+        with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
+            if(isAlive(cells, it), { ->
+                if(less(alive, 2), { ->
                     List::Empty();
+                }, { ->
+                    if(less(alive, 4), { ->
+                        listOf(it);
+                    }, { ->
+                        List::Empty();
+                    });
                 });
+            }, { ->
+                if(eq(alive, 3), { ->
+                    listOf(it);
+                }, { -> List::Empty(); });
             });
-        }, { ->
-            if(eq(listCount(adjacents(it),  { a -> isAlive(cells, a); }), 3), { ->
-                listOf(it);
-            }, { -> List::Empty(); });
         });
     });
 }

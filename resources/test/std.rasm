@@ -391,6 +391,18 @@ inline asm itn(n: i32) -> i32 /{
     mov     eax,$n
 }/
 
+fn with(v: I, f: fn(I) -> O) -> O {
+    f(v);
+}
+
+fn with2(v1: I1, v2: I2, f: fn(I1, I2) -> O) -> O {
+    f(v1, v2);
+}
+
+fn with3(v1: I1, v2: I2, v3: I3, f: fn(I1, I2, I3) -> O) -> O {
+    f(v1, v2, v3);
+}
+
 /*  OPTION */
 enum Option<T> {
   Some(value : T),
