@@ -13,6 +13,8 @@ pub struct FunctionCallParameters<'a> {
     backend: &'a dyn Backend,
     inline: bool,
     immediate: bool,
+    has_inline_lambda_param: bool,
+    already_added_to_stack: usize
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -32,8 +34,19 @@ impl<'a> FunctionCallParameters<'a> {
     /// ```
     ///
     /// ```
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool, immediate: bool) -> Self {
-        Self { to_remove_from_stack: 0, before: String::new(), after: String::new(), parameters_values: LinkedHashMap::new(), backend, inline, parameters, immediate }
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool, immediate: bool, already_added_to_stack: usize) -> Self {
+        Self {
+            to_remove_from_stack: 0,
+            before: String::new(),
+            after: String::new(),
+            parameters_values: LinkedHashMap::new(),
+            backend,
+            inline,
+            parameters,
+            immediate,
+            has_inline_lambda_param: false,
+            already_added_to_stack
+        }
     }
 
     pub fn add_string_literal(&mut self, param_name: &str, label: String, comment: Option<&str>) {
@@ -41,9 +54,15 @@ impl<'a> FunctionCallParameters<'a> {
             self.parameters_values.insert(param_name.into(), label);
         } else {
             CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], {}", self.backend.pointer_size(), self.backend.stack_pointer(),
-                                                                self.to_remove_from_stack * self.backend.word_len() as usize, label), comment,
+                                                    self.to_remove_from_stack * self.backend.word_len() as usize, label), comment,
                          true);
-            self.to_remove_from_stack += 1;
+
+            self.added_to_stack();
+            /*CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], {}", self.backend.pointer_size(), self.backend.stack_pointer(),
+                                                    0, label), comment,
+            true);
+
+             */
         }
     }
 
@@ -52,18 +71,27 @@ impl<'a> FunctionCallParameters<'a> {
             self.parameters_values.insert(param_name.into(), format!("{}", n));
         } else {
             CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], {}", self.backend.word_size(), self.backend.stack_pointer(),
-                                                                self.to_remove_from_stack * self.backend.word_len() as usize, n), comment,
+                                                    self.to_remove_from_stack * self.backend.word_len() as usize, n), comment,
                          true);
-            self.to_remove_from_stack += 1;
+
+
+            self.added_to_stack();
+            /*
+            CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], {}", self.backend.word_size(), self.backend.stack_pointer(),
+                                                    0, n), comment,
+            true);
+
+             */
         }
     }
 
     pub fn add_function_call(&mut self, comment: Option<&str>) {
         CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", self.backend.word_size(), self.backend.stack_pointer(), self.to_remove_from_stack * self.backend.word_len() as usize), comment, true);
-        self.to_remove_from_stack += 1;
+        self.added_to_stack();
+        //CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", self.backend.word_size(), self.backend.stack_pointer(), 0), comment, true);
     }
-    
-    pub fn add_lambda(&mut self, def : &mut ASTFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &VarContext, comment: Option<&str>) -> LambdaSpace {
+
+    pub fn add_lambda(&mut self, def: &mut ASTFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &VarContext, comment: Option<&str>) -> LambdaSpace {
         let mut lambda_space = LambdaSpace::new(context.clone());
 
         let num_of_params = context.iter().filter(|(_, kind)| {
@@ -77,7 +105,7 @@ impl<'a> FunctionCallParameters<'a> {
         let pointer_size = self.backend.pointer_size();
 
         // TODO it should be great if we could inline the function lambdaSpaceMalloc
-        CodeGen::add(&mut self.before,"mov     eax,[_lambda_space_heap]", None, true);
+        CodeGen::add(&mut self.before, "mov     eax,[_lambda_space_heap]", None, true);
         CodeGen::add(&mut self.before, &format!("add     eax,{}", (num_of_params + 1) * word_len), None, true);
         CodeGen::add(&mut self.before, &format!("mov     {} [_lambda_space_heap],eax", word_size), None, true);
         CodeGen::add(&mut self.before, &format!("sub     eax,{}", (num_of_params + 1) * word_len), None, true);
@@ -89,9 +117,9 @@ impl<'a> FunctionCallParameters<'a> {
         // now we push in after var the code to deallocate the lambda space
         // TODO it should be great if we could inline the function lambdaSpaceMdealloc (but we will loose a little optimization of not pushing the register, because in
         //      this code we have already saved ebx and we can use it)
-        CodeGen::add(&mut self.after,"mov     ebx,[_lambda_space_heap]", None, true);
+        CodeGen::add(&mut self.after, "mov     ebx,[_lambda_space_heap]", None, true);
         CodeGen::add(&mut self.after, &format!("sub     ebx,{}", (num_of_params + 1) * word_len), None, true);
-        CodeGen::add(&mut self.after,"mov     dword [_lambda_space_heap],ebx", None, true);
+        CodeGen::add(&mut self.after, "mov     dword [_lambda_space_heap],ebx", None, true);
 
         let mut i = 1;
 
@@ -127,8 +155,9 @@ impl<'a> FunctionCallParameters<'a> {
 
         CodeGen::add(&mut self.before, &format!("mov {} [eax], {}", pointer_size, def.name), None, true);
         CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", word_size, stack_pointer, self.to_remove_from_stack * word_len as usize), comment, true);
+        self.added_to_stack();
+        //CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", word_size, stack_pointer, 0), comment, true);
 
-        self.to_remove_from_stack += 1;
 
         lambda_space
     }
@@ -147,6 +176,7 @@ impl<'a> FunctionCallParameters<'a> {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
             if self.immediate {
+                self.added_to_stack();
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment, true);
             } else {
                 CodeGen::add(&mut self.before, "push ebx", None, true);
@@ -154,47 +184,63 @@ impl<'a> FunctionCallParameters<'a> {
 
                 // +1 because of push ebx
                 CodeGen::add(&mut self.before, &format!("mov [{} + {}], ebx", self.backend.stack_pointer(),
-                                                                        (self.to_remove_from_stack + 1) * self.backend.word_len() as usize), comment,
+                                                        (self.to_remove_from_stack + 1) * self.backend.word_len() as usize), comment,
                              true);
-                /*
-                CodeGen::add(&mut self.before, &format!("mov [{} - {}], ebx", self.backend.stack_base_pointer(),
-                                                     (self.parameters.len() - self.to_remove_from_stack) * self.backend.word_len() as usize), comment);
+
+
+                self.added_to_stack();
+                /*CodeGen::add(&mut self.before, &format!("mov [{} + {}], ebx", self.backend.stack_pointer(),
+                                                        0), comment,
+                true);
 
                  */
-
                 CodeGen::add(&mut self.before, "pop ebx", None, true);
             }
-            self.to_remove_from_stack += 1;
         }
     }
 
-    pub fn add_lambda_param_from_lambda_space(&mut self, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
+    pub fn add_lambda_param_from_lambda_space(&mut self, original_param_name: &str, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
         let lambda_space_index = lambda_space.get_index(param_name).unwrap();
-        debug!("{}add_lambda_param_from_lambda_space, param {}, address {}", " ".repeat(indent * 4), param_name, lambda_space_index);
+        debug!("{}add_lambda_param_from_lambda_space, original_param_name {}, param {}, lambda_space_index {}", " ".repeat(indent * 4), original_param_name, param_name, lambda_space_index);
 
         let word_len = self.backend.word_len() as usize;
         let sbp = self.backend.stack_base_pointer();
 
         if self.inline {
-            panic!("it should not happen since lambda cannot be inlined param_name: {}, comment: {:?}", param_name, comment);
-            //self.parameters_values.insert(original_param_name, format!("[{}+{}+{}+{}]", sbp, word_len, (index + 1) * word_len, lambda_space_index * word_len));
+            self.has_inline_lambda_param = true;
+            self.parameters_values.insert(original_param_name.into(), format!("[eax + {}]", lambda_space_index * word_len));
         } else {
             CodeGen::add(&mut self.before, "", comment, true);
             CodeGen::add(&mut self.before, &format!("mov     eax, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"), true);
             CodeGen::add(&mut self.before, &format!("mov   {} eax,[eax + {}]", self.backend.pointer_size(), lambda_space_index * word_len), None, true);
-            CodeGen::add(&mut self.before, &format!("mov [{} + {}], eax", self.backend.stack_pointer(),
-                                                                self.to_remove_from_stack * self.backend.word_len() as usize), comment,
-                         true);
-            /*
-            CodeGen::add(&mut self.before, &format!("mov [{} - {}], eax", self.backend.stack_base_pointer(),
-                                                 (self.parameters.len() - self.to_remove_from_stack) * self.backend.word_len() as usize), comment);
 
-             */
-            //if self.immediate {
-            //    CodeGen::add(&mut self.before, "pop eax", Some(&format!("immediate reference to val '{}'", param_name)));
-            //}
-            self.to_remove_from_stack += 1;
+            if !self.immediate {
+
+                CodeGen::add(&mut self.before, &format!("mov [{} + {}], eax", self.backend.stack_pointer(),
+                                                        self.to_remove_from_stack * self.backend.word_len() as usize), comment,
+                             true);
+
+
+                self.added_to_stack();
+                /*
+                CodeGen::add(&mut self.before, &format!("mov [{} + {}], eax", self.backend.stack_pointer(),
+                                                        0), comment,
+                true);
+
+                 */
+            }
         }
+    }
+
+    fn added_to_stack(&mut self) {
+        /*
+        if !self.immediate {
+            CodeGen::add(&mut self.before, &format!("sub {}, {}", self.backend.stack_pointer(), self.backend.word_len() as usize),
+                         Some("Prepare stack for parameter"), true);
+        }
+
+         */
+        self.to_remove_from_stack += 1;
     }
 
     pub fn resolve_asm_parameters(&self, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
@@ -210,14 +256,21 @@ impl<'a> FunctionCallParameters<'a> {
 
             debug!("{}cannot find parameter {}, parameters_values {:?}", " ".repeat(ident * 4), par.name, self.parameters_values);
 
+            let pointer = if self.inline {
+                self.backend.stack_base_pointer()
+            } else {
+                self.backend.stack_base_pointer()
+            };
             let relative_address =
                 if self.inline {
+                    debug!("{}  i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.to_remove_from_stack, to_remove_from_stack);
+                    result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}, already_added_to_stack {}\n", i, self.to_remove_from_stack, to_remove_from_stack, self.already_added_to_stack));
                     (i as i32 - self.to_remove_from_stack as i32 - to_remove_from_stack as i32) * word_len
                 } else {
                     (i + 2) * self.backend.word_len() as i32
                 };
 
-            let address = format!("[{}+{}]", self.backend.stack_base_pointer(), relative_address);
+            let address = format!("[{}+{}]", pointer, relative_address);
 
             result = result.replace(&format!("${}", par.name), &address);
             i += 1;
@@ -231,11 +284,24 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn before(&self) -> String {
         let mut result = String::new();
+
+        if self.has_inline_lambda_param {
+            CodeGen::add(&mut result, &format!("mov     eax, [{}+{}]", self.backend.stack_base_pointer(), self.backend.word_len() * 2), Some("The address to the lambda space"), true);
+            if !self.immediate {
+                CodeGen::add(&mut result, "push    eax", None, true);
+            }
+        }
+
         if !self.immediate && self.to_remove_from_stack > 0 {
             CodeGen::add(&mut result, &format!("sub {}, {}", self.backend.stack_pointer(), self.backend.word_len() as usize * self.to_remove_from_stack),
                          Some("Prepare stack for parameters"), true);
         }
+
         result.push_str(&self.before);
+
+        if self.has_inline_lambda_param && !self.immediate {
+            CodeGen::add(&mut result, "pop    eax", None, true);
+        }
         result
     }
 
@@ -246,5 +312,4 @@ impl<'a> FunctionCallParameters<'a> {
     pub fn push(&mut self, s: &str) {
         self.before.push_str(s);
     }
-
 }

@@ -379,7 +379,8 @@ impl<'a> CodeGen<'a> {
 
         let mut context = VarContext::new(Some(parent_context));
 
-        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false);
+        let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false,
+        0);
 
         // I think it's useless
         let mut i_for_context = 0;
@@ -397,7 +398,8 @@ impl<'a> CodeGen<'a> {
             };
 
             if par.from_context {
-                function_call_parameters.add_lambda_param_from_lambda_space(&par.name, lambda_space.unwrap(), Some(&format!("reference to parameter {} from context", par.name)), indent + 1);
+                function_call_parameters.add_lambda_param_from_lambda_space(&par.name, &par.name, lambda_space.unwrap(),
+                                                                            Some(&format!("reference to parameter {} from context", par.name)), indent + 1);
                 i_for_context += 1;
             } else {
                 function_call_parameters.add_val(par.name.clone(), par, i, Some(&format!("reference to parameter {}", par.name)), indent + 1);
@@ -421,7 +423,7 @@ impl<'a> CodeGen<'a> {
                         }
                         ASTExpression::Val(val) => {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
-                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true);
+                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true, 0);
                             Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, val, &val, "".into(), "".into());
                             self.definitions.push_str(&parameters.before());
                         }
@@ -465,7 +467,7 @@ impl<'a> CodeGen<'a> {
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self.functions.get(&function_call.function_name).unwrap().clone().name;
             debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
-            self.call_function_(&function_call, &context, &parent_def, &added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
+            self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
                                 lambda_space, indent, is_lambda)
         } else if let Some(VarKind::ParameterRef(index, par)) = context.get(&function_call.function_name) {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: _, parameters }) = par.clone().type_ref.ast_type {
@@ -482,7 +484,7 @@ impl<'a> CodeGen<'a> {
                 debug!("{}parameters_defs {:?}", " ".repeat((indent + 1) * 4), parameters_defs);
                 debug!("{}lambda_space {:?}", " ".repeat((indent + 1) * 4), lambda_space);
 
-                self.call_function_(&function_call, &context, &parent_def, &added_to_stack, &mut before, parameters_defs, false, None,
+                self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, parameters_defs, false, None,
                                     format!("[{}+{}+{}]", bp, wl, (index + 1) * wl), lambda_space, indent, true)
             } else {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
@@ -494,30 +496,29 @@ impl<'a> CodeGen<'a> {
         (before, lambda_calls)
     }
 
-    fn call_function_(&mut self, function_call: &&ASTFunctionCall, context: &VarContext, parent_def: &Option<&ASTFunctionDef>, added_to_stack: &usize, before: &mut String,
-                      parameters: Vec<ASTParameterDef>, inline_def: bool, body: Option<ASTFunctionBody>, address_to_call: String,
+    fn call_function_(&mut self, function_call: &&ASTFunctionCall, context: &VarContext, parent_def: &Option<&ASTFunctionDef>, added_to_stack: usize, before: &mut String,
+                      parameters: Vec<ASTParameterDef>, inline: bool, body: Option<ASTFunctionBody>, address_to_call: String,
                       lambda_space_opt: Option<&LambdaSpace>, indent: usize, is_lambda: bool) -> Vec<LambdaCall> {
 
         // TODO inline does not work with lambda space, so for now I disable it
-        let inline = false;
         let mut after = String::new();
 
         let mut lambda_calls = Vec::new();
-        if inline && parent_def.is_some() {
-            CodeGen::add(before, &format!("; inlining function {}", function_call.function_name), None, true);
+        if inline {
+            CodeGen::add(before, &format!("; inlining function {}, added to stack {}", function_call.function_name, added_to_stack), None, true);
         } else {
             if inline {
                 CodeGen::add(before, "; function is inline, but not inside a function", None, true);
                 CodeGen::add(before, "; so cannot be inlined.", None, true);
             }
             CodeGen::add_empty_line(before);
-            CodeGen::add(before, &format!("; calling function {}", function_call.function_name), None, true);
+            CodeGen::add(before, &format!("; calling function {}, added to stack {}", function_call.function_name, added_to_stack), None, true);
         }
 
         let mut to_remove_from_stack = 0;
 
         let mut call_parameters = FunctionCallParameters::new(self.backend, parameters.clone(),
-                                                              inline && parent_def.is_some(), false);
+                                                              inline, false, added_to_stack);
 
         if !function_call.parameters.is_empty() {
             // as for C calling conventions parameters are pushed in reverse order
@@ -610,9 +611,7 @@ impl<'a> CodeGen<'a> {
 
         before.push_str(&call_parameters.before());
 
-        // I can only inline functions if are called inside another function, otherwise I cannot access to the base pointer and
-        // I must access the stack pointer, but if the function, as usual, pushes some values in the stack, I cannot use it ...
-        if inline && parent_def.is_some() {
+        if inline {
             if let Some(ASTFunctionBody::ASMBody(body)) = &body {
                 CodeGen::add(before, &format!("; To remove from stack  {}", added_to_stack +
                                     to_remove_from_stack + call_parameters.to_remove_from_stack()), None,
@@ -652,7 +651,8 @@ impl<'a> CodeGen<'a> {
         if to_remove_from_stack + call_parameters.to_remove_from_stack() > 0 {
             let sp = self.backend.stack_pointer();
             let wl = self.backend.word_len() as usize;
-            CodeGen::add(before, &format!("add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())), None, true);
+            CodeGen::add(before, &format!("add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())),
+                         Some(&format!("restore stack for {}", function_call.function_name)), true);
         }
 
         for line in call_parameters.after().lines() {
@@ -665,7 +665,7 @@ impl<'a> CodeGen<'a> {
             before.push('\n');
         }
 
-        if inline && parent_def.is_some() {
+        if inline {
             CodeGen::add(before, &format!("; end inlining function {}", function_call.function_name), None, true);
         } else {
             CodeGen::add(before, &format!("; end calling function {}", function_call.function_name), None, true);
@@ -676,15 +676,16 @@ impl<'a> CodeGen<'a> {
     }
 
     fn add_val(context: &VarContext, parent_def: &Option<&ASTFunctionDef>, before: &mut String, lambda_space_opt: &Option<&LambdaSpace>, indent: &usize, call_parameters: &mut FunctionCallParameters, param_name: &str, name: &str, error_msg: &str, subject: &str) {
+        debug!("add_val param_name {}, name {}", param_name, name);
         if let Some(var_kind) = context.get(name) {
             match var_kind {
                 VarKind::ParameterRef(index, par) => {
                     CodeGen::add(before, "", Some(&format!("Adding parameter ref param {}, for {}, index {}, from context {}, lambda_space: {:?}", name, subject, index, par.from_context, lambda_space_opt)), true);
                     //debug!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
 
-                    if lambda_space_opt.map(|it| it.get_index(&name).is_some()).unwrap_or(false) {
+                    if lambda_space_opt.map(|it| it.get_index(name).is_some()).unwrap_or(false) {
                         //call_parameters.add_var(param_name, par, lambda_space_opt, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);
-                        call_parameters.add_lambda_param_from_lambda_space(&name, lambda_space_opt.unwrap(),
+                        call_parameters.add_lambda_param_from_lambda_space(param_name, name, lambda_space_opt.unwrap(),
                                                                            Some(&format!("var reference to lambda space parameter '{}' index {}, inside def: {:?}", name, index, parent_def.map(|it| it.name.clone()))), *indent);
                     } else {
                         call_parameters.add_val(param_name.into(), par, *index, Some(&format!("reference to parameter '{}' index {}", name, index)), *indent);

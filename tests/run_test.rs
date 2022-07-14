@@ -15,7 +15,7 @@ fn test_fibonacci() {
 
 #[test]
 fn test_inline() {
-    test("inline", Vec::new(),"5\n");
+    test("inline", Vec::new(),"29\n");
 }
 
 #[test]
