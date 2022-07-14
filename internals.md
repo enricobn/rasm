@@ -14,8 +14,8 @@ and before the function calls the lambda, it must push m so the lambda can acces
 in the lambda1 to access to the variables it should use [m + word] (v1) and [m + 2 * word] (v2) 
 
 **Inline assembly**  
-in inline asm, use EAX only to store the final result, because it is used to store the value of the lambda address when inlining functions 
-inside lambda 
+in inline asm, use EAX only to store the final result, because it is used to store the value of the lambda address when 
+inlining functions inside lambda
 
 
 

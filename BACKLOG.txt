@@ -1,31 +1,5 @@
 Doing
 ------
-- try to re enable inline
-  - the problem arises with lambda space
-  - now I think the problem is in function_call_parameters.resolve_asm_parameters because when we are inside another function call,
-    in the emitted code of the outside function for reserving space for the parameters,
-    that will be emitted after (in time), but obviously is positioned before in the code, I already know all the parameters that will be added,
-    but during the method of the inner function, I don't know it.
-
-    For example, I could have:
-    outerFunction(innerFunction(a), innerFunction(b))
-
-    given:
-    outerFunction and innerFunction inline
-    SP=0
-    BP=0
-
-    the pseudocode:
-
-    reserve 2 slots for the parameters of outerFunction
-    SP=-2
-        reserve a slot for parameter of innerFunction
-        SP=-3
-            inline innerFunction
-            inlining inner function I should access to BP-3, but I don't know that the outerFunction needs 2 slots, the rules
-            to know if a parameter should be put in the stack are a bit complex, so the slots are accumulated on the way...
-
-    An idea should be to refactor the code in a way that I can calculate the slots in advance...
 
 Next
 -----

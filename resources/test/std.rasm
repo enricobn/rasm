@@ -60,11 +60,12 @@ asm nprint(n: i32) /{
  * Prints a new line to standard output.
  */
 asm println() /{
+    push    eax
     mov     eax, 0Ah    ; move 0Ah into eax - 0Ah is the ascii character for a linefeed
     push    eax         ; push the linefeed onto the stack so we can get the address
     push    esp         ; push the address of the current stack pointer where is the \n char for sprint
     call    sprint      ; call our sprint function
-    pop     eax         ; remove the linefeed char from the stack
+    add     esp,8       ; remove parameters from the stack
     pop     eax
 }/
 
@@ -386,9 +387,9 @@ fn not(b: i32) -> i32 {
 }
 
 // TODO get rid of this, for now is used to return constants
-fn itn(n: i32) -> i32 {
-    $n;
-}
+inline asm itn(n: i32) -> i32 /{
+    mov     eax,$n
+}/
 
 /*  OPTION */
 enum Option<T> {

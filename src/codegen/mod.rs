@@ -27,7 +27,7 @@ pub struct CodeGen<'a> {
 enum MemoryValue {
     StringValue(String),
     I32Value(i32),
-    Mem(usize)
+    Mem(usize),
 }
 
 #[derive(Clone, Debug)]
@@ -64,7 +64,6 @@ impl LambdaSpace {
     fn get_index(&self, name: &str) -> Option<usize> {
         self.parameters_indexes.get(name).cloned()
     }
-
 }
 
 impl VarContext {
@@ -380,7 +379,7 @@ impl<'a> CodeGen<'a> {
         let mut context = VarContext::new(Some(parent_context));
 
         let mut function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false,
-        0);
+                                                                       0);
 
         // I think it's useless
         let mut i_for_context = 0;
@@ -419,7 +418,6 @@ impl<'a> CodeGen<'a> {
                                                                             lambda_space, indent + 1, false);
                             self.definitions.push_str(&s);
                             lambda_calls.append(&mut lambda_calls_);
-
                         }
                         ASTExpression::Val(val) => {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
@@ -504,18 +502,14 @@ impl<'a> CodeGen<'a> {
         let mut after = String::new();
 
         let mut lambda_calls = Vec::new();
+
+        CodeGen::add_empty_line(before);
+
         if inline {
             CodeGen::add(before, &format!("; inlining function {}, added to stack {}", function_call.function_name, added_to_stack), None, true);
         } else {
-            if inline {
-                CodeGen::add(before, "; function is inline, but not inside a function", None, true);
-                CodeGen::add(before, "; so cannot be inlined.", None, true);
-            }
-            CodeGen::add_empty_line(before);
             CodeGen::add(before, &format!("; calling function {}, added to stack {}", function_call.function_name, added_to_stack), None, true);
         }
-
-        let mut to_remove_from_stack = 0;
 
         let mut call_parameters = FunctionCallParameters::new(self.backend, parameters.clone(),
                                                               inline, false, added_to_stack);
@@ -541,7 +535,7 @@ impl<'a> CodeGen<'a> {
                     }
                     ASTExpression::ASTFunctionCallExpression(call) => {
                         let (s, mut inner_lambda_calls) = self.call_function(call, context, *parent_def, added_to_stack +
-                            to_remove_from_stack + call_parameters.to_remove_from_stack(), lambda_space_opt, indent + 1, false);
+                            call_parameters.to_remove_from_stack(), lambda_space_opt, indent + 1, false);
                         call_parameters.push(&s);
                         call_parameters.add_function_call(None);
                         lambda_calls.append(&mut inner_lambda_calls);
@@ -603,7 +597,6 @@ impl<'a> CodeGen<'a> {
                         //debug!("Lambda call {}", lambda_call.def.name);
                         self.functions_called.insert(lambda_call.def.name.clone());
                         lambda_calls.push(lambda_call);
-
                     }
                 }
             }
@@ -614,9 +607,9 @@ impl<'a> CodeGen<'a> {
         if inline {
             if let Some(ASTFunctionBody::ASMBody(body)) = &body {
                 CodeGen::add(before, &format!("; To remove from stack  {}", added_to_stack +
-                                    to_remove_from_stack + call_parameters.to_remove_from_stack()), None,
+                    call_parameters.to_remove_from_stack()), None,
                              true);
-                before.push_str(&call_parameters.resolve_asm_parameters(body, added_to_stack + to_remove_from_stack, indent));
+                before.push_str(&call_parameters.resolve_asm_parameters(body, added_to_stack, indent));
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
@@ -648,10 +641,10 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        if to_remove_from_stack + call_parameters.to_remove_from_stack() > 0 {
+        if call_parameters.to_remove_from_stack() > 0 {
             let sp = self.backend.stack_pointer();
             let wl = self.backend.word_len() as usize;
-            CodeGen::add(before, &format!("add     {},{}", sp, wl * (to_remove_from_stack + call_parameters.to_remove_from_stack())),
+            CodeGen::add(before, &format!("add     {},{}", sp, wl * (call_parameters.to_remove_from_stack())),
                          Some(&format!("restore stack for {}", function_call.function_name)), true);
         }
 
@@ -693,7 +686,7 @@ impl<'a> CodeGen<'a> {
                 }
             }
         } else {
-            panic!("Error adding val {}: {}", param_name,  error_msg);
+            panic!("Error adding val {}: {}", param_name, error_msg);
         }
     }
 
