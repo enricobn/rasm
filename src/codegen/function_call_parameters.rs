@@ -14,6 +14,7 @@ pub struct FunctionCallParameters<'a> {
     inline: bool,
     immediate: bool,
     has_inline_lambda_param: bool,
+    lambda_slots_to_deallocate: usize
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -44,6 +45,7 @@ impl<'a> FunctionCallParameters<'a> {
             parameters,
             immediate,
             has_inline_lambda_param: false,
+            lambda_slots_to_deallocate: 0
         }
     }
 
@@ -98,12 +100,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         CodeGen::add(&mut self.before, &format!("push {} ebx", pointer_size), None, true);
 
-        // now we push in after var the code to deallocate the lambda space
-        // TODO it should be great if we could inline the function lambdaSpaceMdealloc (but we will loose a little optimization of not pushing the register, because in
-        //      this code we have already saved ebx and we can use it)
-        CodeGen::add(&mut self.after, "mov     ebx,[_lambda_space_heap]", None, true);
-        CodeGen::add(&mut self.after, &format!("sub     ebx,{}", (num_of_params + 1) * word_len), None, true);
-        CodeGen::add(&mut self.after, "mov     dword [_lambda_space_heap],ebx", None, true);
+        self.lambda_slots_to_deallocate += (num_of_params + 1);
 
         let mut i = 1;
 
@@ -262,7 +259,15 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn after(&self) -> String {
-        self.after.clone()
+        let mut s = String::new();
+        // TODO it should be great if we could inline the function lambdaSpaceMdealloc (but we will loose a little optimization of not pushing the register, because in
+        //      this code we have already saved ebx and we can use it)
+        if self.lambda_slots_to_deallocate > 0 {
+            CodeGen::add(&mut s, "mov     ebx,[_lambda_space_heap]", None, true);
+            CodeGen::add(&mut s, &format!("sub     ebx,{}", self.lambda_slots_to_deallocate * self.backend.word_len() as usize), None, true);
+            CodeGen::add(&mut s, "mov     dword [_lambda_space_heap],ebx", None, true);
+        }
+        s
     }
 
     pub fn push(&mut self, s: &str) {
