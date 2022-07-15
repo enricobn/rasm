@@ -17,6 +17,8 @@ in the lambda1 to access to the variables it should use [m + word] (v1) and [m +
 During the calculation of parameters (function_call_parameters) we use ecx to store the actual lambda space, 
 edx for add_lambda_param_from_lambda_space and ebx is the "free" register, don't use eax that is used as the return value of the functions 
 
-
+**Enum**  
+The value of an enum is a pointer to a location in memory where, in the first slot there's the variant order number 
+which is 0 for the first variant, 1 for the second and so on, the there is the list of the parameter of that enum 
 
 

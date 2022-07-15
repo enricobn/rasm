@@ -108,6 +108,11 @@ fn test_list_fold() {
     test("list_fold", vec!["3"],"4\n10\n");
 }
 
+#[test]
+fn test_function_as_arg() {
+    test("function_as_arg", vec!["3"],"13\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
