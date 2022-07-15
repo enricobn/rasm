@@ -8,7 +8,6 @@ pub struct FunctionCallParameters<'a> {
     parameters: Vec<ASTParameterDef>,
     parameters_added: usize,
     before: String,
-    after: String,
     parameters_values: LinkedHashMap<String, String>,
     backend: &'a dyn Backend,
     inline: bool,
@@ -38,7 +37,6 @@ impl<'a> FunctionCallParameters<'a> {
         Self {
             parameters_added: 0,
             before: String::new(),
-            after: String::new(),
             parameters_values: LinkedHashMap::new(),
             backend,
             inline,
@@ -146,16 +144,11 @@ impl<'a> FunctionCallParameters<'a> {
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment, true);
             } else {
-                // TODO ebx should be a "free" register, I probably don't need to save it (remove the +1 below)
-                CodeGen::add(&mut self.before, "push ebx", None, true);
                 CodeGen::add(&mut self.before, &format!("mov {} ebx, [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment, true);
 
-                // +1 because of push ebx
                 CodeGen::add(&mut self.before, &format!("mov [{} + {}], ebx", self.backend.stack_pointer(),
-                                                        (self.parameters_added + 1) * self.backend.word_len() as usize), comment,
+                                                        self.parameters_added * self.backend.word_len() as usize), comment,
                              true);
-
-                CodeGen::add(&mut self.before, "pop ebx", None, true);
             }
         }
         self.parameter_added();
@@ -206,7 +199,6 @@ impl<'a> FunctionCallParameters<'a> {
             let relative_address =
             if self.inline {
                 debug!("{}  i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
-                result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n", i, self.parameters_added, to_remove_from_stack));
                 (i as i32 - self.to_remove_from_stack() as i32 - to_remove_from_stack as i32) * word_len
             } else {
                 (i + 2) * self.backend.word_len() as i32

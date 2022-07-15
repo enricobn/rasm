@@ -138,29 +138,24 @@ asm slen(s: &str) -> i32 /{
 
 /** Adds two numbers **/
 inline asm nadd(n1: i32, n2: i32) -> i32 /{
-    push    ebx
-    mov     ebx, $n1
-    add     ebx, $n2
-    mov     eax, ebx
-    pop     ebx
+    mov     eax, $n1
+    add     eax, $n2
 }/
 
 /** false = 0 true = any other value **/
 inline asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
-    push    ebx
-    mov     ebx,$cond
-    cmp     ebx, 0
+    mov     eax,$cond
+    cmp     eax, 0
     jz      $+13
-    mov     ebx, $ftrue     ; ftrue points to the lambda space
-    push    ebx             ; the address to the lambda space is the last argument of every lambda
-    call    [ebx]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
+    mov     eax, $ftrue     ; ftrue points to the lambda space
+    push    eax             ; the address to the lambda space is the last argument of every lambda
+    call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
     jmp     $+11
-    mov     ebx, $ffalse    ; ffalse points to the lambda space, we do the same as above
-    push    ebx
-    call    [ebx]           ; false value
+    mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
+    push    eax
+    call    [eax]           ; false value
     add     esp, 4
-    pop ebx
 }/
 
 /**
@@ -186,13 +181,11 @@ asm ifImmediate(cond: i32, vtrue: T, vfalse: T) -> T /{
  *  false = 0 true = any other value
  **/
 inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
-    push    ebx
-    mov     ebx,$a
-    cmp     ebx,$b
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
     jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 /** TODO it should be a bool
@@ -200,13 +193,11 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
  *  false = 0 true = any other value
  **/
 inline asm less(a: i32, b: i32) -> i32 /{
-    push    ebx
-    mov     ebx,$a
-    cmp     ebx,$b
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
     jb     $+7  ; Jump if Below or Equal (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 /** TODO it should be a bool
@@ -214,13 +205,11 @@ inline asm less(a: i32, b: i32) -> i32 /{
  *  false = 0 true = any other value
  **/
 inline asm greater(a: i32, b: i32) -> i32 /{
-    push    ebx
-    mov     ebx,$a
-    cmp     ebx,$b
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
     jg      $+7  ; Jump if greater (unsigned comparison)
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 /** TODO it should be a bool
@@ -228,13 +217,11 @@ inline asm greater(a: i32, b: i32) -> i32 /{
  *  false = 0 true = any other value
  **/
 inline asm eq(a: i32, b: i32) -> i32 /{
-    push    ebx
-    mov     ebx,$a
-    cmp     ebx,$b
+    mov     eax,$a
+    cmp     eax,$b
     mov     eax,1 ; true
     je      $+7  ; Jump if equals
     mov     eax,0 ; false
-    pop     ebx
 }/
 
 asm exit(status: i32) /{
