@@ -113,7 +113,10 @@ fn printESC() /{
     mov     ebx, 1
     mov     eax, 4
     int     80h
-    add     esp, 16
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
 }/
 
 /** Returns the length of the string **/
