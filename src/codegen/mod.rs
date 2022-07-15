@@ -182,6 +182,8 @@ impl<'a> CodeGen<'a> {
 
         let mut bss = String::new();
 
+        self.statics.insert("_allocated_size".into(), MemoryValue::StringValue("Allocated size: ".into()));
+
         if !self.statics.is_empty() {
             let mut data = String::new();
 
@@ -220,6 +222,7 @@ impl<'a> CodeGen<'a> {
         }
 
         CodeGen::add(&mut asm, "section .bss", None, true);
+        CodeGen::add(&mut asm, "_original_heap            resb 4", None, true);
         CodeGen::add(&mut asm, "_heap            resb 4", None, true);
         CodeGen::add(&mut asm, "_heap_buffer:     resb 64 * 1024 * 1024", None, true);
         CodeGen::add(&mut asm, "_lambda_space_heap:            resb 4", None, true);
@@ -242,6 +245,7 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None, true);
         CodeGen::add(&mut asm, "mov     [_heap], eax", None, true);
+        CodeGen::add(&mut asm, "mov     [_original_heap], eax", None, true);
         CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer", None, true);
         CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax", None, true);
         CodeGen::add(&mut asm, "", None, true);
@@ -252,6 +256,8 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "pop    ebp       ; restore old call frame", None, true);
 
+        //self.print_allocated_size(&mut asm);
+
         // exit sys call
         CodeGen::add(&mut asm, "mov     ebx, 0", None, true);
         CodeGen::add(&mut asm, "mov     eax, 1", None, true);
@@ -261,6 +267,18 @@ impl<'a> CodeGen<'a> {
         asm.push_str(&self.definitions);
 
         asm
+    }
+
+    fn print_allocated_size(&mut self, mut asm: &mut String) {
+        CodeGen::add(&mut asm, "push   _allocated_size", None, true);
+        CodeGen::add(&mut asm, "call   sprint", None, true);
+        CodeGen::add(&mut asm, &format!("add     ebp, {}", self.backend.word_len()), None, true);
+
+        CodeGen::add(&mut asm, "mov   dword eax,[_heap]", None, true);
+        CodeGen::add(&mut asm, "sub   eax,[_original_heap]", None, true);
+        CodeGen::add(&mut asm, "push   eax", None, true);
+        CodeGen::add(&mut asm, "call   nprintln", None, true);
+        CodeGen::add(&mut asm, &format!("add     ebp, {}", self.backend.word_len()), None, true);
     }
 
     fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
