@@ -113,6 +113,21 @@ fn test_function_as_arg() {
     test("function_as_arg", vec!["3"],"13\n");
 }
 
+#[test]
+fn test_inner_context() {
+    test("inner_context", vec![],"13\n");
+}
+
+#[test]
+fn test_list_append() {
+    test("list_append", vec![],"1\n2\n");
+}
+
+#[test]
+fn test_list_flatten() {
+    test("list_flatten", vec![],"1\n2\n3\n4\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 

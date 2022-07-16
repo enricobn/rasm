@@ -1,0 +1,19 @@
+include "std.rasm"
+
+inner2(1, 2);
+
+fn inner(f: fn(i32) -> i32) {
+    f(5);
+}
+
+fn do(f: fn() -> i32) -> i32 {
+    nprintln(f());
+}
+
+fn inner2(n1: i32, n2: i32) {
+    inner({ n3 ->
+        inner({ n4 ->
+            do({ -> nadd(n1, nadd(n2, nadd(n3, n4)));});
+        });
+    });
+}

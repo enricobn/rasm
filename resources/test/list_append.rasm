@@ -1,0 +1,3 @@
+include "std.rasm"
+
+listPrintln(listAppend(listOf(1), listOf(2)), { v -> nprint(v);});
