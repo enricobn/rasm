@@ -113,6 +113,7 @@ impl<'a> FunctionCallParameters<'a> {
         // I copy the lambda space of the parent
         if let Some(parent_lambda) = parent_lambda_space {
             let parent_lambda_size = parent_lambda.parameters_indexes.len() + 1;
+
             CodeGen::add(&mut self.before, &format!("push {} {}", pointer_size, parent_lambda_size), None, true);
             CodeGen::add(&mut self.before, "push ecx", None, true);
             CodeGen::add(&mut self.before, &format!("push {} [{}+8]", pointer_size, stack_base_pointer), None, true);
@@ -189,16 +190,19 @@ impl<'a> FunctionCallParameters<'a> {
         for par in self.parameters.iter() {
             if let Some(par_value) = self.parameters_values.get(&par.name) {
                 debug!("{}found parameter {}, value: {}", " ".repeat(ident * 4), par.name, par_value);
+                result.push_str(&format!(";found parameter {}, value: {}\n", par.name, par_value));
                 result = result.replace(&format!("${}", par.name), par_value);
                 i += 1;
                 continue;
             }
 
             debug!("{}cannot find parameter {}, parameters_values {:?}", " ".repeat(ident * 4), par.name, self.parameters_values);
+            result.push_str(&format!(";cannot find parameter {}, parameters_values {:?}\n", par.name, self.parameters_values));
 
             let relative_address =
             if self.inline {
                 debug!("{}  i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
+                result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n", i, self.parameters_added, to_remove_from_stack));
                 (i as i32 - self.to_remove_from_stack() as i32 - to_remove_from_stack as i32) * word_len
             } else {
                 (i + 2) * self.backend.word_len() as i32
@@ -241,16 +245,10 @@ impl<'a> FunctionCallParameters<'a> {
         if self.has_inline_lambda_param {
             CodeGen::add(&mut result, &format!("mov     edx, [{}+{}]", self.backend.stack_base_pointer(), word_len * 2),
                          Some("The address to the lambda space for inline lambda param"), true);
-            if !self.immediate && !self.before.is_empty() {
-                CodeGen::add(&mut result, "push    edx", None, true);
-            }
         }
 
         result.push_str(&self.before);
 
-        if self.has_inline_lambda_param && !self.immediate && !self.before.is_empty() {
-            CodeGen::add(&mut result, "pop    edx", None, true);
-        }
         result
     }
 
