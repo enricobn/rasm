@@ -27,9 +27,9 @@ pub trait Backend {
 
 }
 
-pub struct Backend386 {}
+pub struct BackendAsm386 {}
 
-impl Backend386 {
+impl BackendAsm386 {
 
     pub fn new() -> Self {
         Self {}
@@ -37,7 +37,7 @@ impl Backend386 {
 
 }
 
-impl Backend for Backend386 {
+impl Backend for BackendAsm386 {
 
     fn address_from_base_pointer(&self, index: i8) -> String {
         format!("[ebp+{}]", index * 4)

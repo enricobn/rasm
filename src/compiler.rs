@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 use log::info;
 use crate::codegen::backend::Backend;
-use crate::codegen::backend::Backend386;
+use crate::codegen::backend::BackendAsm386;
 use crate::codegen::CodeGen;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -32,7 +32,7 @@ impl Compiler {
 
                 info!("Parser ended");
 
-                let backend = Backend386::new();
+                let backend = BackendAsm386::new();
 
                 let mut code_gen = CodeGen::new(&backend, module);
 

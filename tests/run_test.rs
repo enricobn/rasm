@@ -120,15 +120,24 @@ fn test_inner_context() {
 
 #[test]
 fn test_list_append() {
-    test("list_append", vec![],"1\n2\n");
+    test("list_append", vec![],"1,2\n");
 }
 
 #[test]
 fn test_list_flatten() {
-    test("list_flatten", vec![],"1\n2\n3\n4\n");
+    test("list_flatten", vec![],"1,2,3,4\n");
+}
+
+#[test]
+fn test_gameoflife_runs() {
+    test_("gameoflife", vec!["10"],None);
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
+    test_(source, args, Some(expected_output));
+}
+
+fn test_(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
     let dest = format!("{}/{}", dir.path().to_str().unwrap(), source);
@@ -152,8 +161,10 @@ fn test(source: &str, args: Vec<&str>, expected_output: &str) {
 
     assert!(output.status.success());
 
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout),
-        expected_output
-    );
+    if let Some(eo) = expected_output {
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            eo
+        );
+    }
 }

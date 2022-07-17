@@ -2,6 +2,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, LambdaSpace, VarContext, VarKind};
+use crate::codegen::stack::Stack;
 use crate::parser::ast::{ASTFunctionDef, ASTParameterDef, ASTTypeRef};
 
 pub struct FunctionCallParameters<'a> {
@@ -13,7 +14,8 @@ pub struct FunctionCallParameters<'a> {
     inline: bool,
     immediate: bool,
     has_inline_lambda_param: bool,
-    lambda_slots_to_deallocate: usize
+    lambda_slots_to_deallocate: usize,
+    stack: &'a Stack,
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -33,7 +35,7 @@ impl<'a> FunctionCallParameters<'a> {
     /// ```
     ///
     /// ```
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool, immediate: bool) -> Self {
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool, immediate: bool, stack: &'a Stack) -> Self {
         Self {
             parameters_added: 0,
             before: String::new(),
@@ -43,7 +45,8 @@ impl<'a> FunctionCallParameters<'a> {
             parameters,
             immediate,
             has_inline_lambda_param: false,
-            lambda_slots_to_deallocate: 0
+            lambda_slots_to_deallocate: 0,
+            stack,
         }
     }
 
@@ -55,7 +58,7 @@ impl<'a> FunctionCallParameters<'a> {
                                                     self.parameters_added * self.backend.word_len() as usize, label), comment,
                          true);
         }
-        self.parameter_added();
+        self.parameter_added_to_stack(&format!("string literal {}", param_name));
     }
 
     pub fn add_number(&mut self, param_name: &str, n: &i32, comment: Option<&str>) {
@@ -65,20 +68,19 @@ impl<'a> FunctionCallParameters<'a> {
             CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], {}", self.backend.word_size(), self.backend.stack_pointer(),
                                                     self.parameters_added * self.backend.word_len() as usize, n), comment,
                          true);
-
         }
-        self.parameter_added();
+        self.parameter_added_to_stack(&format!("number {}", param_name));
     }
 
     pub fn add_function_call(&mut self, comment: Option<&str>) {
         CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", self.backend.word_size(), self.backend.stack_pointer(), self.parameters_added * self.backend.word_len() as usize), comment, true);
-        self.parameter_added();
+        self.parameter_added_to_stack("function call result");
     }
 
     pub fn add_lambda(&mut self, def: &mut ASTFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &VarContext, comment: Option<&str>) -> LambdaSpace {
         let mut lambda_space = LambdaSpace::new(context.clone());
 
-        let num_of_params = context.iter().filter(|(_, kind)| {
+        let num_of_values_in_context = context.iter().filter(|(_, kind)| {
             matches!(kind, VarKind::ParameterRef(_, _))
         }).count();
 
@@ -88,21 +90,18 @@ impl<'a> FunctionCallParameters<'a> {
         let word_size = self.backend.word_size();
         let pointer_size = self.backend.pointer_size();
 
-        self.lambda_slots_to_deallocate += num_of_params + 1;
+        self.lambda_slots_to_deallocate += num_of_values_in_context + 1;
 
         let mut i = 1;
+
+        Self::allocate_lambda_space(self.backend, &mut self.before, "ecx", num_of_values_in_context + 1);
 
         // TODO optimize: do not create parameters that are overridden by parent memcopy
         context.iter().for_each(|(name, kind)| {
             if let VarKind::ParameterRef(index, par) = kind {
-                let type_size = self.backend.type_size(&par.type_ref).unwrap();
-
-                let address = format!("{}+{}+{}", stack_base_pointer, word_len, (index + 1) * word_len);
-
-                CodeGen::add(&mut self.before, &format!("mov  {} ebx, [{}]", type_size, address),
-                             Some(&format!("context parameter {}", name)),
-                             true);
-                CodeGen::add(&mut self.before, &format!("mov  dword [ecx + {}], ebx", i * word_len), None, true);
+                self.indirect_mov(
+                    &format!("{}+{}", stack_base_pointer, (index + 2) * word_len),
+                    &format!("ecx + {}", i * word_len), "ebx", Some(&format!("context parameter {}", name)));
 
                 lambda_space.add_context_parameter(name.clone(), i);
                 def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref.clone(), from_context: true });
@@ -112,19 +111,14 @@ impl<'a> FunctionCallParameters<'a> {
 
         // I copy the lambda space of the parent
         if let Some(parent_lambda) = parent_lambda_space {
-            let parent_lambda_size = parent_lambda.parameters_indexes.len() + 1;
-
-            CodeGen::add(&mut self.before, &format!("push {} {}", pointer_size, parent_lambda_size), None, true);
-            CodeGen::add(&mut self.before, "push ecx", None, true);
-            CodeGen::add(&mut self.before, &format!("push {} [{}+8]", pointer_size, stack_base_pointer), None, true);
-            CodeGen::add(&mut self.before, "call memcopy", None, true);
-            CodeGen::add(&mut self.before, &format!("add {},{}", stack_pointer, 3 * word_len), None, true);
+            self.mem_copy(&format!("[{}+8]", stack_base_pointer), "ecx", parent_lambda.parameters_indexes.len() + 1, None);
         }
 
         CodeGen::add(&mut self.before, &format!("mov {} [ecx], {}", pointer_size, def.name), None, true);
         CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], ecx", word_size, stack_pointer, self.parameters_added * word_len as usize), comment, true);
-        CodeGen::add(&mut self.before, &format!("add ecx, {}", (num_of_params + 1) * word_len), comment, true);
-        self.parameter_added();
+        //CodeGen::add(&mut self.before, &format!("add ecx, {}", (num_of_values_in_context + 1) * word_len), comment, true);
+
+        self.parameter_added_to_stack(&format!("lambda {}", def.name));
 
         lambda_space
     }
@@ -138,21 +132,19 @@ impl<'a> FunctionCallParameters<'a> {
         let word_len = self.backend.word_len() as usize;
 
         if self.inline {
-            self.parameters_values.insert(original_param_name, format!("[{}+{}+{}]", self.backend.stack_base_pointer(), word_len, (index + 1) * word_len));
+            self.parameters_values.insert(original_param_name.clone(), format!("[{}+{}]", self.backend.stack_base_pointer(), (index + 2) * word_len));
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
             if self.immediate {
-                CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment, true);
+                CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index + 2) * word_len), comment, true);
             } else {
-                CodeGen::add(&mut self.before, &format!("mov {} ebx, [{}+{}+{}]", type_size, self.backend.stack_base_pointer(), word_len, (index + 1) * word_len), comment, true);
-
-                CodeGen::add(&mut self.before, &format!("mov [{} + {}], ebx", self.backend.stack_pointer(),
-                                                        self.parameters_added * self.backend.word_len() as usize), comment,
-                             true);
+                self.indirect_mov(&format!("{}+{}", self.backend.stack_base_pointer(), (index + 2) * word_len),
+                                  &format!("{} + {}", self.backend.stack_pointer(),
+                                           self.parameters_added * self.backend.word_len() as usize), "ebx", comment);
             }
         }
-        self.parameter_added();
+        self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
 
     pub fn add_lambda_param_from_lambda_space(&mut self, original_param_name: &str, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
@@ -166,21 +158,18 @@ impl<'a> FunctionCallParameters<'a> {
             self.has_inline_lambda_param = true;
             self.parameters_values.insert(original_param_name.into(), format!("[edx + {}]", lambda_space_index * word_len));
         } else {
-            CodeGen::add(&mut self.before, "", Some("HENRY"), true);
             CodeGen::add(&mut self.before, "", comment, true);
             CodeGen::add(&mut self.before, &format!("mov     ebx, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"), true);
 
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov   {} eax,[ebx + {}]", self.backend.pointer_size(), lambda_space_index * word_len), None, true);
             } else {
-                CodeGen::add(&mut self.before, "", Some("HENRY1"), true);
-                CodeGen::add(&mut self.before, &format!("mov   {} ebx,[ebx + {}]", self.backend.pointer_size(), lambda_space_index * word_len), None, true);
-                CodeGen::add(&mut self.before, &format!("mov [{} + {}], ebx", self.backend.stack_pointer(),
-                                                        self.parameters_added * self.backend.word_len() as usize), comment,
-                             true);
+                self.indirect_mov(&format!("ebx + {}", lambda_space_index * word_len),
+                                  &format!("{} + {}", self.backend.stack_pointer(),
+                                           self.parameters_added * self.backend.word_len() as usize), "ebx", comment);
             }
         }
-        self.parameter_added();
+        self.parameter_added_to_stack(&format!("lambda from lambda space: {}", param_name));
     }
 
     pub fn resolve_asm_parameters(&self, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
@@ -196,17 +185,17 @@ impl<'a> FunctionCallParameters<'a> {
                 continue;
             }
 
-            debug!("{}cannot find parameter {}, parameters_values {:?}", " ".repeat(ident * 4), par.name, self.parameters_values);
-            result.push_str(&format!(";cannot find parameter {}, parameters_values {:?}\n", par.name, self.parameters_values));
+            debug!("{}cannot find parameter {} in parameters_values {:?} we take if from the stack", " ".repeat(ident * 4), par.name, self.parameters_values);
+            result.push_str(&format!(";cannot find parameter {} in parameters_values {:?} we take it from stack\n", par.name, self.parameters_values));
 
             let relative_address =
-            if self.inline {
-                debug!("{}  i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
-                result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n", i, self.parameters_added, to_remove_from_stack));
-                (i as i32 - self.to_remove_from_stack() as i32 - to_remove_from_stack as i32) * word_len
-            } else {
-                (i + 2) * self.backend.word_len() as i32
-            };
+                if self.inline {
+                    debug!("{}  i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
+                    result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n", i, self.parameters_added, to_remove_from_stack));
+                    (i as i32 - self.to_remove_from_stack() as i32 - to_remove_from_stack as i32) * word_len
+                } else {
+                    (i + 2) * self.backend.word_len() as i32
+                };
 
             let address = format!("[{}+{}]", self.backend.stack_base_pointer(), relative_address);
 
@@ -216,26 +205,20 @@ impl<'a> FunctionCallParameters<'a> {
         result
     }
 
-    fn parameter_added(&mut self) {
+    fn parameter_added_to_stack(&mut self, param_name: &str) {
         self.parameters_added += 1;
+        self.stack.reserve(param_name, 1);
     }
 
     pub fn to_remove_from_stack(&self) -> usize {
         self.parameters.len()
+        //self.parameters_added
     }
 
     pub fn before(&self) -> String {
         let mut result = String::new();
 
         let word_len = self.backend.word_len() as usize;
-        let word_size = self.backend.word_size();
-
-        if self.lambda_slots_to_deallocate > 0 {
-            CodeGen::add(&mut result, "mov     ecx,[_lambda_space_heap]", None, true);
-            CodeGen::add(&mut result, &format!("add     ecx,{}", self.lambda_slots_to_deallocate * word_len), None, true);
-            CodeGen::add(&mut result, &format!("mov     {} [_lambda_space_heap],ecx", word_size), None, true);
-            CodeGen::add(&mut result, &format!("sub     ecx,{}", self.lambda_slots_to_deallocate * word_len), None, true);
-        }
 
         if !self.parameters.is_empty() {
             CodeGen::add(&mut result, &format!("sub {}, {}", self.backend.stack_pointer(), word_len * self.parameters.len()),
@@ -252,19 +235,49 @@ impl<'a> FunctionCallParameters<'a> {
         result
     }
 
+
     pub fn after(&self) -> String {
         let mut s = String::new();
-        // TODO it should be great if we could inline the function lambdaSpaceMdealloc (but we will loose a little optimization of not pushing the register, because in
-        //      this code we have already saved ebx and we can use it)
         if self.lambda_slots_to_deallocate > 0 {
-            CodeGen::add(&mut s, "mov     ebx,[_lambda_space_heap]", None, true);
-            CodeGen::add(&mut s, &format!("sub     ebx,{}", self.lambda_slots_to_deallocate * self.backend.word_len() as usize), None, true);
-            CodeGen::add(&mut s, "mov     dword [_lambda_space_heap],ebx", None, true);
+            Self::deallocate_lambda_space(self.backend, &mut s, "ebx", self.lambda_slots_to_deallocate);
         }
         s
     }
 
+    fn allocate_lambda_space(backend: &dyn Backend, out: &mut String, register_to_store_result: &str, slots: usize) {
+        CodeGen::add(out, "; lambda space allocation", None, true);
+        CodeGen::add(out, &format!("mov     {register_to_store_result},[_lambda_space_heap]"), None, true);
+        CodeGen::add(out, &format!("add     {register_to_store_result},{}", slots * backend.word_len() as usize), None, true);
+        CodeGen::add(out, &format!("mov     {} [_lambda_space_heap],{register_to_store_result}", backend.word_size()), None, true);
+        CodeGen::add(out, &format!("sub     {register_to_store_result},{}", slots * backend.word_len() as usize), None, true);
+    }
+
+    fn deallocate_lambda_space(backend: &dyn Backend, out: &mut String, tmp_register: &str, slots: usize) {
+        CodeGen::add(out, "; lambda space deallocation", None, true);
+        CodeGen::add(out, &format!("mov     {tmp_register},[_lambda_space_heap]"), None, true);
+        CodeGen::add(out, &format!("sub     {tmp_register},{}", slots * backend.word_len() as usize), None, true);
+        CodeGen::add(out, &format!("mov     dword [_lambda_space_heap],{tmp_register}"), None, true);
+    }
+
     pub fn push(&mut self, s: &str) {
         self.before.push_str(s);
+    }
+
+    fn mem_copy(&mut self, source: &str, dest: &str, slots: usize, comment: Option<&str>) {
+        CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), slots), comment, true);
+        CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), dest), comment, true);
+        CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), source), comment, true);
+        CodeGen::add(&mut self.before, "call memcopy", comment, true);
+        self.restore_stack(3, comment);
+    }
+
+    fn restore_stack(&mut self, slots: usize, comment: Option<&str>) {
+        CodeGen::add(&mut self.before, &format!("add {},{}", self.backend.stack_pointer(), slots * self.backend.word_len() as usize), comment, true);
+    }
+
+    fn indirect_mov(&mut self, source: &str, dest: &str, temporary_register: &str, comment: Option<&str>) {
+        CodeGen::add(&mut self.before, &format!("mov  {} {}, [{}]", self.backend.word_size(), temporary_register, source),
+                     comment, true);
+        CodeGen::add(&mut self.before, &format!("mov  {} [{}], {}", self.backend.word_size(), dest, temporary_register), comment, true);
     }
 }
