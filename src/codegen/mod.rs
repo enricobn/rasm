@@ -153,10 +153,10 @@ impl<'a> CodeGen<'a> {
 
             let function_body = ASTFunctionBody::ASMBody(body);
             let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types }, ast_ref: true }, from_context: false }];
+            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types }, ast_ref: true } }];
             for variant in enum_def.variants.iter() {
                 let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
-                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true }, from_context: false });
+                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true } });
             }
             // TODO I would like to call it Enum::match
             let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: Vec::new() };
@@ -414,12 +414,9 @@ impl<'a> CodeGen<'a> {
         };
 
         for par in function_def.parameters.iter() {
-            if !par.from_context {
-                debug!("{}Inserted var {} in context, offset {}, from context {}", " ".repeat((indent + 1) * 4), par.name, i,
-                         par.from_context);
-                context.insert(par.name.clone(), VarKind::ParameterRef(i, par.clone()));
-                i += 1;
-            }
+            debug!("{}Inserted parameter {} in context, offset {}", " ".repeat((indent + 1) * 4), par.name, i);
+            context.insert(par.name.clone(), VarKind::ParameterRef(i, par.clone()));
+            i += 1;
         }
 
         let stack = Stack::new();
@@ -496,7 +493,7 @@ impl<'a> CodeGen<'a> {
                 let wl = self.backend.word_len() as usize;
                 let bp = self.backend.stack_base_pointer();
 
-                let parameters_defs = parameters.iter().map(|it| ASTParameterDef { name: "p".into(), type_ref: it.clone(), from_context: false }).collect();
+                let parameters_defs = parameters.iter().map(|it| ASTParameterDef { name: "p".into(), type_ref: it.clone() }).collect();
 
                 debug!("{}Calling lambda {}", " ".repeat(indent * 4), function_call.function_name);
                 debug!("{}parameters {:?}", " ".repeat((indent + 1) * 4), parameters);
@@ -612,8 +609,7 @@ impl<'a> CodeGen<'a> {
                         for i in 0..parameters_types.len() {
                             def.parameters.push(ASTParameterDef {
                                 name: lambda_def.parameter_names.get(i).unwrap().clone(),
-                                type_ref: parameters_types.get(i).unwrap().clone(),
-                                from_context: false,
+                                type_ref: parameters_types.get(i).unwrap().clone()
                             });
                             // TODO check if the parameter name collides with some context var
                         }
@@ -698,14 +694,14 @@ impl<'a> CodeGen<'a> {
         if let Some(var_kind) = context.get(name) {
             match var_kind {
                 VarKind::ParameterRef(index, par) => {
-                    CodeGen::add(before, "", Some(&format!("Adding parameter ref param {}, for {}, index {}, from context {}, lambda_space: {:?}", name, subject, index, par.from_context, lambda_space_opt)), true);
+                    CodeGen::add(before, "", Some(&format!("Adding parameter ref param {}, for {}, index {}, lambda_space: {:?}", name, subject, index, lambda_space_opt)), true);
                     //debug!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
 
                     if lambda_space_opt.map(|it| it.get_index(name).is_some()).unwrap_or(false) {
                         //call_parameters.add_var(param_name, par, lambda_space_opt, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);
 
-                        call_parameters.add_lambda_param_from_lambda_space(param_name, name, lambda_space_opt.unwrap(),
-                                                                           Some(&format!("var reference to lambda space parameter '{}' index {}, inside def: {:?}", name, index, parent_def.map(|it| it.name.clone()))), *indent);
+                        call_parameters.add_val_from_lambda_space(param_name, name, lambda_space_opt.unwrap(),
+                                                                  Some(&format!("reference to lambda space value '{}' index {}, inside def: {:?}", name, index, parent_def.map(|it| it.name.clone()))), *indent);
                     } else {
                         call_parameters.add_val(param_name.into(), par, *index, Some(&format!("reference to parameter '{}' index {}", name, index)), *indent);
                     }

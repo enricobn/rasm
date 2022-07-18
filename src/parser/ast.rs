@@ -38,12 +38,11 @@ pub enum ASTType {
 pub struct ASTParameterDef {
     pub name: String,
     pub type_ref: ASTTypeRef,
-    pub from_context: bool,
 }
 
 impl ASTParameterDef {
-    pub fn new(name: &str, type_ref: ASTTypeRef, from_context: bool) -> ASTParameterDef {
-        ASTParameterDef { name: name.into(), type_ref, from_context }
+    pub fn new(name: &str, type_ref: ASTTypeRef) -> ASTParameterDef {
+        ASTParameterDef { name: name.into(), type_ref }
     }
 }
 

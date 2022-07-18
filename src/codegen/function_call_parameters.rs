@@ -104,7 +104,6 @@ impl<'a> FunctionCallParameters<'a> {
                     &format!("ecx + {}", i * word_len), "ebx", Some(&format!("context parameter {}", name)));
 
                 lambda_space.add_context_parameter(name.clone(), i);
-                def.parameters.push(ASTParameterDef { name: name.into(), type_ref: par.type_ref.clone(), from_context: true });
                 i += 1;
             }
         });
@@ -124,7 +123,7 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn add_val(&mut self, original_param_name: String, par: &ASTParameterDef, index: usize, comment: Option<&str>, indent: usize) {
-        debug!("{}adding val {}, index {}, from context {}", " ".repeat(indent * 4), original_param_name, index, par.from_context);
+        debug!("{}adding val {}, index {}", " ".repeat(indent * 4), original_param_name, index);
         self.add_val_(original_param_name, &par.type_ref, index, comment);
     }
 
@@ -147,7 +146,7 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
 
-    pub fn add_lambda_param_from_lambda_space(&mut self, original_param_name: &str, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
+    pub fn add_val_from_lambda_space(&mut self, original_param_name: &str, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
         let lambda_space_index = lambda_space.get_index(param_name).unwrap();
         debug!("{}add_lambda_param_from_lambda_space, original_param_name {}, param {}, lambda_space_index {}", " ".repeat(indent * 4), original_param_name, param_name, lambda_space_index);
 

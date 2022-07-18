@@ -201,7 +201,7 @@ impl Parser {
                             self.i = next_i;
                             if let Some((type_ref, next_i)) = TypeParser::new(self).try_parse_type_ref(0, &def.param_types) {
                                 self.i = next_i;
-                                self.parser_data.push(ParserData::FunctionDefParameter(ASTParameterDef { name, type_ref, from_context: false }));
+                                self.parser_data.push(ParserData::FunctionDefParameter(ASTParameterDef { name, type_ref }));
                                 self.state.pop();
                                 continue;
                             } else {

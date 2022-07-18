@@ -70,7 +70,7 @@ impl<'a> EnumParser<'a> {
                         let parser = *type_result.get(i).unwrap();
                         let type_parser = TypeParser::new(parser);
                         if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters) {
-                            parameters.push(ASTParameterDef { name: parameters_s.get(i).unwrap().clone(), type_ref, from_context: false });
+                            parameters.push(ASTParameterDef { name: parameters_s.get(i).unwrap().clone(), type_ref });
                         } else {
                             self.parser.panic(&format!("Cannot parse type for enum variant {}:", name));
                             panic!();
@@ -188,8 +188,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
-                from_context: false,
+                type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false }
             }],
         };
 
@@ -238,7 +237,7 @@ mod tests {
         if let Some((variants, next_i)) = parse_result {
             assert_eq!(variants, vec![ASTEnumVariantDef {
                 name: "Some".into(),
-                parameters: vec![ASTParameterDef::new("value", ASTTypeRef::parametric("T", false), false)],
+                parameters: vec![ASTParameterDef::new("value", ASTTypeRef::parametric("T", false))],
             }]);
             assert_eq!(next_i, 7);
         } else {
@@ -253,8 +252,8 @@ mod tests {
         if let Some((variants, next_i)) = parse_result {
             assert_eq!(variants, vec![ASTEnumVariantDef {
                 name: "Something".into(),
-                parameters: vec![ASTParameterDef::new("v", ASTTypeRef::parametric("T", false), false),
-                                 ASTParameterDef::new("v1", ASTTypeRef::parametric("T1", false), false)],
+                parameters: vec![ASTParameterDef::new("v", ASTTypeRef::parametric("T", false)),
+                                 ASTParameterDef::new("v1", ASTTypeRef::parametric("T1", false))],
             }]);
             assert_eq!(next_i, 11);
         } else {
@@ -269,9 +268,9 @@ mod tests {
         if let Some((variants, next_i)) = parse_result {
             assert_eq!(variants, vec![ASTEnumVariantDef {
                 name: "Full".into(),
-                parameters: vec![ASTParameterDef::new("head", ASTTypeRef::parametric("T", false), false),
+                parameters: vec![ASTParameterDef::new("head", ASTTypeRef::parametric("T", false)),
                                  ASTParameterDef::new("tail",
-                                                      ASTTypeRef::custom("List", false, vec![ASTTypeRef::parametric("T", false)]), false)],
+                                                      ASTTypeRef::custom("List", false, vec![ASTTypeRef::parametric("T", false)]))],
             }]);
             assert_eq!(next_i, 14);
         } else {
@@ -290,8 +289,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
-                from_context: false,
+                type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false }
             }],
         };
 
@@ -333,8 +331,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
-                        from_context: false,
+                        type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false }
                     }],
                 };
 
@@ -369,12 +366,10 @@ mod tests {
                     name: "Full".into(),
                     parameters: vec![ASTParameterDef {
                         name: "head".into(),
-                        type_ref: ASTTypeRef::parametric("T", false),
-                        from_context: false,
+                        type_ref: ASTTypeRef::parametric("T", false)
                     }, ASTParameterDef {
                         name: "tail".into(),
-                        type_ref: ASTTypeRef::custom("List", false, vec![ASTTypeRef::parametric("T", false)]),
-                        from_context: false,
+                        type_ref: ASTTypeRef::custom("List", false, vec![ASTTypeRef::parametric("T", false)])
                     }],
                 };
 
@@ -407,12 +402,12 @@ mod tests {
             if let Some((variants, next_i)) = parse_result {
                 let left = ASTEnumVariantDef {
                     name: "Left".into(),
-                    parameters: vec![ASTParameterDef::new("l", ASTTypeRef::parametric("L", false), false)],
+                    parameters: vec![ASTParameterDef::new("l", ASTTypeRef::parametric("L", false))],
                 };
 
                 let right = ASTEnumVariantDef {
                     name: "Right".into(),
-                    parameters: vec![ASTParameterDef::new("r", ASTTypeRef::parametric("R", false), false)],
+                    parameters: vec![ASTParameterDef::new("r", ASTTypeRef::parametric("R", false))],
                 };
 
                 assert_eq!(variants, vec![left, right]);
