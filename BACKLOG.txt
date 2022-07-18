@@ -1,8 +1,27 @@
 Doing
 ------
+- split the standard library
+  - move all the standard libraries in a separate folder (stdlib, lib, include? )
+  - the include files should be searched relative to actual folder / stdlib folder, plus the current folder, and it can
+    be overridden with an environment var with a list of folders, separated by colon
+  - add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
+    or add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
+  - the folder structure of the stdlib folder should be:
+      - io/
+        - io.rasm without asm and include "io_i386.rasm" (I would like to do it depending on the backend)
+        - io_i386.rasm
+      - mem/
+        - mem.rasm without asm and include "io_i386.rasm" (I would like to do it depending on the backend)
+        - mem_i386.rams
+      - list.rams
+      - option.rasm
+      - std.rams
+        - include all the others
+        - other functions
 
 Next
 -----
+- bug: a fn with an asm block /{ }/ is interpreted as asm
 - bug when a parameter of an asm function starts the same as another : v v1
   - I must process them in size order descending
 - bug when an enum variant starts the same as another : T T1
@@ -35,9 +54,4 @@ Next
 - type checker
 - type parameters for functions
 - move std.rasm in another folder
-- split std.rasm
-  - a file for not asm functions
-  - io.rasm
-  - string.rasm
-  - enum.rasm
--
+- UTF-8 strings

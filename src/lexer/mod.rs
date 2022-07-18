@@ -33,10 +33,10 @@ impl Lexer {
                 debug!("Reading file {:?}, size {}", path, size);
                 Ok(Lexer::new(s))
             } else {
-                Err(format!("Cannot read {:?}", path.to_str()))
+                Err(format!("Cannot read file {:?}", path.to_str()))
             }
         } else {
-            Err(format!("Cannot find {:?}", path.to_str()))
+            Err(format!("Cannot find file {:?}", path.to_str()))
         }
     }
 

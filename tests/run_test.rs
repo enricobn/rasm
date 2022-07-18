@@ -130,7 +130,7 @@ fn test_list_flatten() {
 
 #[test]
 fn test_gameoflife_runs() {
-    test_("gameoflife", vec!["10"],None);
+    test_("gameoflife", vec!["5"],None);
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

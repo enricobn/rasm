@@ -83,6 +83,8 @@ impl Parser {
         self.parser_data = Vec::new();
         self.state = Vec::new();
 
+        let std_path = Path::new("resources/stdlib");
+
         let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
 
         while self.i <= self.tokens.len() {
@@ -135,17 +137,30 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((resource, next_i)) = self.try_parse_include() {
-                        let buf = path.with_file_name(resource);
-                        let resource_path = buf.as_path();
-                        if let Ok(lexer) = Lexer::from_file(resource_path) {
-                            let mut parser = Parser::new(lexer);
-                            let mut module = parser.parse(resource_path);
-                            if !module.body.is_empty() {
-                                self.panic(&format!("Cannot include a module with a body: {:?}.", module.body));
-                            }
-                            self.included_functions.append(&mut module.functions);
-                            self.enums.append(&mut module.enums);
+                        let mut buf = std_path.join(Path::new(&resource));
+                        // First we try to get the file from the standard lib folder,
+                        // then we try to get it relative to the current file
+                        if !buf.exists() {
+                            buf = path.with_file_name(resource);
                         }
+
+                        let resource_path = buf.as_path();
+
+                        match Lexer::from_file(resource_path) {
+                            Ok(lexer) => {
+                                let mut parser = Parser::new(lexer);
+                                let mut module = parser.parse(resource_path);
+                                if !module.body.is_empty() {
+                                    self.panic(&format!("Cannot include a module with a body: {:?}.", module.body));
+                                }
+                                self.included_functions.append(&mut module.functions);
+                                self.enums.append(&mut module.enums);
+                            }
+                            Err(err) => {
+                                self.panic(&format!("Error running lexer for {:?}: {err}", resource_path.to_str()));
+                            }
+                        }
+
                         self.i = next_i;
                         continue;
                     } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
@@ -633,6 +648,8 @@ impl Parser {
             if let Some(next_token) = self.next_token() {
                 if let TokenKind::StringLiteral(include) = &next_token.kind {
                     return Some((include.into(), self.i + 2));
+                } else {
+                    self.panic(&format!("Unexpected token {:?}", next_token));
                 }
             } else {
                 self.panic("Error parsing include");
