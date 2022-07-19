@@ -1,7 +1,19 @@
 include "std.rasm"
 
-nprintln(test(atoi(argv(1))));
+with(atoi(argv(1)), { arg ->
+    nprintln(parameter(arg));
+    nprintln(lambdaParameter(arg, { p -> p;}));
+    nprintln(context(arg));
+});
 
-fn test(n: i32) -> i32 {
+fn parameter(n: i32) -> i32 {
     n;
+}
+
+fn lambdaParameter(n: i32, f: fn(i32) -> i32) -> i32 {
+    f(n);
+}
+
+fn context(n: i32) -> i32 {
+    lambdaParameter(n, { n1 -> n;});
 }

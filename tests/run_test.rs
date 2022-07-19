@@ -85,7 +85,7 @@ fn test_recurse() {
 
 #[test]
 fn test_val() {
-    test("val", vec!["10"],"10\n");
+    test("val", vec!["10"],"10\n10\n10\n");
 }
 
 #[test]
