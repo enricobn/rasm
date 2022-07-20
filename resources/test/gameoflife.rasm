@@ -1,18 +1,19 @@
 include "std.rasm"
 
-enum Cell {
-    Cell(x: i32, y: i32)
+struct Cell {
+    x: i32,
+    y: i32
 }
 
 run(moveCells(
         listOf7(
-           Cell::Cell(7, 1),
-           Cell::Cell(1, 2),
-           Cell::Cell(2, 2),
-           Cell::Cell(2, 3),
-           Cell::Cell(6, 3),
-           Cell::Cell(7, 3),
-           Cell::Cell(8, 3)), 10)
+           Cell(7, 1),
+           Cell(1, 2),
+           Cell(2, 2),
+           Cell(2, 3),
+           Cell(6, 3),
+           Cell(7, 3),
+           Cell(8, 3)), 10)
         , 30, atoi(argv(1)));
 
 fn run(start: List<Cell>, size: i32, count: i32) {
@@ -26,13 +27,13 @@ fn run(start: List<Cell>, size: i32, count: i32) {
 }
 
 fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
-    listMap(cells, { it -> CellMatch(it, { x, y -> Cell::Cell(nadd(x, d), nadd(y, d)); });});
+    listMap(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
 }
 
 fn printCells(cells: &List<&Cell>, width: i32, height: i32) {
     listMap(range(0, height), { y ->
         listMap(range(0, width), { x ->
-            if(isAlive(cells, Cell::Cell(x, y)), { -> sprint("*"); }, { -> sprint(" "); });
+            if(isAlive(cells, Cell(x, y)), { -> sprint("*"); }, { -> sprint(" "); });
         });
         sprintln("");
     });
@@ -41,7 +42,7 @@ fn printCells(cells: &List<&Cell>, width: i32, height: i32) {
 fn allCells(width: i32, height: i32) -> List<Cell> {
     listFlatten(listMap(range(0, height), { y ->
         listMap(range(0, width), { x ->
-            Cell::Cell(x, y);
+            Cell(x, y);
         });
     }));
 }
@@ -69,16 +70,16 @@ fn next(cells: &List<Cell>, width: i32, height: i32) -> List<Cell> {
 }
 
 fn adjacents(cell: &Cell) -> List<Cell> {
-    CellMatch(cell, { x, y ->
+    with2(Cell::x(cell), Cell::y(cell), { x, y ->
         listOf8(
-            Cell::Cell(nadd(x, -1), nadd(y, -1)),
-            Cell::Cell(nadd(x, -1), y),
-            Cell::Cell(nadd(x, -1), nadd(y, 1)),
-            Cell::Cell(x, nadd(y, 1)),
-            Cell::Cell(x, nadd(y, -1)),
-            Cell::Cell(nadd(x, 1), nadd(y, -1)),
-            Cell::Cell(nadd(x, 1), y),
-            Cell::Cell(nadd(x, 1), nadd(y, 1))
+            Cell(nadd(x, -1), nadd(y, -1)),
+            Cell(nadd(x, -1), y),
+            Cell(nadd(x, -1), nadd(y, 1)),
+            Cell(x, nadd(y, 1)),
+            Cell(x, nadd(y, -1)),
+            Cell(nadd(x, 1), nadd(y, -1)),
+            Cell(nadd(x, 1), y),
+            Cell(nadd(x, 1), nadd(y, 1))
         );
     });
 }
@@ -86,10 +87,6 @@ fn adjacents(cell: &Cell) -> List<Cell> {
 /** false = 0 true = any other value **/
 fn isAlive(cells: &List<Cell>, cell: &Cell) -> i32 {
     listAnyMatch(cells, { it ->
-        CellMatch(cell, { x, y ->
-            CellMatch(it, { x1, y1 ->
-                and(eq(x, x1), eq(y, y1));
-            });
-        });
+        and(eq(Cell::x(cell), Cell::x(it)), eq(Cell::y(cell), Cell::y(it)));
     });
 }

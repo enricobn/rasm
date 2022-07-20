@@ -621,7 +621,6 @@ impl<'a> CodeGen<'a> {
                     }
                     ASTExpression::Val(name) => {
                         let error_msg = format!("Cannot find val {}, calling function {}", name, function_call.function_name);
-                        let subject = &function_call.function_name;
                         Self::add_val(context, &lambda_space_opt, &indent, &mut call_parameters, &param_name, name, &error_msg);
                     }
                     ASTExpression::Lambda(lambda_def) => {
