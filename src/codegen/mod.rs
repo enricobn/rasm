@@ -439,7 +439,7 @@ impl<'a> CodeGen<'a> {
                             let tmp_stack = Stack::new();
 
                             let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true, &tmp_stack);
-                            Self::add_val(&context, &None, &mut self.definitions, &lambda_space, &indent, &mut parameters, val, val, "", "");
+                            Self::add_val(&context, &lambda_space, &indent, &mut parameters, val, val, "");
 
                             self.definitions.push_str(&parameters.before());
                         }
@@ -569,9 +569,9 @@ impl<'a> CodeGen<'a> {
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
                     ASTExpression::Val(name) => {
-                        let error_msg = format!("Cannot find variable {}, calling function {}", name, function_call.function_name);
+                        let error_msg = format!("Cannot find val {}, calling function {}", name, function_call.function_name);
                         let subject = &function_call.function_name;
-                        Self::add_val(context, parent_def, before, &lambda_space_opt, &indent, &mut call_parameters, &param_name, &name, &error_msg, &subject);
+                        Self::add_val(context, &lambda_space_opt, &indent, &mut call_parameters, &param_name, name, &error_msg);
                     }
                     ASTExpression::Lambda(lambda_def) => {
                         if let ASTFunctionBody::ASMBody(_) = &lambda_def.body {
@@ -689,22 +689,11 @@ impl<'a> CodeGen<'a> {
         lambda_calls
     }
 
-    fn add_val(context: &VarContext, parent_def: &Option<&ASTFunctionDef>, before: &mut String, lambda_space_opt: &Option<&LambdaSpace>, indent: &usize, call_parameters: &mut FunctionCallParameters, param_name: &str, name: &str, error_msg: &str, subject: &str) {
-        debug!("add_val param_name {}, name {}", param_name, name);
-        if let Some(var_kind) = context.get(name) {
+    fn add_val(context: &VarContext, lambda_space_opt: &Option<&LambdaSpace>, indent: &usize, call_parameters: &mut FunctionCallParameters, param_name: &str, val_name: &str, error_msg: &str) {
+        if let Some(var_kind) = context.get(val_name) {
             match var_kind {
                 VarKind::ParameterRef(index, par) => {
-                    CodeGen::add(before, "", Some(&format!("Adding parameter ref param {}, for {}, index {}, lambda_space: {:?}", name, subject, index, lambda_space_opt)), true);
-                    //debug!("{}Adding parameter ref param {}, for function call {}, index {}, from context {}, lambda_space: {:?}", " ".repeat(indent * 4), name, subject, index, par.from_context, lambda_space_opt);
-
-                    if lambda_space_opt.map(|it| it.get_index(name).is_some()).unwrap_or(false) {
-                        //call_parameters.add_var(param_name, par, lambda_space_opt, *index, Some(&format!("var reference to parameter '{}' index {}", name, index)), indent);
-
-                        call_parameters.add_val_from_lambda_space(param_name, name, lambda_space_opt.unwrap(),
-                                                                  Some(&format!("reference to lambda space value '{}' index {}, inside def: {:?}", name, index, parent_def.map(|it| it.name.clone()))), *indent);
-                    } else {
-                        call_parameters.add_val(param_name.into(), par, *index, Some(&format!("reference to parameter '{}' index {}", name, index)), *indent);
-                    }
+                    call_parameters.add_val(param_name.into(), val_name, par, *index, lambda_space_opt, *indent);
                 }
             }
         } else {
@@ -712,31 +701,31 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn add(dest: &mut String, code: &str, comment: Option<&str>, indent: bool) {
+    pub fn add(out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
         if code.is_empty() {
-            dest.push('\n');
+            out.push('\n');
         } else {
             let max = 80;
             let s = format!("{:width$}", code, width = max);
             assert_eq!(s.len(), max, "{}", s);
             if indent {
-                dest.push_str("    ");
+                out.push_str("    ");
             }
-            dest.push_str(&s);
+            out.push_str(&s);
         }
 
         if let Some(c) = comment {
             if code.is_empty() {
-                dest.push_str("    ");
+                out.push_str("    ");
             }
-            dest.push_str(&"; ".to_string());
-            dest.push_str(c);
+            out.push_str(&"; ".to_string());
+            out.push_str(c);
         }
-        dest.push('\n');
+        out.push('\n');
     }
 
-    pub fn add_empty_line(dest: &mut String) {
-        dest.push('\n');
+    pub fn add_empty_line(out: &mut String) {
+        out.push('\n');
     }
 }
 

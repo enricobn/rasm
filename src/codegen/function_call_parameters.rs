@@ -122,33 +122,44 @@ impl<'a> FunctionCallParameters<'a> {
         lambda_space
     }
 
-    pub fn add_val(&mut self, original_param_name: String, par: &ASTParameterDef, index: usize, comment: Option<&str>, indent: usize) {
-        debug!("{}adding val {}, index {}", " ".repeat(indent * 4), original_param_name, index);
-        self.add_val_(original_param_name, &par.type_ref, index, comment);
+    pub fn add_val(&mut self, original_param_name: String, val_name: &str, par: &ASTParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
+        self.debug_and_before(&format!("adding val {val_name}"), indent);
+
+        if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
+            self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent);
+        } else {
+            self.add_val_from_parameter(original_param_name, &par.type_ref, index_in_context, indent);
+        }
     }
 
-    fn add_val_(&mut self, original_param_name: String, type_ref: &ASTTypeRef, index: usize, comment: Option<&str>) {
+    fn debug_and_before(&mut self, descr: &str, indent: usize) {
+        debug!("{} {descr}", " ".repeat(indent * 4));
+        CodeGen::add(&mut self.before, "", Some(descr), true);
+    }
+
+    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypeRef, index_in_context: usize, indent: usize) {
+        self.debug_and_before(&format!("adding ref to param {original_param_name}, index_in_context {index_in_context}"), indent);
+
         let word_len = self.backend.word_len() as usize;
 
         if self.inline {
-            self.parameters_values.insert(original_param_name.clone(), format!("[{}+{}]", self.backend.stack_base_pointer(), (index + 2) * word_len));
+            self.parameters_values.insert(original_param_name.clone(), format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len));
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
             if self.immediate {
-                CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index + 2) * word_len), comment, true);
+                CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index_in_context + 2) * word_len), None, true);
             } else {
-                self.indirect_mov(&format!("{}+{}", self.backend.stack_base_pointer(), (index + 2) * word_len),
+                self.indirect_mov(&format!("{}+{}", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len),
                                   &format!("{} + {}", self.backend.stack_pointer(),
-                                           self.parameters_added * self.backend.word_len() as usize), "ebx", comment);
+                                           self.parameters_added * self.backend.word_len() as usize), "ebx", None);
             }
         }
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
 
-    pub fn add_val_from_lambda_space(&mut self, original_param_name: &str, param_name: &str, lambda_space: &LambdaSpace, comment: Option<&str>, indent: usize) {
-        let lambda_space_index = lambda_space.get_index(param_name).unwrap();
-        debug!("{}add_lambda_param_from_lambda_space, original_param_name {}, param {}, lambda_space_index {}", " ".repeat(indent * 4), original_param_name, param_name, lambda_space_index);
+    fn add_val_from_lambda_space(&mut self, original_param_name: &str, val_name: &str, lambda_space_index: usize, indent: usize) {
+        self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
         let word_len = self.backend.word_len() as usize;
         let sbp = self.backend.stack_base_pointer();
@@ -157,7 +168,6 @@ impl<'a> FunctionCallParameters<'a> {
             self.has_inline_lambda_param = true;
             self.parameters_values.insert(original_param_name.into(), format!("[edx + {}]", lambda_space_index * word_len));
         } else {
-            CodeGen::add(&mut self.before, "", comment, true);
             CodeGen::add(&mut self.before, &format!("mov     ebx, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"), true);
 
             if self.immediate {
@@ -165,10 +175,10 @@ impl<'a> FunctionCallParameters<'a> {
             } else {
                 self.indirect_mov(&format!("ebx + {}", lambda_space_index * word_len),
                                   &format!("{} + {}", self.backend.stack_pointer(),
-                                           self.parameters_added * self.backend.word_len() as usize), "ebx", comment);
+                                           self.parameters_added * self.backend.word_len() as usize), "ebx", None);
             }
         }
-        self.parameter_added_to_stack(&format!("lambda from lambda space: {}", param_name));
+        self.parameter_added_to_stack(&format!("lambda from lambda space: {}", val_name));
     }
 
     pub fn resolve_asm_parameters(&self, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
