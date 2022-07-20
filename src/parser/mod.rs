@@ -4,10 +4,12 @@ use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::asm_def_parser::AsmDefParser;
-use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::ASTType::Builtin;
 use crate::parser::enum_parser::EnumParser;
+use crate::parser::ParserState::StructDef;
+use crate::parser::struct_parser::StructParser;
 use crate::parser::type_parser::TypeParser;
 
 pub(crate) mod ast;
@@ -20,6 +22,7 @@ mod type_parser;
 mod tokens_matcher;
 mod tokens_group;
 mod matchers;
+mod struct_parser;
 
 enum ProcessResult {
     Continue,
@@ -36,6 +39,7 @@ pub struct Parser {
     state: Vec<ParserState>,
     included_functions: Vec<ASTFunctionDef>,
     enums: Vec<ASTEnumDef>,
+    structs: Vec<ASTStructDef>
 }
 
 #[derive(Clone, Debug)]
@@ -45,7 +49,8 @@ enum ParserData {
     FunctionDefParameter(ASTParameterDef),
     EnumDef(ASTEnumDef),
     LambdaDef(ASTLambdaDef),
-    Val(String)
+    Val(String),
+    StructDef(ASTStructDef),
 }
 
 #[derive(Clone, Debug)]
@@ -56,7 +61,8 @@ enum ParserState {
     FunctionDefParameter,
     FunctionDefReturnType,
     EnumDef,
-    Val
+    Val,
+    StructDef,
 }
 
 impl Parser {
@@ -73,6 +79,7 @@ impl Parser {
             state: Vec::new(),
             included_functions: Vec::new(),
             enums: Vec::new(),
+            structs: Vec::new()
         }
     }
 
@@ -166,6 +173,11 @@ impl Parser {
                     } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
                         self.parser_data.push(ParserData::EnumDef(ASTEnumDef { name, type_parameters: type_params, variants: Vec::new() }));
                         self.state.push(ParserState::EnumDef);
+                        self.i = next_i;
+                        continue;
+                    } else if let Some((name, type_params, next_i)) = StructParser::new(self).try_parse() {
+                        self.parser_data.push(ParserData::StructDef(ASTStructDef { name, type_parameters: type_params, properties: Vec::new() }));
+                        self.state.push(StructDef);
                         self.i = next_i;
                         continue;
                     } else if let TokenKind::EndOfLine = token.kind {
@@ -304,6 +316,22 @@ impl Parser {
                     }
                     panic!("Expected val name, found {:?}", self.last_parser_data());
                 }
+                Some(StructDef) => {
+                    if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
+                        if let Some((properties, next_i)) = StructParser::new(self).parse_properties(&def.type_parameters, 0) {
+                            def.properties = properties;
+                            self.structs.push(def);
+                            self.state.pop();
+                            self.parser_data.pop();
+                            self.i = next_i;
+                            continue;
+                        } else {
+                            panic!("Expected properties.")
+                        }
+                    } else {
+                        panic!("Expected struct data.")
+                    }
+                }
             }
 
             self.i += 1;
@@ -315,7 +343,7 @@ impl Parser {
 
         //println!("ebums: \n{:?}", self.enums);
 
-        ASTModule { body: self.body.clone(), functions: self.functions.clone(), enums: self.enums.clone() }
+        ASTModule { body: self.body.clone(), functions: self.functions.clone(), enums: self.enums.clone(), structs: self.structs.clone() }
     }
 
     fn process_function_call(&mut self, token: Token) -> ProcessResult {

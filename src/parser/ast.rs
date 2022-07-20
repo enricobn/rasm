@@ -40,6 +40,12 @@ pub struct ASTParameterDef {
     pub type_ref: ASTTypeRef,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ASTStructPropertyDef {
+    pub name: String,
+    pub type_ref: ASTTypeRef,
+}
+
 impl ASTParameterDef {
     pub fn new(name: &str, type_ref: ASTTypeRef) -> ASTParameterDef {
         ASTParameterDef { name: name.into(), type_ref }
@@ -83,6 +89,7 @@ pub struct ASTModule {
     pub body: Vec<ASTFunctionCall>,
     pub functions: Vec<ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
+    pub structs: Vec<ASTStructDef>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -96,6 +103,13 @@ pub struct ASTEnumDef {
 pub struct ASTEnumVariantDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ASTStructDef {
+    pub name: String,
+    pub type_parameters: Vec<String>,
+    pub properties: Vec<ASTStructPropertyDef>,
 }
 
 pub fn lambda(return_type: Option<Box<ASTTypeRef>>) -> ASTType {

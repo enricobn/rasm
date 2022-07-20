@@ -1,5 +1,9 @@
 Doing
 ------
+- structs
+
+Next
+-----
 - split the standard library
   - move all the standard libraries in a separate folder (stdlib, lib, include? )
   - the include files should be searched relative to actual folder / stdlib folder, plus the current folder, and it can
@@ -18,9 +22,6 @@ Doing
       - std.rams
         - include all the others
         - other functions
-
-Next
------
 - bug: a fn with an asm block /{ }/ is interpreted as asm
 - bug when a parameter of an asm function starts the same as another : v v1
   - I must process them in size order descending

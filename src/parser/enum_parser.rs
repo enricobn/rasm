@@ -89,7 +89,7 @@ impl<'a> EnumParser<'a> {
         }
     }
 
-    // TODO it seems to be more generic: it is a list of parameters surrounded by (), it can be used to match even function declarations
+    // TODO it seems to be more generic: it is a list of parameters surrounded by (), it can be used to match even function declarations?
     fn variant_matcher(name: &str, quantifier: Quantifier, type_parameters: &[String]) -> TokensMatcher {
         let mut matcher = TokensMatcher::new(name, quantifier);
         matcher.add_alphanumeric();
@@ -107,7 +107,7 @@ impl<'a> EnumParser<'a> {
         matcher
     }
 
-    fn parameter_matcher(context_param_types: &[String]) -> ParameterMatcher {
+    pub fn parameter_matcher(context_param_types: &[String]) -> ParameterMatcher {
         ParameterMatcher { context_param_types: context_param_types.into() }
     }
 }

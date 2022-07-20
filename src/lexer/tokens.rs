@@ -144,7 +144,8 @@ pub enum KeywordKind {
     Fn,
     Include,
     Inline,
-    Enum
+    Enum,
+    Struct
 }
 
 impl KeywordKind {
@@ -154,7 +155,8 @@ impl KeywordKind {
             KeywordKind::Asm => "asm".into(),
             KeywordKind::Include => "include".into(),
             KeywordKind::Inline => "inline".into(),
-            KeywordKind::Enum => "enum".into()
+            KeywordKind::Enum => "enum".into(),
+            KeywordKind::Struct => "struct".into()
         }
     }
 
