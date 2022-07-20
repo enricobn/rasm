@@ -3,7 +3,7 @@ use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef};
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::param_types_matcher;
 use crate::parser::ParserTrait;
-use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait};
+use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_parser::TypeParser;
 
 pub struct StructParser<'a> {

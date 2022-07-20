@@ -1,6 +1,5 @@
 Doing
 ------
-- structs
 
 Next
 -----

@@ -133,6 +133,11 @@ fn test_gameoflife_runs() {
     test_("gameoflife", vec!["5"],None);
 }
 
+#[test]
+fn test_structs() {
+    test("structs", vec![],"10, 20\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

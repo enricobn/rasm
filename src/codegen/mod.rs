@@ -10,7 +10,7 @@ use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::stack::Stack;
 
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 
 pub struct CodeGen<'a> {
     module: ASTModule,
@@ -163,6 +163,26 @@ impl<'a> CodeGen<'a> {
             self.functions.insert(enum_def.name.clone() + "Match", function_def);
         }
 
+        for struct_def in &self.module.structs {
+            let param_types: Vec<ASTTypeRef> = struct_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
+
+            let ast_type = ASTType::Custom { name: struct_def.name.clone(), param_types: param_types.clone() };
+            let type_ref = ASTTypeRef { ast_type, ast_ref: true };
+            let return_type = Some(type_ref);
+            let body_str = Self::struct_constructor_body(self.backend, struct_def);
+            let body = ASTFunctionBody::ASMBody(body_str);
+
+            let parameters = struct_def.properties.iter().map(|it| ASTParameterDef { name: it.name.clone(), type_ref: it.type_ref.clone()}).collect();
+
+            for (i, property_def) in struct_def.properties.iter().rev().enumerate() {
+                let property_function = Self::create_function_for_struct_property(self.backend, struct_def, property_def, i);
+                self.functions.insert(struct_def.name.clone() + "::" + &property_def.name.clone(), property_function);
+            }
+
+            let function_def = ASTFunctionDef { name: struct_def.name.clone(), parameters, body, inline: false, return_type, param_types: Vec::new() };
+            self.functions.insert(struct_def.name.clone(), function_def);
+        }
+
         // for now main has no context
         let main_context = VarContext::new(None);
 
@@ -307,6 +327,37 @@ impl<'a> CodeGen<'a> {
         }
         CodeGen::add(&mut body, "pop   ebx", None, true);
         body
+    }
+
+    fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
+        let mut body = String::new();
+        CodeGen::add(&mut body, "push ebx", None, true);
+        CodeGen::add(&mut body, &format!("push     {}", struct_def.properties.len() * backend.word_len() as usize), None, true);
+        CodeGen::add(&mut body, &format!("push   {} _heap", backend.pointer_size()), None, true);
+        CodeGen::add(&mut body, "call malloc", None, true);
+        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len() * 2), None, true);
+        for (i, par) in struct_def.properties.iter().rev().enumerate() {
+            CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
+            CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
+        }
+        CodeGen::add(&mut body, "pop   ebx", None, true);
+        body
+    }
+
+    fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
+        let mut body = String::new();
+        CodeGen::add(&mut body, "push ebx", None, true);
+        CodeGen::add(&mut body, "mov   ebx, $v", None, true);
+        CodeGen::add(&mut body, &format!("mov {}  eax, [ebx + {}]", backend.pointer_size(), i * backend.word_len() as usize), None, true);
+        CodeGen::add(&mut body, "pop   ebx", None, true);
+        body
+    }
+
+    fn create_function_for_struct_property(backend: &dyn Backend, struct_def: &ASTStructDef, property_def: &ASTStructPropertyDef, i: usize) -> ASTFunctionDef {
+        // TODO param types?
+        ASTFunctionDef {name: struct_def.name.clone() + "_" + &property_def.name, parameters: vec![ASTParameterDef {name: "v".into(), type_ref: ASTTypeRef {
+            ast_type: ASTType::Custom {name: struct_def.name.clone(), param_types: Vec::new()}, ast_ref: false}}], return_type: Some(property_def.type_ref.clone()),
+        body: ASTFunctionBody::ASMBody(Self::struct_property_body(backend, i)), param_types: Vec::new(), inline: false}
     }
 
     fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {

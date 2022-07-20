@@ -1,0 +1,14 @@
+include "std.rasm"
+
+struct Point {
+    x: i32,
+    y: i32
+}
+
+printPoint(Point(10, 20));
+
+fn printPoint(point: Point) {
+    nprint(Point::x(point));
+    sprint(", ");
+    nprintln(Point::y(point));
+}
