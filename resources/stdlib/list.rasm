@@ -11,7 +11,7 @@ fn nListPrintln(l: List<i32>) {
 }
 
 fn nListPrint(l: List<i32>) {
-    ListMatch(l, { head,tail -> nprint(head); ListMatch(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
+    List::match(l, { head,tail -> nprint(head); List::match(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
 }
 
 fn range(start: i32, end: i32) -> List<i32> {
@@ -23,16 +23,16 @@ fn range(start: i32, end: i32) -> List<i32> {
 }
 
 fn listMap(l: List<T>, map: fn(T) -> T) -> List<T> {
-    ListMatch(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
+    List::match(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
 }
 
 /** false = 0 true = any other value **/
 fn listAnyMatch(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
-    ListMatch(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
+    List::match(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
 }
 
 fn listCount(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
-    ListMatch(l, { head,tail -> nadd(listCount(tail, predicate), if(predicate(head), { -> itn(1); }, { -> itn(0); })); }, { -> itn(0); });
+    List::match(l, { head,tail -> nadd(listCount(tail, predicate), if(predicate(head), { -> itn(1); }, { -> itn(0); })); }, { -> itn(0); });
 }
 
 fn listAdd(l: &List<T>, value: T) -> List<T> {
@@ -77,9 +77,9 @@ fn listPrintln(l: List<T>, print: fn(T) -> ()) {
 }
 
 fn listPrint(l: List<T>, printFunction: fn(T) -> ()) {
-    ListMatch(l, { head,tail ->
+    List::match(l, { head,tail ->
         printFunction(head);
-        ListMatch(tail, { head1,tail1 -> sprint(","); }, { -> });
+        List::match(tail, { head1,tail1 -> sprint(","); }, { -> });
         listPrint(tail, printFunction);
     }, { -> });
 }
@@ -89,18 +89,18 @@ fn listFMap(l: List<T>, map: fn(T) -> List<T>) -> List<T> {
 }
 
 fn listFlatten(l: List<List<T>>) -> List<T> {
-    ListMatch(l, { head, tail ->
+    List::match(l, { head, tail ->
         listAppend(head, listFlatten(tail));
     },
     { -> List::Empty(); });
 }
 
 fn listAppend(dest: List<T>, source: List<T>) -> List<T> {
-    ListMatch(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
+    List::match(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
 }
 
 fn listFoldL(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    ListMatch(l, { head, tail ->
+    List::match(l, { head, tail ->
          listFoldL(tail, accum(zero, head), accum);
     }, { -> zero; });
 }
@@ -110,7 +110,7 @@ fn listFoldR(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 fn listReverse(l: List<T>) -> List<T> {
-    ListMatch(l, { head1, tail1 ->
+    List::match(l, { head1, tail1 ->
         listAppend(listReverse(tail1), listOf(head1));
     }, { -> List::Empty(); });
 }

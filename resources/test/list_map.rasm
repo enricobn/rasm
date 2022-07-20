@@ -7,9 +7,9 @@ fn printWith(v1: i32) {
 }
 
 fn listPrint(l: List<T>, print: fn(T) -> ()) {
-    ListMatch(l, { head,tail ->
+    List::match(l, { head,tail ->
         print(head);
-        ListMatch(tail, { head1,tail1 -> sprint(","); }, { -> });
+        List::match(tail, { head1,tail1 -> sprint(","); }, { -> });
         listPrint(tail, print);
     }, { -> });
 }

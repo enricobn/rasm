@@ -158,9 +158,8 @@ impl<'a> CodeGen<'a> {
                 let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
                 parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true } });
             }
-            // TODO I would like to call it Enum::match
             let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: Vec::new() };
-            self.functions.insert(enum_def.name.clone() + "Match", function_def);
+            self.functions.insert(enum_def.name.clone() + "::match", function_def);
         }
 
         for struct_def in &self.module.structs {

@@ -8,7 +8,7 @@ enum Test {
 printOption(Option::Some("a value"));
 printOption(Option::None());
 
-TestMatch(
+Test::match(
     Test::T2(10, Option::Some("a value")),
     { v1, v2, o ->
         sprintln("T1");
@@ -22,5 +22,5 @@ TestMatch(
    });
 
 fn printOption(o: Option<&str>) {
-    OptionMatch(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
+    Option::match(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
 }
