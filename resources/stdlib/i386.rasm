@@ -140,16 +140,42 @@ inline asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     ATTENTION: it is not short circuit, it always evaluates both arguments before calling the function,
     if you need a short circuit then use if function
     false = 0 true = any other value
-    It cannot be inlined because we don't know the size of instructions "mov     eax, $vtrue" and "mov     eax, $vfalse",
-    $vtrue and $vfalse can be an immediate value or a reference to an address, so we don't know how to jump!!
 **/
-asm ifImmediate(cond: i32, vtrue: T, vfalse: T) -> T /{
+inline asm ifImmediate(cond: i32, vtrue: T, vfalse: T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+7
+    jz      $+10
     mov     eax, $vtrue
-    jmp     $+5
+    jmp     $+11
+    nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
+    nop
+    nop
     mov     eax, $vfalse
+    nop     ; nops are used because it's inlined and $vfalse could be an immediate value or an address so we don't know where to jump exactly...
+    nop
+    nop
+}/
+
+/**
+    false = 0 true = any other value
+
+    ATTENTION: the true branch is not short circuit, it is always evaluated before calling the function,
+    if you need a full short circuit then use the if function
+    false = 0 true = any other value
+**/
+inline asm ifImmediateThen(cond: i32, vtrue: T, ffalse: fn() -> T) -> T /{
+    mov     eax,$cond
+    cmp     eax, 0
+    jz      $+10
+    mov     eax, $vtrue
+    jmp     $+14
+    nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
+    nop
+    nop
+    mov     eax, $ffalse
+    push    eax
+    call    [eax]
+    add     esp, 4
 }/
 
 /** TODO it should be a bool

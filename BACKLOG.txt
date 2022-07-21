@@ -4,7 +4,6 @@ Doing
 Next
 -----
 - split the standard library
-  - move all the standard libraries in a separate folder (stdlib, lib, include? )
   - the include files should be searched relative to actual folder / stdlib folder, plus the current folder, and it can
     be overridden with an environment var with a list of folders, separated by colon
   - add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
@@ -26,32 +25,28 @@ Next
   - I must process them in size order descending
 - bug when an enum variant starts the same as another : T T1
 - delete asm, object and executable file on compile
-- write and, or, not in asm
+- write "and", "or", "not" function in asm inline
 - I think include messes up reporting error line
 - error if there's a function named the same way as a lambda parameter
-- put standard libraries in another path
 - support for boolean
 - optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:
   - if there are more lambda in a call, all share the same lambda space (but not the address to the function), now it's duplicated:
     - I can create only one lambda space, then I can pass to the lambda, the address to the real function and the address to the lambda space
-- implement range
 - rename asm to native
-- user cannot define native functions
+- user should not define native functions
 - some functions from the std library should not be called (tag with internal?), for example malloc, memcopy
 - optimize fibonacci
     - backend for 32 and 64 bit
     - move more code as possible from codegen to function_call_parameters
 - refactor codegen lambda parameters: it's too complex
-- enum:
-  - match function should be enum::match, but it's not supported by parser, in general I would like to have some namespace for functions, to be xx.yy.zz::function_name
+- I would like to have some namespace for functions, to be xx.yy.zz::function_name
 - I can close an already closed TokensGroup (make a test)
 - safe command line arguments (use Option?)
 - add command line argument to print the syntax tree (codegen/md.rs -> Parser::print(&self.module))
 - rename lambda to closure?
 - line errors in codegen
 - type checker
-- type parameters for functions
-- move std.rasm in another folder
+  - type parameters for functions
 - UTF-8 strings
