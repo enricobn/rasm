@@ -8,6 +8,8 @@ use linked_hash_map::{Iter, LinkedHashMap};
 use log::{debug, info};
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
+use crate::codegen::MemoryUnit::{Bytes, Words};
+use crate::codegen::MemoryValue::Mem;
 use crate::codegen::stack::Stack;
 
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
@@ -29,7 +31,13 @@ pub struct CodeGen<'a> {
 enum MemoryValue {
     StringValue(String),
     I32Value(i32),
-    Mem(usize),
+    Mem(usize, MemoryUnit),
+}
+
+#[derive(Clone)]
+enum MemoryUnit {
+    Bytes,
+    Words
 }
 
 #[derive(Clone, Debug)]
@@ -213,6 +221,14 @@ impl<'a> CodeGen<'a> {
         let mut bss = String::new();
 
         self.statics.insert("_allocated_size".into(), MemoryValue::StringValue("Allocated size: ".into()));
+        self.statics.insert("_original_heap".into(), Mem(4, Bytes));
+        self.statics.insert("_heap".into(), Mem(4, Bytes));
+        self.statics.insert("_heap_buffer".into(), Mem(64 * 1024 * 1024, Bytes));
+        self.statics.insert("_lambda_space_heap".into(), Mem(4, Bytes));
+        self.statics.insert("_lambda_space_heap_buffer".into(), Mem(1024 * 1024, Bytes));
+        self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
+        // command line arguments
+        self.statics.insert("_rasm_args".into(), Mem(12, Words));
 
         if !self.statics.is_empty() {
             let mut data = String::new();
@@ -236,9 +252,16 @@ impl<'a> CodeGen<'a> {
                         def.push_str(&format!("{}", i));
                         CodeGen::add(&mut data, &def, None, true);
                     }
-                    MemoryValue::Mem(bytes) => {
-                        def.push_str("\tresb ");
-                        def.push_str(&format!("{}", bytes));
+                    MemoryValue::Mem(len, unit) => {
+                        match unit {
+                            Bytes => {
+                                def.push_str("\tresb ");
+                            }
+                            MemoryUnit::Words => {
+                                def.push_str("\tresw ");
+                            }
+                        }
+                        def.push_str(&format!("{}", len));
                         CodeGen::add(&mut bss, &def, None, true);
                     }
                 }
@@ -252,14 +275,6 @@ impl<'a> CodeGen<'a> {
         }
 
         CodeGen::add(&mut asm, "section .bss", None, true);
-        CodeGen::add(&mut asm, "_original_heap            resb 4", None, true);
-        CodeGen::add(&mut asm, "_heap            resb 4", None, true);
-        CodeGen::add(&mut asm, "_heap_buffer:     resb 64 * 1024 * 1024", None, true);
-        CodeGen::add(&mut asm, "_lambda_space_heap:            resb 4", None, true);
-        CodeGen::add(&mut asm, "_lambda_space_heap_buffer:     resb 1024 * 1024", None, true);
-        CodeGen::add(&mut asm, "_rasm_buffer_10b: resb 10", None, true);
-        // command line arguments
-        CodeGen::add(&mut asm, "_rasm_args: resw 12", None, true);
         asm.push_str(&bss);
 
         CodeGen::add(&mut asm, "SECTION .text", None, true);

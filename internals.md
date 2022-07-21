@@ -21,4 +21,36 @@ edx for add_lambda_param_from_lambda_space and ebx is the "free" register, don't
 The value of an enum is a pointer to a location in memory where, in the first slot there's the variant order number 
 which is 0 for the first variant, 1 for the second and so on, the there is the list of the parameter of that enum 
 
+**Alloc**  
+
+_allocation_table:
+address   allocated (false = 0 true = any other value)         size     count
+
+initial value
+"the address of the fist location" 0 MAX_MEMORY 0
+
+allocate(n)
+I search the first slot with almost n free memory
+if there's no slot: pack the _allocation_table_ and search for n free memory 
+if there's no slot: OutOfMemory
+otherwise, i return the anAddress, decrease the size of the slot, increment the address of the slot, 
+set the count to 1
+
+add_ref(address)
+I search the address in _allocation_table_
+if there's no slot: Error
+increase the count
+
+deref(address)
+I search the address in _allocation_table_
+if there's no slot: Error
+I decrease the count
+if 0 I set allocated to 0 (false)
+
+
+
+
+
+
+
 
