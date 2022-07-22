@@ -96,6 +96,11 @@ impl<'a> FunctionCallParameters<'a> {
 
         Self::allocate_lambda_space(self.backend, &mut self.before, "ecx", num_of_values_in_context + 1);
 
+        if !context.is_empty() {
+            CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()),
+                         comment, true);
+        }
+
         // TODO optimize: do not create parameters that are overridden by parent memcopy
         context.iter().for_each(|(name, kind)| {
             if let VarKind::ParameterRef(index, par) = kind {
@@ -107,6 +112,10 @@ impl<'a> FunctionCallParameters<'a> {
                 i += 1;
             }
         });
+
+        if !context.is_empty() {
+            CodeGen::add(&mut self.before, "pop  ebx", comment, true);
+        }
 
         // I copy the lambda space of the parent
         if let Some(parent_lambda) = parent_lambda_space {
@@ -150,9 +159,11 @@ impl<'a> FunctionCallParameters<'a> {
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index_in_context + 2) * word_len), None, true);
             } else {
+                CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()), None, true);
                 self.indirect_mov(&format!("{}+{}", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len),
-                                  &format!("{} + {}", self.backend.stack_pointer(),
-                                           self.parameters_added * self.backend.word_len() as usize), "ebx", None);
+                &format!("{} + {}", self.backend.stack_pointer(),
+                                           (self.parameters_added + 1) * self.backend.word_len() as usize), "ebx", None);
+                CodeGen::add(&mut self.before, "pop  ebx",None, true);
             }
         }
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
@@ -168,6 +179,8 @@ impl<'a> FunctionCallParameters<'a> {
             self.has_inline_lambda_param = true;
             self.parameters_values.insert(original_param_name.into(), format!("[edx + {}]", lambda_space_index * word_len));
         } else {
+            CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()),
+                         None, true);
             CodeGen::add(&mut self.before, &format!("mov     ebx, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"), true);
 
             if self.immediate {
@@ -175,8 +188,9 @@ impl<'a> FunctionCallParameters<'a> {
             } else {
                 self.indirect_mov(&format!("ebx + {}", lambda_space_index * word_len),
                                   &format!("{} + {}", self.backend.stack_pointer(),
-                                           self.parameters_added * self.backend.word_len() as usize), "ebx", None);
+                                           (self.parameters_added + 1) * self.backend.word_len() as usize), "ebx", None);
             }
+            CodeGen::add(&mut self.before, "pop  ebx",None, true);
         }
         self.parameter_added_to_stack(&format!("lambda from lambda space: {}", val_name));
     }
@@ -286,7 +300,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn indirect_mov(&mut self, source: &str, dest: &str, temporary_register: &str, comment: Option<&str>) {
         CodeGen::add(&mut self.before, &format!("mov  {} {}, [{}]", self.backend.word_size(), temporary_register, source),
-                     comment, true);
+        comment, true);
         CodeGen::add(&mut self.before, &format!("mov  {} [{}], {}", self.backend.word_size(), dest, temporary_register), comment, true);
     }
 }
