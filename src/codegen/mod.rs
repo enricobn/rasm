@@ -220,10 +220,17 @@ impl<'a> CodeGen<'a> {
 
         let mut bss = String::new();
 
-        self.statics.insert("_allocated_size".into(), MemoryValue::StringValue("Allocated size: ".into()));
-        self.statics.insert("_original_heap".into(), Mem(4, Bytes));
+        const HEAP_TABLE_SIZE: usize = 1024 * 1024;
+        const HEAP_SIZE: usize = 64 * 1024 * 1024;
+
+        self.statics.insert("_heap_table".into(), Mem(HEAP_TABLE_SIZE, Words));
+        // +16 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
+        self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(HEAP_TABLE_SIZE as i32 + 16));
         self.statics.insert("_heap".into(), Mem(4, Bytes));
-        self.statics.insert("_heap_buffer".into(), Mem(64 * 1024 * 1024, Bytes));
+        self.statics.insert("_heap_size".into(), MemoryValue::I32Value(HEAP_SIZE as i32));
+        self.statics.insert("_heap_buffer".into(), Mem(HEAP_SIZE, Bytes));
+
+        self.statics.insert("_original_heap".into(), Mem(4, Bytes));
         self.statics.insert("_lambda_space_heap".into(), Mem(4, Bytes));
         self.statics.insert("_lambda_space_heap_buffer".into(), Mem(1024 * 1024, Bytes));
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
@@ -252,12 +259,12 @@ impl<'a> CodeGen<'a> {
                         def.push_str(&format!("{}", i));
                         CodeGen::add(&mut data, &def, None, true);
                     }
-                    MemoryValue::Mem(len, unit) => {
+                    Mem(len, unit) => {
                         match unit {
                             Bytes => {
                                 def.push_str("\tresb ");
                             }
-                            MemoryUnit::Words => {
+                            Words => {
                                 def.push_str("\tresw ");
                             }
                         }
@@ -301,38 +308,22 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "pop    ebp       ; restore old call frame", None, true);
 
-        //self.print_allocated_size(&mut asm);
+        //CodeGen::add(&mut asm, "call   printAllocated", None, true);
 
-        // exit sys call
-        CodeGen::add(&mut asm, "mov     ebx, 0", None, true);
-        CodeGen::add(&mut asm, "mov     eax, 1", None, true);
-        CodeGen::add(&mut asm, "int     80h", None, true);
-        CodeGen::add(&mut asm, "ret", None, true);
+        CodeGen::add(&mut asm, "push   dword 0", None, true);
+        CodeGen::add(&mut asm, "call   exit", None, true);
 
         asm.push_str(&self.definitions);
 
         asm
     }
 
-    fn print_allocated_size(&mut self, mut asm: &mut String) {
-        CodeGen::add(&mut asm, "push   _allocated_size", None, true);
-        CodeGen::add(&mut asm, "call   sprint", None, true);
-        CodeGen::add(&mut asm, &format!("add     ebp, {}", self.backend.word_len()), None, true);
-
-        CodeGen::add(&mut asm, "mov   dword eax,[_heap]", None, true);
-        CodeGen::add(&mut asm, "sub   eax,[_original_heap]", None, true);
-        CodeGen::add(&mut asm, "push   eax", None, true);
-        CodeGen::add(&mut asm, "call   nprintln", None, true);
-        CodeGen::add(&mut asm, &format!("add     ebp, {}", self.backend.word_len()), None, true);
-    }
-
     fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
         let mut body = String::new();
         CodeGen::add(&mut body, "push ebx", None, true);
         CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None, true);
-        CodeGen::add(&mut body, &format!("push   {} _heap", backend.pointer_size()), None, true);
         CodeGen::add(&mut body, "call malloc", None, true);
-        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len() * 2), None, true);
+        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len()), None, true);
         // I put the variant number in the first location
         CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
         for (i, par) in variant.parameters.iter().rev().enumerate() {
@@ -347,9 +338,8 @@ impl<'a> CodeGen<'a> {
         let mut body = String::new();
         CodeGen::add(&mut body, "push ebx", None, true);
         CodeGen::add(&mut body, &format!("push     {}", struct_def.properties.len() * backend.word_len() as usize), None, true);
-        CodeGen::add(&mut body, &format!("push   {} _heap", backend.pointer_size()), None, true);
         CodeGen::add(&mut body, "call malloc", None, true);
-        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len() * 2), None, true);
+        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len()), None, true);
         for (i, par) in struct_def.properties.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);

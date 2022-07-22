@@ -291,10 +291,9 @@ asm lambdaSpaceMdealloc(size: i32) /{
     pop     eax
 }/
 
-/* mem is the pointer to a location in memory where is stored the next available memory location */
-asm malloc(mem: &i32, size: i32) -> i32 /{
+asm malloc(size: i32) -> i32 /{
     push    ebx
-    mov     eax,$mem            ; we store in eax the pointer
+    mov     eax,_heap           ; we store in eax the pointer
     push    dword [eax]         ; we save in the stack the actual next memory location that we must return (in eax)
     mov     dword ebx,[eax]
     add     ebx,$size
@@ -302,6 +301,97 @@ asm malloc(mem: &i32, size: i32) -> i32 /{
     pop     eax                 ; we restore from the stack the saved memory location
     pop     ebx
 }/
+
+asm mallocNew(size: i32) -> i32 /{
+    push    ebx
+    push    ecx
+    push    edx
+    mov     dword ebx,0               ; the counter of the position in the heap table
+    mov     dword eax,_heap_table     ; the pointer to the heap table
+.loop:
+    mov     dword edx,[_heap_table_size]
+    imul    edx, 4
+    cmp     ebx,edx
+    jb     .loop_ok
+    call    outOfHeapSpace
+
+.loop_ok:
+    cmp     dword [eax],0
+    jz      .new_address
+
+    mov     dword ecx,[eax + 4] ; allocated flag
+    cmp     ecx,0
+    jz      .not_allocated
+
+    add     eax,4 * 4
+    add     ebx,4 * 4
+    jmp     .loop
+
+.new_address:
+    mov     dword ecx,[_heap]
+    sub     ecx,_heap_buffer
+    cmp     ecx,[_heap_size]
+    jb      .new_address_ok
+    call     outOfMemory
+
+.new_address_ok
+    mov     dword ecx,[_heap]
+    mov     dword [eax],ecx
+    mov     dword edx, $size
+    imul    edx, 4
+    add     ecx, edx
+    mov     dword [_heap],ecx
+    mov     dword ecx,$size     ;
+    mov     dword [eax + 4 * 4],0 ; to be sure that the next slot is considered free
+    jmp     .allocate
+
+.not_allocated:
+    mov     dword ecx,[eax + 8] ; size
+    cmp     ecx,$size
+    jb      .loop
+
+.allocate:
+    mov     dword [eax + 4], 1      ; allocated flag
+    mov     dword [eax + 8], ecx    ; new size
+    mov     dword [eax + 12], 1     ; count
+
+    ;push    dword eax
+    ;call    nprintln
+    ;add     esp,4
+    ;call    printAllocated
+.end:
+    mov     dword eax,[eax]
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm printAllocated() /{
+    push    eax
+
+    mov     dword eax,[_heap]
+    sub     eax,[_original_heap]
+    push    eax
+    call    nprint
+    add     esp, 4
+    call    printAllocatedString
+
+    pop     eax
+}/
+
+fn printAllocatedString() {
+    sprintln(" bytes allocated");
+}
+
+fn outOfHeapSpace() {
+    sprintln("Out of heap space");
+    exit(1);
+}
+
+fn outOfMemory() {
+    sprintln("Out of memory");
+    exit(1);
+}
 
 asm mdealloc(mem: &i32, size: i32) /{
     push    ebx
