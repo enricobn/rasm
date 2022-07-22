@@ -25,6 +25,10 @@ pub struct CodeGen<'a> {
     functions: LinkedHashMap<String, ASTFunctionDef>,
     backend: &'a dyn Backend,
     functions_called: HashSet<String>,
+    heap_size: usize,
+    heap_table_slots: usize,
+    print_memory_info: bool,
+    lambda_space_size: usize
 }
 
 #[derive(Clone)]
@@ -109,7 +113,7 @@ impl VarContext {
 }
 
 impl<'a> CodeGen<'a> {
-    pub fn new(backend: &'a dyn Backend, module: ASTModule) -> Self {
+    pub fn new(backend: &'a dyn Backend, module: ASTModule, lambda_space_size: usize, heap_size: usize, heap_table_slots: usize, print_memory_info: bool) -> Self {
         Self {
             module,
             body: String::new(),
@@ -120,6 +124,10 @@ impl<'a> CodeGen<'a> {
             functions: LinkedHashMap::new(),
             backend,
             functions_called: HashSet::new(),
+            heap_size,
+            heap_table_slots,
+            print_memory_info,
+            lambda_space_size
         }
     }
 
@@ -220,19 +228,16 @@ impl<'a> CodeGen<'a> {
 
         let mut bss = String::new();
 
-        const HEAP_TABLE_SIZE: usize = 1024 * 1024;
-        const HEAP_SIZE: usize = 64 * 1024 * 1024;
-
-        self.statics.insert("_heap_table".into(), Mem(HEAP_TABLE_SIZE, Words));
-        // +16 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
-        self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(HEAP_TABLE_SIZE as i32 + 16));
+        // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
+        self.statics.insert("_heap_table".into(), Mem((self.heap_table_slots + 1)  * 16, Bytes));
+        self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(self.heap_table_slots as i32 * 16));
         self.statics.insert("_heap".into(), Mem(4, Bytes));
-        self.statics.insert("_heap_size".into(), MemoryValue::I32Value(HEAP_SIZE as i32));
-        self.statics.insert("_heap_buffer".into(), Mem(HEAP_SIZE, Bytes));
+        self.statics.insert("_heap_size".into(), MemoryValue::I32Value(self.heap_size as i32));
+        self.statics.insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
 
         self.statics.insert("_original_heap".into(), Mem(4, Bytes));
         self.statics.insert("_lambda_space_heap".into(), Mem(4, Bytes));
-        self.statics.insert("_lambda_space_heap_buffer".into(), Mem(1024 * 1024, Bytes));
+        self.statics.insert("_lambda_space_heap_buffer".into(), Mem(self.lambda_space_size, Bytes));
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
@@ -308,7 +313,9 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "pop    ebp       ; restore old call frame", None, true);
 
-        //CodeGen::add(&mut asm, "call   printAllocated", None, true);
+        if self.print_memory_info {
+            Self::print_memory_info(&mut asm);
+        }
 
         CodeGen::add(&mut asm, "push   dword 0", None, true);
         CodeGen::add(&mut asm, "call   exit", None, true);
@@ -316,6 +323,11 @@ impl<'a> CodeGen<'a> {
         asm.push_str(&self.definitions);
 
         asm
+    }
+
+    fn print_memory_info(mut asm: &mut String) {
+        CodeGen::add(&mut asm, "call   printAllocated", None, true);
+        CodeGen::add(&mut asm, "call   printTableSlotsAllocated", None, true);
     }
 
     fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
@@ -821,7 +833,7 @@ mod tests {
 
         let backend = BackendAsm386::new();
 
-        let mut gen = CodeGen::new(&backend, module);
+        let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false);
 
         let asm = gen.asm();
 

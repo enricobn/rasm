@@ -306,16 +306,30 @@ asm mallocNew(size: i32) -> i32 /{
     push    ebx
     push    ecx
     push    edx
+
+    ;call    startAllocate
+    ;push    dword $size
+    ;call    nprintln
+    ;add     esp, 4
+
     mov     dword ebx,0               ; the counter of the position in the heap table
     mov     dword eax,_heap_table     ; the pointer to the heap table
 .loop:
+    ;call    loop
+
+    ; if there's sapce in the heap, we create a new, TODO it's fast, but it don't allocate the heap table...
+    ;mov     dword ecx,[_heap]
+    ;sub     ecx,_heap_buffer
+    ;cmp     ecx,[_heap_size]
+    ;jb      .new_address
+
     mov     dword edx,[_heap_table_size]
-    imul    edx, 4
     cmp     ebx,edx
     jb     .loop_ok
     call    outOfHeapSpace
 
 .loop_ok:
+    ;call    loopOk
     cmp     dword [eax],0
     jz      .new_address
 
@@ -328,43 +342,81 @@ asm mallocNew(size: i32) -> i32 /{
     jmp     .loop
 
 .new_address:
+    ;call    newAddress
     mov     dword ecx,[_heap]
     sub     ecx,_heap_buffer
     cmp     ecx,[_heap_size]
     jb      .new_address_ok
     call     outOfMemory
 
-.new_address_ok
+.new_address_ok:
+    ;call    newAddressOk
     mov     dword ecx,[_heap]
     mov     dword [eax],ecx
     mov     dword edx, $size
-    imul    edx, 4
     add     ecx, edx
     mov     dword [_heap],ecx
-    mov     dword ecx,$size     ;
+    mov     dword ecx,$size
     mov     dword [eax + 4 * 4],0 ; to be sure that the next slot is considered free
     jmp     .allocate
 
 .not_allocated:
+    ;call    notAllocated
     mov     dword ecx,[eax + 8] ; size
     cmp     ecx,$size
     jb      .loop
 
 .allocate:
+    ;call    allocate
     mov     dword [eax + 4], 1      ; allocated flag
     mov     dword [eax + 8], ecx    ; new size
     mov     dword [eax + 12], 1     ; count
 
-    ;push    dword eax
-    ;call    nprintln
-    ;add     esp,4
-    ;call    printAllocated
 .end:
     mov     dword eax,[eax]
+
+    ;push    dword eax
+    ;call    nprintln
+    ;pop     eax
+
+    ;call    endAllocate
+
     pop     edx
     pop     ecx
     pop     ebx
 }/
+
+fn endAllocate() {
+    sprintln("end allocate");
+}
+
+fn startAllocate() {
+    sprint("start allocate ");
+}
+
+fn loop() {
+    sprintln("  .loop");
+}
+
+fn loopOk() {
+    sprintln("  .loop_ok");
+}
+
+fn newAddress() {
+    sprintln("  .new_address");
+}
+
+fn newAddressOk() {
+    sprintln("  .new_address_ok");
+}
+
+fn allocate() {
+    sprintln("  .allocate");
+}
+
+fn notAllocated() {
+    sprintln("  .not_allocated");
+}
 
 asm printAllocated() /{
     push    eax
@@ -378,6 +430,32 @@ asm printAllocated() /{
 
     pop     eax
 }/
+
+asm printTableSlotsAllocated() /{
+    push    eax
+    push    ebx
+
+    mov     dword eax,0
+    mov     dword ebx,_heap_table
+.loop:
+    cmp     dword [ebx],0
+    jz      .end
+    add     eax,1
+    add     ebx,4*4
+    jmp     .loop
+.end:
+    push    eax
+    call    nprint
+    add     esp, 4
+    call    printTableSlotsAllocatedString
+
+    pop     ebx
+    pop     eax
+}/
+
+fn printTableSlotsAllocatedString() {
+    sprintln(" table slots allocated");
+}
 
 fn printAllocatedString() {
     sprintln(" bytes allocated");
