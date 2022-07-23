@@ -11,7 +11,7 @@ pub trait Backend {
 
     fn type_len(&self, type_ref: &ASTTypeRef) -> u8;
 
-    fn word_len(&self) -> u8;
+    fn word_len(&self) -> usize;
 
     fn stack_base_pointer(&self) -> String;
 
@@ -51,7 +51,7 @@ impl Backend for BackendAsm386 {
         4
     }
 
-    fn word_len(&self) -> u8 {
+    fn word_len(&self) -> usize {
         4
     }
 

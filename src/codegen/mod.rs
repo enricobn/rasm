@@ -466,6 +466,7 @@ impl<'a> CodeGen<'a> {
 
         let sp = self.backend.stack_pointer();
         let bp = self.backend.stack_base_pointer();
+        let ws = self.backend.word_size();
 
         CodeGen::add(&mut self.definitions, &format!("push    {}", bp), None, true);
         CodeGen::add(&mut self.definitions, &format!("mov     {},{}", bp, sp), None, true);
@@ -593,6 +594,9 @@ impl<'a> CodeGen<'a> {
         };
 
          */
+        
+        let ws = self.backend.word_size();
+        let wl = self.backend.word_len();
 
         let mut lambda_calls = Vec::new();
 

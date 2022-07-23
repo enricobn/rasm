@@ -317,7 +317,7 @@ asm mallocNew(size: i32) -> i32 /{
 .loop:
     ;call    loop
 
-    ; if there's sapce in the heap, we create a new, TODO it's fast, but it don't allocate the heap table...
+    ; if there's space in the heap, we create a new, TODO it's fast, but it don't allocate the heap table...
     ;mov     dword ecx,[_heap]
     ;sub     ecx,_heap_buffer
     ;cmp     ecx,[_heap_size]
@@ -333,8 +333,7 @@ asm mallocNew(size: i32) -> i32 /{
     cmp     dword [eax],0
     jz      .new_address
 
-    mov     dword ecx,[eax + 4] ; allocated flag
-    cmp     ecx,0
+    cmp     dword [eax + 4],0 ; allocated flag
     jz      .not_allocated
 
     add     eax,4 * 4
@@ -361,10 +360,11 @@ asm mallocNew(size: i32) -> i32 /{
     jmp     .allocate
 
 .not_allocated:
-    ;call    notAllocated
+    call    notAllocated
     mov     dword ecx,[eax + 8] ; size
     cmp     ecx,$size
     jb      .loop
+    call    reused
 
 .allocate:
     ;call    allocate
@@ -385,6 +385,55 @@ asm mallocNew(size: i32) -> i32 /{
     pop     ecx
     pop     ebx
 }/
+
+asm deref(address: i32) -> i32 /{
+    push    eax
+    push    ebx
+    push    ecx
+
+    ; TODO for now this function is called even for "non allocated" values, so to speed up we check if it cannot be a valid address
+    mov     dword eax,_heap_buffer
+    cmp     $address,eax
+    jb     .end
+
+    mov     dword ebx,0               ; the counter of the position in the heap table
+    mov     dword eax,_heap_table     ; the pointer to the heap table
+.loop:
+    cmp     ebx,[_heap_table_size]
+    jb     .loop_ok
+
+    ; TODO for now this function is called even for "non allocated" values, so we cannot "throw" an error
+    ;call    derefAddressNotFound
+    jmp     .end
+.loop_ok:
+    cmp     dword [eax],0 ; if address == 0 then it should be skipped
+    jz      .continue
+    mov     dword ecx,$address
+    cmp     dword [eax],ecx
+    jz      .deref
+.continue:
+    add     eax, 4 * 4
+    add     ebx, 4 * 4
+    jmp     .loop
+.deref:
+    mov     dword ecx,[eax + 12] ; the count
+    sub     ecx,1
+    mov     dword [eax + 12],ecx
+    cmp     ecx,0
+    jnz     .end
+
+    ;call    deallocated
+    mov     dword [eax],0
+    mov     dword [eax + 4],0; allocated false
+.end:
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+
+fn deallocated() {
+    sprintln("deallocated");
+}
 
 fn endAllocate() {
     sprintln("end allocate");
@@ -418,6 +467,10 @@ fn notAllocated() {
     sprintln("  .not_allocated");
 }
 
+fn reused() {
+    sprintln("  reused");
+}
+
 asm printAllocated() /{
     push    eax
 
@@ -428,6 +481,38 @@ asm printAllocated() /{
     add     esp, 4
     call    printAllocatedString
 
+    pop     eax
+}/
+
+asm printAllocatedNew() /{
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax,_heap_table
+    mov     dword ebx,0
+    mov     dword ecx,0
+.loop:
+    cmp     dword ebx,[_heap_table_size]
+    jge     .end
+    mov     dword edx,[eax + 4]; 1 == allocated
+    cmp     dword edx,0
+    jz      .not_allocated
+    add     dword ecx,[eax + 8] ; size
+.not_allocated:
+    add     eax, 4 * 4
+    add     ebx, 4 * 4
+    jmp     .loop
+.end:
+    push    ecx
+    call    nprint
+    add     esp, 4
+    call    printAllocatedString
+
+    pop     edx
+    pop     ecx
+    pop     ebx
     pop     eax
 }/
 
@@ -468,6 +553,11 @@ fn outOfHeapSpace() {
 
 fn outOfMemory() {
     sprintln("Out of memory");
+    exit(1);
+}
+
+fn derefAddressNotFound() {
+    sprintln("Deref: address not found");
     exit(1);
 }
 

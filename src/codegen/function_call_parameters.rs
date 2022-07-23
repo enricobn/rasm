@@ -16,6 +16,7 @@ pub struct FunctionCallParameters<'a> {
     has_inline_lambda_param: bool,
     lambda_slots_to_deallocate: usize,
     stack: &'a Stack,
+    after: String,
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -47,6 +48,7 @@ impl<'a> FunctionCallParameters<'a> {
             has_inline_lambda_param: false,
             lambda_slots_to_deallocate: 0,
             stack,
+            after: String::new()
         }
     }
 
@@ -73,8 +75,18 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn add_function_call(&mut self, comment: Option<&str>) {
-        CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", self.backend.word_size(), self.backend.stack_pointer(), self.parameters_added * self.backend.word_len() as usize), comment, true);
+        let wl = self.backend.word_len();
+        let ws = self.backend.word_size();
+        let sp = self.backend.stack_pointer();
+
+        CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
         self.parameter_added_to_stack("function call result");
+
+        /*
+        CodeGen::add(&mut self.after, &format!("push     {ws} [{sp} + {}]", self.parameters_added * wl as usize), None, true);
+        CodeGen::add(&mut self.after, "call     deref", None, true);
+        CodeGen::add(&mut self.after, &format!("add      esp,{wl}"), None, true);
+         */
     }
 
     pub fn add_lambda(&mut self, def: &mut ASTFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &VarContext, comment: Option<&str>) -> LambdaSpace {
@@ -264,6 +276,7 @@ impl<'a> FunctionCallParameters<'a> {
         if self.lambda_slots_to_deallocate > 0 {
             Self::deallocate_lambda_space(self.backend, &mut s, "ebx", self.lambda_slots_to_deallocate);
         }
+        s.push_str(&self.after);
         s
     }
 

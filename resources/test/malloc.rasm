@@ -1,0 +1,11 @@
+include "std.rasm"
+
+deref(malloc(10));
+
+printAllocated();
+
+
+fn nop(n: i32) {
+
+}
+
