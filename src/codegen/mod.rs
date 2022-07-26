@@ -154,10 +154,21 @@ impl<'a> CodeGen<'a> {
                 let return_type = Some(type_ref);
                 let body_str = if variant.parameters.is_empty() {
                     let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-                    self.statics.insert(label.clone(), MemoryValue::I32Value(variant_num as i32));
-                    format!("mov    eax, {}\n", label)
+                    self.statics.insert(label.clone(), MemoryValue::I32Value(0));
+                    //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
+                    //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
+
+                    CodeGen::add(&mut self.body, &format!("push    {} {}", self.backend.word_size(), self.backend.word_len()), None, true);
+                    CodeGen::add(&mut self.body, "call    malloc", None, true);
+                    CodeGen::add(&mut self.body, &format!("add   {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None, true);
+
+                    CodeGen::add(&mut self.body, &format!("mov   {} [{label}], eax", self.backend.word_size()), None, true);
+                    CodeGen::add(&mut self.body, &format!("mov   {} eax, [eax]", self.backend.word_size()), None, true);
+                    CodeGen::add(&mut self.body, &format!("mov   {} [eax], {variant_num}", self.backend.word_size()), None, true);
+
+                    format!("    mov    eax, [{}]\n", label)
                 } else {
-                    Self::enum_parametric_variant_constructor_body(self.backend, &variant_num, &variant)
+                    self.enum_parametric_variant_constructor_body(&variant_num, &variant)
                 };
                 let body = ASTFunctionBody::ASMBody(body_str);
                 let function_def = ASTFunctionDef { name: enum_def.name.clone() + "_" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
@@ -236,8 +247,12 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
 
         self.statics.insert("_original_heap".into(), Mem(4, Bytes));
-        self.statics.insert("_lambda_space_heap".into(), Mem(4, Bytes));
-        self.statics.insert("_lambda_space_heap_buffer".into(), Mem(self.lambda_space_size, Bytes));
+        self.statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
+        self.statics.insert("_lambda_space_stack_buffer".into(), Mem(self.lambda_space_size, Bytes));
+
+        self.statics.insert("_scope_stack".into(), Mem(4, Bytes));
+        self.statics.insert("_scope_stack_buffer".into(), Mem(1024, Bytes));
+
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
@@ -294,6 +309,8 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut asm, "", None, true);
         CodeGen::add(&mut asm, "main:", None, false);
 
+        //CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
+
         // command line arguments
         for i in 0..12 {
             CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()), Some(&format!("command line argument {}", i)), true);
@@ -303,8 +320,10 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None, true);
         CodeGen::add(&mut asm, "mov     [_heap], eax", None, true);
         CodeGen::add(&mut asm, "mov     [_original_heap], eax", None, true);
-        CodeGen::add(&mut asm, "mov     eax, _lambda_space_heap_buffer", None, true);
-        CodeGen::add(&mut asm, "mov     [_lambda_space_heap], eax", None, true);
+        CodeGen::add(&mut asm, "mov     eax, _lambda_space_stack_buffer", None, true);
+        CodeGen::add(&mut asm, "mov     [_lambda_space_stack], eax", None, true);
+        CodeGen::add(&mut asm, "mov     eax, _scope_stack_buffer", None, true);
+        CodeGen::add(&mut asm, "mov     [_scope_stack], eax", None, true);
         CodeGen::add(&mut asm, "", None, true);
         CodeGen::add(&mut asm, "push    ebp       ; save old call frame", None, true);
         CodeGen::add(&mut asm, "mov     ebp, esp  ; initialize new call frame", None, true);
@@ -330,32 +349,52 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut asm, "call   printTableSlotsAllocated", None, true);
     }
 
-    fn enum_parametric_variant_constructor_body(backend: &dyn Backend, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
+    fn enum_parametric_variant_constructor_body(&self, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
+        let word_size = self.backend.word_size();
+        let word_len = self.backend.word_len();
         let mut body = String::new();
         CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * backend.word_len() as usize), None, true);
+        CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * word_len as usize), None, true);
         CodeGen::add(&mut body, "call malloc", None, true);
-        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len()), None, true);
+        CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
+        CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
+        CodeGen::add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);
         // I put the variant number in the first location
         CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
         for (i, par) in variant.parameters.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
-            CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), (i + 1) * backend.word_len() as usize), None, true);
+            if let ASTType::Custom { name: _, param_types: _ } = par.type_ref.ast_type {
+                CodeGen::call_add_ref(&mut body, self.backend, "ebx", "");
+            }
+            CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len as usize), None, true);
         }
+        CodeGen::add(&mut body, "pop   eax", None, true);
+
+        //CodeGen::call_add_ref(&mut body, backend, "eax", "");
+
         CodeGen::add(&mut body, "pop   ebx", None, true);
         body
     }
 
     fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
+        let word_size = backend.word_size();
         let mut body = String::new();
         CodeGen::add(&mut body, "push ebx", None, true);
         CodeGen::add(&mut body, &format!("push     {}", struct_def.properties.len() * backend.word_len() as usize), None, true);
         CodeGen::add(&mut body, "call malloc", None, true);
         CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len()), None, true);
+        CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
+        CodeGen::add(&mut body, &format!("mov {word_size} eax, [eax]"), None, true);
         for (i, par) in struct_def.properties.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
+
+            if let ASTType::Custom { name: _, param_types: _ } = par.type_ref.ast_type {
+                CodeGen::call_add_ref(&mut body, backend, "ebx", "");
+            }
+
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
         }
+        CodeGen::add(&mut body, "pop   eax", None, true);
         CodeGen::add(&mut body, "pop   ebx", None, true);
         body
     }
@@ -363,7 +402,10 @@ impl<'a> CodeGen<'a> {
     fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
         let mut body = String::new();
         CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, "mov   ebx, $v", None, true);
+        CodeGen::add(&mut body, &format!("mov   {} ebx, $v", backend.word_size()), None, true);
+        // the address points to the heap table
+        CodeGen::add(&mut body, &format!("mov   {} ebx, [ebx]", backend.word_size()), None, true);
+        //CodeGen::add(&mut body, "mov   ebx, $v", None, true);
         CodeGen::add(&mut body, &format!("mov {}  eax, [ebx + {}]", backend.pointer_size(), i * backend.word_len() as usize), None, true);
         CodeGen::add(&mut body, "pop   ebx", None, true);
         body
@@ -379,10 +421,13 @@ impl<'a> CodeGen<'a> {
     fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
         let word_len = backend.word_len();
         let sp = backend.stack_pointer();
+        let word_size = backend.word_size();
         let mut body = String::new();
 
-        CodeGen::add(&mut body, "mov eax, $value", None, true);
         CodeGen::add(&mut body, "push ebx", None, true);
+        CodeGen::add(&mut body, &format!("mov {word_size} eax, $value"), None, true);
+        // the address is "inside" the allocation table
+        CodeGen::add(&mut body, &format!("mov {word_size} eax, [eax]"), None, true);
 
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             CodeGen::add(&mut body, &format!("cmp [eax], word {}", variant_num), None, true);
@@ -540,9 +585,39 @@ impl<'a> CodeGen<'a> {
             }
         }
 
+        if let Some(ASTType::Custom { name: _, param_types: _ }) = function_def.return_type.clone().map(|it| it.ast_type) {
+            CodeGen::call_add_ref(&mut self.definitions, self.backend, "eax",
+                            &format!("function {} return", function_def.name));
+
+        }
+
+        for (i, param) in function_def.parameters.iter().enumerate() {
+            if let ASTType::Custom { name: _, param_types: _ } = param.type_ref.ast_type {
+                /*
+                self.call_deref(&format!("[{} + {}]", self.backend.stack_base_pointer(), (i + 2) * self.backend.word_len()),
+                            &format!("function {} param {} : {:?}", function_def.name, param.name, param.type_ref));
+
+                 */
+            }
+        }
+
         CodeGen::add(&mut self.definitions, &format!("pop     {}", bp), None, true);
         CodeGen::add(&mut self.definitions, "ret", None, true);
         lambda_calls
+    }
+
+    pub fn is_constructor(&self, function_name: &str) -> bool {
+        self.is_enum_parametric_variant_constructor(function_name) || self.is_struct_constructor(function_name)
+    }
+
+    pub fn is_enum_parametric_variant_constructor(&self, function_name: &str) -> bool {
+        self.module.enums.iter().flat_map(|enum_def| enum_def.variants.iter().filter(|variant| !variant.parameters.is_empty()).map(|variant| enum_def.variant_function_name(variant)))
+            .any(|it| it == function_name)
+    }
+
+    pub fn is_struct_constructor(&self, function_name: &str) -> bool {
+        self.module.structs.iter().map(|struct_def| &struct_def.name)
+            .any(|it| it == function_name)
     }
 
     fn call_function(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>, added_to_stack: usize,
@@ -636,7 +711,7 @@ impl<'a> CodeGen<'a> {
                                 call_parameters.to_remove_from_stack(), lambda_space_opt, indent + 1, false, stack);
 
                         call_parameters.push(&s);
-                        call_parameters.add_function_call(None);
+                        call_parameters.add_function_call(self, function_call.function_name.clone(), Some(&param_name), param_type.clone());
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
                     ASTExpression::Val(name) => {
@@ -777,7 +852,7 @@ impl<'a> CodeGen<'a> {
         } else {
             let max = 80;
             let s = format!("{:width$}", code, width = max);
-            assert_eq!(s.len(), max, "{}", s);
+            //assert_eq!(s.len(), max, "{}", s);
             if indent {
                 out.push_str("    ");
             }
@@ -792,6 +867,45 @@ impl<'a> CodeGen<'a> {
             out.push_str(c);
         }
         out.push('\n');
+    }
+
+    pub fn insert_on_top(src: &String, dest: &mut String) {
+        for line in src.lines().rev() {
+            dest.insert_str(0, &(line.to_string() + "\n"));
+        }
+    }
+
+    pub fn call_deref(&mut self, out: &mut String, source: &str, descr: &str) {
+        let ws = self.backend.word_size();
+        let wl = self.backend.word_len();
+
+        let key = format!("_descr_{}", self.id);
+
+        let mut result = String::new();
+
+        //println!("calling deref for {:?}", type_ref);
+        CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
+        CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
+        CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
+        CodeGen::add(&mut result, "call     deref", None, true);
+        CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
+
+        Self::insert_on_top(&result, out);
+
+        self.statics.insert(key, MemoryValue::StringValue(descr.to_string()));
+        self.id += 1;
+    }
+
+    pub fn call_add_ref(out: &mut String, backend: &dyn Backend, source: &str, descr: &str) {
+        let ws = backend.word_size();
+        let wl = backend.word_len();
+        //if let ASTType::Custom { name: _, param_types: _ } = type_ref.ast_type {
+        //println!("calling deref for {:?}", type_ref);
+        //CodeGen::add(out, &format!("push     {ws} {descr}"), None, true);
+        CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+        CodeGen::add(out, "call     addRef", None, true);
+        CodeGen::add(out, &format!("add      esp,{wl}"), None, true);
+        //}
     }
 
     pub fn add_empty_line(out: &mut String) {

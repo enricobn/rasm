@@ -34,7 +34,8 @@ impl Compiler {
 
                 let backend = BackendAsm386::new();
 
-                let mut code_gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false);
+                let mut code_gen = CodeGen::new(&backend, module, 1024 * 1024,
+                                                64 * 1024 * 1024, 1024 * 1024, false);
 
                 let asm = code_gen.asm();
 

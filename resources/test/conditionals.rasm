@@ -30,7 +30,7 @@ fn print() {
     nprintln(ifImmediate(0, 100, 200));
     nprintln(ifImmediate(1, 100, 200));
 
-    // TODO I don't like it because, if am assertion fails I don't know which have failed and the program exits
+    // TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
     assertFalse(or(0, 0));
     assert(or(1, 0));
     assert(or(0, 1));

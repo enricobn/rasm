@@ -99,6 +99,18 @@ pub struct ASTEnumDef {
     pub variants: Vec<ASTEnumVariantDef>,
 }
 
+impl ASTEnumDef {
+
+    pub fn variant_function_name(&self, variant: &ASTEnumVariantDef) -> String {
+        let mut result = String::new();
+        result.push_str(&self.name);
+        result.push_str("::");
+        result.push_str(&variant.name);
+        result
+    }
+
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTEnumVariantDef {
     pub name: String,

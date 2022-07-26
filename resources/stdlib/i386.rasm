@@ -277,21 +277,21 @@ asm atoi(s: &str) -> i32 /{
 }/
 
 asm lambdaSpaceMalloc(size: i32) -> i32 /{
-    mov     eax,[_lambda_space_heap]
+    mov     eax,[_lambda_space_stack]
     add     eax,$size
-    mov     dword [_lambda_space_heap],eax
+    mov     dword [_lambda_space_stack],eax
     sub     eax,$size
 }/
 
 asm lambdaSpaceMdealloc(size: i32) /{
     push    eax
-    mov     eax,[_lambda_space_heap]
+    mov     eax,[_lambda_space_stack]
     sub     eax,$size
-    mov     dword [_lambda_space_heap],eax
+    mov     dword [_lambda_space_stack],eax
     pop     eax
 }/
 
-asm malloc(size: i32) -> i32 /{
+asm mallocOld(size: i32) -> i32 /{
     push    ebx
     mov     eax,_heap           ; we store in eax the pointer
     push    dword [eax]         ; we save in the stack the actual next memory location that we must return (in eax)
@@ -302,20 +302,24 @@ asm malloc(size: i32) -> i32 /{
     pop     ebx
 }/
 
-asm mallocNew(size: i32) -> i32 /{
+asm malloc(size: i32) -> i32 /{
     push    ebx
     push    ecx
     push    edx
 
-    ;call    startAllocate
-    ;push    dword $size
-    ;call    nprintln
-    ;add     esp, 4
+    %ifdef LOG_DEBUG
+    call    startMalloc
+    push    dword $size
+    call    nprintln
+    add     esp, 4
+    %endif
 
     mov     dword ebx,0               ; the counter of the position in the heap table
     mov     dword eax,_heap_table     ; the pointer to the heap table
 .loop:
+    %ifdef LOG_DEBUG
     ;call    loop
+    %endif
 
     ; if there's space in the heap, we create a new, TODO it's fast, but it don't allocate the heap table...
     ;mov     dword ecx,[_heap]
@@ -329,19 +333,25 @@ asm mallocNew(size: i32) -> i32 /{
     call    outOfHeapSpace
 
 .loop_ok:
+    %ifdef LOG_DEBUG
     ;call    loopOk
+    %endif
+
     cmp     dword [eax],0
     jz      .new_address
 
     cmp     dword [eax + 4],0 ; allocated flag
     jz      .not_allocated
-
+.loop_ok_2:
     add     eax,4 * 4
     add     ebx,4 * 4
     jmp     .loop
 
 .new_address:
-    ;call    newAddress
+    %ifdef LOG_DEBUG
+    call    newAddress
+    %endif
+
     mov     dword ecx,[_heap]
     sub     ecx,_heap_buffer
     cmp     ecx,[_heap_size]
@@ -349,7 +359,10 @@ asm mallocNew(size: i32) -> i32 /{
     call     outOfMemory
 
 .new_address_ok:
-    ;call    newAddressOk
+    %ifdef LOG_DEBUG
+    call    newAddressOk
+    %endif
+
     mov     dword ecx,[_heap]
     mov     dword [eax],ecx
     mov     dword edx, $size
@@ -360,87 +373,175 @@ asm mallocNew(size: i32) -> i32 /{
     jmp     .allocate
 
 .not_allocated:
+    %ifdef LOG_DEBUG
     call    notAllocated
+    %endif
+
     mov     dword ecx,[eax + 8] ; size
     cmp     ecx,$size
-    jb      .loop
+    jb      .loop_ok_2
+
+    %ifdef LOG_DEBUG
     call    reused
+    %endif
+
+    mov     dword [eax + 4], 1      ; allocated flag
+    mov     dword [eax + 12], 1     ; count
+    jmp     .end
 
 .allocate:
-    ;call    allocate
+    %ifdef LOG_DEBUG
+    call    allocate
+    %endif
+
     mov     dword [eax + 4], 1      ; allocated flag
-    mov     dword [eax + 8], ecx    ; new size
-    mov     dword [eax + 12], 1     ; count
+    mov     dword [eax + 8], ecx    ; size
+    ;mov     dword [eax + 12], 1    ; count
 
 .end:
-    mov     dword eax,[eax]
+    ;mov     dword eax,[eax]
 
-    ;push    dword eax
-    ;call    nprintln
-    ;pop     eax
-
-    ;call    endAllocate
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword eax
+    call    nprintln
+    pop     eax
+    call    endMalloc
+    %endif
 
     pop     edx
     pop     ecx
     pop     ebx
 }/
 
-asm deref(address: i32) -> i32 /{
+asm deref(address: i32, descr: &str) -> i32 /{
     push    eax
     push    ebx
-    push    ecx
 
-    ; TODO for now this function is called even for "non allocated" values, so to speed up we check if it cannot be a valid address
-    mov     dword eax,_heap_buffer
+    %ifdef LOG_DEBUG
+    call    startDeref
+    %endif
+
+    ; TODO for now this function can be called even for "non allocated" values (exactly for a function parametric type), so we check if the address is valid
+    mov     dword eax,_heap_table
     cmp     $address,eax
     jb     .end
+    add     eax,_heap_table_size
+    cmp     $address,eax
+    jg      .end
 
-    mov     dword ebx,0               ; the counter of the position in the heap table
-    mov     dword eax,_heap_table     ; the pointer to the heap table
-.loop:
-    cmp     ebx,[_heap_table_size]
-    jb     .loop_ok
+    mov     dword eax,$address
 
-    ; TODO for now this function is called even for "non allocated" values, so we cannot "throw" an error
-    ;call    derefAddressNotFound
-    jmp     .end
-.loop_ok:
-    cmp     dword [eax],0 ; if address == 0 then it should be skipped
-    jz      .continue
-    mov     dword ecx,$address
-    cmp     dword [eax],ecx
-    jz      .deref
-.continue:
-    add     eax, 4 * 4
-    add     ebx, 4 * 4
-    jmp     .loop
-.deref:
-    mov     dword ecx,[eax + 12] ; the count
-    sub     ecx,1
-    mov     dword [eax + 12],ecx
-    cmp     ecx,0
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword eax
+    call    nprintln
+    add     esp,4
+
+    call    printTab
+    push    dword $descr
+    call    sprintln
+    add     esp,4
+    %endif
+
+    cmp     dword [eax],0 ; TODO if address == 0 then it should be an error, but for now we ignore it
+    jz      .end
+
+    mov     dword ebx,[eax + 12] ; the count
+    cmp     ebx,0
+    jz      .negative_count
+
+    sub     ebx,1
+    mov     dword [eax + 12],ebx
+    cmp     ebx,0
     jnz     .end
 
-    ;call    deallocated
-    mov     dword [eax],0
+    %ifdef LOG_DEBUG
+    call    deallocated
+    call    printTab
+    push    eax
+    call    nprintln
+    pop     eax
+    %endif
     mov     dword [eax + 4],0; allocated false
+    jmp     .end
+.negative_count:
+    call    negativeCount
 .end:
-    pop     ecx
+    %ifdef LOG_DEBUG
+    call    endDeref
+    %endif
     pop     ebx
     pop     eax
 }/
 
+asm addRef(address: i32) -> i32 /{
+    push    eax
+    push    ebx
+
+    %ifdef LOG_DEBUG
+    call    startAddRef
+    %endif
+
+    ; TODO for now this function can be called even for "non allocated" values (exactly for a function parametric type), so we check if the address is valid
+    mov     dword eax,_heap_table
+    cmp     $address,eax
+    jb     .end
+    add     eax,_heap_table_size
+    cmp     $address,eax
+    jg      .end
+
+    mov     dword eax,$address
+
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword eax
+    call    nprintln
+    add     esp,4
+    %endif
+
+    mov     dword ebx,[eax + 12] ; the count
+    add     ebx,1
+    mov     dword [eax + 12],ebx
+.end:
+    %ifdef LOG_DEBUG
+    call    endAddRef
+    %endif
+
+    pop     ebx
+    pop     eax
+}/
+
+fn endDeref() {
+    sprintln("end deref");
+}
+
+fn endAddRef() {
+    sprintln("end add_ref");
+}
+
+fn startAddRef() {
+    sprintln("start add_ref");
+}
+
 fn deallocated() {
-    sprintln("deallocated");
+    sprintln("  deallocated");
 }
 
-fn endAllocate() {
-    sprintln("end allocate");
+fn endMalloc() {
+    sprintln("end malloc");
 }
 
-fn startAllocate() {
-    sprint("start allocate ");
+fn startMalloc() {
+    sprint("start malloc ");
+}
+
+fn startDeref() {
+    sprintln("start deref ");
+}
+
+fn printTab() {
+    sprint("  ");
 }
 
 fn loop() {
@@ -471,7 +572,7 @@ fn reused() {
     sprintln("  reused");
 }
 
-asm printAllocated() /{
+asm printAllocatedOld() /{
     push    eax
 
     mov     dword eax,[_heap]
@@ -484,7 +585,7 @@ asm printAllocated() /{
     pop     eax
 }/
 
-asm printAllocatedNew() /{
+asm printAllocated() /{
     push    eax
     push    ebx
     push    ecx
@@ -548,6 +649,11 @@ fn printAllocatedString() {
 
 fn outOfHeapSpace() {
     sprintln("Out of heap space");
+    exit(1);
+}
+
+fn negativeCount() {
+    sprintln("Negative allocation count");
     exit(1);
 }
 

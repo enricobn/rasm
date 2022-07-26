@@ -1,11 +1,13 @@
 include "std.rasm"
 
-deref(malloc(10));
+printOption(Option::Some("1"));
+printOption(Option::Some("2"));
+printOption(Option::Some("3"));
+printOption(Option::Some("4"));
+printOption(Option::Some("5"));
 
 printAllocated();
 
-
-fn nop(n: i32) {
-
+fn printOption(o: Option<&str>) {
+    Option::match(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
 }
-
