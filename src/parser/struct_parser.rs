@@ -16,18 +16,18 @@ impl<'a> StructParser<'a> {
     }
 
     pub fn try_parse(&self) -> Option<(String, Vec<String>, usize)> {
-        let param_types = param_types_matcher();
+        let param_types_matcher = param_types_matcher();
 
         let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Struct));
         matcher.add_alphanumeric();
-        matcher.add_matcher(param_types);
+        matcher.add_matcher(param_types_matcher);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         matcher.match_tokens(self.parser, 0)
             .map(|result| {
-                let x = result.group_values("type");
-                (result.values().first().unwrap().clone(), x, self.parser.get_i() + result.next_n())
+                let param_types = result.group_values("type");
+                (result.values().first().unwrap().clone(), param_types, self.parser.get_i() + result.next_n())
             })
     }
 

@@ -51,15 +51,15 @@ fn not(b: i32) -> i32 {
     ifImmediate(b, itn(0), itn(1));
 }
 
-fn with(v: I, f: fn(I) -> O) -> O {
+fn with<T>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }
 
-fn with2(v1: I1, v2: I2, f: fn(I1, I2) -> O) -> O {
+fn with2<T1,T2>(v1: T1, v2: T2, f: fn(T1, T2) -> O) -> O {
     f(v1, v2);
 }
 
-fn with3(v1: I1, v2: I2, v3: I3, f: fn(I1, I2, I3) -> O) -> O {
+fn with3(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
     f(v1, v2, v3);
 }
 

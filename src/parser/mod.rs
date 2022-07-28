@@ -8,8 +8,10 @@ use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunction
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::ASTType::Builtin;
 use crate::parser::enum_parser::EnumParser;
+use crate::parser::matchers::param_types_matcher;
 use crate::parser::ParserState::StructDef;
 use crate::parser::struct_parser::StructParser;
+use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_parser::TypeParser;
 
 pub(crate) mod ast;
@@ -39,7 +41,8 @@ pub struct Parser {
     state: Vec<ParserState>,
     included_functions: Vec<ASTFunctionDef>,
     enums: Vec<ASTEnumDef>,
-    structs: Vec<ASTStructDef>
+    structs: Vec<ASTStructDef>,
+    file_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -66,7 +69,7 @@ enum ParserState {
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Self {
+    pub fn new(lexer: Lexer, file_name: Option<String>) -> Self {
         let tokens = lexer.filter(|it| {
             !matches!(it.kind, TokenKind::WhiteSpaces(_) | TokenKind::Comment(_) | TokenKind::EndOfLine)
         }).collect();
@@ -79,7 +82,8 @@ impl Parser {
             state: Vec::new(),
             included_functions: Vec::new(),
             enums: Vec::new(),
-            structs: Vec::new()
+            structs: Vec::new(),
+            file_name,
         }
     }
 
@@ -155,7 +159,7 @@ impl Parser {
 
                         match Lexer::from_file(resource_path) {
                             Ok(lexer) => {
-                                let mut parser = Parser::new(lexer);
+                                let mut parser = Parser::new(lexer, resource_path.to_str().map(|it| it.to_string()));
                                 let mut module = parser.parse(resource_path);
                                 if !module.body.is_empty() {
                                     self.panic(&format!("Cannot include a module with a body: {:?}.", module.body));
@@ -562,7 +566,7 @@ impl Parser {
                 match bt {
                     BuiltinTypeKind::ASTString => print!("str"),
                     BuiltinTypeKind::ASTI32 => print!("i32"),
-                    BuiltinTypeKind::Lambda{ return_type: _return_type, parameters: _parameters} => print!("fn"), // TODO
+                    BuiltinTypeKind::Lambda { return_type: _return_type, parameters: _parameters } => print!("fn"), // TODO
                 }
             }
             ASTType::Parametric(name) => print!("{}", name),
@@ -615,7 +619,7 @@ impl Parser {
 
         if let Some(token) = option {
             //self.debug(message);
-            format!("{}: {},{}", message, token.row, token.column)
+            format!("{} {:?}:{},{}", message, self.file_name, token.row, token.column)
         } else {
             "it wasn't supposed to happen!".into()
         }
@@ -659,16 +663,25 @@ impl Parser {
         }
     }
 
-    // TODO type params
     fn try_parse_function_def(&self) -> Option<(String, Vec<String>, usize)> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
-            if let Some(Token { kind: TokenKind::AlphaNumeric(function_name), row: _, column: _ }) = self.next_token() {
-                if let Some(Token { kind: TokenKind::Bracket(BracketKind::Round, BracketStatus::Open), row: _, column: _ }) = self.next_token2() {
-                    return Some((function_name.clone(), Vec::new(), self.i + 3));
-                }
+            let param_types_matcher = param_types_matcher();
+
+            let mut matcher = TokensMatcher::default();
+            matcher.add_alphanumeric();
+            matcher.add_matcher(param_types_matcher);
+            matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
+
+            if let Some(matcher_result) = matcher.match_tokens(self, 1) {
+                let param_types = matcher_result.group_values("type");
+                Some((matcher_result.values().first().unwrap().clone(), param_types, self.get_i() + matcher_result.next_n()))
+            } else {
+                self.panic("Cannot parse function definition");
+                None
             }
+        } else {
+            None
         }
-        None
     }
 
     fn try_parse_include(&self) -> Option<(String, usize)> {
@@ -790,14 +803,14 @@ mod tests {
     use std::path::Path;
 
     use crate::lexer::Lexer;
-    use crate::parser::ast::ASTExpression;
+    use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionDef};
     use crate::parser::Parser;
 
     #[test]
     fn test() {
         let path = Path::new("resources/test/helloworld.rasm");
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         parser.parse(path);
     }
 
@@ -805,7 +818,7 @@ mod tests {
     fn test2() {
         let path = Path::new("resources/test/test2.rasm");
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
         assert_eq!(1, module.body.len());
@@ -815,7 +828,7 @@ mod tests {
     fn test8() {
         let path = Path::new("resources/test/test8.rasm");
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
         assert!(!module.functions.is_empty());
@@ -826,7 +839,7 @@ mod tests {
     fn test9() {
         let path = Path::new("resources/test/test9.rasm");
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
         assert!(!module.body.is_empty());
@@ -856,7 +869,7 @@ mod tests {
     fn test10() {
         let path = Path::new("resources/test/test10.rasm");
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         parser.parse(path);
     }
 
@@ -864,7 +877,25 @@ mod tests {
     fn test11() {
         let path = Path::new("resources/test/test11.rasm");
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         parser.parse(path);
+    }
+
+    #[test]
+    fn function_def_with_type_parameters() {
+        let lexer = Lexer::new("fn p<T,T1>() {}".into());
+
+        let mut parser = Parser::new(lexer, None);
+
+        let module = parser.parse(Path::new("."));
+
+        let function_def = ASTFunctionDef { name: "p".into(),
+            body: ASTFunctionBody::RASMBody(Vec::new()),
+            parameters: Vec::new(),
+            return_type: None,
+            inline: false,
+            param_types: vec!["T".into(), "T1".into()] };
+
+        assert_eq!(module.functions, vec![function_def]);
     }
 }

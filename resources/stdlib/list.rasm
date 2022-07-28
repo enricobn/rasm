@@ -22,61 +22,61 @@ fn range(start: i32, end: i32) -> List<i32> {
     });
 }
 
-fn listMap(l: List<T>, map: fn(T) -> T) -> List<T> {
+fn listMap<T>(l: List<T>, map: fn(T) -> T) -> List<T> {
     List::match(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
 }
 
 /** false = 0 true = any other value **/
-fn listAnyMatch(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
+fn listAnyMatch<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
 }
 
-fn listCount(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
+fn listCount<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> nadd(listCount(tail, predicate), if(predicate(head), { -> itn(1); }, { -> itn(0); })); }, { -> itn(0); });
 }
 
-fn listAdd(l: &List<T>, value: T) -> List<T> {
+fn listAdd<T>(l: &List<T>, value: T) -> List<T> {
     List::Full(value, l);
 }
 
-fn listOf(v: T) -> List<T> {
+fn listOf<T>(v: T) -> List<T> {
     List::Full(v, List::Empty());
 }
 
-fn listOf2(v1: T, v2: T) -> List<T> {
+fn listOf2<T>(v1: T, v2: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Empty()));
 }
 
-fn listOf3(v1: T, v2: T, v3: T) -> List<T> {
+fn listOf3<T>(v1: T, v2: T, v3: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Empty())));
 }
 
-fn listOf4(v1: T, v2: T, v3: T, v4: T) -> List<T> {
+fn listOf4<T>(v1: T, v2: T, v3: T, v4: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Empty()))));
 }
 
-fn listOf5(v1: T, v2: T, v3: T, v4: T, v5: T) -> List<T> {
+fn listOf5<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Empty())))));
 }
 
-fn listOf6(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> List<T> {
+fn listOf6<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Empty()))))));
 }
 
-fn listOf7(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> List<T> {
+fn listOf7<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Empty())))))));
 }
 
-fn listOf8(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T> {
+fn listOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Full(v8, List::Empty()))))))));
 }
 
-fn listPrintln(l: List<T>, print: fn(T) -> ()) {
+fn listPrintln<T>(l: List<T>, print: fn(T) -> ()) {
     listPrint(l, print);
     sprintln("");
 }
 
-fn listPrint(l: List<T>, printFunction: fn(T) -> ()) {
+fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
     List::match(l, { head,tail ->
         printFunction(head);
         List::match(tail, { head1,tail1 -> sprint(","); }, { -> });
@@ -84,32 +84,32 @@ fn listPrint(l: List<T>, printFunction: fn(T) -> ()) {
     }, { -> });
 }
 
-fn listFMap(l: List<T>, map: fn(T) -> List<T>) -> List<T> {
+fn listFMap<T>(l: List<T>, map: fn(T) -> List<T>) -> List<T> {
     listFlatten(listMap(l, map));
 }
 
-fn listFlatten(l: List<List<T>>) -> List<T> {
+fn listFlatten<T>(l: List<List<T>>) -> List<T> {
     List::match(l, { head, tail ->
         listAppend(head, listFlatten(tail));
     },
     { -> List::Empty(); });
 }
 
-fn listAppend(dest: List<T>, source: List<T>) -> List<T> {
+fn listAppend<T>(dest: List<T>, source: List<T>) -> List<T> {
     List::match(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
 }
 
-fn listFoldL(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
+fn listFoldL<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
     List::match(l, { head, tail ->
          listFoldL(tail, accum(zero, head), accum);
     }, { -> zero; });
 }
 
-fn listFoldR(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
+fn listFoldR<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
     listFoldL(listReverse(l), zero, accum);
 }
 
-fn listReverse(l: List<T>) -> List<T> {
+fn listReverse<T>(l: List<T>) -> List<T> {
     List::match(l, { head1, tail1 ->
         listAppend(listReverse(tail1), listOf(head1));
     }, { -> List::Empty(); });

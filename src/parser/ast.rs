@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
@@ -8,13 +8,13 @@ pub struct ASTFunctionDef {
     pub param_types: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTLambdaDef {
     pub parameter_names: Vec<String>,
     pub body: ASTFunctionBody,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTFunctionBody {
     RASMBody(Vec<ASTExpression>),
     ASMBody(String),
@@ -68,13 +68,13 @@ impl ASTTypeRef {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionCall {
     pub function_name: String,
     pub parameters: Vec<ASTExpression>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTFunctionCall),

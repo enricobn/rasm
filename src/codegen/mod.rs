@@ -185,7 +185,7 @@ impl<'a> CodeGen<'a> {
                 let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
                 parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true } });
             }
-            let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: Vec::new() };
+            let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: enum_def.type_parameters.clone() };
             self.functions.insert(enum_def.name.clone() + "::match", function_def);
         }
 
@@ -205,7 +205,7 @@ impl<'a> CodeGen<'a> {
                 self.functions.insert(struct_def.name.clone() + "::" + &property_def.name.clone(), property_function);
             }
 
-            let function_def = ASTFunctionDef { name: struct_def.name.clone(), parameters, body, inline: false, return_type, param_types: Vec::new() };
+            let function_def = ASTFunctionDef { name: struct_def.name.clone(), parameters, body, inline: false, return_type, param_types: struct_def.type_parameters.clone() };
             self.functions.insert(struct_def.name.clone(), function_def);
         }
 
@@ -365,7 +365,7 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
             if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
                 self.call_add_ref(&mut body, self.backend, "ebx", "");
-            } else if let ASTType::Parametric(name) = &par.type_ref.ast_type {
+            } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
                 //println!("Parametric({name}) variant parameter");
                 self.call_add_ref(&mut body, self.backend, "ebx", "");
             }
@@ -393,7 +393,7 @@ impl<'a> CodeGen<'a> {
 
             if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
                 self.call_add_ref(&mut body, backend, "ebx", "");
-            } else if let ASTType::Parametric(name) = &par.type_ref.ast_type {
+            } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
                 //println!("Parametric({name}) struct property");
                 self.call_add_ref(&mut body, backend, "ebx", "");
             }
@@ -421,7 +421,7 @@ impl<'a> CodeGen<'a> {
         // TODO param types?
         ASTFunctionDef {name: struct_def.name.clone() + "_" + &property_def.name, parameters: vec![ASTParameterDef {name: "v".into(), type_ref: ASTTypeRef {
             ast_type: ASTType::Custom {name: struct_def.name.clone(), param_types: Vec::new()}, ast_ref: false}}], return_type: Some(property_def.type_ref.clone()),
-        body: ASTFunctionBody::ASMBody(Self::struct_property_body(backend, i)), param_types: Vec::new(), inline: false}
+        body: ASTFunctionBody::ASMBody(Self::struct_property_body(backend, i)), param_types: struct_def.type_parameters.clone(), inline: false}
     }
 
     fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
@@ -517,7 +517,6 @@ impl<'a> CodeGen<'a> {
 
         let sp = self.backend.stack_pointer();
         let bp = self.backend.stack_base_pointer();
-        let ws = self.backend.word_size();
 
         CodeGen::add(&mut self.definitions, &format!("push    {}", bp), None, true);
         CodeGen::add(&mut self.definitions, &format!("mov     {},{}", bp, sp), None, true);
@@ -598,7 +597,7 @@ impl<'a> CodeGen<'a> {
                               &format!("function {} return", function_def_name));
 
             self.definitions.push_str(&out);
-        } else if let Some(ASTType::Parametric(name)) = &function_def.return_type.clone().map(|it| it.ast_type) {
+        } else if let Some(ASTType::Parametric(_name)) = &function_def.return_type.clone().map(|it| it.ast_type) {
             //println!("Parametric({name})");
             let function_def_name = function_def.name.clone();
             let mut out = String::new();
@@ -1037,7 +1036,7 @@ mod tests {
         let rasm_file = format!("{}.rasm", resource_prefix);
         let path = Path::new(&rasm_file);
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
         let backend = BackendAsm386::new();

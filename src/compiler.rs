@@ -27,7 +27,7 @@ impl Compiler {
         match Lexer::from_file(file_path) {
             Ok(lexer) => {
                 info!("Lexer ended");
-                let mut parser = Parser::new(lexer);
+                let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
                 let module = parser.parse(file_path);
 
                 info!("Parser ended");

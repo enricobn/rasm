@@ -20,10 +20,6 @@ Next
       - std.rams
         - include all the others
         - other functions
-- bug: a fn with an asm block /{ }/ is interpreted as asm
-- bug when a parameter of an asm function starts the same as another : v v1
-  - I must process them in size order descending
-- bug when an enum variant starts the same as another : T T1
 - delete asm, object and executable file on compile
 - write "and", "or", "not" function in asm inline
 - I think include messes up reporting error line
@@ -48,5 +44,13 @@ Next
 - rename lambda to closure?
 - line errors in codegen
 - type checker
-  - type parameters for functions
 - UTF-8 strings
+
+BUGS
+-----
+- "fn listMap<T("    should not be valid because the angle bracket is not closed, but now it works, but probably the type parameters are gone...
+  - look at param_types_matcher
+- a fn with an asm block /{ }/ is interpreted as asm
+- error when a parameter of an asm function starts the same as another : v v1
+    - we must process them in size order descending
+- error when an enum variant starts the same as another : T T1
