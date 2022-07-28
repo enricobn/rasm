@@ -195,7 +195,7 @@ impl<'a> CodeGen<'a> {
             let ast_type = ASTType::Custom { name: struct_def.name.clone(), param_types: param_types.clone() };
             let type_ref = ASTTypeRef { ast_type, ast_ref: true };
             let return_type = Some(type_ref);
-            let body_str = Self::struct_constructor_body(self.backend, struct_def);
+            let body_str = self.struct_constructor_body(self.backend, struct_def);
             let body = ASTFunctionBody::ASMBody(body_str);
 
             let parameters = struct_def.properties.iter().map(|it| ASTParameterDef { name: it.name.clone(), type_ref: it.type_ref.clone()}).collect();
@@ -363,8 +363,11 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
         for (i, par) in variant.parameters.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
-            if let ASTType::Custom { name: _, param_types: _ } = par.type_ref.ast_type {
-                CodeGen::call_add_ref(&mut body, self.backend, "ebx", "");
+            if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
+                self.call_add_ref(&mut body, self.backend, "ebx", "");
+            } else if let ASTType::Parametric(name) = &par.type_ref.ast_type {
+                //println!("Parametric({name}) variant parameter");
+                self.call_add_ref(&mut body, self.backend, "ebx", "");
             }
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len as usize), None, true);
         }
@@ -376,7 +379,7 @@ impl<'a> CodeGen<'a> {
         body
     }
 
-    fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
+    fn struct_constructor_body(&self, backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
         let word_size = backend.word_size();
         let mut body = String::new();
         CodeGen::add(&mut body, "push ebx", None, true);
@@ -388,8 +391,11 @@ impl<'a> CodeGen<'a> {
         for (i, par) in struct_def.properties.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
 
-            if let ASTType::Custom { name: _, param_types: _ } = par.type_ref.ast_type {
-                CodeGen::call_add_ref(&mut body, backend, "ebx", "");
+            if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
+                self.call_add_ref(&mut body, backend, "ebx", "");
+            } else if let ASTType::Parametric(name) = &par.type_ref.ast_type {
+                //println!("Parametric({name}) struct property");
+                self.call_add_ref(&mut body, backend, "ebx", "");
             }
 
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
@@ -585,10 +591,21 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        if let Some(ASTType::Custom { name: _, param_types: _ }) = function_def.return_type.clone().map(|it| it.ast_type) {
-            CodeGen::call_add_ref(&mut self.definitions, self.backend, "eax",
-                            &format!("function {} return", function_def.name));
+        if let Some(ASTType::Custom { name: _, param_types: _ }) = &function_def.return_type.clone().map(|it| it.ast_type) {
+            let function_def_name = function_def.name.clone();
+            let mut out = String::new();
+            self.call_add_ref(&mut out, self.backend, "eax",
+                              &format!("function {} return", function_def_name));
 
+            self.definitions.push_str(&out);
+        } else if let Some(ASTType::Parametric(name)) = &function_def.return_type.clone().map(|it| it.ast_type) {
+            //println!("Parametric({name})");
+            let function_def_name = function_def.name.clone();
+            let mut out = String::new();
+            self.call_add_ref(&mut out, self.backend, "eax",
+                              &format!("function {} return", function_def_name));
+
+            self.definitions.push_str(&out);
         }
 
         for (i, param) in function_def.parameters.iter().enumerate() {
@@ -618,6 +635,15 @@ impl<'a> CodeGen<'a> {
     pub fn is_struct_constructor(&self, function_name: &str) -> bool {
         self.module.structs.iter().map(|struct_def| &struct_def.name)
             .any(|it| it == function_name)
+    }
+
+    pub fn try_get_struct(&self, type_name: &str) -> Option<&ASTStructDef> {
+        self.module.structs.iter().find(|it| it.name == type_name)
+    }
+
+    pub fn try_get_enum(&self, type_name: &str) -> Option<&ASTEnumDef> {
+        self.module.enums.iter()
+            .find(|enum_def| enum_def.name == type_name)
     }
 
     fn call_function(&mut self, function_call: &ASTFunctionCall, context: &VarContext, parent_def: Option<&ASTFunctionDef>, added_to_stack: usize,
@@ -875,11 +901,20 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn call_deref(&mut self, out: &mut String, source: &str, descr: &str) {
+    pub fn call_deref(&mut self, out: &mut String, source: &str, type_name: &str, descr: &str) {
+
+    }
+
+    // TODO re enable this
+    pub fn call_deref_(&mut self, out: &mut String, source: &str, type_name: &str, descr: &str) {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
-        let key = format!("_descr_{}", self.id);
+        let mut id = self.id;
+
+        let key = format!("_descr_{}", id);
+        self.statics.insert(key.clone(), MemoryValue::StringValue(descr.to_string()));
+        id += 1;
 
         let mut result = String::new();
 
@@ -890,21 +925,77 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut result, "call     deref", None, true);
         CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
 
-        Self::insert_on_top(&result, out);
+        if let Some(struct_def) = self.try_get_struct(type_name) {
+            //println!("dereferencing struct {type_name}");
+            CodeGen::add(&mut result, "", None, true);
+            CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
+            CodeGen::add(&mut result, &format!("push {ws} {source}"), None, true);
+            CodeGen::add(&mut result, "pop ebx", None, true);
+            CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+            for (i, prop) in struct_def.properties.iter().enumerate() {
+                // TODO for now I don't know the real type of the parameter since it could be a generic one
+                //if let ASTType::Custom { name: _, param_types: _ } = prop.type_ref.ast_type {
+                    CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
+                    CodeGen::add(&mut result, &format!("push     {ws} [ebx + {i} * {wl}]"), None, true);
+                    CodeGen::add(&mut result, "call     deref", None, true);
+                    CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
+                //}
+            }
+            CodeGen::add(&mut result, "pop ebx", None, true);
+        }
 
-        self.statics.insert(key, MemoryValue::StringValue(descr.to_string()));
-        self.id += 1;
+        if let Some(enum_def) = self.try_get_enum(type_name) {
+            //println!("dereferencing enum {type_name}");
+            CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
+            CodeGen::add(&mut result, &format!("push {ws} {source}"), None, true);
+            CodeGen::add(&mut result, "pop ebx", None, true);
+            CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+            for (i, variant) in enum_def.variants.iter().enumerate() {
+                if !variant.parameters.is_empty() {
+                    CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                    CodeGen::add(&mut result, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
+                    for (j, par) in variant.parameters.iter().enumerate() {
+                        //println!("par {:?}", par);
+                        // TODO for now I don't know the real type of the parameter since it could be a generic one
+                        //if let ASTType::Custom { name: _, param_types: _ } = par.type_ref.ast_type {
+                            CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
+                            CodeGen::add(&mut result, &format!("push     {ws} [ebx + {wl} + {j} * {wl}]"), None, true);
+                            CodeGen::add(&mut result, "call     deref", None, true);
+                            CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
+                        //}
+                    }
+                    CodeGen::add(&mut result, &format!("._{type_name}_{i}_{}:", id), None, false);
+                    id += 1;
+                }
+            }
+
+            CodeGen::add(&mut result, "pop ebx", None, true);
+        }
+
+        self.id = id;
+
+        Self::insert_on_top(&result, out);
     }
 
-    pub fn call_add_ref(out: &mut String, backend: &dyn Backend, source: &str, descr: &str) {
+    pub fn call_add_ref(&self, out: &mut String, backend: &dyn Backend, source: &str, descr: &str) -> usize {
         let ws = backend.word_size();
         let wl = backend.word_len();
+
+        let mut id = self.id;
+
+        let key = format!("_descr_{}", id);
+
         //if let ASTType::Custom { name: _, param_types: _ } = type_ref.ast_type {
         //println!("calling deref for {:?}", type_ref);
+        //CodeGen::add(out, &format!("push     {ws} {descr}"), None, true);
+
+
         //CodeGen::add(out, &format!("push     {ws} {descr}"), None, true);
         CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
         CodeGen::add(out, "call     addRef", None, true);
         CodeGen::add(out, &format!("add      esp,{wl}"), None, true);
+
+        self.id + 1
         //}
     }
 

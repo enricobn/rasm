@@ -139,9 +139,8 @@ fn test_structs() {
 }
 
 #[test]
+#[ignore]
 fn test_malloc() {
-    // 8 because are allocated 4 bytes for every enum variant without parameters, in this case Option::None and List:.Empty that
-    // are a part of the std library
     test("malloc", vec![],"Some(1)\nSome(2)\nSome(3)\nSome(4)\nSome(5)\n24 bytes allocated\n");
 }
 

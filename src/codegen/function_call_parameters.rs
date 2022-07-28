@@ -80,14 +80,14 @@ impl<'a> FunctionCallParameters<'a> {
         let sp = self.backend.stack_pointer();
 
         CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
-        if let ASTType::Custom { name: _, param_types: _ } = type_ref.ast_type {
+        if let ASTType::Custom { name, param_types: _ } = &type_ref.ast_type {
             if code_gen.is_constructor(&function_name) {
                 //println!("is_enum_parametric_variant_function");
-                CodeGen::call_add_ref(&mut self.before, self.backend, "eax", "");
+                code_gen.call_add_ref(&mut self.before, self.backend, "eax", "");
             }
             Self::push_to_scope_stack(self.backend, &mut self.before, "eax", "ebx");
 
-            code_gen.call_deref(&mut self.after, "[ebx]", comment.unwrap_or(&function_name));
+            code_gen.call_deref(&mut self.after, "[ebx]", &name, comment.unwrap_or(&function_name));
             Self::pop_from_scope_stack(self.backend, &mut self.after, "ebx");
         }
         self.parameter_added_to_stack("function call result");

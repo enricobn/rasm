@@ -450,6 +450,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     mov     dword ebx,[eax + 12] ; the count
     cmp     ebx,0
     jz      .negative_count
+    ;jz      .end
 
     sub     ebx,1
     mov     dword [eax + 12],ebx
@@ -475,7 +476,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     pop     eax
 }/
 
-asm addRef(address: i32) -> i32 /{
+asm addRef(address: i32) /{
     push    eax
     push    ebx
 
