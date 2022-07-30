@@ -11,7 +11,7 @@ pub struct ASTFunctionDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTLambdaDef {
     pub parameter_names: Vec<String>,
-    pub body: ASTFunctionBody,
+    pub body: Vec<ASTExpression>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -303,17 +303,16 @@ impl Parser {
                             }
                         } else if let Some(ParserData::LambdaDef(def)) = self.before_last_parser_data() {
                             let mut def = def.clone();
-                            if let RASMBody(mut calls) = def.body {
-                                calls.push(ASTExpression::Val(val_name));
-                                def.body = RASMBody(calls);
-                                let l = self.parser_data.len();
-                                self.parser_data[l - 2] = ParserData::LambdaDef(def);
-                                self.parser_data.pop();
-                                self.state.pop();
-                                continue;
-                            } else {
-                                panic!("expected rasm body, found {:?}", def.body);
-                            }
+                            let mut calls= def.body;
+
+                            calls.push(ASTExpression::Val(val_name));
+                            def.body = calls;
+                            let l = self.parser_data.len();
+                            self.parser_data[l - 2] = ParserData::LambdaDef(def);
+                            self.parser_data.pop();
+                            self.state.pop();
+                            continue;
+
                         } else {
                             panic!("Function def, found {:?}", self.before_last_parser_data());
                         }
@@ -377,7 +376,7 @@ impl Parser {
                 let (parameter_names, next_i) = self.parse_lambda_parameters(1);
                 self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
                     parameter_names,
-                    body: RASMBody(Vec::new()),
+                    body: Vec::new(),
                 }));
                 self.state.push(ParserState::FunctionBody);
                 self.i = next_i;
@@ -398,16 +397,15 @@ impl Parser {
                         }
                     } else if let Some(ParserData::LambdaDef(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
-                        if let RASMBody(mut calls) = def.body {
-                            calls.push(ASTExpression::ASTFunctionCallExpression(call));
-                            def.body = RASMBody(calls);
-                            let l = self.parser_data.len();
-                            self.parser_data[l - 2] = ParserData::LambdaDef(def);
-                            self.parser_data.pop();
-                            self.i += 2;
-                            self.state.pop();
-                            return ProcessResult::Continue;
-                        }
+                        let mut calls = def.body;
+                        calls.push(ASTExpression::ASTFunctionCallExpression(call));
+                        def.body = calls;
+                        let l = self.parser_data.len();
+                        self.parser_data[l - 2] = ParserData::LambdaDef(def);
+                        self.parser_data.pop();
+                        self.i += 2;
+                        self.state.pop();
+                        return ProcessResult::Continue;
                     } else {
                         self.body.push(call);
                     }
@@ -592,17 +590,14 @@ impl Parser {
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(call, true),
                 ASTExpression::Val(name) => print!("{}", name),
                 ASTExpression::Lambda(function_def) => {
-                    if let RASMBody(calls) = &function_def.body {
-                        print!("{{");
-                        calls.iter().for_each(|call| {
-                            // TODO
-                            //Self::print_call(call, true);
-                            print!(";");
-                        });
-                        print!("}}");
-                    } else {
-                        panic!("A lambda cannot be an asm function.");
-                    }
+                    let calls = &function_def.body;
+                    print!("{{");
+                    calls.iter().for_each(|call| {
+                        // TODO
+                        //Self::print_call(call, true);
+                        print!(";");
+                    });
+                    print!("}}");
                 }
             }
             first = false;

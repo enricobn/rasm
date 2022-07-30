@@ -13,6 +13,7 @@ use crate::codegen::MemoryValue::Mem;
 use crate::codegen::stack::Stack;
 
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::ASTFunctionBody::RASMBody;
 
 pub struct CodeGen<'a> {
     module: ASTModule,
@@ -46,11 +47,11 @@ enum MemoryUnit {
 
 #[derive(Clone, Debug)]
 pub struct VarContext {
-    value_to_address: LinkedHashMap<String, VarKind>,
+    pub value_to_address: LinkedHashMap<String, VarKind>,
 }
 
 #[derive(Clone, Debug)]
-enum VarKind {
+pub enum VarKind {
     ParameterRef(usize, ASTParameterDef)
 }
 
@@ -81,7 +82,7 @@ impl LambdaSpace {
 }
 
 impl VarContext {
-    fn new(parent_context: Option<&VarContext>) -> Self {
+    pub fn new(parent_context: Option<&VarContext>) -> Self {
         let mut map = LinkedHashMap::new();
         if let Some(pc) = parent_context {
             for (key, value) in pc.value_to_address.iter() {
@@ -95,11 +96,11 @@ impl VarContext {
         self.value_to_address.insert(key, value)
     }
 
-    fn get(&self, key: &str) -> Option<&VarKind> {
+    pub fn get(&self, key: &str) -> Option<&VarKind> {
         self.value_to_address.get(key)
     }
 
-    fn iter(&self) -> Iter<String, VarKind> {
+    pub fn iter(&self) -> Iter<String, VarKind> {
         self.value_to_address.iter()
     }
 
@@ -744,9 +745,6 @@ impl<'a> CodeGen<'a> {
                         Self::add_val(context, &lambda_space_opt, &indent, &mut call_parameters, &param_name, name, &error_msg);
                     }
                     ASTExpression::Lambda(lambda_def) => {
-                        if let ASTFunctionBody::ASMBody(_) = &lambda_def.body {
-                            panic!("A lambda cannot have an asm body.")
-                        }
                         let (return_type, parameters_types) = if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type, parameters }) = param_type.ast_type {
                             (return_type, parameters)
                         } else {
@@ -764,7 +762,7 @@ impl<'a> CodeGen<'a> {
                             name: format!("lambda{}", self.id),
                             parameters: Vec::new(),
                             return_type: rt,
-                            body: lambda_def.clone().body,
+                            body: RASMBody(lambda_def.clone().body),
                             inline: false,
                             param_types: Vec::new(),
                         };
