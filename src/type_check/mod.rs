@@ -339,7 +339,6 @@ impl ToTypedModuleConverter {
                 return ASTTypeRef {ast_type: ASTType::Builtin(BuiltinTypeKind::Lambda {return_type , parameters}), ast_ref: true}
 
                  */
-                return None;
             }
         }
         return None;

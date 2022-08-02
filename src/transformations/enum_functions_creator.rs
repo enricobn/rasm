@@ -1,6 +1,6 @@
 use crate::codegen::{CodeGen, EnhancedASTModule, MemoryValue};
 use crate::codegen::backend::Backend;
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 
 pub fn enum_functions_creator(backend: &dyn Backend, module: &EnhancedASTModule) -> EnhancedASTModule {
     let mut functions_by_name = module.functions_by_name.clone();

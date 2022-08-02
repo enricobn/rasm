@@ -2,7 +2,7 @@ mod function_call_parameters;
 pub mod backend;
 pub mod stack;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::ops::Deref;
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::{debug, info};
@@ -12,11 +12,13 @@ use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::stack::Stack;
 
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::RASMBody;
+use crate::transformations::enum_functions_creator::enum_functions_creator;
+use crate::transformations::struct_functions_creator::struct_functions_creator;
 
 pub struct CodeGen<'a> {
-    module: ASTModule,
+    module: EnhancedASTModule,
     id: usize,
     statics: LinkedHashMap<String, MemoryValue>,
     // key=memory_label
@@ -140,6 +142,10 @@ impl VarContext {
 
 impl<'a> CodeGen<'a> {
     pub fn new(backend: &'a dyn Backend, module: ASTModule, lambda_space_size: usize, heap_size: usize, heap_table_slots: usize, print_memory_info: bool) -> Self {
+
+        let module = enum_functions_creator(backend, &EnhancedASTModule::new(&module));
+        let module = struct_functions_creator(backend, &module);
+
         Self {
             module,
             body: String::new(),
@@ -159,81 +165,10 @@ impl<'a> CodeGen<'a> {
 
     pub fn asm(&mut self) -> String {
         self.id = 0;
-        self.statics = LinkedHashMap::new();
-        self.body = String::new();
+        self.statics = self.module.statics.clone();
+        self.body = self.module.native_body.clone();
         self.definitions = String::new();
-        self.functions = LinkedHashMap::new();
-
-        for function_def in &self.module.functions.clone() {
-            debug!("function_def {}", function_def.name);
-            self.functions.insert(function_def.name.clone(), function_def.clone());
-        }
-
-        for enum_def in &self.module.enums {
-            let param_types: Vec<ASTTypeRef> = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-
-            for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-                //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
-
-                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
-                let type_ref = ASTTypeRef { ast_type, ast_ref: true };
-                let return_type = Some(type_ref);
-                let body_str = if variant.parameters.is_empty() {
-                    let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-                    self.statics.insert(label.clone(), MemoryValue::I32Value(0));
-                    //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
-                    //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
-
-                    CodeGen::add(&mut self.body, &format!("push    {} {}", self.backend.word_size(), self.backend.word_len()), None, true);
-                    CodeGen::add(&mut self.body, "call    malloc", None, true);
-                    CodeGen::add(&mut self.body, &format!("add   {}, {}", self.backend.stack_pointer(), self.backend.word_len()), None, true);
-
-                    CodeGen::add(&mut self.body, &format!("mov   {} [{label}], eax", self.backend.word_size()), None, true);
-                    CodeGen::add(&mut self.body, &format!("mov   {} eax, [eax]", self.backend.word_size()), None, true);
-                    CodeGen::add(&mut self.body, &format!("mov   {} [eax], {variant_num}", self.backend.word_size()), None, true);
-
-                    format!("    mov    eax, [{}]\n", label)
-                } else {
-                    self.enum_parametric_variant_constructor_body(&variant_num, &variant)
-                };
-                let body = ASTFunctionBody::ASMBody(body_str);
-                let function_def = ASTFunctionDef { name: enum_def.name.clone() + "_" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
-                self.functions.insert(enum_def.name.clone() + "::" + &variant.name.clone(), function_def);
-            }
-            let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types));
-
-            let body = Self::enum_match_body(self.backend, enum_def);
-
-            let function_body = ASTFunctionBody::ASMBody(body);
-            let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types }, ast_ref: true } }];
-            for variant in enum_def.variants.iter() {
-                let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
-                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true } });
-            }
-            let function_def = ASTFunctionDef { name: enum_def.name.clone() + "Match", parameters, body: function_body, inline: false, return_type, param_types: enum_def.type_parameters.clone() };
-            self.functions.insert(enum_def.name.clone() + "::match", function_def);
-        }
-
-        for struct_def in &self.module.structs {
-            let param_types: Vec<ASTTypeRef> = struct_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-
-            let ast_type = ASTType::Custom { name: struct_def.name.clone(), param_types: param_types.clone() };
-            let type_ref = ASTTypeRef { ast_type, ast_ref: true };
-            let return_type = Some(type_ref);
-            let body_str = self.struct_constructor_body(self.backend, struct_def);
-            let body = ASTFunctionBody::ASMBody(body_str);
-
-            let parameters = struct_def.properties.iter().map(|it| ASTParameterDef { name: it.name.clone(), type_ref: it.type_ref.clone()}).collect();
-
-            for (i, property_def) in struct_def.properties.iter().rev().enumerate() {
-                let property_function = Self::create_function_for_struct_property(self.backend, struct_def, property_def, i);
-                self.functions.insert(struct_def.name.clone() + "::" + &property_def.name.clone(), property_function);
-            }
-
-            let function_def = ASTFunctionDef { name: struct_def.name.clone(), parameters, body, inline: false, return_type, param_types: struct_def.type_parameters.clone() };
-            self.functions.insert(struct_def.name.clone(), function_def);
-        }
+        self.functions = self.module.functions_by_name.clone();
 
         // for now main has no context
         let main_context = VarContext::new(None);
@@ -373,118 +308,6 @@ impl<'a> CodeGen<'a> {
     fn print_memory_info(mut asm: &mut String) {
         CodeGen::add(&mut asm, "call   printAllocated", None, true);
         CodeGen::add(&mut asm, "call   printTableSlotsAllocated", None, true);
-    }
-
-    fn enum_parametric_variant_constructor_body(&self, variant_num: &usize, variant: &&ASTEnumVariantDef) -> String {
-        let word_size = self.backend.word_size();
-        let word_len = self.backend.word_len();
-        let mut body = String::new();
-        CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, &format!("push     {}", (variant.parameters.len() + 1) * word_len as usize), None, true);
-        CodeGen::add(&mut body, "call malloc", None, true);
-        CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
-        CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
-        CodeGen::add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);
-        // I put the variant number in the first location
-        CodeGen::add(&mut body, &format!("mov   [eax], word {}", variant_num), None, true);
-        for (i, par) in variant.parameters.iter().rev().enumerate() {
-            CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
-            if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
-                CodeGen::call_add_ref(&mut body, self.backend, "ebx", "");
-            } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
-                //println!("Parametric({name}) variant parameter");
-                CodeGen::call_add_ref(&mut body, self.backend, "ebx", "");
-            }
-            CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len as usize), None, true);
-        }
-        CodeGen::add(&mut body, "pop   eax", None, true);
-
-        //CodeGen::call_add_ref(&mut body, backend, "eax", "");
-
-        CodeGen::add(&mut body, "pop   ebx", None, true);
-        body
-    }
-
-    fn struct_constructor_body(&self, backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
-        let word_size = backend.word_size();
-        let mut body = String::new();
-        CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, &format!("push     {}", struct_def.properties.len() * backend.word_len() as usize), None, true);
-        CodeGen::add(&mut body, "call malloc", None, true);
-        CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len()), None, true);
-        CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
-        CodeGen::add(&mut body, &format!("mov {word_size} eax, [eax]"), None, true);
-        for (i, par) in struct_def.properties.iter().rev().enumerate() {
-            CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
-
-            if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
-                CodeGen::call_add_ref(&mut body, backend, "ebx", "");
-            } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
-                //println!("Parametric({name}) struct property");
-                CodeGen::call_add_ref(&mut body, backend, "ebx", "");
-            }
-
-            CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
-        }
-        CodeGen::add(&mut body, "pop   eax", None, true);
-        CodeGen::add(&mut body, "pop   ebx", None, true);
-        body
-    }
-
-    fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
-        let mut body = String::new();
-        CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, &format!("mov   {} ebx, $v", backend.word_size()), None, true);
-        // the address points to the heap table
-        CodeGen::add(&mut body, &format!("mov   {} ebx, [ebx]", backend.word_size()), None, true);
-        //CodeGen::add(&mut body, "mov   ebx, $v", None, true);
-        CodeGen::add(&mut body, &format!("mov {}  eax, [ebx + {}]", backend.pointer_size(), i * backend.word_len() as usize), None, true);
-        CodeGen::add(&mut body, "pop   ebx", None, true);
-        body
-    }
-
-    fn create_function_for_struct_property(backend: &dyn Backend, struct_def: &ASTStructDef, property_def: &ASTStructPropertyDef, i: usize) -> ASTFunctionDef {
-        // TODO param types?
-        ASTFunctionDef {name: struct_def.name.clone() + "_" + &property_def.name, parameters: vec![ASTParameterDef {name: "v".into(), type_ref: ASTTypeRef {
-            ast_type: ASTType::Custom {name: struct_def.name.clone(), param_types: Vec::new()}, ast_ref: false}}], return_type: Some(property_def.type_ref.clone()),
-        body: ASTFunctionBody::ASMBody(Self::struct_property_body(backend, i)), param_types: struct_def.type_parameters.clone(), inline: false}
-    }
-
-    fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
-        let word_len = backend.word_len();
-        let sp = backend.stack_pointer();
-        let word_size = backend.word_size();
-        let mut body = String::new();
-
-        CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, &format!("mov {word_size} eax, $value"), None, true);
-        // the address is "inside" the allocation table
-        CodeGen::add(&mut body, &format!("mov {word_size} eax, [eax]"), None, true);
-
-        for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-            CodeGen::add(&mut body, &format!("cmp [eax], word {}", variant_num), None, true);
-            CodeGen::add(&mut body, &format!("jnz .variant{}", variant_num), None, true);
-
-            for (i, param) in variant.parameters.iter().enumerate() {
-                CodeGen::add(&mut body, &format!("push dword [eax + {}]", (i + 1) * word_len as usize), Some(&format!("param {}", param.name)), true);
-            }
-
-            CodeGen::add(&mut body, &format!("mov ebx,${}", variant.name), None, true);
-            CodeGen::add(&mut body, "push ebx", None, true);
-            CodeGen::add(&mut body, "call [ebx]", None, true);
-            CodeGen::add(&mut body, &format!("add {}, {}", sp, word_len), None, true);
-
-            if !variant.parameters.is_empty() {
-                CodeGen::add(&mut body, &format!("add {}, {}", sp, variant.parameters.len() * word_len as usize), None, true);
-            }
-
-            CodeGen::add(&mut body, "jmp .end", None, true);
-            CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, true);
-        }
-        CodeGen::add(&mut body, ".end:", None, true);
-        CodeGen::add(&mut body, "pop ebx", None, true);
-
-        body
     }
 
     fn create_all_functions(&mut self) {
