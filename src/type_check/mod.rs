@@ -16,7 +16,7 @@ pub struct ToTypedModuleConverter {
 
 struct TransformedCall {
     new_function_call: ASTFunctionCall,
-    new_function_def: Option<(usize, ResolvedFunctionDef)>,
+    new_function_def: Option<(usize, Vec<ResolvedFunctionDef>)>,
 }
 
 struct ResolvedFunctionDef {
@@ -38,18 +38,48 @@ impl ToTypedModuleConverter {
 
         let context = VarContext::new(None);
 
+        // TODO it is copied from CodeGen: we must handle this in some way, here we need the functions declaration, but the real code is generated in CodeGen
+        for enum_def in &self.module.enums {
+            let param_types: Vec<ASTTypeRef> = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
+
+            for (variant_num, variant) in enum_def.variants.iter().enumerate() {
+                //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
+
+                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
+                let type_ref = ASTTypeRef { ast_type, ast_ref: true };
+                let return_type = Some(type_ref);
+                let body = ASTFunctionBody::ASMBody("".into());
+                let function_def = ASTFunctionDef { name: enum_def.name.clone() + "::" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
+
+                self.module.functions.push(function_def);
+            }
+            let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types));
+
+            let function_body = ASTFunctionBody::ASMBody("".into());
+            let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
+            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types }, ast_ref: true } }];
+            for variant in enum_def.variants.iter() {
+                let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
+                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true } });
+            }
+            let function_def = ASTFunctionDef { name: enum_def.name.clone() + "::match", parameters, body: function_body, inline: false, return_type, param_types: enum_def.type_parameters.clone() };
+            self.module.functions.push(function_def);
+        }
+
         let module = self.module.clone();
 
         for call in module.body.iter() {
             if let Some(transformed_call) = self.transform_call(self.count, &context, &module, call)
             {
-                if let Some((new_count, resolved_function_def)) = transformed_call.new_function_def
+                if let Some((new_count, resolved_function_defs)) = transformed_call.new_function_def
                 {
                     self.count = new_count;
-                    self.functions
-                        .entry(transformed_call.new_function_call.function_name.clone())
-                        .or_insert(Vec::new())
-                        .push(resolved_function_def);
+                    for resolved_function_def in resolved_function_defs {
+                        self.functions
+                            .entry(call.function_name.clone())
+                            .or_insert_with(Vec::new)
+                            .push(resolved_function_def);
+                    }
                 }
 
                 body.push(transformed_call.new_function_call);
@@ -64,32 +94,42 @@ impl ToTypedModuleConverter {
             .values()
             .into_iter()
             .flat_map(|it| it.iter().map(|c| c.function_def.clone()))
-            .for_each(|it| match &it.body {
-                ASTFunctionBody::RASMBody(expressions) => {
-                    let mut body = Vec::new();
-                    for expression in expressions {
-                        match expression {
-                            ASTExpression::ASTFunctionCallExpression(call) => {
-                                if let Some(transformed_function_call) =
+            .for_each(|it| {
+                let mut context = VarContext::new(Some(&context));
+
+                it.parameters.iter().enumerate().for_each(|(i, par)| {
+                    context.insert(par.name.clone(), VarKind::ParameterRef(i, par.clone()));
+                });
+
+                match &it.body {
+                    ASTFunctionBody::RASMBody(expressions) => {
+                        let mut body = Vec::new();
+                        for expression in expressions {
+                            match expression {
+                                ASTExpression::ASTFunctionCallExpression(call) => {
+                                    if let Some(transformed_function_call) =
                                     self.transform_call(self.count, &context, &self.module, &call)
-                                {
-                                    body.push(ASTExpression::ASTFunctionCallExpression(
-                                        transformed_function_call.new_function_call,
-                                    ));
+                                    {
+                                        body.push(ASTExpression::ASTFunctionCallExpression(
+                                            transformed_function_call.new_function_call,
+                                        ));
+                                    } else {
+                                        body.push(expression.clone());
+                                    }
+                                }
+                                _ => {
+                                    body.push(expression.clone());
                                 }
                             }
-                            _ => {
-                                body.push(expression.clone());
-                            }
                         }
-                    }
 
-                    let mut new_function_def = it.clone();
-                    new_function_def.body = ASTFunctionBody::RASMBody(body);
-                    functions.push(new_function_def);
-                }
-                ASTFunctionBody::ASMBody(_) => {
-                    functions.push(it);
+                        let mut new_function_def = it.clone();
+                        new_function_def.body = ASTFunctionBody::RASMBody(body);
+                        functions.push(new_function_def);
+                    }
+                    ASTFunctionBody::ASMBody(_) => {
+                        functions.push(it);
+                    }
                 }
             });
 
@@ -108,6 +148,32 @@ impl ToTypedModuleConverter {
     ) -> Option<TransformedCall> {
         let mut count = count;
 
+        let mut parameters = Vec::new();
+        let mut resolved_function_defs = Vec::new();
+
+        for expression in call.parameters.iter() {
+            match expression {
+                ASTExpression::ASTFunctionCallExpression(call) => {
+                    if let Some(transformed_function_call) =
+                        self.transform_call(self.count, context, &self.module, call)
+                    {
+                        parameters.push(ASTExpression::ASTFunctionCallExpression(
+                            transformed_function_call.new_function_call,
+                        ));
+                        if let Some((new_count, mut new_function_defs)) = transformed_function_call.new_function_def{
+                            count = new_count;
+                            resolved_function_defs.append(&mut new_function_defs);
+                        }
+                    } else {
+                        parameters.push(expression.clone());
+                    }
+                }
+                _ => {
+                    parameters.push(expression.clone());
+                }
+            }
+        }
+
         let function_def = module
             .functions
             .iter()
@@ -115,7 +181,12 @@ impl ToTypedModuleConverter {
             .unwrap_or_else(|| panic!("Cannot find function {}", call.function_name));
 
         if function_def.param_types.is_empty() {
-            None
+            let mut new_call = call.clone();
+            new_call.parameters = parameters;
+            Some(TransformedCall {
+                new_function_call: new_call,
+                new_function_def: Some((count, resolved_function_defs)),
+            })
         } else {
             let mut param_types_to_effective_types = HashMap::new();
 
@@ -128,10 +199,10 @@ impl ToTypedModuleConverter {
                         "parametric_types {:?}",
                         parametric_types_of_declared_parameter
                     );
-                    let parameter_expression = call.parameters.get(i).unwrap();
+                    let parameter_expression = parameters.get(i).unwrap();
 
                     if let Some(type_of_expression) =
-                        self.get_type_of_expr(parameter_expression, &context)
+                        self.get_type_of_expr(parameter_expression, context, &resolved_function_defs)
                     {
                         for (name, effective_type) in self
                             .match_parametric_type_with_effective_type(
@@ -150,7 +221,7 @@ impl ToTypedModuleConverter {
             param_types_for_check.retain(|it| param_types_to_effective_types.contains_key(it));
 
             if param_types_for_check.len() != function_def.param_types.len() {
-                panic!("resolved param types do no match")
+                panic!("{} resolved param types do no match {:?}", call.function_name, param_types_to_effective_types)
             }
 
             let functions = self.functions.get(&function_def.name);
@@ -162,13 +233,13 @@ impl ToTypedModuleConverter {
                     .find(|it| it.type_parameters.eq(&param_types_to_effective_types))
             }) {
                 new_call.function_name = resolved_function_def.function_def.name.clone();
+                new_call.parameters = parameters;
 
                 Some(TransformedCall {
                     new_function_call: new_call,
                     new_function_def: None,
                 })
             } else {
-                // TODO we have to substitute the parametric types with effective types...
                 let effective_parameters: Vec<ASTParameterDef> = function_def
                     .parameters
                     .iter()
@@ -190,7 +261,7 @@ impl ToTypedModuleConverter {
                     ast_type: self.substitute(&it.ast_type, &param_types_to_effective_types),
                 });
 
-                let new_name = function_def.name.clone() + &count.to_string();
+                let new_name = function_def.name.clone() + "_" + &count.to_string();
                 count += 1;
 
                 let mut new_function_def = function_def.clone();
@@ -201,16 +272,16 @@ impl ToTypedModuleConverter {
                 //Option<(usize, (HashMap<String, ASTType>, ASTFunctionDef), ASTFunctionCall)>
 
                 new_call.function_name = new_name;
+                new_call.parameters = parameters;
+
+                resolved_function_defs.push(ResolvedFunctionDef {
+                    type_parameters: param_types_to_effective_types.clone(),
+                    function_def: new_function_def.clone(),
+                });
 
                 Some(TransformedCall {
                     new_function_call: new_call,
-                    new_function_def: Some((
-                        count,
-                        ResolvedFunctionDef {
-                            type_parameters: param_types_to_effective_types.clone(),
-                            function_def: new_function_def.clone(),
-                        },
-                    )),
+                    new_function_def: Some((count, resolved_function_defs)),
                 })
 
                 //self.functions.insert(function_def.name.clone(), functions);
@@ -222,6 +293,7 @@ impl ToTypedModuleConverter {
         &self,
         expr: &ASTExpression,
         val_context: &VarContext,
+        not_added_resolved_function_defs: &Vec<ResolvedFunctionDef>
     ) -> Option<ASTTypeRef> {
         match expr {
             ASTExpression::StringLiteral(_) => {
@@ -230,9 +302,19 @@ impl ToTypedModuleConverter {
                     ast_ref: true,
                 });
             }
-            ASTExpression::ASTFunctionCallExpression(_) => {}
+            ASTExpression::ASTFunctionCallExpression(exp) => {
+                if let Some(function_def) = self.module.functions.iter().find(|it| it.name == exp.function_name) {
+                    return function_def.return_type.clone();
+                } else if let Some(resolved_function_def) = self.functions.values().flat_map(|it| it.iter()).find(|it| it.function_def.name == exp.function_name) {
+                    return resolved_function_def.function_def.return_type.clone();
+                } else if let Some(resolved_function_def) = not_added_resolved_function_defs.iter().find(|it| it.function_def.name == exp.function_name) {
+                    return resolved_function_def.function_def.return_type.clone();
+                } else {
+                    panic!("cannot find function {}", exp.function_name);
+                }
+            }
             ASTExpression::Val(name) => {
-                let var_kind = val_context.get(name).unwrap();
+                let var_kind = val_context.get(name).unwrap_or_else(|| panic!("cannot find val {name}"));
                 match var_kind {
                     VarKind::ParameterRef(_, def) => {
                         return Some(def.type_ref.clone());
@@ -246,6 +328,7 @@ impl ToTypedModuleConverter {
                 });
             }
             ASTExpression::Lambda(lambda) => {
+                todo!();
                 /*
                 let return_type = if lambda.body.is_empty() {
                     None
@@ -447,7 +530,7 @@ mod tests {
         let mut converter = ToTypedModuleConverter::new(module);
         let new_module = converter.convert();
 
-        assert_eq!(new_module.body.get(0).unwrap().function_name, "consume0");
+        assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
 
         println!("{:?}", new_module);
     }
@@ -459,11 +542,9 @@ mod tests {
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
-        println!("{:?}", module);
-
         let mut converter = ToTypedModuleConverter::new(module);
         let new_module = converter.convert();
 
-        println!("{:?}", new_module);
+        println!("{:?}", new_module.functions.iter().map(|it| &it.name));
     }
 }

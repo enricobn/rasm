@@ -92,7 +92,7 @@ impl VarContext {
         Self { value_to_address: map }
     }
 
-    fn insert(&mut self, key: String, value: VarKind) -> Option<VarKind> {
+    pub fn insert(&mut self, key: String, value: VarKind) -> Option<VarKind> {
         self.value_to_address.insert(key, value)
     }
 
