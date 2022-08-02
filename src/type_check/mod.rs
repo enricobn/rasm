@@ -1,13 +1,14 @@
-use crate::codegen::{VarContext, VarKind};
+use crate::codegen::{EnhancedASTModule, VarContext, VarKind};
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef,
     ASTType, ASTTypeRef, BuiltinTypeKind,
 };
 use log::debug;
 use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 
 pub struct ToTypedModuleConverter {
-    module: ASTModule,
+    module: EnhancedASTModule,
     /// key=original function name
     /// value=Vector of possible matches between parametric types and effective types and related function definition
     functions: HashMap<String, Vec<ResolvedFunctionDef>>,
@@ -25,7 +26,7 @@ struct ResolvedFunctionDef {
 }
 
 impl ToTypedModuleConverter {
-    pub fn new(module: ASTModule) -> Self {
+    pub fn new(module: EnhancedASTModule) -> Self {
         ToTypedModuleConverter {
             module,
             functions: HashMap::new(),
@@ -33,38 +34,10 @@ impl ToTypedModuleConverter {
         }
     }
 
-    pub fn convert(&mut self) -> ASTModule {
+    pub fn convert(&mut self) -> EnhancedASTModule {
         let mut body = Vec::new();
 
         let context = VarContext::new(None);
-
-        // TODO it is copied from CodeGen: we must handle this in some way, here we need the functions declaration, but the real code is generated in CodeGen
-        for enum_def in &self.module.enums {
-            let param_types: Vec<ASTTypeRef> = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-
-            for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-                //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
-
-                let ast_type = ASTType::Custom { name: enum_def.name.clone(), param_types: param_types.clone() };
-                let type_ref = ASTTypeRef { ast_type, ast_ref: true };
-                let return_type = Some(type_ref);
-                let body = ASTFunctionBody::ASMBody("".into());
-                let function_def = ASTFunctionDef { name: enum_def.name.clone() + "::" + &variant.name.clone(), parameters: variant.parameters.clone(), body, inline: false, return_type, param_types: Vec::new() };
-
-                self.module.functions.push(function_def);
-            }
-            let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types));
-
-            let function_body = ASTFunctionBody::ASMBody("".into());
-            let param_types = enum_def.type_parameters.iter().map(|it| ASTTypeRef::parametric(it, false)).collect();
-            let mut parameters = vec![ASTParameterDef { name: "value".into(), type_ref: ASTTypeRef { ast_type: ASTType::Custom { name: enum_def.name.clone(), param_types }, ast_ref: true } }];
-            for variant in enum_def.variants.iter() {
-                let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: return_type.clone().map(Box::new), parameters: variant.parameters.iter().map(|it| it.type_ref.clone()).collect() });
-                parameters.push(ASTParameterDef { name: variant.name.clone(), type_ref: ASTTypeRef { ast_type, ast_ref: true } });
-            }
-            let function_def = ASTFunctionDef { name: enum_def.name.clone() + "::match", parameters, body: function_body, inline: false, return_type, param_types: enum_def.type_parameters.clone() };
-            self.module.functions.push(function_def);
-        }
 
         let module = self.module.clone();
 
@@ -88,7 +61,7 @@ impl ToTypedModuleConverter {
             }
         }
 
-        let mut functions = Vec::new();
+        let mut functions_by_name = LinkedHashMap::new();
 
         self.functions
             .values()
@@ -125,17 +98,17 @@ impl ToTypedModuleConverter {
 
                         let mut new_function_def = it.clone();
                         new_function_def.body = ASTFunctionBody::RASMBody(body);
-                        functions.push(new_function_def);
+                        functions_by_name.insert(new_function_def.name.clone(), new_function_def);
                     }
                     ASTFunctionBody::ASMBody(_) => {
-                        functions.push(it);
+                        functions_by_name.insert(it.name.clone(), it);
                     }
                 }
             });
 
         let mut new_module = self.module.clone();
         new_module.body = body;
-        new_module.functions = functions;
+        new_module.functions_by_name = functions_by_name;
         new_module
     }
 
@@ -143,7 +116,7 @@ impl ToTypedModuleConverter {
         &self,
         count: usize,
         context: &VarContext,
-        module: &ASTModule,
+        module: &EnhancedASTModule,
         call: &ASTFunctionCall,
     ) -> Option<TransformedCall> {
         let mut count = count;
@@ -175,9 +148,10 @@ impl ToTypedModuleConverter {
         }
 
         let function_def = module
-            .functions
+            .functions_by_name
             .iter()
-            .find(|it| it.name == call.function_name)
+            .find(|(name, it)| name.to_string() == call.function_name)
+            .map(|it| it.1)
             .unwrap_or_else(|| panic!("Cannot find function {}", call.function_name));
 
         if function_def.param_types.is_empty() {
@@ -303,7 +277,7 @@ impl ToTypedModuleConverter {
                 });
             }
             ASTExpression::ASTFunctionCallExpression(exp) => {
-                if let Some(function_def) = self.module.functions.iter().find(|it| it.name == exp.function_name) {
+                if let Some(function_def) = self.module.functions_by_name.values().find(|it| it.name == exp.function_name) {
                     return function_def.return_type.clone();
                 } else if let Some(resolved_function_def) = self.functions.values().flat_map(|it| it.iter()).find(|it| it.function_def.name == exp.function_name) {
                     return resolved_function_def.function_def.return_type.clone();
@@ -489,6 +463,10 @@ mod tests {
     use crate::parser::Parser;
     use crate::type_check::ToTypedModuleConverter;
     use std::path::Path;
+    use crate::codegen::backend::BackendAsm386;
+    use crate::codegen::EnhancedASTModule;
+    use crate::transformations::enum_functions_creator::enum_functions_creator;
+    use crate::transformations::struct_functions_creator::struct_functions_creator;
 
     #[test]
     fn test() {
@@ -526,7 +504,7 @@ mod tests {
             functions: vec![function_def],
         };
 
-        let mut converter = ToTypedModuleConverter::new(module);
+        let mut converter = ToTypedModuleConverter::new(EnhancedASTModule::new(&module));
         let new_module = converter.convert();
 
         assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
@@ -541,9 +519,11 @@ mod tests {
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
-        let mut converter = ToTypedModuleConverter::new(module);
+        let backend = BackendAsm386::new();
+        let mut converter = ToTypedModuleConverter::new(
+            struct_functions_creator(&backend, &enum_functions_creator(&backend, &EnhancedASTModule::new(&module))));
         let new_module = converter.convert();
 
-        println!("{:?}", new_module.functions.iter().map(|it| &it.name));
+        println!("{:?}", new_module.functions_by_name.values().map(|it| &it.name).collect::<Vec<&String>>());
     }
 }
