@@ -2,7 +2,7 @@ mod function_call_parameters;
 pub mod backend;
 pub mod stack;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::{debug, info};
@@ -32,15 +32,15 @@ pub struct CodeGen<'a> {
     lambda_space_size: usize
 }
 
-#[derive(Clone)]
-enum MemoryValue {
+#[derive(Debug, Clone)]
+pub enum MemoryValue {
     StringValue(String),
     I32Value(i32),
     Mem(usize, MemoryUnit),
 }
 
-#[derive(Clone)]
-enum MemoryUnit {
+#[derive(Debug, Clone)]
+pub enum MemoryUnit {
     Bytes,
     Words
 }
@@ -65,6 +65,31 @@ struct LambdaCall {
 pub struct LambdaSpace {
     parameters_indexes: LinkedHashMap<String, usize>,
     context: VarContext,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnhancedASTModule {
+    pub body: Vec<ASTFunctionCall>,
+    /// key: logical name
+    pub functions_by_name: LinkedHashMap<String, ASTFunctionDef>,
+    pub enums: Vec<ASTEnumDef>,
+    pub structs: Vec<ASTStructDef>,
+    pub native_body: String,
+    pub statics: LinkedHashMap<String, MemoryValue>,
+}
+
+impl EnhancedASTModule {
+
+    pub fn new(module: &ASTModule) -> Self {
+        let mut functions_by_name = LinkedHashMap::new();
+
+        module.functions.iter().for_each(|it| {
+            functions_by_name.insert(it.name.clone(), it.clone());
+        });
+
+        Self { body: module.body.clone(), functions_by_name, enums: module.enums.clone(), structs: module.structs.clone(), native_body: String::new(), statics: LinkedHashMap::new() }
+    }
+
 }
 
 impl LambdaSpace {
@@ -365,10 +390,10 @@ impl<'a> CodeGen<'a> {
         for (i, par) in variant.parameters.iter().rev().enumerate() {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("parameter {}", par.name)), true);
             if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
-                self.call_add_ref(&mut body, self.backend, "ebx", "");
+                CodeGen::call_add_ref(&mut body, self.backend, "ebx", "");
             } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
                 //println!("Parametric({name}) variant parameter");
-                self.call_add_ref(&mut body, self.backend, "ebx", "");
+                CodeGen::call_add_ref(&mut body, self.backend, "ebx", "");
             }
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len as usize), None, true);
         }
@@ -393,10 +418,10 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
 
             if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
-                self.call_add_ref(&mut body, backend, "ebx", "");
+                CodeGen::call_add_ref(&mut body, backend, "ebx", "");
             } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
                 //println!("Parametric({name}) struct property");
-                self.call_add_ref(&mut body, backend, "ebx", "");
+                CodeGen::call_add_ref(&mut body, backend, "ebx", "");
             }
 
             CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
@@ -594,7 +619,7 @@ impl<'a> CodeGen<'a> {
         if let Some(ASTType::Custom { name: _, param_types: _ }) = &function_def.return_type.clone().map(|it| it.ast_type) {
             let function_def_name = function_def.name.clone();
             let mut out = String::new();
-            self.call_add_ref(&mut out, self.backend, "eax",
+            CodeGen::call_add_ref(&mut out, self.backend, "eax",
                               &format!("function {} return", function_def_name));
 
             self.definitions.push_str(&out);
@@ -602,7 +627,7 @@ impl<'a> CodeGen<'a> {
             //println!("Parametric({name})");
             let function_def_name = function_def.name.clone();
             let mut out = String::new();
-            self.call_add_ref(&mut out, self.backend, "eax",
+            CodeGen::call_add_ref(&mut out, self.backend, "eax",
                               &format!("function {} return", function_def_name));
 
             self.definitions.push_str(&out);
@@ -974,13 +999,13 @@ impl<'a> CodeGen<'a> {
         Self::insert_on_top(&result, out);
     }
 
-    pub fn call_add_ref(&self, out: &mut String, backend: &dyn Backend, source: &str, descr: &str) -> usize {
+    pub fn call_add_ref(out: &mut String, backend: &dyn Backend, source: &str, descr: &str) {
         let ws = backend.word_size();
         let wl = backend.word_len();
 
-        let mut id = self.id;
+        //let mut id = self.id;
 
-        let key = format!("_descr_{}", id);
+        //let key = format!("_descr_{}", id);
 
         //if let ASTType::Custom { name: _, param_types: _ } = type_ref.ast_type {
         //println!("calling deref for {:?}", type_ref);
@@ -992,7 +1017,7 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(out, "call     addRef", None, true);
         CodeGen::add(out, &format!("add      esp,{wl}"), None, true);
 
-        self.id + 1
+        //self.id + 1
         //}
     }
 

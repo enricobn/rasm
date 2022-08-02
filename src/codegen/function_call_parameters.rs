@@ -83,7 +83,7 @@ impl<'a> FunctionCallParameters<'a> {
         if let ASTType::Custom { name, param_types: _ } = &type_ref.ast_type {
             if code_gen.is_constructor(&function_name) {
                 //println!("is_enum_parametric_variant_function");
-                code_gen.call_add_ref(&mut self.before, self.backend, "eax", "");
+                CodeGen::call_add_ref(&mut self.before, self.backend, "eax", "");
             }
             Self::push_to_scope_stack(self.backend, &mut self.before, "eax", "ebx");
 
