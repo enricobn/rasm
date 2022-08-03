@@ -3,7 +3,7 @@ pub mod resolved_ast;
 use crate::codegen::{EnhancedASTModule, VarContext, VarKind};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
+    ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
 };
 use crate::type_check::resolved_ast::{
     ASTTypedEnumDef, ASTTypedEnumVariantDef, ASTTypedExpression, ASTTypedFunctionBody,
@@ -12,20 +12,21 @@ use crate::type_check::resolved_ast::{
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use std::collections::HashMap;
-use std::env::var;
+use std::collections::{HashMap, HashSet};
 
 pub struct ToTypedModuleConverter {
     module: EnhancedASTModule,
     /// key=original function name
     /// value=Vector of possible matches between parametric types and effective types and related function definition
     functions: HashMap<String, Vec<ResolvedFunctionDef>>,
+    enums: HashMap<String, Vec<ResolvedEnumDef>>,
     count: usize,
 }
 
 struct TransformedCall {
     new_function_call: ASTFunctionCall,
-    new_function_def: Option<(usize, Vec<ResolvedFunctionDef>)>,
+    new_function_defs: Option<(usize, Vec<ResolvedFunctionDef>)>,
+    new_enums: Option<(usize, Vec<ResolvedEnumDef>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,66 +35,76 @@ struct ResolvedFunctionDef {
     function_def: ASTFunctionDef,
 }
 
+#[derive(Debug, Clone)]
+struct ResolvedEnumDef {
+    original_name: String,
+    //type_parameters: HashMap<String, ASTType>,
+    enum_def: ASTEnumDef,
+    parameter_types: Vec<ASTTypeRef>,
+}
+
 impl ToTypedModuleConverter {
     pub fn new(module: EnhancedASTModule) -> Self {
         ToTypedModuleConverter {
             module,
             functions: HashMap::new(),
             count: 0,
+            enums: HashMap::new(),
         }
     }
 
     pub fn convert(&mut self) -> ASTTypedModule {
-        let mut body = Vec::new();
-
         let context = VarContext::new(None);
 
         let module = self.module.clone();
 
-        for call in module.body.iter() {
-            if let Some(transformed_call) = self.transform_call(self.count, &context, &module, call)
-            {
-                if let Some((new_count, resolved_function_defs)) = transformed_call.new_function_def
+        let mut body = module.body.clone();
+
+        while true {
+            println!("transformed loop");
+            let mut temp_body = Vec::new();
+
+            let mut transformed = false;
+
+            for call in body.iter() {
+                if let Some(transformed_call) =
+                    self.transform_call(self.count, &context, &module, call)
                 {
-                    /*
-                    resolved_function_defs.iter().for_each(|def| {
-                        let mut lambda_resolved_par = Vec::new();
-
-                        for par in def.function_def.parameters.iter() {
-                            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                return_type,
-                                parameters,
-                            }) = &par.type_ref.ast_type
-                            {
-                                for lambda_p in parameters.iter() {
-                                    if let ASTType::Parametric(p) = &lambda_p.ast_type {
-                                        if def.type_parameters.contains_key(p) {
-                                            panic!("resolved lambda parameter {p}");
-                                        } else {
-                                            panic!("unresolved lambda parameter {p}");
-                                        }
-                                    }
-                                }
-                            } else {
-                                lambda_resolved_par.push(par.clone());
-                            }
+                    if let Some((new_count, resolved_function_defs)) =
+                        transformed_call.new_function_defs
+                    {
+                        self.count = new_count;
+                        for resolved_function_def in resolved_function_defs {
+                            self.functions
+                                .entry(call.function_name.clone())
+                                .or_insert_with(Vec::new)
+                                .push(resolved_function_def);
+                            transformed = true;
                         }
-                    });
-
-                     */
-
-                    self.count = new_count;
-                    for resolved_function_def in resolved_function_defs {
-                        self.functions
-                            .entry(call.function_name.clone())
-                            .or_insert_with(Vec::new)
-                            .push(resolved_function_def);
                     }
-                }
 
-                body.push(transformed_call.new_function_call);
-            } else {
-                body.push(call.clone());
+                    if let Some((_, resolved_enum_defs)) = transformed_call.new_enums {
+                        for resolved_enum_def in resolved_enum_defs {
+                            println!("new enum def {:?}", resolved_enum_def.enum_def);
+                            self.enums
+                                // TODO I think it does not need to be a map
+                                .entry("dummy".into())
+                                .or_insert_with(Vec::new)
+                                .push(resolved_enum_def);
+                            transformed = true;
+                        }
+                    }
+
+                    temp_body.push(transformed_call.new_function_call);
+                } else {
+                    temp_body.push(call.clone());
+                }
+            }
+
+            body = temp_body;
+
+            if !transformed {
+                break;
             }
         }
 
@@ -171,10 +182,7 @@ impl ToTypedModuleConverter {
 
                 result
             },
-            body: body
-                .iter()
-                .map(|it| self.function_call(it))
-                .collect(),
+            body: body.iter().map(|it| self.function_call(it)).collect(),
             structs: self
                 .module
                 .structs
@@ -182,10 +190,9 @@ impl ToTypedModuleConverter {
                 .map(|it| self.struct_def(it))
                 .collect(),
             enums: self
-                .module
                 .enums
                 .iter()
-                .map(|it| self.enum_def(it))
+                .flat_map(|(_, it)| it.iter().map(|en| self.enum_def(&en.enum_def)))
                 .collect(),
             statics: self.module.statics.clone(),
         };
@@ -266,6 +273,20 @@ impl ToTypedModuleConverter {
                             .map(|it| self.type_ref(it, &format!("{message}, struct {name}")))
                             .collect(),
                     }
+                } else if let Some(resolved_enum_def) = self
+                    .enums
+                    .iter()
+                    .flat_map(|it| it.1.iter())
+                    .find(|it| &it.enum_def.name == name)
+                {
+                    ASTTypedType::Enum {
+                        name: name.clone(),
+                        param_types: resolved_enum_def
+                            .parameter_types
+                            .iter()
+                            .map(|it| self.type_ref(it, &format!("{message}, enum {name}")))
+                            .collect(),
+                    }
                 } else {
                     panic!("Cannot find Custom type '{name}'");
                 }
@@ -313,24 +334,24 @@ impl ToTypedModuleConverter {
         todo!()
     }
 
-    fn enum_def(&self, struct_def: &ASTEnumDef) -> ASTTypedEnumDef {
+    fn enum_def(&self, enum_def: &ASTEnumDef) -> ASTTypedEnumDef {
         ASTTypedEnumDef {
-            name: struct_def.name.clone(),
-            variants: struct_def
+            name: enum_def.name.clone(),
+            variants: enum_def
                 .variants
                 .iter()
-                .map(|it| self.enum_variant(it))
+                .map(|it| self.enum_variant(it, &format!("enum {}", enum_def.name)))
                 .collect(),
         }
     }
 
-    fn enum_variant(&self, variant: &ASTEnumVariantDef) -> ASTTypedEnumVariantDef {
+    fn enum_variant(&self, variant: &ASTEnumVariantDef, message: &str) -> ASTTypedEnumVariantDef {
         ASTTypedEnumVariantDef {
             name: variant.name.clone(),
             parameters: variant
                 .parameters
                 .iter()
-                .map(|it| self.parameter_def(it, ""))
+                .map(|it| self.parameter_def(it, &format!("{message}, variant {}", variant.name)))
                 .collect(),
         }
     }
@@ -348,15 +369,16 @@ impl ToTypedModuleConverter {
 
     fn transform_call(
         &self,
-        count: usize,
+        function_count: usize,
         context: &VarContext,
         module: &EnhancedASTModule,
         call: &ASTFunctionCall,
     ) -> Option<TransformedCall> {
-        let mut count = count;
+        let mut count = function_count;
 
         let mut parameters = Vec::new();
         let mut resolved_function_defs = Vec::new();
+        let mut resolved_enum_defs = Vec::new();
 
         for expression in call.parameters.iter() {
             match expression {
@@ -368,10 +390,17 @@ impl ToTypedModuleConverter {
                             transformed_function_call.new_function_call,
                         ));
                         if let Some((new_count, mut new_function_defs)) =
-                            transformed_function_call.new_function_def
+                            transformed_function_call.new_function_defs
                         {
                             count = new_count;
                             resolved_function_defs.append(&mut new_function_defs);
+                        }
+
+                        if let Some((new_count, mut new_enum_defs)) =
+                            transformed_function_call.new_enums
+                        {
+                            count = new_count;
+                            resolved_enum_defs.append(&mut new_enum_defs);
                         }
                     } else {
                         parameters.push(expression.clone());
@@ -383,22 +412,36 @@ impl ToTypedModuleConverter {
             }
         }
 
-        let function_def = module
+        let function_def = if let Some(f) = self
+            .functions
+            .iter()
+            .flat_map(|it| it.1.iter())
+            .find(|it| it.function_def.name == call.function_name)
+        {
+            //println!("found {} in self.functions", call.function_name);
+            &f.function_def
+        } else if let Some(f) = module
             .functions_by_name
             .iter()
             .find(|(name, it)| name.to_string() == call.function_name)
-            .map(|it| it.1)
-            .unwrap_or_else(|| panic!("Cannot find function {}", call.function_name));
+        {
+            //println!("found {} in module.functions_by_name", call.function_name);
+            f.1
+        } else {
+            panic!("Cannot find function {}", call.function_name);
+        };
 
         if function_def.param_types.is_empty() {
             let mut new_call = call.clone();
             new_call.parameters = parameters;
             Some(TransformedCall {
                 new_function_call: new_call,
-                new_function_def: Some((count, resolved_function_defs)),
+                new_function_defs: Some((count, resolved_function_defs)),
+                new_enums: Some((count, resolved_enum_defs)),
             })
         } else {
             let mut param_types_to_effective_types = HashMap::new();
+            let mut resolved_enum_defs = Vec::new();
 
             for (i, param) in function_def.parameters.iter().enumerate() {
                 let parametric_types_of_declared_parameter =
@@ -434,8 +477,8 @@ impl ToTypedModuleConverter {
 
             if param_types_for_check.len() != function_def.param_types.len() {
                 panic!(
-                    "{} resolved param types do no match {:?}",
-                    call.function_name, param_types_to_effective_types
+                    "{} resolved param types do no match {:?}, {:?}",
+                    call.function_name, function_def.param_types, param_types_to_effective_types
                 )
             }
 
@@ -452,15 +495,22 @@ impl ToTypedModuleConverter {
 
                 Some(TransformedCall {
                     new_function_call: new_call,
-                    new_function_def: None,
+                    new_function_defs: None,
+                    new_enums: None,
                 })
             } else {
                 let effective_parameters: Vec<ASTParameterDef> = function_def
                     .parameters
                     .iter()
                     .map(|it| {
-                        let effective_type =
-                            self.substitute(&it.type_ref.ast_type, &param_types_to_effective_types);
+                        let (effective_type, mut red) = self.substitute(
+                            &it.type_ref.ast_type,
+                            &param_types_to_effective_types,
+                            &resolved_enum_defs,
+                        );
+
+                        resolved_enum_defs.append(&mut red);
+
                         ASTParameterDef {
                             name: it.name.clone(),
                             type_ref: ASTTypeRef {
@@ -471,9 +521,19 @@ impl ToTypedModuleConverter {
                     })
                     .collect();
 
-                let effective_return_type = function_def.return_type.clone().map(|it| ASTTypeRef {
-                    ast_ref: it.ast_ref,
-                    ast_type: self.substitute(&it.ast_type, &param_types_to_effective_types),
+                let effective_return_type = function_def.return_type.clone().map(|it| {
+                    let (ast_type, mut red) = self.substitute(
+                        &it.ast_type,
+                        &param_types_to_effective_types,
+                        &resolved_enum_defs,
+                    );
+
+                    resolved_enum_defs.append(&mut red);
+
+                    ASTTypeRef {
+                        ast_ref: it.ast_ref,
+                        ast_type,
+                    }
                 });
 
                 let new_name = function_def.name.clone() + "_" + &count.to_string();
@@ -483,6 +543,17 @@ impl ToTypedModuleConverter {
                 new_function_def.name = new_name.clone();
                 new_function_def.parameters = effective_parameters;
                 new_function_def.return_type = effective_return_type;
+
+                let mut param_types = function_def.param_types.clone();
+                param_types.retain(|it| !param_types_to_effective_types.contains_key(it));
+
+                new_function_def.param_types = param_types.clone();
+
+                if !&param_types.is_empty() {
+                    panic!("new_function_def {:?}", new_function_def);
+                } else {
+                    println!("new_function_def {:?}", new_function_def);
+                }
 
                 //Option<(usize, (HashMap<String, ASTType>, ASTFunctionDef), ASTFunctionCall)>
 
@@ -496,7 +567,8 @@ impl ToTypedModuleConverter {
 
                 Some(TransformedCall {
                     new_function_call: new_call,
-                    new_function_def: Some((count, resolved_function_defs)),
+                    new_function_defs: Some((count, resolved_function_defs)),
+                    new_enums: Some((resolved_enum_defs.len(), resolved_enum_defs)),
                 })
 
                 //self.functions.insert(function_def.name.clone(), functions);
@@ -636,9 +708,10 @@ impl ToTypedModuleConverter {
                     }
                 },
                 BuiltinTypeKind::Lambda { .. } => {
-
-                    println!("match_parametric_type_with_effective_type lambda {:?}", parametric_type)
-
+                    println!(
+                        "match_parametric_type_with_effective_type lambda {:?}",
+                        parametric_type
+                    )
                 }
             },
             ASTType::Parametric(_) => {}
@@ -657,9 +730,13 @@ impl ToTypedModuleConverter {
                     }
                 }
                 ASTType::Custom { name, param_types } => {
+                    /*
+                    it could be that the original Custom type has been replaced with another with resolved parametric types then it has a different name
                     if name != effective_name {
-                        panic!("unmatched custom type");
+                        panic!("unmatched custom type {name} {effective_name}");
                     }
+
+                     */
                     if param_types.len() != effective_param_types.len() {
                         panic!("Effective custom parameters count do not match expected");
                     }
@@ -692,8 +769,15 @@ impl ToTypedModuleConverter {
         &self,
         parametric_type: &ASTType,
         param_types_to_effective_types: &HashMap<String, ASTType>,
-    ) -> ASTType {
-        match parametric_type {
+        resolved_enum_defs: &Vec<ResolvedEnumDef>,
+    ) -> (ASTType, Vec<ResolvedEnumDef>) {
+        if param_types_to_effective_types.is_empty() {
+            return (parametric_type.clone(), Vec::new());
+        }
+
+        let mut not_added_resolved_enum_defs = Vec::new();
+
+        let new_type = match parametric_type {
             ASTType::Builtin(kind) => match kind {
                 BuiltinTypeKind::ASTString => parametric_type.clone(),
                 BuiltinTypeKind::ASTI32 => parametric_type.clone(),
@@ -703,16 +787,46 @@ impl ToTypedModuleConverter {
                 } => {
                     let new_parameters = parameters
                         .iter()
-                        .map(|it| ASTTypeRef {
-                            ast_ref: it.ast_ref,
-                            ast_type: self.substitute(&it.ast_type, param_types_to_effective_types),
+                        .map(|it| {
+                            let mut all_resolved_enum_defs = resolved_enum_defs.clone();
+                            all_resolved_enum_defs
+                                .append(&mut not_added_resolved_enum_defs.clone());
+
+                            for x in self.enums.values() {
+                                for y in x {
+                                    all_resolved_enum_defs.push(y.clone());
+                                }
+                            }
+
+                            //all_resolved_enum_defs.append(&mut self_enums);
+
+                            let (ast_type, mut red) = self.substitute(
+                                &it.ast_type,
+                                param_types_to_effective_types,
+                                &all_resolved_enum_defs,
+                            );
+                            ASTTypeRef {
+                                ast_ref: it.ast_ref,
+                                ast_type,
+                            }
                         })
                         .collect();
 
                     let new_return_type = return_type.clone().map(|it| {
+                        let mut all_resolved_enum_defs = resolved_enum_defs.clone();
+                        all_resolved_enum_defs.append(&mut not_added_resolved_enum_defs.clone());
+
+                        let (ast_type, mut red) = self.substitute(
+                            &it.ast_type,
+                            param_types_to_effective_types,
+                            &all_resolved_enum_defs,
+                        );
+
+                        not_added_resolved_enum_defs.append(&mut red);
+
                         Box::new(ASTTypeRef {
                             ast_ref: it.ast_ref,
-                            ast_type: self.substitute(&it.ast_type, param_types_to_effective_types),
+                            ast_type,
                         })
                     });
 
@@ -726,20 +840,219 @@ impl ToTypedModuleConverter {
             },
             ASTType::Parametric(name) => param_types_to_effective_types.get(name).unwrap().clone(),
             ASTType::Custom { name, param_types } => {
-                let new_param_types = param_types
+                if param_types
                     .iter()
-                    .map(|it| ASTTypeRef {
-                        ast_ref: it.ast_ref,
-                        ast_type: self.substitute(&it.ast_type, param_types_to_effective_types),
-                    })
-                    .collect();
+                    .map(|it| self.get_parametric_types(&it.ast_type).len())
+                    .sum::<usize>()
+                    == 0
+                {
+                    parametric_type.clone()
+                } else {
+                    let new_param_types = param_types
+                        .iter()
+                        .map(|it| {
+                            let mut all_resolved_enum_defs = resolved_enum_defs.clone();
+                            all_resolved_enum_defs
+                                .append(&mut not_added_resolved_enum_defs.clone());
 
-                ASTType::Custom {
-                    name: name.clone(),
-                    param_types: new_param_types,
+                            let (ast_type, mut red) = self.substitute(
+                                &it.ast_type,
+                                param_types_to_effective_types,
+                                &all_resolved_enum_defs,
+                            );
+
+                            not_added_resolved_enum_defs.append(&mut red);
+
+                            ASTTypeRef {
+                                ast_ref: it.ast_ref,
+                                ast_type,
+                            }
+                        })
+                        .collect();
+
+                    let mut all_resolved_enum_defs = resolved_enum_defs.clone();
+                    all_resolved_enum_defs.append(&mut not_added_resolved_enum_defs.clone());
+
+                    if let Some(resolved_enum_def) = all_resolved_enum_defs.iter().find(|it| {
+                        &it.original_name == name && it.parameter_types == new_param_types
+                    }) {
+                        ASTType::Custom {
+                            name: resolved_enum_def.enum_def.name.clone(),
+                            param_types: new_param_types,
+                        }
+                    } else {
+                        let enum_def = self
+                            .module
+                            .enums
+                            .iter()
+                            .find(|it| &it.name == name)
+                            .unwrap();
+
+                        let count = all_resolved_enum_defs.len() + 1;
+
+                        let new_enum_def = ASTEnumDef {
+                            type_parameters: Vec::new(),
+                            name: name.clone() + &count.to_string(),
+                            variants: enum_def
+                                .variants
+                                .iter()
+                                .map(|it| {
+                                    let (var_def, mut red) = self.substitute_variant_def(
+                                        it,
+                                        param_types_to_effective_types,
+                                        &all_resolved_enum_defs,
+                                        &enum_def,
+                                        None,
+                                    );
+
+                                    not_added_resolved_enum_defs.append(&mut red);
+
+                                    var_def
+                                })
+                                .collect(),
+                        };
+
+                        let resolved_enum_def = ResolvedEnumDef {
+                            parameter_types: new_param_types.clone(),
+                            original_name: name.clone(),
+                            enum_def: new_enum_def.clone(),
+                        };
+
+                        let name = resolved_enum_def.enum_def.name.clone();
+
+                        // I resolve it again since there could be some self references in variant parameters
+
+                        let mut temp_resolved_enum_defs = not_added_resolved_enum_defs.clone();
+                        temp_resolved_enum_defs.push(resolved_enum_def);
+
+                        let new_enum_def = ASTEnumDef {
+                            type_parameters: Vec::new(),
+                            name: name.clone(),
+                            variants: enum_def
+                                .variants
+                                .iter()
+                                .map(|it| {
+                                    let (var_def, mut red) = self.substitute_variant_def(
+                                        it,
+                                        param_types_to_effective_types,
+                                        &temp_resolved_enum_defs,
+                                        &new_enum_def,
+                                        Some(&new_param_types),
+                                    );
+
+                                    not_added_resolved_enum_defs.append(&mut red);
+
+                                    var_def
+                                })
+                                .collect(),
+                        };
+
+                        let resolved_enum_def = ResolvedEnumDef {
+                            parameter_types: new_param_types.clone(),
+                            original_name: name.clone(),
+                            enum_def: new_enum_def,
+                        };
+
+                        not_added_resolved_enum_defs.push(resolved_enum_def);
+
+                        ASTType::Custom {
+                            name,
+                            param_types: new_param_types,
+                        }
+                    }
                 }
             }
-        }
+        };
+
+        (new_type, not_added_resolved_enum_defs)
+    }
+
+    fn substitute_variant_def(
+        &self,
+        parametric_type: &ASTEnumVariantDef,
+        param_types_to_effective_types: &HashMap<String, ASTType>,
+        resolved_enum_defs: &Vec<ResolvedEnumDef>,
+        enum_def: &ASTEnumDef,
+        option: Option<&Vec<ASTTypeRef>>,
+    ) -> (ASTEnumVariantDef, Vec<ResolvedEnumDef>) {
+        let mut not_added_resolved_enum_defs = Vec::new();
+
+        let variant_def = ASTEnumVariantDef {
+            name: parametric_type.name.clone(),
+            parameters: parametric_type
+                .parameters
+                .iter()
+                .map(|par| {
+                    let mut all_resolved_enum_defs = resolved_enum_defs.clone();
+                    all_resolved_enum_defs.append(&mut not_added_resolved_enum_defs.clone());
+
+                    let it_is_the_same_enum_type =
+                        if let ASTType::Custom { name, param_types } = &par.type_ref.ast_type {
+                            let parametric_types: HashSet<&String> = HashSet::from_iter(
+                                param_types
+                                    .iter()
+                                    .map(|it| match &it.ast_type {
+                                        ASTType::Parametric(p) => Some(p),
+                                        _ => None,
+                                    })
+                                    .flatten(),
+                            );
+
+                            &enum_def.name == name
+                                && parametric_types == HashSet::from_iter(&enum_def.type_parameters)
+                        } else {
+                            false
+                        };
+
+                    if it_is_the_same_enum_type {
+                        let mut cloned = par.clone();
+
+                        if let Some(p) = option {
+                            cloned.type_ref.ast_type = ASTType::Custom {
+                                name: enum_def.name.clone(),
+                                param_types: p.clone(),
+                            };
+                        }
+
+                        cloned
+                    } else {
+                        let (ast_param_def, mut red) = self.substitute_param_def(
+                            par,
+                            param_types_to_effective_types,
+                            &all_resolved_enum_defs,
+                        );
+
+                        not_added_resolved_enum_defs.append(&mut red);
+
+                        ast_param_def
+                    }
+                })
+                .collect(),
+        };
+
+        (variant_def, not_added_resolved_enum_defs)
+    }
+
+    fn substitute_param_def(
+        &self,
+        par: &ASTParameterDef,
+        param_types_to_effective_types: &HashMap<String, ASTType>,
+        resolved_enum_defs: &Vec<ResolvedEnumDef>,
+    ) -> (ASTParameterDef, Vec<ResolvedEnumDef>) {
+        let (ast_type, red) = self.substitute(
+            &par.type_ref.ast_type,
+            param_types_to_effective_types,
+            resolved_enum_defs,
+        );
+        let new_param_def = ASTParameterDef {
+            name: par.name.clone(),
+            type_ref: ASTTypeRef {
+                ast_ref: par.type_ref.ast_ref,
+                ast_type,
+            },
+        };
+
+        (new_param_def, red)
     }
 }
 
@@ -826,5 +1139,16 @@ mod tests {
                 .map(|it| &it.name)
                 .collect::<Vec<&String>>()
         );
+
+        println!(
+            "{:?}",
+            new_module
+                .enums
+                .iter()
+                .map(|it| &it.name)
+                .collect::<Vec<&String>>()
+        );
+
+        println!("{:?}", new_module.enums);
     }
 }

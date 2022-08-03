@@ -12,7 +12,7 @@ use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::stack::Stack;
 
-use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef, ASTType, BuiltinTypeKind};
 use crate::parser::ast::ASTFunctionBody::RASMBody;
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
