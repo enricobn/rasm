@@ -134,8 +134,8 @@ pub struct ASTTypedStructDef {
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
     new_body: Vec<ASTFunctionCall>,
-    new_function_defs: HashMap<String, ASTFunctionDef>,
-    used_untyped_function_defs: HashMap<String, ASTFunctionDef>
+    new_function_defs: LinkedHashMap<String, ASTFunctionDef>,
+    used_untyped_function_defs: LinkedHashMap<String, ASTFunctionDef>
 ) -> ASTTypedModule {
 
     let mut functions_by_name = LinkedHashMap::new();

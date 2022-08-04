@@ -131,7 +131,7 @@ impl VarContext {
         self.value_to_address.iter()
     }
 
-    fn names(&self) -> Vec<&String> {
+    pub fn names(&self) -> Vec<&String> {
         self.value_to_address.keys().collect()
     }
 
