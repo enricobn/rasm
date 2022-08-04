@@ -11,7 +11,7 @@ use crate::type_check::resolved_ast::{
     ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
-use log::debug;
+use log::{debug, info};
 use std::collections::{HashMap, HashSet};
 
 pub struct ToTypedModuleConverter {
@@ -61,7 +61,7 @@ impl ToTypedModuleConverter {
         let mut body = module.body.clone();
 
         while true {
-            println!("transformed loop");
+            debug!("transformed loop");
             let mut temp_body = Vec::new();
 
             let mut transformed = false;
@@ -85,10 +85,9 @@ impl ToTypedModuleConverter {
 
                     if let Some((_, resolved_enum_defs)) = transformed_call.new_enums {
                         for resolved_enum_def in resolved_enum_defs {
-                            println!("new enum def {:?}", resolved_enum_def.enum_def);
+                            debug!("new enum def {:?}", resolved_enum_def.enum_def);
                             self.enums
-                                // TODO I think it does not need to be a map
-                                .entry("dummy".into())
+                                .entry(resolved_enum_def.original_name.clone())
                                 .or_insert_with(Vec::new)
                                 .push(resolved_enum_def);
                             transformed = true;
@@ -374,6 +373,7 @@ impl ToTypedModuleConverter {
         module: &EnhancedASTModule,
         call: &ASTFunctionCall,
     ) -> Option<TransformedCall> {
+        debug!("transform_call {}", call.function_name);
         let mut count = function_count;
 
         let mut parameters = Vec::new();
@@ -458,6 +458,7 @@ impl ToTypedModuleConverter {
                         parameter_expression,
                         context,
                         &resolved_function_defs,
+                        &param.type_ref,
                     ) {
                         for (name, effective_type) in self
                             .match_parametric_type_with_effective_type(
@@ -552,7 +553,7 @@ impl ToTypedModuleConverter {
                 if !&param_types.is_empty() {
                     panic!("new_function_def {:?}", new_function_def);
                 } else {
-                    println!("new_function_def {:?}", new_function_def);
+                    debug!("new_function_def {:?}", new_function_def);
                 }
 
                 //Option<(usize, (HashMap<String, ASTType>, ASTFunctionDef), ASTFunctionCall)>
@@ -581,6 +582,7 @@ impl ToTypedModuleConverter {
         expr: &ASTExpression,
         val_context: &VarContext,
         not_added_resolved_function_defs: &Vec<ResolvedFunctionDef>,
+        declared_type: &ASTTypeRef,
     ) -> Option<ASTTypeRef> {
         match expr {
             ASTExpression::StringLiteral(_) => {
@@ -596,6 +598,40 @@ impl ToTypedModuleConverter {
                     .values()
                     .find(|it| it.name == exp.function_name)
                 {
+                    if let Some(tfc) =
+                        self.transform_call(self.count, val_context, &self.module, exp)
+                    {
+                        if let Some((_, mut new_resolved_function_def)) = tfc.new_function_defs {
+                            let mut all_resolved_function_defs =
+                                not_added_resolved_function_defs.clone();
+                            for rfd in self.functions.values() {
+                                all_resolved_function_defs.append(&mut rfd.clone());
+                            }
+                            all_resolved_function_defs.append(&mut new_resolved_function_def);
+
+                            let new_function_def = all_resolved_function_defs
+                                .iter()
+                                .find(|it| {
+                                    it.function_def.name == tfc.new_function_call.function_name
+                                })
+                                .unwrap();
+
+                            if let Some(declared_return_type) =
+                                &new_function_def.function_def.return_type
+                            {
+                                self.get_type_of_expr(
+                                    &ASTExpression::ASTFunctionCallExpression(
+                                        tfc.new_function_call,
+                                    ),
+                                    val_context,
+                                    &all_resolved_function_defs,
+                                    declared_return_type,
+                                );
+                            }
+                        } else {
+                            todo!()
+                        }
+                    }
                     return function_def.return_type.clone();
                 } else if let Some(resolved_function_def) = self
                     .functions
@@ -630,16 +666,24 @@ impl ToTypedModuleConverter {
                 });
             }
             ASTExpression::Lambda(lambda) => {
-                if lambda.body.is_empty() {
+                let parametric_types = self.get_parametric_types(&declared_type.ast_type);
+
+                return if parametric_types.is_empty() {
+                    Some(declared_type.clone())
+                } else if lambda.body.is_empty() {
                     None
-                } else {
-                    let last_expression = lambda.body.last().unwrap();
-                    println!("{:?}", last_expression);
-                    Some(self.get_type_of_expr(
+                } else if let Some(last_expression) = lambda.body.last() {
+                    debug!("last expression of lambda body {:?}", last_expression);
+                    let last_expression_type = self.get_type_of_expr(
                         last_expression,
                         val_context,
                         not_added_resolved_function_defs,
-                    ))
+                        declared_type,
+                    );
+                    debug!("  type {:?}", last_expression_type);
+                    last_expression_type
+                } else {
+                    None
                 };
                 //return Some(ASTTypeRef {ast_type: ASTType::Builtin(BuiltinTypeKind::Lambda {return_type , parameters}), ast_ref: true})
             }
@@ -649,24 +693,49 @@ impl ToTypedModuleConverter {
 
     fn get_parametric_types(&self, ast_type: &ASTType) -> Vec<String> {
         return match ast_type {
-            ASTType::Builtin(_) => {
-                vec![]
-            }
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::ASTString => {
+                    vec![]
+                }
+                BuiltinTypeKind::ASTI32 => {
+                    vec![]
+                }
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    let mut par_types: Vec<String> = parameters
+                        .iter()
+                        .flat_map(|it| self.get_parametric_types(&it.ast_type))
+                        .collect();
+                    if let Some(rt) = return_type {
+                        par_types.append(&mut self.get_parametric_types(&rt.as_ref().ast_type));
+                    }
+                    par_types.sort();
+                    par_types.dedup();
+                    par_types
+                }
+            },
             ASTType::Parametric(p) => {
                 vec![p.into()]
             }
             ASTType::Custom {
                 name: _,
                 param_types: pt,
-            } => pt
-                .iter()
-                .flat_map(|it| match it.clone().ast_type {
-                    ASTType::Parametric(name) => {
-                        vec![name]
-                    }
-                    _ => self.get_parametric_types(&it.ast_type),
-                })
-                .collect(),
+            } => {
+                let mut result: Vec<String> = pt
+                    .iter()
+                    .flat_map(|it| match it.clone().ast_type {
+                        ASTType::Parametric(name) => {
+                            vec![name]
+                        }
+                        _ => self.get_parametric_types(&it.ast_type),
+                    })
+                    .collect();
+                result.sort();
+                result.dedup();
+                result
+            }
         };
     }
 
@@ -675,6 +744,10 @@ impl ToTypedModuleConverter {
         parametric_type: &ASTType,
         effective_type: &ASTType,
     ) -> HashMap<String, ASTType> {
+        debug!("match_parametric_type_with_effective_type:");
+        debug!("  {:?}", parametric_type);
+        debug!("  {:?}", effective_type);
+
         let mut result = HashMap::new();
 
         match effective_type {
@@ -704,11 +777,14 @@ impl ToTypedModuleConverter {
                         }
                     }
                     _ => {
-                        panic!("Expected parametric type");
+                        panic!(
+                            "Expected type {:?}  got {:?}",
+                            parametric_type, effective_type
+                        );
                     }
                 },
                 BuiltinTypeKind::Lambda { .. } => {
-                    println!(
+                    debug!(
                         "match_parametric_type_with_effective_type lambda {:?}",
                         parametric_type
                     )
@@ -1120,6 +1196,42 @@ mod tests {
     #[test]
     fn test_list() {
         let path = Path::new("resources/test/list.rasm");
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
+        let module = parser.parse(path);
+
+        let backend = BackendAsm386::new();
+        let mut converter = ToTypedModuleConverter::new(struct_functions_creator(
+            &backend,
+            &enum_functions_creator(&backend, &EnhancedASTModule::new(&module)),
+        ));
+        let new_module = converter.convert();
+
+        println!(
+            "{:?}",
+            new_module
+                .functions_by_name
+                .values()
+                .map(|it| &it.name)
+                .collect::<Vec<&String>>()
+        );
+
+        println!(
+            "{:?}",
+            new_module
+                .enums
+                .iter()
+                .map(|it| &it.name)
+                .collect::<Vec<&String>>()
+        );
+
+        println!("{:?}", new_module.enums);
+    }
+
+    #[test]
+    #[test_env_log::test]
+    fn test_list_fmap() {
+        let path = Path::new("resources/test/list_fmap.rasm");
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);

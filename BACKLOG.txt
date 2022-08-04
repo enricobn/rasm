@@ -1,8 +1,11 @@
 Doing
 ------
+- type check
 
 Next
 -----
+- type check
+  - use Result
 - split the standard library
   - the include files should be searched relative to actual folder / stdlib folder, plus the current folder, and it can
     be overridden with an environment var with a list of folders, separated by colon
@@ -43,7 +46,6 @@ Next
 - add command line argument to print the syntax tree (codegen/md.rs -> Parser::print(&self.module))
 - rename lambda to closure?
 - line errors in codegen
-- type checker
 - UTF-8 strings
 
 BUGS

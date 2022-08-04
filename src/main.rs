@@ -4,8 +4,9 @@ pub(crate) mod lexer;
 pub(crate) mod parser;
 pub(crate) mod codegen;
 pub mod compiler;
-pub mod type_check;
+//pub mod type_check;
 pub mod transformations;
+pub mod type_check2;
 
 use std::env;
 use std::ops::Add;

@@ -22,7 +22,7 @@ fn range(start: i32, end: i32) -> List<i32> {
     });
 }
 
-fn listMap<T>(l: List<T>, map: fn(T) -> T) -> List<T> {
+fn listMap<T,T1>(l: List<T>, map: fn(T) -> T1) -> List<T1> {
     List::match(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
 }
 
@@ -84,7 +84,7 @@ fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
     }, { -> });
 }
 
-fn listFMap<T>(l: List<T>, map: fn(T) -> List<T>) -> List<T> {
+fn listFMap<T>(l: List<T>, map: fn(T) -> List<T1>) -> List<T1> {
     listFlatten(listMap(l, map));
 }
 
