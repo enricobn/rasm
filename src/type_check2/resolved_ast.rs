@@ -5,6 +5,7 @@ use crate::parser::ast::{
     ASTLambdaDef, ASTModule, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
+use crate::type_check2::TypeConversionContext;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -134,18 +135,13 @@ pub struct ASTTypedStructDef {
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
     new_body: Vec<ASTFunctionCall>,
-    new_function_defs: LinkedHashMap<String, ASTFunctionDef>,
-    used_untyped_function_defs: LinkedHashMap<String, ASTFunctionDef>
+    typed_context: &mut TypeConversionContext
 ) -> ASTTypedModule {
 
     let mut functions_by_name = LinkedHashMap::new();
 
-    for (name, new_function_def) in new_function_defs.iter() {
-        functions_by_name.insert(name.clone(), function_def(new_function_def));
-    }
-
-    for (name, new_function_def) in used_untyped_function_defs.iter() {
-        functions_by_name.insert(name.clone(), function_def(new_function_def));
+    for new_function_def in typed_context.iter() {
+        functions_by_name.insert(new_function_def.name.clone(), function_def(&new_function_def));
     }
 
     ASTTypedModule {

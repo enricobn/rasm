@@ -9,37 +9,31 @@ use crate::type_check2::resolved_ast::{
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeRef,
     BuiltinTypedTypeKind,
 };
+use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use std::collections::HashMap;
-use linked_hash_map::LinkedHashMap;
+use crate::type_check2::typed_context::TypeConversionContext;
 
 pub mod resolved_ast;
+pub mod typed_context;
 
 pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
     let mut body = Vec::new();
 
     let context = VarContext::new(None);
 
-    let mut new_function_defs = LinkedHashMap::new();
-    let mut used_untyped_function_defs = LinkedHashMap::new();
+    let mut type_conversion_context = TypeConversionContext::new();
 
     for call in module.body.iter() {
         body.push(convert_call(
             module,
             &context,
             call,
-            &mut new_function_defs,
-            &mut used_untyped_function_defs,
+            &mut type_conversion_context,
         ));
     }
 
-    let mut all_function_defs = new_function_defs.clone();
-
-    for (name, function_def) in used_untyped_function_defs.iter() {
-        all_function_defs.insert(name.clone(), function_def.clone());
-    }
-
-    for function_def in all_function_defs.values() {
+    for function_def in type_conversion_context.clone().iter() {
         debug!("converting function {}", function_def.name);
 
         let mut context = VarContext::new(None);
@@ -59,14 +53,13 @@ pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
                                 module,
                                 it,
                                 &context,
-                                &mut new_function_defs,
-                                &mut used_untyped_function_defs,
+                                &mut type_conversion_context,
                             )
                         })
                         .collect(),
                 );
 
-                used_untyped_function_defs.insert(function_def.name.clone(), new_function_def);
+                type_conversion_context.add_new(&function_def);
             }
             ASTFunctionBody::ASMBody(body) => {}
         }
@@ -80,7 +73,7 @@ pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
         }
     }
 
-    convert_to_typed_module(module, body, new_function_defs, used_untyped_function_defs)
+    convert_to_typed_module(module, body, &mut type_conversion_context)
 }
 
 fn get_parametric_types(ast_type: &ASTType) -> Vec<String> {
@@ -135,8 +128,7 @@ fn convert_expr(
     module: &EnhancedASTModule,
     expr: &ASTExpression,
     context: &VarContext,
-    new_function_defs: &mut LinkedHashMap<String, ASTFunctionDef>,
-    used_untyped_function_defs: &mut LinkedHashMap<String, ASTFunctionDef>,
+    typed_context: &mut TypeConversionContext
 ) -> ASTExpression {
     match expr {
         ASTExpression::StringLiteral(_) => expr.clone(),
@@ -145,8 +137,7 @@ fn convert_expr(
                 module,
                 context,
                 call,
-                new_function_defs,
-                used_untyped_function_defs,
+                typed_context,
             );
             ASTExpression::ASTFunctionCallExpression(new_call)
         }
@@ -175,8 +166,7 @@ fn convert_call(
     module: &EnhancedASTModule,
     context: &VarContext,
     call: &ASTFunctionCall,
-    new_function_defs: &mut LinkedHashMap<String, ASTFunctionDef>,
-    used_untyped_function_defs: &mut LinkedHashMap<String, ASTFunctionDef>,
+    typed_context: &mut TypeConversionContext
 ) -> ASTFunctionCall {
     let mut expressions = Vec::new();
     let mut parameters = Vec::new();
@@ -186,14 +176,20 @@ fn convert_call(
     let function_def = module
         .functions_by_name
         .get(&call.function_name)
-        .unwrap_or_else(|| panic!("function {} not found {:?}", call.function_name, module.functions_by_name.keys().collect::<Vec<&String>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "function {} not found {:?}",
+                call.function_name,
+                module.functions_by_name.keys().collect::<Vec<&String>>()
+            )
+        });
 
     if function_def.param_types.is_empty() {
         info!(
             "TODO check for not parameterized function {}",
             call.function_name
         );
-        used_untyped_function_defs.insert(function_def.name.clone(), function_def.clone());
+        typed_context.add_untyped(function_def);
         return call.clone();
     }
 
@@ -222,19 +218,12 @@ fn convert_call(
                     module,
                     context,
                     call,
-                    new_function_defs,
-                    used_untyped_function_defs,
+                    typed_context,
                 );
-
-                let mut all_functions = new_function_defs.clone();
-
-                for (name, function_def) in used_untyped_function_defs.iter() {
-                    all_functions.insert(name.clone(), function_def.clone());
-                }
 
                 //info!("new_function_defs {:?} used_untyped_function_defs {:?}", new_function_defs, used_untyped_function_defs);
 
-                let inner_function_def = all_functions
+                let inner_function_def = typed_context
                     .get(&ast_function_call.function_name)
                     .unwrap_or_else(|| {
                         panic!("Cannot find function {}", ast_function_call.function_name)
@@ -314,8 +303,7 @@ fn convert_call(
                                 module,
                                 it,
                                 &context,
-                                new_function_defs,
-                                used_untyped_function_defs,
+                                typed_context,
                             )
                         })
                         .collect(),
@@ -339,7 +327,7 @@ fn convert_call(
         }
     }
 
-    let new_function_name = format!("{}_{}", call.function_name, new_function_defs.len() + 1);
+    let new_function_name = format!("{}_{}", call.function_name, typed_context.len() + 1);
 
     info!("created new function {new_function_name}");
 
@@ -355,7 +343,7 @@ fn convert_call(
         inline: function_def.inline,
     };
 
-    new_function_defs.insert(new_function_name.clone(), new_function_def);
+    typed_context.add_new(&new_function_def);
 
     ASTFunctionCall {
         function_name: new_function_name,
@@ -412,7 +400,6 @@ fn update(
 ) {
     if let ASTType::Parametric(p) = &par.type_ref.ast_type {
         if let Some(old_type) = resolved_param_types.insert(p.clone(), result_type.clone()) {
-
             if old_type != result_type && !matches!(old_type, ASTType::Parametric(_)) {
                 panic!(
                     "Parameter {p} has multiple values: {:?}, {:?}",
@@ -443,12 +430,12 @@ mod tests {
         ASTParameterDef, ASTTypeRef,
     };
     use crate::parser::Parser;
+    use crate::transformations::enum_functions_creator::enum_functions_creator;
     use crate::transformations::struct_functions_creator::struct_functions_creator;
     use crate::type_check2::convert;
     use crate::type_check2::resolved_ast::ASTTypedModule;
     use std::path::Path;
     use test_env_log::test;
-    use crate::transformations::enum_functions_creator::enum_functions_creator;
 
     #[test]
     fn test() {
