@@ -543,9 +543,6 @@ impl<'a> CodeGen<'a> {
         };
 
          */
-        
-        let ws = self.backend.word_size();
-        let wl = self.backend.word_len();
 
         let mut lambda_calls = Vec::new();
 

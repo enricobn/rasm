@@ -14,8 +14,8 @@ use std::collections::HashMap;
 pub mod typed_ast;
 pub mod typed_context;
 
-// indent work well only if you run one single test
-static mut ENABLE_INDENT: bool = true;
+// indent works only if you run one single test (you may even find a capacity overflowthread error)
+static mut ENABLE_INDENT: bool = false;
 static mut INDENT: usize = 0;
 
 macro_rules! debug_i {
@@ -141,9 +141,10 @@ pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
 
                     type_conversion_context.replace_body(&new_function_def);
                 }
-                ASTFunctionBody::ASMBody(body) => {}
+                ASTFunctionBody::ASMBody(_) => {}
             }
 
+            /*
             for (name, v) in context.clone().iter() {
                 match v {
                     VarKind::ParameterRef(i, par_def) => {
@@ -156,6 +157,8 @@ pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
                     }
                 }
             }
+
+             */
 
             /*
             if let Some(return_type) = &function_def.return_type {
@@ -1134,6 +1137,16 @@ mod tests {
         test_file("list_fmap.rasm");
     }
 
+    #[test]
+    fn test_gameoflife() {
+        test_file("gameoflife.rasm");
+    }
+
+    #[test]
+    fn test_structs() {
+        test_file("structs.rasm");
+    }
+
     fn test_file(file_name: &str) {
         println!("file_name {file_name}");
 
@@ -1166,6 +1179,15 @@ mod tests {
             "enums {:?}",
             new_module
                 .enums
+                .iter()
+                .map(|it| &it.name)
+                .collect::<Vec<&String>>()
+        );
+
+        println!(
+            "structs {:?}",
+            new_module
+                .structs
                 .iter()
                 .map(|it| &it.name)
                 .collect::<Vec<&String>>()

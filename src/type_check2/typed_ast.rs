@@ -1,7 +1,8 @@
 use crate::codegen::{EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
+    ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef,
+    BuiltinTypeKind,
 };
 use crate::type_check2::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
@@ -211,29 +212,61 @@ impl<'a> ConvContext<'a> {
         self.enums.get(enum_type).cloned()
     }
 
-    fn enums_len(&self) -> usize {
-        self.enums.len()
-    }
+    pub fn add_struct(&mut self, struct_type: &ASTType) -> ASTTypedType {
+        debug!("add_struct {struct_type}");
+        self.count += 1;
+        if self.count > 100 {
+            panic!();
+        }
+        match struct_type {
+            ASTType::Custom { name, param_types } => {
+                let struct_def = self
+                    .module
+                    .structs
+                    .iter()
+                    .find(|it| &it.name == name)
+                    .unwrap();
 
-    pub fn get_enums(&self) -> Vec<ASTTypedType> {
-        self.enums.values().cloned().collect()
-    }
+                let cloned_param_types = param_types.clone();
+                let mut generic_to_type = HashMap::new();
+                for (i, p) in struct_def.type_parameters.iter().enumerate() {
+                    generic_to_type.insert(
+                        p.clone(),
+                        cloned_param_types.get(i).unwrap().ast_type.clone(),
+                    );
+                }
 
-    pub fn add_struct(&mut self, enum_type: &ASTType, enum_typed_type: ASTTypedType) {
-        self.structs.insert(enum_type.clone(), enum_typed_type);
+                let new_name = format!("{name}_{}", self.structs.len());
+                let struct_typed_type = ASTTypedType::Struct {
+                    name: new_name.clone(),
+                };
+
+                let properties = struct_def
+                    .properties
+                    .iter()
+                    .map(|it| struct_property(self, it, &generic_to_type))
+                    .collect();
+
+                self.struct_defs.push(ASTTypedStructDef {
+                    name: new_name.clone(),
+                    properties,
+                });
+
+                self.structs
+                    .insert(struct_type.clone(), struct_typed_type.clone());
+
+                struct_typed_type
+            }
+            _ => {
+                panic!()
+            }
+        }
     }
 
     pub fn get_struct(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
         self.structs.get(enum_type).cloned()
     }
 
-    fn structs_len(&self) -> usize {
-        self.structs.len()
-    }
-
-    pub fn get_structs(&self) -> Vec<ASTTypedType> {
-        self.structs.values().cloned().collect()
-    }
 }
 
 pub fn convert_to_typed_module(
@@ -259,6 +292,24 @@ pub fn convert_to_typed_module(
         functions_by_name,
         statics: module.statics.clone(),
         native_body: module.native_body.clone(),
+    }
+}
+
+fn struct_property(
+    conv_context: &mut ConvContext,
+    property: &ASTStructPropertyDef,
+    generic_to_type: &HashMap<String, ASTType>,
+) -> ASTTypedStructPropertyDef {
+    if let Some(new_type) = substitute(&property.type_ref, generic_to_type) {
+        ASTTypedStructPropertyDef {
+            name: property.name.clone(),
+            type_ref: type_ref(conv_context, &new_type, ""),
+        }
+    } else {
+        ASTTypedStructPropertyDef {
+            name: property.name.clone(),
+            type_ref: type_ref(conv_context, &property.type_ref, ""),
+        }
     }
 }
 
@@ -475,10 +526,25 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
             }
 
              */
-            if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
-                e
+            if let Some(_) = conv_context.module.enums.iter().find(|it| &it.name == name) {
+                if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
+                    e
+                } else {
+                    conv_context.add_enum(&t_ref.ast_type)
+                }
+            } else if let Some(_) = conv_context
+                .module
+                .structs
+                .iter()
+                .find(|it| &it.name == name)
+            {
+                if let Some(e) = conv_context.get_struct(&t_ref.ast_type) {
+                    e
+                } else {
+                    conv_context.add_struct(&t_ref.ast_type)
+                }
             } else {
-                conv_context.add_enum(&t_ref.ast_type)
+                panic!("Cannot find custom tyype {}", name);
             }
         }
     };

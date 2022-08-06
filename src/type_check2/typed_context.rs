@@ -49,7 +49,7 @@ impl TypeConversionContext {
             self.used_untyped_function_defs
                 .insert(function_def.name.clone(), function_def.clone());
         } else {
-            for (_, mut f_defs) in self.new_function_defs.iter_mut() {
+            for (_, f_defs) in self.new_function_defs.iter_mut() {
                 for mut f_def in f_defs.iter_mut() {
                     if f_def.name == function_def.name {
                         f_def.body = function_def.body.clone();
