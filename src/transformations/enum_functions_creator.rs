@@ -76,13 +76,14 @@ pub fn enum_functions_creator(
                 enum_parametric_variant_constructor_body(backend, &variant_num, &variant)
             };
             let body = ASTFunctionBody::ASMBody(body_str);
+
             let function_def = ASTFunctionDef {
                 name: enum_def.name.clone() + "_" + &variant.name.clone(),
                 parameters: variant.parameters.clone(),
                 body,
                 inline: false,
                 return_type,
-                param_types: Vec::new(),
+                param_types: enum_def.type_parameters.clone(),
             };
             functions_by_name.insert(
                 enum_def.name.clone() + "::" + &variant.name.clone(),

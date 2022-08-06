@@ -84,7 +84,7 @@ fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
     }, { -> });
 }
 
-fn listFMap<T>(l: List<T>, map: fn(T) -> List<T1>) -> List<T1> {
+fn listFMap<T,T1>(l: List<T>, map: fn(T) -> List<T1>) -> List<T1> {
     listFlatten(listMap(l, map));
 }
 

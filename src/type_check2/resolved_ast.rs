@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use crate::codegen::{EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
+    ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
 use crate::type_check2::TypeConversionContext;

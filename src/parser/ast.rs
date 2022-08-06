@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::string::ToString;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
     pub name: String,
@@ -8,10 +12,37 @@ pub struct ASTFunctionDef {
     pub param_types: Vec<String>,
 }
 
+impl Display for ASTFunctionDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pt = if self.param_types.is_empty() {
+            "".into()
+        } else {
+            format!("<{}>", self.param_types.join(","))
+        };
+
+        let rt = if let Some(rt) = &self.return_type {
+            format!("{}", rt)
+        } else {
+            "()".into()
+        };
+
+        let args = self.parameters.iter().map(|it| format!("{}", it)).collect::<Vec<String>>().join(",");
+        f.write_str(&format!("{}{pt}({args}) -> {rt}", self.name))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTLambdaDef {
     pub parameter_names: Vec<String>,
     pub body: Vec<ASTExpression>,
+}
+
+impl Display for ASTLambdaDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars = self.parameter_names.join(",");
+
+        f.write_str(&format!("{{ {} -> ... }}", pars))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,10 +65,52 @@ pub enum ASTType {
     Custom { name: String, param_types: Vec<ASTTypeRef> }
 }
 
+impl Display for ASTType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTType::Builtin(kind) => {
+                match kind {
+                    BuiltinTypeKind::ASTString => {
+                        f.write_str("str")
+                    }
+                    BuiltinTypeKind::ASTI32 => {
+                        f.write_str("i32")
+                    }
+                    BuiltinTypeKind::Lambda { parameters, return_type } => {
+                        let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
+
+                        let formatted_return_type = if let Some(rt) = return_type {
+                            format!("{}", *rt)
+                        } else {
+                            "".into()
+                        };
+
+                        f.write_str(&format!("Lambda({}) -> {}", pars.join(","), formatted_return_type))
+                    }
+                }
+            }
+            ASTType::Parametric(name) => {
+                f.write_str(name)
+            }
+            ASTType::Custom { name, param_types } => {
+                let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
+
+                f.write_str(&format!("{name}<{}>", pars.join(",")))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTParameterDef {
     pub name: String,
     pub type_ref: ASTTypeRef,
+}
+
+impl Display for ASTParameterDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}:{}", self.name, self.type_ref))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,6 +131,15 @@ pub struct ASTTypeRef {
     pub ast_ref: bool,
 }
 
+impl Display for ASTTypeRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.ast_ref {
+            f.write_str("&")?
+        }
+        f.write_str(&format!("{}", self.ast_type))
+    }
+}
+
 impl ASTTypeRef {
     pub fn parametric(name: &str, ast_ref: bool) -> ASTTypeRef {
         ASTTypeRef { ast_type: ASTType::Parametric(name.into()), ast_ref }
@@ -70,8 +152,17 @@ impl ASTTypeRef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionCall {
+    pub original_function_name: String,
     pub function_name: String,
     pub parameters: Vec<ASTExpression>,
+}
+
+impl Display for ASTFunctionCall {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
+
+        f.write_str(&format!("{}({})", self.function_name, pars.join(",")))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,6 +173,48 @@ pub enum ASTExpression {
     Number(i32),
     Lambda(ASTLambdaDef),
     //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
+}
+
+impl Display for ASTExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTExpression::StringLiteral(s) => {
+                f.write_str(&"\"s\"".to_string())
+            }
+            ASTExpression::ASTFunctionCallExpression(call) => {
+                let pars: Vec<String> = call.parameters.iter().map(|it| format!("{}", it)).collect();
+                f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
+            }
+            ASTExpression::Val(p) => {
+                f.write_str(p)
+            }
+            ASTExpression::Number(b) => {
+                f.write_str(&format!("{b}"))
+            }
+            ASTExpression::Lambda(lambda) => {
+                f.write_str(&format!("{lambda}"))
+            }
+        }
+    }
+}
+
+pub trait MyToString {
+
+    fn my_to_string(&self) -> String;
+
+}
+
+impl MyToString for HashMap<String, ASTType> {
+    fn my_to_string(&self) -> String {
+        let pars: Vec<String> = self.iter().map(|(name, it)| format!("{name}={it}")).collect();
+        pars.join(",")
+    }
+}
+
+impl Display for dyn MyToString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.my_to_string())
+    }
 }
 
 #[derive(Debug, Clone)]

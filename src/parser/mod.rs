@@ -1,5 +1,6 @@
 use std::path::Path;
 use log::debug;
+use crate::codegen::EnhancedASTModule;
 use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
@@ -115,6 +116,7 @@ impl Parser {
                     }
                     if let Some((function_name, next_i)) = self.try_parse_function_call() {
                         self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {
+                            original_function_name: function_name.clone(),
                             function_name,
                             parameters: Vec::new(),
                         }));
@@ -238,6 +240,7 @@ impl Parser {
                         continue;
                     } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
                         self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {
+                            original_function_name: function_name.clone(),
                             function_name,
                             parameters: Vec::new(),
                         }));
@@ -360,6 +363,7 @@ impl Parser {
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
                 if let Some((function_name, next_i)) = self.try_parse_function_call() {
                     self.parser_data.push(ParserData::FunctionCall(ASTFunctionCall {
+                        original_function_name: function_name.clone(),
                         function_name,
                         parameters: Vec::new(),
                     }));
@@ -506,10 +510,34 @@ impl Parser {
         })
     }
 
+    pub fn print_enhanced(module: &EnhancedASTModule) {
+        println!("main() {{");
+        module.body.iter().for_each(|call| {
+            print!("  ");
+            Self::print_call(call, false);
+        });
+        println!("}}");
+        module.functions_by_name.values().for_each(|f| {
+            Self::print_function_def(f)
+        })
+    }
+
     pub fn print_function_def(f: &ASTFunctionDef) {
         match &f.body {
-            RASMBody(_) => print!("fn {}(", f.name),
-            ASMBody(_) => print!("asm {}(", f.name)
+            RASMBody(_) => print!("fn {}", f),
+            ASMBody(_) => print!("asm {}", f)
+        }
+
+        /*
+        let param_types = if !&f.param_types.is_empty() {
+            format!("<{}>", &f.param_types.join(","))
+        } else {
+            "".into()
+        };
+
+        match &f.body {
+            RASMBody(_) => print!("fn {}{}(", f.name, param_types),
+            ASMBody(_) => print!("asm {}{}(", f.name, param_types)
         }
         let mut first = true;
         f.parameters.iter().for_each(|p| {
@@ -526,6 +554,8 @@ impl Parser {
             print!(" -> ");
             Self::print_type_ref(return_type);
         }
+
+         */
         match &f.body {
             RASMBody(expressions) => {
                 println!(" {{");
@@ -590,14 +620,18 @@ impl Parser {
                 ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(call, true),
                 ASTExpression::Val(name) => print!("{}", name),
                 ASTExpression::Lambda(function_def) => {
+                    print!("{}", function_def);
+                    /*
                     let calls = &function_def.body;
                     print!("{{");
                     calls.iter().for_each(|call| {
                         // TODO
                         //Self::print_call(call, true);
-                        print!(";");
+                        print!("{call};");
                     });
                     print!("}}");
+
+                     */
                 }
             }
             first = false;
