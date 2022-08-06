@@ -119,7 +119,7 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
 }/
 
 /** false = 0 true = any other value **/
-inline asm if(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+inline asm if<T>(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+13

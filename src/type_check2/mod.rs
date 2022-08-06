@@ -5,17 +5,17 @@ use crate::parser::ast::{
     ASTType, ASTTypeRef, BuiltinTypeKind,
 };
 use crate::parser::Parser;
-use crate::type_check2::resolved_ast::{convert_to_typed_module, ASTTypedModule};
+use crate::type_check2::typed_ast::{convert_to_typed_module, ASTTypedModule};
 use crate::type_check2::typed_context::TypeConversionContext;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use std::collections::HashMap;
 
-pub mod resolved_ast;
+pub mod typed_ast;
 pub mod typed_context;
 
 // indent work well only if you run one single test
-static mut ENABLE_INDENT: bool = false;
+static mut ENABLE_INDENT: bool = true;
 static mut INDENT: usize = 0;
 
 macro_rules! debug_i {
@@ -34,7 +34,9 @@ macro_rules! debug_i {
 macro_rules! indent {
     () => {
         unsafe {
-            INDENT += 1;
+            if ENABLE_INDENT {
+                INDENT += 1;
+            }
         }
     };
 }
@@ -42,7 +44,9 @@ macro_rules! indent {
 macro_rules! dedent {
     () => {
         unsafe {
-            INDENT -= 1;
+            if ENABLE_INDENT {
+                INDENT -= 1;
+            }
         }
     };
 }
@@ -62,7 +66,7 @@ pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
 
     let mut count = 0;
 
-    while something_to_convert && count < 10 {
+    while something_to_convert && count < 100 {
         count += 1;
 
         debug_i!("convert loop {count}");
@@ -500,29 +504,35 @@ fn convert_call(
                     if let Some(result_type) =
                         get_type_of_expression(module, context, last, typed_context)
                     {
-                        something_converted = true;
+                        // the generic types of the expression do not belong to this
+                        if get_generic_types(&result_type).is_empty() {
+                            something_converted = true;
 
-                        debug_i!("got result_type from lambda body {result_type}");
+                            debug_i!("got result_type from lambda body {result_type}");
 
-                        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters,
-                            return_type,
-                        }) = &par.type_ref.ast_type
-                        {
-                            update(
-                                ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                    return_type: Some(Box::new(ASTTypeRef {
-                                        ast_ref: return_type.clone().unwrap().ast_ref,
-                                        ast_type: result_type,
-                                    })),
-                                    parameters: parameters.clone(),
-                                }),
-                                ASTExpression::Lambda(effective_lambda),
-                                par,
-                                resolved_param_types,
-                                &mut converted_parameters,
-                                &mut expressions,
-                            );
+                            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters,
+                                return_type,
+                            }) = &par.type_ref.ast_type
+                            {
+                                update(
+                                    ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                        return_type: Some(Box::new(ASTTypeRef {
+                                            ast_ref: return_type.clone().unwrap().ast_ref,
+                                            ast_type: result_type,
+                                        })),
+                                        parameters: parameters.clone(),
+                                    }),
+                                    ASTExpression::Lambda(effective_lambda),
+                                    par,
+                                    resolved_param_types,
+                                    &mut converted_parameters,
+                                    &mut expressions,
+                                );
+                            }
+                        } else {
+                            converted_parameters.push(par.clone());
+                            expressions.push(expr.clone());
                         }
                     } else {
                         converted_parameters.push(par.clone());
@@ -835,7 +845,10 @@ fn substitute_type(
     ast_type: &ASTType,
     resolved_param_types: &HashMap<String, ASTType>,
 ) -> Option<ASTType> {
-    match &ast_type {
+    debug_i!("substitute {ast_type} {:?}", resolved_param_types);
+    indent!();
+
+    let result = match &ast_type {
         ASTType::Builtin(kind) => match kind {
             BuiltinTypeKind::Lambda {
                 parameters,
@@ -904,7 +917,15 @@ fn substitute_type(
                 None
             }
         }
+    };
+
+    if let Some(r) = &result {
+        debug_i!("result {r}");
+    } else {
+        debug_i!("no result found");
     }
+    dedent!();
+    result
 }
 
 fn update(
@@ -967,7 +988,7 @@ mod tests {
     use crate::parser::Parser;
     use crate::transformations::enum_functions_creator::enum_functions_creator;
     use crate::transformations::struct_functions_creator::struct_functions_creator;
-    use crate::type_check2::resolved_ast::ASTTypedModule;
+    use crate::type_check2::typed_ast::ASTTypedModule;
     use crate::type_check2::{convert, extract_generic_types_from_effective_type};
     use std::collections::HashMap;
     use std::path::Path;

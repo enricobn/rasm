@@ -3,8 +3,10 @@ use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
 };
+use crate::type_check2::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
-use crate::type_check2::TypeConversionContext;
+use log::debug;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -42,11 +44,11 @@ pub enum ASTTypedType {
     Builtin(BuiltinTypedTypeKind),
     Enum {
         name: String,
-        param_types: Vec<ASTTypedTypeRef>,
+        //param_types: Vec<ASTTypedTypeRef>,
     },
     Struct {
         name: String,
-        param_types: Vec<ASTTypedTypeRef>,
+        //param_types: Vec<ASTTypedTypeRef>,
     },
 }
 
@@ -131,41 +133,151 @@ pub struct ASTTypedStructDef {
     pub properties: Vec<ASTTypedStructPropertyDef>,
 }
 
+struct ConvContext<'a> {
+    module: &'a EnhancedASTModule,
+    enums: HashMap<ASTType, ASTTypedType>,
+    structs: HashMap<ASTType, ASTTypedType>,
+    enum_defs: Vec<ASTTypedEnumDef>,
+    struct_defs: Vec<ASTTypedStructDef>,
+    count: usize,
+}
+
+impl<'a> ConvContext<'a> {
+    fn new(module: &'a EnhancedASTModule) -> Self {
+        Self {
+            module,
+            enums: HashMap::new(),
+            structs: HashMap::new(),
+            enum_defs: Vec::new(),
+            struct_defs: Vec::new(),
+            count: 0,
+        }
+    }
+
+    pub fn add_enum(&mut self, enum_type: &ASTType) -> ASTTypedType {
+        debug!("add_enum {enum_type}");
+        self.count += 1;
+        if self.count > 100 {
+            panic!();
+        }
+        match enum_type {
+            ASTType::Custom { name, param_types } => {
+                let enum_def = self
+                    .module
+                    .enums
+                    .iter()
+                    .find(|it| &it.name == name)
+                    .unwrap();
+
+                let cloned_param_types = param_types.clone();
+                let mut generic_to_type = HashMap::new();
+                for (i, p) in enum_def.type_parameters.iter().enumerate() {
+                    generic_to_type.insert(
+                        p.clone(),
+                        cloned_param_types.get(i).unwrap().ast_type.clone(),
+                    );
+                }
+
+                let new_name = format!("{name}_{}", self.enums.len());
+                let enum_typed_type = ASTTypedType::Enum {
+                    name: new_name.clone(),
+                };
+
+                let variants = enum_def
+                    .variants
+                    .iter()
+                    .map(|it| {
+                        enum_variant(self, it, &generic_to_type, &enum_type, &enum_typed_type, "")
+                    })
+                    .collect();
+
+                self.enum_defs.push(ASTTypedEnumDef {
+                    name: new_name,
+                    variants,
+                });
+
+                self.enums
+                    .insert(enum_type.clone(), enum_typed_type.clone());
+
+                enum_typed_type
+            }
+            _ => {
+                panic!()
+            }
+        }
+    }
+
+    pub fn get_enum(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
+        self.enums.get(enum_type).cloned()
+    }
+
+    fn enums_len(&self) -> usize {
+        self.enums.len()
+    }
+
+    pub fn get_enums(&self) -> Vec<ASTTypedType> {
+        self.enums.values().cloned().collect()
+    }
+
+    pub fn add_struct(&mut self, enum_type: &ASTType, enum_typed_type: ASTTypedType) {
+        self.structs.insert(enum_type.clone(), enum_typed_type);
+    }
+
+    pub fn get_struct(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
+        self.structs.get(enum_type).cloned()
+    }
+
+    fn structs_len(&self) -> usize {
+        self.structs.len()
+    }
+
+    pub fn get_structs(&self) -> Vec<ASTTypedType> {
+        self.structs.values().cloned().collect()
+    }
+}
+
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
     new_body: Vec<ASTFunctionCall>,
-    typed_context: &mut TypeConversionContext
+    typed_context: &mut TypeConversionContext,
 ) -> ASTTypedModule {
+    let mut conv_context = ConvContext::new(module);
 
     let mut functions_by_name = LinkedHashMap::new();
 
     for new_function_def in typed_context.iter() {
-        functions_by_name.insert(new_function_def.name.clone(), function_def(&new_function_def));
+        functions_by_name.insert(
+            new_function_def.name.clone(),
+            function_def(&mut conv_context, &new_function_def),
+        );
     }
 
     ASTTypedModule {
-        body: new_body.iter().map(function_call).collect(),
-        structs: Vec::new(),
-        enums: Vec::new(),
+        body: new_body.iter().map(|it| function_call(it)).collect(),
+        structs: conv_context.struct_defs,
+        enums: conv_context.enum_defs,
         functions_by_name,
         statics: module.statics.clone(),
         native_body: module.native_body.clone(),
     }
 }
 
-fn function_def(def: &ASTFunctionDef) -> ASTTypedFunctionDef {
+fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTTypedFunctionDef {
     ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(&def.body),
-        return_type: def
-            .return_type
-            .clone()
-            .map(|it| type_ref(&it, &format!("function {} return type", def.name))),
+        return_type: def.return_type.clone().map(|it| {
+            type_ref(
+                conv_context,
+                &it,
+                &format!("function {} return type", def.name),
+            )
+        }),
         inline: def.inline,
         parameters: def
             .parameters
             .iter()
-            .map(|it| parameter_def(it, &format!("function {}", def.name)))
+            .map(|it| parameter_def(conv_context, it, &format!("function {}", def.name)))
             .collect(),
     }
 }
@@ -201,24 +313,72 @@ fn struct_def(struct_def: &ASTStructDef) -> ASTTypedStructDef {
     todo!()
 }
 
-fn enum_def(enum_def: &ASTEnumDef) -> ASTTypedEnumDef {
+/*
+fn enum_def(conv_context: &mut ConvContext, enum_def: &ASTEnumDef) -> ASTTypedEnumDef {
     ASTTypedEnumDef {
         name: enum_def.name.clone(),
         variants: enum_def
             .variants
             .iter()
-            .map(|it| enum_variant(it, &format!("enum {}", enum_def.name)))
+            .map(|it| enum_variant(conv_context,it, &format!("enum {}", enum_def.name)))
             .collect(),
     }
 }
 
-fn enum_variant(variant: &ASTEnumVariantDef, message: &str) -> ASTTypedEnumVariantDef {
+ */
+
+fn enum_variant(
+    conv_context: &mut ConvContext,
+    variant: &ASTEnumVariantDef,
+    generic_to_type: &HashMap<String, ASTType>,
+    enum_type: &ASTType,
+    enum_typed_type: &ASTTypedType,
+    message: &str,
+) -> ASTTypedEnumVariantDef {
+    debug!(
+        "variant {variant}, enum_type {enum_type}, enum_typed_type {:?}, {:?}",
+        enum_typed_type, generic_to_type
+    );
     ASTTypedEnumVariantDef {
         name: variant.name.clone(),
         parameters: variant
             .parameters
             .iter()
-            .map(|it| parameter_def(it, &format!("{message}, variant {}", variant.name)))
+            .map(|it| {
+                debug!("param {it} {enum_type}");
+                if &it.type_ref.ast_type == enum_type {
+                    ASTTypedParameterDef {
+                        name: it.name.clone(),
+                        type_ref: ASTTypedTypeRef {
+                            ast_ref: it.type_ref.ast_ref,
+                            ast_type: enum_typed_type.clone(),
+                        },
+                    }
+                } else if let Some(new_type) = substitute(&it.type_ref, generic_to_type) {
+                    debug!("new_type {new_type}");
+
+                    if &new_type.ast_type == enum_type {
+                        ASTTypedParameterDef {
+                            name: it.name.clone(),
+                            type_ref: ASTTypedTypeRef {
+                                ast_ref: it.type_ref.ast_ref,
+                                ast_type: enum_typed_type.clone(),
+                            },
+                        }
+                    } else {
+                        ASTTypedParameterDef {
+                            name: it.name.clone(),
+                            type_ref: type_ref(conv_context, &new_type, ""),
+                        }
+                    }
+                } else {
+                    parameter_def(
+                        conv_context,
+                        it,
+                        &format!("{message}, variant {}", variant.name),
+                    )
+                }
+            })
             .collect(),
     }
 }
@@ -230,17 +390,22 @@ fn function_call(function_call: &ASTFunctionCall) -> ASTTypedFunctionCall {
     }
 }
 
-fn parameter_def(parameter_def: &ASTParameterDef, message: &str) -> ASTTypedParameterDef {
+fn parameter_def(
+    conv_context: &mut ConvContext,
+    parameter_def: &ASTParameterDef,
+    message: &str,
+) -> ASTTypedParameterDef {
     ASTTypedParameterDef {
         name: parameter_def.name.clone(),
         type_ref: type_ref(
+            conv_context,
             &parameter_def.type_ref,
             &format!("{message}: parameter {}", parameter_def.name),
         ),
     }
 }
 
-fn type_ref(t_ref: &ASTTypeRef, message: &str) -> ASTTypedTypeRef {
+fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -> ASTTypedTypeRef {
     let ast_type = match &t_ref.ast_type {
         ASTType::Builtin(kind) => match kind {
             BuiltinTypeKind::ASTString => ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
@@ -251,10 +416,17 @@ fn type_ref(t_ref: &ASTTypeRef, message: &str) -> ASTTypedTypeRef {
             } => ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters: parameters
                     .iter()
-                    .map(|it| type_ref(it, &(message.to_owned() + ", lambda parameter")))
+                    .map(|it| {
+                        type_ref(
+                            conv_context,
+                            it,
+                            &(message.to_owned() + ", lambda parameter"),
+                        )
+                    })
                     .collect(),
                 return_type: return_type.clone().map(|it| {
                     Box::new(type_ref(
+                        conv_context,
                         &it,
                         &(message.to_owned() + ", lambda return type"),
                     ))
@@ -303,9 +475,10 @@ fn type_ref(t_ref: &ASTTypeRef, message: &str) -> ASTTypedTypeRef {
             }
 
              */
-            ASTTypedType::Enum {
-                name: name.clone(),
-                param_types: param_types.iter().map(|it| type_ref(it, message)).collect(),
+            if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
+                e
+            } else {
+                conv_context.add_enum(&t_ref.ast_type)
             }
         }
     };

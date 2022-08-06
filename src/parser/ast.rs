@@ -26,7 +26,12 @@ impl Display for ASTFunctionDef {
             "()".into()
         };
 
-        let args = self.parameters.iter().map(|it| format!("{}", it)).collect::<Vec<String>>().join(",");
+        let args = self
+            .parameters
+            .iter()
+            .map(|it| format!("{}", it))
+            .collect::<Vec<String>>()
+            .join(",");
         f.write_str(&format!("{}{pt}({args}) -> {rt}", self.name))
     }
 }
@@ -51,47 +56,52 @@ pub enum ASTFunctionBody {
     ASMBody(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltinTypeKind {
     ASTString,
     ASTI32,
-    Lambda { parameters: Vec<ASTTypeRef>, return_type: Option<Box<ASTTypeRef>> },
+    Lambda {
+        parameters: Vec<ASTTypeRef>,
+        return_type: Option<Box<ASTTypeRef>>,
+    },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
     Parametric(String),
-    Custom { name: String, param_types: Vec<ASTTypeRef> }
+    Custom {
+        name: String,
+        param_types: Vec<ASTTypeRef>,
+    },
 }
 
 impl Display for ASTType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTType::Builtin(kind) => {
-                match kind {
-                    BuiltinTypeKind::ASTString => {
-                        f.write_str("str")
-                    }
-                    BuiltinTypeKind::ASTI32 => {
-                        f.write_str("i32")
-                    }
-                    BuiltinTypeKind::Lambda { parameters, return_type } => {
-                        let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::ASTString => f.write_str("str"),
+                BuiltinTypeKind::ASTI32 => f.write_str("i32"),
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
 
-                        let formatted_return_type = if let Some(rt) = return_type {
-                            format!("{}", *rt)
-                        } else {
-                            "".into()
-                        };
+                    let formatted_return_type = if let Some(rt) = return_type {
+                        format!("{}", *rt)
+                    } else {
+                        "".into()
+                    };
 
-                        f.write_str(&format!("Lambda({}) -> {}", pars.join(","), formatted_return_type))
-                    }
+                    f.write_str(&format!(
+                        "Lambda({}) -> {}",
+                        pars.join(","),
+                        formatted_return_type
+                    ))
                 }
-            }
-            ASTType::Parametric(name) => {
-                f.write_str(name)
-            }
+            },
+            ASTType::Parametric(name) => f.write_str(name),
             ASTType::Custom { name, param_types } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
@@ -121,11 +131,14 @@ pub struct ASTStructPropertyDef {
 
 impl ASTParameterDef {
     pub fn new(name: &str, type_ref: ASTTypeRef) -> ASTParameterDef {
-        ASTParameterDef { name: name.into(), type_ref }
+        ASTParameterDef {
+            name: name.into(),
+            type_ref,
+        }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTTypeRef {
     pub ast_type: ASTType,
     pub ast_ref: bool,
@@ -142,11 +155,20 @@ impl Display for ASTTypeRef {
 
 impl ASTTypeRef {
     pub fn parametric(name: &str, ast_ref: bool) -> ASTTypeRef {
-        ASTTypeRef { ast_type: ASTType::Parametric(name.into()), ast_ref }
+        ASTTypeRef {
+            ast_type: ASTType::Parametric(name.into()),
+            ast_ref,
+        }
     }
 
     pub fn custom(name: &str, ast_ref: bool, param_types: Vec<ASTTypeRef>) -> ASTTypeRef {
-        ASTTypeRef { ast_type: ASTType::Custom { name: name.into(), param_types}, ast_ref }
+        ASTTypeRef {
+            ast_type: ASTType::Custom {
+                name: name.into(),
+                param_types,
+            },
+            ast_ref,
+        }
     }
 }
 
@@ -178,35 +200,29 @@ pub enum ASTExpression {
 impl Display for ASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTExpression::StringLiteral(s) => {
-                f.write_str(&"\"s\"".to_string())
-            }
+            ASTExpression::StringLiteral(s) => f.write_str(&"\"s\"".to_string()),
             ASTExpression::ASTFunctionCallExpression(call) => {
-                let pars: Vec<String> = call.parameters.iter().map(|it| format!("{}", it)).collect();
+                let pars: Vec<String> =
+                    call.parameters.iter().map(|it| format!("{}", it)).collect();
                 f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
             }
-            ASTExpression::Val(p) => {
-                f.write_str(p)
-            }
-            ASTExpression::Number(b) => {
-                f.write_str(&format!("{b}"))
-            }
-            ASTExpression::Lambda(lambda) => {
-                f.write_str(&format!("{lambda}"))
-            }
+            ASTExpression::Val(p) => f.write_str(p),
+            ASTExpression::Number(b) => f.write_str(&format!("{b}")),
+            ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }
     }
 }
 
 pub trait MyToString {
-
     fn my_to_string(&self) -> String;
-
 }
 
 impl MyToString for HashMap<String, ASTType> {
     fn my_to_string(&self) -> String {
-        let pars: Vec<String> = self.iter().map(|(name, it)| format!("{name}={it}")).collect();
+        let pars: Vec<String> = self
+            .iter()
+            .map(|(name, it)| format!("{name}={it}"))
+            .collect();
         pars.join(",")
     }
 }
@@ -233,7 +249,6 @@ pub struct ASTEnumDef {
 }
 
 impl ASTEnumDef {
-
     pub fn variant_function_name(&self, variant: &ASTEnumVariantDef) -> String {
         let mut result = String::new();
         result.push_str(&self.name);
@@ -241,13 +256,24 @@ impl ASTEnumDef {
         result.push_str(&variant.name);
         result
     }
-
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTEnumVariantDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
+}
+
+impl Display for ASTEnumVariantDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars = self
+            .parameters
+            .iter()
+            .map(|it| format!("{it}"))
+            .collect::<Vec<String>>()
+            .join(",");
+        f.write_str(&format!("{}({})", self.name, pars))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -258,7 +284,10 @@ pub struct ASTStructDef {
 }
 
 pub fn lambda(return_type: Option<Box<ASTTypeRef>>) -> ASTType {
-    ASTType::Builtin(BuiltinTypeKind::Lambda { parameters: Vec::new(), return_type })
+    ASTType::Builtin(BuiltinTypeKind::Lambda {
+        parameters: Vec::new(),
+        return_type,
+    })
 }
 
 pub fn lambda_unit() -> ASTType {
