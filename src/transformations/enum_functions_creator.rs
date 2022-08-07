@@ -5,7 +5,6 @@ use crate::parser::ast::{
     ASTTypeRef, BuiltinTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
-use std::detect::__is_feature_detected::rtm;
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,

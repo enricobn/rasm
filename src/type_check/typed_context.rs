@@ -155,7 +155,7 @@ impl<'a> Iterator for TypeConversionContextIterator<'a> {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef};
-    use crate::type_check2::typed_context::TypeConversionContext;
+    use crate::type_check::typed_context::TypeConversionContext;
 
     #[test]
     fn test() {

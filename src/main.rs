@@ -6,7 +6,7 @@ pub(crate) mod codegen;
 pub mod compiler;
 //pub mod type_check;
 pub mod transformations;
-pub mod type_check2;
+pub mod type_check;
 
 use std::env;
 use std::ops::Add;

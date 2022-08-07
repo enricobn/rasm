@@ -1,10 +1,10 @@
 use crate::codegen::{EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef,
+    ASTLambdaDef, ASTParameterDef, ASTStructPropertyDef, ASTType, ASTTypeRef,
     BuiltinTypeKind,
 };
-use crate::type_check2::{substitute, TypeConversionContext};
+use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::collections::HashMap;
@@ -359,24 +359,6 @@ fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
         ASTFunctionBody::ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
     }
 }
-
-fn struct_def(struct_def: &ASTStructDef) -> ASTTypedStructDef {
-    todo!()
-}
-
-/*
-fn enum_def(conv_context: &mut ConvContext, enum_def: &ASTEnumDef) -> ASTTypedEnumDef {
-    ASTTypedEnumDef {
-        name: enum_def.name.clone(),
-        variants: enum_def
-            .variants
-            .iter()
-            .map(|it| enum_variant(conv_context,it, &format!("enum {}", enum_def.name)))
-            .collect(),
-    }
-}
-
- */
 
 fn enum_variant(
     conv_context: &mut ConvContext,

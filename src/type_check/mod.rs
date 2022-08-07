@@ -1,1135 +1,982 @@
-pub mod resolved_ast;
-
 use crate::codegen::{EnhancedASTModule, VarContext, VarKind};
+use crate::parser::ast::MyToString;
 use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind,
+    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
+    ASTType, ASTTypeRef, BuiltinTypeKind,
 };
-use crate::type_check::resolved_ast::{
-    ASTTypedEnumDef, ASTTypedEnumVariantDef, ASTTypedExpression, ASTTypedFunctionBody,
-    ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedLambdaDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
-};
+use crate::parser::Parser;
+use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
+use crate::type_check::typed_context::TypeConversionContext;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-pub struct ToTypedModuleConverter {
-    module: EnhancedASTModule,
-    /// key=original function name
-    /// value=Vector of possible matches between parametric types and effective types and related function definition
-    functions: HashMap<String, Vec<ResolvedFunctionDef>>,
-    enums: HashMap<String, Vec<ResolvedEnumDef>>,
-    count: usize,
-}
+pub mod typed_ast;
+pub mod typed_context;
 
-struct TransformedCall {
-    new_function_call: ASTFunctionCall,
-    new_function_defs: Option<(usize, Vec<ResolvedFunctionDef>)>,
-    new_enums: Option<(usize, Vec<ResolvedEnumDef>)>,
-}
+// indent works only if you run one single test (you may even find a capacity overflowthread error)
+static mut ENABLE_INDENT: bool = false;
+static mut INDENT: usize = 0;
 
-#[derive(Debug, Clone)]
-struct ResolvedFunctionDef {
-    type_parameters: HashMap<String, ASTType>,
-    function_def: ASTFunctionDef,
-}
-
-#[derive(Debug, Clone)]
-struct ResolvedEnumDef {
-    original_name: String,
-    //type_parameters: HashMap<String, ASTType>,
-    enum_def: ASTEnumDef,
-    parameter_types: Vec<ASTTypeRef>,
-}
-
-impl ToTypedModuleConverter {
-    pub fn new(module: EnhancedASTModule) -> Self {
-        ToTypedModuleConverter {
-            module,
-            functions: HashMap::new(),
-            count: 0,
-            enums: HashMap::new(),
-        }
-    }
-
-    pub fn convert(&mut self) -> ASTTypedModule {
-        let context = VarContext::new(None);
-
-        let module = self.module.clone();
-
-        let mut body = module.body.clone();
-
-        while true {
-            debug!("transformed loop");
-            let mut temp_body = Vec::new();
-
-            let mut transformed = false;
-
-            for call in body.iter() {
-                if let Some(transformed_call) =
-                    self.transform_call(self.count, &context, &module, call)
-                {
-                    if let Some((new_count, resolved_function_defs)) =
-                        transformed_call.new_function_defs
-                    {
-                        self.count = new_count;
-                        for resolved_function_def in resolved_function_defs {
-                            self.functions
-                                .entry(call.function_name.clone())
-                                .or_insert_with(Vec::new)
-                                .push(resolved_function_def);
-                            transformed = true;
-                        }
-                    }
-
-                    if let Some((_, resolved_enum_defs)) = transformed_call.new_enums {
-                        for resolved_enum_def in resolved_enum_defs {
-                            debug!("new enum def {:?}", resolved_enum_def.enum_def);
-                            self.enums
-                                .entry(resolved_enum_def.original_name.clone())
-                                .or_insert_with(Vec::new)
-                                .push(resolved_enum_def);
-                            transformed = true;
-                        }
-                    }
-
-                    temp_body.push(transformed_call.new_function_call);
-                } else {
-                    temp_body.push(call.clone());
-                }
-            }
-
-            body = temp_body;
-
-            if !transformed {
-                break;
-            }
-        }
-
-        let mut functions_by_name = LinkedHashMap::new();
-
-        self.functions
-            .values()
-            .into_iter()
-            .flat_map(|it| it.iter().map(|c| c.function_def.clone()))
-            .for_each(|it| {
-                let mut context = VarContext::new(Some(&context));
-
-                it.parameters.iter().enumerate().for_each(|(i, par)| {
-                    context.insert(par.name.clone(), VarKind::ParameterRef(i, par.clone()));
-                });
-
-                match &it.body {
-                    ASTFunctionBody::RASMBody(expressions) => {
-                        let mut body = Vec::new();
-                        for expression in expressions {
-                            match expression {
-                                ASTExpression::ASTFunctionCallExpression(call) => {
-                                    if let Some(transformed_function_call) = self.transform_call(
-                                        self.count,
-                                        &context,
-                                        &self.module,
-                                        &call,
-                                    ) {
-                                        body.push(ASTExpression::ASTFunctionCallExpression(
-                                            transformed_function_call.new_function_call,
-                                        ));
-                                    } else {
-                                        body.push(expression.clone());
-                                    }
-                                }
-                                _ => {
-                                    body.push(expression.clone());
-                                }
-                            }
-                        }
-
-                        let mut new_function_def = it.clone();
-                        new_function_def.body = ASTFunctionBody::RASMBody(body);
-                        functions_by_name.insert(new_function_def.name.clone(), new_function_def);
-                    }
-                    ASTFunctionBody::ASMBody(_) => {
-                        functions_by_name.insert(it.name.clone(), it);
-                    }
-                }
-            });
-
-        /*
-        self.functions.iter().for_each(|(name, defs)| {
-            println!("{name} : {:?}", defs);
-        });
-
-         */
-
-        let mut new_module = ASTTypedModule {
-            native_body: self.module.native_body.clone(),
-            functions_by_name: {
-                let mut result = LinkedHashMap::new();
-
-                functions_by_name.iter().for_each(|(name, def)| {
-                    result.insert(name.clone(), self.function_def(def));
-                });
-                self.functions.values().for_each(|it| {
-                    it.iter().for_each(|def| {
-                        result.insert(
-                            def.function_def.name.clone(),
-                            self.function_def(&def.function_def),
-                        );
-                    });
-                });
-
-                result
-            },
-            body: body.iter().map(|it| self.function_call(it)).collect(),
-            structs: self
-                .module
-                .structs
-                .iter()
-                .map(|it| self.struct_def(it))
-                .collect(),
-            enums: self
-                .enums
-                .iter()
-                .flat_map(|(_, it)| it.iter().map(|en| self.enum_def(&en.enum_def)))
-                .collect(),
-            statics: self.module.statics.clone(),
-        };
-
-        new_module
-    }
-
-    fn function_def(&self, def: &ASTFunctionDef) -> ASTTypedFunctionDef {
-        ASTTypedFunctionDef {
-            name: def.name.clone(),
-            body: self.body(&def.body),
-            return_type: def
-                .return_type
-                .clone()
-                .map(|it| self.type_ref(&it, &format!("function {} return type", def.name))),
-            inline: def.inline,
-            parameters: def
-                .parameters
-                .iter()
-                .map(|it| self.parameter_def(it, &format!("function {}", def.name)))
-                .collect(),
-        }
-    }
-
-    fn parameter_def(
-        &self,
-        parameter_def: &ASTParameterDef,
-        message: &str,
-    ) -> ASTTypedParameterDef {
-        ASTTypedParameterDef {
-            name: parameter_def.name.clone(),
-            type_ref: self.type_ref(
-                &parameter_def.type_ref,
-                &format!("{message}: parameter {}", parameter_def.name),
-            ),
-        }
-    }
-
-    fn type_ref(&self, type_ref: &ASTTypeRef, message: &str) -> ASTTypedTypeRef {
-        let ast_type = match &type_ref.ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::ASTString => {
-                    ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString)
-                }
-                BuiltinTypeKind::ASTI32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTI32),
-                BuiltinTypeKind::Lambda {
-                    return_type,
-                    parameters,
-                } => ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                    parameters: parameters
-                        .iter()
-                        .map(|it| self.type_ref(it, &(message.to_owned() + ", lambda parameter")))
-                        .collect(),
-                    return_type: return_type.clone().map(|it| {
-                        Box::new(self.type_ref(&it, &(message.to_owned() + ", lambda return type")))
-                    }),
-                }),
-            },
-            ASTType::Parametric(p) => {
-                panic!("Unresolved parametric type '{p}': {message}");
-            }
-            ASTType::Custom { name, param_types } => {
-                if let Some(enum_def) = self.module.enums.iter().find(|it| &it.name == name) {
-                    ASTTypedType::Enum {
-                        name: name.clone(),
-                        param_types: param_types
-                            .iter()
-                            .map(|it| self.type_ref(it, &format!("{message}, enum {name}")))
-                            .collect(),
-                    }
-                } else if let Some(struct_def) =
-                    self.module.structs.iter().find(|it| &it.name == name)
-                {
-                    ASTTypedType::Struct {
-                        name: name.clone(),
-                        param_types: param_types
-                            .iter()
-                            .map(|it| self.type_ref(it, &format!("{message}, struct {name}")))
-                            .collect(),
-                    }
-                } else if let Some(resolved_enum_def) = self
-                    .enums
-                    .iter()
-                    .flat_map(|it| it.1.iter())
-                    .find(|it| &it.enum_def.name == name)
-                {
-                    ASTTypedType::Enum {
-                        name: name.clone(),
-                        param_types: resolved_enum_def
-                            .parameter_types
-                            .iter()
-                            .map(|it| self.type_ref(it, &format!("{message}, enum {name}")))
-                            .collect(),
-                    }
-                } else {
-                    panic!("Cannot find Custom type '{name}'");
-                }
-            }
-        };
-
-        ASTTypedTypeRef {
-            ast_type,
-            ast_ref: type_ref.ast_ref,
-        }
-    }
-
-    fn expression(&self, expression: &ASTExpression) -> ASTTypedExpression {
-        match expression {
-            ASTExpression::StringLiteral(s) => ASTTypedExpression::StringLiteral(s.to_string()),
-            ASTExpression::ASTFunctionCallExpression(fc) => {
-                ASTTypedExpression::ASTFunctionCallExpression(self.function_call(fc))
-            }
-            ASTExpression::Val(v) => ASTTypedExpression::Val(v.clone()),
-            ASTExpression::Number(n) => ASTTypedExpression::Number(*n),
-            ASTExpression::Lambda(l) => ASTTypedExpression::Lambda(self.lambda_def(l)),
-        }
-    }
-
-    fn lambda_def(&self, lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
-        ASTTypedLambdaDef {
-            body: lambda_def
-                .body
-                .iter()
-                .map(|it| self.expression(it))
-                .collect(),
-        }
-    }
-
-    fn body(&self, body: &ASTFunctionBody) -> ASTTypedFunctionBody {
-        match body {
-            ASTFunctionBody::RASMBody(body) => {
-                ASTTypedFunctionBody::RASMBody(body.iter().map(|it| self.expression(it)).collect())
-            }
-            ASTFunctionBody::ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
-        }
-    }
-
-    fn struct_def(&self, struct_def: &ASTStructDef) -> ASTTypedStructDef {
-        todo!()
-    }
-
-    fn enum_def(&self, enum_def: &ASTEnumDef) -> ASTTypedEnumDef {
-        ASTTypedEnumDef {
-            name: enum_def.name.clone(),
-            variants: enum_def
-                .variants
-                .iter()
-                .map(|it| self.enum_variant(it, &format!("enum {}", enum_def.name)))
-                .collect(),
-        }
-    }
-
-    fn enum_variant(&self, variant: &ASTEnumVariantDef, message: &str) -> ASTTypedEnumVariantDef {
-        ASTTypedEnumVariantDef {
-            name: variant.name.clone(),
-            parameters: variant
-                .parameters
-                .iter()
-                .map(|it| self.parameter_def(it, &format!("{message}, variant {}", variant.name)))
-                .collect(),
-        }
-    }
-
-    fn function_call(&self, function_call: &ASTFunctionCall) -> ASTTypedFunctionCall {
-        ASTTypedFunctionCall {
-            function_name: function_call.function_name.clone(),
-            parameters: function_call
-                .parameters
-                .iter()
-                .map(|it| self.expression(it))
-                .collect(),
-        }
-    }
-
-    fn transform_call(
-        &self,
-        function_count: usize,
-        context: &VarContext,
-        module: &EnhancedASTModule,
-        call: &ASTFunctionCall,
-    ) -> Option<TransformedCall> {
-        debug!("transform_call {}", call.function_name);
-        let mut count = function_count;
-
-        let mut parameters = Vec::new();
-        let mut resolved_function_defs = Vec::new();
-        let mut resolved_enum_defs = Vec::new();
-
-        for expression in call.parameters.iter() {
-            match expression {
-                ASTExpression::ASTFunctionCallExpression(call) => {
-                    if let Some(transformed_function_call) =
-                        self.transform_call(self.count, context, &self.module, call)
-                    {
-                        parameters.push(ASTExpression::ASTFunctionCallExpression(
-                            transformed_function_call.new_function_call,
-                        ));
-                        if let Some((new_count, mut new_function_defs)) =
-                            transformed_function_call.new_function_defs
-                        {
-                            count = new_count;
-                            resolved_function_defs.append(&mut new_function_defs);
-                        }
-
-                        if let Some((new_count, mut new_enum_defs)) =
-                            transformed_function_call.new_enums
-                        {
-                            count = new_count;
-                            resolved_enum_defs.append(&mut new_enum_defs);
-                        }
-                    } else {
-                        parameters.push(expression.clone());
-                    }
-                }
-                _ => {
-                    parameters.push(expression.clone());
-                }
-            }
-        }
-
-        let function_def = if let Some(f) = self
-            .functions
-            .iter()
-            .flat_map(|it| it.1.iter())
-            .find(|it| it.function_def.name == call.function_name)
-        {
-            //println!("found {} in self.functions", call.function_name);
-            &f.function_def
-        } else if let Some(f) = module
-            .functions_by_name
-            .iter()
-            .find(|(name, it)| name.to_string() == call.function_name)
-        {
-            //println!("found {} in module.functions_by_name", call.function_name);
-            f.1
-        } else {
-            panic!("Cannot find function {}", call.function_name);
-        };
-
-        if function_def.param_types.is_empty() {
-            let mut new_call = call.clone();
-            new_call.parameters = parameters;
-            Some(TransformedCall {
-                new_function_call: new_call,
-                new_function_defs: Some((count, resolved_function_defs)),
-                new_enums: Some((count, resolved_enum_defs)),
-            })
-        } else {
-            let mut param_types_to_effective_types = HashMap::new();
-            let mut resolved_enum_defs = Vec::new();
-
-            for (i, param) in function_def.parameters.iter().enumerate() {
-                let parametric_types_of_declared_parameter =
-                    self.get_parametric_types(&param.type_ref.ast_type);
-
-                if !parametric_types_of_declared_parameter.is_empty() {
-                    debug!(
-                        "parametric_types {:?}",
-                        parametric_types_of_declared_parameter
-                    );
-                    let parameter_expression = parameters.get(i).unwrap();
-
-                    if let Some(type_of_expression) = self.get_type_of_expr(
-                        parameter_expression,
-                        context,
-                        &resolved_function_defs,
-                        &param.type_ref,
-                    ) {
-                        for (name, effective_type) in self
-                            .match_parametric_type_with_effective_type(
-                                &param.type_ref.ast_type,
-                                &type_of_expression.ast_type,
-                            )
-                        {
-                            param_types_to_effective_types.insert(name, effective_type);
-                        }
-                    }
-                }
-            }
-
-            let mut param_types_for_check = function_def.param_types.clone();
-
-            param_types_for_check.retain(|it| param_types_to_effective_types.contains_key(it));
-
-            if param_types_for_check.len() != function_def.param_types.len() {
-                panic!(
-                    "{} resolved param types do no match {:?}, {:?}",
-                    call.function_name, function_def.param_types, param_types_to_effective_types
-                )
-            }
-
-            let functions = self.functions.get(&function_def.name);
-
-            let mut new_call = call.clone();
-
-            if let Some(resolved_function_def) = functions.and_then(|v| {
-                v.iter()
-                    .find(|it| it.type_parameters.eq(&param_types_to_effective_types))
-            }) {
-                new_call.function_name = resolved_function_def.function_def.name.clone();
-                new_call.parameters = parameters;
-
-                Some(TransformedCall {
-                    new_function_call: new_call,
-                    new_function_defs: None,
-                    new_enums: None,
-                })
+macro_rules! debug_i {
+    ($ ( $ a: expr), *) => {
+        unsafe {
+            let s = if !ENABLE_INDENT || INDENT == 0 {
+                "".into()
             } else {
-                let effective_parameters: Vec<ASTParameterDef> = function_def
-                    .parameters
-                    .iter()
-                    .map(|it| {
-                        let (effective_type, mut red) = self.substitute(
-                            &it.type_ref.ast_type,
-                            &param_types_to_effective_types,
-                            &resolved_enum_defs,
-                        );
+                "|  ".repeat(INDENT)
+            };
+            debug ! ("{}{}", s, & format ! ( $( $ a), * ));
+        }
+    };
+}
 
-                        resolved_enum_defs.append(&mut red);
-
-                        ASTParameterDef {
-                            name: it.name.clone(),
-                            type_ref: ASTTypeRef {
-                                ast_ref: it.type_ref.ast_ref,
-                                ast_type: effective_type,
-                            },
-                        }
-                    })
-                    .collect();
-
-                let effective_return_type = function_def.return_type.clone().map(|it| {
-                    let (ast_type, mut red) = self.substitute(
-                        &it.ast_type,
-                        &param_types_to_effective_types,
-                        &resolved_enum_defs,
-                    );
-
-                    resolved_enum_defs.append(&mut red);
-
-                    ASTTypeRef {
-                        ast_ref: it.ast_ref,
-                        ast_type,
-                    }
-                });
-
-                let new_name = function_def.name.clone() + "_" + &count.to_string();
-                count += 1;
-
-                let mut new_function_def = function_def.clone();
-                new_function_def.name = new_name.clone();
-                new_function_def.parameters = effective_parameters;
-                new_function_def.return_type = effective_return_type;
-
-                let mut param_types = function_def.param_types.clone();
-                param_types.retain(|it| !param_types_to_effective_types.contains_key(it));
-
-                new_function_def.param_types = param_types.clone();
-
-                if !&param_types.is_empty() {
-                    panic!("new_function_def {:?}", new_function_def);
-                } else {
-                    debug!("new_function_def {:?}", new_function_def);
-                }
-
-                //Option<(usize, (HashMap<String, ASTType>, ASTFunctionDef), ASTFunctionCall)>
-
-                new_call.function_name = new_name;
-                new_call.parameters = parameters;
-
-                resolved_function_defs.push(ResolvedFunctionDef {
-                    type_parameters: param_types_to_effective_types.clone(),
-                    function_def: new_function_def.clone(),
-                });
-
-                Some(TransformedCall {
-                    new_function_call: new_call,
-                    new_function_defs: Some((count, resolved_function_defs)),
-                    new_enums: Some((resolved_enum_defs.len(), resolved_enum_defs)),
-                })
-
-                //self.functions.insert(function_def.name.clone(), functions);
+macro_rules! indent {
+    () => {
+        unsafe {
+            if ENABLE_INDENT {
+                INDENT += 1;
             }
         }
+    };
+}
+
+macro_rules! dedent {
+    () => {
+        unsafe {
+            if ENABLE_INDENT {
+                INDENT -= 1;
+            }
+        }
+    };
+}
+
+pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
+    unsafe {
+        INDENT = 0;
     }
 
-    fn get_type_of_expr(
-        &self,
-        expr: &ASTExpression,
-        val_context: &VarContext,
-        not_added_resolved_function_defs: &Vec<ResolvedFunctionDef>,
-        declared_type: &ASTTypeRef,
-    ) -> Option<ASTTypeRef> {
-        match expr {
-            ASTExpression::StringLiteral(_) => {
-                return Some(ASTTypeRef {
-                    ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
-                    ast_ref: true,
-                });
-            }
-            ASTExpression::ASTFunctionCallExpression(exp) => {
-                if let Some(function_def) = self
-                    .module
-                    .functions_by_name
-                    .values()
-                    .find(|it| it.name == exp.function_name)
-                {
-                    if let Some(tfc) =
-                        self.transform_call(self.count, val_context, &self.module, exp)
-                    {
-                        if let Some((_, mut new_resolved_function_def)) = tfc.new_function_defs {
-                            let mut all_resolved_function_defs =
-                                not_added_resolved_function_defs.clone();
-                            for rfd in self.functions.values() {
-                                all_resolved_function_defs.append(&mut rfd.clone());
-                            }
-                            all_resolved_function_defs.append(&mut new_resolved_function_def);
+    let mut body = module.body.clone();
 
-                            let new_function_def = all_resolved_function_defs
-                                .iter()
-                                .find(|it| {
-                                    it.function_def.name == tfc.new_function_call.function_name
-                                })
-                                .unwrap();
+    let context = VarContext::new(None);
 
-                            if let Some(declared_return_type) =
-                                &new_function_def.function_def.return_type
-                            {
-                                self.get_type_of_expr(
-                                    &ASTExpression::ASTFunctionCallExpression(
-                                        tfc.new_function_call,
-                                    ),
-                                    val_context,
-                                    &all_resolved_function_defs,
-                                    declared_return_type,
-                                );
-                            }
-                        } else {
-                            todo!()
-                        }
-                    }
-                    return function_def.return_type.clone();
-                } else if let Some(resolved_function_def) = self
-                    .functions
-                    .values()
-                    .flat_map(|it| it.iter())
-                    .find(|it| it.function_def.name == exp.function_name)
-                {
-                    return resolved_function_def.function_def.return_type.clone();
-                } else if let Some(resolved_function_def) = not_added_resolved_function_defs
-                    .iter()
-                    .find(|it| it.function_def.name == exp.function_name)
-                {
-                    return resolved_function_def.function_def.return_type.clone();
-                } else {
-                    panic!("cannot find function {}", exp.function_name);
-                }
-            }
-            ASTExpression::Val(name) => {
-                let var_kind = val_context
-                    .get(name)
-                    .unwrap_or_else(|| panic!("cannot find val {name}"));
-                match var_kind {
-                    VarKind::ParameterRef(_, def) => {
-                        return Some(def.type_ref.clone());
-                    }
-                }
-            }
-            ASTExpression::Number(_) => {
-                return Some(ASTTypeRef {
-                    ast_type: ASTType::Builtin(BuiltinTypeKind::ASTI32),
-                    ast_ref: false,
-                });
-            }
-            ASTExpression::Lambda(lambda) => {
-                let parametric_types = self.get_parametric_types(&declared_type.ast_type);
+    let mut type_conversion_context = TypeConversionContext::new();
 
-                return if parametric_types.is_empty() {
-                    Some(declared_type.clone())
-                } else if lambda.body.is_empty() {
-                    None
-                } else if let Some(last_expression) = lambda.body.last() {
-                    debug!("last expression of lambda body {:?}", last_expression);
-                    let last_expression_type = self.get_type_of_expr(
-                        last_expression,
-                        val_context,
-                        not_added_resolved_function_defs,
-                        declared_type,
-                    );
-                    debug!("  type {:?}", last_expression_type);
-                    last_expression_type
-                } else {
-                    None
-                };
-                //return Some(ASTTypeRef {ast_type: ASTType::Builtin(BuiltinTypeKind::Lambda {return_type , parameters}), ast_ref: true})
+    let mut something_to_convert = true;
+
+    let mut count = 0;
+
+    while something_to_convert && count < 100 {
+        count += 1;
+
+        debug_i!("convert loop {count}");
+        debug_i!("------------------------");
+
+        indent!();
+
+        something_to_convert = false;
+
+        let mut new_body = Vec::new();
+
+        for call in body.iter() {
+            let mut resolved_param_types = HashMap::new();
+
+            if let Some(new_call) = convert_call(
+                module,
+                &context,
+                call,
+                &mut type_conversion_context,
+                &mut resolved_param_types,
+            ) {
+                something_to_convert = true;
+                debug_i!(
+                    "converted call {} in {}",
+                    call.function_name,
+                    new_call.function_name
+                );
+
+                new_body.push(new_call)
+            } else {
+                new_body.push(call.clone());
             }
         }
+
+        body = new_body;
+
+        for function_def in type_conversion_context.clone().iter() {
+            debug_i!("converting function {}", function_def.name);
+
+            let mut resolved_param_types = HashMap::new();
+
+            let mut context = VarContext::new(None);
+
+            for (i, par) in function_def.parameters.iter().enumerate() {
+                debug_i!("inserting par {} in context", par.name);
+                context.insert(par.name.clone(), VarKind::ParameterRef(i, par.clone()));
+            }
+
+            match &function_def.body {
+                ASTFunctionBody::RASMBody(body) => {
+                    let mut new_function_def = function_def.clone();
+
+                    new_function_def.body = ASTFunctionBody::RASMBody(
+                        body.iter()
+                            .map(|it| {
+                                if let Some(new_expr) = convert_expr(
+                                    module,
+                                    it,
+                                    &context,
+                                    &mut type_conversion_context,
+                                    &mut resolved_param_types,
+                                ) {
+                                    debug_i!("converted expr {}", new_expr);
+                                    something_to_convert = true;
+                                    new_expr
+                                } else {
+                                    it.clone()
+                                }
+                            })
+                            .collect(),
+                    );
+
+                    type_conversion_context.replace_body(&new_function_def);
+                }
+                ASTFunctionBody::ASMBody(_) => {}
+            }
+
+            /*
+            for (name, v) in context.clone().iter() {
+                match v {
+                    VarKind::ParameterRef(i, par_def) => {
+                        if let Some(_) = substitute(&par_def.type_ref, &resolved_param_types) {
+                            something_to_convert = true;
+                            //let new_parameter_def = ASTParameterDef { name: par_def.name.clone(), type_ref: new_type };
+                            //context.insert(name.clone(), VarKind::ParameterRef(*i, new_parameter_def));
+                            //debug_i!("SUBSTITUTED CONTEXT PAR");
+                        }
+                    }
+                }
+            }
+
+             */
+
+            /*
+            if let Some(return_type) = &function_def.return_type {
+                //let mut new_function_def = function_def.clone();
+
+                if !get_parametric_types(&return_type.ast_type).is_empty() {
+                    panic!()
+                }
+            }
+
+             */
+        }
+        dedent!();
+    }
+
+    let mut copy_for_print = module.clone();
+
+    let mut functions_by_name = LinkedHashMap::new();
+
+    for new_function_def in type_conversion_context.iter() {
+        functions_by_name.insert(new_function_def.name.clone(), new_function_def);
+    }
+
+    copy_for_print.functions_by_name = functions_by_name;
+
+    Parser::print_enhanced(&copy_for_print);
+
+    convert_to_typed_module(module, body, &mut type_conversion_context)
+}
+
+fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
+    return match ast_type {
+        ASTType::Builtin(kind) => match kind {
+            BuiltinTypeKind::ASTString => {
+                vec![]
+            }
+            BuiltinTypeKind::ASTI32 => {
+                vec![]
+            }
+            BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            } => {
+                let mut par_types: Vec<String> = parameters
+                    .iter()
+                    .flat_map(|it| get_generic_types(&it.ast_type))
+                    .collect();
+                if let Some(rt) = return_type {
+                    par_types.append(&mut get_generic_types(&rt.as_ref().ast_type));
+                }
+                par_types.sort();
+                par_types.dedup();
+                par_types
+            }
+        },
+        ASTType::Parametric(p) => {
+            vec![p.into()]
+        }
+        ASTType::Custom {
+            name: _,
+            param_types: pt,
+        } => {
+            let mut result: Vec<String> = pt
+                .iter()
+                .flat_map(|it| match it.clone().ast_type {
+                    ASTType::Parametric(name) => {
+                        vec![name]
+                    }
+                    _ => get_generic_types(&it.ast_type),
+                })
+                .collect();
+            result.sort();
+            result.dedup();
+            result
+        }
+    };
+}
+
+fn convert_expr(
+    module: &EnhancedASTModule,
+    expr: &ASTExpression,
+    context: &VarContext,
+    typed_context: &mut TypeConversionContext,
+    resolved_param_types: &mut HashMap<String, ASTType>,
+) -> Option<ASTExpression> {
+    debug_i!("converting expr {expr}");
+
+    indent!();
+
+    let result = match expr {
+        ASTExpression::StringLiteral(_) => None,
+        ASTExpression::ASTFunctionCallExpression(call) => {
+            convert_call(module, context, call, typed_context, resolved_param_types)
+                .map(ASTExpression::ASTFunctionCallExpression)
+        }
+        ASTExpression::Val(p) => {
+            /*
+            if let Some(kind) = context.get(p) {
+                match kind {
+                    VarKind::ParameterRef(i, par) => {
+
+                      todo!()
+                    }
+                }
+            } else {
+                todo!()
+            }
+
+             */
+            None
+        }
+        ASTExpression::Number(_) => None,
+        ASTExpression::Lambda(_) => None,
+    };
+
+    dedent!();
+    result
+}
+
+fn convert_call(
+    module: &EnhancedASTModule,
+    context: &VarContext,
+    call: &ASTFunctionCall,
+    typed_context: &mut TypeConversionContext,
+    resolved_param_types: &mut HashMap<String, ASTType>,
+) -> Option<ASTFunctionCall> {
+    debug_i!("converting call {}", call);
+
+    indent!();
+
+    if let Some(p) = context.get(&call.function_name) {
+        dedent!();
         return None;
     }
 
-    fn get_parametric_types(&self, ast_type: &ASTType) -> Vec<String> {
-        return match ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::ASTString => {
-                    vec![]
-                }
-                BuiltinTypeKind::ASTI32 => {
-                    vec![]
-                }
-                BuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                } => {
-                    let mut par_types: Vec<String> = parameters
-                        .iter()
-                        .flat_map(|it| self.get_parametric_types(&it.ast_type))
-                        .collect();
-                    if let Some(rt) = return_type {
-                        par_types.append(&mut self.get_parametric_types(&rt.as_ref().ast_type));
-                    }
-                    par_types.sort();
-                    par_types.dedup();
-                    par_types
-                }
-            },
-            ASTType::Parametric(p) => {
-                vec![p.into()]
+    //let context = VarContext::new(Some(context));
+
+    let cloned_typed_context = typed_context.clone();
+
+    let mut function_def_from_module = true;
+
+    let function_def = module
+        .functions_by_name
+        .get(&call.function_name)
+        .unwrap_or_else(|| {
+            function_def_from_module = false;
+            cloned_typed_context
+                .get(&call.function_name)
+                .unwrap_or_else(|| panic!("function {}", call.function_name))
+        });
+
+    if function_def.param_types.is_empty() {
+        debug_i!(
+            "TODO check for not parameterized function {}",
+            call.function_name
+        );
+
+        if function_def_from_module {
+            if typed_context.add_untyped(function_def) {
+                dedent!();
+                return Some(call.clone());
+            } else {
+                dedent!();
+                return None;
             }
-            ASTType::Custom {
-                name: _,
-                param_types: pt,
-            } => {
-                let mut result: Vec<String> = pt
-                    .iter()
-                    .flat_map(|it| match it.clone().ast_type {
-                        ASTType::Parametric(name) => {
-                            vec![name]
-                        }
-                        _ => self.get_parametric_types(&it.ast_type),
-                    })
-                    .collect();
-                result.sort();
-                result.dedup();
-                result
-            }
-        };
+        } else {
+            dedent!();
+            return None;
+        }
     }
 
-    fn match_parametric_type_with_effective_type(
-        &self,
-        parametric_type: &ASTType,
-        effective_type: &ASTType,
-    ) -> HashMap<String, ASTType> {
-        debug!("match_parametric_type_with_effective_type:");
-        debug!("  {:?}", parametric_type);
-        debug!("  {:?}", effective_type);
+    debug_i!("function to convert {}", function_def);
 
-        let mut result = HashMap::new();
+    //let mut resolved_param_types = HashMap::new();
 
-        match effective_type {
-            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                BuiltinTypeKind::ASTString => match parametric_type {
-                    ASTType::Parametric(name) => {
-                        if let Some(old_type) = result.insert(name.into(), effective_type.clone()) {
-                            if !old_type.eq(effective_type) {
-                                panic!(
-                                    "There's already a type for a parameter that does not matches"
-                                );
-                            }
-                        }
-                    }
-                    _ => {
-                        panic!("Expected parametric type");
-                    }
-                },
-                BuiltinTypeKind::ASTI32 => match parametric_type {
-                    ASTType::Parametric(name) => {
-                        if let Some(old_type) = result.insert(name.into(), effective_type.clone()) {
-                            if !old_type.eq(effective_type) {
-                                panic!(
-                                    "There's already a type for a parameter that does not matches"
-                                );
-                            }
-                        }
-                    }
-                    _ => {
-                        panic!(
-                            "Expected type {:?}  got {:?}",
-                            parametric_type, effective_type
+    let mut expressions = Vec::new();
+    let mut converted_parameters = Vec::new();
+
+    let mut something_converted = false;
+
+    for (i, expr) in call.parameters.iter().enumerate() {
+        let par = function_def.parameters.get(i).unwrap_or_else(|| {
+            panic!(
+                "Cannot find parameter {i} when calling function {}",
+                call.function_name
+            )
+        });
+
+        if get_generic_types(&par.type_ref.ast_type).is_empty() {
+            converted_parameters.push(par.clone());
+            expressions.push(expr.clone());
+            continue;
+        }
+
+        match expr {
+            ASTExpression::StringLiteral(_) => {
+                debug_i!("calling update for StringLiteral");
+
+                something_converted = update(
+                    ASTType::Builtin(BuiltinTypeKind::ASTString),
+                    expr.clone(),
+                    par,
+                    resolved_param_types,
+                    &mut converted_parameters,
+                    &mut expressions,
+                ) || something_converted;
+            }
+            ASTExpression::ASTFunctionCallExpression(call) => {
+                if let Some(ast_function_call) =
+                convert_call(module, context, call, typed_context, resolved_param_types)
+                {
+                    something_converted = true;
+                    //info!("new_function_defs {:?} used_untyped_function_defs {:?}", new_function_defs, used_untyped_function_defs);
+
+                    let inner_function_def = typed_context
+                        .get(&ast_function_call.function_name)
+                        .unwrap_or_else(|| {
+                            info!(
+                                "{:?}",
+                                typed_context
+                                    .iter()
+                                    .map(|it| it.name)
+                                    .collect::<Vec<String>>()
+                            );
+                            panic!("Cannot find function {}", ast_function_call.function_name)
+                        });
+
+                    if let Some(rt) = &inner_function_def.return_type {
+                        // the generic types of the inner function are not the same of the this function
+                        let result_type = if get_generic_types(&rt.ast_type).is_empty() {
+                            inner_function_def.return_type.clone().unwrap()
+                        } else {
+                            par.clone().type_ref
+                        };
+                        debug_i!("calling update for ASTFunctionCallExpression");
+                        debug_i!(
+                            "expression {}",
+                            ASTExpression::ASTFunctionCallExpression(ast_function_call.clone())
+                        );
+                        update(
+                            result_type.ast_type,
+                            ASTExpression::ASTFunctionCallExpression(ast_function_call),
+                            par,
+                            resolved_param_types,
+                            &mut converted_parameters,
+                            &mut expressions,
+                        );
+                    } else {
+                        debug_i!("calling update for ASTFunctionCallExpression");
+                        debug_i!(
+                            "expression {}",
+                            ASTExpression::ASTFunctionCallExpression(ast_function_call.clone())
+                        );
+                        update(
+                            inner_function_def.return_type.clone().unwrap().ast_type,
+                            ASTExpression::ASTFunctionCallExpression(ast_function_call),
+                            par,
+                            resolved_param_types,
+                            &mut converted_parameters,
+                            &mut expressions,
                         );
                     }
-                },
-                BuiltinTypeKind::Lambda { .. } => {
-                    debug!(
-                        "match_parametric_type_with_effective_type lambda {:?}",
-                        parametric_type
-                    )
+                } else {
+                    converted_parameters.push(par.clone());
+                    expressions.push(expr.clone());
                 }
-            },
-            ASTType::Parametric(_) => {}
-            ASTType::Custom {
-                name: effective_name,
-                param_types: effective_param_types,
-            } => match parametric_type {
-                ASTType::Builtin(_) => {
-                    panic!("unexpected builtin type")
-                }
-                ASTType::Parametric(name) => {
-                    if let Some(old_type) = result.insert(name.into(), effective_type.clone()) {
-                        if !old_type.eq(effective_type) {
-                            panic!("There's already a type for a parameter that does not matches");
+            }
+            ASTExpression::Val(v) => {
+                let result_type = match context.get(v).unwrap_or_else(|| {
+                    panic!("cannot find val {v}, actual context {:?}", context.names())
+                }) {
+                    VarKind::ParameterRef(_, referenced_parameter_def) => {
+                        // TODO the generic types are not the same of those in this function
+                        //   so if there's some generic type, I cannot "resolve" the ref
+                        let gen_types =
+                            get_generic_types(&referenced_parameter_def.type_ref.ast_type);
+
+                        if gen_types.is_empty() {
+                            Some(referenced_parameter_def.type_ref.clone())
+                        } else {
+                            None
+                            /*
+                            let mut generics_map = HashMap::new();
+
+                            for (i, gt) in gen_types.iter().enumerate() {
+                                let ast_type = ASTType::Parametric(format!("{gt}_{}", i));
+                                generics_map.insert(gt.into(), ast_type);
+                            }
+
+                            substitute(&referenced_parameter_def.type_ref, &generics_map).unwrap()
+
+                             */
                         }
                     }
+                };
+
+                if let Some(t) = result_type {
+                    debug_i!("calling update for Val {v}");
+                    something_converted = update(
+                        t.ast_type,
+                        expr.clone(),
+                        par,
+                        resolved_param_types,
+                        &mut converted_parameters,
+                        &mut expressions,
+                    ) || something_converted;
+                } else {
+                    converted_parameters.push(par.clone());
+                    expressions.push(expr.clone());
                 }
-                ASTType::Custom { name, param_types } => {
-                    /*
-                    it could be that the original Custom type has been replaced with another with resolved parametric types then it has a different name
-                    if name != effective_name {
-                        panic!("unmatched custom type {name} {effective_name}");
+            }
+            ASTExpression::Number(_) => {
+                debug_i!("calling update for Number");
+                something_converted = update(
+                    ASTType::Builtin(BuiltinTypeKind::ASTI32),
+                    expr.clone(),
+                    par,
+                    resolved_param_types,
+                    &mut converted_parameters,
+                    &mut expressions,
+                ) || something_converted;
+            }
+            ASTExpression::Lambda(lambda) => {
+                let effective_lambda = if let Some(new_lambda) = convert_lambda(
+                    module,
+                    &par.type_ref.ast_type,
+                    lambda,
+                    context,
+                    typed_context,
+                    resolved_param_types,
+                ) {
+                    new_lambda
+                } else {
+                    lambda.clone()
+                };
+
+                if let Some(last) = effective_lambda.body.last() {
+                    /*if let Some(new_expr) =
+                    convert_expr(module, last, &context, typed_context, resolved_param_types)
+                    {
+                        debug_i!("NEW_EXPR {new_expr}");
                     }
 
                      */
-                    if param_types.len() != effective_param_types.len() {
-                        panic!("Effective custom parameters count do not match expected");
-                    }
 
-                    for (i, param_type) in param_types.iter().enumerate() {
-                        let effective_param_type = effective_param_types.get(i).unwrap();
+                    if let Some(result_type) =
+                    get_type_of_expression(module, context, last, typed_context)
+                    {
+                        // the generic types of the expression do not belong to this
+                        if get_generic_types(&result_type).is_empty() {
+                            something_converted = true;
 
-                        for (name, inner_effective_type) in self
-                            .match_parametric_type_with_effective_type(
-                                &param_type.ast_type,
-                                &effective_param_type.ast_type,
-                            )
-                        {
-                            if let Some(old_type) =
-                                result.insert(name.into(), inner_effective_type.clone())
+                            debug_i!("got result_type from lambda body {result_type}");
+
+                            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                                        parameters,
+                                                        return_type,
+                                                    }) = &par.type_ref.ast_type
                             {
-                                if !old_type.eq(&inner_effective_type) {
-                                    panic!("There's already a type for a parameter that does not match");
-                                }
+                                update(
+                                    ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                        return_type: Some(Box::new(ASTTypeRef {
+                                            ast_ref: return_type.clone().unwrap().ast_ref,
+                                            ast_type: result_type,
+                                        })),
+                                        parameters: parameters.clone(),
+                                    }),
+                                    ASTExpression::Lambda(effective_lambda),
+                                    par,
+                                    resolved_param_types,
+                                    &mut converted_parameters,
+                                    &mut expressions,
+                                );
                             }
-                        }
-                    }
-                }
-            },
-        }
-        result
-    }
-
-    fn substitute(
-        &self,
-        parametric_type: &ASTType,
-        param_types_to_effective_types: &HashMap<String, ASTType>,
-        resolved_enum_defs: &Vec<ResolvedEnumDef>,
-    ) -> (ASTType, Vec<ResolvedEnumDef>) {
-        if param_types_to_effective_types.is_empty() {
-            return (parametric_type.clone(), Vec::new());
-        }
-
-        let mut not_added_resolved_enum_defs = Vec::new();
-
-        let new_type = match parametric_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::ASTString => parametric_type.clone(),
-                BuiltinTypeKind::ASTI32 => parametric_type.clone(),
-                BuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                } => {
-                    let new_parameters = parameters
-                        .iter()
-                        .map(|it| {
-                            let mut all_resolved_enum_defs = resolved_enum_defs.clone();
-                            all_resolved_enum_defs
-                                .append(&mut not_added_resolved_enum_defs.clone());
-
-                            for x in self.enums.values() {
-                                for y in x {
-                                    all_resolved_enum_defs.push(y.clone());
-                                }
-                            }
-
-                            //all_resolved_enum_defs.append(&mut self_enums);
-
-                            let (ast_type, mut red) = self.substitute(
-                                &it.ast_type,
-                                param_types_to_effective_types,
-                                &all_resolved_enum_defs,
-                            );
-                            ASTTypeRef {
-                                ast_ref: it.ast_ref,
-                                ast_type,
-                            }
-                        })
-                        .collect();
-
-                    let new_return_type = return_type.clone().map(|it| {
-                        let mut all_resolved_enum_defs = resolved_enum_defs.clone();
-                        all_resolved_enum_defs.append(&mut not_added_resolved_enum_defs.clone());
-
-                        let (ast_type, mut red) = self.substitute(
-                            &it.ast_type,
-                            param_types_to_effective_types,
-                            &all_resolved_enum_defs,
-                        );
-
-                        not_added_resolved_enum_defs.append(&mut red);
-
-                        Box::new(ASTTypeRef {
-                            ast_ref: it.ast_ref,
-                            ast_type,
-                        })
-                    });
-
-                    let new_lambda = BuiltinTypeKind::Lambda {
-                        parameters: new_parameters,
-                        return_type: new_return_type,
-                    };
-
-                    ASTType::Builtin(new_lambda)
-                }
-            },
-            ASTType::Parametric(name) => param_types_to_effective_types.get(name).unwrap().clone(),
-            ASTType::Custom { name, param_types } => {
-                if param_types
-                    .iter()
-                    .map(|it| self.get_parametric_types(&it.ast_type).len())
-                    .sum::<usize>()
-                    == 0
-                {
-                    parametric_type.clone()
-                } else {
-                    let new_param_types = param_types
-                        .iter()
-                        .map(|it| {
-                            let mut all_resolved_enum_defs = resolved_enum_defs.clone();
-                            all_resolved_enum_defs
-                                .append(&mut not_added_resolved_enum_defs.clone());
-
-                            let (ast_type, mut red) = self.substitute(
-                                &it.ast_type,
-                                param_types_to_effective_types,
-                                &all_resolved_enum_defs,
-                            );
-
-                            not_added_resolved_enum_defs.append(&mut red);
-
-                            ASTTypeRef {
-                                ast_ref: it.ast_ref,
-                                ast_type,
-                            }
-                        })
-                        .collect();
-
-                    let mut all_resolved_enum_defs = resolved_enum_defs.clone();
-                    all_resolved_enum_defs.append(&mut not_added_resolved_enum_defs.clone());
-
-                    if let Some(resolved_enum_def) = all_resolved_enum_defs.iter().find(|it| {
-                        &it.original_name == name && it.parameter_types == new_param_types
-                    }) {
-                        ASTType::Custom {
-                            name: resolved_enum_def.enum_def.name.clone(),
-                            param_types: new_param_types,
+                        } else {
+                            converted_parameters.push(par.clone());
+                            expressions.push(expr.clone());
                         }
                     } else {
-                        let enum_def = self
-                            .module
-                            .enums
-                            .iter()
-                            .find(|it| &it.name == name)
-                            .unwrap();
-
-                        let count = all_resolved_enum_defs.len() + 1;
-
-                        let new_enum_def = ASTEnumDef {
-                            type_parameters: Vec::new(),
-                            name: name.clone() + &count.to_string(),
-                            variants: enum_def
-                                .variants
-                                .iter()
-                                .map(|it| {
-                                    let (var_def, mut red) = self.substitute_variant_def(
-                                        it,
-                                        param_types_to_effective_types,
-                                        &all_resolved_enum_defs,
-                                        &enum_def,
-                                        None,
-                                    );
-
-                                    not_added_resolved_enum_defs.append(&mut red);
-
-                                    var_def
-                                })
-                                .collect(),
-                        };
-
-                        let resolved_enum_def = ResolvedEnumDef {
-                            parameter_types: new_param_types.clone(),
-                            original_name: name.clone(),
-                            enum_def: new_enum_def.clone(),
-                        };
-
-                        let name = resolved_enum_def.enum_def.name.clone();
-
-                        // I resolve it again since there could be some self references in variant parameters
-
-                        let mut temp_resolved_enum_defs = not_added_resolved_enum_defs.clone();
-                        temp_resolved_enum_defs.push(resolved_enum_def);
-
-                        let new_enum_def = ASTEnumDef {
-                            type_parameters: Vec::new(),
-                            name: name.clone(),
-                            variants: enum_def
-                                .variants
-                                .iter()
-                                .map(|it| {
-                                    let (var_def, mut red) = self.substitute_variant_def(
-                                        it,
-                                        param_types_to_effective_types,
-                                        &temp_resolved_enum_defs,
-                                        &new_enum_def,
-                                        Some(&new_param_types),
-                                    );
-
-                                    not_added_resolved_enum_defs.append(&mut red);
-
-                                    var_def
-                                })
-                                .collect(),
-                        };
-
-                        let resolved_enum_def = ResolvedEnumDef {
-                            parameter_types: new_param_types.clone(),
-                            original_name: name.clone(),
-                            enum_def: new_enum_def,
-                        };
-
-                        not_added_resolved_enum_defs.push(resolved_enum_def);
-
-                        ASTType::Custom {
-                            name,
-                            param_types: new_param_types,
-                        }
+                        converted_parameters.push(par.clone());
+                        expressions.push(expr.clone());
                     }
                 }
             }
-        };
-
-        (new_type, not_added_resolved_enum_defs)
+        }
+        //}
     }
 
-    fn substitute_variant_def(
-        &self,
-        parametric_type: &ASTEnumVariantDef,
-        param_types_to_effective_types: &HashMap<String, ASTType>,
-        resolved_enum_defs: &Vec<ResolvedEnumDef>,
-        enum_def: &ASTEnumDef,
-        option: Option<&Vec<ASTTypeRef>>,
-    ) -> (ASTEnumVariantDef, Vec<ResolvedEnumDef>) {
-        let mut not_added_resolved_enum_defs = Vec::new();
+    if !something_converted {
+        debug_i!("nothing converted");
+        dedent!();
+        return None;
+    }
 
-        let variant_def = ASTEnumVariantDef {
-            name: parametric_type.name.clone(),
-            parameters: parametric_type
-                .parameters
-                .iter()
-                .map(|par| {
-                    let mut all_resolved_enum_defs = resolved_enum_defs.clone();
-                    all_resolved_enum_defs.append(&mut not_added_resolved_enum_defs.clone());
+    let mut remaining_generic_types = Vec::new();
 
-                    let it_is_the_same_enum_type =
-                        if let ASTType::Custom { name, param_types } = &par.type_ref.ast_type {
-                            let parametric_types: HashSet<&String> = HashSet::from_iter(
-                                param_types
-                                    .iter()
-                                    .map(|it| match &it.ast_type {
-                                        ASTType::Parametric(p) => Some(p),
-                                        _ => None,
-                                    })
-                                    .flatten(),
-                            );
+    let mut parameters = Vec::new();
 
-                            &enum_def.name == name
-                                && parametric_types == HashSet::from_iter(&enum_def.type_parameters)
+    for par in converted_parameters {
+        if !get_generic_types(&par.type_ref.ast_type).is_empty() {
+            if let Some(new_ref) = substitute(&par.type_ref, &resolved_param_types.clone()) {
+                remaining_generic_types.append(&mut get_generic_types(&new_ref.ast_type));
+                parameters.push(ASTParameterDef {
+                    name: par.name.clone(),
+                    type_ref: new_ref,
+                });
+            } else {
+                remaining_generic_types.append(&mut get_generic_types(&par.type_ref.ast_type));
+                parameters.push(par);
+            }
+        } else {
+            parameters.push(par);
+        }
+    }
+
+    let new_return_type = function_def.return_type.clone().map(|it| {
+        let t = if let Some(new_t) = substitute(&it, &resolved_param_types) {
+            something_converted = true;
+            new_t
+        } else {
+            it.clone()
+        };
+
+        remaining_generic_types.append(&mut get_generic_types(&t.ast_type));
+        t
+    });
+
+    remaining_generic_types.sort();
+    remaining_generic_types.dedup();
+
+    if !remaining_generic_types.is_empty() {
+        debug_i!(
+            "remaining parametric types for {} {:?}",
+            call.function_name,
+            remaining_generic_types
+        );
+    }
+
+    let new_function_name = format!("{}_{}", call.function_name, typed_context.len());
+
+    let new_function_def = ASTFunctionDef {
+        name: new_function_name,
+        parameters,
+        return_type: new_return_type,
+        body: function_def.body.clone(),
+        param_types: remaining_generic_types,
+        inline: function_def.inline,
+    };
+
+    let effective_function = if let Some(f) =
+    typed_context.try_add_new(&call.original_function_name, &new_function_def)
+    {
+        f
+    } else {
+        new_function_def
+    };
+
+    debug_i!("effective function {}", effective_function);
+
+    dedent!();
+
+    Some(ASTFunctionCall {
+        original_function_name: call.original_function_name.clone(),
+        function_name: effective_function.name,
+        parameters: expressions,
+    })
+}
+
+fn get_type_of_expression(
+    module: &EnhancedASTModule,
+    context: &VarContext,
+    expr: &ASTExpression,
+    typed_context: &mut TypeConversionContext,
+) -> Option<ASTType> {
+    match expr {
+        ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::ASTString)),
+        ASTExpression::ASTFunctionCallExpression(call) => {
+            let function_def = module
+                .functions_by_name
+                .get(&call.function_name)
+                .unwrap_or_else(|| {
+                    typed_context
+                        .get(&call.function_name)
+                        .unwrap_or_else(|| panic!("function {}", call.function_name))
+                });
+
+            function_def.return_type.clone().map(|it| it.ast_type)
+        }
+        ASTExpression::Val(v) => {
+            if let Some(VarKind::ParameterRef(i, par)) = context.get(v) {
+                Some(par.type_ref.ast_type.clone())
+            } else {
+                panic!();
+            }
+        }
+        ASTExpression::Number(_) => Some(ASTType::Builtin(BuiltinTypeKind::ASTI32)),
+        ASTExpression::Lambda(_) => {
+            todo!()
+        }
+    }
+}
+
+fn extract_generic_types_from_effective_type(
+    parametric_type: &ASTType,
+    effective_type: &ASTType,
+) -> HashMap<String, ASTType> {
+    debug_i!("extract_generic_types_from_effective_type:");
+    indent!();
+
+    debug_i!("parametric_type {}", parametric_type);
+    debug_i!("effective_type  {}", effective_type);
+
+    let mut result: HashMap<String, ASTType> = HashMap::new();
+
+    if parametric_type == effective_type {
+        dedent!();
+        return result;
+    }
+
+    match parametric_type {
+        ASTType::Builtin(kind) => match kind {
+            BuiltinTypeKind::ASTString => {}
+            BuiltinTypeKind::ASTI32 => {}
+            BuiltinTypeKind::Lambda {
+                parameters: p_parameters,
+                return_type: p_return_type,
+            } => match effective_type {
+                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                     parameters: e_parameters,
+                                     return_type: e_return_type,
+                                 }) => {
+                    for (i, p_p) in p_parameters.iter().enumerate() {
+                        let e_p = e_parameters.get(i).unwrap();
+                        let inner_result =
+                            extract_generic_types_from_effective_type(&p_p.ast_type, &e_p.ast_type);
+
+                        result.extend(inner_result.into_iter());
+                    }
+
+                    for p_t in p_return_type {
+                        let e_t = e_return_type.clone().unwrap();
+
+                        let inner_result =
+                            extract_generic_types_from_effective_type(&p_t.ast_type, &e_t.ast_type);
+
+                        result.extend(inner_result.into_iter());
+                    }
+                }
+                _ => {
+                    panic!("unmatched types")
+                }
+            },
+        },
+        ASTType::Parametric(p) => {
+            result.insert(p.clone(), effective_type.clone());
+        }
+        ASTType::Custom {
+            name: p_name,
+            param_types: p_param_types,
+        } => match effective_type {
+            ASTType::Custom {
+                name: e_name,
+                param_types: e_param_types,
+            } => {
+                if p_name != e_name {
+                    panic!("unmatched custom type name")
+                }
+
+                for (i, p_p) in p_param_types.iter().enumerate() {
+                    let e_p = e_param_types.get(i).unwrap();
+                    let inner_result =
+                        extract_generic_types_from_effective_type(&p_p.ast_type, &e_p.ast_type);
+
+                    result.extend(inner_result.into_iter());
+                }
+            }
+            _ => {
+                panic!("unmatched types {:?}", effective_type);
+            }
+        },
+    }
+
+    debug_i!("result {}", result.my_to_string());
+    dedent!();
+    result
+}
+
+fn convert_lambda(
+    module: &EnhancedASTModule,
+    lambda_type: &ASTType,
+    lambda: &ASTLambdaDef,
+    context: &VarContext,
+    typed_context: &mut TypeConversionContext,
+    resolved_param_types: &mut HashMap<String, ASTType>,
+) -> Option<ASTLambdaDef> {
+    debug_i!("converting lambda_type {lambda_type}, lambda {lambda}");
+    indent!();
+
+    let mut something_converted = false;
+
+    let mut context = VarContext::new(Some(context));
+
+    for (inner_i, name) in lambda.parameter_names.iter().enumerate() {
+        match &lambda_type {
+            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                 parameters,
+                                 return_type, // TODO I cannot convert the return type at this stage
+                             }) => {
+                let pp = parameters.get(inner_i).unwrap();
+
+                if let Some(new_t) = substitute(pp, resolved_param_types) {
+                    something_converted = true;
+
+                    context.insert(
+                        name.clone(),
+                        VarKind::ParameterRef(
+                            inner_i,
+                            ASTParameterDef {
+                                name: name.clone(),
+                                type_ref: new_t,
+                            },
+                        ),
+                    );
+                } else {
+                    context.insert(
+                        name.clone(),
+                        VarKind::ParameterRef(
+                            inner_i,
+                            ASTParameterDef {
+                                name: name.clone(),
+                                type_ref: pp.clone(),
+                            },
+                        ),
+                    );
+                }
+            }
+            _ => {
+                panic!()
+            }
+        }
+    }
+
+    let new_body: Vec<ASTExpression> = lambda
+        .body
+        .iter()
+        .map(|it| {
+            if let Some(new_expr) =
+            convert_expr(module, it, &context, typed_context, resolved_param_types)
+            {
+                something_converted = true;
+                new_expr
+            } else {
+                it.clone()
+            }
+        })
+        .collect();
+
+    let result = if something_converted {
+        debug_i!("something converted");
+        Some(ASTLambdaDef {
+            body: new_body,
+            parameter_names: lambda.parameter_names.clone(),
+        })
+    } else {
+        debug_i!("nothing converted");
+        None
+    };
+
+    dedent!();
+
+    result
+}
+
+fn substitute(
+    ast_type: &ASTTypeRef,
+    resolved_param_types: &HashMap<String, ASTType>,
+) -> Option<ASTTypeRef> {
+    let new_ast_type = substitute_type(&ast_type.ast_type, resolved_param_types);
+
+    new_ast_type.map(|it| ASTTypeRef {
+        ast_type: it,
+        ast_ref: ast_type.ast_ref,
+    })
+}
+
+fn substitute_type(
+    ast_type: &ASTType,
+    resolved_param_types: &HashMap<String, ASTType>,
+) -> Option<ASTType> {
+    debug_i!("substitute {ast_type} {:?}", resolved_param_types);
+    indent!();
+
+    let result = match &ast_type {
+        ASTType::Builtin(kind) => match kind {
+            BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            } => {
+                let mut something_substituted = false;
+                let new_parameters = parameters
+                    .iter()
+                    .map(|it| {
+                        if let Some(new_t) = substitute(it, resolved_param_types) {
+                            something_substituted = true;
+                            new_t
                         } else {
-                            false
-                        };
-
-                    if it_is_the_same_enum_type {
-                        let mut cloned = par.clone();
-
-                        if let Some(p) = option {
-                            cloned.type_ref.ast_type = ASTType::Custom {
-                                name: enum_def.name.clone(),
-                                param_types: p.clone(),
-                            };
+                            it.clone()
                         }
+                    })
+                    .collect();
 
-                        cloned
+                let new_return_type = return_type.clone().map(|it| {
+                    if let Some(new_t) = substitute(&it, resolved_param_types) {
+                        something_substituted = true;
+                        Box::new(new_t)
                     } else {
-                        let (ast_param_def, mut red) = self.substitute_param_def(
-                            par,
-                            param_types_to_effective_types,
-                            &all_resolved_enum_defs,
-                        );
+                        it
+                    }
+                });
 
-                        not_added_resolved_enum_defs.append(&mut red);
+                if something_substituted {
+                    Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters: new_parameters,
+                        return_type: new_return_type,
+                    }))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        },
+        ASTType::Parametric(p) => {
+            if resolved_param_types.contains_key(p) {
+                resolved_param_types.get(p).cloned()
+            } else {
+                None
+            }
+        }
+        ASTType::Custom { name, param_types } => {
+            let mut something_substituted = false;
 
-                        ast_param_def
+            let new_param_types = param_types
+                .iter()
+                .map(|it| {
+                    if let Some(new_t) = substitute(it, resolved_param_types) {
+                        something_substituted = true;
+                        new_t
+                    } else {
+                        it.clone()
                     }
                 })
-                .collect(),
-        };
+                .collect();
+            if something_substituted {
+                Some(ASTType::Custom {
+                    name: name.clone(),
+                    param_types: new_param_types,
+                })
+            } else {
+                None
+            }
+        }
+    };
 
-        (variant_def, not_added_resolved_enum_defs)
+    if let Some(r) = &result {
+        debug_i!("result {r}");
+    } else {
+        debug_i!("no result found");
     }
+    dedent!();
+    result
+}
 
-    fn substitute_param_def(
-        &self,
-        par: &ASTParameterDef,
-        param_types_to_effective_types: &HashMap<String, ASTType>,
-        resolved_enum_defs: &Vec<ResolvedEnumDef>,
-    ) -> (ASTParameterDef, Vec<ResolvedEnumDef>) {
-        let (ast_type, red) = self.substitute(
-            &par.type_ref.ast_type,
-            param_types_to_effective_types,
-            resolved_enum_defs,
-        );
-        let new_param_def = ASTParameterDef {
-            name: par.name.clone(),
-            type_ref: ASTTypeRef {
-                ast_ref: par.type_ref.ast_ref,
-                ast_type,
-            },
-        };
+fn update(
+    result_type: ASTType,
+    expr: ASTExpression,
+    par: &ASTParameterDef,
+    resolved_param_types: &mut HashMap<String, ASTType>,
+    parameters: &mut Vec<ASTParameterDef>,
+    expressions: &mut Vec<ASTExpression>,
+) -> bool {
+    debug_i!("update:");
+    indent!();
 
-        (new_param_def, red)
-    }
+    debug_i!("par.type {}", par.type_ref.ast_type);
+    debug_i!("result_type: {}", result_type);
+
+    let generic_types_from_effective_type =
+        extract_generic_types_from_effective_type(&par.type_ref.ast_type, &result_type);
+
+    let result = if generic_types_from_effective_type.is_empty() {
+        expressions.push(expr);
+        parameters.push(par.clone());
+        false
+    } else {
+        resolved_param_types.extend(generic_types_from_effective_type);
+
+        if let Some(t) = substitute_type(&par.type_ref.ast_type, resolved_param_types) {
+            expressions.push(expr);
+
+            debug_i!("converted type {}", t);
+
+            parameters.push(ASTParameterDef {
+                name: par.name.clone(),
+                type_ref: ASTTypeRef {
+                    ast_type: t,
+                    ast_ref: par.type_ref.ast_ref,
+                },
+            });
+            true
+        } else {
+            expressions.push(expr);
+            parameters.push(par.clone());
+            false
+        }
+    };
+
+    dedent!();
+    result
 }
 
 #[cfg(test)]
@@ -1139,27 +986,116 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
-        ASTParameterDef, ASTTypeRef,
+        ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind,
     };
     use crate::parser::Parser;
     use crate::transformations::enum_functions_creator::enum_functions_creator;
     use crate::transformations::struct_functions_creator::struct_functions_creator;
-    use crate::type_check::ToTypedModuleConverter;
+    use crate::type_check::typed_ast::ASTTypedModule;
+    use crate::type_check::{convert, extract_generic_types_from_effective_type};
+    use std::collections::HashMap;
     use std::path::Path;
+    use test_env_log::test;
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_simple() {
+        let parametric_type = parametric("T");
+        let effective_type = i32();
+        let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type);
+
+        let mut expected_result = HashMap::new();
+        expected_result.insert("T".into(), i32());
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_custom() {
+        let parametric_type = ASTType::Custom {
+            name: "List".into(),
+            param_types: vec![parametric_ref("T")],
+        };
+        let effective_type = ASTType::Custom {
+            name: "List".into(),
+            param_types: vec![i32_ref()],
+        };
+
+        let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type);
+
+        let mut expected_result = HashMap::new();
+        expected_result.insert("T".into(), i32());
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_lambda() {
+        let parametric_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters: vec![parametric_ref("T")],
+            return_type: Some(Box::new(parametric_ref("T"))),
+        });
+
+        let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters: vec![parametric_ref("T")],
+            return_type: Some(Box::new(i32_ref())),
+        });
+
+        let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type);
+
+        let mut expected_result = HashMap::new();
+        expected_result.insert("T".into(), i32());
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_lambda1() {
+        let parametric_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters: vec![parametric_ref("T")],
+            return_type: Some(Box::new(parametric_ref("T"))),
+        });
+
+        let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters: vec![i32_ref()],
+            return_type: Some(Box::new(parametric_ref("T"))),
+        });
+
+        let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type);
+
+        let mut expected_result = HashMap::new();
+        expected_result.insert("T".into(), i32());
+
+        assert_eq!(result, expected_result);
+    }
+
+    fn parametric_ref(name: &str) -> ASTTypeRef {
+        ASTTypeRef {
+            ast_ref: false,
+            ast_type: parametric(name),
+        }
+    }
+
+    fn parametric(name: &str) -> ASTType {
+        ASTType::Parametric(name.into())
+    }
+
+    fn i32_ref() -> ASTTypeRef {
+        ASTTypeRef {
+            ast_ref: false,
+            ast_type: i32(),
+        }
+    }
+
+    fn i32() -> ASTType {
+        ASTType::Builtin(BuiltinTypeKind::ASTI32)
+    }
 
     #[test]
     fn test() {
-        /*
-        let path = Path::new("resources/test/helloworld.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        let module = parser.parse(path);
-
-         */
-
         let parameter = ASTExpression::Number(10);
 
         let call = ASTFunctionCall {
+            original_function_name: "consume".into(),
             function_name: "consume".into(),
             parameters: vec![parameter],
         };
@@ -1183,68 +1119,55 @@ mod tests {
             functions: vec![function_def],
         };
 
-        let mut converter = ToTypedModuleConverter::new(EnhancedASTModule::new(&module));
-        let new_module = converter.convert();
-
-        println!("new_module {:?}", new_module);
+        let new_module = convert(&EnhancedASTModule::new(&module));
 
         assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
+        assert!(new_module.functions_by_name.get("consume_0").is_some());
 
-        println!("{:?}", new_module);
+        print(new_module);
     }
 
     #[test]
     fn test_list() {
-        let path = Path::new("resources/test/list.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        let module = parser.parse(path);
-
-        let backend = BackendAsm386::new();
-        let mut converter = ToTypedModuleConverter::new(struct_functions_creator(
-            &backend,
-            &enum_functions_creator(&backend, &EnhancedASTModule::new(&module)),
-        ));
-        let new_module = converter.convert();
-
-        println!(
-            "{:?}",
-            new_module
-                .functions_by_name
-                .values()
-                .map(|it| &it.name)
-                .collect::<Vec<&String>>()
-        );
-
-        println!(
-            "{:?}",
-            new_module
-                .enums
-                .iter()
-                .map(|it| &it.name)
-                .collect::<Vec<&String>>()
-        );
-
-        println!("{:?}", new_module.enums);
+        test_file("list.rasm");
     }
 
     #[test]
-    #[test_env_log::test]
     fn test_list_fmap() {
-        let path = Path::new("resources/test/list_fmap.rasm");
+        test_file("list_fmap.rasm");
+    }
+
+    #[test]
+    fn test_gameoflife() {
+        test_file("gameoflife.rasm");
+    }
+
+    #[test]
+    fn test_structs() {
+        test_file("structs.rasm");
+    }
+
+    fn test_file(file_name: &str) {
+        println!("file_name {file_name}");
+
+        let resource = format!("resources/test/{}", file_name);
+        let path = Path::new(&resource);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
         let backend = BackendAsm386::new();
-        let mut converter = ToTypedModuleConverter::new(struct_functions_creator(
+        let new_module = convert(&struct_functions_creator(
             &backend,
             &enum_functions_creator(&backend, &EnhancedASTModule::new(&module)),
         ));
-        let new_module = converter.convert();
 
+        print(new_module);
+    }
+
+    fn print(new_module: ASTTypedModule) {
         println!(
-            "{:?}",
+            "functions {:?}",
             new_module
                 .functions_by_name
                 .values()
@@ -1253,7 +1176,7 @@ mod tests {
         );
 
         println!(
-            "{:?}",
+            "enums {:?}",
             new_module
                 .enums
                 .iter()
@@ -1261,6 +1184,13 @@ mod tests {
                 .collect::<Vec<&String>>()
         );
 
-        println!("{:?}", new_module.enums);
+        println!(
+            "structs {:?}",
+            new_module
+                .structs
+                .iter()
+                .map(|it| &it.name)
+                .collect::<Vec<&String>>()
+        );
     }
 }
