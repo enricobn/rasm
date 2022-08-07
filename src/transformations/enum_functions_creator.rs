@@ -30,25 +30,21 @@ pub fn enum_functions_creator(
             &param_types,
         );
 
-        create_match(
+        create_match_like_function(
             backend,
             &mut functions_by_name,
             &enum_def,
-            &param_types,
             "Match",
-            Some(ASTTypeRef::custom(
-                &enum_def.name,
-                false,
-                param_types.clone(),
-            )),
+            Some(ASTTypeRef::parametric("_T", false)),
+            Some("_T".into()),
         );
 
-        create_match(
+        create_match_like_function(
             backend,
             &mut functions_by_name,
             &enum_def,
-            &param_types,
             "Run",
+            None,
             None,
         );
     }
@@ -61,71 +57,13 @@ pub fn enum_functions_creator(
     result
 }
 
-fn create_run(
+fn create_match_like_function(
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
     enum_def: &&ASTEnumDef,
-    param_types: &Vec<ASTTypeRef>,
-) {
-    let return_type = Some(ASTTypeRef::custom(
-        &enum_def.name,
-        false,
-        param_types.clone(),
-    ));
-
-    let body = enum_match_body(backend, &enum_def);
-
-    let function_body = ASTFunctionBody::ASMBody(body);
-    let param_types = enum_def
-        .type_parameters
-        .iter()
-        .map(|it| ASTTypeRef::parametric(it, false))
-        .collect();
-    let mut parameters = vec![ASTParameterDef {
-        name: "value".into(),
-        type_ref: ASTTypeRef {
-            ast_type: ASTType::Custom {
-                name: enum_def.name.clone(),
-                param_types,
-            },
-            ast_ref: true,
-        },
-    }];
-    for variant in enum_def.variants.iter() {
-        let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-            return_type: None,
-            parameters: variant
-                .parameters
-                .iter()
-                .map(|it| it.type_ref.clone())
-                .collect(),
-        });
-        parameters.push(ASTParameterDef {
-            name: variant.name.clone(),
-            type_ref: ASTTypeRef {
-                ast_type,
-                ast_ref: true,
-            },
-        });
-    }
-    let function_def = ASTFunctionDef {
-        name: enum_def.name.clone() + "Run",
-        parameters,
-        body: function_body,
-        inline: false,
-        return_type,
-        param_types: enum_def.type_parameters.clone(),
-    };
-    functions_by_name.insert(enum_def.name.clone() + "::run", function_def);
-}
-
-fn create_match(
-    backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
-    enum_def: &&ASTEnumDef,
-    param_types: &Vec<ASTTypeRef>,
     name: &str,
     return_type: Option<ASTTypeRef>,
+    extra_generic: Option<String>,
 ) {
     let body = enum_match_body(backend, &enum_def);
 
@@ -162,13 +100,19 @@ fn create_match(
             },
         });
     }
+    let mut param_types = enum_def.type_parameters.clone();
+
+    if let Some(g) = extra_generic {
+        param_types.push(g);
+    }
+
     let function_def = ASTFunctionDef {
         name: enum_def.name.clone() + name,
         parameters,
         body: function_body,
         inline: false,
         return_type,
-        param_types: enum_def.type_parameters.clone(),
+        param_types,
     };
     functions_by_name.insert(
         enum_def.name.clone() + "::" + &name.to_lowercase(),

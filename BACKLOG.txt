@@ -1,6 +1,7 @@
 Doing
 ------
 - type check
+ - when a typed lambda on T returns () it is not handled, and we get the error: Found parametric type {p} that is (). For now we cannot handle it
 
 Next
 -----

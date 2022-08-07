@@ -2,6 +2,7 @@ use std::path::Path;
 use crate::parser::ast::ASTTypeRef;
 use std::process::{Command, Stdio};
 use log::info;
+use crate::type_check::typed_ast::ASTTypedTypeRef;
 
 pub trait Backend {
 
@@ -9,7 +10,7 @@ pub trait Backend {
 
     fn address_from_stack_pointer(&self, index: i8) -> String;
 
-    fn type_len(&self, type_ref: &ASTTypeRef) -> u8;
+    fn type_len(&self, type_ref: &ASTTypedTypeRef) -> u8;
 
     fn word_len(&self) -> usize;
 
@@ -19,7 +20,7 @@ pub trait Backend {
 
     fn compile_and_link(&self, source_file: String);
 
-    fn type_size(&self, type_ref: &ASTTypeRef) -> Option<String>;
+    fn type_size(&self, type_ref: &ASTTypedTypeRef) -> Option<String>;
 
     fn pointer_size(&self) -> String;
 
@@ -47,7 +48,7 @@ impl Backend for BackendAsm386 {
         format!("[esp+{}]", index * 4)
     }
 
-    fn type_len(&self, _type_ref: &ASTTypeRef) -> u8 {
+    fn type_len(&self, _type_ref: &ASTTypedTypeRef) -> u8 {
         4
     }
 
@@ -94,7 +95,7 @@ impl Backend for BackendAsm386 {
         }
     }
 
-    fn type_size(&self, type_ref: &ASTTypeRef) -> Option<String> {
+    fn type_size(&self, type_ref: &ASTTypedTypeRef) -> Option<String> {
         let type_len = self.type_len(type_ref);
 
         if type_len == 1 {

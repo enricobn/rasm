@@ -11,7 +11,7 @@ fn nListPrintln(l: List<i32>) {
 }
 
 fn nListPrint(l: List<i32>) {
-    List::match(l, { head,tail -> nprint(head); List::match(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
+    List::run(l, { head,tail -> nprint(head); List::run(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
 }
 
 fn range(start: i32, end: i32) -> List<i32> {
@@ -35,7 +35,7 @@ fn listAnyMatch<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
 }
 
-fn listCount<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
+fn listCount<T>(l: List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> nadd(listCount(tail, predicate), if(predicate(head), { -> itn(1); }, { -> itn(0); })); }, { -> itn(0); });
 }
 
@@ -81,9 +81,9 @@ fn listPrintln<T>(l: List<T>, print: fn(T) -> ()) {
 }
 
 fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
-    List::match(l, { head,tail ->
+    List::run(l, { head,tail ->
         printFunction(head);
-        List::match(tail, { head1,tail1 -> sprint(","); }, { -> });
+        List::run(tail, { head1,tail1 -> sprint(","); }, { -> });
         listPrint(tail, printFunction);
     }, { -> });
 }

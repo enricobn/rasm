@@ -51,7 +51,7 @@ fn not(b: i32) -> i32 {
     ifImmediate(b, itn(0), itn(1));
 }
 
-fn with<T>(v: T, f: fn(T) -> O) -> O {
+fn with<T,O>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }
 

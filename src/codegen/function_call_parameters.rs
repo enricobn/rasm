@@ -1,12 +1,12 @@
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
-use crate::codegen::{CodeGen, LambdaSpace, VarContext, VarKind};
+use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedVarKind, ValContext, VarKind};
 use crate::codegen::stack::Stack;
-use crate::parser::ast::{ASTFunctionDef, ASTParameterDef, ASTType, ASTTypeRef};
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef};
 
 pub struct FunctionCallParameters<'a> {
-    parameters: Vec<ASTParameterDef>,
+    parameters: Vec<ASTTypedParameterDef>,
     parameters_added: usize,
     before: String,
     parameters_values: LinkedHashMap<String, String>,
@@ -36,7 +36,7 @@ impl<'a> FunctionCallParameters<'a> {
     /// ```
     ///
     /// ```
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTParameterDef>, inline: bool, immediate: bool, stack: &'a Stack) -> Self {
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a Stack) -> Self {
         Self {
             parameters_added: 0,
             before: String::new(),
@@ -74,30 +74,37 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("number {}", param_name));
     }
 
-    pub fn add_function_call(&mut self, code_gen: &mut CodeGen, function_name: String, comment: Option<&str>, type_ref: ASTTypeRef) {
+    pub fn add_function_call(&mut self, code_gen: &mut CodeGen, function_name: String, comment: Option<&str>, type_ref: ASTTypedTypeRef) {
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
 
         CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
-        if let ASTType::Custom { name, param_types: _ } = &type_ref.ast_type {
-            if code_gen.is_constructor(&function_name) {
-                //println!("is_enum_parametric_variant_function");
-                CodeGen::call_add_ref(&mut self.before, self.backend, "eax", "");
-            }
-            Self::push_to_scope_stack(self.backend, &mut self.before, "eax", "ebx");
-
-            code_gen.call_deref(&mut self.after, "[ebx]", &name, comment.unwrap_or(&function_name));
-            Self::pop_from_scope_stack(self.backend, &mut self.after, "ebx");
+        if let ASTTypedType::Enum { name } = &type_ref.ast_type {
+            self.add_function_call_code_for_reference_type(code_gen, &function_name, comment, &name);
+        } else if let ASTTypedType::Struct { name } = &type_ref.ast_type {
+            self.add_function_call_code_for_reference_type(code_gen, &function_name, comment, &name);
         }
         self.parameter_added_to_stack("function call result");
     }
 
-    pub fn add_lambda(&mut self, def: &mut ASTFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &VarContext, comment: Option<&str>) -> LambdaSpace {
+    fn add_function_call_code_for_reference_type(&mut self, code_gen: &mut CodeGen, function_name: &String, comment: Option<&str>, name: &str) {
+        if code_gen.is_constructor(&function_name) {
+            //println!("is_enum_parametric_variant_function");
+            CodeGen::call_add_ref(&mut self.before, self.backend, "eax", "");
+        }
+        Self::push_to_scope_stack(self.backend, &mut self.before, "eax", "ebx");
+
+        code_gen.call_deref(&mut self.after, "[ebx]", &name, comment.unwrap_or(&function_name));
+        Self::pop_from_scope_stack(self.backend, &mut self.after, "ebx");
+    }
+
+
+    pub fn add_lambda(&mut self, def: &mut ASTTypedFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &TypedValContext, comment: Option<&str>) -> LambdaSpace {
         let mut lambda_space = LambdaSpace::new(context.clone());
 
         let num_of_values_in_context = context.iter().filter(|(_, kind)| {
-            matches!(kind, VarKind::ParameterRef(_, _))
+            matches!(kind, TypedVarKind::ParameterRef(_, _))
         }).count();
 
         let stack_base_pointer = self.backend.stack_base_pointer();
@@ -119,7 +126,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         // TODO optimize: do not create parameters that are overridden by parent memcopy
         context.iter().for_each(|(name, kind)| {
-            if let VarKind::ParameterRef(index, par) = kind {
+            if let TypedVarKind::ParameterRef(index, par) = kind {
                 self.indirect_mov(
                     &format!("{}+{}", stack_base_pointer, (index + 2) * word_len),
                     &format!("ecx + {}", i * word_len), "ebx", Some(&format!("context parameter {}", name)));
@@ -147,7 +154,7 @@ impl<'a> FunctionCallParameters<'a> {
         lambda_space
     }
 
-    pub fn add_val(&mut self, original_param_name: String, val_name: &str, par: &ASTParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
+    pub fn add_val(&mut self, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
@@ -162,7 +169,7 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(&mut self.before, "", Some(descr), true);
     }
 
-    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypeRef, index_in_context: usize, indent: usize) {
+    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize) {
         self.debug_and_before(&format!("adding ref to param {original_param_name}, index_in_context {index_in_context}"), indent);
 
         let word_len = self.backend.word_len() as usize;
@@ -181,12 +188,12 @@ impl<'a> FunctionCallParameters<'a> {
                                   &format!("{} + {}", self.backend.stack_pointer(),
                                            (self.parameters_added + 1) * self.backend.word_len() as usize), "ebx", None);
 
-                if let ASTType::Custom { name: _, param_types: _ } = type_ref.ast_type {
+                if matches!(type_ref.ast_type, ASTTypedType::Enum { name: _ }) ||
+                    matches!(type_ref.ast_type, ASTTypedType::Struct { name: _ }) {
                     //CodeGen::call_add_ref(&mut self.before, self.backend, &format!("[{source}]"), &format!("{:?}", type_ref));
                 }
 
-                CodeGen::add(&mut self.before, "pop  ebx",None, true);
-
+                CodeGen::add(&mut self.before, "pop  ebx", None, true);
             }
         }
         self.parameter_added_to_stack(&format!("val {}", original_param_name));

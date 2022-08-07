@@ -1,8 +1,7 @@
 use crate::codegen::{EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTParameterDef, ASTStructPropertyDef, ASTType, ASTTypeRef,
-    BuiltinTypeKind,
+    ASTLambdaDef, ASTParameterDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind,
 };
 use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
@@ -20,7 +19,7 @@ pub struct ASTTypedFunctionDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedLambdaDef {
-    //pub parameter_names: Vec<String>,
+    pub parameter_names: Vec<String>,
     pub body: Vec<ASTTypedExpression>,
 }
 
@@ -266,7 +265,6 @@ impl<'a> ConvContext<'a> {
     pub fn get_struct(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
         self.structs.get(enum_type).cloned()
     }
-
 }
 
 pub fn convert_to_typed_module(
@@ -285,6 +283,10 @@ pub fn convert_to_typed_module(
         );
     }
 
+    vec!["malloc", "exit", "sprint", "outOfHeapSpace", "outOfMemory", "slen", "sprintln"].iter().for_each(|it| {
+        add_mandatory_function(module, &mut conv_context, &mut functions_by_name, it)
+    });
+
     ASTTypedModule {
         body: new_body.iter().map(|it| function_call(it)).collect(),
         structs: conv_context.struct_defs,
@@ -292,6 +294,23 @@ pub fn convert_to_typed_module(
         functions_by_name,
         statics: module.statics.clone(),
         native_body: module.native_body.clone(),
+    }
+}
+
+fn add_mandatory_function(
+    module: &EnhancedASTModule,
+    conv_context: &mut ConvContext,
+    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
+    function_name: &str,
+) {
+    if let Some(f) = module.functions_by_name.get(function_name) {
+        functions_by_name.insert(
+            function_name.into(),
+            function_def(
+                conv_context,
+                f,
+            ),
+        );
     }
 }
 
@@ -347,6 +366,7 @@ fn expression(expression: &ASTExpression) -> ASTTypedExpression {
 
 fn lambda_def(lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
     ASTTypedLambdaDef {
+        parameter_names: lambda_def.parameter_names.clone(),
         body: lambda_def.body.iter().map(expression).collect(),
     }
 }
