@@ -1,10 +1,11 @@
-use linked_hash_map::LinkedHashMap;
 use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType,
     ASTTypeRef, BuiltinTypeKind,
 };
+use linked_hash_map::LinkedHashMap;
+use std::detect::__is_feature_detected::rtm;
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
@@ -21,12 +22,36 @@ pub fn enum_functions_creator(
             .map(|it| ASTTypeRef::parametric(it, false))
             .collect();
 
-        create_constructors(backend, &mut functions_by_name, &mut native_body, &mut statics, enum_def, &param_types);
+        create_constructors(
+            backend,
+            &mut functions_by_name,
+            &mut native_body,
+            &mut statics,
+            enum_def,
+            &param_types,
+        );
 
-        create_match(backend, &mut functions_by_name, &enum_def, &param_types);
+        create_match(
+            backend,
+            &mut functions_by_name,
+            &enum_def,
+            &param_types,
+            "Match",
+            Some(ASTTypeRef::custom(
+                &enum_def.name,
+                false,
+                param_types.clone(),
+            )),
+        );
 
-        // TODO is very similar to match, the difference is the return type of the lambda, evene the asm code is equal
-        create_run(backend, &mut functions_by_name, &enum_def, &param_types);
+        create_match(
+            backend,
+            &mut functions_by_name,
+            &enum_def,
+            &param_types,
+            "Run",
+            None,
+        );
     }
 
     let mut result = module.clone();
@@ -37,8 +62,17 @@ pub fn enum_functions_creator(
     result
 }
 
-fn create_run(backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>, enum_def: &&ASTEnumDef, param_types: &Vec<ASTTypeRef>) {
-    let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types.clone()));
+fn create_run(
+    backend: &dyn Backend,
+    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    enum_def: &&ASTEnumDef,
+    param_types: &Vec<ASTTypeRef>,
+) {
+    let return_type = Some(ASTTypeRef::custom(
+        &enum_def.name,
+        false,
+        param_types.clone(),
+    ));
 
     let body = enum_match_body(backend, &enum_def);
 
@@ -86,9 +120,14 @@ fn create_run(backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<Strin
     functions_by_name.insert(enum_def.name.clone() + "::run", function_def);
 }
 
-fn create_match(backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>, enum_def: &&ASTEnumDef, param_types: &Vec<ASTTypeRef>) {
-    let return_type = Some(ASTTypeRef::custom(&enum_def.name, false, param_types.clone()));
-
+fn create_match(
+    backend: &dyn Backend,
+    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    enum_def: &&ASTEnumDef,
+    param_types: &Vec<ASTTypeRef>,
+    name: &str,
+    return_type: Option<ASTTypeRef>,
+) {
     let body = enum_match_body(backend, &enum_def);
 
     let function_body = ASTFunctionBody::ASMBody(body);
@@ -125,17 +164,27 @@ fn create_match(backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<Str
         });
     }
     let function_def = ASTFunctionDef {
-        name: enum_def.name.clone() + "Match",
+        name: enum_def.name.clone() + name,
         parameters,
         body: function_body,
         inline: false,
         return_type,
         param_types: enum_def.type_parameters.clone(),
     };
-    functions_by_name.insert(enum_def.name.clone() + "::match", function_def);
+    functions_by_name.insert(
+        enum_def.name.clone() + "::" + &name.to_lowercase(),
+        function_def,
+    );
 }
 
-fn create_constructors(backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>, mut native_body: &mut String, statics: &mut LinkedHashMap<String, MemoryValue>, enum_def: &ASTEnumDef, param_types: &Vec<ASTTypeRef>) {
+fn create_constructors(
+    backend: &dyn Backend,
+    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    mut native_body: &mut String,
+    statics: &mut LinkedHashMap<String, MemoryValue>,
+    enum_def: &ASTEnumDef,
+    param_types: &Vec<ASTTypeRef>,
+) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
