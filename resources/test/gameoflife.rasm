@@ -31,8 +31,8 @@ fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
 }
 
 fn printCells(cells: List<Cell>, width: i32, height: i32) {
-    listMap(range(0, height), { y ->
-        listMap(range(0, width), { x ->
+    listForeach(range(0, height), { y ->
+        listForeach(range(0, width), { x ->
             if(isAlive(cells, Cell(x, y)), { -> sprint("*"); }, { -> sprint(" "); });
         });
         sprintln("");

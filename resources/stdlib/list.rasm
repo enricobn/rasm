@@ -26,6 +26,10 @@ fn listMap<T,T1>(l: List<T>, map: fn(T) -> T1) -> List<T1> {
     List::match(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
 }
 
+fn listForeach<T>(l: List<T>, map: fn(T) -> ()) {
+    List::run(l, { head,tail -> map(head); listForeach(tail, map); }, { -> });
+}
+
 /** false = 0 true = any other value **/
 fn listAnyMatch<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> if(predicate(head), { -> itn(1); }, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
