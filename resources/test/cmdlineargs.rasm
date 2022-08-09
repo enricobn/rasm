@@ -4,7 +4,7 @@ nprintln(argc());
 printargv(1);
 
 fn printargv(n: i32) {
-    if(less(n,argc()),{ ->
+    ifRun(less(n,argc()),{ ->
         sprintln(argv(n));
         printargv(nadd(n, 1));
     },{ -> });

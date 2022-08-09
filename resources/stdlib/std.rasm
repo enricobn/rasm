@@ -26,14 +26,14 @@ fn moveUp(count: i32) {
 }
 
 fn assert(value: i32) {
-    if(value,{ -> },{ ->
+    ifRun(value,{ -> },{ ->
         sprintln("assertion failed");
         exit(1);
     });
 }
 
 fn assertFalse(value: i32) {
-    if(value,{ ->
+    ifRun(value,{ ->
         sprintln("assertion failed");
         exit(1);
     }, { -> });
@@ -55,11 +55,11 @@ fn with<T,O>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }
 
-fn with2<T1,T2>(v1: T1, v2: T2, f: fn(T1, T2) -> O) -> O {
+fn with2<T1,T2,O>(v1: T1, v2: T2, f: fn(T1, T2) -> O) -> O {
     f(v1, v2);
 }
 
-fn with3(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
+fn with3<T1,T2,T3,O>(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
     f(v1, v2, v3);
 }
 

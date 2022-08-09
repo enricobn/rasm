@@ -5,6 +5,7 @@ use crate::parser::ast::{
     ASTTypeRef, BuiltinTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
+use log::debug;
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
@@ -114,6 +115,9 @@ fn create_match_like_function(
         return_type,
         param_types,
     };
+
+    debug!("created function {function_def}");
+
     functions_by_name.insert(
         enum_def.name.clone() + "::" + &name.to_lowercase(),
         function_def,
@@ -137,7 +141,7 @@ fn create_constructors(
         };
         let type_ref = ASTTypeRef {
             ast_type,
-            ast_ref: true,
+            ast_ref: false,
         };
         let return_type = Some(type_ref);
         let body_str = if variant.parameters.is_empty() {
@@ -147,33 +151,33 @@ fn create_constructors(
             //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
 
             CodeGen::add(
-                &mut native_body,
+                native_body,
                 &format!("push    {} {}", backend.word_size(), backend.word_len()),
                 None,
                 true,
             );
-            CodeGen::add(&mut native_body, "call    malloc", None, true);
+            CodeGen::add(native_body, "call    malloc", None, true);
             CodeGen::add(
-                &mut native_body,
+                native_body,
                 &format!("add   {}, {}", backend.stack_pointer(), backend.word_len()),
                 None,
                 true,
             );
 
             CodeGen::add(
-                &mut native_body,
+                native_body,
                 &format!("mov   {} [{label}], eax", backend.word_size()),
                 None,
                 true,
             );
             CodeGen::add(
-                &mut native_body,
+                native_body,
                 &format!("mov   {} eax, [eax]", backend.word_size()),
                 None,
                 true,
             );
             CodeGen::add(
-                &mut native_body,
+                native_body,
                 &format!("mov   {} [eax], {variant_num}", backend.word_size()),
                 None,
                 true,
@@ -193,6 +197,9 @@ fn create_constructors(
             return_type,
             param_types: enum_def.type_parameters.clone(),
         };
+
+        debug!("created function {function_def}");
+
         functions_by_name.insert(
             enum_def.name.clone() + "::" + &variant.name.clone(),
             function_def,

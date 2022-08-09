@@ -91,11 +91,11 @@ impl Display for ASTType {
                     let formatted_return_type = if let Some(rt) = return_type {
                         format!("{}", *rt)
                     } else {
-                        "".into()
+                        "()".into()
                     };
 
                     f.write_str(&format!(
-                        "Lambda({}) -> {}",
+                        "fn ({}) -> {}",
                         pars.join(","),
                         formatted_return_type
                     ))
@@ -105,7 +105,11 @@ impl Display for ASTType {
             ASTType::Custom { name, param_types } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
-                f.write_str(&format!("{name}<{}>", pars.join(",")))
+                if pars.is_empty() {
+                    f.write_str(name)
+                } else {
+                    f.write_str(&format!("{name}<{}>", pars.join(",")))
+                }
             }
         }
     }

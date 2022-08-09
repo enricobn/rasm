@@ -1,7 +1,7 @@
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
-use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedVarKind, ValContext, VarKind};
+use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedVarKind};
 use crate::codegen::stack::Stack;
 use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef};
 

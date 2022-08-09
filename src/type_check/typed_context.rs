@@ -21,20 +21,21 @@ impl TypeConversionContext {
         original_name: &String,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
-        debug!("trying to add new function {}", function_def.name);
+        debug!("trying to add new function {function_def}" );
 
         if let Some(same_name_functions) = self.new_function_defs.get_mut(original_name) {
             if let Some(already_present) = same_name_functions.iter().find(|it| {
                 it.parameters == function_def.parameters
                     && it.return_type == function_def.return_type
             }) {
+                debug!("already added as {already_present}");
                 Some(already_present.clone())
             } else {
                 same_name_functions.push(function_def.clone());
                 None
             }
         } else {
-            let mut same_name_functions = vec![function_def.clone()];
+            let same_name_functions = vec![function_def.clone()];
             self.new_function_defs
                 .insert(original_name.clone(), same_name_functions);
             None
@@ -96,7 +97,8 @@ impl TypeConversionContext {
     }
 
     pub fn len(&self) -> usize {
-        self.used_untyped_function_defs.len() + self.new_function_defs.len()
+        let s: usize = self.new_function_defs.iter().map(|it| it.1.len()).sum();
+        self.used_untyped_function_defs.len() + s
     }
 
     pub fn is_empty(&self) -> bool {
@@ -178,6 +180,8 @@ mod tests {
             context.iter().map(|it| it.name).collect::<Vec<String>>(),
             vec!["aFun", "newFun", "anotherNewFun"]
         );
+
+        assert_eq!(context.len(), 3);
     }
 
     fn simple_function_def(name: &str) -> ASTFunctionDef {

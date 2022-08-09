@@ -356,6 +356,8 @@ impl<'a> CodeGen<'a> {
     }
 
     fn create_all_functions(&mut self) {
+        //debug!("create_all_functions, {:?}", self.functions.values().map(|it| it.name.clone()).collect::<Vec<String>>());
+        println!("create_all_functions, {:?}", self.functions.values().map(|it| it.name.clone()).collect::<Vec<String>>());
         for function_def in self.functions.clone().values() {
             // VarContext ???
             let vec1 = self.add_function_def(function_def, None, &TypedValContext::new(None), 0, false);
@@ -577,7 +579,7 @@ impl<'a> CodeGen<'a> {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
             }
         } else {
-            panic!("Cannot find function '{}'", function_call.function_name);
+            panic!("Cannot find function {} in {:?}", function_call.function_name, parent_def);
         };
 
         (before, lambda_calls)
@@ -656,7 +658,7 @@ impl<'a> CodeGen<'a> {
                         let mut def = ASTTypedFunctionDef {
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: format!("lambda{}", self.id),
-                            parameters: Vec::new(),
+                            parameters: parameters.clone(), // TODO is it correct? How did it work before???
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                             inline: false,

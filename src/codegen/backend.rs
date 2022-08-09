@@ -1,5 +1,4 @@
 use std::path::Path;
-use crate::parser::ast::ASTTypeRef;
 use std::process::{Command, Stdio};
 use log::info;
 use crate::type_check::typed_ast::ASTTypedTypeRef;

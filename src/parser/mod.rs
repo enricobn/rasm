@@ -5,9 +5,8 @@ use crate::lexer::Lexer;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 use crate::parser::asm_def_parser::AsmDefParser;
-use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTStructDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule, ASTParameterDef, ASTStructDef};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
-use crate::parser::ast::ASTType::Builtin;
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::param_types_matcher;
 use crate::parser::ParserState::StructDef;
@@ -499,24 +498,20 @@ impl Parser {
     }
 
     pub fn print(module: &ASTModule) {
-        println!("main() {{");
         module.body.iter().for_each(|call| {
-            print!("  ");
-            Self::print_call(call, false);
+            println!("{call}");
         });
-        println!("}}");
+        println!();
         module.functions.iter().for_each(|f| {
             Self::print_function_def(f)
         })
     }
 
     pub fn print_enhanced(module: &EnhancedASTModule) {
-        println!("main() {{");
         module.body.iter().for_each(|call| {
-            print!("  ");
-            Self::print_call(call, false);
+            println!("{call}");
         });
-        println!("}}");
+        println!();
         module.functions_by_name.values().for_each(|f| {
             Self::print_function_def(f)
         })
@@ -527,57 +522,11 @@ impl Parser {
             RASMBody(_) => print!("fn {}", f),
             ASMBody(_) => print!("asm {}", f)
         }
-
-        /*
-        let param_types = if !&f.param_types.is_empty() {
-            format!("<{}>", &f.param_types.join(","))
-        } else {
-            "".into()
-        };
-
-        match &f.body {
-            RASMBody(_) => print!("fn {}{}(", f.name, param_types),
-            ASMBody(_) => print!("asm {}{}(", f.name, param_types)
-        }
-        let mut first = true;
-        f.parameters.iter().for_each(|p| {
-            if !first {
-                print!(",");
-            }
-            print!("{}:", p.name);
-            let type_ref = &p.type_ref;
-            Self::print_type_ref(type_ref);
-            first = false;
-        });
-        print!(")");
-        if let Some(return_type) = &f.return_type {
-            print!(" -> ");
-            Self::print_type_ref(return_type);
-        }
-
-         */
         match &f.body {
             RASMBody(expressions) => {
                 println!(" {{");
                 expressions.iter().for_each(|call| {
-                    match call {
-                        ASTExpression::StringLiteral(s) => {
-                            println!("\"{}\";", s);
-                        }
-                        ASTExpression::ASTFunctionCallExpression(call) => {
-                            Self::print_call(call, false)
-                        }
-                        ASTExpression::Val(name) => {
-                            println!("{};", name);
-                        }
-                        ASTExpression::Number(n) => {
-                            println!("{};", n);
-                        }
-                        ASTExpression::Lambda(_) => {
-                            println!("{{ -> ... }};");
-                        }
-                    }
-                    print!("  ");
+                    println!("  {}", call);
                 });
                 println!("}}");
             }
@@ -585,62 +534,8 @@ impl Parser {
         }
     }
 
-    fn print_type_ref(type_ref: &ASTTypeRef) {
-        if type_ref.ast_ref {
-            print!("&");
-        }
-        match &type_ref.ast_type {
-            Builtin(bt) => {
-                match bt {
-                    BuiltinTypeKind::ASTString => print!("str"),
-                    BuiltinTypeKind::ASTI32 => print!("i32"),
-                    BuiltinTypeKind::Lambda { return_type: _return_type, parameters: _parameters } => print!("fn"), // TODO
-                }
-            }
-            ASTType::Parametric(name) => print!("{}", name),
-            // TODO do it better
-            ASTType::Custom { name, param_types } => print!("{}<{:?}>", name, param_types)
-        }
-    }
-
     fn get_state(&self) -> Option<&ParserState> {
         self.state.last()
-    }
-
-    fn print_call(call: &ASTFunctionCall, as_expression: bool) {
-        print!("{}(", call.function_name);
-        let mut first = true;
-        call.parameters.iter().for_each(|par| {
-            if !first {
-                print!(",");
-            }
-            match par {
-                ASTExpression::StringLiteral(s) => print!("\"{}\"", s),
-                ASTExpression::Number(n) => print!("{}", n),
-                ASTExpression::ASTFunctionCallExpression(call) => Self::print_call(call, true),
-                ASTExpression::Val(name) => print!("{}", name),
-                ASTExpression::Lambda(function_def) => {
-                    print!("{}", function_def);
-                    /*
-                    let calls = &function_def.body;
-                    print!("{{");
-                    calls.iter().for_each(|call| {
-                        // TODO
-                        //Self::print_call(call, true);
-                        print!("{call};");
-                    });
-                    print!("}}");
-
-                     */
-                }
-            }
-            first = false;
-        });
-        if as_expression {
-            print!(")");
-        } else {
-            println!(");");
-        }
     }
 
     fn error_msg(&self, message: &str) -> String {

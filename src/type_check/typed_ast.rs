@@ -7,6 +7,8 @@ use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -17,10 +19,29 @@ pub struct ASTTypedFunctionDef {
     pub inline: bool,
 }
 
+impl Display for ASTTypedFunctionDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
+        f.write_str(&format!("{}({})", self.name, pars.join(",")))?;
+        if let Some(rt) = &self.return_type {
+            f.write_str(&format!(" -> {}", rt))?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedLambdaDef {
     pub parameter_names: Vec<String>,
     pub body: Vec<ASTTypedExpression>,
+}
+
+impl Display for ASTTypedLambdaDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars = self.parameter_names.join(",");
+
+        f.write_str(&format!("{{ {} -> ... }}", pars))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,10 +73,60 @@ pub enum ASTTypedType {
     },
 }
 
+impl Display for ASTTypedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTTypedType::Builtin(kind) => match kind {
+                BuiltinTypedTypeKind::ASTString => f.write_str("str"),
+                BuiltinTypedTypeKind::ASTI32 => f.write_str("i32"),
+                BuiltinTypedTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
+
+                    let formatted_return_type = if let Some(rt) = return_type {
+                        format!("{}", *rt)
+                    } else {
+                        "()".into()
+                    };
+
+                    f.write_str(&format!(
+                        "fn ({}) -> {}",
+                        pars.join(","),
+                        formatted_return_type
+                    ))
+                }
+            },
+            //BuiltinTypedTypeKind::Parametric(name) => f.write_str(name),
+            /*
+            ASTType::Custom { name, param_types } => {
+                let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
+
+                f.write_str(&format!("{name}<{}>", pars.join(",")))
+            }
+
+             */
+            ASTTypedType::Enum { name } => {
+                f.write_str(&format!("{name}"))
+            }
+            ASTTypedType::Struct { name } => {
+                f.write_str(&format!("{name}"))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedParameterDef {
     pub name: String,
     pub type_ref: ASTTypedTypeRef,
+}
+
+impl Display for ASTTypedParameterDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}:{}", self.name, self.type_ref))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,10 +150,27 @@ pub struct ASTTypedTypeRef {
     pub ast_ref: bool,
 }
 
+impl Display for ASTTypedTypeRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.ast_ref {
+            f.write_str("&")?
+        }
+        f.write_str(&format!("{}", self.ast_type))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionCall {
     pub function_name: String,
     pub parameters: Vec<ASTTypedExpression>,
+}
+
+impl Display for ASTTypedFunctionCall {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
+
+        f.write_str(&format!("{}({})", self.function_name, pars.join(",")))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,6 +181,22 @@ pub enum ASTTypedExpression {
     Number(i32),
     Lambda(ASTTypedLambdaDef),
     //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
+}
+
+impl Display for ASTTypedExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTTypedExpression::StringLiteral(s) => f.write_str(&"\"s\"".to_string()),
+            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                let pars: Vec<String> =
+                    call.parameters.iter().map(|it| format!("{}", it)).collect();
+                f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
+            }
+            ASTTypedExpression::Val(p) => f.write_str(p),
+            ASTTypedExpression::Number(b) => f.write_str(&format!("{b}")),
+            ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -283,12 +387,12 @@ pub fn convert_to_typed_module(
         );
     }
 
-    vec!["malloc", "exit", "sprint", "outOfHeapSpace", "outOfMemory", "slen", "sprintln"].iter().for_each(|it| {
+    vec!["malloc", "exit", "sprint", "outOfHeapSpace", "outOfMemory", "slen", "sprintln", "println"].iter().for_each(|it| {
         add_mandatory_function(module, &mut conv_context, &mut functions_by_name, it)
     });
 
     ASTTypedModule {
-        body: new_body.iter().map(|it| function_call(it)).collect(),
+        body: new_body.iter().map(function_call).collect(),
         structs: conv_context.struct_defs,
         enums: conv_context.enum_defs,
         functions_by_name,
@@ -373,10 +477,10 @@ fn lambda_def(lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
 
 fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
     match body {
-        ASTFunctionBody::RASMBody(body) => {
-            ASTTypedFunctionBody::RASMBody(body.iter().map(|it| expression(it)).collect())
+        RASMBody(body) => {
+            ASTTypedFunctionBody::RASMBody(body.iter().map(expression).collect())
         }
-        ASTFunctionBody::ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
+        ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
     }
 }
 
@@ -554,5 +658,32 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
     ASTTypedTypeRef {
         ast_type,
         ast_ref: t_ref.ast_ref,
+    }
+}
+
+pub fn print_typed_module(module: &ASTTypedModule) {
+    module.body.iter().for_each(|call| {
+        println!("{call}");
+    });
+    println!();
+    module.functions_by_name.values().for_each(|f| {
+        print_function_def(f)
+    })
+}
+
+pub fn print_function_def(f: &ASTTypedFunctionDef) {
+    match &f.body {
+        ASTTypedFunctionBody::RASMBody(_) => print!("fn {}", f),
+        ASTTypedFunctionBody::ASMBody(_) => print!("asm {}", f)
+    }
+    match &f.body {
+        ASTTypedFunctionBody::RASMBody(expressions) => {
+            println!(" {{");
+            expressions.iter().for_each(|call| {
+                println!("  {}", call);
+            });
+            println!("}}");
+        }
+        ASTTypedFunctionBody::ASMBody(_) => println!(" {{...}}")
     }
 }
