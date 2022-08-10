@@ -1,8 +1,6 @@
 include "std.rasm"
 
 print();
-//or(0,0);
-//not(0);
 
 //False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
 

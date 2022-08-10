@@ -63,6 +63,10 @@ fn with3<T1,T2,T3,O>(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
     f(v1, v2, v3);
 }
 
+fn withRun<T>(v: T, f: fn(T) -> ()) {
+    f(v);
+}
+
 /*  OPTION */
 enum Option<T> {
   Some(value : T),

@@ -558,6 +558,13 @@ impl<'a> CodeGen<'a> {
             debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
             self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
                                 lambda_space, indent, is_lambda, stack)
+        } else if let Some(function_def) = self.functions.get(&function_call.function_name.replace("::", "_")) {
+            let def = function_def.clone();
+            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
+            let real_function_name = self.functions.get(&function_call.function_name.replace("::", "_")).unwrap().clone().name;
+            debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
+            self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
+                                lambda_space, indent, is_lambda, stack)
         } else if let Some(TypedVarKind::ParameterRef(index, par)) = context.get(&function_call.function_name) {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { return_type: _, parameters }) = par.clone().type_ref.ast_type {
                 let wl = self.backend.word_len() as usize;
@@ -658,7 +665,7 @@ impl<'a> CodeGen<'a> {
                         let mut def = ASTTypedFunctionDef {
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: format!("lambda{}", self.id),
-                            parameters: parameters.clone(), // TODO is it correct? How did it work before???
+                            parameters: Vec::new(), // TODO I don't remember why it does not have any parameter, but it seems to work...
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                             inline: false,

@@ -45,8 +45,9 @@ pub struct ASTLambdaDef {
 impl Display for ASTLambdaDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self.parameter_names.join(",");
+        let body = self.body.iter().map(|it| format!("{it};")).collect::<Vec<String>>().join("");
 
-        f.write_str(&format!("{{ {} -> ... }}", pars))
+        f.write_str(&format!("{{ {pars} -> {body} }}"))
     }
 }
 

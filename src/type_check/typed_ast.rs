@@ -39,8 +39,9 @@ pub struct ASTTypedLambdaDef {
 impl Display for ASTTypedLambdaDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self.parameter_names.join(",");
+        let body = self.body.iter().map(|it| format!("{it};")).collect::<Vec<String>>().join("");
 
-        f.write_str(&format!("{{ {} -> ... }}", pars))
+        f.write_str(&format!("{{ {pars} -> {body} }}"))
     }
 }
 
@@ -387,7 +388,7 @@ pub fn convert_to_typed_module(
         );
     }
 
-    vec!["malloc", "exit", "sprint", "outOfHeapSpace", "outOfMemory", "slen", "sprintln", "println"].iter().for_each(|it| {
+    vec!["malloc", "exit", "sprint", "outOfHeapSpace", "outOfMemory", "slen", "sprintln", "println", "addRef", "memcopy"].iter().for_each(|it| {
         add_mandatory_function(module, &mut conv_context, &mut functions_by_name, it)
     });
 
@@ -437,6 +438,9 @@ fn struct_property(
 }
 
 fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTTypedFunctionDef {
+    if !def.param_types.is_empty() {
+        panic!("function def has generics: {def}");
+    }
     ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(&def.body),

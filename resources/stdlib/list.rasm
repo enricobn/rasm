@@ -11,7 +11,12 @@ fn nListPrintln(l: List<i32>) {
 }
 
 fn nListPrint(l: List<i32>) {
-    List::run(l, { head,tail -> nprint(head); List::run(tail, { head1,tail1 -> sprint(",");}, { -> }); nListPrint(tail);}, { -> });
+    List::run(l,
+        { head,tail ->
+            nprint(head);
+            List::run(tail, { head1,tail1 -> sprint(",");}, { -> });
+            nListPrint(tail);
+        }, { -> });
 }
 
 fn range(start: i32, end: i32) -> List<i32> {
