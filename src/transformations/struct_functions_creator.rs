@@ -43,12 +43,15 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     for (i, par) in struct_def.properties.iter().rev().enumerate() {
         CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
 
+        /*
         if let ASTType::Custom { name: _, param_types: _ } = &par.type_ref.ast_type {
             CodeGen::call_add_ref(&mut body, backend, "ebx", "");
         } else if let ASTType::Parametric(_name) = &par.type_ref.ast_type {
             //println!("Parametric({name}) struct property");
             CodeGen::call_add_ref(&mut body, backend, "ebx", "");
         }
+
+         */
 
         CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
     }

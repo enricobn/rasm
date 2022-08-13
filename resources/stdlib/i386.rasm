@@ -438,13 +438,13 @@ asm deref(address: i32, descr: &str) -> i32 /{
     call    startDeref
     %endif
 
-    ; TODO for now this function can be called even for "non allocated" values (exactly for a function parametric type), so we check if the address is valid
+    ; we check if the address is valid
     mov     dword eax,_heap_table
     cmp     $address,eax
-    jb     .end
+    jb     .invalid_address
     add     eax,_heap_table_size
     cmp     $address,eax
-    jg      .end
+    jg      .invalid_address
 
     mov     dword eax,$address
 
@@ -484,6 +484,9 @@ asm deref(address: i32, descr: &str) -> i32 /{
     jmp     .end
 .negative_count:
     call    negativeCount
+    jmp     .end
+.invalid_address:
+    call    invalidAddress
 .end:
     %ifdef LOG_DEBUG
     call    endDeref
@@ -500,13 +503,13 @@ asm addRef(address: i32) /{
     call    startAddRef
     %endif
 
-    ; TODO for now this function can be called even for "non allocated" values (exactly for a function parametric type), so we check if the address is valid
+    ; we check if the address is valid
     mov     dword eax,_heap_table
     cmp     $address,eax
-    jb     .end
+    jb     .invalid_address
     add     eax,_heap_table_size
     cmp     $address,eax
-    jg      .end
+    jg      .invalid_address
 
     mov     dword eax,$address
 
@@ -520,6 +523,9 @@ asm addRef(address: i32) /{
     mov     dword ebx,[eax + 12] ; the count
     add     ebx,1
     mov     dword [eax + 12],ebx
+    jmp     .end
+.invalid_address:
+    call    invalidAddress
 .end:
     %ifdef LOG_DEBUG
     call    endAddRef
@@ -528,6 +534,11 @@ asm addRef(address: i32) /{
     pop     ebx
     pop     eax
 }/
+
+fn invalidAddress() {
+    sprintln("invalid address");
+    exit(1);
+}
 
 fn endDeref() {
     sprintln("end deref");

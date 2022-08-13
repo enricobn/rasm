@@ -1,9 +1,6 @@
 Doing
 ------
-- type check
- - some other problems remain.
-   Probably we must iterate in convert_call while some generic is resolved, to resolve it for other parameters, in particular lambdas,
-   because when a call is completely resolved, it has no more generics, and we cannot know how to resolve the remaining generics...
+- deallocation
 
 Next
 -----

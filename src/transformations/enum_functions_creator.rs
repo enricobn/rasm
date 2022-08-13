@@ -127,7 +127,7 @@ fn create_match_like_function(
 fn create_constructors(
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
-    mut native_body: &mut String,
+    native_body: &mut String,
     statics: &mut LinkedHashMap<String, MemoryValue>,
     enum_def: &ASTEnumDef,
     param_types: &Vec<ASTTypeRef>,
@@ -243,6 +243,7 @@ fn enum_parametric_variant_constructor_body(
             Some(&format!("parameter {}", par.name)),
             true,
         );
+        /*
         if let ASTType::Custom {
             name: _,
             param_types: _,
@@ -253,6 +254,8 @@ fn enum_parametric_variant_constructor_body(
             //println!("Parametric({name}) variant parameter");
             CodeGen::call_add_ref(&mut body, backend, "ebx", "");
         }
+
+         */
         CodeGen::add(
             &mut body,
             &format!(

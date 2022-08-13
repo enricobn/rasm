@@ -4,11 +4,9 @@ use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
     ASTType, ASTTypeRef, BuiltinTypeKind,
 };
-use crate::parser::Parser;
 use crate::type_check::typed_ast::{convert_to_typed_module, print_typed_module, ASTTypedModule};
 use crate::type_check::typed_context::TypeConversionContext;
-use linked_hash_map::LinkedHashMap;
-use log::{debug, info};
+use log::debug;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -86,7 +84,7 @@ impl From<String> for TypeCheckError {
     }
 }
 
-pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
+pub fn convert(module: &EnhancedASTModule, debug_asm: bool, print_allocation: bool) -> ASTTypedModule {
     //unsafe {
     INDENT.with(|indent| {
         *indent.borrow_mut() = 0;
@@ -285,7 +283,9 @@ pub fn convert(module: &EnhancedASTModule) -> ASTTypedModule {
 
      */
 
-    let new_module = convert_to_typed_module(module, body, &mut type_conversion_context);
+    let new_module = convert_to_typed_module(module, body, &mut type_conversion_context,
+                                             debug_asm,
+                                             print_allocation);
 
     print_typed_module(&new_module);
 
@@ -1411,7 +1411,7 @@ mod tests {
             functions: vec![function_def],
         };
 
-        let new_module = convert(&EnhancedASTModule::new(&module));
+        let new_module = convert(&EnhancedASTModule::new(&module), false, false);
 
         assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
         assert!(new_module.functions_by_name.get("consume_0").is_some());
@@ -1452,7 +1452,7 @@ mod tests {
         let new_module = convert(&struct_functions_creator(
             &backend,
             &enum_functions_creator(&backend, &EnhancedASTModule::new(&module)),
-        ));
+        ), false, false);
 
         print(new_module);
     }

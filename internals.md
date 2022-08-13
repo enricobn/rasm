@@ -29,23 +29,45 @@ address   allocated (false = 0 true = any other value)         size     count
 initial value
 "the address of the fist location" 0 MAX_MEMORY 0
 
-allocate(n)
+allocate(n)  
 I search the first slot with almost n free memory
-if there's no slot: pack the _allocation_table_ and search for n free memory 
+if there's no slot: pack the _allocation_table_ and search for n free memory
 if there's no slot: OutOfMemory
-otherwise, i return the anAddress, decrease the size of the slot, increment the address of the slot, 
+otherwise, i return the anAddress, decrease the size of the slot, increment the address of the slot,
 set the count to 1
 
-add_ref(address)
+add_ref(address)  
 I search the address in _allocation_table_
 if there's no slot: Error
 increase the count
 
-deref(address)
+deref(address)  
 I search the address in _allocation_table_
 if there's no slot: Error
 I decrease the count
 if 0 I set allocated to 0 (false)
+
+Examples:
+
+fn dummy() {
+print(Option::Some(1)); // we add it to the scope of the function
+// we deallocate it
+}
+
+fn dummy1() {
+print(getOpZero()); // we add it to the scope of the function
+// we deallocate it
+}
+
+fn print(o: Option<i32>) {
+// can we deallocate it?
+}
+
+fn getOpZero() -> Option<i32> {
+Option::Some(1); // we add it to the scope of the function
+Option::Some(0); // we add it to the scope of the function
+// we deallocate oOme(1), but not Some(0)
+}
 
 
 

@@ -33,6 +33,8 @@ pub struct CodeGen<'a> {
     heap_table_slots: usize,
     print_memory_info: bool,
     lambda_space_size: usize,
+    debug_asm: bool,
+    dereference: bool
 }
 
 #[derive(Debug, Clone)]
@@ -185,11 +187,10 @@ impl LambdaSpace {
 }
 
 impl<'a> CodeGen<'a> {
-    pub fn new(backend: &'a dyn Backend, module: ASTModule, lambda_space_size: usize, heap_size: usize, heap_table_slots: usize, print_memory_info: bool) -> Self {
-
+    pub fn new(backend: &'a dyn Backend, module: ASTModule, lambda_space_size: usize, heap_size: usize, heap_table_slots: usize, debug_asm: bool, print_memory_info: bool, dereference: bool) -> Self {
         let module = enum_functions_creator(backend, &EnhancedASTModule::new(&module));
         let module = struct_functions_creator(backend, &module);
-        let module = convert(&module);
+        let module = convert(&module, debug_asm, print_memory_info);
 
         Self {
             module,
@@ -204,7 +205,9 @@ impl<'a> CodeGen<'a> {
             heap_size,
             heap_table_slots,
             print_memory_info,
-            lambda_space_size
+            lambda_space_size,
+            debug_asm,
+            dereference,
         }
     }
 
@@ -315,7 +318,9 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut asm, "", None, true);
         CodeGen::add(&mut asm, "main:", None, false);
 
-        //CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
+        if self.debug_asm {
+            CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
+        }
 
         // command line arguments
         for i in 0..12 {
@@ -362,34 +367,6 @@ impl<'a> CodeGen<'a> {
             // VarContext ???
             let vec1 = self.add_function_def(function_def, None, &TypedValContext::new(None), 0, false);
             self.create_lambdas(vec1, 0);
-        }
-    }
-
-    fn create_only_used_functions(&mut self) {
-        let mut something_added = true;
-
-        let mut already_created_functions = HashSet::new();
-
-        while something_added {
-            something_added = false;
-            let functions_called = self.functions_called.clone();
-
-            //debug!("functions called {:?}", functions_called);
-
-            for function_name in functions_called {
-                if !already_created_functions.contains(&function_name) {
-                    let functions = self.functions.clone();
-                    if let Some(function_def) = functions.get(&function_name) {
-                        // TODO VarContext??
-                        let vec1 = self.add_function_def(function_def, None, &TypedValContext::new(None), 0, false);
-                        self.create_lambdas(vec1, 0);
-                        something_added = true;
-                        already_created_functions.insert(function_name);
-                    } else {
-                        panic!("Cannot find function {}", function_name);
-                    }
-                }
-            }
         }
     }
 
@@ -452,8 +429,8 @@ impl<'a> CodeGen<'a> {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
                             let tmp_stack = Stack::new();
 
-                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true, &tmp_stack);
-                            Self::add_val(&context, &lambda_space, &indent, &mut parameters, val, val, "");
+                            let mut parameters = FunctionCallParameters::new(self.backend, Vec::new(), function_def.inline, true, &tmp_stack, self.dereference);
+                            self.add_val(&context, &lambda_space, &indent, &mut parameters, val, val, "");
 
                             self.definitions.push_str(&parameters.before());
                         }
@@ -471,7 +448,7 @@ impl<'a> CodeGen<'a> {
             }
             ASTTypedFunctionBody::ASMBody(s) => {
                 let function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false,
-                                                                           &stack);
+                                                                           &stack, self.dereference);
 
                 self.definitions.push_str(
                     &function_call_parameters.resolve_asm_parameters(s, 0, indent));
@@ -615,7 +592,7 @@ impl<'a> CodeGen<'a> {
         }
 
         let mut call_parameters = FunctionCallParameters::new(self.backend, parameters.clone(),
-                                                              inline, false, stack);
+                                                              inline, false, stack, self.dereference);
 
         if !function_call.parameters.is_empty() {
             // as for C calling conventions parameters are pushed in reverse order
@@ -642,12 +619,13 @@ impl<'a> CodeGen<'a> {
                                 call_parameters.to_remove_from_stack(), lambda_space_opt, indent + 1, false, stack);
 
                         call_parameters.push(&s);
-                        call_parameters.add_function_call(self, function_call.function_name.clone(), Some(&param_name), param_type.clone());
+                        call_parameters.add_function_call(self, Some(&param_name),
+                                                          param_type.clone());
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
                     ASTTypedExpression::Val(name) => {
                         let error_msg = format!("Cannot find val {}, calling function {}", name, function_call.function_name);
-                        Self::add_val(context, &lambda_space_opt, &indent, &mut call_parameters, &param_name, name, &error_msg);
+                        self.add_val(context, &lambda_space_opt, &indent, &mut call_parameters, &param_name, name, &error_msg);
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
                         let (return_type, parameters_types) = if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { return_type, parameters }) = param_type.ast_type {
@@ -761,11 +739,11 @@ impl<'a> CodeGen<'a> {
         lambda_calls
     }
 
-    fn add_val(context: &TypedValContext, lambda_space_opt: &Option<&LambdaSpace>, indent: &usize, call_parameters: &mut FunctionCallParameters, param_name: &str, val_name: &str, error_msg: &str) {
+    fn add_val(&mut self, context: &TypedValContext, lambda_space_opt: &Option<&LambdaSpace>, indent: &usize, call_parameters: &mut FunctionCallParameters, param_name: &str, val_name: &str, error_msg: &str) {
         if let Some(var_kind) = context.get(val_name) {
             match var_kind {
                 TypedVarKind::ParameterRef(index, par) => {
-                    call_parameters.add_val(param_name.into(), val_name, par, *index, lambda_space_opt, *indent);
+                    call_parameters.add_val(self, param_name.into(), val_name, par, *index, lambda_space_opt, *indent);
                 }
             }
         } else {
@@ -803,11 +781,6 @@ impl<'a> CodeGen<'a> {
     }
 
     pub fn call_deref(&mut self, out: &mut String, source: &str, type_name: &str, descr: &str) {
-
-    }
-
-    // TODO re enable this
-    pub fn call_deref_(&mut self, out: &mut String, source: &str, type_name: &str, descr: &str) {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
@@ -834,13 +807,12 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut result, "pop ebx", None, true);
             CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
             for (i, prop) in struct_def.properties.iter().enumerate() {
-                // TODO for now I don't know the real type of the parameter since it could be a generic one
-                //if let ASTType::Custom { name: _, param_types: _ } = prop.type_ref.ast_type {
+                if let Some(_) = Self::get_reference_type_name(&prop.type_ref.ast_type) {
                     CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
                     CodeGen::add(&mut result, &format!("push     {ws} [ebx + {i} * {wl}]"), None, true);
                     CodeGen::add(&mut result, "call     deref", None, true);
                     CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
-                //}
+                }
             }
             CodeGen::add(&mut result, "pop ebx", None, true);
         }
@@ -857,13 +829,12 @@ impl<'a> CodeGen<'a> {
                     CodeGen::add(&mut result, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
                     for (j, par) in variant.parameters.iter().enumerate() {
                         //println!("par {:?}", par);
-                        // TODO for now I don't know the real type of the parameter since it could be a generic one
-                        //if let ASTType::Custom { name: _, param_types: _ } = par.type_ref.ast_type {
+                        if let Some(_) = Self::get_reference_type_name(&par.type_ref.ast_type) {
                             CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
                             CodeGen::add(&mut result, &format!("push     {ws} [ebx + {wl} + {j} * {wl}]"), None, true);
                             CodeGen::add(&mut result, "call     deref", None, true);
                             CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
-                        //}
+                        }
                     }
                     CodeGen::add(&mut result, &format!("._{type_name}_{i}_{}:", id), None, false);
                     id += 1;
@@ -876,6 +847,14 @@ impl<'a> CodeGen<'a> {
         self.id = id;
 
         Self::insert_on_top(&result, out);
+    }
+
+    fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
+        match ast_type {
+            ASTTypedType::Builtin(_) => { None }
+            ASTTypedType::Enum { name } => { Some(name.clone()) }
+            ASTTypedType::Struct { name } => { Some(name.clone()) }
+        }
     }
 
     pub fn call_add_ref(out: &mut String, backend: &dyn Backend, source: &str, descr: &str) {
@@ -943,7 +922,7 @@ mod tests {
 
         let backend = BackendAsm386::new();
 
-        let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false);
+        let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false, false, false);
 
         let asm = gen.asm();
 

@@ -1,4 +1,5 @@
 use crate::codegen::{EnhancedASTModule, MemoryValue};
+use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTLambdaDef, ASTParameterDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind,
@@ -8,7 +9,6 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -39,7 +39,12 @@ pub struct ASTTypedLambdaDef {
 impl Display for ASTTypedLambdaDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self.parameter_names.join(",");
-        let body = self.body.iter().map(|it| format!("{it};")).collect::<Vec<String>>().join("");
+        let body = self
+            .body
+            .iter()
+            .map(|it| format!("{it};"))
+            .collect::<Vec<String>>()
+            .join("");
 
         f.write_str(&format!("{{ {pars} -> {body} }}"))
     }
@@ -108,12 +113,8 @@ impl Display for ASTTypedType {
             }
 
              */
-            ASTTypedType::Enum { name } => {
-                f.write_str(&format!("{name}"))
-            }
-            ASTTypedType::Struct { name } => {
-                f.write_str(&format!("{name}"))
-            }
+            ASTTypedType::Enum { name } => f.write_str(&format!("{name}")),
+            ASTTypedType::Struct { name } => f.write_str(&format!("{name}")),
         }
     }
 }
@@ -376,6 +377,8 @@ pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
     new_body: Vec<ASTFunctionCall>,
     typed_context: &mut TypeConversionContext,
+    debug_asm: bool,
+    print_allocation: bool,
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
 
@@ -388,7 +391,55 @@ pub fn convert_to_typed_module(
         );
     }
 
-    vec!["malloc", "exit", "sprint", "outOfHeapSpace", "outOfMemory", "slen", "sprintln", "println", "addRef", "memcopy"].iter().for_each(|it| {
+    let mut default_functions = vec![
+        "malloc",
+        "exit",
+        "sprint",
+        "outOfHeapSpace",
+        "outOfMemory",
+        "slen",
+        "sprintln",
+        "println",
+        "addRef",
+        "memcopy",
+        "deref",
+        "negativeCount",
+        "invalidAddress",
+    ];
+
+    if print_allocation {
+        default_functions.append(&mut vec![
+            "printAllocated",
+            "printTableSlotsAllocated",
+            "printAllocatedString",
+            "printTableSlotsAllocatedString",
+            "nprint",
+        ])
+    }
+
+    if debug_asm {
+        default_functions.append(&mut vec![
+            "startMalloc",
+            "nprintln",
+            "newAddress",
+            "newAddressOk",
+            "notAllocated",
+            "allocate",
+            "printTab",
+            "startAddRef",
+            "endAddRef",
+            "deallocated",
+            "startDeref",
+            "endDeref",
+            "reused",
+            "endMalloc",
+        ])
+    }
+
+    default_functions.sort();
+    default_functions.dedup();
+
+    default_functions.iter().for_each(|it| {
         add_mandatory_function(module, &mut conv_context, &mut functions_by_name, it)
     });
 
@@ -409,13 +460,7 @@ fn add_mandatory_function(
     function_name: &str,
 ) {
     if let Some(f) = module.functions_by_name.get(function_name) {
-        functions_by_name.insert(
-            function_name.into(),
-            function_def(
-                conv_context,
-                f,
-            ),
-        );
+        functions_by_name.insert(function_name.into(), function_def(conv_context, f));
     }
 }
 
@@ -481,9 +526,7 @@ fn lambda_def(lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
 
 fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
     match body {
-        RASMBody(body) => {
-            ASTTypedFunctionBody::RASMBody(body.iter().map(expression).collect())
-        }
+        RASMBody(body) => ASTTypedFunctionBody::RASMBody(body.iter().map(expression).collect()),
         ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
     }
 }
@@ -636,17 +679,18 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
             }
 
              */
-            if let Some(_) = conv_context.module.enums.iter().find(|it| &it.name == name) {
+
+            if conv_context.module.enums.iter().any(|it| &it.name == name) {
                 if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
                     e
                 } else {
                     conv_context.add_enum(&t_ref.ast_type)
                 }
-            } else if let Some(_) = conv_context
+            } else if conv_context
                 .module
                 .structs
                 .iter()
-                .find(|it| &it.name == name)
+                .any(|it| &it.name == name)
             {
                 if let Some(e) = conv_context.get_struct(&t_ref.ast_type) {
                     e
@@ -654,7 +698,7 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
                     conv_context.add_struct(&t_ref.ast_type)
                 }
             } else {
-                panic!("Cannot find custom tyype {}", name);
+                panic!("Cannot find custom type {}", name);
             }
         }
     };
@@ -670,15 +714,16 @@ pub fn print_typed_module(module: &ASTTypedModule) {
         println!("{call}");
     });
     println!();
-    module.functions_by_name.values().for_each(|f| {
-        print_function_def(f)
-    })
+    module
+        .functions_by_name
+        .values()
+        .for_each(|f| print_function_def(f))
 }
 
 pub fn print_function_def(f: &ASTTypedFunctionDef) {
     match &f.body {
         ASTTypedFunctionBody::RASMBody(_) => print!("fn {}", f),
-        ASTTypedFunctionBody::ASMBody(_) => print!("asm {}", f)
+        ASTTypedFunctionBody::ASMBody(_) => print!("asm {}", f),
     }
     match &f.body {
         ASTTypedFunctionBody::RASMBody(expressions) => {
@@ -688,6 +733,6 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
             });
             println!("}}");
         }
-        ASTTypedFunctionBody::ASMBody(_) => println!(" {{...}}")
+        ASTTypedFunctionBody::ASMBody(_) => println!(" {{...}}"),
     }
 }

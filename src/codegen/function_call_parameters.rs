@@ -17,6 +17,7 @@ pub struct FunctionCallParameters<'a> {
     lambda_slots_to_deallocate: usize,
     stack: &'a Stack,
     after: String,
+    dereference: bool
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -36,7 +37,7 @@ impl<'a> FunctionCallParameters<'a> {
     /// ```
     ///
     /// ```
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a Stack) -> Self {
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a Stack, dereference: bool) -> Self {
         Self {
             parameters_added: 0,
             before: String::new(),
@@ -48,7 +49,8 @@ impl<'a> FunctionCallParameters<'a> {
             has_inline_lambda_param: false,
             lambda_slots_to_deallocate: 0,
             stack,
-            after: String::new()
+            after: String::new(),
+            dereference,
         }
     }
 
@@ -74,31 +76,29 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("number {}", param_name));
     }
 
-    pub fn add_function_call(&mut self, code_gen: &mut CodeGen, function_name: String, comment: Option<&str>, type_ref: ASTTypedTypeRef) {
+    pub fn add_function_call(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, param_type_ref: ASTTypedTypeRef) {
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
 
         CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
-        if let ASTTypedType::Enum { name } = &type_ref.ast_type {
-            self.add_function_call_code_for_reference_type(code_gen, &function_name, comment, &name);
-        } else if let ASTTypedType::Struct { name } = &type_ref.ast_type {
-            self.add_function_call_code_for_reference_type(code_gen, &function_name, comment, &name);
+        if let ASTTypedType::Enum { name } = &param_type_ref.ast_type {
+            self.add_code_for_reference_type(code_gen, comment, name, "eax");
+        } else if let ASTTypedType::Struct { name } = &param_type_ref.ast_type {
+            self.add_code_for_reference_type(code_gen, comment, name, "eax");
         }
         self.parameter_added_to_stack("function call result");
     }
 
-    fn add_function_call_code_for_reference_type(&mut self, code_gen: &mut CodeGen, function_name: &String, comment: Option<&str>, name: &str) {
-        if code_gen.is_constructor(&function_name) {
-            //println!("is_enum_parametric_variant_function");
-            CodeGen::call_add_ref(&mut self.before, self.backend, "eax", "");
+    fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str) {
+        if self.dereference {
+            CodeGen::call_add_ref(&mut self.before, self.backend, source, "");
+            Self::push_to_scope_stack(self.backend, &mut self.before, source, "ebx");
+
+            code_gen.call_deref(&mut self.after, "[ebx]", name, comment.unwrap_or(""));
+            Self::pop_from_scope_stack(self.backend, &mut self.after, "ebx");
         }
-        Self::push_to_scope_stack(self.backend, &mut self.before, "eax", "ebx");
-
-        code_gen.call_deref(&mut self.after, "[ebx]", &name, comment.unwrap_or(&function_name));
-        Self::pop_from_scope_stack(self.backend, &mut self.after, "ebx");
     }
-
 
     pub fn add_lambda(&mut self, def: &mut ASTTypedFunctionDef, parent_lambda_space: Option<&LambdaSpace>, context: &TypedValContext, comment: Option<&str>) -> LambdaSpace {
         let mut lambda_space = LambdaSpace::new(context.clone());
@@ -154,13 +154,13 @@ impl<'a> FunctionCallParameters<'a> {
         lambda_space
     }
 
-    pub fn add_val(&mut self, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
+    pub fn add_val(&mut self, code_gen: &mut CodeGen, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent);
+            self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent, &par.type_ref, code_gen);
         } else {
-            self.add_val_from_parameter(original_param_name, &par.type_ref, index_in_context, indent);
+            self.add_val_from_parameter(original_param_name, &par.type_ref, index_in_context, indent, code_gen);
         }
     }
 
@@ -169,16 +169,21 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(&mut self.before, "", Some(descr), true);
     }
 
-    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize) {
+    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize, code_gen: &mut CodeGen) {
         self.debug_and_before(&format!("adding ref to param {original_param_name}, index_in_context {index_in_context}"), indent);
 
         let word_len = self.backend.word_len() as usize;
 
+        let src: String;
+
         if self.inline {
-            self.parameters_values.insert(original_param_name.clone(), format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len));
+            src = format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
+
+            self.parameters_values.insert(original_param_name.clone(), src.clone());
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
+            src = format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index_in_context + 2) * word_len), None, true);
             } else {
@@ -196,18 +201,27 @@ impl<'a> FunctionCallParameters<'a> {
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
             }
         }
+
+        if let ASTTypedType::Enum { name } = &type_ref.ast_type {
+            self.add_code_for_reference_type(code_gen, None, name, &src);
+        } else if let ASTTypedType::Struct { name } = &type_ref.ast_type {
+            self.add_code_for_reference_type(code_gen, None, name, &src);
+        }
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
 
-    fn add_val_from_lambda_space(&mut self, original_param_name: &str, val_name: &str, lambda_space_index: usize, indent: usize) {
+    fn add_val_from_lambda_space(&mut self, original_param_name: &str, val_name: &str, lambda_space_index: usize, indent: usize, par_type_ref: &ASTTypedTypeRef, code_gen: &mut CodeGen) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
         let word_len = self.backend.word_len() as usize;
         let sbp = self.backend.stack_base_pointer();
 
+        let src: String;
+
         if self.inline {
             self.has_inline_lambda_param = true;
-            self.parameters_values.insert(original_param_name.into(), format!("[edx + {}]", lambda_space_index * word_len));
+            src = format!("[edx + {}]", lambda_space_index * word_len);
+            self.parameters_values.insert(original_param_name.into(), src.clone());
         } else {
             CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()),
                          None, true);
@@ -220,8 +234,18 @@ impl<'a> FunctionCallParameters<'a> {
                                   &format!("{} + {}", self.backend.stack_pointer(),
                                            (self.parameters_added + 1) * self.backend.word_len() as usize), "ebx", None);
             }
-            CodeGen::add(&mut self.before, "pop  ebx",None, true);
+
+            src = format!("[ebx + {}]", lambda_space_index * word_len);
+
+            CodeGen::add(&mut self.before, "pop  ebx", None, true);
         }
+
+        if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
+            self.add_code_for_reference_type(code_gen, None, name, &src);
+        } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
+            self.add_code_for_reference_type(code_gen, None, name, &src);
+        }
+
         self.parameter_added_to_stack(&format!("lambda from lambda space: {}", val_name));
     }
 
@@ -300,10 +324,13 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn push_to_scope_stack(backend: &dyn Backend, out: &mut String, what: &str, tmp_register: &str) {
         CodeGen::add(out, "; scope push", None, true);
+        CodeGen::add(out, &format!("push     {} eax", backend.word_size()), None, true);
         CodeGen::add(out, &format!("mov     {tmp_register},[_scope_stack]"), None, true);
-        CodeGen::add(out, &format!("mov     [{tmp_register}],{what}"), None, true);
+        CodeGen::add(out, &format!("mov     eax,{what}"), None, true);
+        CodeGen::add(out, &format!("mov     [{tmp_register}],eax"), None, true);
         CodeGen::add(out, &format!("add     {tmp_register},{}", backend.word_len()), None, true);
         CodeGen::add(out, &format!("mov     {} [_scope_stack],{tmp_register}", backend.word_size()), None, true);
+        CodeGen::add(out, "pop    eax", None, true);
     }
 
     fn pop_from_scope_stack(backend: &dyn Backend, out: &mut String, register_to_store_result: &str) {
