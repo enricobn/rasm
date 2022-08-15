@@ -552,13 +552,15 @@ fn get_type_of_typed_expression(
         }
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
             println!("function call expression");
-            let function_name = &call.function_name.replace("::", "_");
 
-            if let Some(function_def) = module.functions_by_name.get(function_name) {
+            if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
+                println!("found function in module");
+                function_def.return_type.clone().map(|it| it.ast_type)
+            } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
                 println!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(TypedVarKind::ParameterRef(i, par)) =
-            context.get(function_name)
+            context.get(&call.function_name)
             {
                 println!("found function in context");
 
@@ -568,7 +570,7 @@ fn get_type_of_typed_expression(
                     panic!("expected lambda, found: {}", &par.type_ref.ast_type);
                 }
             } else {
-                panic!();
+                panic!("Cannot find function {}", &call.function_name);
             }
         }
         ASTTypedExpression::Val(v) => {

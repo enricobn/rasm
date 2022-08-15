@@ -3,11 +3,11 @@ include "std.rasm"
 choose(atoi(argv(1)), { -> sprintln("0"); }, { -> sprintln("1"); }, { -> sprintln("2"); }, { -> sprintln("3"); });
 
 fn choose(n: i32, l0: fn() -> (), l1: fn() -> (), l2: fn() -> (), l3: fn() -> ()) {
-    if (eq(0, n),
+    ifRun (eq(0, n),
         { -> l0(); },
-        { -> if (eq(1, n),
+        { -> ifRun (eq(1, n),
                 { -> l1(); },
-                { -> if (eq(2,n),
+                { -> ifRun (eq(2,n),
                     { -> l2(); },
                     { -> l3(); }
                 );});
