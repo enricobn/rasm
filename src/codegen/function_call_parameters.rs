@@ -1,3 +1,4 @@
+use std::fmt::format;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
@@ -16,7 +17,7 @@ pub struct FunctionCallParameters<'a> {
     has_inline_lambda_param: bool,
     lambda_slots_to_deallocate: usize,
     stack: &'a Stack,
-    after: String,
+    after: Vec<String>,
     dereference: bool
 }
 
@@ -49,7 +50,7 @@ impl<'a> FunctionCallParameters<'a> {
             has_inline_lambda_param: false,
             lambda_slots_to_deallocate: 0,
             stack,
-            after: String::new(),
+            after: Vec::new(),
             dereference,
         }
     }
@@ -91,12 +92,14 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str) {
-        if self.dereference {
+        // TODO I really don't know if it is correct not to add ref and deref for immediate
+        if self.dereference && !self.immediate {
             CodeGen::call_add_ref(&mut self.before, self.backend, source, "");
-            Self::push_to_scope_stack(self.backend, &mut self.before, source, "ebx");
+            Self::push_to_scope_stack(self.backend, &mut self.before, source);
 
-            code_gen.call_deref(&mut self.after, "[ebx]", name, comment.unwrap_or(""));
-            Self::pop_from_scope_stack(self.backend, &mut self.after, "ebx");
+            //self.after.insert(0, code_gen.call_deref("[ebx]", name, comment.unwrap_or("")));
+            //self.after.insert(0, Self::pop_from_scope_stack(self.backend, "ebx"));
+            self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name));
         }
     }
 
@@ -156,6 +159,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_val(&mut self, code_gen: &mut CodeGen, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
+        println!("adding val {val_name}, par: {par}");
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
             self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent, &par.type_ref, code_gen);
@@ -172,6 +176,8 @@ impl<'a> FunctionCallParameters<'a> {
     fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize, code_gen: &mut CodeGen) {
         self.debug_and_before(&format!("adding ref to param {original_param_name}, index_in_context {index_in_context}"), indent);
 
+        println!("add_val_from_parameter original_param_name: {original_param_name}, type_ref: {type_ref}");
+
         let word_len = self.backend.word_len() as usize;
 
         let src: String;
@@ -184,6 +190,7 @@ impl<'a> FunctionCallParameters<'a> {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
             src = format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
+
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index_in_context + 2) * word_len), None, true);
             } else {
@@ -222,6 +229,11 @@ impl<'a> FunctionCallParameters<'a> {
             self.has_inline_lambda_param = true;
             src = format!("[edx + {}]", lambda_space_index * word_len);
             self.parameters_values.insert(original_param_name.into(), src.clone());
+            if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
+                self.add_code_for_reference_type(code_gen, None, name, &src);
+            } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
+                self.add_code_for_reference_type(code_gen, None, name, &src);
+            }
         } else {
             CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()),
                          None, true);
@@ -235,15 +247,13 @@ impl<'a> FunctionCallParameters<'a> {
                                            (self.parameters_added + 1) * self.backend.word_len() as usize), "ebx", None);
             }
 
-            src = format!("[ebx + {}]", lambda_space_index * word_len);
+            if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
+                self.add_code_for_reference_type(code_gen, None, name, "ebx");
+            } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
+                self.add_code_for_reference_type(code_gen, None, name, "ebx");
+            }
 
             CodeGen::add(&mut self.before, "pop  ebx", None, true);
-        }
-
-        if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, None, name, &src);
-        } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, None, name, &src);
         }
 
         self.parameter_added_to_stack(&format!("lambda from lambda space: {}", val_name));
@@ -313,34 +323,55 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
 
-    pub fn after(&self) -> String {
+    pub fn after(&self) -> Vec<String> {
         let mut s = String::new();
         if self.lambda_slots_to_deallocate > 0 {
             Self::deallocate_lambda_space(self.backend, &mut s, "ebx", self.lambda_slots_to_deallocate);
         }
-        s.push_str(&self.after);
-        s
+        let mut result = vec![s];
+        let mut after = self.after.clone();
+        result.append(&mut after);
+        result
     }
 
-    fn push_to_scope_stack(backend: &dyn Backend, out: &mut String, what: &str, tmp_register: &str) {
+    fn push_to_scope_stack(backend: &dyn Backend, out: &mut String, what: &str) {
+        let tmp_register = "ecx";
         CodeGen::add(out, "; scope push", None, true);
         CodeGen::add(out, &format!("push     {} eax", backend.word_size()), None, true);
+        CodeGen::add(out, &format!("push     {} {tmp_register}", backend.word_size()), None, true);
         CodeGen::add(out, &format!("mov     {tmp_register},[_scope_stack]"), None, true);
         CodeGen::add(out, &format!("mov     eax,{what}"), None, true);
         CodeGen::add(out, &format!("mov     [{tmp_register}],eax"), None, true);
         CodeGen::add(out, &format!("add     {tmp_register},{}", backend.word_len()), None, true);
         CodeGen::add(out, &format!("mov     {} [_scope_stack],{tmp_register}", backend.word_size()), None, true);
+        CodeGen::add(out, &format!("pop     {tmp_register}"), None, true);
         CodeGen::add(out, "pop    eax", None, true);
     }
 
-    fn pop_from_scope_stack(backend: &dyn Backend, out: &mut String, register_to_store_result: &str) {
+    fn pop_from_scope_stack_and_deref(code_gen: &mut CodeGen, backend: &dyn Backend, type_name: &str) -> String {
+        let register_to_store_result = "ecx";
+        let mut result = String::new();
+        CodeGen::add(&mut result, "; scope pop", None, true);
+        CodeGen::add(&mut result, &format!("push {} {register_to_store_result}", backend.word_size()), None, true);
+        CodeGen::add(&mut result, &format!("mov     {register_to_store_result},[_scope_stack]"), None, true);
+        CodeGen::add(&mut result, &format!("sub     {register_to_store_result},{}", backend.word_len()), None, true);
+        CodeGen::add(&mut result, &format!("mov     {} [_scope_stack],{register_to_store_result}", backend.word_size()), None, true);
+        //CodeGen::add(out, &format!("add     {register_to_store_result},{}", backend.word_len()), None, true);
+        //CodeGen::insert_on_top(&result, out);
+        result.push_str(&code_gen.call_deref(&format!("[{register_to_store_result}]"), type_name, ""));
+        CodeGen::add(&mut result, &format!("pop {register_to_store_result}"), None, true);
+        result
+    }
+
+    fn pop_from_scope_stack(backend: &dyn Backend, register_to_store_result: &str) -> String {
         let mut result = String::new();
         CodeGen::add(&mut result, "; scope pop", None, true);
         CodeGen::add(&mut result, &format!("mov     {register_to_store_result},[_scope_stack]"), None, true);
         CodeGen::add(&mut result, &format!("sub     {register_to_store_result},{}", backend.word_len()), None, true);
         CodeGen::add(&mut result, &format!("mov     {} [_scope_stack],{register_to_store_result}", backend.word_size()), None, true);
         //CodeGen::add(out, &format!("add     {register_to_store_result},{}", backend.word_len()), None, true);
-        CodeGen::insert_on_top(&result, out);
+        //CodeGen::insert_on_top(&result, out);
+        result
     }
 
     fn allocate_lambda_space(backend: &dyn Backend, out: &mut String, register_to_store_result: &str, slots: usize) {

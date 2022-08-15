@@ -287,7 +287,7 @@ pub fn convert(module: &EnhancedASTModule, debug_asm: bool, print_allocation: bo
                                              debug_asm,
                                              print_allocation);
 
-    print_typed_module(&new_module);
+    //print_typed_module(&new_module);
 
     new_module
 }

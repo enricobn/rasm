@@ -253,7 +253,7 @@ asm argc() -> i32 /{
 }/
 
 // TODO unsafe
-asm argv(i: i32) -> i32 /{
+asm argv(i: i32) -> &str /{
     push ebx
     push ecx
     mov ebx, _rasm_args
@@ -436,6 +436,10 @@ asm deref(address: i32, descr: &str) -> i32 /{
 
     %ifdef LOG_DEBUG
     call    startDeref
+    call    printTab
+    push    dword $address
+    call    nprintln
+    add     esp,4
     %endif
 
     ; we check if the address is valid
@@ -449,11 +453,6 @@ asm deref(address: i32, descr: &str) -> i32 /{
     mov     dword eax,$address
 
     %ifdef LOG_DEBUG
-    call    printTab
-    push    dword eax
-    call    nprintln
-    add     esp,4
-
     call    printTab
     push    dword $descr
     call    sprintln
@@ -503,6 +502,13 @@ asm addRef(address: i32) /{
     call    startAddRef
     %endif
 
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword $address
+    call    nprintln
+    add     esp,4
+    %endif
+
     ; we check if the address is valid
     mov     dword eax,_heap_table
     cmp     $address,eax
@@ -512,13 +518,6 @@ asm addRef(address: i32) /{
     jg      .invalid_address
 
     mov     dword eax,$address
-
-    %ifdef LOG_DEBUG
-    call    printTab
-    push    dword eax
-    call    nprintln
-    add     esp,4
-    %endif
 
     mov     dword ebx,[eax + 12] ; the count
     add     ebx,1

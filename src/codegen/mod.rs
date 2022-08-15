@@ -223,12 +223,19 @@ impl<'a> CodeGen<'a> {
 
         let stack = Stack::new();
 
+        let mut after = String::new();
+
         for function_call in &self.module.body.clone() {
-            let (s, mut lambda_calls) = self.call_function(function_call, &main_context, None, 0, None,
-                                                           0, false, &stack);
-            self.body.push_str(&s);
+            let (bf, af, mut lambda_calls) = self.call_function(function_call, &main_context, None, 0, None,
+                                                                0, false, &stack);
+            self.body.push_str(&bf);
+
+            Self::insert_on_top(&af.join("\n"), &mut after);
+
             self.lambdas.append(&mut lambda_calls);
         }
+
+        self.body.push_str(&after);
 
         info!("stack {:?}", stack);
         assert_eq!(stack.size(), 0);
@@ -384,8 +391,9 @@ impl<'a> CodeGen<'a> {
 
     fn add_function_def(&mut self, function_def: &ASTTypedFunctionDef, lambda_space: Option<&LambdaSpace>, parent_context: &TypedValContext, indent: usize, is_lambda: bool) -> Vec<LambdaCall> {
         debug!("{}Adding function def {}", " ".repeat(indent * 4), function_def.name);
+        println!("add_function_def {}", function_def.name);
+
         let mut lambda_calls = Vec::new();
-        //debug!("add_function_def {}", function_def.name);
         CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name), None, false);
 
         let sp = self.backend.stack_pointer();
@@ -412,17 +420,22 @@ impl<'a> CodeGen<'a> {
 
         let stack = Stack::new();
 
+        let mut after = String::new();
+
         match &function_def.body {
             ASTTypedFunctionBody::RASMBody(calls) => {
                 for call in calls {
                     match call {
                         ASTTypedExpression::ASTFunctionCallExpression(call_expression) => {
-                            let (s, mut lambda_calls_) = self.call_function(call_expression, &context, Some(function_def), 0,
-                                                                            lambda_space, indent + 1, false, &stack);
+                            let (bf, af, mut lambda_calls_) = self.call_function(call_expression, &context, Some(function_def), 0,
+                                                                                 lambda_space, indent + 1, false, &stack);
 
                             assert_eq!(stack.size(), 0, "function def {} calling {} stack {:?}", function_def.name, call_expression.function_name, stack);
 
-                            self.definitions.push_str(&s);
+                            self.definitions.push_str(&bf);
+
+                            Self::insert_on_top(&af.join("\n"), &mut after);
+
                             lambda_calls.append(&mut lambda_calls_);
                         }
                         ASTTypedExpression::Val(val) => {
@@ -433,6 +446,8 @@ impl<'a> CodeGen<'a> {
                             self.add_val(&context, &lambda_space, &indent, &mut parameters, val, val, "");
 
                             self.definitions.push_str(&parameters.before());
+
+                            Self::insert_on_top(&parameters.after().join("\n"), &mut after);
                         }
                         ASTTypedExpression::StringLiteral(_) => {
                             panic!("unsupported");
@@ -496,6 +511,8 @@ impl<'a> CodeGen<'a> {
             }
         }
 
+        self.definitions.push_str(&after);
+
         CodeGen::add(&mut self.definitions, &format!("pop     {}", bp), None, true);
         CodeGen::add(&mut self.definitions, "ret", None, true);
         lambda_calls
@@ -525,8 +542,9 @@ impl<'a> CodeGen<'a> {
     }
 
     fn call_function(&mut self, function_call: &ASTTypedFunctionCall, context: &TypedValContext, parent_def: Option<&ASTTypedFunctionDef>, added_to_stack: usize,
-                     lambda_space: Option<&LambdaSpace>, indent: usize, is_lambda: bool, stack: &Stack) -> (String, Vec<LambdaCall>) {
+                     lambda_space: Option<&LambdaSpace>, indent: usize, is_lambda: bool, stack: &Stack) -> (String, Vec<String>, Vec<LambdaCall>) {
         let mut before = String::new();
+        let mut after = Vec::new();
 
         let lambda_calls = if let Some(function_def) = self.functions.get(&function_call.function_name) {
             let def = function_def.clone();
@@ -534,20 +552,25 @@ impl<'a> CodeGen<'a> {
             let real_function_name = self.functions.get(&function_call.function_name).unwrap().clone().name;
             debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
             self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
-                                lambda_space, indent, is_lambda, stack)
+                                lambda_space, indent, is_lambda, stack, &mut after)
         } else if let Some(function_def) = self.functions.get(&function_call.function_name.replace("::", "_")) {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self.functions.get(&function_call.function_name.replace("::", "_")).unwrap().clone().name;
             debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
             self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
-                                lambda_space, indent, is_lambda, stack)
+                                lambda_space, indent, is_lambda, stack, &mut after,
+            )
         } else if let Some(TypedVarKind::ParameterRef(index, par)) = context.get(&function_call.function_name) {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { return_type: _, parameters }) = par.clone().type_ref.ast_type {
                 let wl = self.backend.word_len() as usize;
                 let bp = self.backend.stack_base_pointer();
 
-                let parameters_defs = parameters.iter().map(|it| ASTTypedParameterDef { name: "p".into(), type_ref: it.clone() }).collect();
+                let parameters_defs = parameters.iter().map(|it| {
+                    let name = format!("p_{}", self.id);
+                    self.id += 1;
+                    ASTTypedParameterDef { name, type_ref: it.clone() }
+                }).collect();
 
                 debug!("{}Calling lambda {}", " ".repeat(indent * 4), function_call.function_name);
                 debug!("{}parameters {:?}", " ".repeat((indent + 1) * 4), parameters);
@@ -558,7 +581,8 @@ impl<'a> CodeGen<'a> {
                 debug!("{}lambda_space {:?}", " ".repeat((indent + 1) * 4), lambda_space);
 
                 self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, parameters_defs, false, None,
-                                    format!("[{}+{}+{}]", bp, wl, (index + 1) * wl), lambda_space, indent, true, stack)
+                                    format!("[{}+{}+{}]", bp, wl, (index + 1) * wl), lambda_space, indent, true, stack,
+                                    &mut after)
             } else {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
             }
@@ -566,12 +590,13 @@ impl<'a> CodeGen<'a> {
             panic!("Cannot find function {} in {:?}", function_call.function_name, parent_def);
         };
 
-        (before, lambda_calls)
+        (before, after, lambda_calls)
     }
 
     fn call_function_(&mut self, function_call: &&ASTTypedFunctionCall, context: &TypedValContext, parent_def: &Option<&ASTTypedFunctionDef>, added_to_stack: usize, before: &mut String,
                       parameters: Vec<ASTTypedParameterDef>, inline: bool, body: Option<ASTTypedFunctionBody>, address_to_call: String,
-                      lambda_space_opt: Option<&LambdaSpace>, indent: usize, is_lambda: bool, stack: &Stack) -> Vec<LambdaCall> {
+                      lambda_space_opt: Option<&LambdaSpace>, indent: usize, is_lambda: bool, stack: &Stack,
+                      after: &mut Vec<String>) -> Vec<LambdaCall> {
         /*
         let parent_def_description = if let Some(pd) = parent_def {
             &pd.name
@@ -614,11 +639,14 @@ impl<'a> CodeGen<'a> {
                         call_parameters.add_number(&param_name, n, None);
                     }
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                        let (s, mut inner_lambda_calls) =
+                        let (bf, af, mut inner_lambda_calls) =
                             self.call_function(call, context, *parent_def, added_to_stack +
                                 call_parameters.to_remove_from_stack(), lambda_space_opt, indent + 1, false, stack);
 
-                        call_parameters.push(&s);
+                        call_parameters.push(&bf);
+
+                        after.insert(0, af.join("\n"));
+
                         call_parameters.add_function_call(self, Some(&param_name),
                                                           param_type.clone());
                         lambda_calls.append(&mut inner_lambda_calls);
@@ -724,9 +752,8 @@ impl<'a> CodeGen<'a> {
             stack.remove(call_parameters.to_remove_from_stack());
         }
 
-        for line in call_parameters.after().lines() {
-            before.push_str(line);
-            before.push('\n');
+        for line in call_parameters.after().iter().rev() {
+            after.insert(0, line.clone());
         }
 
         if inline {
@@ -780,7 +807,7 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn call_deref(&mut self, out: &mut String, source: &str, type_name: &str, descr: &str) {
+    pub fn call_deref(&mut self, source: &str, type_name: &str, descr: &str) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
@@ -807,12 +834,15 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut result, "pop ebx", None, true);
             CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
             for (i, prop) in struct_def.properties.iter().enumerate() {
+                /*
                 if let Some(_) = Self::get_reference_type_name(&prop.type_ref.ast_type) {
                     CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
                     CodeGen::add(&mut result, &format!("push     {ws} [ebx + {i} * {wl}]"), None, true);
                     CodeGen::add(&mut result, "call     deref", None, true);
                     CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
                 }
+
+                 */
             }
             CodeGen::add(&mut result, "pop ebx", None, true);
         }
@@ -829,12 +859,15 @@ impl<'a> CodeGen<'a> {
                     CodeGen::add(&mut result, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
                     for (j, par) in variant.parameters.iter().enumerate() {
                         //println!("par {:?}", par);
+                        /*
                         if let Some(_) = Self::get_reference_type_name(&par.type_ref.ast_type) {
                             CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
                             CodeGen::add(&mut result, &format!("push     {ws} [ebx + {wl} + {j} * {wl}]"), None, true);
                             CodeGen::add(&mut result, "call     deref", None, true);
                             CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
                         }
+
+                         */
                     }
                     CodeGen::add(&mut result, &format!("._{type_name}_{i}_{}:", id), None, false);
                     id += 1;
@@ -846,7 +879,8 @@ impl<'a> CodeGen<'a> {
 
         self.id = id;
 
-        Self::insert_on_top(&result, out);
+        //Self::insert_on_top(&result, out);
+        result
     }
 
     fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
