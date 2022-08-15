@@ -4,7 +4,7 @@ use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTLambdaDef, ASTParameterDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind,
 };
-use crate::type_check::{get_type_of_expression, substitute, TypeConversionContext};
+use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::collections::HashMap;
@@ -113,8 +113,8 @@ impl Display for ASTTypedType {
             }
 
              */
-            ASTTypedType::Enum { name } => f.write_str(&format!("{name}")),
-            ASTTypedType::Struct { name } => f.write_str(&format!("{name}")),
+            ASTTypedType::Enum { name } => f.write_str(&name.to_string()),
+            ASTTypedType::Struct { name } => f.write_str(&name.to_string()),
         }
     }
 }
@@ -188,14 +188,14 @@ pub enum ASTTypedExpression {
 impl Display for ASTTypedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTTypedExpression::StringLiteral(s) => f.write_str(&"\"s\"".to_string()),
+            ASTTypedExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
                 f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
             }
             ASTTypedExpression::Val(p) => f.write_str(p),
-            ASTTypedExpression::Number(b) => f.write_str(&format!("{b}")),
+            ASTTypedExpression::Number(n) => f.write_str(&format!("{n}")),
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }
     }
@@ -307,7 +307,7 @@ impl<'a> ConvContext<'a> {
                     .variants
                     .iter()
                     .map(|it| {
-                        enum_variant(self, it, &generic_to_type, &enum_type, &enum_typed_type, "")
+                        enum_variant(self, it, &generic_to_type, enum_type, &enum_typed_type, "")
                     })
                     .collect();
 
@@ -459,6 +459,7 @@ pub fn convert_to_typed_module(
             "reused",
             "endMalloc",
             "nprint",
+            "printRefCount"
         ])
     }
 
@@ -514,12 +515,12 @@ fn verify_function_call(
     context: &TypedValContext,
     call: &ASTTypedFunctionCall,
 ) {
-    println!("call {call}");
+    debug!("call {call}");
 
     let parameters_types = if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
         function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
     } else if let Some(TypedVarKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
-        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, return_type }) = &parameter_ref.type_ref.ast_type {
+        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, return_type: _ }) = &parameter_ref.type_ref.ast_type {
             parameters.iter().map(|it| it.ast_type.clone()).collect::<Vec<ASTTypedType>>()
         } else {
             panic!();
@@ -530,7 +531,7 @@ fn verify_function_call(
 
     for (i, expr) in call.parameters.iter().enumerate() {
         let par = parameters_types.get(i).unwrap().clone();
-        println!("par type {par}");
+        debug!("par type {par}");
         assert_eq!(
             get_type_of_typed_expression(module, context, expr, Some(&par))
                 .unwrap(),
@@ -545,26 +546,26 @@ fn get_type_of_typed_expression(
     expr: &ASTTypedExpression,
     ast_type: Option<&ASTTypedType>,
 ) -> Option<ASTTypedType> {
-    println!("expression {expr} {:?}", ast_type);
+    debug!("expression {expr} {:?}", ast_type);
     match expr {
         ASTTypedExpression::StringLiteral(_) => {
             Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString))
         }
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
-            println!("function call expression");
+            debug!("function call expression");
 
             if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
-                println!("found function in module");
+                debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
-                println!("found function in module");
+                debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(TypedVarKind::ParameterRef(i, par)) =
             context.get(&call.function_name)
             {
-                println!("found function in context");
+                debug!("found function in context");
 
-                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, return_type }) = &par.type_ref.ast_type {
+                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters: _, return_type }) = &par.type_ref.ast_type {
                     return_type.clone().map(|it| it.ast_type)
                 } else {
                     panic!("expected lambda, found: {}", &par.type_ref.ast_type);
@@ -904,7 +905,7 @@ pub fn print_typed_module(module: &ASTTypedModule) {
     module
         .functions_by_name
         .values()
-        .for_each(|f| print_function_def(f))
+        .for_each(print_function_def)
 }
 
 pub fn print_function_def(f: &ASTTypedFunctionDef) {

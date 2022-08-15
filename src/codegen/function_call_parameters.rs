@@ -1,4 +1,3 @@
-use std::fmt::format;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
@@ -159,7 +158,6 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_val(&mut self, code_gen: &mut CodeGen, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
-        println!("adding val {val_name}, par: {par}");
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
             self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent, &par.type_ref, code_gen);
@@ -175,8 +173,6 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize, code_gen: &mut CodeGen) {
         self.debug_and_before(&format!("adding ref to param {original_param_name}, index_in_context {index_in_context}"), indent);
-
-        println!("add_val_from_parameter original_param_name: {original_param_name}, type_ref: {type_ref}");
 
         let word_len = self.backend.word_len() as usize;
 
@@ -360,17 +356,6 @@ impl<'a> FunctionCallParameters<'a> {
         //CodeGen::insert_on_top(&result, out);
         result.push_str(&code_gen.call_deref(&format!("[{register_to_store_result}]"), type_name, ""));
         CodeGen::add(&mut result, &format!("pop {register_to_store_result}"), None, true);
-        result
-    }
-
-    fn pop_from_scope_stack(backend: &dyn Backend, register_to_store_result: &str) -> String {
-        let mut result = String::new();
-        CodeGen::add(&mut result, "; scope pop", None, true);
-        CodeGen::add(&mut result, &format!("mov     {register_to_store_result},[_scope_stack]"), None, true);
-        CodeGen::add(&mut result, &format!("sub     {register_to_store_result},{}", backend.word_len()), None, true);
-        CodeGen::add(&mut result, &format!("mov     {} [_scope_stack],{register_to_store_result}", backend.word_size()), None, true);
-        //CodeGen::add(out, &format!("add     {register_to_store_result},{}", backend.word_len()), None, true);
-        //CodeGen::insert_on_top(&result, out);
         result
     }
 

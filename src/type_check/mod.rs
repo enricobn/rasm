@@ -4,7 +4,7 @@ use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
     ASTType, ASTTypeRef, BuiltinTypeKind,
 };
-use crate::type_check::typed_ast::{convert_to_typed_module, print_typed_module, ASTTypedModule, ASTTypedTypeRef};
+use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
 use crate::type_check::typed_context::TypeConversionContext;
 use log::debug;
 use std::cell::RefCell;
@@ -80,7 +80,7 @@ impl From<&str> for TypeCheckError {
 
 impl From<String> for TypeCheckError {
     fn from(s: String) -> Self {
-        TypeCheckError { message: s.clone() }
+        TypeCheckError { message: s }
     }
 }
 
@@ -125,7 +125,7 @@ pub fn convert(module: &EnhancedASTModule, debug_asm: bool, print_allocation: bo
                 &context,
                 call,
                 &mut type_conversion_context,
-                &mut resolved_param_types,
+                &resolved_param_types,
             );
 
             match converted_call {
@@ -281,13 +281,9 @@ pub fn convert(module: &EnhancedASTModule, debug_asm: bool, print_allocation: bo
 
      */
 
-    let new_module = convert_to_typed_module(module, body, &mut type_conversion_context,
-                                             debug_asm,
-                                             print_allocation);
-
-    //print_typed_module(&new_module);
-
-    new_module
+    convert_to_typed_module(module, body, &mut type_conversion_context,
+                            debug_asm,
+                            print_allocation)
 }
 
 fn unknown_function_in_expr(
@@ -683,8 +679,6 @@ fn convert_call(
                             if let Some(rt) = return_type {
                                 if let Some(new_t) = substitute(rt, &resolved_param_types) {
                                     something_to_convert = true;
-                                    println!("new return type {new_t}");
-
                                     Some(new_t)
                                 } else if let Some(last) = effective_lambda.body.last() {
                                     let result_type =
@@ -868,25 +862,25 @@ fn convert_call(
                 call.function_name
             );
 
-            if function_def_from_module {
+            return if function_def_from_module {
                 if typed_context.add_untyped(function_def) {
                     //dedent!();
                     debug_i!(", but added to untyped");
-                    return Ok(Some(call.clone()));
+                    Ok(Some(call.clone()))
                     //return Ok(None);
                 } else {
                     if parameters_to_convert {
                         panic!();
                     }
                     //dedent!();
-                    return Ok(None);
+                    Ok(None)
                 }
             } else {
                 //dedent!();
                 if parameters_to_convert {
                     panic!();
                 }
-                return Ok(None);
+                Ok(None)
             }
         }
         if parameters_to_convert {
@@ -954,7 +948,7 @@ fn get_type_of_expression(
             }
         }
         ASTExpression::Val(v) => {
-            if let Some(VarKind::ParameterRef(i, par)) = context.get(v) {
+            if let Some(VarKind::ParameterRef(_i, par)) = context.get(v) {
                 Some(par.type_ref.ast_type.clone())
             } else {
                 panic!("Unknown val {v}");

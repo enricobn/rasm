@@ -205,7 +205,7 @@ pub enum ASTExpression {
 impl Display for ASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTExpression::StringLiteral(s) => f.write_str(&"\"s\"".to_string()),
+            ASTExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
             ASTExpression::ASTFunctionCallExpression(call) => {
                 let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();

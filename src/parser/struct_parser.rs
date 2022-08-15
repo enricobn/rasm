@@ -66,7 +66,7 @@ impl<'a> StructParser<'a> {
                 let type_parser = TypeParser::new(parser);
                 let name = parameters_s.get(i).unwrap().clone();
                 if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters) {
-                    parameters.push(ASTStructPropertyDef { name: name, type_ref });
+                    parameters.push(ASTStructPropertyDef { name, type_ref });
                 } else {
                     self.parser.panic(&format!("Cannot parse type for property {}:", name));
                     panic!();

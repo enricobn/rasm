@@ -267,7 +267,7 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_lambda_space_stack_buffer".into(), Mem(self.lambda_space_size, Bytes));
 
         self.statics.insert("_scope_stack".into(), Mem(4, Bytes));
-        self.statics.insert("_scope_stack_buffer".into(), Mem(1024, Bytes));
+        self.statics.insert("_scope_stack_buffer".into(), Mem(1024 * 1024, Bytes));
 
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
@@ -362,14 +362,13 @@ impl<'a> CodeGen<'a> {
         asm
     }
 
-    fn print_memory_info(mut asm: &mut String) {
-        CodeGen::add(&mut asm, "call   printAllocated", None, true);
-        CodeGen::add(&mut asm, "call   printTableSlotsAllocated", None, true);
+    fn print_memory_info(asm: &mut String) {
+        CodeGen::add(asm, "call   printAllocated", None, true);
+        CodeGen::add(asm, "call   printTableSlotsAllocated", None, true);
     }
 
     fn create_all_functions(&mut self) {
-        //debug!("create_all_functions, {:?}", self.functions.values().map(|it| it.name.clone()).collect::<Vec<String>>());
-        println!("create_all_functions, {:?}", self.functions.values().map(|it| it.name.clone()).collect::<Vec<String>>());
+        debug!("create_all_functions, {:?}", self.functions.values().map(|it| it.name.clone()).collect::<Vec<String>>());
         for function_def in self.functions.clone().values() {
             // VarContext ???
             let vec1 = self.add_function_def(function_def, None, &TypedValContext::new(None), 0, false);
@@ -391,7 +390,6 @@ impl<'a> CodeGen<'a> {
 
     fn add_function_def(&mut self, function_def: &ASTTypedFunctionDef, lambda_space: Option<&LambdaSpace>, parent_context: &TypedValContext, indent: usize, is_lambda: bool) -> Vec<LambdaCall> {
         debug!("{}Adding function def {}", " ".repeat(indent * 4), function_def.name);
-        println!("add_function_def {}", function_def.name);
 
         let mut lambda_calls = Vec::new();
         CodeGen::add(&mut self.definitions, &format!("{}:", function_def.name), None, false);
@@ -551,14 +549,14 @@ impl<'a> CodeGen<'a> {
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self.functions.get(&function_call.function_name).unwrap().clone().name;
             debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
-            self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
+            self.call_function_(&function_call, context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
                                 lambda_space, indent, is_lambda, stack, &mut after)
         } else if let Some(function_def) = self.functions.get(&function_call.function_name.replace("::", "_")) {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self.functions.get(&function_call.function_name.replace("::", "_")).unwrap().clone().name;
             debug!("{}Calling function {} context {:?}, lambda_space: {:?}", " ".repeat(indent * 4), function_call.function_name, context.names(), lambda_space);
-            self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
+            self.call_function_(&function_call, context, &parent_def, added_to_stack, &mut before, def.parameters, def.inline, Some(def.body), real_function_name,
                                 lambda_space, indent, is_lambda, stack, &mut after,
             )
         } else if let Some(TypedVarKind::ParameterRef(index, par)) = context.get(&function_call.function_name) {
@@ -580,7 +578,7 @@ impl<'a> CodeGen<'a> {
                 debug!("{}parameters_defs {:?}", " ".repeat((indent + 1) * 4), parameters_defs);
                 debug!("{}lambda_space {:?}", " ".repeat((indent + 1) * 4), lambda_space);
 
-                self.call_function_(&function_call, &context, &parent_def, added_to_stack, &mut before, parameters_defs, false, None,
+                self.call_function_(&function_call, context, &parent_def, added_to_stack, &mut before, parameters_defs, false, None,
                                     format!("[{}+{}+{}]", bp, wl, (index + 1) * wl), lambda_space, indent, true, stack,
                                     &mut after)
             } else {
@@ -826,6 +824,9 @@ impl<'a> CodeGen<'a> {
         CodeGen::add(&mut result, "call     deref", None, true);
         CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
 
+        /*
+        // dereferencing struct properties and enum parameters
+
         if let Some(struct_def) = self.try_get_struct(type_name) {
             //println!("dereferencing struct {type_name}");
             CodeGen::add(&mut result, "", None, true);
@@ -834,15 +835,12 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut result, "pop ebx", None, true);
             CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
             for (i, prop) in struct_def.properties.iter().enumerate() {
-                /*
                 if let Some(_) = Self::get_reference_type_name(&prop.type_ref.ast_type) {
                     CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
                     CodeGen::add(&mut result, &format!("push     {ws} [ebx + {i} * {wl}]"), None, true);
                     CodeGen::add(&mut result, "call     deref", None, true);
                     CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
                 }
-
-                 */
             }
             CodeGen::add(&mut result, "pop ebx", None, true);
         }
@@ -858,16 +856,13 @@ impl<'a> CodeGen<'a> {
                     CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
                     CodeGen::add(&mut result, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
                     for (j, par) in variant.parameters.iter().enumerate() {
-                        //println!("par {:?}", par);
-                        /*
                         if let Some(_) = Self::get_reference_type_name(&par.type_ref.ast_type) {
+                            println!("dereferencing par {:?}", par);
                             CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
                             CodeGen::add(&mut result, &format!("push     {ws} [ebx + {wl} + {j} * {wl}]"), None, true);
                             CodeGen::add(&mut result, "call     deref", None, true);
                             CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
                         }
-
-                         */
                     }
                     CodeGen::add(&mut result, &format!("._{type_name}_{i}_{}:", id), None, false);
                     id += 1;
@@ -876,6 +871,7 @@ impl<'a> CodeGen<'a> {
 
             CodeGen::add(&mut result, "pop ebx", None, true);
         }
+         */
 
         self.id = id;
 
@@ -895,22 +891,9 @@ impl<'a> CodeGen<'a> {
         let ws = backend.word_size();
         let wl = backend.word_len();
 
-        //let mut id = self.id;
-
-        //let key = format!("_descr_{}", id);
-
-        //if let ASTType::Custom { name: _, param_types: _ } = type_ref.ast_type {
-        //println!("calling deref for {:?}", type_ref);
-        //CodeGen::add(out, &format!("push     {ws} {descr}"), None, true);
-
-
-        //CodeGen::add(out, &format!("push     {ws} {descr}"), None, true);
         CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
         CodeGen::add(out, "call     addRef", None, true);
         CodeGen::add(out, &format!("add      esp,{wl}"), None, true);
-
-        //self.id + 1
-        //}
     }
 
     pub fn add_empty_line(out: &mut String) {

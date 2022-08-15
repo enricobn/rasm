@@ -468,6 +468,13 @@ asm deref(address: i32, descr: &str) -> i32 /{
     ;jz      .end
 
     sub     ebx,1
+
+    %ifdef LOG_DEBUG
+    push    dword ebx
+    call    printRefCount
+    add     esp,4
+    %endif
+
     mov     dword [eax + 12],ebx
     cmp     ebx,0
     jnz     .end
@@ -493,6 +500,11 @@ asm deref(address: i32, descr: &str) -> i32 /{
     pop     ebx
     pop     eax
 }/
+
+fn printRefCount(count: i32) {
+    sprint("  ref count: ");
+    nprintln($count);
+}
 
 asm addRef(address: i32) /{
     push    eax
@@ -521,6 +533,13 @@ asm addRef(address: i32) /{
 
     mov     dword ebx,[eax + 12] ; the count
     add     ebx,1
+
+    %ifdef LOG_DEBUG
+    push    dword ebx
+    call    printRefCount
+    add     esp,4
+    %endif
+
     mov     dword [eax + 12],ebx
     jmp     .end
 .invalid_address:
