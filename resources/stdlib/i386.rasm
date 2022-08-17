@@ -506,7 +506,7 @@ fn printRefCount(count: i32) {
     nprintln($count);
 }
 
-asm addRef(address: i32) /{
+asm addRef(address: i32, descr: &str) /{
     push    eax
     push    ebx
 
@@ -531,6 +531,13 @@ asm addRef(address: i32) /{
 
     mov     dword eax,$address
 
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword $descr
+    call    sprintln
+    add     esp,4
+    %endif
+
     mov     dword ebx,[eax + 12] ; the count
     add     ebx,1
 
@@ -541,6 +548,7 @@ asm addRef(address: i32) /{
     %endif
 
     mov     dword [eax + 12],ebx
+    mov     dword [eax + 4],1; allocated true
     jmp     .end
 .invalid_address:
     call    invalidAddress

@@ -3,13 +3,5 @@ include "std.rasm"
 printWith(15);
 
 fn printWith(v1: i32) {
-    listPrint(listMap(List::Full(10, List::Full(20, List::Empty())), { v -> nadd(v, v1);}), { v -> nprint(v);});
-}
-
-fn listPrint(l: List<T>, print: fn(T) -> ()) {
-    List::match(l, { head,tail ->
-        print(head);
-        List::match(tail, { head1,tail1 -> sprint(","); }, { -> });
-        listPrint(tail, print);
-    }, { -> });
+    listPrintln(listMap(List::Full(10, List::Full(20, List::Empty())), { v -> nadd(v, v1);}), { v -> nprint(v);});
 }

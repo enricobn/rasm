@@ -1,6 +1,6 @@
 include "std.rasm"
 
-withRun(atoi(argv(1)), { arg ->
+runWith(atoi(argv(1)), { arg ->
     nprintln(parameter(arg));
     nprintln(lambdaParameter(arg, { p -> itn(p);}));
     nprintln(context(arg));

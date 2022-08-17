@@ -75,7 +75,7 @@ fn test_list() {
 
 #[test]
 fn test_list_map() {
-    test("list_map", Vec::new(),"25,35");
+    test("list_map", Vec::new(), "25,35\n");
 }
 
 #[test]
@@ -140,6 +140,7 @@ fn test_structs() {
 
 #[test]
 #[ignore]
+// TODO find a way to re enable it
 fn test_malloc() {
     test("malloc", vec![],"Some(1)\nSome(2)\nSome(3)\nSome(4)\nSome(5)\n24 bytes allocated\n");
 }

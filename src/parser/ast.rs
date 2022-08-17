@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::string::ToString;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {

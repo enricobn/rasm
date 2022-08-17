@@ -76,29 +76,33 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("number {}", param_name));
     }
 
-    pub fn add_function_call(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, param_type_ref: ASTTypedTypeRef) {
+    pub fn add_function_call(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, param_type_ref: ASTTypedTypeRef, descr: &str) {
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
 
+        let descr = format!("add_function_call {descr}");
+
         CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
         if let ASTTypedType::Enum { name } = &param_type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, comment, name, "eax");
+            self.add_code_for_reference_type(code_gen, comment, name, "eax", true, &descr);
         } else if let ASTTypedType::Struct { name } = &param_type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, comment, name, "eax");
+            self.add_code_for_reference_type(code_gen, comment, name, "eax", true, &descr);
         }
         self.parameter_added_to_stack("function call result");
     }
 
-    fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str) {
+    fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str, add_ref: bool, descr: &str) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
-        if self.dereference && !self.immediate {
-            CodeGen::call_add_ref(&mut self.before, self.backend, source, "");
+        if self.dereference {
+            if add_ref {
+                CodeGen::call_add_ref(&mut code_gen.statics, &mut self.before, self.backend, source, descr);
+            }
             Self::push_to_scope_stack(self.backend, &mut self.before, source);
 
             //self.after.insert(0, code_gen.call_deref("[ebx]", name, comment.unwrap_or("")));
             //self.after.insert(0, Self::pop_from_scope_stack(self.backend, "ebx"));
-            self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name));
+            self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name, descr));
         }
     }
 
@@ -178,10 +182,11 @@ impl<'a> FunctionCallParameters<'a> {
 
         let src: String;
 
-        if self.inline {
+        let descr = if self.inline {
             src = format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
 
             self.parameters_values.insert(original_param_name.clone(), src.clone());
+            format!("adding ref to param {original_param_name} inline")
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
@@ -189,6 +194,7 @@ impl<'a> FunctionCallParameters<'a> {
 
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index_in_context + 2) * word_len), None, true);
+                format!("adding ref to param {original_param_name} immediate")
             } else {
                 CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()), None, true);
                 let source = &format!("{}+{}", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
@@ -202,13 +208,14 @@ impl<'a> FunctionCallParameters<'a> {
                 }
 
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
+                format!("adding ref to param {original_param_name}")
             }
-        }
+        };
 
         if let ASTTypedType::Enum { name } = &type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, None, name, &src);
+            self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
         } else if let ASTTypedType::Struct { name } = &type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, None, name, &src);
+            self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
         }
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
@@ -216,19 +223,22 @@ impl<'a> FunctionCallParameters<'a> {
     fn add_val_from_lambda_space(&mut self, original_param_name: &str, val_name: &str, lambda_space_index: usize, indent: usize, par_type_ref: &ASTTypedTypeRef, code_gen: &mut CodeGen) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
+        let descr = format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, val_name {val_name}");
+
         let word_len = self.backend.word_len() as usize;
         let sbp = self.backend.stack_base_pointer();
 
         let src: String;
 
         if self.inline {
+            let descr = format!("{descr} inline");
             self.has_inline_lambda_param = true;
             src = format!("[edx + {}]", lambda_space_index * word_len);
             self.parameters_values.insert(original_param_name.into(), src.clone());
             if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
-                self.add_code_for_reference_type(code_gen, None, name, &src);
+                self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
             } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
-                self.add_code_for_reference_type(code_gen, None, name, &src);
+                self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
             }
         } else {
             CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()),
@@ -244,9 +254,9 @@ impl<'a> FunctionCallParameters<'a> {
             }
 
             if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
-                self.add_code_for_reference_type(code_gen, None, name, "ebx");
+                self.add_code_for_reference_type(code_gen, None, name, "ebx", true, &descr);
             } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
-                self.add_code_for_reference_type(code_gen, None, name, "ebx");
+                self.add_code_for_reference_type(code_gen, None, name, "ebx", true, &descr);
             }
 
             CodeGen::add(&mut self.before, "pop  ebx", None, true);
@@ -344,7 +354,7 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(out, "pop    eax", None, true);
     }
 
-    fn pop_from_scope_stack_and_deref(code_gen: &mut CodeGen, backend: &dyn Backend, type_name: &str) -> String {
+    fn pop_from_scope_stack_and_deref(code_gen: &mut CodeGen, backend: &dyn Backend, type_name: &str, descr: &str) -> String {
         let register_to_store_result = "ecx";
         let mut result = String::new();
         CodeGen::add(&mut result, "; scope pop", None, true);
@@ -354,7 +364,7 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(&mut result, &format!("mov     {} [_scope_stack],{register_to_store_result}", backend.word_size()), None, true);
         //CodeGen::add(out, &format!("add     {register_to_store_result},{}", backend.word_len()), None, true);
         //CodeGen::insert_on_top(&result, out);
-        result.push_str(&code_gen.call_deref(&format!("[{register_to_store_result}]"), type_name, ""));
+        result.push_str(&code_gen.call_deref(&format!("[{register_to_store_result}]"), type_name, descr));
         CodeGen::add(&mut result, &format!("pop {register_to_store_result}"), None, true);
         result
     }

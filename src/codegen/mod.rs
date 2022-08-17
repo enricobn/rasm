@@ -1,6 +1,7 @@
 mod function_call_parameters;
 pub mod backend;
 pub mod stack;
+pub mod statics;
 
 use std::collections::HashSet;
 use std::ops::Deref;
@@ -11,6 +12,7 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::stack::Stack;
+use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef};
 
 use crate::transformations::enum_functions_creator::enum_functions_creator;
@@ -21,7 +23,7 @@ use crate::type_check::typed_ast::{ASTTypedEnumDef, ASTTypedExpression, ASTTyped
 pub struct CodeGen<'a> {
     module: ASTTypedModule,
     id: usize,
-    statics: LinkedHashMap<String, MemoryValue>,
+    statics: Statics,
     // key=memory_label
     body: String,
     definitions: String,
@@ -147,7 +149,7 @@ pub struct LambdaSpace {
     context: TypedValContext,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct EnhancedASTModule {
     pub body: Vec<ASTFunctionCall>,
     /// key: logical name
@@ -155,7 +157,7 @@ pub struct EnhancedASTModule {
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
     pub native_body: String,
-    pub statics: LinkedHashMap<String, MemoryValue>,
+    pub statics: Statics,
 }
 
 impl EnhancedASTModule {
@@ -167,7 +169,14 @@ impl EnhancedASTModule {
             functions_by_name.insert(it.name.clone(), it.clone());
         });
 
-        Self { body: module.body.clone(), functions_by_name, enums: module.enums.clone(), structs: module.structs.clone(), native_body: String::new(), statics: LinkedHashMap::new() }
+        Self {
+            body: module.body.clone(),
+            functions_by_name,
+            enums: module.enums.clone(),
+            structs: module.structs.clone(),
+            native_body: String::new(),
+            statics: Statics::new(),
+        }
     }
 
 }
@@ -191,11 +200,13 @@ impl<'a> CodeGen<'a> {
         let module = enum_functions_creator(backend, &EnhancedASTModule::new(&module));
         let module = struct_functions_creator(backend, &module);
         let module = convert(&module, debug_asm, print_memory_info);
+        let module = crate::transformations::typed_enum_functions_creator::enum_functions_creator(backend, &module);
+
 
         Self {
             module,
             body: String::new(),
-            statics: LinkedHashMap::new(),
+            statics: Statics::new(),
             id: 0,
             definitions: String::new(),
             lambdas: Vec::new(),
@@ -253,8 +264,6 @@ impl<'a> CodeGen<'a> {
 
         let mut asm = String::new();
 
-        let mut bss = String::new();
-
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         self.statics.insert("_heap_table".into(), Mem((self.heap_table_slots + 1)  * 16, Bytes));
         self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(self.heap_table_slots as i32 * 16));
@@ -267,55 +276,22 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_lambda_space_stack_buffer".into(), Mem(self.lambda_space_size, Bytes));
 
         self.statics.insert("_scope_stack".into(), Mem(4, Bytes));
-        self.statics.insert("_scope_stack_buffer".into(), Mem(1024 * 1024, Bytes));
+        self.statics.insert("_scope_stack_buffer".into(), Mem(16 * 1024 * 1024, Bytes));
 
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
 
-        if !self.statics.is_empty() {
-            let mut data = String::new();
 
-            let mut keys: Vec<&String> = self.statics.keys().collect();
-            // sorted for test purposes
-            keys.sort();
+        asm.push_str("SECTION .data\n");
+        asm.push_str("    timeval:\n");
+        asm.push_str("        tv_sec  dd 0\n");
+        asm.push_str("        tv_usec dd 0\n");
+        asm.push_str("    _ESC	db    27, 0h\n");
 
-            for id in keys.iter() {
-                let mut def = String::new();
-                def.push_str(id);
+        let (data, bss) = self.statics.to_code();
 
-                match self.statics.get(*id).unwrap() {
-                    MemoryValue::StringValue(s) => {
-                        def.push_str("\tdb    ");
-                        def.push_str(&format!("'{}', 0h", s));
-                        CodeGen::add(&mut data, &def, None, true);
-                    }
-                    MemoryValue::I32Value(i) => {
-                        def.push_str("\tdd    ");
-                        def.push_str(&format!("{}", i));
-                        CodeGen::add(&mut data, &def, None, true);
-                    }
-                    Mem(len, unit) => {
-                        match unit {
-                            Bytes => {
-                                def.push_str("\tresb ");
-                            }
-                            Words => {
-                                def.push_str("\tresw ");
-                            }
-                        }
-                        def.push_str(&format!("{}", len));
-                        CodeGen::add(&mut bss, &def, None, true);
-                    }
-                }
-            }
-            asm.push_str("SECTION .data\n");
-            asm.push_str("    timeval:\n");
-            asm.push_str("        tv_sec  dd 0\n");
-            asm.push_str("        tv_usec dd 0\n");
-            asm.push_str("    _ESC	db    27, 0h\n");
-            asm.push_str(&data);
-        }
+        asm.push_str(&data);
 
         CodeGen::add(&mut asm, "section .bss", None, true);
         asm.push_str(&bss);
@@ -476,6 +452,7 @@ impl<'a> CodeGen<'a> {
             }
         }
 
+        /*
         if let Some(ASTTypedType::Enum { name: _ }) = &function_def.return_type.clone().map(|it| it.ast_type) {
             let function_def_name = function_def.name.clone();
             let mut out = String::new();
@@ -493,19 +470,15 @@ impl<'a> CodeGen<'a> {
             self.definitions.push_str(&out);
         }
 
+         */
+
         for (i, param) in function_def.parameters.iter().enumerate() {
-            if let ASTTypedType::Enum { name: _ } = param.type_ref.ast_type {
-                /*
+            if let ASTTypedType::Enum { name } = &param.type_ref.ast_type {
                 self.call_deref(&format!("[{} + {}]", self.backend.stack_base_pointer(), (i + 2) * self.backend.word_len()),
-                            &format!("function {} param {} : {:?}", function_def.name, param.name, param.type_ref));
-
-                 */
-            } else if let ASTTypedType::Struct { name: _ } = param.type_ref.ast_type {
-                /*
+                                &name, &format!("function {} param {} : {:?}", function_def.name, param.name, param.type_ref));
+            } else if let ASTTypedType::Struct { name } = &param.type_ref.ast_type {
                 self.call_deref(&format!("[{} + {}]", self.backend.stack_base_pointer(), (i + 2) * self.backend.word_len()),
-                            &format!("function {} param {} : {:?}", function_def.name, param.name, param.type_ref));
-
-                 */
+                                &name, &format!("function {} param {} : {:?}", function_def.name, param.name, param.type_ref));
             }
         }
 
@@ -646,7 +619,7 @@ impl<'a> CodeGen<'a> {
                         after.insert(0, af.join("\n"));
 
                         call_parameters.add_function_call(self, Some(&param_name),
-                                                          param_type.clone());
+                                                          param_type.clone(), &call.function_name);
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
                     ASTTypedExpression::Val(name) => {
@@ -809,11 +782,7 @@ impl<'a> CodeGen<'a> {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
-        let mut id = self.id;
-
-        let key = format!("_descr_{}", id);
-        self.statics.insert(key.clone(), MemoryValue::StringValue(descr.to_string()));
-        id += 1;
+        let key = self.statics.insert_prefix("_descr".into(), MemoryValue::StringValue(descr.to_string()));
 
         let mut result = String::new();
 
@@ -873,13 +842,11 @@ impl<'a> CodeGen<'a> {
         }
          */
 
-        self.id = id;
-
         //Self::insert_on_top(&result, out);
         result
     }
 
-    fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
+    pub fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
         match ast_type {
             ASTTypedType::Builtin(_) => { None }
             ASTTypedType::Enum { name } => { Some(name.clone()) }
@@ -887,13 +854,48 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn call_add_ref(out: &mut String, backend: &dyn Backend, source: &str, descr: &str) {
+    pub fn call_add_ref(statics: &mut Statics, out: &mut String, backend: &dyn Backend, source: &str, descr: &str) {
         let ws = backend.word_size();
         let wl = backend.word_len();
 
+        let key = statics.insert_prefix("_descr".into(), MemoryValue::StringValue(descr.to_string()));
+
+        CodeGen::add(out, "", Some(&("deref ".to_owned() + descr)), true);
+        CodeGen::add(out, &format!("push     {ws} {key}"), None, true);
         CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
         CodeGen::add(out, "call     addRef", None, true);
-        CodeGen::add(out, &format!("add      esp,{wl}"), None, true);
+        CodeGen::add(out, &format!("add      esp,{}", wl * 2), None, true);
+        /*
+                let mut id = self.id;
+
+                if let Some(enum_def) = self.try_get_enum(type_name) {
+                    //println!("dereferencing enum {type_name}");
+                    CodeGen::add(out, &format!("push {ws} ebx"), None, true);
+                    CodeGen::add(out, &format!("push {ws} {source}"), None, true);
+                    CodeGen::add(out, "pop ebx", None, true);
+                    CodeGen::add(out, &format!("mov {ws} ebx, [ebx]"), None, true);
+                    for (i, variant) in enum_def.variants.iter().enumerate() {
+                        if !variant.parameters.is_empty() {
+                            CodeGen::add(out, &format!("cmp {ws} [ebx], {}", i), None, true);
+                            CodeGen::add(out, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
+                            for (j, par) in variant.parameters.iter().enumerate() {
+                                if let Some(_) = Self::get_reference_type_name(&par.type_ref.ast_type) {
+                                    println!("dereferencing par {:?}", par);
+                                    CodeGen::add(out, &format!("push     {ws} [ebx + {wl} + {j} * {wl}]"), None, true);
+                                    CodeGen::add(out, "call     addRef", None, true);
+                                    CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+                                }
+                            }
+                            CodeGen::add(out, &format!("._{type_name}_{i}_{}:", id), None, false);
+                            id += 1;
+                        }
+                    }
+
+                    CodeGen::add(out, "pop ebx", None, true);
+                    self.id = id;
+                }
+
+         */
     }
 
     pub fn add_empty_line(out: &mut String) {

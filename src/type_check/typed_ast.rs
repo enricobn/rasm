@@ -9,6 +9,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use crate::codegen::statics::Statics;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -201,14 +202,14 @@ impl Display for ASTTypedExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ASTTypedModule {
     pub body: Vec<ASTTypedFunctionCall>,
     pub functions_by_name: LinkedHashMap<String, ASTTypedFunctionDef>,
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
     pub native_body: String,
-    pub statics: LinkedHashMap<String, MemoryValue>,
+    pub statics: Statics,
 }
 
 #[derive(Debug, Clone, PartialEq)]

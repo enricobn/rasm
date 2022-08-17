@@ -7,29 +7,23 @@ use crate::parser::ast::{
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::statics::Statics;
+use crate::type_check::typed_ast::{ASTTypedEnumDef, ASTTypedEnumVariantDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind};
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
-    module: &EnhancedASTModule,
-) -> EnhancedASTModule {
+    module: &ASTTypedModule,
+) -> ASTTypedModule {
     let mut functions_by_name = module.functions_by_name.clone();
     let mut native_body = module.native_body.clone();
     let mut statics = module.statics.clone();
 
     for enum_def in module.enums.iter() {
-        let param_types: Vec<ASTTypeRef> = enum_def
-            .type_parameters
-            .iter()
-            .map(|it| ASTTypeRef::parametric(it, false))
-            .collect();
-
         create_constructors(
             backend,
             &mut functions_by_name,
             &mut native_body,
             &mut statics,
             enum_def,
-            &param_types,
         );
 
         create_match_like_function(
@@ -37,8 +31,7 @@ pub fn enum_functions_creator(
             &mut functions_by_name,
             &enum_def,
             "Match",
-            Some(ASTTypeRef::parametric("_T", false)),
-            Some("_T".into()),
+            Some(ASTTypedTypeRef { ast_type: ASTTypedType::Enum { name: enum_def.name.clone() }, ast_ref: false }),
         );
 
         create_match_like_function(
@@ -46,7 +39,6 @@ pub fn enum_functions_creator(
             &mut functions_by_name,
             &enum_def,
             "Run",
-            None,
             None,
         );
     }
@@ -61,32 +53,26 @@ pub fn enum_functions_creator(
 
 fn create_match_like_function(
     backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
-    enum_def: &&ASTEnumDef,
+    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
+    enum_def: &&ASTTypedEnumDef,
     name: &str,
-    return_type: Option<ASTTypeRef>,
-    extra_generic: Option<String>,
+    return_type: Option<ASTTypedTypeRef>,
 ) {
     let body = enum_match_body(backend, &enum_def);
 
-    let function_body = ASTFunctionBody::ASMBody(body);
-    let param_types = enum_def
-        .type_parameters
-        .iter()
-        .map(|it| ASTTypeRef::parametric(it, false))
-        .collect();
-    let mut parameters = vec![ASTParameterDef {
+    let function_body = ASTTypedFunctionBody::ASMBody(body);
+
+    let mut parameters = vec![ASTTypedParameterDef {
         name: "value".into(),
-        type_ref: ASTTypeRef {
-            ast_type: ASTType::Custom {
+        type_ref: ASTTypedTypeRef {
+            ast_type: ASTTypedType::Enum {
                 name: enum_def.name.clone(),
-                param_types,
             },
             ast_ref: true,
         },
     }];
     for variant in enum_def.variants.iter() {
-        let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let ast_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
             return_type: return_type.clone().map(Box::new),
             parameters: variant
                 .parameters
@@ -94,53 +80,45 @@ fn create_match_like_function(
                 .map(|it| it.type_ref.clone())
                 .collect(),
         });
-        parameters.push(ASTParameterDef {
+        parameters.push(ASTTypedParameterDef {
             name: variant.name.clone(),
-            type_ref: ASTTypeRef {
+            type_ref: ASTTypedTypeRef {
                 ast_type,
                 ast_ref: true,
             },
         });
     }
-    let mut param_types = enum_def.type_parameters.clone();
 
-    if let Some(g) = extra_generic {
-        param_types.push(g);
-    }
-
-    let function_def = ASTFunctionDef {
+    let function_def = ASTTypedFunctionDef {
         name: enum_def.name.clone() + name,
         parameters,
         body: function_body,
         inline: false,
         return_type,
-        param_types,
     };
 
     debug!("created function {function_def}");
 
     functions_by_name.insert(
-        enum_def.name.clone() + "::" + &name.to_lowercase(),
+        enum_def.name.clone() + "_" + &name.to_lowercase(),
         function_def,
     );
 }
 
 fn create_constructors(
     backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     native_body: &mut String,
     statics: &mut Statics,
-    enum_def: &ASTEnumDef,
-    param_types: &Vec<ASTTypeRef>,
+    enum_def: &ASTTypedEnumDef,
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
-        let ast_type = ASTType::Custom {
+        let ast_type = ASTTypedType::Enum {
             name: enum_def.name.clone(),
-            param_types: param_types.clone(),
         };
-        let type_ref = ASTTypeRef {
+        let type_ref = ASTTypedTypeRef {
             ast_type,
             ast_ref: false,
         };
@@ -186,32 +164,54 @@ fn create_constructors(
 
             format!("    mov    eax, [{}]\n", label)
         } else {
-            enum_parametric_variant_constructor_body(backend, &variant_num, &variant)
+            enum_parametric_variant_constructor_body(backend, statics, &variant_num, &variant)
         };
-        let body = ASTFunctionBody::ASMBody(body_str);
+        let body = ASTTypedFunctionBody::ASMBody(body_str);
 
-        let function_def = ASTFunctionDef {
-            name: enum_def.name.clone() + "_" + &variant.name.clone(),
-            parameters: variant.parameters.clone(),
-            body,
-            inline: false,
-            return_type,
-            param_types: enum_def.type_parameters.clone(),
+        let base_name = enum_def.name.split_at(enum_def.name.clone().find(&"_").unwrap()).0;
+
+        let base_name = format!("{base_name}_{}", variant.name);
+
+        let fun_name_o = {
+            let same_function = functions_by_name.values().filter(|it| {
+                it.name.starts_with(&base_name) &&
+                    it.return_type == return_type
+            }).collect::<Vec<_>>();
+
+            if same_function.len() > 1 {
+                panic!("find more functions that start with {base_name}");
+            } else if let Some(f) = same_function.get(0) {
+                Some(f.name.clone())
+            } else {
+                debug!("cannot find a function that starts with {base_name}");
+                None
+            }
         };
 
-        debug!("created function {function_def}");
+        if let Some(fun_name) = fun_name_o {
+            let function_def = ASTTypedFunctionDef {
+                name: fun_name.clone(),
+                parameters: variant.parameters.clone(),
+                body,
+                inline: false,
+                return_type,
+            };
 
-        functions_by_name.insert(
-            enum_def.name.clone() + "::" + &variant.name.clone(),
-            function_def,
-        );
+            debug!("created function {function_def}");
+
+            assert!(functions_by_name.insert(
+                fun_name.clone(),
+                function_def,
+            ).is_some());
+        }
     }
 }
 
 fn enum_parametric_variant_constructor_body(
     backend: &dyn Backend,
+    statics: &mut Statics,
     variant_num: &usize,
-    variant: &&ASTEnumVariantDef,
+    variant: &&ASTTypedEnumVariantDef,
 ) -> String {
     let word_size = backend.word_size();
     let word_len = backend.word_len();
@@ -245,15 +245,8 @@ fn enum_parametric_variant_constructor_body(
             true,
         );
 
-        if let ASTType::Custom {
-            name: _,
-            param_types: _,
-        } = &par.type_ref.ast_type
-        {
-            // TODO call CodeGen::call_add_ref
-            CodeGen::add(&mut body, &format!("push     {word_size} ebx"), None, true);
-            CodeGen::add(&mut body, "call     addRef", None, true);
-            CodeGen::add(&mut body, &format!("add      esp,{word_len}"), None, true);
+        if let Some(_name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
+            CodeGen::call_add_ref(statics, &mut body, backend, "ebx", "");
         }
 
         CodeGen::add(
@@ -275,7 +268,7 @@ fn enum_parametric_variant_constructor_body(
     body
 }
 
-fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
+fn enum_match_body(backend: &dyn Backend, enum_def: &ASTTypedEnumDef) -> String {
     let word_len = backend.word_len();
     let sp = backend.stack_pointer();
     let word_size = backend.word_size();
