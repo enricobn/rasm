@@ -1,6 +1,6 @@
 Doing
 ------
-- deallocation
+- de-allocation
 
 Next
 -----

@@ -1,4 +1,4 @@
-use crate::codegen::{EnhancedASTModule, MemoryValue, TypedValContext, TypedVarKind};
+use crate::codegen::{EnhancedASTModule, TypedValContext, TypedVarKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
@@ -899,6 +899,12 @@ pub fn print_typed_module(module: &ASTTypedModule) {
     for enum_def in module.enums.iter() {
         println!("{enum_def}");
     }
+    /* TODO
+    for struct_def in module.structs.iter() {
+        println!("{struct_def}");
+    }
+     */
+
     module.body.iter().for_each(|call| {
         println!("{call}");
     });

@@ -1,28 +1,23 @@
 use crate::codegen::backend::Backend;
-use crate::codegen::{CodeGen, EnhancedASTModule, MemoryValue};
-use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType,
-    ASTTypeRef, BuiltinTypeKind,
-};
+use crate::codegen::{CodeGen, MemoryValue};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use crate::codegen::statics::Statics;
 use crate::type_check::typed_ast::{ASTTypedEnumDef, ASTTypedEnumVariantDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind};
 
 pub fn enum_functions_creator(
+    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &ASTTypedModule,
 ) -> ASTTypedModule {
     let mut functions_by_name = module.functions_by_name.clone();
     let mut native_body = module.native_body.clone();
-    let mut statics = module.statics.clone();
 
     for enum_def in module.enums.iter() {
         create_constructors(
+            code_gen,
             backend,
             &mut functions_by_name,
             &mut native_body,
-            &mut statics,
             enum_def,
         );
 
@@ -46,7 +41,6 @@ pub fn enum_functions_creator(
     let mut result = module.clone();
     result.functions_by_name = functions_by_name;
     result.native_body = native_body;
-    result.statics = statics;
 
     result
 }
@@ -106,10 +100,10 @@ fn create_match_like_function(
 }
 
 fn create_constructors(
+    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     native_body: &mut String,
-    statics: &mut Statics,
     enum_def: &ASTTypedEnumDef,
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
@@ -124,47 +118,9 @@ fn create_constructors(
         };
         let return_type = Some(type_ref);
         let body_str = if variant.parameters.is_empty() {
-            let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-            statics.insert(label.clone(), MemoryValue::I32Value(0));
-            //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
-            //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
-
-            CodeGen::add(
-                native_body,
-                &format!("push    {} {}", backend.word_size(), backend.word_len()),
-                None,
-                true,
-            );
-            CodeGen::add(native_body, "call    malloc", None, true);
-            CodeGen::add(
-                native_body,
-                &format!("add   {}, {}", backend.stack_pointer(), backend.word_len()),
-                None,
-                true,
-            );
-
-            CodeGen::add(
-                native_body,
-                &format!("mov   {} [{label}], eax", backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                native_body,
-                &format!("mov   {} eax, [eax]", backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                native_body,
-                &format!("mov   {} [eax], {variant_num}", backend.word_size()),
-                None,
-                true,
-            );
-
-            format!("    mov    eax, [{}]\n", label)
+            enum_non_parametric_variant_body(code_gen, &backend, native_body, enum_def, variant_num, variant)
         } else {
-            enum_parametric_variant_constructor_body(backend, statics, &variant_num, &variant)
+            enum_parametric_variant_constructor_body(code_gen, backend, &variant_num, &variant)
         };
         let body = ASTTypedFunctionBody::ASMBody(body_str);
 
@@ -207,9 +163,52 @@ fn create_constructors(
     }
 }
 
+fn enum_non_parametric_variant_body(code_gen: &mut CodeGen, backend: &&dyn Backend, native_body: &mut String,
+                                    enum_def: &ASTTypedEnumDef, variant_num: usize, variant: &ASTTypedEnumVariantDef) -> String {
+    let label = format!("_enum_{}_{}", enum_def.name, variant.name);
+    code_gen.statics.insert(label.clone(), MemoryValue::I32Value(0));
+    //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
+    //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
+
+    CodeGen::add(
+        native_body,
+        &format!("push    {} {}", backend.word_size(), backend.word_len()),
+        None,
+        true,
+    );
+    CodeGen::add(native_body, "call    malloc", None, true);
+    CodeGen::add(
+        native_body,
+        &format!("add   {}, {}", backend.stack_pointer(), backend.word_len()),
+        None,
+        true,
+    );
+
+    CodeGen::add(
+        native_body,
+        &format!("mov   {} [{label}], eax", backend.word_size()),
+        None,
+        true,
+    );
+    CodeGen::add(
+        native_body,
+        &format!("mov   {} eax, [eax]", backend.word_size()),
+        None,
+        true,
+    );
+    CodeGen::add(
+        native_body,
+        &format!("mov   {} [eax], {variant_num}", backend.word_size()),
+        None,
+        true,
+    );
+
+    format!("    mov    eax, [{}]\n", label)
+}
+
 fn enum_parametric_variant_constructor_body(
+    code_gen: &mut CodeGen,
     backend: &dyn Backend,
-    statics: &mut Statics,
     variant_num: &usize,
     variant: &&ASTTypedEnumVariantDef,
 ) -> String {
@@ -245,8 +244,9 @@ fn enum_parametric_variant_constructor_body(
             true,
         );
 
-        if let Some(_name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
-            CodeGen::call_add_ref(statics, &mut body, backend, "ebx", "");
+        if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
+            let descr = format!("variant {}, par {}", variant.name, par.name);
+            code_gen.call_add_ref(&mut body, backend, "ebx", &name, &descr);
         }
 
         CodeGen::add(

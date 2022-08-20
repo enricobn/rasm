@@ -1,8 +1,8 @@
-use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, EnhancedASTModule};
+use crate::codegen::backend::Backend;
 use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef};
 
-pub fn struct_functions_creator(backend: &dyn Backend, module: &EnhancedASTModule) -> EnhancedASTModule {
+pub fn struct_functions_creator(code_gen: &mut CodeGen, backend: &dyn Backend, module: &EnhancedASTModule) -> EnhancedASTModule {
     let mut functions_by_name = module.functions_by_name.clone();
 
     for struct_def in &module.structs {
@@ -11,7 +11,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &EnhancedASTModul
         let ast_type = ASTType::Custom { name: struct_def.name.clone(), param_types: param_types.clone() };
         let type_ref = ASTTypeRef { ast_type, ast_ref: true };
         let return_type = Some(type_ref);
-        let body_str = struct_constructor_body(backend, struct_def);
+        let body_str = struct_constructor_body(code_gen, backend, struct_def);
         let body = ASTFunctionBody::ASMBody(body_str);
 
         let parameters = struct_def.properties.iter().map(|it| ASTParameterDef { name: it.name.clone(), type_ref: it.type_ref.clone()}).collect();
@@ -31,7 +31,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &EnhancedASTModul
     result
 }
 
-fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
+fn struct_constructor_body(code_gen: &mut CodeGen, backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
     let word_size = backend.word_size();
     let word_len = backend.word_len();
     let mut body = String::new();
@@ -44,16 +44,17 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     for (i, par) in struct_def.properties.iter().rev().enumerate() {
         CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
 
+        /*
         if let ASTType::Custom {
-            name: _,
+            name,
             param_types: _,
         } = &par.type_ref.ast_type
         {
-            // TODO call CodeGen::call_add_ref
-            CodeGen::add(&mut body, &format!("push     {word_size} ebx"), None, true);
-            CodeGen::add(&mut body, "call     addRef", None, true);
-            CodeGen::add(&mut body, &format!("add      esp,{word_len}"), None, true);
+            let descr = format!("struct {}, property {}", struct_def.name, par.name);
+            code_gen.call_add_ref(&mut body, backend, "ebx", name, &descr);
         }
+
+         */
 
         CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
     }

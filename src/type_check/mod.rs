@@ -1326,7 +1326,7 @@ fn update(
 #[cfg(test)]
 mod tests {
     use crate::codegen::backend::BackendAsm386;
-    use crate::codegen::EnhancedASTModule;
+    use crate::codegen::{CodeGen, EnhancedASTModule};
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
@@ -1339,6 +1339,7 @@ mod tests {
     use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
     use std::collections::HashMap;
     use std::path::Path;
+    use log::info;
     use test_env_log::test;
 
     #[test]
@@ -1474,8 +1475,6 @@ mod tests {
 
         assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
         assert!(new_module.functions_by_name.get("consume_0").is_some());
-
-        print(new_module);
     }
 
     #[test]
@@ -1508,40 +1507,7 @@ mod tests {
         let module = parser.parse(path);
 
         let backend = BackendAsm386::new();
-        let new_module = convert(&struct_functions_creator(
-            &backend,
-            &enum_functions_creator(&backend, &EnhancedASTModule::new(&module)),
-        ), false, false);
-
-        print(new_module);
+        let code_gen = CodeGen::new(&backend, module, 1024, 1024, 1024, false, false, false, false);
     }
 
-    fn print(new_module: ASTTypedModule) {
-        println!(
-            "functions {:?}",
-            new_module
-                .functions_by_name
-                .values()
-                .map(|it| &it.name)
-                .collect::<Vec<&String>>()
-        );
-
-        println!(
-            "enums {:?}",
-            new_module
-                .enums
-                .iter()
-                .map(|it| &it.name)
-                .collect::<Vec<&String>>()
-        );
-
-        println!(
-            "structs {:?}",
-            new_module
-                .structs
-                .iter()
-                .map(|it| &it.name)
-                .collect::<Vec<&String>>()
-        );
-    }
 }

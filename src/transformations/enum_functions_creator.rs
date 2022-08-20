@@ -6,15 +6,14 @@ use crate::parser::ast::{
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use crate::codegen::statics::Statics;
 
 pub fn enum_functions_creator(
+    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &EnhancedASTModule,
 ) -> EnhancedASTModule {
     let mut functions_by_name = module.functions_by_name.clone();
     let mut native_body = module.native_body.clone();
-    let mut statics = module.statics.clone();
 
     for enum_def in module.enums.iter() {
         let param_types: Vec<ASTTypeRef> = enum_def
@@ -24,10 +23,10 @@ pub fn enum_functions_creator(
             .collect();
 
         create_constructors(
+            code_gen,
             backend,
             &mut functions_by_name,
             &mut native_body,
-            &mut statics,
             enum_def,
             &param_types,
         );
@@ -54,7 +53,6 @@ pub fn enum_functions_creator(
     let mut result = module.clone();
     result.functions_by_name = functions_by_name;
     result.native_body = native_body;
-    result.statics = statics;
 
     result
 }
@@ -126,10 +124,10 @@ fn create_match_like_function(
 }
 
 fn create_constructors(
+    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
     native_body: &mut String,
-    statics: &mut Statics,
     enum_def: &ASTEnumDef,
     param_types: &Vec<ASTTypeRef>,
 ) {
@@ -147,7 +145,7 @@ fn create_constructors(
         let return_type = Some(type_ref);
         let body_str = if variant.parameters.is_empty() {
             let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-            statics.insert(label.clone(), MemoryValue::I32Value(0));
+            code_gen.statics.insert(label.clone(), MemoryValue::I32Value(0));
             //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
             //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
 
@@ -245,6 +243,7 @@ fn enum_parametric_variant_constructor_body(
             true,
         );
 
+        /*
         if let ASTType::Custom {
             name: _,
             param_types: _,
@@ -255,6 +254,8 @@ fn enum_parametric_variant_constructor_body(
             CodeGen::add(&mut body, "call     addRef", None, true);
             CodeGen::add(&mut body, &format!("add      esp,{word_len}"), None, true);
         }
+
+         */
 
         CodeGen::add(
             &mut body,

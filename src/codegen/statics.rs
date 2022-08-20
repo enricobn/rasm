@@ -16,18 +16,22 @@ impl Statics {
         }
     }
 
+    pub fn add_str(&mut self, s: &str) -> String {
+        self.insert_prefix("_s".into(), MemoryValue::StringValue(s.into()))
+    }
+
     pub fn insert(&mut self, key: String, value: MemoryValue) {
         assert!(self.statics.insert(key, value).is_none())
     }
 
     pub fn insert_prefix(&mut self, prefix: String, value: MemoryValue) -> String {
-        let key = format!("{prefix}_{}", self.id);
+        let label = format!("{prefix}_{}", self.id);
 
         self.id += 1;
 
-        assert!(self.statics.insert(key.clone(), value).is_none());
+        assert!(self.statics.insert(label.clone(), value).is_none());
 
-        key
+        label
     }
 
     pub fn to_code(&self) -> (String, String) {

@@ -440,6 +440,10 @@ asm deref(address: i32, descr: &str) -> i32 /{
     push    dword $address
     call    nprintln
     add     esp,4
+    call    printTab
+    push    dword $descr
+    call    sprintln
+    add     esp,4
     %endif
 
     ; we check if the address is valid
@@ -451,13 +455,6 @@ asm deref(address: i32, descr: &str) -> i32 /{
     jg      .invalid_address
 
     mov     dword eax,$address
-
-    %ifdef LOG_DEBUG
-    call    printTab
-    push    dword $descr
-    call    sprintln
-    add     esp,4
-    %endif
 
     cmp     dword [eax],0 ; TODO if address == 0 then it should be an error, but for now we ignore it
     jz      .end
@@ -520,6 +517,12 @@ asm addRef(address: i32, descr: &str) /{
     call    nprintln
     add     esp,4
     %endif
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword $descr
+    call    sprintln
+    add     esp,4
+    %endif
 
     ; we check if the address is valid
     mov     dword eax,_heap_table
@@ -530,13 +533,6 @@ asm addRef(address: i32, descr: &str) /{
     jg      .invalid_address
 
     mov     dword eax,$address
-
-    %ifdef LOG_DEBUG
-    call    printTab
-    push    dword $descr
-    call    sprintln
-    add     esp,4
-    %endif
 
     mov     dword ebx,[eax + 12] ; the count
     add     ebx,1

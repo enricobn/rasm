@@ -95,10 +95,10 @@ impl<'a> FunctionCallParameters<'a> {
     fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str, add_ref: bool, descr: &str) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
-            if add_ref {
-                CodeGen::call_add_ref(&mut code_gen.statics, &mut self.before, self.backend, source, descr);
-            }
-            Self::push_to_scope_stack(self.backend, &mut self.before, source);
+            //if add_ref {
+            let descr_key = code_gen.call_add_ref(&mut self.before, self.backend, source, name, descr);
+            //}
+            Self::push_to_scope_stack(self.backend, &mut self.before, source, descr_key, descr);
 
             //self.after.insert(0, code_gen.call_deref("[ebx]", name, comment.unwrap_or("")));
             //self.after.insert(0, Self::pop_from_scope_stack(self.backend, "ebx"));
@@ -160,13 +160,14 @@ impl<'a> FunctionCallParameters<'a> {
         lambda_space
     }
 
-    pub fn add_val(&mut self, code_gen: &mut CodeGen, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize, lambda_space: &Option<&LambdaSpace>, indent: usize) {
+    pub fn add_val(&mut self, code_gen: &mut CodeGen, original_param_name: String, val_name: &str, par: &ASTTypedParameterDef, index_in_context: usize,
+                   lambda_space: &Option<&LambdaSpace>, indent: usize, descr: &str) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent, &par.type_ref, code_gen);
+            self.add_val_from_lambda_space(&original_param_name, val_name, lambda_space_index, indent, &par.type_ref, code_gen, descr);
         } else {
-            self.add_val_from_parameter(original_param_name, &par.type_ref, index_in_context, indent, code_gen);
+            self.add_val_from_parameter(original_param_name, &par.type_ref, index_in_context, indent, code_gen, descr);
         }
     }
 
@@ -175,8 +176,8 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(&mut self.before, "", Some(descr), true);
     }
 
-    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize, code_gen: &mut CodeGen) {
-        self.debug_and_before(&format!("adding ref to param {original_param_name}, index_in_context {index_in_context}"), indent);
+    fn add_val_from_parameter(&mut self, original_param_name: String, type_ref: &ASTTypedTypeRef, index_in_context: usize, indent: usize, code_gen: &mut CodeGen, descr: &str) {
+        self.debug_and_before(&format!("param {original_param_name}, index_in_context {index_in_context}"), indent);
 
         let word_len = self.backend.word_len() as usize;
 
@@ -186,7 +187,7 @@ impl<'a> FunctionCallParameters<'a> {
             src = format!("[{}+{}]", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
 
             self.parameters_values.insert(original_param_name.clone(), src.clone());
-            format!("adding ref to param {original_param_name} inline")
+            format!("param {original_param_name} inline: {descr}")
         } else {
             let type_size = self.backend.type_size(type_ref).unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
 
@@ -194,7 +195,7 @@ impl<'a> FunctionCallParameters<'a> {
 
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov {} eax, [{}+{}]", type_size, self.backend.stack_base_pointer(), (index_in_context + 2) * word_len), None, true);
-                format!("adding ref to param {original_param_name} immediate")
+                format!("to param {original_param_name} immediate: {descr}")
             } else {
                 CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()), None, true);
                 let source = &format!("{}+{}", self.backend.stack_base_pointer(), (index_in_context + 2) * word_len);
@@ -208,7 +209,7 @@ impl<'a> FunctionCallParameters<'a> {
                 }
 
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
-                format!("adding ref to param {original_param_name}")
+                format!("param {original_param_name}: {descr}")
             }
         };
 
@@ -220,10 +221,10 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
 
-    fn add_val_from_lambda_space(&mut self, original_param_name: &str, val_name: &str, lambda_space_index: usize, indent: usize, par_type_ref: &ASTTypedTypeRef, code_gen: &mut CodeGen) {
+    fn add_val_from_lambda_space(&mut self, original_param_name: &str, val_name: &str, lambda_space_index: usize, indent: usize, par_type_ref: &ASTTypedTypeRef, code_gen: &mut CodeGen, descr: &str) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
-        let descr = format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, val_name {val_name}");
+        let descr = format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, val_name {val_name}: {descr}");
 
         let word_len = self.backend.word_len() as usize;
         let sbp = self.backend.stack_base_pointer();
@@ -340,13 +341,26 @@ impl<'a> FunctionCallParameters<'a> {
         result
     }
 
-    fn push_to_scope_stack(backend: &dyn Backend, out: &mut String, what: &str) {
+    fn push_to_scope_stack(backend: &dyn Backend, out: &mut String, what: &str, descr_key: String, descr: &str) {
+        //println!("push_to_scope_stack {descr}");
         let tmp_register = "ecx";
         CodeGen::add(out, "; scope push", None, true);
         CodeGen::add(out, &format!("push     {} eax", backend.word_size()), None, true);
         CodeGen::add(out, &format!("push     {} {tmp_register}", backend.word_size()), None, true);
         CodeGen::add(out, &format!("mov     {tmp_register},[_scope_stack]"), None, true);
         CodeGen::add(out, &format!("mov     eax,{what}"), None, true);
+
+        /*
+        CodeGen::add(out, &format!("push     {} {descr_key}", backend.word_size()), None, true);
+        CodeGen::add(out, "call    sprintln", None, true);
+        CodeGen::add(out, &format!("add     {}, {}", backend.stack_pointer(), backend.word_len()), None, true);
+
+        CodeGen::add(out, &format!("push     {} eax", backend.word_size()), None, true);
+        CodeGen::add(out, "call     nprintln", None, true);
+        CodeGen::add(out, &format!("add     {}, {}", backend.stack_pointer(), backend.word_len()), None, true);
+
+         */
+
         CodeGen::add(out, &format!("mov     [{tmp_register}],eax"), None, true);
         CodeGen::add(out, &format!("add     {tmp_register},{}", backend.word_len()), None, true);
         CodeGen::add(out, &format!("mov     {} [_scope_stack],{tmp_register}", backend.word_size()), None, true);
@@ -355,6 +369,8 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn pop_from_scope_stack_and_deref(code_gen: &mut CodeGen, backend: &dyn Backend, type_name: &str, descr: &str) -> String {
+        //println!("pop_from_scope_stack_and_deref {descr}");
+
         let register_to_store_result = "ecx";
         let mut result = String::new();
         CodeGen::add(&mut result, "; scope pop", None, true);
@@ -362,6 +378,15 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(&mut result, &format!("mov     {register_to_store_result},[_scope_stack]"), None, true);
         CodeGen::add(&mut result, &format!("sub     {register_to_store_result},{}", backend.word_len()), None, true);
         CodeGen::add(&mut result, &format!("mov     {} [_scope_stack],{register_to_store_result}", backend.word_size()), None, true);
+
+        /*
+        CodeGen::add(&mut result, &format!("push     {} [{register_to_store_result}]", backend.word_size()), None, true);
+        CodeGen::add(&mut result, "call     nprintln", None, true);
+        CodeGen::add(&mut result, &format!("add     {}, {}", backend.stack_pointer(), backend.word_len()), None, true);
+
+         */
+
+
         //CodeGen::add(out, &format!("add     {register_to_store_result},{}", backend.word_len()), None, true);
         //CodeGen::insert_on_top(&result, out);
         result.push_str(&code_gen.call_deref(&format!("[{register_to_store_result}]"), type_name, descr));
@@ -386,6 +411,10 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn push(&mut self, s: &str) {
         self.before.push_str(s);
+    }
+
+    pub fn add_on_top_of_after(&mut self, s: &str) {
+        self.after.insert(0, s.into());
     }
 
     fn mem_copy(&mut self, source: &str, dest: &str, slots: usize, comment: Option<&str>) {

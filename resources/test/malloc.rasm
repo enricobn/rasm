@@ -1,13 +1,10 @@
 include "std.rasm"
 
-printOption(Option::Some("1"));
-printOption(Option::Some("2"));
-printOption(Option::Some("3"));
-printOption(Option::Some("4"));
-printOption(Option::Some("5"));
+printOption(Option::Some(Option::Some("1")));
 
-printAllocated();
 
-fn printOption(o: Option<&str>) {
-    Option::run(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
+//printAllocated();
+
+fn printOption(o: Option<Option<&str>>) {
+    //Option::run(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
 }
