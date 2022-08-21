@@ -2,7 +2,7 @@ use crate::codegen::{CodeGen, EnhancedASTModule};
 use crate::codegen::backend::Backend;
 use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef};
 
-pub fn struct_functions_creator(code_gen: &mut CodeGen, backend: &dyn Backend, module: &EnhancedASTModule) -> EnhancedASTModule {
+pub fn struct_functions_creator(backend: &dyn Backend, module: &EnhancedASTModule) -> EnhancedASTModule {
     let mut functions_by_name = module.functions_by_name.clone();
 
     for struct_def in &module.structs {
@@ -11,7 +11,7 @@ pub fn struct_functions_creator(code_gen: &mut CodeGen, backend: &dyn Backend, m
         let ast_type = ASTType::Custom { name: struct_def.name.clone(), param_types: param_types.clone() };
         let type_ref = ASTTypeRef { ast_type, ast_ref: true };
         let return_type = Some(type_ref);
-        let body_str = struct_constructor_body(code_gen, backend, struct_def);
+        let body_str = struct_constructor_body(backend, struct_def);
         let body = ASTFunctionBody::ASMBody(body_str);
 
         let parameters = struct_def.properties.iter().map(|it| ASTParameterDef { name: it.name.clone(), type_ref: it.type_ref.clone()}).collect();
@@ -31,32 +31,19 @@ pub fn struct_functions_creator(code_gen: &mut CodeGen, backend: &dyn Backend, m
     result
 }
 
-fn struct_constructor_body(code_gen: &mut CodeGen, backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
-    let word_size = backend.word_size();
-    let word_len = backend.word_len();
+fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> String {
+    let ws = backend.word_size();
+    let wl = backend.word_len();
     let mut body = String::new();
     CodeGen::add(&mut body, "push ebx", None, true);
-    CodeGen::add(&mut body, &format!("push     {}", struct_def.properties.len() * backend.word_len() as usize), None, true);
+    CodeGen::add(&mut body, &format!("push     {}", struct_def.properties.len() * wl), None, true);
     CodeGen::add(&mut body, "call malloc", None, true);
-    CodeGen::add(&mut body, &format!("add esp,{}", backend.word_len()), None, true);
-    CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
-    CodeGen::add(&mut body, &format!("mov {word_size} eax, [eax]"), None, true);
+    CodeGen::add(&mut body, &format!("add esp,{}", wl), None, true);
+    CodeGen::add(&mut body, &format!("push {ws} eax"), None, true);
+    CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
     for (i, par) in struct_def.properties.iter().rev().enumerate() {
         CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
-
-        /*
-        if let ASTType::Custom {
-            name,
-            param_types: _,
-        } = &par.type_ref.ast_type
-        {
-            let descr = format!("struct {}, property {}", struct_def.name, par.name);
-            code_gen.call_add_ref(&mut body, backend, "ebx", name, &descr);
-        }
-
-         */
-
-        CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * backend.word_len() as usize), None, true);
+        CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * wl), None, true);
     }
     CodeGen::add(&mut body, "pop   eax", None, true);
     CodeGen::add(&mut body, "pop   ebx", None, true);
@@ -76,7 +63,6 @@ fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
 }
 
 fn create_function_for_struct_property(backend: &dyn Backend, struct_def: &ASTStructDef, property_def: &ASTStructPropertyDef, i: usize) -> ASTFunctionDef {
-    // TODO param types?
     ASTFunctionDef {name: struct_def.name.clone() + "_" + &property_def.name, parameters: vec![ASTParameterDef {name: "v".into(), type_ref: ASTTypeRef {
         ast_type: ASTType::Custom {name: struct_def.name.clone(), param_types: Vec::new()}, ast_ref: false}}], return_type: Some(property_def.type_ref.clone()),
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)), param_types: struct_def.type_parameters.clone(), inline: false}

@@ -22,7 +22,7 @@ pub fn typed_struct_functions_creator(
             &mut functions_by_name,
             &struct_def,
             "deref",
-            "free",
+            "deref",
         );
         create_free(
             code_gen,

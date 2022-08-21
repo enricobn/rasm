@@ -941,7 +941,7 @@ fn get_type_of_expression(
                         .get(&call.function_name)
                 ) {
                 function_def.return_type.clone().map(|it| it.ast_type)
-            } else if let Some(VarKind::ParameterRef(i, par)) = context.get(&call.function_name) {
+            } else if let Some(VarKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
                 Some(par.type_ref.ast_type.clone())
             } else {
                 panic!();
@@ -1507,7 +1507,7 @@ mod tests {
         let module = parser.parse(path);
 
         let backend = BackendAsm386::new();
-        let code_gen = CodeGen::new(&backend, module, 1024, 1024, 1024, false, false, false, false);
+        let code_gen = CodeGen::new(&backend, module, 1024, 1024, 1024, false, false, true);
     }
 
 }

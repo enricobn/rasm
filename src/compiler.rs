@@ -36,7 +36,7 @@ impl Compiler {
 
                 let mut code_gen = CodeGen::new(&backend, module, 1024 * 1024,
                                                 64 * 1024 * 1024, 1024 * 1024, false, false,
-                                                true, true);
+                                                true);
 
                 let asm = code_gen.asm();
 

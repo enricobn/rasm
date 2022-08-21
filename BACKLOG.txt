@@ -1,9 +1,10 @@
 Doing
 ------
-- de-allocation
+- deep de-allocation
 
 Next
 -----
+- malloc: when reusing memory, reuse only slots that have the same size
 - type check
   - use Result
 - rename "parametric type" to "generic type" all over the place

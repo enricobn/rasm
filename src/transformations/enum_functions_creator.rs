@@ -243,20 +243,6 @@ fn enum_parametric_variant_constructor_body(
             true,
         );
 
-        /*
-        if let ASTType::Custom {
-            name: _,
-            param_types: _,
-        } = &par.type_ref.ast_type
-        {
-            // TODO call CodeGen::call_add_ref
-            CodeGen::add(&mut body, &format!("push     {word_size} ebx"), None, true);
-            CodeGen::add(&mut body, "call     addRef", None, true);
-            CodeGen::add(&mut body, &format!("add      esp,{word_len}"), None, true);
-        }
-
-         */
-
         CodeGen::add(
             &mut body,
             &format!(

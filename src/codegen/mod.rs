@@ -39,7 +39,6 @@ pub struct CodeGen<'a> {
     lambda_space_size: usize,
     debug_asm: bool,
     dereference: bool,
-    deep_dereference: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -200,7 +199,7 @@ impl LambdaSpace {
 
 impl<'a> CodeGen<'a> {
     pub fn new(backend: &'a dyn Backend, module: ASTModule, lambda_space_size: usize, heap_size: usize, heap_table_slots: usize, debug_asm: bool,
-               print_memory_info: bool, dereference: bool, deep_dereference: bool) -> Self {
+               print_memory_info: bool, dereference: bool) -> Self {
         let mut result = Self {
             module: ASTTypedModule {
                 statics: Statics::new(),
@@ -224,11 +223,10 @@ impl<'a> CodeGen<'a> {
             lambda_space_size,
             debug_asm,
             dereference,
-            deep_dereference,
         };
 
         let module = enum_functions_creator(&mut result, backend, &EnhancedASTModule::new(&module));
-        let module = struct_functions_creator(&mut result, backend, &module);
+        let module = struct_functions_creator(backend, &module);
         let module = convert(&module, debug_asm, print_memory_info);
         let module = typed_enum_functions_creator(&mut result, backend, &module);
         let module = typed_struct_functions_creator(&mut result, backend, &module);
@@ -803,14 +801,12 @@ impl<'a> CodeGen<'a> {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
-        let key = self.statics.add_str(&format!("{descr}, type {type_name}"));
-
         let mut result = String::new();
 
         //println!("calling deref for {:?}", type_ref);
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
         CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(&mut result, &format!("call     {type_name}_free"), None, true);
+        CodeGen::add(&mut result, &format!("call     {type_name}_deref"), None, true);
         CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
 
         result
@@ -882,7 +878,7 @@ mod tests {
 
         let backend = BackendAsm386::new();
 
-        let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false, false, false, false);
+        let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false, false, false);
 
         let asm = gen.asm();
 
