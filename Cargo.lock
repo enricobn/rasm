@@ -148,14 +148,14 @@ checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
 name = "rasm"
 version = "0.1.0"
 dependencies = [
-    "env_logger",
-    "linked-hash-map",
-    "log",
-    "strum",
-    "strum_macros",
-    "tempdir",
-    "test-log",
-    "test_bin",
+ "env_logger",
+ "linked-hash-map",
+ "log",
+ "strum",
+ "strum_macros",
+ "tempdir",
+ "test-log",
+ "test_bin",
 ]
 
 [[package]]
@@ -254,9 +254,9 @@ version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38f0c854faeb68a048f0f2dc410c5ddae3bf83854ef0e4977d58306a5edef50e"
 dependencies = [
-    "proc-macro2",
-    "quote",
-    "syn",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
