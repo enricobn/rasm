@@ -4,7 +4,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::type_check::typed_ast::{ASTTypedEnumDef, ASTTypedEnumVariantDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind};
 
-pub fn enum_functions_creator(
+pub fn typed_enum_functions_creator(
     code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &ASTTypedModule,
@@ -36,6 +36,9 @@ pub fn enum_functions_creator(
             "Run",
             None,
         );
+
+        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "deref", "free");
+        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "addRef", "addRef");
     }
 
     let mut result = module.clone();
@@ -163,6 +166,87 @@ fn create_constructors(
     }
 }
 
+fn create_free(
+    code_gen: &mut CodeGen,
+    backend: &dyn Backend,
+    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
+    enum_def: &ASTTypedEnumDef,
+    asm_function_name: &str, function_name: &str,
+) {
+    let ast_type = ASTTypedType::Enum {
+        name: enum_def.name.clone(),
+    };
+    let type_ref = ASTTypedTypeRef {
+        ast_type,
+        ast_ref: false,
+    };
+
+    let body_str = enum_free_body(code_gen, &backend, enum_def, asm_function_name, function_name);
+    let body = ASTTypedFunctionBody::ASMBody(body_str);
+
+    let fun_name = format!("{}_{function_name}", enum_def.name);
+
+    let function_def = ASTTypedFunctionDef {
+        name: fun_name.clone(),
+        parameters: vec![ASTTypedParameterDef { name: "address".into(), type_ref }],
+        body,
+        inline: false,
+        return_type: None,
+    };
+
+    debug!("created function {function_def}");
+
+    functions_by_name.insert(
+        fun_name,
+        function_def,
+    );
+}
+
+fn enum_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &ASTTypedEnumDef, asm_function_name: &str, function_name: &str) -> String {
+    let ws = backend.word_size();
+    let wl = backend.word_len();
+
+    let mut result = String::new();
+
+    let descr = format!("type {}", enum_def.name);
+    let key = code_gen.statics.add_str(&descr);
+
+    CodeGen::add(&mut result, "", Some(&descr), true);
+    CodeGen::add(&mut result, &format!("push  {ws} {key}"), None, true);
+    CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
+    CodeGen::add(&mut result, &format!("call  {asm_function_name}"), None, true);
+    CodeGen::add(&mut result, &format!("add  {},{}", backend.stack_pointer(), wl * 2), None, true);
+
+    //println!("dereferencing enum {type_name}");
+    CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
+    CodeGen::add(&mut result, &format!("push {ws} $address"), None, true);
+    CodeGen::add(&mut result, "pop ebx", None, true);
+    CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+    for (i, variant) in enum_def.clone().variants.iter().enumerate() {
+        if !variant.parameters.is_empty() {
+            CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+            CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
+            for (j, par) in variant.parameters.iter().rev().enumerate() {
+                if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
+                    let free = format!("{name}_{function_name}");
+                    let descr = format!("{descr}, variant {}, type {name}, par {}", variant.name, par.name);
+                    let key = code_gen.statics.add_str(&descr);
+                    //println!("dereferencing par {:?}", par);
+                    CodeGen::add(&mut result, &format!("push     {ws} [ebx + {}]", (j + 1) * wl), None, true);
+                    CodeGen::add(&mut result, &format!("call     {free}"), None, true);
+                    CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+                }
+            }
+            CodeGen::add(&mut result, &format!("._variant_{i}:"), None, false);
+        }
+    }
+
+    CodeGen::add(&mut result, "pop ebx", None, true);
+
+
+    result
+}
+
 fn enum_non_parametric_variant_body(code_gen: &mut CodeGen, backend: &&dyn Backend, native_body: &mut String,
                                     enum_def: &ASTTypedEnumDef, variant_num: usize, variant: &ASTTypedEnumVariantDef) -> String {
     let label = format!("_enum_{}_{}", enum_def.name, variant.name);
@@ -244,10 +328,13 @@ fn enum_parametric_variant_constructor_body(
             true,
         );
 
+        /*
         if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
             let descr = format!("variant {}, par {}", variant.name, par.name);
             code_gen.call_add_ref(&mut body, backend, "ebx", &name, &descr);
         }
+
+         */
 
         CodeGen::add(
             &mut body,

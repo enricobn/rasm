@@ -17,6 +17,8 @@ use crate::parser::ast::{ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule,
 
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
+use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
+use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{ASTTypedEnumDef, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, BuiltinTypedTypeKind};
 
@@ -228,9 +230,10 @@ impl<'a> CodeGen<'a> {
         let module = enum_functions_creator(&mut result, backend, &EnhancedASTModule::new(&module));
         let module = struct_functions_creator(&mut result, backend, &module);
         let module = convert(&module, debug_asm, print_memory_info);
+        let module = typed_enum_functions_creator(&mut result, backend, &module);
+        let module = typed_struct_functions_creator(&mut result, backend, &module);
 
-        result.module = crate::transformations::typed_enum_functions_creator::enum_functions_creator(&mut result, backend, &module);
-
+        result.module = module;
         result
     }
 
@@ -806,70 +809,10 @@ impl<'a> CodeGen<'a> {
 
         //println!("calling deref for {:?}", type_ref);
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
-        CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
         CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(&mut result, "call     deref", None, true);
-        CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
+        CodeGen::add(&mut result, &format!("call     {type_name}_free"), None, true);
+        CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
 
-        if !self.deep_dereference {
-            return result;
-        }
-
-        let mut id = self.id;
-
-        // dereferencing struct properties and enum parameters
-
-        if let Some(struct_def) = self.try_get_struct(type_name) {
-            //println!("dereferencing struct {type_name}");
-            CodeGen::add(&mut result, "", None, true);
-            CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
-            CodeGen::add(&mut result, &format!("push {ws} {source}"), None, true);
-            CodeGen::add(&mut result, "pop ebx", None, true);
-            CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
-            for (i, prop) in struct_def.clone().properties.iter().enumerate() {
-                if let Some(name) = Self::get_reference_type_name(&prop.type_ref.ast_type) {
-                    let descr = format!("{descr}, type {name}, property {}", prop.name);
-                    let key = self.statics.add_str(&descr);
-                    CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
-                    CodeGen::add(&mut result, &format!("push     {ws} [ebx + {i} * {wl}]"), None, true);
-                    CodeGen::add(&mut result, "call     deref", None, true);
-                    CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
-                }
-            }
-            CodeGen::add(&mut result, "pop ebx", None, true);
-        }
-
-        if let Some(enum_def) = self.try_get_enum(type_name) {
-            //println!("dereferencing enum {type_name}");
-            CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
-            CodeGen::add(&mut result, &format!("push {ws} {source}"), None, true);
-            CodeGen::add(&mut result, "pop ebx", None, true);
-            CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
-            for (i, variant) in enum_def.clone().variants.iter().enumerate() {
-                if !variant.parameters.is_empty() {
-                    CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                    CodeGen::add(&mut result, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
-                    for (j, par) in variant.parameters.iter().rev().enumerate() {
-                        if let Some(name) = Self::get_reference_type_name(&par.type_ref.ast_type) {
-                            let descr = format!("{descr}, variant {}, type {name}, par {}", variant.name, par.name);
-                            let key = self.statics.add_str(&descr);
-                            //println!("dereferencing par {:?}", par);
-                            CodeGen::add(&mut result, &format!("push     {ws} {key}"), None, true);
-                            CodeGen::add(&mut result, &format!("push     {ws} [ebx + {}]", (j + 1) * wl), None, true);
-                            CodeGen::add(&mut result, "call     deref", None, true);
-                            CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
-                        }
-                    }
-                    CodeGen::add(&mut result, &format!("._{type_name}_{i}_{}:", id), None, false);
-                    id += 1;
-                }
-            }
-
-            CodeGen::add(&mut result, "pop ebx", None, true);
-        }
-
-        //Self::insert_on_top(&result, out);
-        self.id = id;
         result
     }
 
@@ -889,65 +832,10 @@ impl<'a> CodeGen<'a> {
         let key = self.statics.add_str(descr);
 
         CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
-        CodeGen::add(out, &format!("push     {ws} {key}"), None, true);
         CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(out, "call     addRef", None, true);
-        CodeGen::add(out, &format!("add      esp,{}", wl * 2), None, true);
+        CodeGen::add(out, &format!("call     {type_name}_addRef"), None, true);
+        CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
 
-        if !self.deep_dereference {
-            return key;
-        }
-
-        let mut id = self.id;
-
-        if let Some(struct_def) = self.try_get_struct(type_name) {
-            //println!("dereferencing struct {type_name}");
-            CodeGen::add(out, "", None, true);
-            CodeGen::add(out, &format!("push {ws} ebx"), None, true);
-            CodeGen::add(out, &format!("push {ws} {source}"), None, true);
-            CodeGen::add(out, "pop ebx", None, true);
-            CodeGen::add(out, &format!("mov {ws} ebx, [ebx]"), None, true);
-            for (i, prop) in struct_def.clone().properties.iter().enumerate() {
-                if let Some(name) = Self::get_reference_type_name(&prop.type_ref.ast_type) {
-                    let descr = format!("{descr}, type {name}, property {}", prop.name);
-                    let key = self.statics.add_str(&descr);
-                    CodeGen::add(out, &format!("push     {ws} {key}"), None, true);
-                    CodeGen::add(out, &format!("push     {ws} [ebx + {i} * {wl}]"), None, true);
-                    CodeGen::add(out, "call     addRef", None, true);
-                    CodeGen::add(out, &format!("add      esp,{}", wl * 2), None, true);
-                }
-            }
-            CodeGen::add(out, "pop ebx", None, true);
-        }
-
-        if let Some(enum_def) = self.try_get_enum(type_name) {
-            CodeGen::add(out, &format!("push {ws} ebx"), None, true);
-            CodeGen::add(out, &format!("push {ws} {source}"), None, true);
-            CodeGen::add(out, "pop ebx", None, true);
-            CodeGen::add(out, &format!("mov {ws} ebx, [ebx]"), None, true);
-            for (i, variant) in enum_def.variants.clone().iter().enumerate() {
-                if !variant.parameters.is_empty() {
-                    CodeGen::add(out, &format!("cmp {ws} [ebx], {}", i), None, true);
-                    CodeGen::add(out, &format!("jnz ._{type_name}_{i}_{}", id), None, true);
-                    for (j, par) in variant.parameters.iter().rev().enumerate() {
-                        if let Some(name) = Self::get_reference_type_name(&par.type_ref.ast_type) {
-                            //println!("adding addRef call for {type_name}, variant {}, type {name}, par {}: {descr}", variant.name, par.name);
-                            let key = self.statics.add_str(descr);
-                            CodeGen::add(out, &format!("push     {ws} {key}"), None, true);
-                            CodeGen::add(out, &format!("push     {ws} [ebx + {wl} + {j} * {wl}]"), None, true);
-                            CodeGen::add(out, "call     addRef", None, true);
-                            CodeGen::add(out, &format!("add      esp,{}", wl * 2), None, true);
-                        }
-                    }
-                    CodeGen::add(out, &format!("._{type_name}_{i}_{}:", id), None, false);
-                    id += 1;
-                }
-            }
-
-            CodeGen::add(out, "pop ebx", None, true);
-
-            self.id = id;
-        }
         key
     }
 
