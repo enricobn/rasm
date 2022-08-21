@@ -1333,14 +1333,9 @@ mod tests {
         ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind,
     };
     use crate::parser::Parser;
-    use crate::transformations::enum_functions_creator::enum_functions_creator;
-    use crate::transformations::struct_functions_creator::struct_functions_creator;
-    use crate::type_check::typed_ast::ASTTypedModule;
     use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
     use std::collections::HashMap;
     use std::path::Path;
-    use log::info;
-    use test_env_log::test;
 
     #[test]
     fn test_extract_generic_types_from_effective_type_simple() -> Result<(), TypeCheckError> {

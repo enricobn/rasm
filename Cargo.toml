@@ -13,4 +13,4 @@ tempdir = "0.3"
 
 [dev-dependencies]
 test_bin = "0.4"
-test-env-log = "0.2"
+test-log = "0.2"
