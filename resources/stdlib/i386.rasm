@@ -402,7 +402,7 @@ asm malloc(size: i32) -> i32 /{
     %endif
 
     mov     dword [eax + 4], 1      ; allocated flag
-    mov     dword [eax + 12], 1     ; count
+    mov     dword [eax + 12], 0     ; count
     jmp     .end
 
 .allocate:
@@ -412,7 +412,6 @@ asm malloc(size: i32) -> i32 /{
 
     mov     dword [eax + 4], 1      ; allocated flag
     mov     dword [eax + 8], ecx    ; size
-    ;mov     dword [eax + 12], 1    ; count
 
 .end:
     ;mov     dword eax,[eax]
