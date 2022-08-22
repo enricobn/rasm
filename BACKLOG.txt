@@ -4,7 +4,6 @@ Doing
 
 Next
 -----
-- malloc: when reusing memory, reuse only slots that have the same size
 - type check
   - use Result
 - rename "parametric type" to "generic type" all over the place
@@ -28,13 +27,13 @@ Next
 - delete asm, object and executable file on compile
 - write "and", "or", "not" function in asm inline
 - I think include messes up reporting error line
-- error if there's a function named the same way as a lambda parameter
+- error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
 - support for boolean
 - optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:
   - if there are more lambda in a call, all share the same lambda space (but not the address to the function), now it's duplicated:
-    - I can create only one lambda space, then I can pass to the lambda, the address to the real function and the address to the lambda space
+    - I can create only one lambda space, then I can pass, the address to the real function and the address to the lambda space, to the lambda
 - rename asm to native
 - user should not define native functions
 - some functions from the std library should not be called (tag with internal?), for example malloc, memcopy
@@ -45,10 +44,9 @@ Next
 - I would like to have some namespace for functions, to be xx.yy.zz::function_name
 - I can close an already closed TokensGroup (make a test)
 - safe command line arguments (use Option?)
-- add command line argument to print the syntax tree (codegen/md.rs -> Parser::print(&self.module))
+- add command line argument to print the syntax tree
 - rename lambda to closure?
 - line errors in codegen
-- UTF-8 strings
 
 BUGS
 -----

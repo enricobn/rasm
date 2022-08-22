@@ -337,12 +337,6 @@ asm malloc(size: i32) -> i32 /{
     ;call    loop
     %endif
 
-    ; if there's space in the heap, we create a new, TODO it's fast, but it don't allocate the heap table...
-    ;mov     dword ecx,[_heap]
-    ;sub     ecx,_heap_buffer
-    ;cmp     ecx,[_heap_size]
-    ;jb      .new_address
-
     mov     dword edx,[_heap_table_size]
     cmp     ebx,edx
     jb     .loop_ok
@@ -395,7 +389,7 @@ asm malloc(size: i32) -> i32 /{
 
     mov     dword ecx,[eax + 8] ; size
     cmp     ecx,$size
-    jb      .loop_ok_2
+    jne     .loop_ok_2
 
     %ifdef LOG_DEBUG
     call    reused
