@@ -3,8 +3,6 @@ use std::cell::RefCell;
 pub static mut ENABLE_INDENT: bool = true;
 
 thread_local! {
-    // Could add pub to make it public to whatever Foo already is public to.
-    //static mut INDENT: usize = 0;
     pub static INDENT : RefCell<usize> = RefCell::new(0);
 }
 
