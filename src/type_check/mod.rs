@@ -1,65 +1,19 @@
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use log::debug;
+
+use crate::{debug_i, dedent, indent};
 use crate::codegen::{EnhancedASTModule, ValContext, VarKind};
 use crate::parser::ast::MyToString;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
     ASTType, ASTTypeRef, BuiltinTypeKind,
 };
-use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
+use crate::type_check::typed_ast::{ASTTypedModule, convert_to_typed_module};
 use crate::type_check::typed_context::TypeConversionContext;
-use log::debug;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
 pub mod typed_ast;
 pub mod typed_context;
-
-static mut ENABLE_INDENT: bool = true;
-
-thread_local! {
-    // Could add pub to make it public to whatever Foo already is public to.
-    //static mut INDENT: usize = 0;
-    static INDENT : RefCell<usize> = RefCell::new(0);
-}
-
-macro_rules! debug_i {
-    ($ ( $ a: expr), *) => {
-        unsafe {
-        INDENT.with(|indent| {
-            let s = if !ENABLE_INDENT || *indent.borrow() == 0 {
-                "".into()
-            } else {
-                "|  ".repeat(*indent.borrow())
-            };
-            debug ! ("{}{}", s, & format ! ( $( $ a), * ));
-        });
-    }
-    };
-}
-
-macro_rules! indent {
-    () => {
-        unsafe {
-            if ENABLE_INDENT {
-                INDENT.with(|indent| {
-                    *indent.borrow_mut() += 1;
-                });
-            }
-        }
-    };
-}
-
-macro_rules! dedent {
-    () => {
-        unsafe {
-            if ENABLE_INDENT {
-                INDENT.with(|indent| {
-                    *indent.borrow_mut() -= 1;
-                });
-            }
-        }
-    };
-}
 
 #[derive(Debug)]
 pub struct TypeCheckError {
@@ -86,7 +40,7 @@ impl From<String> for TypeCheckError {
 
 pub fn convert(module: &EnhancedASTModule, debug_asm: bool, print_allocation: bool) -> ASTTypedModule {
     //unsafe {
-    INDENT.with(|indent| {
+    crate::utils::debug_indent::INDENT.with(|indent| {
         *indent.borrow_mut() = 0;
     });
     //}
@@ -1325,8 +1279,11 @@ fn update(
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::backend::BackendAsm386;
+    use std::collections::HashMap;
+    use std::path::Path;
+
     use crate::codegen::{CodeGen, EnhancedASTModule};
+    use crate::codegen::backend::BackendAsm386;
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
@@ -1334,8 +1291,6 @@ mod tests {
     };
     use crate::parser::Parser;
     use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
-    use std::collections::HashMap;
-    use std::path::Path;
 
     #[test]
     fn test_extract_generic_types_from_effective_type_simple() -> Result<(), TypeCheckError> {

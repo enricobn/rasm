@@ -7,6 +7,8 @@ pub mod compiler;
 //pub mod type_check;
 pub mod transformations;
 pub mod type_check;
+#[macro_use]
+pub mod utils;
 
 use std::env;
 use std::ops::Add;
