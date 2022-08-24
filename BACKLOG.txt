@@ -1,39 +1,52 @@
 Doing
 ------
-- deep de-allocation
+- optimize allocation
 
 Next
 -----
+- optimize allocation:
+  - we need a structure to memorize:
+    - the address to the heap memory
+    - the size of the heap memory
+    - the address to the allocation table
+    - the size of the allocation table
+    - the address of the free memory in the heap
+    - the address to the next free slot in the allocation table
+    - the address to the reusable slots table (it's a table of pointers to the allocation table)
+    - the size of the reusable slots table
+    - the number of reusable slots
+
+  - the allocation algorithm
+    - first we search in the reusable stable
+      - we search for a reusable slot that matches the size (use the number of reusable slots to end the search)
+      - if we find it
+        - we allocate it in the allocation table
+        - if there is more than one reusable slot, and it is not the one we used, we copy the last reusable address to the one we used
+        - we decrement the number of reusable slots
+      - if we don't find it
+        - we allocate the next free slot in the allocation table
+  - the deref algorithm
+    TODO
+
 - type check
   - use Result
 - rename "parametric type" to "generic type" all over the place
-- split the standard library
-  - the include files should be searched relative to actual folder / stdlib folder, plus the current folder, and it can
+- libraries
+  - the include files should be searched relative to "current folder"/"stdlib folder", plus the current folder, and it can
     be overridden with an environment var with a list of folders, separated by colon
-  - add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
+  - ??? add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
     or add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
-  - the folder structure of the stdlib folder should be:
-      - io/
-        - io.rasm without asm and include "io_i386.rasm" (I would like to do it depending on the backend)
-        - io_i386.rasm
-      - mem/
-        - mem.rasm without asm and include "io_i386.rasm" (I would like to do it depending on the backend)
-        - mem_i386.rams
-      - list.rams
-      - option.rasm
-      - std.rams
-        - include all the others
-        - other functions
 - delete asm, object and executable file on compile
 - write "and", "or", "not" function in asm inline
-- I think include messes up reporting error line
+- I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
 - support for boolean
 - optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:
   - if there are more lambda in a call, all share the same lambda space (but not the address to the function), now it's duplicated:
-    - I can create only one lambda space, then I can pass, the address to the real function and the address to the lambda space, to the lambda
+    - I can create only one lambda space, then I can pass, the address to the real function and the address to the lambda space, to the lambda,
+      or a single pointer to a "structure" where the first word is the pointer to the function and the second the pointer to the lambda space
 - rename asm to native
 - user should not define native functions
 - some functions from the std library should not be called (tag with internal?), for example malloc, memcopy
@@ -47,6 +60,8 @@ Next
 - add command line argument to print the syntax tree
 - rename lambda to closure?
 - line errors in codegen
+- threads
+- dynamic strings
 
 BUGS
 -----

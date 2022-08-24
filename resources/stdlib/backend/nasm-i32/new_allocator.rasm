@@ -1,0 +1,456 @@
+asm malloc(size: i32) -> i32 /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    %ifdef LOG_DEBUG
+    call    startMalloc
+    push    dword $size
+    call    nprintln
+    add     esp, 4
+    %endif
+
+    mov     dword ecx, _reusable_heap_table
+
+.reusable_loop:
+    cmp     dword ecx,[_reusable_heap_table_next]
+    jz      .allocation
+
+    mov     eax,[ecx]
+    cmp     dword [eax + 4],0 ; allocated flag
+    jz      .reusable_not_allocated
+.reusable_next:
+    add     ecx, 4
+    jmp     .reusable_loop
+.reusable_not_allocated:
+    mov     dword edx,[eax + 8] ; size
+    cmp     edx,$size
+    je     .reusable_good
+    jmp     .reusable_next
+.reusable_good:
+    %ifdef LOG_DEBUG
+    call    reused
+    %endif
+    mov     dword ebx, [_reusable_heap_table_next]
+    sub     ebx,4
+    mov     dword [_reusable_heap_table_next],ebx
+    cmp     dword ebx,ecx
+    jbe     .reusable_allocate
+    mov     dword ebx,[ebx]
+    mov     dword [ecx],ebx
+.reusable_allocate:
+    mov     dword [eax + 4], 1      ; allocated flag
+    mov     dword [eax + 12], 0     ; count
+    jmp     .end
+.allocation:
+    ;mov     dword ebx,0               ; the counter of the position in the heap table
+    mov     dword eax,_heap_table_next; the pointer to the heap table
+.loop:
+    ;%ifdef LOG_DEBUG
+    ;call    loop
+    ;%endif
+
+    mov     dword edx,[_heap_table_size]
+    add     edx,_heap_table
+    cmp     eax,edx
+    jb     .loop_ok
+    call    outOfHeapSpace
+
+.loop_ok:
+    %ifdef LOG_DEBUG
+    ;call    loopOk
+    %endif
+
+    mov     dword eax,[_heap_table_next]
+    cmp     dword [eax],0
+    jz      .new_address
+
+    cmp     dword [eax + 4],0 ; allocated flag
+    jz      .not_allocated
+.loop_ok_2:
+    add     eax,4 * 4
+    add     ebx,4 * 4
+    jmp     .loop
+
+.new_address:
+    %ifdef LOG_DEBUG
+    call    newAddress
+    %endif
+
+    mov     dword ecx,[_heap]
+    sub     ecx,_heap_buffer
+    cmp     ecx,[_heap_size]
+    jb      .new_address_ok
+    call     outOfMemory
+
+.new_address_ok:
+    %ifdef LOG_DEBUG
+    call    newAddressOk
+    %endif
+
+    mov     dword ecx,[_heap]
+    mov     dword [eax],ecx
+    mov     dword edx, $size
+    add     ecx, edx
+    mov     dword [_heap],ecx
+    mov     dword ecx,$size
+    mov     dword [eax + 4 * 4],0 ; to be sure that the next slot is considered free
+    jmp     .allocate
+
+.not_allocated:
+    %ifdef LOG_DEBUG
+    call    notAllocated
+    %endif
+
+    mov     dword ecx,[eax + 8] ; size
+    cmp     ecx,$size
+    jne     .loop_ok_2
+
+    ;%ifdef LOG_DEBUG
+    ;call    reused
+    ;%endif
+
+    mov     dword [eax + 4], 1      ; allocated flag
+    mov     dword [eax + 12], 0     ; count
+    jmp     .end
+
+.allocate:
+    %ifdef LOG_DEBUG
+    call    allocate
+    %endif
+
+    mov     dword [eax + 4], 1      ; allocated flag
+    mov     dword [eax + 8], ecx    ; size
+    add     eax, 16
+    mov     [_heap_table_next],eax
+    sub     eax, 16
+
+.end:
+    ;mov     dword eax,[eax]
+
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword eax
+    call    nprintln
+    pop     eax
+    call    endMalloc
+    %endif
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm deref(address: i32, descr: &str) -> i32 /{
+    push    eax
+    push    ebx
+
+    %ifdef LOG_DEBUG
+    call    startDeref
+    call    printTab
+    push    dword $address
+    call    nprintln
+    add     esp,4
+    call    printTab
+    push    dword $descr
+    call    sprintln
+    add     esp,4
+    %endif
+
+    ; we check if the address is valid
+    mov     dword eax,_heap_table
+    cmp     $address,eax
+    jb     .invalid_address
+    add     eax,_heap_table_size
+    cmp     $address,eax
+    jg      .invalid_address
+
+    mov     dword eax,$address
+
+    cmp     dword [eax],0 ; TODO if address == 0 then it should be an error, but for now we ignore it
+    jz      .end
+
+    mov     dword ebx,[eax + 12] ; the count
+    cmp     ebx,0
+    jz      .negative_count
+    ;jz      .end
+
+    sub     ebx,1
+
+    %ifdef LOG_DEBUG
+    push    dword ebx
+    call    printRefCount
+    add     esp,4
+    %endif
+
+    mov     dword [eax + 12],ebx
+    cmp     ebx,0
+    jnz     .end
+
+    %ifdef LOG_DEBUG
+    call    deallocated
+    call    printTab
+    push    eax
+    call    nprintln
+    pop     eax
+    %endif
+
+    mov     dword [eax + 4],0; allocated false
+
+    mov     dword ebx,[_reusable_heap_table_next]
+    mov     dword [ebx],eax
+    add     ebx,4
+    mov     dword [_reusable_heap_table_next],ebx
+
+    jmp     .end
+.negative_count:
+    call    negativeCount
+    jmp     .end
+.invalid_address:
+    call    invalidAddress
+.end:
+    %ifdef LOG_DEBUG
+    call    endDeref
+    %endif
+    pop     ebx
+    pop     eax
+}/
+
+asm addRef(address: i32, descr: &str) /{
+    push    eax
+    push    ebx
+    push    ecx
+
+    %ifdef LOG_DEBUG
+    call    startAddRef
+    %endif
+
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword $address
+    call    nprintln
+    add     esp,4
+    %endif
+    %ifdef LOG_DEBUG
+    call    printTab
+    push    dword $descr
+    call    sprintln
+    add     esp,4
+    %endif
+
+    ; we check if the address is valid
+    mov     dword eax,_heap_table
+    cmp     $address,eax
+    jb     .invalid_address
+    add     eax,_heap_table_size
+    cmp     $address,eax
+    jg      .invalid_address
+
+    mov     dword eax,$address
+
+    mov     dword ebx,[eax + 12] ; the count
+    add     ebx,1
+
+    %ifdef LOG_DEBUG
+    push    dword ebx
+    call    printRefCount
+    add     esp,4
+    %endif
+
+    mov     dword [eax + 12],ebx
+
+    mov     dword ebx,[eax + 4]
+    cmp     ebx,0                ; allocated false, it could be in the reusable_table
+    jnz     .allocate
+
+    ; trying to remove from the reusable table
+    mov     dword ecx,[_reusable_heap_table_next]
+    mov     dword ebx,[_reusable_heap_table]
+.reusable_next:
+    cmp     dword ebx,ecx
+    jge     .allocate
+    cmp     dword [ebx],eax
+    jz      .reusable_remove
+    add     ebx,4
+    jmp     .reusable_next
+.reusable_remove:
+
+
+
+    sub     ecx,4
+    mov     dword [_reusable_heap_table_next],ecx
+    cmp     dword ecx,ebx
+    jbe     .allocate
+    mov     dword ecx,[ecx]
+    mov     dword [ebx],ecx
+
+
+
+
+
+.allocate:
+    mov     dword [eax + 4],1; allocated true
+    jmp     .end
+.invalid_address:
+    call    invalidAddress
+.end:
+    %ifdef LOG_DEBUG
+    call    endAddRef
+    %endif
+
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+
+fn printRefCount(count: i32) {
+    sprint("  ref count: ");
+    nprintln($count);
+}
+
+fn invalidAddress() {
+    sprintln("invalid address");
+    exit(1);
+}
+
+fn endDeref() {
+    sprintln("end deref");
+}
+
+fn endAddRef() {
+    sprintln("end add_ref");
+}
+
+fn startAddRef() {
+    sprintln("start add_ref");
+}
+
+fn deallocated() {
+    sprintln("  deallocated");
+}
+
+fn endMalloc() {
+    sprintln("end malloc");
+}
+
+fn startMalloc() {
+    sprint("start malloc ");
+}
+
+fn startDeref() {
+    sprintln("start deref ");
+}
+
+fn printTab() {
+    sprint("  ");
+}
+
+fn loop() {
+    sprintln("  .loop");
+}
+
+fn loopOk() {
+    sprintln("  .loop_ok");
+}
+
+fn newAddress() {
+    sprintln("  .new_address");
+}
+
+fn newAddressOk() {
+    sprintln("  .new_address_ok");
+}
+
+fn allocate() {
+    sprintln("  .allocate");
+}
+
+fn notAllocated() {
+    sprintln("  .not_allocated");
+}
+
+fn reused() {
+    sprintln("  reused");
+}
+
+asm printAllocated() /{
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax,_heap_table
+    mov     dword ebx,0
+    mov     dword ecx,0
+.loop:
+    cmp     dword ebx,[_heap_table_size]
+    jge     .end
+    mov     dword edx,[eax + 4]; 1 == allocated
+    cmp     dword edx,0
+    jz      .not_allocated
+    add     dword ecx,[eax + 8] ; size
+.not_allocated:
+    add     eax, 4 * 4
+    add     ebx, 4 * 4
+    jmp     .loop
+.end:
+    push    ecx
+    call    nprint
+    add     esp, 4
+    call    printAllocatedString
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+
+asm printTableSlotsAllocated() /{
+    push    eax
+    push    ebx
+
+    mov     dword eax,0
+    mov     dword ebx,_heap_table
+.loop:
+    cmp     dword [ebx],0
+    jz      .end
+    add     eax,1
+    add     ebx,4*4
+    jmp     .loop
+.end:
+    push    eax
+    call    nprint
+    add     esp, 4
+    call    printTableSlotsAllocatedString
+
+    pop     ebx
+    pop     eax
+}/
+
+fn printTableSlotsAllocatedString() {
+    sprintln(" table slots allocated");
+}
+
+fn printAllocatedString() {
+    sprintln(" bytes allocated");
+}
+
+fn outOfHeapSpace() {
+    sprintln("Out of heap space");
+    exit(1);
+}
+
+fn negativeCount() {
+    sprintln("Negative allocation count");
+    exit(1);
+}
+
+fn outOfMemory() {
+    sprintln("Out of memory");
+    exit(1);
+}
+
+fn derefAddressNotFound() {
+    sprintln("Deref: address not found");
+    exit(1);
+}
