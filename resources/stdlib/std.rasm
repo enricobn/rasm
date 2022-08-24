@@ -1,4 +1,4 @@
-include "i386.rasm"
+include "backend/nasm-i32/all.rasm"
 include "list.rasm"
 
 /**
