@@ -205,7 +205,7 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
-    jbe     $+7  ; Jump if Below or Equal (unsigned comparison)
+    jbe     $+7  ; Jump if Below or Equal unsigned comparison
     mov     eax,0 ; false
 }/
 
@@ -217,7 +217,7 @@ inline asm less(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
-    jb     $+7  ; Jump if Below or Equal (unsigned comparison)
+    jb     $+7  ; Jump if Below or Equal unsigned comparison
     mov     eax,0 ; false
 }/
 
@@ -229,7 +229,7 @@ inline asm greater(a: i32, b: i32) -> i32 /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
-    jg      $+7  ; Jump if greater (unsigned comparison)
+    jg      $+7  ; Jump if greater unsigned comparison
     mov     eax,0 ; false
 }/
 

@@ -2,6 +2,7 @@ mod function_call_parameters;
 pub mod backend;
 pub mod stack;
 pub mod statics;
+pub mod text_macro;
 
 use std::collections::HashSet;
 use std::ops::Deref;
@@ -41,14 +42,14 @@ pub struct CodeGen<'a> {
     dereference: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MemoryValue {
     StringValue(String),
     I32Value(i32),
     Mem(usize, MemoryUnit),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MemoryUnit {
     Bytes,
     Words,
@@ -277,8 +278,8 @@ impl<'a> CodeGen<'a> {
         let mut asm = String::new();
 
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
-        self.statics.insert("_heap_table".into(), Mem((self.heap_table_slots + 1)  * 16, Bytes));
-        self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(self.heap_table_slots as i32 * 16));
+        self.statics.insert("_heap_table".into(), Mem((self.heap_table_slots + 1) * 20, Bytes));
+        self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(self.heap_table_slots as i32 * 20));
         self.statics.insert("_heap_table_next".into(), MemoryValue::I32Value(self.heap_size as i32));
         self.statics.insert("_heap".into(), Mem(4, Bytes));
         self.statics.insert("_heap_size".into(), MemoryValue::I32Value(self.heap_size as i32));
@@ -461,7 +462,7 @@ impl<'a> CodeGen<'a> {
                                                                            &stack, self.dereference);
 
                 self.definitions.push_str(
-                    &function_call_parameters.resolve_asm_parameters(s, 0, indent));
+                    &function_call_parameters.resolve_asm_parameters(&mut self.statics, s, 0, indent));
 
                 // we parse asm body to collect the calls
                 s.lines().filter(|it| it.contains("call") && !it.contains('[') && !it.contains('$'))
@@ -703,7 +704,7 @@ impl<'a> CodeGen<'a> {
                 CodeGen::add(before, &format!("; To remove from stack  {}", added_to_stack +
                     call_parameters.to_remove_from_stack()), None,
                              true);
-                before.push_str(&call_parameters.resolve_asm_parameters(body, added_to_stack, indent));
+                before.push_str(&call_parameters.resolve_asm_parameters(&mut self.statics, body, added_to_stack, indent));
             } else {
                 panic!("Only asm can be inlined, for now...");
             }

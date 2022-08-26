@@ -460,7 +460,9 @@ pub fn convert_to_typed_module(
             "reused",
             "endMalloc",
             "nprint",
-            "printRefCount"
+            "printRefCount",
+            "printReplacedReused",
+            "addReused"
         ])
     }
 

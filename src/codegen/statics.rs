@@ -75,4 +75,8 @@ impl Statics {
         }
         (data, bss)
     }
+
+    pub fn get(&self, key: &str) -> Option<&MemoryValue> {
+        self.statics.get(key)
+    }
 }

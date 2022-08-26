@@ -3,6 +3,8 @@ use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedVarKind};
 use crate::codegen::stack::Stack;
+use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef};
 
 pub struct FunctionCallParameters<'a> {
@@ -266,7 +268,7 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("lambda from lambda space: {}", val_name));
     }
 
-    pub fn resolve_asm_parameters(&self, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
+    pub fn resolve_asm_parameters(&self, statics: &mut Statics, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
         let mut result = body.to_string();
         let mut i = 0;
         let word_len = self.backend.word_len() as i32;
@@ -296,7 +298,8 @@ impl<'a> FunctionCallParameters<'a> {
             result = result.replace(&format!("${}", par.name), &address);
             i += 1;
         }
-        result
+
+        TextMacroEvaluator::new().translate(self.backend, statics, &result)
     }
 
     fn parameter_added_to_stack(&mut self, param_name: &str) {

@@ -162,7 +162,8 @@ asm deref(address: i32, descr: &str) -> i32 /{
     call    negativeCount
     jmp     .end
 .invalid_address:
-    call    invalidAddress
+    $call(sprintln, "Invalid address")
+    $call(exit, 1)
 .end:
     %ifdef LOG_DEBUG
     call    endDeref
@@ -181,15 +182,11 @@ asm addRef(address: i32, descr: &str) /{
 
     %ifdef LOG_DEBUG
     call    printTab
-    push    dword $address
-    call    nprintln
-    add     esp,4
+    $call(nprintln,$address)
     %endif
     %ifdef LOG_DEBUG
     call    printTab
-    push    dword $descr
-    call    sprintln
-    add     esp,4
+    $call(sprintln,$descr)
     %endif
 
     ; we check if the address is valid
@@ -206,16 +203,16 @@ asm addRef(address: i32, descr: &str) /{
     add     ebx,1
 
     %ifdef LOG_DEBUG
-    push    dword ebx
-    call    printRefCount
-    add     esp,4
+    $call(sprint, "  ref count: ")
+    $call(nprintln,ebx)
     %endif
 
     mov     dword [eax + 12],ebx
     mov     dword [eax + 4],1; allocated true
     jmp     .end
 .invalid_address:
-    call    invalidAddress
+    $call(sprintln, "Invalid address")
+    $call(exit, 1)
 .end:
     %ifdef LOG_DEBUG
     call    endAddRef
@@ -224,16 +221,6 @@ asm addRef(address: i32, descr: &str) /{
     pop     ebx
     pop     eax
 }/
-
-fn printRefCount(count: i32) {
-    sprint("  ref count: ");
-    nprintln($count);
-}
-
-fn invalidAddress() {
-    sprintln("invalid address");
-    exit(1);
-}
 
 fn endDeref() {
     sprintln("end deref");
