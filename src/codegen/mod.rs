@@ -280,12 +280,11 @@ impl<'a> CodeGen<'a> {
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         self.statics.insert("_heap_table".into(), Mem((self.heap_table_slots + 1) * 20, Bytes));
         self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(self.heap_table_slots as i32 * 20));
-        self.statics.insert("_heap_table_next".into(), MemoryValue::I32Value(self.heap_size as i32));
+        self.statics.insert("_heap_table_next".into(), MemoryValue::I32Value(0));
         self.statics.insert("_heap".into(), Mem(4, Bytes));
         self.statics.insert("_heap_size".into(), MemoryValue::I32Value(self.heap_size as i32));
         self.statics.insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
 
-        self.statics.insert("_original_heap".into(), Mem(4, Bytes));
         self.statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
         self.statics.insert("_lambda_space_stack_buffer".into(), Mem(self.lambda_space_size, Bytes));
 
@@ -307,7 +306,7 @@ impl<'a> CodeGen<'a> {
         asm.push_str("        tv_usec dd 0\n");
         asm.push_str("    _ESC	db    27, 0h\n");
 
-        let (data, bss) = self.statics.to_code();
+        let (data, bss, code) = self.statics.to_code(self.backend);
 
         asm.push_str(&data);
 
@@ -323,6 +322,8 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
         }
 
+        CodeGen::add(&mut asm, &code, None, true);
+
         // command line arguments
         for i in 0..12 {
             CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()), Some(&format!("command line argument {}", i)), true);
@@ -331,15 +332,19 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None, true);
         CodeGen::add(&mut asm, "mov     [_heap], eax", None, true);
+
         CodeGen::add(&mut asm, "mov     eax, _heap_table", None, true);
         CodeGen::add(&mut asm, "mov     [_heap_table_next],eax", None, true);
-        CodeGen::add(&mut asm, "mov     [_original_heap], eax", None, true);
+
         CodeGen::add(&mut asm, "mov     eax, _lambda_space_stack_buffer", None, true);
         CodeGen::add(&mut asm, "mov     [_lambda_space_stack], eax", None, true);
+
         CodeGen::add(&mut asm, "mov     eax, _scope_stack_buffer", None, true);
         CodeGen::add(&mut asm, "mov     [_scope_stack], eax", None, true);
+
         CodeGen::add(&mut asm, "mov     eax, _reusable_heap_table", None, true);
         CodeGen::add(&mut asm, "mov     [_reusable_heap_table_next],eax", None, true);
+
         CodeGen::add(&mut asm, "", None, true);
         CodeGen::add(&mut asm, "push    ebp       ; save old call frame", None, true);
         CodeGen::add(&mut asm, "mov     ebp, esp  ; initialize new call frame", None, true);

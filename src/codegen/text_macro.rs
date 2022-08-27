@@ -1,6 +1,5 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
-use crate::parser::tokens_matcher::{Quantifier, TokensMatcher};
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -44,10 +43,8 @@ impl TextMacroEvaluator {
                 name: name.into(),
                 parameters: Self::parse_params(parameters),
             };
-            println!("found macro {whole}: {name}");
 
             let s = self.eval_macro(backend, statics, &text_macro);
-
 
             result = result.replace(whole, &s);
         }
@@ -151,11 +148,11 @@ impl TextMacroEval for CallTextMacroEvaluator {
             .rev()
             .map(|it| match it {
                 MacroParam::Plain(s) => {
-                    format!("push dword {s}")
+                    format!("    push dword {s}")
                 }
                 MacroParam::StringLiteral(s) => {
                     let key = statics.add_str(s);
-                    format!("push dword {key}")
+                    format!("    push dword {key}")
                 }
             })
             .collect::<Vec<String>>()
@@ -164,13 +161,13 @@ impl TextMacroEval for CallTextMacroEvaluator {
         result.push('\n');
 
         if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
-            result.push_str(&format!("call {function_name}\n"));
+            result.push_str(&format!("    call {function_name}\n"));
         } else {
             panic!("Error getting the function name");
         }
 
         result.push_str(&format!(
-            "add {}, {}\n",
+            "    add {}, {}\n",
             backend.stack_pointer(),
             (parameters.len() - 1) * backend.word_len()
         ));
@@ -184,7 +181,6 @@ mod tests {
     use crate::codegen::backend::BackendAsm386;
     use crate::codegen::statics::Statics;
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
-    use regex::Regex;
     use crate::codegen::MemoryValue;
 
     #[test]
@@ -202,7 +198,7 @@ mod tests {
 
         let result = TextMacroEvaluator::new().eval_macro(&backend, &mut statics, &text_macro);
 
-        assert_eq!(result, "push dword _s_0\ncall sprintln\nadd esp, 4\n");
+        assert_eq!(result, "    push dword _s_0\n    call sprintln\n    add esp, 4\n");
     }
 
     #[test]
@@ -212,7 +208,7 @@ mod tests {
 
         let result = TextMacroEvaluator::new().translate(&backend, &mut statics, "a line\n$call(nprint,10)\nanother line\n");
 
-        assert_eq!(result, "a line\npush dword 10\ncall nprint\nadd esp, 4\n\nanother line\n");
+        assert_eq!(result, "a line\n    push dword 10\n    call nprint\n    add esp, 4\n\nanother line\n");
     }
 
     #[test]
@@ -224,6 +220,6 @@ mod tests {
 
         assert_eq!(statics.get("_s_0"), Some(&MemoryValue::StringValue("Hello, world".into())));
 
-        assert_eq!(result, "a line\npush dword _s_0\ncall sprintln\nadd esp, 4\n\nanother line\n");
+        assert_eq!(result, "a line\n    push dword _s_0\n    call sprintln\n    add esp, 4\n\nanother line\n");
     }
 }

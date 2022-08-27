@@ -248,18 +248,18 @@ impl<'a> FunctionCallParameters<'a> {
                          None, true);
             CodeGen::add(&mut self.before, &format!("mov     ebx, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"), true);
 
+            if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
+                self.add_code_for_reference_type(code_gen, None, name, &format!("[ebx + {}]", lambda_space_index * word_len), true, &descr);
+            } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
+                self.add_code_for_reference_type(code_gen, None, name, &format!("[ebx + {}]", lambda_space_index * word_len), true, &descr);
+            }
+
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov   {} eax,[ebx + {}]", self.backend.pointer_size(), lambda_space_index * word_len), None, true);
             } else {
                 self.indirect_mov(&format!("ebx + {}", lambda_space_index * word_len),
                                   &format!("{} + {}", self.backend.stack_pointer(),
                                            (self.parameters_added + 1) * self.backend.word_len() as usize), "ebx", None);
-            }
-
-            if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
-                self.add_code_for_reference_type(code_gen, None, name, "ebx", true, &descr);
-            } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
-                self.add_code_for_reference_type(code_gen, None, name, "ebx", true, &descr);
             }
 
             CodeGen::add(&mut self.before, "pop  ebx", None, true);

@@ -123,7 +123,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     mov     dword eax,_heap_table
     cmp     $address,eax
     jb     .invalid_address
-    add     eax,_heap_table_size
+    add     eax,[_heap_table_size]
     cmp     $address,eax
     jg      .invalid_address
 
@@ -193,7 +193,7 @@ asm addRef(address: i32, descr: &str) /{
     mov     dword eax,_heap_table
     cmp     $address,eax
     jb     .invalid_address
-    add     eax,_heap_table_size
+    add     eax,[_heap_table_size]
     cmp     $address,eax
     jg      .invalid_address
 
@@ -221,6 +221,11 @@ asm addRef(address: i32, descr: &str) /{
     pop     ebx
     pop     eax
 }/
+
+fn printRefCount(count: i32) {
+    sprint("  ref count: ");
+    nprintln($count);
+}
 
 fn endDeref() {
     sprintln("end deref");
