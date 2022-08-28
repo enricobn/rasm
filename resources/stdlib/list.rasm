@@ -119,7 +119,13 @@ fn listFoldR<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 fn listReverse<T>(l: List<T>) -> List<T> {
-    List::match(l, { head1, tail1 ->
-        listAppend(listReverse(tail1), listOf(head1));
+    List::match(l, { head, tail ->
+        listAppend(listReverse(tail), listOf(head));
+    }, { -> List::Empty(); });
+}
+
+fn listFilter<T>(l: List<T>, filter: fn(T) -> i32) -> List<T> {
+    List::match(l, { head, tail ->
+        if(filter(head), { -> List::Full(head, listFilter(tail, filter)); }, { -> listFilter(tail, filter);});
     }, { -> List::Empty(); });
 }

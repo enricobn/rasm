@@ -135,14 +135,19 @@ fn test_gameoflife_runs() {
 
 #[test]
 fn test_structs() {
-    test("structs", vec![],"10, 20\n");
+    test("structs", vec![], "10, 20\n");
 }
 
 #[test]
 #[ignore]
 // TODO find a way to re enable it
 fn test_malloc() {
-    test("malloc", vec![],"Some(1)\nSome(2)\nSome(3)\nSome(4)\nSome(5)\n24 bytes allocated\n");
+    test("malloc", vec![], "Some(1)\nSome(2)\nSome(3)\nSome(4)\nSome(5)\n24 bytes allocated\n");
+}
+
+#[test]
+fn test_list_filter() {
+    test("list_filter", vec![], "0,1,2,3,4\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

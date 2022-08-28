@@ -1,0 +1,3 @@
+include "std.rasm"
+
+listPrintln(listFilter(range(0,10), { v -> less(v, 5); }), { v -> nprint(v);});
