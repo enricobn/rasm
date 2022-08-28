@@ -431,6 +431,9 @@ pub fn convert_to_typed_module(
         "deref",
         "negativeCount",
         "invalidAddress",
+        "nprintln",
+        "nprint",
+        "removeFromReused"
     ];
 
     if print_allocation {

@@ -1,4 +1,4 @@
-include "allocator.rasm"
+include "new_allocator.rasm"
 
 /**
  * Prints the number to standard output.
