@@ -545,7 +545,7 @@ impl Parser {
             //self.debug(message);
             format!("{} {:?}:{},{}", message, self.file_name, token.row, token.column)
         } else {
-            "it wasn't supposed to happen!".into()
+            format!("{} {:?} : in end of file", message, self.file_name)
         }
     }
 
