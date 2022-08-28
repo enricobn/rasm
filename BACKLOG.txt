@@ -4,30 +4,7 @@ Doing
 
 Next
 -----
-- optimize allocation:
-  - we need a structure to memorize:
-    - the address to the heap memory
-    - the size of the heap memory
-    - the address to the allocation table
-    - the size of the allocation table
-    - the address of the free memory in the heap
-    - the address to the next free slot in the allocation table
-    - the address to the reusable slots table (it's a table of pointers to the allocation table)
-    - the size of the reusable slots table
-    - the number of reusable slots
-
-  - the allocation algorithm
-    - first we search in the reusable stable
-      - we search for a reusable slot that matches the size (use the number of reusable slots to end the search)
-      - if we find it
-        - we allocate it in the allocation table
-        - if there is more than one reusable slot, and it is not the one we used, we copy the last reusable address to the one we used
-        - we decrement the number of reusable slots
-      - if we don't find it
-        - we allocate the next free slot in the allocation table
-  - the deref algorithm
-    TODO
-
+- game of life: if we don't pass a number, it should run until no cells are alive
 - type check
   - use Result
 - rename "parametric type" to "generic type" all over the place

@@ -47,27 +47,23 @@ if there's no slot: Error
 I decrease the count
 if 0 I set allocated to 0 (false)
 
-Examples:
+**New allocator**
 
-fn dummy() {
-print(Option::Some(1)); // we add it to the scope of the function
-// we deallocate it
-}
-
-fn dummy1() {
-print(getOpZero()); // we add it to the scope of the function
-// we deallocate it
-}
-
-fn print(o: Option<i32>) {
-// can we deallocate it?
-}
-
-fn getOpZero() -> Option<i32> {
-Option::Some(1); // we add it to the scope of the function
-Option::Some(0); // we add it to the scope of the function
-// we deallocate oOme(1), but not Some(0)
-}
+- the allocation algorithm
+    - first we search in the reusable table
+        - we search for a reusable slot that matches the size (use the number of reusable slots to end the search)
+        - if we find it
+            - we allocate it in the allocation table
+            - if there is more than one reusable slot, and it is not the one we used, we copy the last reusable address
+              to the one we used
+            - we decrement the number of reusable slots
+            - we update the allocation table reference to the reusable table for the slot we moved
+        - if we don't find it
+            - we allocate the next free slot in the allocation table
+- the deref algorithm  
+  TODO
+- the addRef algorithm  
+  TODO
 
 
 

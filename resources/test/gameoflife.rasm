@@ -17,13 +17,15 @@ run(moveCells(
         , 30, atoi(argv(1)));
 
 fn run(start: List<Cell>, size: i32, count: i32) {
-    printCells(
-        listFoldL(range(0, count), start, { prev, act ->
-            printCells(prev, size, size);
-            moveUp(30);
-            //sleep(0, 250000000);
-            next(prev, size, size);
-          }), size, size);
+    runWith(allCells(size, size), { allCells ->
+        printCells(
+            listFoldL(range(0, count), start, { prev, act ->
+                printCells(prev, size, size);
+                moveUp(30);
+                //sleep(0, 250000000);
+                next(prev, allCells);
+              }), size, size);
+      });
 }
 
 fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
@@ -47,24 +49,13 @@ fn allCells(width: i32, height: i32) -> List<Cell> {
     }));
 }
 
-fn next(cells: List<Cell>, width: i32, height: i32) -> List<Cell> {
-    listFMap(allCells(width, height), { it ->
+fn next(cells: List<Cell>, allCells: List<Cell>) -> List<Cell> {
+    listFilter(allCells, { it ->
         with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
-            if(isAlive(cells, it), { ->
-                if(less(alive, 2), { ->
-                    List::Empty();
-                }, { ->
-                    if(less(alive, 4), { ->
-                        listOf(it);
-                    }, { ->
-                        List::Empty();
-                    });
-                });
-            }, { ->
-                if(eq(alive, 3), { ->
-                    listOf(it);
-                }, { -> List::Empty(); });
-            });
+            if(isAlive(cells, it),
+                { -> or(eq(alive, 2),eq(alive,3));},
+                { -> eq(alive, 3); }
+            );
         });
     });
 }
