@@ -17,26 +17,17 @@ asm malloc(size: i32) -> i32 /{
     $call(nprintln, ebx)
     %endif
 
+    mov dword ebx,$size
+    mov dword edx,[_reusable_heap_table_next]
 .reusable_loop:
-    cmp     dword ecx,[_reusable_heap_table_next]
+    cmp     dword ecx,edx
     je      .allocation
 
     mov     eax,[ecx]
-    cmp     dword [eax + 4],0 ; allocated flag
-    je      .reusable_not_allocated
-
-    $call(sprint, "  reusable already allocated ")
-    $call(nprintln, eax)
-    $call(exit, 1)
-
-.reusable_next:
-    add     ecx, 4
-    jmp     .reusable_loop
-.reusable_not_allocated:
-    mov     dword edx,[eax + 8] ; size
-    cmp     edx,$size
+    cmp     dword [eax + 8],ebx
     je     .reusable_good
-    jmp    .reusable_next
+    add     ecx,4
+    jmp    .reusable_loop
 .reusable_good:
     %ifdef LOG_DEBUG
     $call(nprintln, "reusable found")
@@ -53,7 +44,6 @@ asm malloc(size: i32) -> i32 /{
     %endif
 
     mov     dword eax,_heap_table_next; the pointer to the heap table
-.loop:
     mov     dword edx,[_heap_table_size]
     add     edx,_heap_table
     cmp     eax,edx
@@ -84,7 +74,6 @@ asm malloc(size: i32) -> i32 /{
     mov     dword edx, $size
     add     ecx, edx
     mov     dword [_heap],ecx
-    mov     dword ecx,$size
     mov     dword [eax + 5 * 4],0 ; to be sure that the next slot is considered free
 
     %ifdef LOG_DEBUG
@@ -92,7 +81,7 @@ asm malloc(size: i32) -> i32 /{
     %endif
 
     mov     dword [eax + 4], 1      ; allocated flag
-    mov     dword [eax + 8], ecx    ; size
+    mov     dword [eax + 8], edx    ; size
     mov     dword [eax + 12], 0     ; count
     mov     dword [eax + 16], 0     ; reusable table
     add     eax, 20
@@ -113,36 +102,6 @@ asm malloc(size: i32) -> i32 /{
     pop     ebx
 }/
 
-asm checkForAllocatedReusable() /{
-    push    eax
-    push    ecx
-
-    mov     dword ecx, _reusable_heap_table
-
-.reusable_loop:
-    cmp     dword ecx,[_reusable_heap_table_next]
-    je      .end
-
-    mov     eax,[ecx]
-    cmp     dword [eax + 4],0 ; allocated flag
-    je      .reusable_not_allocated
-
-    $call(sprint, "  reusable already allocated ")
-    $call(nprint, ecx)
-    $call(sprint, " ")
-    $call(nprintln, eax)
-    $call(exit, 1)
-
-.reusable_not_allocated:
-    add     ecx, 4
-    jmp     .reusable_loop
-
-.end:
-    pop     eax
-    pop     ecx
-}/
-
-
 asm deref(address: i32, descr: &str) -> i32 /{
     push    eax
     push    ebx
@@ -162,18 +121,24 @@ asm deref(address: i32, descr: &str) -> i32 /{
     $call(nprintln, ebx)
     %endif
 
+    %ifdef LOG_DEBUG
     ; we check if the address is valid
     mov     dword eax,_heap_table
-    cmp     $address,eax
+    cmp     dword $address,eax
     jb     .invalid_address
     add     eax,[_heap_table_size]
-    cmp     $address,eax
+    cmp     dword $address,eax
     jg      .invalid_address
+    %endif
 
     mov     dword eax,$address
     mov     dword ebx,[eax + 12] ; the count
+
+    %ifdef LOG_DEBUG
     cmp     ebx,0
     jz      .negative_count
+    %endif
+
     sub     ebx,1
 
     %ifdef LOG_DEBUG
@@ -235,15 +200,15 @@ asm addRef(address: i32, descr: &str) /{
     $call(nprintln, ebx)
     %endif
 
+    %ifdef LOG_DEBUG
     ; we check if the address is valid
     mov     dword eax,_heap_table
-
     cmp     $address,eax
     jb     .invalid_address
     add     eax,[_heap_table_size]
-
     cmp     $address,eax
     jg      .invalid_address
+    %endif
 
     mov     dword eax,$address
 
@@ -306,7 +271,7 @@ asm removeFromReused(address: i32) /{
     mov     dword eax,[eax]      ; the pointer to the allocation table that we want to move
     mov     dword ebx,$address   ; the pointer to the reusable table that we want to delete
     mov     dword [ebx],eax      ; we move the pointer to the allocation table that we want to move, to the reusable table that we want to delete
-    mov     dword [eax + 16],ebx ; we must change the pointer in the allocation table
+    mov     dword [eax + 16],ebx ; we must update the pointer in the allocation table
 
     pop     ebx
 
