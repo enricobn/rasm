@@ -41,7 +41,7 @@ fn listAnyMatch<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
 }
 
 fn listCount<T>(l: List<T>, predicate: fn(T) -> i32) -> i32 {
-    List::match(l, { head,tail -> nadd(listCount(tail, predicate), ifImmediate(predicate(head), itn(1), itn(0))); }, { -> itn(0); });
+    List::match(l, { head,tail -> nadd(listCount(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> itn(0); });
 }
 
 fn listAddLeft<T>(l: &List<T>, value: T) -> List<T> {
