@@ -215,11 +215,14 @@ impl<'a> FunctionCallParameters<'a> {
             }
         };
 
+        /*
         if let ASTTypedType::Enum { name } = &type_ref.ast_type {
             self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
         } else if let ASTTypedType::Struct { name } = &type_ref.ast_type {
             self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
         }
+
+         */
         self.parameter_added_to_stack(&format!("val {}", original_param_name));
     }
 
@@ -238,21 +241,27 @@ impl<'a> FunctionCallParameters<'a> {
             self.has_inline_lambda_param = true;
             src = format!("[edx + {}]", lambda_space_index * word_len);
             self.parameters_values.insert(original_param_name.into(), src.clone());
+            /*
             if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
                 self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
             } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
                 self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);
             }
+
+             */
         } else {
             CodeGen::add(&mut self.before, &format!("push  {} ebx", self.backend.word_size()),
                          None, true);
             CodeGen::add(&mut self.before, &format!("mov     ebx, [{}+{}]", sbp, word_len * 2), Some("The address to the lambda space"), true);
 
+            /*
             if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
                 self.add_code_for_reference_type(code_gen, None, name, &format!("[ebx + {}]", lambda_space_index * word_len), true, &descr);
             } else if let ASTTypedType::Struct { name } = &par_type_ref.ast_type {
                 self.add_code_for_reference_type(code_gen, None, name, &format!("[ebx + {}]", lambda_space_index * word_len), true, &descr);
             }
+
+             */
 
             if self.immediate {
                 CodeGen::add(&mut self.before, &format!("mov   {} eax,[ebx + {}]", self.backend.pointer_size(), lambda_space_index * word_len), None, true);

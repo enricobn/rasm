@@ -754,13 +754,6 @@ impl<'a> CodeGen<'a> {
 
         after.insert(0, call_parameters.after().join("\n"));
 
-        /*
-        for line in call_parameters.after().iter() {
-            after.push(line.clone());
-        }
-
-         */
-
         if inline {
             CodeGen::add(before, &format!("; end inlining function {}", function_call.function_name), None, true);
         } else {
