@@ -52,9 +52,9 @@ fn allCells(width: i32, height: i32) -> List<Cell> {
 fn next(cells: List<Cell>, allCells: List<Cell>) -> List<Cell> {
     listFilter(allCells, { it ->
         with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
-            if(isAlive(cells, it),
-                { -> or(eq(alive, 2),eq(alive,3));},
-                { -> eq(alive, 3); }
+            ifImmediate(isAlive(cells, it),
+                or(eq(alive, 2),eq(alive,3)),
+                eq(alive, 3)
             );
         });
     });
