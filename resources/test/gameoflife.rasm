@@ -77,7 +77,9 @@ fn adjacents(cell: Cell) -> List<Cell> {
 
 /** false = 0 true = any other value **/
 fn isAlive(cells: List<Cell>, cell: Cell) -> i32 {
-    listAnyMatch(cells, { it ->
-        and(eq(Cell::x(cell), Cell::x(it)), eq(Cell::y(cell), Cell::y(it)));
+    with2(Cell::x(cell), Cell::y(cell), { x, y ->
+        listAnyMatch(cells, { it ->
+            and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
+        });
     });
 }

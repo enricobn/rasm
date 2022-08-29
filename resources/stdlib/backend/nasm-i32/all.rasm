@@ -200,7 +200,7 @@ inline asm ifImmediateThen<T>(cond: i32, vtrue: T, ffalse: fn() -> T) -> T /{
 
 /** TODO it should be a bool
  *  a  <= b
- *  false = 0 true = any other value
+ *  false = 0 true = 1
  **/
 inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
     mov     eax,$a
@@ -212,7 +212,7 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
 
 /** TODO it should be a bool
  *  a  < b
- *  false = 0 true = any other value
+ *  false = 0 true = 1
  **/
 inline asm less(a: i32, b: i32) -> i32 /{
     mov     eax,$a
@@ -224,7 +224,7 @@ inline asm less(a: i32, b: i32) -> i32 /{
 
 /** TODO it should be a bool
  *  a  <= b
- *  false = 0 true = any other value
+ *  false = 0 true = 1
  **/
 inline asm greater(a: i32, b: i32) -> i32 /{
     mov     eax,$a
@@ -236,7 +236,7 @@ inline asm greater(a: i32, b: i32) -> i32 /{
 
 /** TODO it should be a bool
  *  a  == b
- *  false = 0 true = any other value
+ *  false = 0 true = 1
  **/
 inline asm eq(a: i32, b: i32) -> i32 /{
     mov     eax,$a
