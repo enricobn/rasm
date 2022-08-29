@@ -14,7 +14,6 @@ Next
   - ??? add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
     or add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
 - delete asm, object and executable file on compile
-- write "and", "or", "not" function in asm inline
 - I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
 - support for boolean

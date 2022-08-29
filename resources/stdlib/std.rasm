@@ -39,18 +39,6 @@ fn assertFalse(value: i32) {
     }, { -> });
 }
 
-fn or(a: i32, b: i32) -> i32 {
-    ifImmediate(a, itn(1), b);
-}
-
-fn and(a: i32, b: i32) -> i32 {
-    ifImmediate(a, b, a);
-}
-
-fn not(b: i32) -> i32 {
-    ifImmediate(b, itn(0), itn(1));
-}
-
 fn with<T,O>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }
