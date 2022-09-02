@@ -2,3 +2,4 @@ include "std.rasm"
 
 sprintln(sadd("Hello ", "world!"));
 sprintln(sadd(sadd("Hello", " "), sadd("world", "!")));
+nprintln(slen(sadd(sadd("Hello", " "), sadd("world", "!"))));
