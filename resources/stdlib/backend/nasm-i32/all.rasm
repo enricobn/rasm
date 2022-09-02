@@ -108,6 +108,19 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     mov     eax, $source
     mov     ebx, $dest
     mov     ecx, $len
+
+; first we copy word by word
+.loop4:
+    cmp     ecx, 4
+    jb      .loop
+    mov     dword edx,[eax]
+    mov     dword [ebx],edx
+    add     ebx,4
+    add     eax,4
+    sub     ecx,4
+    jmp     .loop4
+
+; then byte by byte
 .loop:
     cmp     ecx, 0
     jz      .end
