@@ -1,0 +1,107 @@
+/**
+ * Prints the number to standard output.
+ * TODO it supports only 10 digits
+ * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
+ * TODO it is not thread safe
+ **/
+asm nprint(n: i32) /{
+    push    esi
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+    mov     eax,$n ; integer value to convert
+    mov     esi,_rasm_buffer_10b
+    add     esi,9
+    mov     byte [esi],0    ; String terminator
+
+    mov ebx,10
+    xor ecx,ecx         ; initialize length
+.next_digit:
+    xor edx,edx         ; Clear edx prior to dividing edx:eax by ebx
+    div ebx             ; eax /= 10
+    add dl,'0'          ; Convert the remainder to ASCII
+    dec esi             ; store characters in reverse order
+    inc ecx             ; length
+
+    mov [esi],dl
+    test eax,eax
+    jnz .next_digit     ; Repeat until eax==0
+
+    mov    edx,ecx ; the length
+    mov    ecx,esi ; the pointer to the first digit (not necessarily the start of the provided buffer)
+    mov    ebx, 1  ; stdout
+    mov    eax, 4  ; write
+    int    80h
+
+    pop    edx
+    pop    ecx
+    pop    ebx
+    pop    eax
+    pop    esi
+}/
+
+/**
+ * Prints a new line to standard output.
+ */
+asm println() /{
+    push    edx
+    push    ecx
+    push    ebx
+    push    eax
+
+    mov     dword ecx, _NEW_LINE
+    mov     ebx, 1
+    mov     eax, 4
+    mov     edx, 1
+    int     80h
+
+    pop     eax
+    pop     ebx
+    pop     ecx
+    pop     edx
+}/
+
+/**
+ * Prints the string to the standard output.
+ **/
+asm sprint(s: &str) /{
+    push    edx
+    push    ecx
+    push    ebx
+    push    eax
+    mov     eax,$s
+    push    eax
+    call    slen
+
+    mov     edx, eax
+    pop     eax
+
+    mov     dword ecx, [eax]
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+
+    pop     eax
+    pop     ebx
+    pop     ecx
+    pop     edx
+}/
+
+fn printESC() /{
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     edx, 1 ; num of chars
+    mov     ecx, _ESC
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/

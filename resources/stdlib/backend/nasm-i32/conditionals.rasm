@@ -1,0 +1,123 @@
+/** false = 0 true = any other value **/
+inline asm if<T>(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+    mov     eax,$cond
+    cmp     eax, 0
+    jz      $+13
+    mov     eax, $ftrue     ; ftrue points to the lambda space
+    push    eax             ; the address to the lambda space is the last argument of every lambda
+    call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
+    add     esp, 4
+    jmp     $+11
+    mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
+    push    eax
+    call    [eax]           ; false value
+    add     esp, 4
+}/
+
+/** false = 0 true = any other value **/
+inline asm ifRun(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) /{
+    mov     eax,$cond
+    cmp     eax, 0
+    jz      $+13
+    mov     eax, $ftrue     ; ftrue points to the lambda space
+    push    eax             ; the address to the lambda space is the last argument of every lambda
+    call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
+    add     esp, 4
+    jmp     $+11
+    mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
+    push    eax
+    call    [eax]           ; false value
+    add     esp, 4
+}/
+
+/**
+    false = 0 true = any other value
+
+    ATTENTION: it is not short circuit, it always evaluates both arguments before calling the function,
+    if you need a short circuit then use if function
+    false = 0 true = any other value
+**/
+inline asm ifImmediate<T>(cond: i32, vtrue: T, vfalse: T) -> T /{
+    mov     eax,$cond
+    cmp     eax, 0
+    jz      $+10
+    mov     eax, $vtrue
+    jmp     $+11
+    nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
+    nop
+    nop
+    mov     eax, $vfalse
+    nop     ; nops are used because it's inlined and $vfalse could be an immediate value or an address so we don't know where to jump exactly...
+    nop
+    nop
+}/
+
+/**
+    false = 0 true = any other value
+
+    ATTENTION: the true branch is not short circuit, it is always evaluated before calling the function,
+    if you need a full short circuit then use the if function
+    false = 0 true = any other value
+**/
+inline asm ifImmediateThen<T>(cond: i32, vtrue: T, ffalse: fn() -> T) -> T /{
+    mov     eax,$cond
+    cmp     eax, 0
+    jz      $+10
+    mov     eax, $vtrue
+    jmp     $+14
+    nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
+    nop
+    nop
+    mov     eax, $ffalse
+    push    eax
+    call    [eax]
+    add     esp, 4
+}/
+
+/** TODO it should be a bool
+ *  a  <= b
+ *  false = 0 true = 1
+ **/
+inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
+    mov     eax,$a
+    cmp     eax,$b
+    mov     eax,1 ; true
+    jbe     $+7  ; Jump if Below or Equal unsigned comparison
+    mov     eax,0 ; false
+}/
+
+/** TODO it should be a bool
+ *  a  < b
+ *  false = 0 true = 1
+ **/
+inline asm less(a: i32, b: i32) -> i32 /{
+    mov     eax,$a
+    cmp     eax,$b
+    mov     eax,1 ; true
+    jb     $+7  ; Jump if Below or Equal unsigned comparison
+    mov     eax,0 ; false
+}/
+
+/** TODO it should be a bool
+ *  a  <= b
+ *  false = 0 true = 1
+ **/
+inline asm greater(a: i32, b: i32) -> i32 /{
+    mov     eax,$a
+    cmp     eax,$b
+    mov     eax,1 ; true
+    jg      $+7  ; Jump if greater unsigned comparison
+    mov     eax,0 ; false
+}/
+
+/** TODO it should be a bool
+ *  a  == b
+ *  false = 0 true = 1
+ **/
+inline asm eq(a: i32, b: i32) -> i32 /{
+    mov     eax,$a
+    cmp     eax,$b
+    mov     eax,1 ; true
+    je      $+7  ; Jump if equals
+    mov     eax,0 ; false
+}/
