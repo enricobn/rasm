@@ -102,6 +102,40 @@ asm malloc(size: i32) -> i32 /{
     pop     ebx
 }/
 
+asm addStaticStringToHeap(s: i32) -> i32 /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax,_heap_table_next; the pointer to the heap table
+    mov     dword edx,[_heap_table_size]
+    add     edx,_heap_table
+    cmp     eax,edx
+    jb     .loop_ok
+    $call(sprintln, "Out of heap space")
+    $call(exit, 1)
+
+.loop_ok:
+    mov     dword eax,[_heap_table_next]
+
+    mov     dword ecx,$s
+    mov     dword [eax],ecx
+    mov     dword [eax + 5 * 4],0 ; to be sure that the next slot is considered free
+
+    mov     dword [eax + 4], 1      ; allocated flag
+    mov     dword [eax + 8], 0      ; size
+    mov     dword [eax + 12], 1     ; count
+    mov     dword [eax + 16], 0     ; reusable table
+    add     eax, 20
+    mov     [_heap_table_next],eax
+    sub     eax, 20
+
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
 asm deref(address: i32, descr: &str) -> i32 /{
     push    eax
     push    ebx

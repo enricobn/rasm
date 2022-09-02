@@ -435,7 +435,6 @@ pub fn convert_to_typed_module(
         "nprint",
         "removeFromReused",
         "addStaticStringToHeap",
-        "slenInternal",
         "createCmdLineArguments"
     ];
 

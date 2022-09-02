@@ -1,4 +1,3 @@
-use std::fmt::format;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
 use linked_hash_map::LinkedHashMap;
 use crate::codegen::MemoryValue::Mem;
@@ -50,11 +49,7 @@ impl Statics {
         let mut data = String::new();
         let mut bss = String::new();
 
-        let mut code = if debug {
-            self.print_res(backend)
-        } else {
-            String::new()
-        };
+        let mut code = String::new();
 
         if !self.statics.is_empty() {
             let mut keys: Vec<&String> = self.statics.keys().collect();

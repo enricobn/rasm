@@ -1,33 +1,3 @@
-/** Returns the length of the string when it is a direct pointer to the string, not in the allocation tables like in the other methods  **/
-asm slenInternal(s: i32) -> i32 /{
-    push    ebx             ; Save ebx to the stack since we use it
-    mov     eax, $s         ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
-    mov     ebx, eax
-
-.nextchar:
-    cmp     byte [eax], 0
-    jz      .finished
-    inc     eax
-    jmp     .nextchar
-
-.finished:
-    sub     eax, ebx
-    pop     ebx
-}/
-
-asm addStaticStringToHeap(s: i32) -> i32 /{
-    push    ebx
-
-    $call(slenInternal, $s)
-    mov     ebx,eax
-    add     ebx,1
-    $call(malloc,ebx)
-    $call(addRef,eax,eax)
-    $call(memcopy,$s,[eax],ebx)
-
-    pop     ebx
-}/
-
 /*
  *  Creates the "struct" that holds the count and the arguments
  *  address:    the target pointer to the "struct" that holds the count and then the pointers (to the allocation table) to the arguments
