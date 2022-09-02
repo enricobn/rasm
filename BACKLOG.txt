@@ -1,6 +1,8 @@
 Doing
 ------
-- optimize allocation
+- strings in heap
+  - static strings in heap
+  - optimize static strings: reuse strings with the same content
 
 Next
 -----
@@ -16,7 +18,7 @@ Next
 - delete asm, object and executable file on compile
 - I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
-- support for boolean
+- support for boolean and char
 - optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:

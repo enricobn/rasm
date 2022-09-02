@@ -298,15 +298,16 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
+        self.statics.insert("_NEW_LINE".into(), MemoryValue::I32Value(10));
+        self.statics.insert("_ESC".into(), MemoryValue::I32Value(27));
 
 
         asm.push_str("SECTION .data\n");
         asm.push_str("    timeval:\n");
         asm.push_str("        tv_sec  dd 0\n");
         asm.push_str("        tv_usec dd 0\n");
-        asm.push_str("    _ESC	db    27, 0h\n");
 
-        let (data, bss, code) = self.statics.to_code(self.backend);
+        let (data, bss, code) = self.statics.generate_code(self.backend, self.debug_asm);
 
         asm.push_str(&data);
 
@@ -320,14 +321,6 @@ impl<'a> CodeGen<'a> {
 
         if self.debug_asm {
             CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
-        }
-
-        CodeGen::add(&mut asm, &code, None, true);
-
-        // command line arguments
-        for i in 0..12 {
-            CodeGen::add(&mut asm, &format!("mov     eax,[esp + {}]", i * self.backend.word_len()), Some(&format!("command line argument {}", i)), true);
-            CodeGen::add(&mut asm, &format!("mov     [_rasm_args + {}], eax", i * self.backend.word_len()), None, true);
         }
 
         CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None, true);
@@ -344,6 +337,14 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, "mov     eax, _reusable_heap_table", None, true);
         CodeGen::add(&mut asm, "mov     [_reusable_heap_table_next],eax", None, true);
+
+        CodeGen::add(&mut asm, &code, None, true);
+
+        // command line arguments
+        CodeGen::add(&mut asm, &format!("push   {}", self.backend.stack_pointer()), Some("command line arguments"), true);
+        CodeGen::add(&mut asm, "push    _rasm_args", None, true);
+        CodeGen::add(&mut asm, "call    createCmdLineArguments", None, true);
+        CodeGen::add(&mut asm, &format!("add   {},{}", self.backend.stack_pointer(), 2 * self.backend.word_len()), None, true);
 
         CodeGen::add(&mut asm, "", None, true);
         CodeGen::add(&mut asm, "push    ebp       ; save old call frame", None, true);

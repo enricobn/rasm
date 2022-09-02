@@ -152,7 +152,7 @@ impl TextMacroEval for CallTextMacroEvaluator {
                 }
                 MacroParam::StringLiteral(s) => {
                     let key = statics.add_str(s);
-                    format!("    push dword {key}")
+                    format!("    push dword [{key}]")
                 }
             })
             .collect::<Vec<String>>()
@@ -198,7 +198,7 @@ mod tests {
 
         let result = TextMacroEvaluator::new().eval_macro(&backend, &mut statics, &text_macro);
 
-        assert_eq!(result, "    push dword _s_0\n    call sprintln\n    add esp, 4\n");
+        assert_eq!(result, "    push dword [_s_1]\n    call sprintln\n    add esp, 4\n");
     }
 
     #[test]
@@ -218,8 +218,8 @@ mod tests {
 
         let result = TextMacroEvaluator::new().translate(&backend, &mut statics, "a line\n$call(sprintln, \"Hello, world\")\nanother line\n");
 
-        assert_eq!(statics.get("_s_0"), Some(&MemoryValue::StringValue("Hello, world".into())));
+        assert_eq!(statics.get("_sv_0"), Some(&MemoryValue::StringValue("Hello, world".into())));
 
-        assert_eq!(result, "a line\n    push dword _s_0\n    call sprintln\n    add esp, 4\n\nanother line\n");
+        assert_eq!(result, "a line\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n\nanother line\n");
     }
 }

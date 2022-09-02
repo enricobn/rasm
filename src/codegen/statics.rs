@@ -1,3 +1,4 @@
+use std::fmt::format;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
 use linked_hash_map::LinkedHashMap;
 use crate::codegen::MemoryValue::Mem;
@@ -9,18 +10,26 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 pub struct Statics {
     id: usize,
     statics: LinkedHashMap<String, MemoryValue>,
+    // label, value_label
+    strings_map: LinkedHashMap<String, String>,
 }
 
 impl Statics {
     pub fn new() -> Self {
-        Statics {
+        Self {
             id: 0,
             statics: LinkedHashMap::new(),
+            strings_map: LinkedHashMap::new(),
         }
     }
 
     pub fn add_str(&mut self, s: &str) -> String {
-        self.insert_prefix("_s".into(), MemoryValue::StringValue(s.into()))
+        let value_label = self.insert_prefix("_sv".into(), MemoryValue::StringValue(s.into()));
+        let label = self.insert_prefix("_s".into(), MemoryValue::Mem(1, MemoryUnit::Words));
+
+        self.strings_map.insert(label.clone(), value_label);
+
+        label
     }
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {
@@ -37,11 +46,15 @@ impl Statics {
         label
     }
 
-    pub fn to_code(&mut self, backend: &dyn Backend) -> (String, String, String) {
+    pub fn generate_code(&mut self, backend: &dyn Backend, debug: bool) -> (String, String, String) {
         let mut data = String::new();
         let mut bss = String::new();
 
-        let code = self.print_res(backend);
+        let mut code = if debug {
+            self.print_res(backend)
+        } else {
+            String::new()
+        };
 
         if !self.statics.is_empty() {
             let mut keys: Vec<&String> = self.statics.keys().collect();
@@ -69,7 +82,7 @@ impl Statics {
                                 def.push_str("resb ")
                             }
                             MemoryUnit::Words => {
-                                def.push_str("resw ")
+                                def.push_str("resd ")
                             }
                         }
                         def.push_str(&format!("{}", len));
@@ -77,6 +90,13 @@ impl Statics {
                     }
                 }
             }
+        }
+
+        for (key, value_key) in self.strings_map.iter() {
+            CodeGen::add(&mut code, &format!("push dword {value_key}"), None, true);
+            CodeGen::add(&mut code, "call addStaticStringToHeap", None, true);
+            CodeGen::add(&mut code, &format!("add {},{}", backend.stack_pointer(), backend.word_len()), None, true);
+            CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
         (data, bss, code)
     }

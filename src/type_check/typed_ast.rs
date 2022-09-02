@@ -433,7 +433,10 @@ pub fn convert_to_typed_module(
         "invalidAddress",
         "nprintln",
         "nprint",
-        "removeFromReused"
+        "removeFromReused",
+        "addStaticStringToHeap",
+        "slenInternal",
+        "createCmdLineArguments"
     ];
 
     if print_allocation {

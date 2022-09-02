@@ -5,7 +5,7 @@ use tempdir::TempDir;
 
 #[test]
 fn test_helloworld() {
-    test("helloworld", Vec::new(), "Hello world\nHi\n10\n40\n45\none\ntwo\n");
+    test("helloworld", Vec::new(), "Hello world\n");
 }
 
 #[test]
@@ -149,6 +149,12 @@ fn test_malloc() {
 fn test_list_filter() {
     test("list_filter", vec![], "0,1,2,3,4\n");
 }
+
+#[test]
+fn test_print() {
+    test("print", Vec::new(), "Hello world\nHi\n10\n40\n45\none\ntwo\n");
+}
+
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));

@@ -70,7 +70,7 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
     let key = code_gen.statics.add_str(&descr);
 
     CodeGen::add(&mut result, "", Some(&descr), true);
-    CodeGen::add(&mut result, &format!("push  {ws} {key}"), None, true);
+    CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
     CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
     CodeGen::add(&mut result, &format!("call  {asm_function_name}"), None, true);
     CodeGen::add(&mut result, &format!("add  {},{}", backend.stack_pointer(), wl * 2), None, true);

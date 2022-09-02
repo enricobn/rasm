@@ -58,11 +58,16 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_string_literal(&mut self, param_name: &str, label: String, comment: Option<&str>) {
         if self.inline {
-            self.parameters_values.insert(param_name.into(), label);
+            self.parameters_values.insert(param_name.into(), format!("[{label}]"));
         } else {
-            CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], {}", self.backend.pointer_size(), self.backend.stack_pointer(),
-                                                    self.parameters_added * self.backend.word_len() as usize, label), comment,
+            // TODO can be optimized?
+            CodeGen::add(&mut self.before, "push eax", None, true);
+            CodeGen::add(&mut self.before, &format!("mov {} eax, [{label}]", self.backend.word_size()), comment,
                          true);
+            CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], eax", self.backend.pointer_size(), self.backend.stack_pointer(),
+                                                    (self.parameters_added as i32 + 1) * self.backend.word_len() as i32), comment,
+                         true);
+            CodeGen::add(&mut self.before, "pop eax", None, true);
         }
         self.parameter_added_to_stack(&format!("string literal {}", param_name));
     }
@@ -150,7 +155,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         // I copy the lambda space of the parent
         if let Some(parent_lambda) = parent_lambda_space {
-            self.mem_copy(&format!("[{}+8]", stack_base_pointer), "ecx", parent_lambda.parameters_indexes.len() + 1, None);
+            self.mem_copy_words(&format!("[{}+8]", stack_base_pointer), "ecx", parent_lambda.parameters_indexes.len() + 1, None);
         }
 
         CodeGen::add(&mut self.before, &format!("mov {} [ecx], {}", pointer_size, def.name), None, true);
@@ -429,8 +434,8 @@ impl<'a> FunctionCallParameters<'a> {
         self.after.insert(0, s.into());
     }
 
-    fn mem_copy(&mut self, source: &str, dest: &str, slots: usize, comment: Option<&str>) {
-        CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), slots), comment, true);
+    fn mem_copy_words(&mut self, source: &str, dest: &str, slots: usize, comment: Option<&str>) {
+        CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), slots * self.backend.word_len()), comment, true);
         CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), dest), comment, true);
         CodeGen::add(&mut self.before, &format!("push {} {}", self.backend.pointer_size(), source), comment, true);
         CodeGen::add(&mut self.before, "call memcopy", comment, true);

@@ -21,7 +21,7 @@ fn run(start: List<Cell>, size: i32, count: i32) {
         printCells(
             listFoldL(range(0, count), start, { prev, act ->
                 printCells(prev, size, size);
-                moveUp(30);
+                moveUp(size);
                 //sleep(0, 250000000);
                 next(prev, allCells);
               }), size, size);
