@@ -136,3 +136,37 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     pop     ebx
     pop     eax
 }/
+
+asm sadd(s1: str, s2: str) -> str /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    $call(slen, $s1)
+    mov     ecx, eax
+    mov     ebx, eax
+    $call(slen, $s2)
+    mov     edx, eax
+    add     ebx, eax
+    add     ebx, 1
+
+    $call(malloc,ebx)
+    push    eax
+
+    mov     dword ebx,$s1
+    mov     dword ebx,[ebx]
+    $call(memcopy,ebx,[eax],ecx)
+
+    mov     dword eax,[eax]
+    add     eax,ecx
+    add     edx,1
+    mov     dword ebx,$s2
+    mov     dword ebx,[ebx]
+    $call(memcopy,ebx,eax,edx)
+
+    pop     eax
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/

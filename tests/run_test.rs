@@ -155,6 +155,10 @@ fn test_print() {
     test("print", Vec::new(), "Hello world\nHi\n10\n40\n45\none\ntwo\n");
 }
 
+#[test]
+fn test_str() {
+    test("str", Vec::new(), "Hello world!\nHello world!\n");
+}
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
