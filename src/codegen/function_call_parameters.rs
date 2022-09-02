@@ -91,10 +91,8 @@ impl<'a> FunctionCallParameters<'a> {
         let descr = format!("add_function_call {descr}");
 
         CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
-        if let ASTTypedType::Enum { name } = &param_type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, comment, name, "eax", true, &descr);
-        } else if let ASTTypedType::Struct { name } = &param_type_ref.ast_type {
-            self.add_code_for_reference_type(code_gen, comment, name, "eax", true, &descr);
+        if let Some(name) = CodeGen::get_reference_type_name(&param_type_ref.ast_type) {
+            self.add_code_for_reference_type(code_gen, comment, &name, "eax", true, &descr);
         }
         self.parameter_added_to_stack("function call result");
     }
