@@ -435,7 +435,9 @@ pub fn convert_to_typed_module(
         "nprint",
         "removeFromReused",
         "addStaticStringToHeap",
-        "createCmdLineArguments"
+        "createCmdLineArguments",
+        "str_addRef",
+        "str_deref",
     ];
 
     if print_allocation {

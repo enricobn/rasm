@@ -17,6 +17,7 @@ use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStructDef};
 
 use crate::transformations::enum_functions_creator::enum_functions_creator;
+use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
@@ -228,6 +229,8 @@ impl<'a> CodeGen<'a> {
 
         let module = enum_functions_creator(&mut result, backend, &EnhancedASTModule::new(&module));
         let module = struct_functions_creator(backend, &module);
+        let module = str_functions_creator(&module);
+
         let module = convert(&module, debug_asm, print_memory_info);
         let module = typed_enum_functions_creator(&mut result, backend, &module);
         let module = typed_struct_functions_creator(&mut result, backend, &module);
@@ -823,9 +826,10 @@ impl<'a> CodeGen<'a> {
 
     pub fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
         match ast_type {
-            ASTTypedType::Builtin(_) => { None }
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString) => { Some("str".into()) }
             ASTTypedType::Enum { name } => { Some(name.clone()) }
             ASTTypedType::Struct { name } => { Some(name.clone()) }
+            _ => { None }
         }
     }
 
