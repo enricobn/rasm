@@ -1,8 +1,5 @@
 Doing
 ------
-- strings in heap
-  - static strings in heap
-  - optimize static strings: reuse strings with the same content
 
 Next
 -----

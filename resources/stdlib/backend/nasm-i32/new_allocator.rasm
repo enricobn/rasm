@@ -111,11 +111,11 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     mov     dword edx,[_heap_table_size]
     add     edx,_heap_table
     cmp     eax,edx
-    jb     .loop_ok
+    jb     .ok
     $call(sprintln, "Out of heap space")
     $call(exit, 1)
 
-.loop_ok:
+.ok:
     mov     dword eax,[_heap_table_next]
 
     mov     dword ecx,$s

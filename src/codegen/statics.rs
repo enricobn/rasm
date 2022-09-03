@@ -9,8 +9,8 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 pub struct Statics {
     id: usize,
     statics: LinkedHashMap<String, MemoryValue>,
-    // label, value_label
-    strings_map: LinkedHashMap<String, String>,
+    // string -> (label, value_label)
+    strings_map: LinkedHashMap<String, (String, String)>,
 }
 
 impl Statics {
@@ -23,12 +23,16 @@ impl Statics {
     }
 
     pub fn add_str(&mut self, s: &str) -> String {
-        let value_label = self.insert_prefix("_sv".into(), MemoryValue::StringValue(s.into()));
-        let label = self.insert_prefix("_s".into(), MemoryValue::Mem(1, MemoryUnit::Words));
+        if let Some((label, _)) = self.strings_map.get(s) {
+            label.clone()
+        } else {
+            let value_label = self.insert_prefix("_sv".into(), MemoryValue::StringValue(s.into()));
+            let label = self.insert_prefix("_s".into(), Mem(1, MemoryUnit::Words));
 
-        self.strings_map.insert(label.clone(), value_label);
+            self.strings_map.insert(s.into(), (label.clone(), value_label));
 
-        label
+            label
+        }
     }
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {
@@ -87,7 +91,7 @@ impl Statics {
             }
         }
 
-        for (key, value_key) in self.strings_map.iter() {
+        for (_, (key, value_key)) in self.strings_map.iter() {
             CodeGen::add(&mut code, &format!("push dword {value_key}"), None, true);
             CodeGen::add(&mut code, "call addStaticStringToHeap", None, true);
             CodeGen::add(&mut code, &format!("add {},{}", backend.stack_pointer(), backend.word_len()), None, true);
