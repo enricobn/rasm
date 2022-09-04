@@ -856,6 +856,7 @@ impl<'a> CodeGen<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::fs::File;
     use std::io::Read;
     use std::path::Path;
@@ -890,7 +891,7 @@ mod tests {
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
-        let backend = BackendAsm386::new(false);
+        let backend = BackendAsm386::new(HashSet::new(), HashSet::new());
 
         let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false, false, false);
 

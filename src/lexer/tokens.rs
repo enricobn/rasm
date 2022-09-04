@@ -38,38 +38,36 @@ impl Display for TokenKind {
             TokenKind::AsmBLock(_) => {
                 write!(f, "asm")
             }
-            TokenKind::Bracket(kind, status) => {
-                match kind {
-                    BracketKind::Angle => {
-                        if status == &BracketStatus::Open {
-                            write!(f, "<")
-                        } else {
-                            write!(f, ">")
-                        }
-                    }
-                    BracketKind::Brace => {
-                        if status == &BracketStatus::Open {
-                            write!(f, "{{")
-                        } else {
-                            write!(f, "}}")
-                        }
-                    }
-                    BracketKind::Round => {
-                        if status == &BracketStatus::Open {
-                            write!(f, "(")
-                        } else {
-                            write!(f, ")")
-                        }
-                    }
-                    BracketKind::Square => {
-                        if status == &BracketStatus::Open {
-                            write!(f, "[")
-                        } else {
-                            write!(f, "]")
-                        }
+            TokenKind::Bracket(kind, status) => match kind {
+                BracketKind::Angle => {
+                    if status == &BracketStatus::Open {
+                        write!(f, "<")
+                    } else {
+                        write!(f, ">")
                     }
                 }
-            }
+                BracketKind::Brace => {
+                    if status == &BracketStatus::Open {
+                        write!(f, "{{")
+                    } else {
+                        write!(f, "}}")
+                    }
+                }
+                BracketKind::Round => {
+                    if status == &BracketStatus::Open {
+                        write!(f, "(")
+                    } else {
+                        write!(f, ")")
+                    }
+                }
+                BracketKind::Square => {
+                    if status == &BracketStatus::Open {
+                        write!(f, "[")
+                    } else {
+                        write!(f, "]")
+                    }
+                }
+            },
             TokenKind::Comment(_) => {
                 write!(f, "comment")
             }
@@ -82,28 +80,26 @@ impl Display for TokenKind {
             TokenKind::Number(n) => {
                 write!(f, "{}", n)
             }
-            TokenKind::Punctuation(p) => {
-                match p {
-                    PunctuationKind::And => {
-                        write!(f, "&")
-                    }
-                    PunctuationKind::Dot => {
-                        write!(f, ".")
-                    }
-                    PunctuationKind::Colon => {
-                        write!(f, ":")
-                    }
-                    PunctuationKind::Comma => {
-                        write!(f, ",")
-                    }
-                    PunctuationKind::RightArrow => {
-                        write!(f, "->")
-                    }
-                    PunctuationKind::SemiColon => {
-                        write!(f, ";")
-                    }
+            TokenKind::Punctuation(p) => match p {
+                PunctuationKind::And => {
+                    write!(f, "&")
                 }
-            }
+                PunctuationKind::Dot => {
+                    write!(f, ".")
+                }
+                PunctuationKind::Colon => {
+                    write!(f, ":")
+                }
+                PunctuationKind::Comma => {
+                    write!(f, ",")
+                }
+                PunctuationKind::RightArrow => {
+                    write!(f, "->")
+                }
+                PunctuationKind::SemiColon => {
+                    write!(f, ";")
+                }
+            },
             TokenKind::StringLiteral(s) => {
                 write!(f, "\"{}\"", s)
             }
@@ -145,7 +141,9 @@ pub enum KeywordKind {
     Include,
     Inline,
     Enum,
-    Struct
+    Extern,
+    Requires,
+    Struct,
 }
 
 impl KeywordKind {
@@ -156,11 +154,15 @@ impl KeywordKind {
             KeywordKind::Include => "include".into(),
             KeywordKind::Inline => "inline".into(),
             KeywordKind::Enum => "enum".into(),
-            KeywordKind::Struct => "struct".into()
+            KeywordKind::Struct => "struct".into(),
+            KeywordKind::Extern => "extern".into(),
+            KeywordKind::Requires => "requires".into(),
         }
     }
 
     pub fn from_name(name: &str) -> Option<TokenKind> {
-        KeywordKind::iter().find(|it| it.name() == name).map(TokenKind::KeyWord)
+        KeywordKind::iter()
+            .find(|it| it.name() == name)
+            .map(TokenKind::KeyWord)
     }
 }

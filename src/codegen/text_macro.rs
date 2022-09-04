@@ -186,6 +186,7 @@ impl TextMacroEval for CallTextMacroEvaluator {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use crate::codegen::backend::BackendAsm386;
     use crate::codegen::statics::Statics;
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
@@ -233,6 +234,6 @@ mod tests {
     }
 
     fn backend() -> BackendAsm386 {
-        BackendAsm386::new(false)
+        BackendAsm386::new(HashSet::new(), HashSet::new())
     }
 }

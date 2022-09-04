@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -243,6 +243,8 @@ pub struct ASTModule {
     pub functions: Vec<ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
+    pub requires: HashSet<String>,
+    pub externals: HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

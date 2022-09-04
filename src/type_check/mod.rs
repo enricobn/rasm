@@ -1416,6 +1416,8 @@ mod tests {
             enums: Vec::new(),
             body: vec![call],
             functions: vec![function_def],
+            requires: Default::default(),
+            externals: Default::default(),
         };
 
         let new_module = convert(&EnhancedASTModule::new(&module), false, false);

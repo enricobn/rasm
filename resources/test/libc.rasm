@@ -1,0 +1,14 @@
+include "std.rasm"
+requires libc
+extern printf
+
+p("number: %d", 10);
+
+asm p(s: str, n: i32) /{
+    push    dword 10
+    mov     dword eax,$s
+    mov     dword eax,[eax]
+    push    eax
+    call    printf
+    add     esp, 8
+}/

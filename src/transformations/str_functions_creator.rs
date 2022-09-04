@@ -1,5 +1,5 @@
 use crate::codegen::EnhancedASTModule;
-use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 
 pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
     let mut functions_by_name = module.functions_by_name.clone();

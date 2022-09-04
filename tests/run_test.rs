@@ -160,6 +160,11 @@ fn test_str() {
     test("str", Vec::new(), "Hello world!\nHello world!\n12\n");
 }
 
+#[test]
+fn test_libc() {
+    test("libc", Vec::new(), "number: 10");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

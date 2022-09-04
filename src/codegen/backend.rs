@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::ASTTypedTypeRef;
 use log::info;
@@ -34,15 +35,20 @@ enum Linker {
 }
 
 pub struct BackendAsm386 {
-    libc: bool,
+    requires: HashSet<String>,
+    externals: HashSet<String>,
     linker: Linker,
+    libc: bool,
 }
 
 impl BackendAsm386 {
-    pub fn new(libc: bool) -> Self {
+    pub fn new(requires: HashSet<String>, externals: HashSet<String>) -> Self {
+        let libc = requires.contains("libc");
         Self {
-            libc,
+            requires,
+            externals,
             linker: if libc { Linker::Gcc } else { Linker::Ld },
+            libc,
         }
     }
 }
@@ -150,8 +156,10 @@ impl Backend for BackendAsm386 {
         if self.libc {
             CodeGen::add(code, "%DEFINE LIBC 1", None, false);
             CodeGen::add(code, "extern exit", None, true);
-            // TODO
-            CodeGen::add(code, "extern printf", None, true);
+        }
+
+        for e in self.externals.iter() {
+            CodeGen::add(code, &format!("extern {e}"), None, true);
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use log::debug;
 use crate::codegen::EnhancedASTModule;
@@ -43,6 +44,8 @@ pub struct Parser {
     enums: Vec<ASTEnumDef>,
     structs: Vec<ASTStructDef>,
     file_name: Option<String>,
+    requires: HashSet<String>,
+    externals: HashSet<String>
 }
 
 #[derive(Clone, Debug)]
@@ -84,6 +87,8 @@ impl Parser {
             enums: Vec::new(),
             structs: Vec::new(),
             file_name,
+            requires: HashSet::new(),
+            externals: HashSet::new()
         }
     }
 
@@ -185,6 +190,20 @@ impl Parser {
                         self.state.push(StructDef);
                         self.i = next_i;
                         continue;
+                    } else if let TokenKind::KeyWord(KeywordKind::Requires) = token.kind {
+                        if let Some(TokenKind::AlphaNumeric(name)) = &self.get_token_kind_n(1) {
+                            self.requires.insert(name.clone());
+                            self.i += 2;
+                            continue
+                        }
+                        self.panic("Cannot parse require")
+                    } else if let TokenKind::KeyWord(KeywordKind::Extern) = token.kind {
+                        if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
+                            self.externals.insert(name.clone());
+                            self.i += 2;
+                            continue
+                        }
+                        self.panic("Cannot parse external")
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
                     }
@@ -348,7 +367,14 @@ impl Parser {
 
         //println!("ebums: \n{:?}", self.enums);
 
-        ASTModule { body: self.body.clone(), functions: self.functions.clone(), enums: self.enums.clone(), structs: self.structs.clone() }
+        ASTModule {
+            body: self.body.clone(),
+            functions: self.functions.clone(),
+            enums: self.enums.clone(),
+            structs: self.structs.clone(),
+            requires: self.requires.clone(),
+            externals: self.externals.clone(),
+        }
     }
 
     fn process_function_call(&mut self, token: Token) -> ProcessResult {
