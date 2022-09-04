@@ -1,10 +1,10 @@
+use crate::codegen::CodeGen;
+use crate::type_check::typed_ast::ASTTypedTypeRef;
+use log::info;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use log::info;
-use crate::type_check::typed_ast::ASTTypedTypeRef;
 
 pub trait Backend {
-
     fn address_from_base_pointer(&self, index: i8) -> String;
 
     fn address_from_stack_pointer(&self, index: i8) -> String;
@@ -25,20 +25,29 @@ pub trait Backend {
 
     fn word_size(&self) -> String;
 
+    fn preamble(&self, code: &mut String);
 }
 
-pub struct BackendAsm386 {}
+enum Linker {
+    Ld,
+    Gcc,
+}
+
+pub struct BackendAsm386 {
+    libc: bool,
+    linker: Linker,
+}
 
 impl BackendAsm386 {
-
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(libc: bool) -> Self {
+        Self {
+            libc,
+            linker: if libc { Linker::Gcc } else { Linker::Ld },
+        }
     }
-
 }
 
 impl Backend for BackendAsm386 {
-
     fn address_from_base_pointer(&self, index: i8) -> String {
         format!("[ebp+{}]", index * 4)
     }
@@ -77,17 +86,36 @@ impl Backend for BackendAsm386 {
             .output()
             .expect("failed to execute nasm");
         if nasm_output.status.success() {
-            let ld_output = Command::new("ld")
-                .arg("-m")
-                .arg("elf_i386")
-                .arg(path.with_extension("o"))
-                .arg("-o")
-                .arg(path.with_extension(""))
-                .stderr(Stdio::inherit())
-                .output()
-                .expect("failed to execute ld");
-            if !ld_output.status.success() {
-               panic!("Error running ld")
+            let linker_output = match self.linker {
+                Linker::Ld => Command::new("ld")
+                    .arg("-m")
+                    .arg("elf_i386")
+                    .arg(path.with_extension("o"))
+                    .arg("-lc")
+                    .arg("-I")
+                    .arg("/lib32/ld-linux.so.2")
+                    .arg("-o")
+                    .arg(path.with_extension(""))
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .expect("failed to execute ld"),
+                Linker::Gcc => {
+                    Command::new("gcc")
+                        .arg("-m32")
+                        .arg("-gdwarf")
+                        //.arg("-nostartfiles") // don't use the standard clib main
+                        .arg("-static")
+                        .arg("-o")
+                        .arg(path.with_extension(""))
+                        .arg(path.with_extension("o"))
+                        .stderr(Stdio::inherit())
+                        .output()
+                        .expect("failed to execute gcc")
+                }
+            };
+
+            if !linker_output.status.success() {
+                panic!("Error running linker")
             }
         } else {
             panic!("Error running nasm")
@@ -116,5 +144,14 @@ impl Backend for BackendAsm386 {
 
     fn word_size(&self) -> String {
         "dword".into()
+    }
+
+    fn preamble(&self, code: &mut String) {
+        if self.libc {
+            CodeGen::add(code, "%DEFINE LIBC 1", None, false);
+            CodeGen::add(code, "extern exit", None, true);
+            // TODO
+            CodeGen::add(code, "extern printf", None, true);
+        }
     }
 }

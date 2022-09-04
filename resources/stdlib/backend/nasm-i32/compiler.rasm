@@ -11,9 +11,17 @@ asm createCmdLineArguments(address: i32,esp: i32) -> i32 /{
     push    edx
 
     mov     dword ebx,$esp
+    %ifdef LIBC
+    add     ebx,4
+    %endif
     mov     dword ecx,[ebx]     ; the counter
     mov     dword edx,$address
     mov     dword [edx],ecx
+    %ifdef LIBC
+    add     ebx,4
+    mov     dword ebx,[ebx]
+    sub     ebx,4
+    %endif
     add     ecx,1
 
 .loop:

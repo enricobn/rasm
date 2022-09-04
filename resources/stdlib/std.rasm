@@ -28,14 +28,14 @@ fn moveUp(count: i32) {
 fn assert(value: i32) {
     ifRun(value,{ -> },{ ->
         sprintln("assertion failed");
-        exit(1);
+        exitMain(1);
     });
 }
 
 fn assertFalse(value: i32) {
     ifRun(value,{ ->
         sprintln("assertion failed");
-        exit(1);
+        exitMain(1);
     }, { -> });
 }
 

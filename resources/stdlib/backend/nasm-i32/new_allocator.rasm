@@ -49,7 +49,7 @@ asm malloc(size: i32) -> i32 /{
     cmp     eax,edx
     jb     .loop_ok
     $call(sprintln, "Out of heap space")
-    $call(exit, 1)
+    $call(exitMain, 1)
 
 .loop_ok:
     mov     dword eax,[_heap_table_next]
@@ -62,7 +62,7 @@ asm malloc(size: i32) -> i32 /{
     cmp     ecx,[_heap_size]
     jb      .new_address_ok
     $call(sprintln, "Out of memory")
-    $call(exit, 1)
+    $call(exitMain, 1)
 
 .new_address_ok:
     %ifdef LOG_DEBUG
@@ -113,7 +113,7 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     cmp     eax,edx
     jb     .ok
     $call(sprintln, "Out of heap space")
-    $call(exit, 1)
+    $call(exitMain, 1)
 
 .ok:
     mov     dword eax,[_heap_table_next]
@@ -334,7 +334,7 @@ fn printRefCount(count: i32) {
 
 fn invalidAddress() {
     sprintln("invalid address");
-    exit(1);
+    exitMain(1);
 }
 
 asm printAllocated() /{
@@ -401,10 +401,10 @@ fn printAllocatedString() {
 
 fn negativeCount() {
     sprintln("Negative allocation count");
-    exit(1);
+    exitMain(1);
 }
 
 fn derefAddressNotFound() {
     sprintln("Deref: address not found");
-    exit(1);
+    exitMain(1);
 }

@@ -13,10 +13,6 @@ pub struct TextMacro {
     parameters: Vec<MacroParam>,
 }
 
-pub fn parse(s: &str) -> TextMacro {
-    todo!()
-}
-
 pub struct TextMacroEvaluator {
     evaluators: HashMap<String, Box<dyn TextMacroEval>>,
 }
@@ -24,7 +20,7 @@ pub struct TextMacroEvaluator {
 impl TextMacroEvaluator {
     pub fn new() -> Self {
         let mut evaluators: HashMap<String, Box<dyn TextMacroEval>> = HashMap::new();
-        evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator {}));
+        evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator::new(false)));
         Self { evaluators }
     }
 
@@ -133,7 +129,15 @@ trait TextMacroEval {
     ) -> String;
 }
 
-struct CallTextMacroEvaluator {}
+struct CallTextMacroEvaluator {
+    c: bool,
+}
+
+impl CallTextMacroEvaluator {
+    pub fn new(c: bool) -> Self {
+        Self { c }
+    }
+}
 
 impl TextMacroEval for CallTextMacroEvaluator {
     fn eval_macro(
@@ -152,7 +156,11 @@ impl TextMacroEval for CallTextMacroEvaluator {
                 }
                 MacroParam::StringLiteral(s) => {
                     let key = statics.add_str(s);
-                    format!("    push dword [{key}]")
+                    if self.c {
+                        format!("    push dword [{key}]")
+                    } else {
+                        format!("    push dword [{key}]")
+                    }
                 }
             })
             .collect::<Vec<String>>()
@@ -193,7 +201,7 @@ mod tests {
             ],
         };
 
-        let backend = BackendAsm386::new();
+        let backend = backend();
         let mut statics = Statics::new();
 
         let result = TextMacroEvaluator::new().eval_macro(&backend, &mut statics, &text_macro);
@@ -201,9 +209,10 @@ mod tests {
         assert_eq!(result, "    push dword [_s_1]\n    call sprintln\n    add esp, 4\n");
     }
 
+
     #[test]
     fn parse() {
-        let backend = BackendAsm386::new();
+        let backend = backend();
         let mut statics = Statics::new();
 
         let result = TextMacroEvaluator::new().translate(&backend, &mut statics, "a line\n$call(nprint,10)\nanother line\n");
@@ -213,7 +222,7 @@ mod tests {
 
     #[test]
     fn parse_string_par() {
-        let backend = BackendAsm386::new();
+        let backend = backend();
         let mut statics = Statics::new();
 
         let result = TextMacroEvaluator::new().translate(&backend, &mut statics, "a line\n$call(sprintln, \"Hello, world\")\nanother line\n");
@@ -221,5 +230,9 @@ mod tests {
         assert_eq!(statics.get("_sv_0"), Some(&MemoryValue::StringValue("Hello, world".into())));
 
         assert_eq!(result, "a line\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n\nanother line\n");
+    }
+
+    fn backend() -> BackendAsm386 {
+        BackendAsm386::new(false)
     }
 }

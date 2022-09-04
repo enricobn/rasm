@@ -32,7 +32,7 @@ impl Compiler {
 
                 info!("Parser ended");
 
-                let backend = BackendAsm386::new();
+                let backend = BackendAsm386::new(true);
 
                 let mut code_gen = CodeGen::new(&backend, module, 1024 * 1024,
                                                 64 * 1024 * 1024, 1024 * 1024, false, false,

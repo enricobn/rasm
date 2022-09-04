@@ -419,7 +419,7 @@ pub fn convert_to_typed_module(
 
     let mut default_functions = vec![
         "malloc",
-        "exit",
+        "exitMain",
         "sprint",
         "outOfHeapSpace",
         "outOfMemory",
@@ -536,7 +536,7 @@ fn verify_function_call(
             panic!();
         }
     } else {
-        panic!();
+        panic!("{call}");
     };
 
     for (i, expr) in call.parameters.iter().enumerate() {

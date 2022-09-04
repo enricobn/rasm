@@ -1280,16 +1280,13 @@ fn update(
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::path::Path;
 
-    use crate::codegen::{CodeGen, EnhancedASTModule};
-    use crate::codegen::backend::BackendAsm386;
-    use crate::lexer::Lexer;
+    use crate::codegen::EnhancedASTModule;
+
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
         ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind,
     };
-    use crate::parser::Parser;
     use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
 
     #[test]
@@ -1425,39 +1422,6 @@ mod tests {
 
         assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
         assert!(new_module.functions_by_name.get("consume_0").is_some());
-    }
-
-    #[test]
-    fn test_list() {
-        test_file("list.rasm");
-    }
-
-    #[test]
-    fn test_list_fmap() {
-        test_file("list_fmap.rasm");
-    }
-
-    #[test]
-    fn test_gameoflife() {
-        test_file("gameoflife.rasm");
-    }
-
-    #[test]
-    fn test_structs() {
-        test_file("structs.rasm");
-    }
-
-    fn test_file(file_name: &str) {
-        println!("file_name {file_name}");
-
-        let resource = format!("resources/test/{}", file_name);
-        let path = Path::new(&resource);
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        let module = parser.parse(path);
-
-        let backend = BackendAsm386::new();
-        let code_gen = CodeGen::new(&backend, module, 1024, 1024, 1024, false, false, true);
     }
 
 }

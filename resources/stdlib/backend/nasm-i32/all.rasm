@@ -28,10 +28,15 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
     add     eax, $n2
 }/
 
-asm exit(status: i32) /{
+asm exitMain(status: i32) /{
+    %ifdef LIBC
+    push    dword $status
+    call    exit
+    %else
     mov     ebx, $status    ; Arg one: the status
     mov     eax, 1          ; Syscall number:
     int     0x80
+    %endif
 }/
 
 asm argc() -> i32 /{

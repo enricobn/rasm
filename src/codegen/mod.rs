@@ -280,12 +280,14 @@ impl<'a> CodeGen<'a> {
 
         let mut asm = String::new();
 
+        self.backend.preamble(&mut asm);
+
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         self.statics.insert("_heap_table".into(), Mem((self.heap_table_slots + 1) * 20, Bytes));
-        self.statics.insert("_heap_table_size".into(), MemoryValue::I32Value(self.heap_table_slots as i32 * 20));
-        self.statics.insert("_heap_table_next".into(), MemoryValue::I32Value(0));
+        self.statics.insert("_heap_table_size".into(), I32Value(self.heap_table_slots as i32 * 20));
+        self.statics.insert("_heap_table_next".into(), I32Value(0));
         self.statics.insert("_heap".into(), Mem(4, Bytes));
-        self.statics.insert("_heap_size".into(), MemoryValue::I32Value(self.heap_size as i32));
+        self.statics.insert("_heap_size".into(), I32Value(self.heap_size as i32));
         self.statics.insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
 
         self.statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
@@ -301,9 +303,8 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
-        self.statics.insert("_NEW_LINE".into(), MemoryValue::I32Value(10));
-        self.statics.insert("_ESC".into(), MemoryValue::I32Value(27));
-
+        self.statics.insert("_NEW_LINE".into(), I32Value(10));
+        self.statics.insert("_ESC".into(), I32Value(27));
 
         asm.push_str("SECTION .data\n");
         asm.push_str("    timeval:\n");
@@ -362,7 +363,7 @@ impl<'a> CodeGen<'a> {
         }
 
         CodeGen::add(&mut asm, "push   dword 0", None, true);
-        CodeGen::add(&mut asm, "call   exit", None, true);
+        CodeGen::add(&mut asm, "call   exitMain", None, true);
 
         asm.push_str(&self.definitions);
 
@@ -889,7 +890,7 @@ mod tests {
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
         let module = parser.parse(path);
 
-        let backend = BackendAsm386::new();
+        let backend = BackendAsm386::new(false);
 
         let mut gen = CodeGen::new(&backend, module, 1024 * 1024, 64 * 1024 * 1024, 1024 * 1024, false, false, false);
 
