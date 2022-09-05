@@ -440,7 +440,9 @@ pub fn convert_to_typed_module(
         "str_deref",
         "sysOpen",
         "sysRead",
-        "sysClose"
+        "sysClose",
+        "fileSize",
+        "freeMem"
     ];
 
     if print_allocation {

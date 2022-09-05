@@ -9,8 +9,9 @@ asm nprint(n: i32) /{
     push    ecx
     push    edx
 
-; // TODO addRef and deref to let the memory be reused
-    $call(malloc,20)
+    $call(malloc, 20)
+    ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
+    $call(freeMem, eax)
     mov     dword esi,[eax]
     add     esi,19
 
@@ -113,20 +114,47 @@ asm readFile(path: str) -> str /{
     push    ecx
     push    edx
 
-    ; mode 0 -> read-only mode
+    ; 0 -> read-only mode
     $call(sysOpen, $path, 0)
     mov     ebx,eax           ; the file descriptor
 
-    $call(malloc, 1024)
+    $call(fileSize, ebx)
+    mov     edx, eax
+    add     edx, 1  ; we allocate one more byte for 0 at the end of the string
+
+    $call(malloc, edx)
     push    eax
 
-    $call(sysRead, ebx, eax, 1024)
+    sub     edx,1   ; we subtract one for 0 at the end of the string
+
+    $call(sysRead, ebx, eax, edx)
 
     $call(sysClose, ebx)
 
     pop     eax
+    add     dword edx, [eax]
+    mov     byte    [edx],0     ;
 
     pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm fileSize(descriptor: i32) -> i32 /{
+    push    ebx
+    push    ecx
+
+    $call(malloc, 1024)
+    ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
+    $call(freeMem, eax)
+
+    mov     dword ecx,[eax]
+
+    mov     eax, 108          ; fstat syscall
+    mov     ebx, $descriptor
+    int     80h
+    mov     dword eax, [ecx + 20]  ; +20 -> size
+
     pop     ecx
     pop     ebx
 }/
