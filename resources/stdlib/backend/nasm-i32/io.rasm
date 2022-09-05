@@ -9,6 +9,7 @@ asm nprint(n: i32) /{
     push    ecx
     push    edx
 
+; // TODO addRef and deref to let the memory be reused
     $call(malloc,20)
     mov     dword esi,[eax]
     add     esi,19
@@ -105,4 +106,34 @@ fn printESC() /{
     pop     ecx
     pop     ebx
     pop     eax
+}/
+
+asm readFile(path: str) -> str /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     eax,  5           ; open syscall
+    mov     ecx,  0           ; read-only mode
+    mov     dword ebx,$path   ;
+    mov     dword ebx,[ebx]   ; the file name
+    int     80h
+    mov     ebx,eax           ; the file descriptor
+
+    $call(malloc,1024)
+    push    eax
+    mov     dword ecx,[eax]   ; the buffer
+
+    mov     eax,  3         ; read syscall
+    mov     edx,  1024      ; bufsize
+    int     80h             ;
+
+    mov     eax,  6         ; close syscall
+    int     80h             ;
+
+    pop     eax
+
+    pop     edx
+    pop     ecx
+    pop     ebx
 }/

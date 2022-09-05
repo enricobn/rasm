@@ -1,0 +1,3 @@
+include "std.rasm"
+
+sprintln(readFile(argv(1)));

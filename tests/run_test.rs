@@ -130,12 +130,17 @@ fn test_list_flatten() {
 
 #[test]
 fn test_gameoflife_runs() {
-    test_("gameoflife", vec!["5"],None);
+    test_("gameoflife", vec!["5"], None);
 }
 
 #[test]
 fn test_structs() {
     test("structs", vec![], "10, 20\n");
+}
+
+#[test]
+fn test_read_file() {
+    test("read_file", vec!["resources/test/test.txt"], "hello\nworld\n");
 }
 
 #[test]
