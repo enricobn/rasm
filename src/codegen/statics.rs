@@ -127,7 +127,7 @@ impl Statics {
         }
         CodeGen::add(&mut asm, "%endif", None, false);
 
-        TextMacroEvaluator::new().translate(backend, self, &asm)
+        TextMacroEvaluator::new(vec![]).translate(backend, self, &asm)
     }
 
     fn print_address(asm: &mut String, address: &str) {

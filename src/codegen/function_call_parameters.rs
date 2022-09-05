@@ -282,6 +282,9 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn resolve_asm_parameters(&self, statics: &mut Statics, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
         let mut result = body.to_string();
+
+        result = TextMacroEvaluator::new(self.parameters.clone()).translate(self.backend, statics, &result);
+
         let mut i = 0;
         let word_len = self.backend.word_len() as i32;
         for par in self.parameters.iter() {
@@ -298,7 +301,7 @@ impl<'a> FunctionCallParameters<'a> {
 
             let relative_address =
                 if self.inline {
-                    debug!("{}  i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
+                    debug!("{} i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
                     result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n", i, self.parameters_added, to_remove_from_stack));
                     (i as i32 - self.to_remove_from_stack() as i32 - to_remove_from_stack as i32) * word_len
                 } else {
@@ -311,7 +314,7 @@ impl<'a> FunctionCallParameters<'a> {
             i += 1;
         }
 
-        TextMacroEvaluator::new().translate(self.backend, statics, &result)
+        result
     }
 
     fn parameter_added_to_stack(&mut self, param_name: &str) {

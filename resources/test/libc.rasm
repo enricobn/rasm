@@ -2,13 +2,9 @@ include "std.rasm"
 requires libc
 extern printf
 
-p("number: %d", 10);
+p("%s: %d\n", "number", 10);
 
-asm p(s: str, n: i32) /{
-    push    dword 10
-    mov     dword eax,$s
-    mov     dword eax,[eax]
-    push    eax
-    call    printf
-    add     esp, 8
+asm p(s1: str, s2: str, n: i32) /{
+    $ccall(printf, "number: %d\n", $n)
+    $ccall(printf, $s1, $s2, $n)
 }/
