@@ -438,6 +438,9 @@ pub fn convert_to_typed_module(
         "createCmdLineArguments",
         "str_addRef",
         "str_deref",
+        "sysOpen",
+        "sysRead",
+        "sysClose"
     ];
 
     if print_allocation {

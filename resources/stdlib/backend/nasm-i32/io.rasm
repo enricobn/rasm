@@ -113,27 +113,61 @@ asm readFile(path: str) -> str /{
     push    ecx
     push    edx
 
-    mov     eax,  5           ; open syscall
-    mov     ecx,  0           ; read-only mode
-    mov     dword ebx,$path   ;
-    mov     dword ebx,[ebx]   ; the file name
-    int     80h
+    ; mode 0 -> read-only mode
+    $call(sysOpen, $path, 0)
     mov     ebx,eax           ; the file descriptor
 
-    $call(malloc,1024)
+    $call(malloc, 1024)
     push    eax
-    mov     dword ecx,[eax]   ; the buffer
 
-    mov     eax,  3         ; read syscall
-    mov     edx,  1024      ; bufsize
-    int     80h             ;
+    $call(sysRead, ebx, eax, 1024)
 
-    mov     eax,  6         ; close syscall
-    int     80h             ;
+    $call(sysClose, ebx)
 
     pop     eax
 
     pop     edx
     pop     ecx
+    pop     ebx
+}/
+
+asm sysOpen(path: str, mode: i32) -> i32 /{
+    push    ebx
+    push    ecx
+
+    mov     eax,  5           ; open syscall
+    mov     dword ebx,$path   ;
+    mov     dword ebx,[ebx]   ; the file name
+    mov     ecx,  $mode
+    int     80h
+
+    pop     ecx
+    pop     ebx
+}/
+
+asm sysRead(descriptor: i32, buffer: str, size: i32) /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     eax,  3         ; read syscall
+    mov     dword ebx, $descriptor
+    mov     dword ecx, $buffer
+    mov     dword ecx, [ecx]
+    mov     edx,  $size      ; bufsize
+    int     80h
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm sysClose(descriptor: i32) /{
+    push    ebx
+
+    mov     eax, 6         ; close syscall
+    mov     dword ebx, $descriptor
+    int     80h
+
     pop     ebx
 }/
