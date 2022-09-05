@@ -300,7 +300,6 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_reusable_heap_table_size".into(), I32Value(16 * 1024 * 1024));
         self.statics.insert("_reusable_heap_table_next".into(), I32Value(0));
 
-        self.statics.insert("_rasm_buffer_10b".into(), Mem(10, Bytes));
         // command line arguments
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
         self.statics.insert("_NEW_LINE".into(), I32Value(10));
