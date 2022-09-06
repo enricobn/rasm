@@ -3,24 +3,7 @@ include "conditionals.rasm"
 include "io.rasm"
 include "new_allocator.rasm"
 include "logic.rasm"
-
-/** Returns the length of the string **/
-asm slen(s: &str) -> i32 /{
-    push    ebx             ; Save ebx to the stack since we use it
-    mov     eax, $s         ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
-    mov     dword eax,[eax]
-    mov     ebx, eax
-
-.nextchar:
-    cmp     byte [eax], 0
-    jz      .finished
-    inc     eax
-    jmp     .nextchar
-
-.finished:
-    sub     eax, ebx
-    pop     ebx
-}/
+include "str.rasm"
 
 /** Adds two numbers **/
 inline asm nadd(n1: i32, n2: i32) -> i32 /{
@@ -56,32 +39,6 @@ asm argv(i: i32) -> &str /{
     mov eax,[ebx]
     pop ecx
     pop ebx
-}/
-
-/**
- * parse a string to a number
- from https://stackoverflow.com/questions/19461476/convert-string-to-int-x86-32-bit-assembler-using-nasm
- **/
-asm atoi(s: &str) -> i32 /{
-    push    ecx
-    push    edx
-    mov edx, $s ; the pointer to the stack table our string
-    mov dword edx, [edx]
-    xor eax, eax ; zero a "result so far"
-    .top:
-    movzx ecx, byte [edx] ; get a character
-    inc edx ; ready for next one
-    cmp ecx, '0' ; valid?
-    jb .done
-    cmp ecx, '9'
-    ja .done
-    sub ecx, '0' ; "convert" character to number
-    imul eax, 10 ; multiply "result so far" by ten
-    add eax, ecx ; add in current digit
-    jmp .top ; until done
-.done:
-    pop    edx
-    pop    ecx
 }/
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
@@ -140,38 +97,4 @@ asm memcopy(source: &i32, dest: &i32, len: i32) /{
     pop     ecx
     pop     ebx
     pop     eax
-}/
-
-asm sadd(s1: str, s2: str) -> str /{
-    push    ebx
-    push    ecx
-    push    edx
-
-    $call(slen, $s1)
-    mov     ecx, eax
-    mov     ebx, eax
-    $call(slen, $s2)
-    mov     edx, eax
-    add     ebx, eax
-    add     ebx, 1
-
-    $call(malloc,ebx)
-    push    eax
-
-    mov     dword ebx,$s1
-    mov     dword ebx,[ebx]
-    $call(memcopy,ebx,[eax],ecx)
-
-    mov     dword eax,[eax]
-    add     eax,ecx
-    add     edx,1
-    mov     dword ebx,$s2
-    mov     dword ebx,[ebx]
-    $call(memcopy,ebx,eax,edx)
-
-    pop     eax
-
-    pop     edx
-    pop     ecx
-    pop     ebx
 }/

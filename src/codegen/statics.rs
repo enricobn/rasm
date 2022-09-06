@@ -1,9 +1,9 @@
-use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
-use linked_hash_map::LinkedHashMap;
-use crate::codegen::MemoryValue::Mem;
-use pad::PadStr;
 use crate::codegen::backend::Backend;
 use crate::codegen::text_macro::TextMacroEvaluator;
+use crate::codegen::MemoryValue::Mem;
+use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
+use linked_hash_map::LinkedHashMap;
+use pad::PadStr;
 
 #[derive(Clone)]
 pub struct Statics {
@@ -29,7 +29,8 @@ impl Statics {
             let value_label = self.insert_prefix("_sv".into(), MemoryValue::StringValue(s.into()));
             let label = self.insert_prefix("_s".into(), Mem(1, MemoryUnit::Words));
 
-            self.strings_map.insert(s.into(), (label.clone(), value_label));
+            self.strings_map
+                .insert(s.into(), (label.clone(), value_label));
 
             label
         }
@@ -49,7 +50,11 @@ impl Statics {
         label
     }
 
-    pub fn generate_code(&mut self, backend: &dyn Backend, debug: bool) -> (String, String, String) {
+    pub fn generate_code(
+        &mut self,
+        backend: &dyn Backend,
+        debug: bool,
+    ) -> (String, String, String) {
         let mut data = String::new();
         let mut bss = String::new();
 
@@ -70,7 +75,7 @@ impl Statics {
 
                         let mut result = "'".to_string();
 
-
+                        // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
                         for c in s.replace("\\n", "\n").replace("\\t", "\t").chars() {
                             if c.is_ascii_control() {
                                 result.push_str(&format!("',{},'", c as u32));
@@ -83,7 +88,6 @@ impl Statics {
 
                         def.push_str(&result);
 
-
                         CodeGen::add(&mut data, &def, None, true);
                     }
                     MemoryValue::I32Value(i) => {
@@ -93,12 +97,8 @@ impl Statics {
                     }
                     Mem(len, unit) => {
                         match unit {
-                            MemoryUnit::Bytes => {
-                                def.push_str("resb ")
-                            }
-                            MemoryUnit::Words => {
-                                def.push_str("resd ")
-                            }
+                            MemoryUnit::Bytes => def.push_str("resb "),
+                            MemoryUnit::Words => def.push_str("resd "),
                         }
                         def.push_str(&format!("{}", len));
                         CodeGen::add(&mut bss, &def, None, true);
@@ -110,7 +110,12 @@ impl Statics {
         for (_, (key, value_key)) in self.strings_map.iter() {
             CodeGen::add(&mut code, &format!("push dword {value_key}"), None, true);
             CodeGen::add(&mut code, "call addStaticStringToHeap", None, true);
-            CodeGen::add(&mut code, &format!("add {},{}", backend.stack_pointer(), backend.word_len()), None, true);
+            CodeGen::add(
+                &mut code,
+                &format!("add {},{}", backend.stack_pointer(), backend.word_len()),
+                None,
+                true,
+            );
             CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
         (data, bss, code)
@@ -148,7 +153,12 @@ impl Statics {
 
     fn print_address(asm: &mut String, address: &str) {
         let address_name = address.pad_to_width(50);
-        CodeGen::add(asm, &format!("$call(sprint, \"{address_name} \")"), None, false);
+        CodeGen::add(
+            asm,
+            &format!("$call(sprint, \"{address_name} \")"),
+            None,
+            false,
+        );
         CodeGen::add(asm, &format!("$call(nprintln, {address})"), None, false);
     }
 }
