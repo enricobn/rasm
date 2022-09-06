@@ -167,7 +167,7 @@ fn test_str() {
 
 #[test]
 fn test_libc() {
-    test("libc", Vec::new(), "number: 10");
+    test("libc", Vec::new(), "number:\t\t10\nnumber:\t\t10\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

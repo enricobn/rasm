@@ -67,7 +67,23 @@ impl Statics {
                 match self.statics.get(*id).unwrap() {
                     MemoryValue::StringValue(s) => {
                         def.push_str("db    ");
-                        def.push_str(&format!("'{}', 0h", s));
+
+                        let mut result = "'".to_string();
+
+
+                        for c in s.replace("\\n", "\n").replace("\\t", "\t").chars() {
+                            if c.is_ascii_control() {
+                                result.push_str(&format!("',{},'", c as u32));
+                            } else {
+                                result.push(c)
+                            }
+                        }
+
+                        result.push_str("', 0h");
+
+                        def.push_str(&result);
+
+
                         CodeGen::add(&mut data, &def, None, true);
                     }
                     MemoryValue::I32Value(i) => {
