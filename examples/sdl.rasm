@@ -1,0 +1,97 @@
+include "std.rasm"
+
+requires "libc"
+
+extern "printf"
+extern "exit"
+
+requires "SDL2"
+
+extern "SDL_Init"
+extern "SDL_CreateWindow"
+extern "SDL_Delay"
+extern "SDL_CreateRenderer"
+extern "SDL_LoadBMP_RW"
+extern "SDL_RWFromFile"
+extern "SDL_CreateTextureFromSurface"
+extern "SDL_FreeSurface"
+extern "SDL_RenderClear"
+extern "SDL_RenderCopy"
+extern "SDL_RenderPresent"
+extern "SDL_GetError"
+
+sdlInit();
+
+runWith(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), { win ->
+    runWith(sdlCreateRenderer(win), { ren ->
+        runOrError(sdlLoadBMP("resources/jose-raul-capablanca.bmp"), "SDL_LoadBMP Error: %s\n", {bmp ->
+            runWith(sdlCreateTextureFromSurface(ren, bmp), {tex ->
+                sdlFreeSurface(bmp);
+
+                sdlRenderClear(ren);
+                sdlRenderCopy(ren, tex);
+                sdlRenderPresent(ren);
+
+                sdlDelay(2000);
+            });
+        });
+    });
+});
+
+asm sdlInit() /{
+    ; SDL_Init(SDL_INIT_EVERYTHING)
+    $ccall(SDL_Init, 62001)
+}/
+
+asm sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> i32 /{
+    $ccall(SDL_CreateWindow, $title, $x, $y, $width, $height, 4)
+}/
+
+asm sdlDelay(millis: i32) /{
+    $ccall(SDL_Delay, $millis)
+}/
+
+asm sdlCreateRenderer(win: i32) -> i32 /{
+    ; SDL_RENDERER_ACCELERATED = 0x00000002
+    ; SDL_RENDERER_PRESENTVSYNC = 0x00000004
+    $ccall(SDL_CreateRenderer, $win, -1, 6)
+}/
+
+asm sdlLoadBMP(file: str) -> i32 /{
+    $ccall(SDL_RWFromFile, $file, "rb")
+    $ccall(SDL_LoadBMP_RW, eax, 1)
+}/
+
+asm sdlCreateTextureFromSurface(ren: i32, bmp: i32) -> i32 /{
+    $ccall(SDL_CreateTextureFromSurface, $ren, $bmp)
+}/
+
+asm sdlFreeSurface(bmp: i32) /{
+    $ccall(SDL_FreeSurface, $bmp)
+}/
+
+asm sdlRenderClear(ren: i32) /{
+    $ccall(SDL_RenderClear, $ren)
+}/
+
+asm sdlRenderCopy(ren: i32, tex: i32) /{
+    $ccall(SDL_RenderCopy, $ren, $tex, 0, 0)
+}/
+
+asm sdlRenderPresent(ren: i32) /{
+    $ccall(SDL_RenderPresent, $ren)
+}/
+
+asm failure(message: str) /{
+    $ccall(SDL_GetError)
+    $ccall(printf, $message, eax)
+    $ccall(exit, 1)
+}/
+
+asm sdlGetError() -> str /{
+    $ccall(SDL_GetError)
+}/
+
+fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
+    ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
+}
