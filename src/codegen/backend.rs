@@ -106,14 +106,17 @@ impl Backend for BackendAsm386 {
                     .output()
                     .expect("failed to execute ld"),
                 Linker::Gcc => {
+                    let libraries = self.requires.iter().filter(|it| *it != "libc").map(|it| format!("-l{it}"))
+                        .collect::<Vec<String>>();
+
                     Command::new("gcc")
                         .arg("-m32")
                         .arg("-gdwarf")
-                        //.arg("-nostartfiles") // don't use the standard clib main
-                        .arg("-static")
+                        //.arg("-static")
                         .arg("-o")
                         .arg(path.with_extension(""))
                         .arg(path.with_extension("o"))
+                        .args(libraries)
                         .stderr(Stdio::inherit())
                         .output()
                         .expect("failed to execute gcc")

@@ -7,8 +7,8 @@ https://grandidierite.github.io/functions-and-stack-in-NASM-32-bit/
 Printing an integer with x86 32-bit Linux sys_write (NASM)    
 https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
 
-linux system calls  
-https://chromium.googlesource.com/chromiumos/docs/+/master/constants/syscalls.md
+linux 32bit system calls  
+https://chromium.googlesource.com/chromiumos/docs/+/master/constants/syscalls.md#x86-32_bit
 
 Turing completeness  
 https://en.wikipedia.org/wiki/McCarthy_91_function

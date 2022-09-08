@@ -191,14 +191,14 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let TokenKind::KeyWord(KeywordKind::Requires) = token.kind {
-                        if let Some(TokenKind::AlphaNumeric(name)) = &self.get_token_kind_n(1) {
+                        if let Some(TokenKind::StringLiteral(name)) = &self.get_token_kind_n(1) {
                             self.requires.insert(name.clone());
                             self.i += 2;
                             continue
                         }
                         self.panic("Cannot parse require")
                     } else if let TokenKind::KeyWord(KeywordKind::Extern) = token.kind {
-                        if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
+                        if let Some(TokenKind::StringLiteral(name)) = self.get_token_kind_n(1) {
                             self.externals.insert(name.clone());
                             self.i += 2;
                             continue

@@ -1,9 +1,12 @@
 Doing
 ------
-- file IO
 
 Next
 -----
+- TextMacro:
+    - TextMacroEvaluator It should be better to pass in a TypedValContext
+    - is it possible to use TextMacro in standard functions? (but for what?)
+    - is it possible to inline the functions called with TextMacro?
 - game of life: if we don't pass a number, it should run until no cells are alive
 - type check
   - use Result

@@ -1,6 +1,6 @@
 include "std.rasm"
-requires libc
-extern printf
+requires "libc"
+extern "printf"
 
 p("%s:\t\t%d\n", "number", 10);
 

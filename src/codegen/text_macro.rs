@@ -22,10 +22,11 @@ pub struct TextMacroEvaluator {
 }
 
 impl TextMacroEvaluator {
+    // TODO It should be better to pass in a TypedValContext
     pub fn new(parameters: Vec<ASTTypedParameterDef>) -> Self {
         let mut evaluators: HashMap<String, Box<dyn TextMacroEval>> = HashMap::new();
-        evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator::new(false)));
-        evaluators.insert("ccall".into(), Box::new(CallTextMacroEvaluator::new(true)));
+        evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator::new()));
+        evaluators.insert("ccall".into(), Box::new(CCallTextMacroEvaluator::new()));
         Self {
             parameters,
             evaluators,
@@ -163,13 +164,11 @@ trait TextMacroEval {
     ) -> String;
 }
 
-struct CallTextMacroEvaluator {
-    c: bool,
-}
+struct CallTextMacroEvaluator {}
 
 impl CallTextMacroEvaluator {
-    pub fn new(c: bool) -> Self {
-        Self { c }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -188,9 +187,7 @@ impl TextMacroEval for CallTextMacroEvaluator {
 
         let mut result = String::new();
 
-        if self.c {
-            result.push_str("push   ebx\n");
-        }
+        result.push_str(&format!("; call macro, calling {function_name}\n"));
 
         result.push_str(
             &parameters
@@ -203,18 +200,10 @@ impl TextMacroEval for CallTextMacroEvaluator {
                     }
                     MacroParam::StringLiteral(s) => {
                         let key = statics.add_str(s);
-                        if self.c {
-                            format!("    mov dword ebx,[{key}]\npush    dword [ebx]\n")
-                        } else {
-                            format!("    push dword [{key}]")
-                        }
+                        format!("    push dword [{key}]")
                     }
                     MacroParam::Ref(s) => {
-                        if self.c {
-                            format!("    mov dword ebx,{s}\npush    dword [ebx]")
-                        } else {
-                            format!("    push dword {s}")
-                        }
+                        format!("    push dword {s}")
                     }
                 })
                 .collect::<Vec<String>>()
@@ -231,9 +220,76 @@ impl TextMacroEval for CallTextMacroEvaluator {
             (parameters.len() - 1) * backend.word_len()
         ));
 
-        if self.c {
-            result.push_str("pop   ebx\n");
-        }
+        result
+    }
+}
+
+struct CCallTextMacroEvaluator {}
+
+impl CCallTextMacroEvaluator {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl TextMacroEval for CCallTextMacroEvaluator {
+    fn eval_macro(
+        &self,
+        backend: &dyn Backend,
+        statics: &mut Statics,
+        parameters: &Vec<MacroParam>,
+    ) -> String {
+        let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
+            function_name
+        } else {
+            panic!("Error getting the function name");
+        };
+
+        let ws = backend.word_size();
+        let sp = backend.stack_pointer();
+        let wl = backend.word_len();
+
+        let mut result = String::new();
+
+        result.push_str(&format!("; ccall macro, calling {function_name}\n"));
+        result.push_str("    push   ebx\n");
+        result.push_str("    push   ecx\n");
+        result.push_str(&format!("    mov   {ws} ebx, esp\n"));
+        result.push_str(&format!("    sub   {sp}, {}\n", wl * (parameters.len() - 1)));
+        // stack 16 bytes alignment
+        result.push_str("    and   esp,0xfffffff0\n");
+
+        result.push_str(
+            &parameters
+                .iter().enumerate()
+                .skip(1)
+                .rev()
+                .map(|(index, it)| {
+                    let i = index - 1;
+                    match it {
+                        MacroParam::Plain(s) => {
+                            format!("    mov {ws} ecx, {s}\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
+                        }
+                        MacroParam::StringLiteral(s) => {
+                            let key = statics.add_str(s);
+                            format!("    mov {ws} ecx, [{key}]\n    mov {ws} ecx,[ecx]\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
+                        }
+                        MacroParam::Ref(s) => {
+                            format!("    mov {ws} ecx, {s}\n    mov {ws} ecx, [ecx]\n   mov {ws} [{sp}+{}], ecx\n", i * wl)
+                        }
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n"),
+        );
+
+        result.push('\n');
+
+        result.push_str(&format!("    call {function_name}\n"));
+
+        result.push_str("    mov   esp,ebx\n");
+        result.push_str("    pop   ecx\n");
+        result.push_str("    pop   ebx\n");
 
         result
     }
@@ -268,7 +324,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "    push dword [_s_1]\n    call sprintln\n    add esp, 4\n"
+            "; call macro, calling sprintln\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n"
         );
     }
 
@@ -285,7 +341,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "a line\n    push dword 10\n    call nprint\n    add esp, 4\n\nanother line\n"
+            "a line\n; call macro, calling nprint\n    push dword 10\n    call nprint\n    add esp, 4\n\nanother line\n"
         );
     }
 
@@ -307,7 +363,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "a line\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n\nanother line\n"
+            "a line\n; call macro, calling sprintln\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n\nanother line\n"
         );
     }
 
@@ -326,12 +382,36 @@ mod tests {
             .translate(
                 &backend,
                 &mut statics,
-                "a line\n$ccall(sprintln, $s)\nanother line\n",
+                "a line\n$call(sprintln, $s)\nanother line\n",
             );
 
         assert_eq!(
             result,
-            "a line\npush   ebx\n    mov dword ebx,$s\npush    dword [ebx]\n    call sprintln\n    add esp, 4\npop   ebx\n\nanother line\n"
+            "a line\n; call macro, calling sprintln\n    push dword $s\n    call sprintln\n    add esp, 4\n\nanother line\n"
+        );
+    }
+
+    #[test]
+    fn parse_ref_par_c() {
+        let backend = backend();
+        let mut statics = Statics::new();
+
+        let result = TextMacroEvaluator::new(vec![ASTTypedParameterDef {
+            name: "s".into(),
+            type_ref: ASTTypedTypeRef {
+                ast_ref: false,
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
+            },
+        }])
+            .translate(
+                &backend,
+                &mut statics,
+                "a line\n$ccall(printf, $s)\nanother line\n",
+            );
+
+        assert_eq!(
+            result,
+            "a line\n; ccall macro, calling printf\n    push   ebx\n    push   ecx\n    mov   dword ebx, esp\n    sub   esp, 4\n    and   esp,0xfffffff0\n    mov dword ecx, $s\n    mov dword ecx, [ecx]\n   mov dword [esp+0], ecx\n\n    call printf\n    mov   esp,ebx\n    pop   ecx\n    pop   ebx\n\nanother line\n"
         );
     }
 
