@@ -7,25 +7,28 @@ extern "exit"
 
 requires "SDL2"
 
-extern "SDL_Init"
+extern "SDL_CreateRenderer"
+extern "SDL_CreateTextureFromSurface"
 extern "SDL_CreateWindow"
 extern "SDL_Delay"
-extern "SDL_CreateRenderer"
-extern "SDL_LoadBMP_RW"
-extern "SDL_RWFromFile"
-extern "SDL_CreateTextureFromSurface"
 extern "SDL_FreeSurface"
+extern "SDL_GetError"
+extern "SDL_LoadBMP_RW"
+extern "SDL_Init"
 extern "SDL_RenderClear"
 extern "SDL_RenderCopy"
 extern "SDL_RenderPresent"
-extern "SDL_GetError"
+extern "SDL_RWFromFile"
+extern "SDL_Quit"
+
+struct SDLWindow {}
 
 sdlInit();
 
-runWith(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), { win ->
-    runWith(sdlCreateRenderer(win), { ren ->
+runOrError(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), "SDL_CreateWindow Error: %s\n", { win ->
+    runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
         runOrError(sdlLoadBMP("resources/jose-raul-capablanca.bmp"), "SDL_LoadBMP Error: %s\n", {bmp ->
-            runWith(sdlCreateTextureFromSurface(ren, bmp), {tex ->
+            runOrError(sdlCreateTextureFromSurface(ren, bmp), "SDL_CreateTexture Error: %s\n", {tex ->
                 sdlFreeSurface(bmp);
 
                 sdlRenderClear(ren);
@@ -85,11 +88,16 @@ asm sdlRenderPresent(ren: i32) /{
 asm failure(message: str) /{
     $ccall(SDL_GetError)
     $ccall(printf, $message, eax)
+    $ccall(SDL_Quit)
     $ccall(exit, 1)
 }/
 
 asm sdlGetError() -> str /{
     $ccall(SDL_GetError)
+}/
+
+asm sdlQuit() /{
+    $ccall(SDL_Quit)
 }/
 
 fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
