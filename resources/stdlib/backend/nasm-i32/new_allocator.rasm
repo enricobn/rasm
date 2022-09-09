@@ -214,6 +214,9 @@ asm deref(address: i32, descr: &str) -> i32 /{
     pop     eax
 }/
 
+/**
+ * given an address in the allocation table, dereferences that entry and adds it to the reusable table
+ */
 asm freeMem(address: i32) /{
     push    ebx
 

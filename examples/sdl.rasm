@@ -11,6 +11,9 @@ extern "SDL_CreateRenderer"
 extern "SDL_CreateTextureFromSurface"
 extern "SDL_CreateWindow"
 extern "SDL_Delay"
+extern "SDL_DestroyRenderer"
+extern "SDL_DestroyTexture"
+extern "SDL_DestroyWindow"
 extern "SDL_FreeSurface"
 extern "SDL_GetError"
 extern "SDL_LoadBMP_RW"
@@ -21,14 +24,12 @@ extern "SDL_RenderPresent"
 extern "SDL_RWFromFile"
 extern "SDL_Quit"
 
-struct SDLWindow {}
-
 sdlInit();
 
 runOrError(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), "SDL_CreateWindow Error: %s\n", { win ->
     runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
-        runOrError(sdlLoadBMP("resources/jose-raul-capablanca.bmp"), "SDL_LoadBMP Error: %s\n", {bmp ->
-            runOrError(sdlCreateTextureFromSurface(ren, bmp), "SDL_CreateTexture Error: %s\n", {tex ->
+        runOrError(sdlLoadBMP("resources/jose-raul-capablanca.bmp"), "SDL_LoadBMP Error: %s\n", { bmp ->
+            runOrError(sdlCreateTextureFromSurface(ren, bmp), "SDL_CreateTexture Error: %s\n", { tex ->
                 sdlFreeSurface(bmp);
 
                 sdlRenderClear(ren);
@@ -36,6 +37,12 @@ runOrError(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), "SDL_C
                 sdlRenderPresent(ren);
 
                 sdlDelay(2000);
+
+                sdlDestroyTexture(tex);
+                sdlDestroyRenderer(ren);
+                sdlDestroyWindow(win);
+
+                sdlQuit();
             });
         });
     });
@@ -85,6 +92,18 @@ asm sdlRenderPresent(ren: i32) /{
     $ccall(SDL_RenderPresent, $ren)
 }/
 
+asm sdlDestroyRenderer(ren: i32) /{
+    $ccall(SDL_DestroyRenderer, $ren)
+}/
+
+asm sdlDestroyTexture(tex: i32) /{
+    $ccall(SDL_DestroyTexture, $tex)
+}/
+
+asm sdlDestroyWindow(win: i32) /{
+    $ccall(SDL_DestroyWindow, $win)
+}/
+
 asm failure(message: str) /{
     $ccall(SDL_GetError)
     $ccall(printf, $message, eax)
@@ -94,6 +113,7 @@ asm failure(message: str) /{
 
 asm sdlGetError() -> str /{
     $ccall(SDL_GetError)
+    $call(addStaticStringToHeap, eax)
 }/
 
 asm sdlQuit() /{
