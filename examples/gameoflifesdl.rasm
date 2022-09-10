@@ -1,0 +1,117 @@
+include "std.rasm"
+include "sdl.rasm"
+
+extern "printf"
+
+struct Cell {
+    x: i32,
+    y: i32
+}
+
+sdlInit();
+
+run(moveCells(
+        listOf7(
+           Cell(7, 1),
+           Cell(1, 2),
+           Cell(2, 2),
+           Cell(2, 3),
+           Cell(6, 3),
+           Cell(7, 3),
+           Cell(8, 3)), 10)
+        , 30, atoi(argv(1)));
+sdlQuit();
+
+fn run(start: List<Cell>, size: i32, count: i32) {
+    runOrError(sdlCreateWindow("Game of life", 100, 100, 800, 600), "SDL_CreateWindow Error: %s\n", { win ->
+        runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
+            sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+            sdlRenderClear(ren);
+            sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+
+            runWith(allCells(size, size), { allCells ->
+                printCells(ren,
+                    listFoldL(range(0, count), start, { prev, act ->
+                        printCells(ren, prev, size, size);
+                        //sdlDelay(1000);
+                        next(prev, allCells);
+                      }), size, size);
+            });
+
+            sdlDestroyRenderer(ren);
+            sdlDestroyWindow(win);
+        });
+    });
+}
+
+fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
+    listMap(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
+}
+
+fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+    listForeach(range(0, height), { y ->
+        listForeach(range(0, width), { x ->
+            ifRun(isAlive(cells, Cell(x, y)), { ->
+                 sdlRenderFillRect(ren, SDLRect(nmul(10, x), nmul(10, y), 10, 10));
+            }, { -> });
+        });
+    });
+    sdlRenderPresent(ren);
+}
+
+fn allCells(width: i32, height: i32) -> List<Cell> {
+    listFlatten(listMap(range(0, height), { y ->
+        listMap(range(0, width), { x ->
+            Cell(x, y);
+        });
+    }));
+}
+
+fn next(cells: List<Cell>, allCells: List<Cell>) -> List<Cell> {
+    listFilter(allCells, { it ->
+        with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
+            ifImmediate(isAlive(cells, it),
+                or(eq(alive, 2),eq(alive,3)),
+                eq(alive, 3)
+            );
+        });
+    });
+}
+
+fn adjacents(cell: Cell) -> List<Cell> {
+    with2(Cell::x(cell), Cell::y(cell), { x, y ->
+        listOf8(
+            Cell(nadd(x, -1), nadd(y, -1)),
+            Cell(nadd(x, -1), y),
+            Cell(nadd(x, -1), nadd(y, 1)),
+            Cell(x, nadd(y, 1)),
+            Cell(x, nadd(y, -1)),
+            Cell(nadd(x, 1), nadd(y, -1)),
+            Cell(nadd(x, 1), y),
+            Cell(nadd(x, 1), nadd(y, 1))
+        );
+    });
+}
+
+/** false = 0 true = any other value **/
+fn isAlive(cells: List<Cell>, cell: Cell) -> i32 {
+    with2(Cell::x(cell), Cell::y(cell), { x, y ->
+        listAnyMatch(cells, { it ->
+            and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
+        });
+    });
+}
+
+asm failure(message: str) /{
+    $ccall(SDL_GetError)
+    $ccall(printf, $message, eax)
+    $ccall(SDL_Quit)
+    $ccall(exit, 1)
+}/
+
+fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
+    ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
+}

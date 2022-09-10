@@ -172,6 +172,9 @@ impl Parser {
                                 }
                                 self.included_functions.append(&mut module.functions);
                                 self.enums.append(&mut module.enums);
+                                self.structs.append(&mut module.structs);
+                                self.requires.extend(module.requires);
+                                self.externals.extend(module.externals);
                             }
                             Err(err) => {
                                 self.panic(&format!("Error running lexer for {:?}: {err}", resource_path.to_str()));

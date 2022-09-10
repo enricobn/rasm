@@ -16,7 +16,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &EnhancedASTModul
 
         let parameters = struct_def.properties.iter().map(|it| ASTParameterDef { name: it.name.clone(), type_ref: it.type_ref.clone()}).collect();
 
-        for (i, property_def) in struct_def.properties.iter().rev().enumerate() {
+        for (i, property_def) in struct_def.properties.iter().enumerate() {
             let property_function = create_function_for_struct_property(backend, struct_def, property_def, i);
             functions_by_name.insert(struct_def.name.clone() + "::" + &property_def.name.clone(), property_function);
         }
@@ -41,7 +41,7 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     CodeGen::add(&mut body, &format!("add esp,{}", wl), None, true);
     CodeGen::add(&mut body, &format!("push {ws} eax"), None, true);
     CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
-    for (i, par) in struct_def.properties.iter().rev().enumerate() {
+    for (i, par) in struct_def.properties.iter().enumerate() {
         CodeGen::add(&mut body, &format!("mov   ebx, ${}", par.name), Some(&format!("property {}", par.name)), true);
         CodeGen::add(&mut body, &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * wl), None, true);
     }

@@ -1,5 +1,7 @@
 Doing
 ------
+- sdl examples
+  - how to reference external structs?
 
 Next
 -----

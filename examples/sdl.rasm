@@ -1,10 +1,4 @@
-include "std.rasm"
-
 requires "libc"
-
-extern "printf"
-extern "exit"
-
 requires "SDL2"
 
 extern "SDL_CreateRenderer"
@@ -20,33 +14,18 @@ extern "SDL_LoadBMP_RW"
 extern "SDL_Init"
 extern "SDL_RenderClear"
 extern "SDL_RenderCopy"
+extern "SDL_RenderFillRect"
 extern "SDL_RenderPresent"
 extern "SDL_RWFromFile"
+extern "SDL_SetRenderDrawColor"
 extern "SDL_Quit"
 
-sdlInit();
-
-runOrError(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), "SDL_CreateWindow Error: %s\n", { win ->
-    runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
-        runOrError(sdlLoadBMP("resources/jose-raul-capablanca.bmp"), "SDL_LoadBMP Error: %s\n", { bmp ->
-            runOrError(sdlCreateTextureFromSurface(ren, bmp), "SDL_CreateTexture Error: %s\n", { tex ->
-                sdlFreeSurface(bmp);
-
-                sdlRenderClear(ren);
-                sdlRenderCopy(ren, tex);
-                sdlRenderPresent(ren);
-
-                sdlDelay(2000);
-
-                sdlDestroyTexture(tex);
-                sdlDestroyRenderer(ren);
-                sdlDestroyWindow(win);
-
-                sdlQuit();
-            });
-        });
-    });
-});
+struct SDLRect {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32
+}
 
 asm sdlInit() /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
@@ -104,15 +83,9 @@ asm sdlDestroyWindow(win: i32) /{
     $ccall(SDL_DestroyWindow, $win)
 }/
 
-asm failure(message: str) /{
-    $ccall(SDL_GetError)
-    $ccall(printf, $message, eax)
-    $ccall(SDL_Quit)
-    $ccall(exit, 1)
-}/
-
 asm sdlGetError() -> str /{
     $ccall(SDL_GetError)
+    ; TODO I don't know if it works or if it is correct: it is not a static string
     $call(addStaticStringToHeap, eax)
 }/
 
@@ -120,6 +93,10 @@ asm sdlQuit() /{
     $ccall(SDL_Quit)
 }/
 
-fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
-    ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
-}
+asm sdlSetRenderDrawColor(ren: i32, r: i32, g: i32, b: i32, a: i32) /{
+    $ccall(SDL_SetRenderDrawColor, $ren, $r, $g, $b, $a)
+}/
+
+asm sdlRenderFillRect(ren: i32, rect: SDLRect) /{
+    $ccall(SDL_RenderFillRect, $ren, $rect)
+}/

@@ -11,6 +11,12 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
     add     eax, $n2
 }/
 
+/** Multiply two numbers **/
+inline asm nmul(n1: i32, n2: i32) -> i32 /{
+    mov     eax, $n1
+    mul     dword $n2
+}/
+
 asm exitMain(status: i32) /{
     %ifdef LIBC
     push    dword $status
