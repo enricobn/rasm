@@ -162,12 +162,17 @@ fn test_print() {
 
 #[test]
 fn test_str() {
-    test("str", Vec::new(), "Hello world!\nHello world!\n12\n");
+    test("str", Vec::new(), "Hello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\n");
 }
 
 #[test]
 fn test_libc() {
     test("libc", Vec::new(), "number:\t\t10\nnumber:\t\t10\n");
+}
+
+#[test]
+fn test_lines() {
+    test("lines", Vec::new(), "first,second,third\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

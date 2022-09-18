@@ -5,6 +5,8 @@ include "new_allocator.rasm"
 include "logic.rasm"
 include "str.rasm"
 
+extern "exit"
+
 /** Adds two numbers **/
 inline asm nadd(n1: i32, n2: i32) -> i32 /{
     mov     eax, $n1
@@ -23,7 +25,7 @@ asm exitMain(status: i32) /{
     call    exit
     %else
     mov     ebx, $status    ; Arg one: the status
-    mov     eax, 1          ; Syscall number:
+    mov     eax, 1          ; Syscall number: 1
     int     0x80
     %endif
 }/

@@ -33,28 +33,44 @@ impl TextMacroEvaluator {
         }
     }
 
-    pub fn translate(&self, backend: &dyn Backend, statics: &mut Statics, s: &str) -> String {
+    pub fn translate(&self, backend: &dyn Backend, statics: &mut Statics, body: &str) -> String {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
-        let matches = re.captures_iter(s);
 
-        let mut result = s.to_string();
+        let mut result = Vec::new();
 
-        for cap in matches {
-            let whole = cap.get(0).unwrap().as_str();
-            let name = cap.get(1).unwrap().as_str();
-            let parameters = cap.get(2).unwrap().as_str();
+        let lines = body.lines();
 
-            let text_macro = TextMacro {
-                name: name.into(),
-                parameters: self.parse_params(parameters),
-            };
+        for s in lines {
+            let stripped_comments = backend.remove_comments_from_line(s.to_string());
+            let matches = re.captures_iter(&stripped_comments);
 
-            let s = self.eval_macro(backend, statics, &text_macro);
+            let mut line_result = s.to_string();
 
-            result = result.replace(whole, &s);
+            for cap in matches {
+                let whole = cap.get(0).unwrap().as_str();
+                let name = cap.get(1).unwrap().as_str();
+                let parameters = cap.get(2).unwrap().as_str();
+
+                let text_macro = TextMacro {
+                    name: name.into(),
+                    parameters: self.parse_params(parameters),
+                };
+
+                let s = self.eval_macro(backend, statics, &text_macro);
+
+                line_result = line_result.replace(whole, &s);
+            }
+
+            result.push(line_result);
         }
 
-        result
+        let mut new_body = result.join("\n");
+
+        if body.ends_with('\n') {
+            new_body.push('\n');
+        }
+
+        new_body
     }
 
     fn parse_params(&self, s: &str) -> Vec<MacroParam> {
@@ -412,6 +428,24 @@ mod tests {
         assert_eq!(
             result,
             "a line\n; ccall macro, calling printf\n    push   ebx\n    push   ecx\n    mov   dword ebx, esp\n    sub   esp, 4\n    and   esp,0xfffffff0\n    mov dword ecx, $s\n    mov dword ecx, [ecx]\n   mov dword [esp+0], ecx\n\n    call printf\n    mov   esp,ebx\n    pop   ecx\n    pop   ebx\n\nanother line\n"
+        );
+    }
+
+    #[test]
+    fn test() {
+        let backend = backend();
+        let mut statics = Statics::new();
+
+        let result = TextMacroEvaluator::new(vec![])
+            .translate(
+                &backend,
+                &mut statics,
+                "mov     eax, 1          ; $call(any)",
+            );
+
+        assert_eq!(
+            result,
+            "mov     eax, 1          ; $call(any)"
         );
     }
 

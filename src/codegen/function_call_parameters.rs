@@ -92,21 +92,17 @@ impl<'a> FunctionCallParameters<'a> {
 
         CodeGen::add(&mut self.before, &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl as usize), comment, true);
         if let Some(name) = CodeGen::get_reference_type_name(&param_type_ref.ast_type) {
-            self.add_code_for_reference_type(code_gen, comment, &name, "eax", true, &descr);
+            self.add_code_for_reference_type(code_gen, comment, &name, "eax", &descr);
         }
         self.parameter_added_to_stack("function call result");
     }
 
-    fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str, add_ref: bool, descr: &str) {
+    fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str, descr: &str) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
-            //if add_ref {
             let descr_key = code_gen.call_add_ref(&mut self.before, self.backend, source, name, descr);
-            //}
             Self::push_to_scope_stack(self.backend, &mut self.before, source, descr_key, descr);
 
-            //self.after.insert(0, code_gen.call_deref("[ebx]", name, comment.unwrap_or("")));
-            //self.after.insert(0, Self::pop_from_scope_stack(self.backend, "ebx"));
             self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name, descr));
         }
     }

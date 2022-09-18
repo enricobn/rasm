@@ -1,0 +1,7 @@
+include "std.rasm"
+
+newStrList();
+
+fn newStrList() -> List<str> {
+    List::Empty();
+}

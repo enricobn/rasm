@@ -75,3 +75,89 @@ asm slen(s: &str) -> i32 /{
     sub     eax, ebx
     pop     ebx
 }/
+
+// TODO: check for negative pos or len
+asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
+    push ebx
+    push ecx
+    push edx
+
+    $call(slen, $s)
+
+    mov     dword ebx, $pos
+    mov     dword ecx, $len
+    add     ebx, ecx
+
+    cmp     ebx, eax
+    jle     .ok
+    $call(noneStr)
+    jmp     .end
+.ok:
+    add     ecx, 1
+    $call(malloc, ecx)
+    mov     dword ecx,[eax]
+
+    mov     dword ebx, $s
+    mov     dword ebx, [ebx]
+    add     ebx, $pos
+
+    $call(memcopy, ebx, ecx, $len)
+
+    $call(someStr, eax)
+.end:
+    pop edx
+    pop ecx
+    pop ebx
+}/
+
+fn someStr(s: str) -> Option<str> {
+    Option::Some(s);
+}
+
+fn noneStr() -> Option<str> {
+    Option::None();
+}
+
+/*
+ *  returns the offset (in bytes, not chars) of the next char
+ *  given an offset from the start of the string.
+ *  It is used to handle UTF-8 encoding
+ */
+asm nextChar(s: str, offset: i32) -> i32 /{
+    mov     eax,$offset
+
+    push    ebx
+    push    ecx
+
+    mov     ecx,0
+
+    mov     dword ebx,$s
+    mov     dword ebx,[ebx]
+    add     ebx, $offset
+
+    mov     cl,[ebx]
+    and     cl,128+64+32
+    cmp     cl,128+64+32
+    jne     .b2
+    add     eax, 4
+    jmp     .end
+.b2:
+    mov     cl,[ebx]
+    and     cl,128+64
+    cmp     cl,128+64
+    jne     .b3
+    add     eax, 3
+    jmp     .end
+.b3:
+    mov     cl,[ebx]
+    and     cl,128
+    cmp     cl,128
+    jne      .b4
+    add     eax, 2
+    jmp     .end
+.b4:
+    add     eax, 1
+.end:
+    pop     ecx
+    pop     ebx
+}/

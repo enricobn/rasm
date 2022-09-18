@@ -34,13 +34,12 @@ pub struct CodeGen<'a> {
     lambdas: Vec<LambdaCall>,
     functions: LinkedHashMap<String, ASTTypedFunctionDef>,
     backend: &'a dyn Backend,
-    functions_called: HashSet<String>,
     heap_size: usize,
     heap_table_slots: usize,
     print_memory_info: bool,
     lambda_space_size: usize,
     debug_asm: bool,
-    dereference: bool,
+    dereference: bool
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -162,6 +161,8 @@ pub struct EnhancedASTModule {
     pub structs: Vec<ASTStructDef>,
     pub native_body: String,
     pub statics: Statics,
+    pub requires: HashSet<String>,
+    pub externals: HashSet<String>,
 }
 
 impl EnhancedASTModule {
@@ -180,6 +181,8 @@ impl EnhancedASTModule {
             structs: module.structs.clone(),
             native_body: String::new(),
             statics: Statics::new(),
+            requires: module.requires.clone(),
+            externals: module.externals.clone(),
         }
     }
 
@@ -218,7 +221,6 @@ impl<'a> CodeGen<'a> {
             lambdas: Vec::new(),
             functions: LinkedHashMap::new(),
             backend,
-            functions_called: HashSet::new(),
             heap_size,
             heap_table_slots,
             print_memory_info,
@@ -231,7 +233,7 @@ impl<'a> CodeGen<'a> {
         let module = struct_functions_creator(backend, &module);
         let module = str_functions_creator(&module);
 
-        let module = convert(&module, debug_asm, print_memory_info);
+        let module = convert(backend, &module, debug_asm, print_memory_info);
         let module = typed_enum_functions_creator(&mut result, backend, &module);
         let module = typed_struct_functions_creator(&mut result, backend, &module);
 
@@ -466,20 +468,12 @@ impl<'a> CodeGen<'a> {
                     }
                 }
             }
-            ASTTypedFunctionBody::ASMBody(s) => {
+            ASTTypedFunctionBody::ASMBody(body) => {
                 let function_call_parameters = FunctionCallParameters::new(self.backend, function_def.parameters.clone(), false, false,
                                                                            &stack, self.dereference);
 
-                self.definitions.push_str(
-                    &function_call_parameters.resolve_asm_parameters(&mut self.statics, s, 0, indent));
-
-                // we parse asm body to collect the calls
-                s.lines().filter(|it| it.contains("call") && !it.contains('[') && !it.contains('$'))
-                    .map(|it| {
-                        let pos = it.find("call").unwrap();
-                        let s = it.split_at(pos + 4).1.trim();
-                        String::from_iter(s.chars().take_while(|it| it.is_alphanumeric()))
-                    }).all(|it| self.functions_called.insert(it));
+                let new_body = function_call_parameters.resolve_asm_parameters(&mut self.statics, body, 0, indent);
+                self.definitions.push_str(&new_body);
             }
         }
 
@@ -698,8 +692,6 @@ impl<'a> CodeGen<'a> {
 
                         let lambda_call = LambdaCall { def, space: lambda_space };
 
-                        self.functions_called.insert(lambda_call.def.name.clone());
-
                         lambda_calls.push(lambda_call);
                     }
                 }
@@ -718,9 +710,6 @@ impl<'a> CodeGen<'a> {
                 panic!("Only asm can be inlined, for now...");
             }
         } else {
-            if body.is_some() {
-                self.functions_called.insert(function_call.function_name.clone());
-            }
             if is_lambda {
                 if let Some(address) = lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name)) {
                     CodeGen::add(before, &format!("mov eax, [{} + 8]", self.backend.stack_base_pointer()), None, true);

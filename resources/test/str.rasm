@@ -3,3 +3,11 @@ include "std.rasm"
 sprintln(sadd("Hello ", "world!"));
 sprintln(sadd(sadd("Hello", " "), sadd("world", "!")));
 nprintln(slen(sadd(sadd("Hello", " "), sadd("world", "!"))));
+Option::run(substr("first\nsecond\nthird\n", 0, 5), { v -> sprintln(v);}, { -> sprintln("None");});
+Option::run(substr("first\nsecond\nthird\n", 6, 6), { v -> sprintln(v);}, { -> sprintln("None");});
+Option::run(substr("first\nsecond\nthird\n", 13, 5), { v -> sprintln(v);}, { -> sprintln("None");});
+//Option::run(substr("☀h", 1, 1), { v -> sprintln(v);}, { -> sprintln("None");});
+
+nprintln(nextChar("1", 0));
+nprintln(nextChar("è", 0));
+nprintln(nextChar("☀", 0));

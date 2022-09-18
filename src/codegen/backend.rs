@@ -4,6 +4,8 @@ use crate::type_check::typed_ast::ASTTypedTypeRef;
 use log::info;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TextMacroEvaluator;
 
 pub trait Backend {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -27,6 +29,17 @@ pub trait Backend {
     fn word_size(&self) -> String;
 
     fn preamble(&self, code: &mut String);
+
+    /// Returns the name of the functions called in the code
+    ///
+    /// # Arguments
+    ///
+    /// * `body`: the code to scan for function calls
+    ///
+    /// returns: Vec<String>
+    fn called_functions(&self, body: &str) -> Vec<String>;
+
+    fn remove_comments_from_line(&self, line: String) -> String;
 }
 
 enum Linker {
@@ -164,5 +177,78 @@ impl Backend for BackendAsm386 {
         for e in self.externals.iter() {
             CodeGen::add(code, &format!("extern {e}"), None, true);
         }
+    }
+
+
+    /// Returns the name of the functions called in the code
+    ///
+    /// # Arguments
+    ///
+    /// * `body`: the code to scan for function calls
+    ///
+    /// returns: Vec<String>
+    fn called_functions(&self, body: &str) -> Vec<String> {
+
+        // TODO I don't like to create it
+        let evaluator = TextMacroEvaluator::new(Vec::new());
+
+        let body = evaluator.translate(
+            self,
+            &mut Statics::new(), // TODO I don't like to create it
+            body,
+        );
+
+        body.lines().map(|it| {
+            let line = self.remove_comments_from_line(it.to_string());
+            line.trim().to_string()
+        }).filter(|it| !it.starts_with(';') && it.contains("call") && !it.contains('[') && !it.contains('$'))
+            .map(|it| {
+                let pos = it.find("call").unwrap();
+                let s = it.split_at(pos + 4).1.trim();
+                String::from_iter(s.chars().take_while(|it| !it.is_whitespace()))
+            }).filter(|it| !it.is_empty() && !self.externals.contains(it))
+            .collect()
+    }
+
+    fn remove_comments_from_line(&self, line: String) -> String {
+        if let Some(pos) = line.find(';') {
+            if pos > 0 {
+                line.split_at(pos).0.to_string().clone()
+            } else {
+                String::new()
+            }
+        } else {
+            line
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+    use crate::codegen::backend::{Backend, BackendAsm386};
+
+    #[test]
+    fn called_functions() {
+        let sut = BackendAsm386::new(Default::default(), Default::default());
+
+        assert_eq!(sut.called_functions("call something"), vec!["something".to_string()]);
+    }
+
+    #[test]
+    fn called_functions_in_comment() {
+        let sut = BackendAsm386::new(Default::default(), Default::default());
+
+        assert_eq!(sut.called_functions("mov    eax, 1; call something".into()), Vec::<String>::new());
+    }
+
+    #[test]
+    fn called_functions_external() {
+        let mut externals = HashSet::new();
+        externals.insert("something".into());
+
+        let sut = BackendAsm386::new(Default::default(), externals);
+
+        assert_eq!(sut.called_functions("call something".into()), Vec::<String>::new());
     }
 }

@@ -48,6 +48,10 @@ fn listAddLeft<T>(l: &List<T>, value: T) -> List<T> {
     List::Full(value, l);
 }
 
+fn listAddRight<T>(l: &List<T>, value: T) -> List<T> {
+    List::match(l, { head, tail -> List::Full(head, listAddRight(tail, value));}, { -> List::Full(value, List::Empty());});
+}
+
 fn listOf<T>(v: T) -> List<T> {
     List::Full(v, List::Empty());
 }
@@ -128,4 +132,68 @@ fn listFilter<T>(l: List<T>, filter: fn(T) -> i32) -> List<T> {
     List::match(l, { head, tail ->
         if(filter(head), { -> List::Full(head, listFilter(tail, filter)); }, { -> listFilter(tail, filter);});
     }, { -> List::Empty(); });
+}
+
+asm lines(s: str) -> List<str> /{
+    push ebx
+    push ecx
+    push edx
+
+    mov ebx, 0 ; pos of start of line
+    mov edx, 0 ; actual pos
+    $call(newStrList)
+
+.loop:
+    mov dword ecx, $s
+    mov dword ecx, [ecx]
+    add ecx, edx
+    cmp     byte [ecx], 0
+    jz  .endOfString
+    cmp     byte [ecx], 10
+    je  .endOfLine
+    inc edx
+    jmp .loop
+
+.endOfLine:
+    mov     ecx, edx
+    sub     ecx, ebx
+    push    eax
+    $call(substr, $s, ebx, ecx)
+    ; it's an option of string
+    ; so we get the real address to the option
+    mov     dword eax,[eax]
+    ; then we skip the first word that is the value for the "Some" variant (TODO check)
+    add     eax, 4
+    ; then we get the pointer to the allocation table of the string, that is what we need
+    mov     dword eax,[eax]
+    mov     ebx, eax
+    pop     eax
+    $call(addStrToList, eax, ebx)
+    inc edx
+    mov ebx, edx
+    jmp .loop
+
+.endOfString:
+    cmp     ebx, edx
+    je      .end
+    push    eax
+    mov     ecx, edx
+    sub     ecx, ebx
+    $call(substr, $s, ebx, ecx)
+    mov     ebx, eax
+    pop     eax
+    $call(addStrToList, eax, ebx)
+
+.end:
+    pop edx
+    pop ecx
+    pop ebx
+}/
+
+fn addStrToList(l: List<str>, s: str) -> List<str> {
+    listAddRight(l, s);
+}
+
+fn newStrList() -> List<str> {
+    List::Empty();
 }
