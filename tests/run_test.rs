@@ -175,6 +175,11 @@ fn test_lines() {
     test("lines", Vec::new(), "first,second,third\n");
 }
 
+#[test]
+fn test_chars() {
+    test("chars", Vec::new(), "H,e,l,l,o\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

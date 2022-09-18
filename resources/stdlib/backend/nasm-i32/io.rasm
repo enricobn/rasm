@@ -9,10 +9,14 @@ asm nprint(n: i32) /{
     push    ecx
     push    edx
 
-    $call(malloc, 20)
+    ; TODO I cannot allocate memory here, because when we use nprint inside malloc for debug we enter in an infinite loop
+    ;      but I don't like i because it is not thread safe
+    ; $call(malloc, 20)
     ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
-    $call(freeMem, eax)
-    mov     dword esi,[eax]
+    ; $call(freeMem, eax)
+    ; mov     dword esi,[eax]
+    mov     esi, _for_nprint
+
     add     esi,19
 
     mov     eax,$n ; integer value to convert

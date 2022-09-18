@@ -306,6 +306,7 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_rasm_args".into(), Mem(12, Words));
         self.statics.insert("_NEW_LINE".into(), I32Value(10));
         self.statics.insert("_ESC".into(), I32Value(27));
+        self.statics.insert("_for_nprint".into(), MemoryValue::Mem(20, Bytes));
 
         asm.push_str("SECTION .data\n");
         asm.push_str("    timeval:\n");

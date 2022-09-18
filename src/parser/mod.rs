@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::Path;
-use log::debug;
+use log::{debug, info};
 use crate::codegen::EnhancedASTModule;
 use crate::lexer::Lexer;
 
@@ -154,12 +154,13 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((resource, next_i)) = self.try_parse_include() {
-                        let mut buf = std_path.join(Path::new(&resource));
-                        // First we try to get the file from the standard lib folder,
-                        // then we try to get it relative to the current file
+                        let mut buf = path.with_file_name(&resource);
+                        // First we try to get it relative to the current file,
+                        // then we try to get the file from the standard lib folder
                         if !buf.exists() {
-                            buf = path.with_file_name(resource);
+                            buf = std_path.join(Path::new(&resource));
                         }
+                        info!("include {}", buf.as_path().to_str().unwrap());
 
                         let resource_path = buf.as_path();
 

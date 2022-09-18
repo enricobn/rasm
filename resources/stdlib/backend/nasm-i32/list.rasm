@@ -1,0 +1,105 @@
+asm lines(s: str) -> List<str> /{
+    push ebx
+    push ecx
+    push edx
+
+    mov ebx, 0 ; pos of start of line
+    mov edx, 0 ; actual pos
+    $call(newStrList)
+
+.loop:
+    mov dword ecx, $s
+    mov dword ecx, [ecx]
+    add ecx, edx
+    cmp     byte [ecx], 0
+    jz  .endOfString
+    cmp     byte [ecx], 10
+    je  .endOfLine
+    inc edx
+    jmp .loop
+
+.endOfLine:
+    mov     ecx, edx
+    sub     ecx, ebx
+    push    eax
+    $call(substr, $s, ebx, ecx)
+    ; it's an option of string
+    ; so we get the real address to the option
+    mov     dword eax,[eax]
+    ; then we skip the first word that is the value for the "Some" variant (TODO check)
+    add     eax, 4
+    ; then we get the pointer to the allocation table of the string, that is what we need
+    mov     dword eax,[eax]
+    ; we must add a reference count otherwise is cleaned up bu allocator
+    mov     dword [eax + 12], 1     ; count
+    mov     ebx, eax
+    pop     eax
+    $call(addStrToList, eax, ebx)
+    inc edx
+    mov ebx, edx
+    jmp .loop
+
+.endOfString:
+    cmp     ebx, edx
+    je      .end
+    push    eax
+    mov     ecx, edx
+    sub     ecx, ebx
+    $call(substr, $s, ebx, ecx)
+    mov     ebx, eax
+    pop     eax
+    $call(addStrToList, eax, ebx)
+
+.end:
+    pop edx
+    pop ecx
+    pop ebx
+}/
+
+fn addStrToList(l: List<str>, s: str) -> List<str> {
+    listAddRight(l, s);
+}
+
+fn newStrList() -> List<str> {
+    List::Empty();
+}
+
+asm chars(s: str) -> List<str> /{
+    push ebx
+    push ecx
+    push edx
+
+    mov dword ebx, $s
+    mov dword ebx, [ebx]
+    mov ecx,0
+
+    $call(newStrList)
+
+.loop:
+    cmp     byte [ebx], 0
+    je  .end
+    mov     edx,0
+    mov     dl, byte [ebx]
+    push    eax
+    $call(substr, $s, ecx, 1)
+    ; it's an option of string
+    ; so we get the real address to the option
+    mov     dword eax,[eax]
+    ; then we skip the first word that is the value for the "Some" variant (TODO check)
+    add     eax, 4
+    ; then we get the pointer to the allocation table of the string, that is what we need
+    mov     dword eax,[eax]
+    ; we must add a reference count otherwise is cleaned up bu allocator
+    mov     dword [eax + 12], 1     ; count
+    mov     edx, eax
+    pop     eax
+    $call(addStrToList, eax, edx)
+    inc ebx
+    inc ecx
+    jmp .loop
+
+.end:
+    pop edx
+    pop ecx
+    pop ebx
+}/

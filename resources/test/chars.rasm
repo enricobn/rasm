@@ -1,0 +1,4 @@
+include "std.rasm"
+
+//listPrintln(lines("first\nsecond\nthird\n☀\n"), { it -> sprint(it); });
+listPrintln(chars("Hello"), { it -> sprint(it); });

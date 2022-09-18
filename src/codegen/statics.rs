@@ -38,6 +38,7 @@ impl Statics {
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {
         assert!(self.statics.insert(key, value).is_none())
+        //assert!(self.statics.insert(key.clone(), value.clone()).is_none(), "{key} {:?}", value)
     }
 
     pub fn insert_prefix(&mut self, prefix: String, value: MemoryValue) -> String {

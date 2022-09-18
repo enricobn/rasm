@@ -53,3 +53,4 @@ BUGS
 - error when a parameter of an asm function starts the same as another : v v1
     - we must process them in size order descending
 - error when an enum variant starts the same as another : T T1
+- error returning a value ina a lambda: look at val_in_lambda.rasm

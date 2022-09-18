@@ -124,6 +124,9 @@ impl<'a> FunctionCallParameters<'a> {
 
         let mut i = 1;
 
+        CodeGen::add(&mut self.before, &format!("push  {} ecx", self.backend.word_size()),
+                     comment, true);
+
         Self::allocate_lambda_space(self.backend, &mut self.before, "ecx", num_of_values_in_context + 1);
 
         if !context.is_empty() {
@@ -153,8 +156,11 @@ impl<'a> FunctionCallParameters<'a> {
         }
 
         CodeGen::add(&mut self.before, &format!("mov {} [ecx], {}", pointer_size, def.name), None, true);
-        CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], ecx", word_size, stack_pointer, self.parameters_added * word_len as usize), comment, true);
+        // + 1 due to push ecx
+        CodeGen::add(&mut self.before, &format!("mov {} [{} + {}], ecx", word_size, stack_pointer, (self.parameters_added + 1) * word_len as usize), comment, true);
         //CodeGen::add(&mut self.before, &format!("add ecx, {}", (num_of_values_in_context + 1) * word_len), comment, true);
+
+        CodeGen::add(&mut self.before, "pop  ecx", comment, true);
 
         self.parameter_added_to_stack(&format!("lambda {}", def.name));
 
@@ -347,7 +353,9 @@ impl<'a> FunctionCallParameters<'a> {
     pub fn after(&self) -> Vec<String> {
         let mut s = String::new();
         if self.lambda_slots_to_deallocate > 0 {
+            CodeGen::add(&mut s, &format!("push     {} ebx", self.backend.word_size()), None, true);
             Self::deallocate_lambda_space(self.backend, &mut s, "ebx", self.lambda_slots_to_deallocate);
+            CodeGen::add(&mut s, "pop    ebx", None, true);
         }
         let mut result = vec![s];
         let mut after = self.after.clone();
