@@ -163,5 +163,30 @@ asm nextChar(s: str, offset: i32) -> i32 /{
 }/
 
 asm seq(s1: str, s2: str) -> i32 /{
+    push   ebx
+    push   ecx
+    push   edx
 
+    mov    eax, 1
+    mov    ebx, $s1
+    mov    dword ebx, [ebx]
+    mov    ecx, $s2
+    mov    dword ecx, [ecx]
+
+.loop:
+    mov    dl,[ebx]
+    cmp    byte [ecx],dl
+    jne    .false
+    cmp    byte [ecx],0
+    je     .end
+    add     ebx,1
+    add     ecx,1
+    jmp    .loop
+
+.false:
+    mov     eax,0
+.end:
+    pop   edx
+    pop   ecx
+    pop   ebx
 }/

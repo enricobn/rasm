@@ -363,7 +363,7 @@ impl<'a> ConvContext<'a> {
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(
                         p.clone(),
-                        cloned_param_types.get(i).unwrap().ast_type.clone(),
+                        cloned_param_types.get(i).expect(&format!("Cannot find parametric type {p} for struct {name}")).ast_type.clone(),
                     );
                 }
 
@@ -898,7 +898,7 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
                     conv_context.add_struct(&t_ref.ast_type)
                 }
             } else {
-                panic!("Cannot find custom type {}", name);
+                panic!("Cannot find custom type {name}");
             }
         }
     };

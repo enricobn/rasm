@@ -133,3 +133,16 @@ fn listFilter<T>(l: List<T>, filter: fn(T) -> i32) -> List<T> {
         if(filter(head), { -> List::Full(head, listFilter(tail, filter)); }, { -> listFilter(tail, filter);});
     }, { -> List::Empty(); });
 }
+
+fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
+    listEnumerateInternal(l, 0);
+}
+
+fn listEnumerateInternal<T>(l: List<T>, index: i32) -> List<EnumerateEntry<T>> {
+    List::match(l, { head,tail -> List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, nadd(index, 1))); }, { -> List::Empty();});
+}
+
+struct EnumerateEntry<T> {
+    index: i32,
+    value: T
+}

@@ -11,3 +11,7 @@ Option::run(substr("first\nsecond\nthird\n", 13, 5), { v -> sprintln(v);}, { -> 
 nprintln(nextChar("1", 0));
 nprintln(nextChar("è", 0));
 nprintln(nextChar("☀", 0));
+nprintln(seq("Hello", "Hello"));
+nprintln(seq("Hell", "Hello"));
+nprintln(seq("Hello", "Hell"));
+nprintln(seq("Hello", "Hella"));

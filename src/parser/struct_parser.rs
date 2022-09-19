@@ -83,7 +83,7 @@ impl<'a> StructParser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef, ASTTypeRef, BuiltinTypeKind};
-    use crate::parser::ast::ASTType::Builtin;
+    use crate::parser::ast::ASTType::{Builtin, Parametric};
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
 
@@ -109,6 +109,30 @@ mod tests {
             type_parameters: vec![],
             properties: vec![x, y],
         }, 11)), parse_result);
+    }
+
+    #[test]
+    fn test_parametric() {
+        let parse_result = try_parse_struct("struct EnumerateEntry<T> {
+            index: i32,
+            value: T
+        }");
+
+        let x = ASTStructPropertyDef {
+            name: "index".into(),
+            type_ref: ASTTypeRef { ast_type: Builtin(BuiltinTypeKind::ASTI32), ast_ref: false },
+        };
+
+        let y = ASTStructPropertyDef {
+            name: "value".into(),
+            type_ref: ASTTypeRef { ast_type: Parametric("T".into()), ast_ref: false },
+        };
+
+        assert_eq!(Some((ASTStructDef {
+            name: "EnumerateEntry".to_string(),
+            type_parameters: vec!["T".into()],
+            properties: vec![x, y],
+        }, 14)), parse_result);
     }
 
     fn try_parse_struct(source: &str) -> Option<(ASTStructDef, usize)> {

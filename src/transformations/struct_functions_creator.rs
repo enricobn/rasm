@@ -63,7 +63,24 @@ fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
 }
 
 fn create_function_for_struct_property(backend: &dyn Backend, struct_def: &ASTStructDef, property_def: &ASTStructPropertyDef, i: usize) -> ASTFunctionDef {
-    ASTFunctionDef {name: struct_def.name.clone() + "_" + &property_def.name, parameters: vec![ASTParameterDef {name: "v".into(), type_ref: ASTTypeRef {
-        ast_type: ASTType::Custom {name: struct_def.name.clone(), param_types: Vec::new()}, ast_ref: false}}], return_type: Some(property_def.type_ref.clone()),
-        body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)), param_types: struct_def.type_parameters.clone(), inline: false}
+    let param_types = struct_def
+        .type_parameters
+        .iter()
+        .map(|it| ASTTypeRef::parametric(it, false))
+        .collect();
+
+    ASTFunctionDef {
+        name: struct_def.name.clone() + "_" + &property_def.name,
+        parameters: vec![ASTParameterDef {
+            name: "v".into(),
+            type_ref: ASTTypeRef {
+                ast_type: ASTType::Custom { name: struct_def.name.clone(), param_types },
+                ast_ref: false,
+            },
+        }],
+        return_type: Some(property_def.type_ref.clone()),
+        body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
+        param_types: struct_def.type_parameters.clone(),
+        inline: false,
+    }
 }
