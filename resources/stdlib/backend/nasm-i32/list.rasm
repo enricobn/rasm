@@ -42,10 +42,19 @@ asm lines(s: str) -> List<str> /{
 .endOfString:
     cmp     ebx, edx
     je      .end
-    push    eax
     mov     ecx, edx
     sub     ecx, ebx
+    push    eax
     $call(substr, $s, ebx, ecx)
+    ; it's an option of string
+    ; so we get the real address to the option
+    mov     dword eax,[eax]
+    ; then we skip the first word that is the value for the "Some" variant (TODO check)
+    add     eax, 4
+    ; then we get the pointer to the allocation table of the string, that is what we need
+    mov     dword eax,[eax]
+    ; we must add a reference count otherwise is cleaned up bu allocator
+    mov     dword [eax + 12], 1     ; count
     mov     ebx, eax
     pop     eax
     $call(addStrToList, eax, ebx)

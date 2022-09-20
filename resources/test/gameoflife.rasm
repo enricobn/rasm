@@ -1,20 +1,12 @@
+// run with: ./gameoflife examples/f116.cells 200
+// run with: ./gameoflife examples/simple.cells 130
+
 include "std.rasm"
+include "../../examples/gameoflife_common.rasm"
 
-struct Cell {
-    x: i32,
-    y: i32
-}
-
-run(moveCells(
-        listOf7(
-           Cell(7, 1),
-           Cell(1, 2),
-           Cell(2, 2),
-           Cell(2, 3),
-           Cell(6, 3),
-           Cell(7, 3),
-           Cell(8, 3)), 10)
-        , 30, atoi(argv(1)));
+runWith(readCellFile(argv(1)), { start ->
+    run(moveCells(start, 10), 30, atoi(argv(2)));
+});
 
 fn run(start: List<Cell>, size: i32, count: i32) {
     runWith(allCells(size, size), { allCells ->
@@ -28,58 +20,11 @@ fn run(start: List<Cell>, size: i32, count: i32) {
       });
 }
 
-fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
-    listMap(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
-}
-
 fn printCells(cells: List<Cell>, width: i32, height: i32) {
     listForeach(range(0, height), { y ->
         listForeach(range(0, width), { x ->
             ifRun(isAlive(cells, Cell(x, y)), { -> sprint("*"); }, { -> sprint(" "); });
         });
         sprintln("");
-    });
-}
-
-fn allCells(width: i32, height: i32) -> List<Cell> {
-    listFlatten(listMap(range(0, height), { y ->
-        listMap(range(0, width), { x ->
-            Cell(x, y);
-        });
-    }));
-}
-
-fn next(cells: List<Cell>, allCells: List<Cell>) -> List<Cell> {
-    listFilter(allCells, { it ->
-        with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
-            ifImmediate(isAlive(cells, it),
-                or(eq(alive, 2),eq(alive,3)),
-                eq(alive, 3)
-            );
-        });
-    });
-}
-
-fn adjacents(cell: Cell) -> List<Cell> {
-    with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        listOf8(
-            Cell(nadd(x, -1), nadd(y, -1)),
-            Cell(nadd(x, -1), y),
-            Cell(nadd(x, -1), nadd(y, 1)),
-            Cell(x, nadd(y, 1)),
-            Cell(x, nadd(y, -1)),
-            Cell(nadd(x, 1), nadd(y, -1)),
-            Cell(nadd(x, 1), y),
-            Cell(nadd(x, 1), nadd(y, 1))
-        );
-    });
-}
-
-/** false = 0 true = any other value **/
-fn isAlive(cells: List<Cell>, cell: Cell) -> i32 {
-    with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        listAnyMatch(cells, { it ->
-            and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
-        });
     });
 }

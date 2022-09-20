@@ -1,41 +1,35 @@
+// run with: ./gameoflifesdl examples/f116.cells 200
+
 include "std.rasm"
 include "sdl.rasm"
 
-extern "printf"
+include "gameoflife_common.rasm"
 
-struct Cell {
-    x: i32,
-    y: i32
-}
+extern "printf"
 
 sdlInit();
 
-run(moveCells(
-        listOf7(
-           Cell(7, 1),
-           Cell(1, 2),
-           Cell(2, 2),
-           Cell(2, 3),
-           Cell(6, 3),
-           Cell(7, 3),
-           Cell(8, 3)), 10)
-        , 30, atoi(argv(1)));
+runWith(readCellFile(argv(1)), { start ->
+    //run(moveCells(start, 20), 80, 50, atoi(argv(2)));
+    run(moveCells(start, 10), 30, 30, atoi(argv(2)));
+});
+
 sdlQuit();
 
-fn run(start: List<Cell>, size: i32, count: i32) {
-    runOrError(sdlCreateWindow("Game of life", 100, 100, 800, 600), "SDL_CreateWindow Error: %s\n", { win ->
+fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
+    runOrError(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n", { win ->
         runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
             sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
             sdlRenderClear(ren);
             sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
 
-            runWith(allCells(size, size), { allCells ->
+            runWith(allCells(width, height), { allCells ->
                 printCells(ren,
                     listFoldL(range(0, count), start, { prev, act ->
-                        printCells(ren, prev, size, size);
+                        printCells(ren, prev, width, height);
                         //sdlDelay(1000);
                         next(prev, allCells);
-                      }), size, size);
+                      }), width, height);
             });
 
             sdlDestroyRenderer(ren);
@@ -44,13 +38,11 @@ fn run(start: List<Cell>, size: i32, count: i32) {
     });
 }
 
-fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
-    listMap(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
-}
-
 fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
     sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
+    sdlRenderFillRect(ren, SDLRect(0, 0, nmul(10, width), nmul(10, height)));
     sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
     listForeach(range(0, height), { y ->
         listForeach(range(0, width), { x ->
@@ -60,49 +52,6 @@ fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
         });
     });
     sdlRenderPresent(ren);
-}
-
-fn allCells(width: i32, height: i32) -> List<Cell> {
-    listFlatten(listMap(range(0, height), { y ->
-        listMap(range(0, width), { x ->
-            Cell(x, y);
-        });
-    }));
-}
-
-fn next(cells: List<Cell>, allCells: List<Cell>) -> List<Cell> {
-    listFilter(allCells, { it ->
-        with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
-            ifImmediate(isAlive(cells, it),
-                or(eq(alive, 2),eq(alive,3)),
-                eq(alive, 3)
-            );
-        });
-    });
-}
-
-fn adjacents(cell: Cell) -> List<Cell> {
-    with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        listOf8(
-            Cell(nadd(x, -1), nadd(y, -1)),
-            Cell(nadd(x, -1), y),
-            Cell(nadd(x, -1), nadd(y, 1)),
-            Cell(x, nadd(y, 1)),
-            Cell(x, nadd(y, -1)),
-            Cell(nadd(x, 1), nadd(y, -1)),
-            Cell(nadd(x, 1), y),
-            Cell(nadd(x, 1), nadd(y, 1))
-        );
-    });
-}
-
-/** false = 0 true = any other value **/
-fn isAlive(cells: List<Cell>, cell: Cell) -> i32 {
-    with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        listAnyMatch(cells, { it ->
-            and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
-        });
-    });
 }
 
 asm failure(message: str) /{

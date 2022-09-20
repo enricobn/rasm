@@ -130,7 +130,7 @@ fn test_list_flatten() {
 
 #[test]
 fn test_gameoflife_runs() {
-    test_("gameoflife", vec!["5"], None);
+    test_("gameoflife", vec!["examples/simple.cells", "5"], None);
 }
 
 #[test]
