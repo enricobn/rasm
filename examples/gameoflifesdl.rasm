@@ -1,5 +1,5 @@
 // time ./gameoflifesdl examples/f116.cells 100
-// 12,9
+// 12,762
 
 include "std.rasm"
 include "sdl.rasm"

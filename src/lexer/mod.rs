@@ -75,6 +75,7 @@ impl Lexer {
             ";" => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
             "&" => Some(TokenKind::Punctuation(PunctuationKind::And)),
             "->" => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
+            "=" => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
             _ => None
         }
     }

@@ -99,6 +99,9 @@ impl Display for TokenKind {
                 PunctuationKind::SemiColon => {
                     write!(f, ";")
                 }
+                PunctuationKind::Equal => {
+                    write!(f, "=")
+                }
             },
             TokenKind::StringLiteral(s) => {
                 write!(f, "\"{}\"", s)
@@ -116,6 +119,7 @@ pub enum PunctuationKind {
     Dot,
     Colon,
     Comma,
+    Equal,
     RightArrow,
     SemiColon,
 }
@@ -137,11 +141,12 @@ pub enum BracketStatus {
 #[derive(Debug, PartialEq, EnumIter, Clone)]
 pub enum KeywordKind {
     Asm,
+    Enum,
+    Extern,
     Fn,
     Include,
     Inline,
-    Enum,
-    Extern,
+    Let,
     Requires,
     Struct,
 }
@@ -149,14 +154,15 @@ pub enum KeywordKind {
 impl KeywordKind {
     pub fn name(&self) -> String {
         match self {
-            KeywordKind::Fn => "fn".into(),
             KeywordKind::Asm => "asm".into(),
+            KeywordKind::Enum => "enum".into(),
+            KeywordKind::Extern => "extern".into(),
+            KeywordKind::Fn => "fn".into(),
             KeywordKind::Include => "include".into(),
             KeywordKind::Inline => "inline".into(),
-            KeywordKind::Enum => "enum".into(),
-            KeywordKind::Struct => "struct".into(),
-            KeywordKind::Extern => "extern".into(),
+            KeywordKind::Let => "let".into(),
             KeywordKind::Requires => "requires".into(),
+            KeywordKind::Struct => "struct".into(),
         }
     }
 

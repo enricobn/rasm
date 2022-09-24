@@ -1,7 +1,7 @@
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
-use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedVarKind};
+use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedValKind};
 use crate::codegen::stack::Stack;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
@@ -111,7 +111,7 @@ impl<'a> FunctionCallParameters<'a> {
         let mut lambda_space = LambdaSpace::new(context.clone());
 
         let num_of_values_in_context = context.iter().filter(|(_, kind)| {
-            matches!(kind, TypedVarKind::ParameterRef(_, _))
+            matches!(kind, TypedValKind::ParameterRef(_, _))
         }).count();
 
         let stack_base_pointer = self.backend.stack_base_pointer();
@@ -136,7 +136,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         // TODO optimize: do not create parameters that are overridden by parent memcopy
         context.iter().for_each(|(name, kind)| {
-            if let TypedVarKind::ParameterRef(index, par) = kind {
+            if let TypedValKind::ParameterRef(index, par) = kind {
                 self.indirect_mov(
                     &format!("{}+{}", stack_base_pointer, (index + 2) * word_len),
                     &format!("ecx + {}", i * word_len), "ebx", Some(&format!("context parameter {}", name)));

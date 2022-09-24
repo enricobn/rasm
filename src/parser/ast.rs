@@ -38,7 +38,7 @@ impl Display for ASTFunctionDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTLambdaDef {
     pub parameter_names: Vec<String>,
-    pub body: Vec<ASTExpression>,
+    pub body: Vec<ASTStatement>,
 }
 
 impl Display for ASTLambdaDef {
@@ -52,7 +52,7 @@ impl Display for ASTLambdaDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTFunctionBody {
-    RASMBody(Vec<ASTExpression>),
+    RASMBody(Vec<ASTStatement>),
     ASMBody(String),
 }
 
@@ -217,6 +217,25 @@ impl Display for ASTExpression {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ASTStatement {
+    Expression(ASTExpression),
+    LetStatement(String, ASTExpression),
+}
+
+impl Display for ASTStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTStatement::Expression(e) => {
+                f.write_str(&format!("{e};\n"))
+            }
+            ASTStatement::LetStatement(name, e) => {
+                f.write_str(&format!("let {name} = {e};\n"))
+            }
+        }
+    }
+}
+
 pub trait MyToString {
     fn my_to_string(&self) -> String;
 }
@@ -239,7 +258,7 @@ impl Display for dyn MyToString {
 
 #[derive(Debug, Clone)]
 pub struct ASTModule {
-    pub body: Vec<ASTFunctionCall>,
+    pub body: Vec<ASTStatement>,
     pub functions: Vec<ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,

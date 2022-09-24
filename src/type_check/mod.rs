@@ -4,11 +4,12 @@ use std::fmt::{Display, Formatter};
 
 use crate::codegen::backend::Backend;
 use crate::codegen::{EnhancedASTModule, ValContext, VarKind};
-use crate::parser::ast::MyToString;
+use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
     ASTType, ASTTypeRef, BuiltinTypeKind,
 };
+use crate::parser::ast::{ASTStatement, MyToString};
 use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::{debug_i, dedent, indent};
@@ -77,31 +78,38 @@ pub fn convert(
 
         let mut new_body = Vec::new();
 
-        for call in body.iter() {
+        for statement in body.iter() {
             let mut resolved_param_types = HashMap::new();
 
-            let converted_call = convert_call(
-                module,
-                &context,
-                call,
-                &mut type_conversion_context,
-                &resolved_param_types,
-                None
-            );
+            if let ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(
+                                                call @ ASTFunctionCall { .. },
+                                            )) = statement
+            {
+                let converted_call = convert_call(
+                    module,
+                    &context,
+                    call,
+                    &mut type_conversion_context,
+                    &resolved_param_types,
+                    None,
+                );
 
-            match converted_call {
-                Ok(Some(new_call)) => {
-                    something_to_convert = true;
-                    debug_i!(
-                        "converted call {} in {}",
-                        call.function_name,
-                        new_call.function_name
-                    );
-                    new_body.push(new_call)
-                }
-                Ok(None) => new_body.push(call.clone()),
-                Err(e) => {
-                    panic!("{e}");
+                match converted_call {
+                    Ok(Some(new_call)) => {
+                        something_to_convert = true;
+                        debug_i!(
+                            "converted call {} in {}",
+                            call.function_name,
+                            new_call.function_name
+                        );
+                        new_body.push(ASTStatement::Expression(ASTFunctionCallExpression(
+                            new_call,
+                        )))
+                    }
+                    Ok(None) => new_body.push(statement.clone()),
+                    Err(e) => {
+                        panic!("{e}");
+                    }
                 }
             }
         }
@@ -129,7 +137,7 @@ pub fn convert(
                         body.iter()
                             .enumerate()
                             .map(|(index, it)| {
-                                let converted_expr = convert_expr_in_body(
+                                let converted_statement = convert_statement_in_body(
                                     module,
                                     it,
                                     &context,
@@ -137,7 +145,7 @@ pub fn convert(
                                     &HashMap::new(),
                                 );
 
-                                match converted_expr {
+                                match converted_statement {
                                     Ok(Some(new_expr)) => {
                                         debug_i!("converted expr {}", new_expr);
                                         something_to_convert = true;
@@ -145,9 +153,20 @@ pub fn convert(
                                     }
                                     Ok(None) => {
                                         if index == body.len() - 1 {
-                                            if let Ok(Some(new_expr)) = convert_last_expr_in_body(module, it, &context, &mut type_conversion_context, &HashMap::new(),
-                                                                                                  new_function_def.return_type.clone()) {
-                                                debug_i!("converted last expr in body {}", new_expr);
+                                            if let Ok(Some(new_expr)) =
+                                            convert_last_statement_in_body(
+                                                module,
+                                                it,
+                                                &context,
+                                                &mut type_conversion_context,
+                                                &HashMap::new(),
+                                                new_function_def.return_type.clone(),
+                                            )
+                                            {
+                                                debug_i!(
+                                                    "converted last expr in body {}",
+                                                    new_expr
+                                                );
                                                 new_expr
                                             } else {
                                                 it.clone()
@@ -155,7 +174,7 @@ pub fn convert(
                                         } else {
                                             it.clone()
                                         }
-                                    },
+                                    }
                                     Err(e) => {
                                         panic!("Error converting {it} in {function_def} : {e}");
                                     }
@@ -167,7 +186,9 @@ pub fn convert(
                     type_conversion_context.replace_body(&new_function_def);
                 }
                 ASTFunctionBody::ASMBody(body) => {
-                    backend.called_functions(body).iter()
+                    backend
+                        .called_functions(body)
+                        .iter()
                         .for_each(|function_name| {
                             let function_call = ASTFunctionCall {
                                 original_function_name: function_name.clone(),
@@ -180,7 +201,8 @@ pub fn convert(
                                 &context,
                                 &function_call,
                                 &mut type_conversion_context,
-                                &HashMap::new(), None,
+                                &HashMap::new(),
+                                None,
                             ) {
                                 something_to_convert = true;
                             }
@@ -284,6 +306,7 @@ pub fn convert(
     typed_module
 }
 
+/*
 fn unknown_function_in_expr(
     type_conversion_context: &TypeConversionContext,
     expr: &ASTExpression,
@@ -292,9 +315,9 @@ fn unknown_function_in_expr(
         ASTExpression::ASTFunctionCallExpression(call) => {
             type_conversion_context.get(&call.function_name).is_none()
                 || call
-                .parameters
-                .iter()
-                .any(|it| unknown_function_in_expr(type_conversion_context, it))
+                    .parameters
+                    .iter()
+                    .any(|it| unknown_function_in_expr(type_conversion_context, it))
         }
         ASTExpression::Lambda(lambda) => lambda
             .body
@@ -303,6 +326,8 @@ fn unknown_function_in_expr(
         _ => false,
     }
 }
+
+ */
 
 fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
     return match ast_type {
@@ -352,6 +377,25 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
     };
 }
 
+fn convert_statement_in_body(
+    module: &EnhancedASTModule,
+    statement: &ASTStatement,
+    context: &ValContext,
+    typed_context: &mut TypeConversionContext,
+    resolved_param_types: &HashMap<String, ASTType>,
+) -> Result<Option<ASTStatement>, TypeCheckError> {
+    match statement {
+        ASTStatement::Expression(e) => {
+            convert_expr_in_body(module, e, context, typed_context, resolved_param_types)
+                .map(|ito| ito.map(|it| ASTStatement::Expression(it)))
+        }
+        ASTStatement::LetStatement(name, e) => {
+            convert_expr_in_body(module, e, context, typed_context, resolved_param_types)
+                .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it)))
+        }
+    }
+}
+
 fn convert_expr_in_body(
     module: &EnhancedASTModule,
     expr: &ASTExpression,
@@ -364,10 +408,15 @@ fn convert_expr_in_body(
     indent!();
 
     let result = match expr {
-        ASTExpression::ASTFunctionCallExpression(call) => {
-            convert_call(module, context, call, typed_context, resolved_param_types, None)?
-                .map(ASTExpression::ASTFunctionCallExpression)
-        }
+        ASTFunctionCallExpression(call) => convert_call(
+            module,
+            context,
+            call,
+            typed_context,
+            resolved_param_types,
+            None,
+        )?
+            .map(ASTExpression::ASTFunctionCallExpression),
         ASTExpression::StringLiteral(_) => None,
         ASTExpression::Val(p) => {
             /*
@@ -393,6 +442,36 @@ fn convert_expr_in_body(
     Ok(result)
 }
 
+fn convert_last_statement_in_body(
+    module: &EnhancedASTModule,
+    statement: &ASTStatement,
+    context: &ValContext,
+    typed_context: &mut TypeConversionContext,
+    resolved_param_types: &HashMap<String, ASTType>,
+    return_type: Option<ASTTypeRef>,
+) -> Result<Option<ASTStatement>, TypeCheckError> {
+    match statement {
+        ASTStatement::Expression(e) => convert_last_expr_in_body(
+            module,
+            e,
+            context,
+            typed_context,
+            resolved_param_types,
+            return_type,
+        )
+            .map(|ito| ito.map(|it| ASTStatement::Expression(it))),
+        ASTStatement::LetStatement(name, e) => convert_last_expr_in_body(
+            module,
+            e,
+            context,
+            typed_context,
+            resolved_param_types,
+            return_type,
+        )
+            .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it))),
+    }
+}
+
 fn convert_last_expr_in_body(
     module: &EnhancedASTModule,
     expr: &ASTExpression,
@@ -407,12 +486,22 @@ fn convert_last_expr_in_body(
 
     let result = match expr {
         ASTExpression::ASTFunctionCallExpression(call) => {
-
             //extract_generic_types_from_effective_type()
 
-            if let Some(ASTTypeRef { ast_ref: _, ast_type }) = &return_type {
+            if let Some(ASTTypeRef {
+                            ast_ref: _,
+                            ast_type,
+                        }) = &return_type
+            {
                 if get_generic_types(&ast_type).is_empty() {
-                    let result = convert_call(module, context, call, typed_context, resolved_param_types, Some(return_type))?
+                    let result = convert_call(
+                        module,
+                        context,
+                        call,
+                        typed_context,
+                        resolved_param_types,
+                        Some(return_type),
+                    )?
                         .map(ASTExpression::ASTFunctionCallExpression);
 
                     debug_i!("converted call {:?}", result);
@@ -453,7 +542,7 @@ fn convert_call(
     call: &ASTFunctionCall,
     typed_context: &mut TypeConversionContext,
     resolved_param_types: &HashMap<String, ASTType>,
-    expected_return_type: Option<Option<ASTTypeRef>>
+    expected_return_type: Option<Option<ASTTypeRef>>,
 ) -> Result<Option<ASTFunctionCall>, TypeCheckError> {
     debug_i!("converting call {}", call);
 
@@ -643,9 +732,14 @@ fn convert_call(
 
                                      */
 
-                                    if let Some(new_call) =
-                                    convert_call(module, context, call, typed_context, &map, None)?
-                                    {
+                                    if let Some(new_call) = convert_call(
+                                        module,
+                                        context,
+                                        call,
+                                        typed_context,
+                                        &map,
+                                        None,
+                                    )? {
                                         debug_i!("new_call {new_call}");
                                         something_to_convert = true;
                                         converted_parameters.push(par.clone());
@@ -746,7 +840,7 @@ fn convert_call(
                                     something_to_convert = true;
                                     Some(new_t)
                                 } else if let Some(last) = effective_lambda.body.last() {
-                                    let result_type = get_type_of_expression(
+                                    let result_type = get_type_of_statement(
                                         module,
                                         context,
                                         last,
@@ -786,21 +880,21 @@ fn convert_call(
                             &par.type_ref.ast_type,
                         )?;
 
-                        let new_body: Result<Vec<ASTExpression>, TypeCheckError> = effective_lambda
+                        let new_body: Result<Vec<ASTStatement>, TypeCheckError> = effective_lambda
                             .body
                             .iter()
                             .enumerate()
                             .map(|(i, it)| {
                                 if i == effective_lambda.body.len() - 1 {
                                     if let Some(te) =
-                                    get_type_of_expression(module, &context, it, typed_context)
+                                    get_type_of_statement(module, &context, it, typed_context)
                                     {
                                         let result = extract_generic_types_from_effective_type(
                                             &te,
                                             &rt.ast_type,
                                         )?;
 
-                                        let converted_expr = convert_expr_in_body(
+                                        let converted_expr = convert_statement_in_body(
                                             module,
                                             it,
                                             &context,
@@ -913,23 +1007,22 @@ fn convert_call(
         }
     }
 
-    let new_return_type =
-        if let Some(er) = expected_return_type {
-            something_converted = true;
-            er
-        } else {
-            function_def.return_type.clone().map(|it| {
-                let t = if let Some(new_t) = substitute(&it, &resolved_param_types) {
-                    something_converted = true;
-                    new_t
-                } else {
-                    it.clone()
-                };
+    let new_return_type = if let Some(er) = expected_return_type {
+        something_converted = true;
+        er
+    } else {
+        function_def.return_type.clone().map(|it| {
+            let t = if let Some(new_t) = substitute(&it, &resolved_param_types) {
+                something_converted = true;
+                new_t
+            } else {
+                it.clone()
+            };
 
-                remaining_generic_types.append(&mut get_generic_types(&t.ast_type));
-                t
-            })
-        };
+            remaining_generic_types.append(&mut get_generic_types(&t.ast_type));
+            t
+        })
+    };
 
     remaining_generic_types.sort();
     remaining_generic_types.dedup();
@@ -1017,6 +1110,20 @@ fn convert_call(
     }))
 }
 
+fn get_type_of_statement(
+    module: &EnhancedASTModule,
+    context: &ValContext,
+    statement: &ASTStatement,
+    typed_context: &mut TypeConversionContext,
+) -> Option<ASTType> {
+    match statement {
+        ASTStatement::Expression(e) => get_type_of_expression(module, context, e, typed_context),
+        ASTStatement::LetStatement(_, e) => {
+            get_type_of_expression(module, context, e, typed_context)
+        }
+    }
+}
+
 fn get_type_of_expression(
     module: &EnhancedASTModule,
     context: &ValContext,
@@ -1036,7 +1143,11 @@ fn get_type_of_expression(
             {
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(VarKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
-                if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type, parameters: _ }) = &par.type_ref.ast_type {
+                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                            return_type,
+                                            parameters: _,
+                                        }) = &par.type_ref.ast_type
+                {
                     return_type.clone().map(|it| it.ast_type)
                 } else {
                     panic!("Expected a lambda");
@@ -1250,12 +1361,12 @@ fn convert_lambda(
         }
     }
 
-    let new_body: Result<Vec<ASTExpression>, TypeCheckError> = lambda
+    let new_body: Result<Vec<ASTStatement>, TypeCheckError> = lambda
         .body
         .iter()
         .map(|it| {
             let converted_expr =
-                convert_expr_in_body(module, it, &context, typed_context, &HashMap::new());
+                convert_statement_in_body(module, it, &context, typed_context, &HashMap::new());
 
             match converted_expr {
                 Ok(Some(new_expr)) => {
@@ -1433,15 +1544,13 @@ fn update(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
     use crate::codegen::backend::BackendAsm386;
+    use std::collections::{HashMap, HashSet};
 
     use crate::codegen::EnhancedASTModule;
 
-    use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
-        ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind,
-    };
+    use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTTypeRef, BuiltinTypeKind};
+    use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
     use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
 
     #[test]
@@ -1548,11 +1657,11 @@ mod tests {
     fn test() {
         let parameter = ASTExpression::Number(10);
 
-        let call = ASTFunctionCall {
+        let call = ASTStatement::Expression(ASTFunctionCallExpression(ASTFunctionCall {
             original_function_name: "consume".into(),
             function_name: "consume".into(),
             parameters: vec![parameter],
-        };
+        }));
 
         let function_def = ASTFunctionDef {
             name: "consume".into(),
@@ -1575,10 +1684,20 @@ mod tests {
             externals: Default::default(),
         };
 
-        let new_module = convert(&BackendAsm386::new(HashSet::new(), HashSet::new()),
-                                 &EnhancedASTModule::new(&module), false, false);
+        let new_module = convert(
+            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &EnhancedASTModule::new(&module),
+            false,
+            false,
+        );
 
-        assert_eq!(new_module.body.get(0).unwrap().function_name, "consume_0");
+        let par = if let Some(ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(e))) = module.body.get(0) {
+            Some(e)
+        } else {
+            None
+        };
+
+        assert_eq!(par.unwrap().function_name, "consume");
         assert!(new_module.functions_by_name.get("consume_0").is_some());
     }
 }

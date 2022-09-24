@@ -1,9 +1,6 @@
-use crate::codegen::{EnhancedASTModule, TypedValContext, TypedVarKind};
+use crate::codegen::{EnhancedASTModule, TypedValContext, TypedValKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
-use crate::parser::ast::{
-    ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTParameterDef, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind,
-};
+use crate::parser::ast::{ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -34,7 +31,7 @@ impl Display for ASTTypedFunctionDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedLambdaDef {
     pub parameter_names: Vec<String>,
-    pub body: Vec<ASTTypedExpression>,
+    pub body: Vec<ASTTypedStatement>,
 }
 
 impl Display for ASTTypedLambdaDef {
@@ -53,7 +50,7 @@ impl Display for ASTTypedLambdaDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedFunctionBody {
-    RASMBody(Vec<ASTTypedExpression>),
+    RASMBody(Vec<ASTTypedStatement>),
     ASMBody(String),
 }
 
@@ -202,9 +199,24 @@ impl Display for ASTTypedExpression {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ASTTypedStatement {
+    Expression(ASTTypedExpression),
+    LetStatement(String, ASTTypedExpression),
+}
+
+impl Display for ASTTypedStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTTypedStatement::Expression(e) => { f.write_str(&format!("{e};\n")) }
+            ASTTypedStatement::LetStatement(name, e) => { f.write_str(&format!("let {name} = {e};\n")) }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ASTTypedModule {
-    pub body: Vec<ASTTypedFunctionCall>,
+    pub body: Vec<ASTTypedStatement>,
     pub functions_by_name: LinkedHashMap<String, ASTTypedFunctionDef>,
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
@@ -401,7 +413,7 @@ impl<'a> ConvContext<'a> {
 
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
-    new_body: Vec<ASTFunctionCall>,
+    new_body: Vec<ASTStatement>,
     typed_context: &mut TypeConversionContext,
     debug_asm: bool,
     print_allocation: bool,
@@ -486,7 +498,7 @@ pub fn convert_to_typed_module(
     });
 
     let result = ASTTypedModule {
-        body: new_body.iter().map(function_call).collect(),
+        body: new_body.iter().map(statement).collect(),
         structs: conv_context.struct_defs,
         enums: conv_context.enum_defs,
         functions_by_name,
@@ -502,24 +514,38 @@ pub fn convert_to_typed_module(
 }
 
 fn verify(module: &ASTTypedModule) {
-    let context = TypedValContext::new(None);
+    let mut context = TypedValContext::new(None);
 
-    for call in module.body.iter() {
-        verify_function_call(module, &context, call);
+    for statement in module.body.iter() {
+        verify_statement(module, &mut context, statement);
     }
 
     for function_def in module.functions_by_name.values() {
         let mut context = TypedValContext::new(None);
 
         for (i, par) in function_def.parameters.iter().enumerate() {
-            context.insert(par.name.clone(), TypedVarKind::ParameterRef(i, par.clone()));
+            context.insert(par.name.clone(), TypedValKind::ParameterRef(i, par.clone()));
         }
 
         if let ASTTypedFunctionBody::RASMBody(expressions) = &function_def.body {
-            for expression in expressions.iter() {
-                if let ASTTypedExpression::ASTFunctionCallExpression(call) = expression {
-                    verify_function_call(module, &context, call);
-                }
+            for statement in expressions.iter() {
+                verify_statement(module, &mut context, statement)
+            }
+        }
+    }
+}
+
+fn verify_statement(module: &ASTTypedModule, context: &mut TypedValContext, statement: &ASTTypedStatement) {
+    match statement {
+        ASTTypedStatement::Expression(e) => {
+            if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                verify_function_call(module, &context, call);
+            }
+        }
+        ASTTypedStatement::LetStatement(_, e) => {
+            // TODO insert in context
+            if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                verify_function_call(module, &context, call);
             }
         }
     }
@@ -536,7 +562,7 @@ fn verify_function_call(
         function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
     } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
         function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
-    } else if let Some(TypedVarKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
+    } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, return_type: _ }) = &parameter_ref.type_ref.ast_type {
             parameters.iter().map(|it| it.ast_type.clone()).collect::<Vec<ASTTypedType>>()
         } else {
@@ -577,7 +603,7 @@ fn get_type_of_typed_expression(
             } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
                 debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
-            } else if let Some(TypedVarKind::ParameterRef(i, par)) =
+            } else if let Some(TypedValKind::ParameterRef(i, par)) =
             context.get(&call.function_name)
             {
                 debug!("found function in context");
@@ -592,7 +618,7 @@ fn get_type_of_typed_expression(
             }
         }
         ASTTypedExpression::Val(v) => {
-            if let Some(TypedVarKind::ParameterRef(i, par)) = context.get(v) {
+            if let Some(TypedValKind::ParameterRef(i, par)) = context.get(v) {
                 Some(par.type_ref.ast_type.clone())
             } else {
                 panic!("Unknown val {v}");
@@ -620,18 +646,34 @@ fn get_type_of_typed_expression(
                     name: name.clone(),
                     type_ref: parameters.get(i).unwrap().clone(),
                 };
-                context.insert(name.clone(), TypedVarKind::ParameterRef(i, parameter_def));
+                context.insert(name.clone(), TypedValKind::ParameterRef(i, parameter_def));
             }
 
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
-                get_type_of_typed_expression(module, &context, last, None)
+                match last {
+                    ASTTypedStatement::Expression(e) => {
+                        get_type_of_typed_expression(module, &context, e, None)
+                    }
+                    ASTTypedStatement::LetStatement(_, e) => {
+                        get_type_of_typed_expression(module, &context, e, None)
+                    }
+                }
             } else {
                 None
             };
 
-            for expr in lambda_def.body.iter() {
-                if let ASTTypedExpression::ASTFunctionCallExpression(call) = expr {
-                    verify_function_call(module, &context, call);
+            for statement in lambda_def.body.iter() {
+                match statement {
+                    ASTTypedStatement::Expression(e) => {
+                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                            verify_function_call(module, &context, call);
+                        }
+                    }
+                    ASTTypedStatement::LetStatement(_, e) => {
+                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                            verify_function_call(module, &context, call);
+                        }
+                    }
                 }
             }
 
@@ -722,14 +764,21 @@ fn expression(expression: &ASTExpression) -> ASTTypedExpression {
 fn lambda_def(lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
     ASTTypedLambdaDef {
         parameter_names: lambda_def.parameter_names.clone(),
-        body: lambda_def.body.iter().map(expression).collect(),
+        body: lambda_def.body.iter().map(statement).collect(),
     }
 }
 
 fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
     match body {
-        RASMBody(body) => ASTTypedFunctionBody::RASMBody(body.iter().map(expression).collect()),
+        RASMBody(body) => ASTTypedFunctionBody::RASMBody(body.iter().map(statement).collect()),
         ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
+    }
+}
+
+fn statement(it: &ASTStatement) -> ASTTypedStatement {
+    match it {
+        ASTStatement::Expression(e) => { ASTTypedStatement::Expression(expression(e)) }
+        ASTStatement::LetStatement(name, e) => { ASTTypedStatement::LetStatement(name.clone(), expression(e)) }
     }
 }
 

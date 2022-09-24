@@ -22,12 +22,12 @@ fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
 
 fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
     listMap(listFilter(allCells, { it ->
-        with(listCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
-            ifImmediate(isAlive(cells, FullCell::cell(it)),
-                or(eq(alive, 2),eq(alive,3)),
-                eq(alive, 3)
-            );
-        });
+        let itIsAlive = isAlive(cells, FullCell::cell(it));
+        let adjsAlive = listCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
+        ifImmediate(itIsAlive,
+            or(eq(adjsAlive, 2),eq(adjsAlive,3)),
+            eq(adjsAlive, 3)
+        );
     }), { it -> FullCell::cell(it);});
 }
 
