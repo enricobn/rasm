@@ -192,7 +192,8 @@ fn create_constructors(
             name: enum_def.name.clone() + "_" + &variant.name.clone(),
             parameters: variant.parameters.clone(),
             body,
-            inline: false,
+            // TODO we cannot inline parametric variant constructor, but I don't know why
+            inline: variant.parameters.is_empty(),
             return_type,
             param_types: enum_def.type_parameters.clone(),
         };
@@ -309,25 +310,22 @@ fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
         CodeGen::add(&mut body, &format!("mov ebx,${}", variant.name), None, true);
         CodeGen::add(&mut body, "push ebx", None, true);
         CodeGen::add(&mut body, "call [ebx]", None, true);
-        CodeGen::add(&mut body, &format!("add {}, {}", sp, word_len), None, true);
 
-        if !variant.parameters.is_empty() {
-            CodeGen::add(
-                &mut body,
-                &format!(
-                    "add {}, {}",
-                    sp,
-                    variant.parameters.len() * word_len as usize
-                ),
-                None,
-                true,
-            );
-        }
+        CodeGen::add(
+            &mut body,
+            &format!(
+                "add {}, {}",
+                sp,
+                (variant.parameters.len() + 1) * word_len as usize
+            ),
+            None,
+            true,
+        );
 
         CodeGen::add(&mut body, "jmp .end", None, true);
-        CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, true);
+        CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, false);
     }
-    CodeGen::add(&mut body, ".end:", None, true);
+    CodeGen::add(&mut body, ".end:", None, false);
     CodeGen::add(&mut body, "pop ebx", None, true);
 
     body
