@@ -147,7 +147,7 @@ pub fn convert(
                                         if index == body.len() - 1 {
                                             if let Ok(Some(new_expr)) = convert_last_expr_in_body(module, it, &context, &mut type_conversion_context, &HashMap::new(),
                                                                                                   new_function_def.return_type.clone()) {
-                                                debug_i!("converted expr {}", new_expr);
+                                                debug_i!("converted last expr in body {}", new_expr);
                                                 new_expr
                                             } else {
                                                 it.clone()
@@ -460,6 +460,7 @@ fn convert_call(
     indent!();
 
     if let Some(p) = context.get(&call.function_name) {
+        debug_i!("found function in context parameters");
         dedent!();
         return Ok(None);
     }
@@ -1022,7 +1023,10 @@ fn get_type_of_expression(
     expr: &ASTExpression,
     typed_context: &mut TypeConversionContext,
 ) -> Option<ASTType> {
-    match expr {
+    debug_i!("get_type_of_expression {expr}");
+    indent!();
+
+    let result = match expr {
         ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::ASTString)),
         ASTExpression::ASTFunctionCallExpression(call) => {
             if let Some(function_def) = module
@@ -1032,7 +1036,11 @@ fn get_type_of_expression(
             {
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(VarKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
-                Some(par.type_ref.ast_type.clone())
+                if let ASTType::Builtin(BuiltinTypeKind::Lambda { return_type, parameters: _ }) = &par.type_ref.ast_type {
+                    return_type.clone().map(|it| it.ast_type)
+                } else {
+                    panic!("Expected a lambda");
+                }
             } else {
                 panic!();
             }
@@ -1048,7 +1056,13 @@ fn get_type_of_expression(
         ASTExpression::Lambda(_) => {
             todo!()
         }
-    }
+    };
+
+    debug_i!("result {:?}", result);
+
+    dedent!();
+
+    result
 }
 
 fn extract_generic_types_from_effective_type(

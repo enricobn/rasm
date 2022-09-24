@@ -8,3 +8,9 @@
   gdb> x/4xw 0xmemoryaddress
 - print a string  
   printf "%s", x
+
+## profile
+
+valgrind --tool=callgrind ./list
+callgrind_annotate --tree=both --inclusive=yes --auto=yes --show-percs=yes callgrind.out."pid"
+

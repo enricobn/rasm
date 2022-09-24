@@ -3,41 +3,48 @@ struct Cell {
     y: i32
 }
 
-fn allCells(width: i32, height: i32) -> List<Cell> {
-    listFlatten(listMap(range(0, height), { y ->
-        listMap(range(0, width), { x ->
-            Cell(x, y);
+struct FullCell {
+    cell: Cell,
+    adjacents: List<Cell>
+}
+
+fn allCells(width: i32, height: i32) -> List<FullCell> {
+    zipList(range(0, height), range(0, width), { y, x ->
+        with(Cell(x, y), { cell ->
+            FullCell(cell, adjacents(cell));
         });
-    }));
+    });
 }
 
 fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
     listMap(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
 }
 
-fn next(cells: List<Cell>, allCells: List<Cell>) -> List<Cell> {
-    listFilter(allCells, { it ->
-        with(listCount(adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
-            ifImmediate(isAlive(cells, it),
+fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
+    listMap(listFilter(allCells, { it ->
+        with(listCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); }), { alive ->
+            ifImmediate(isAlive(cells, FullCell::cell(it)),
                 or(eq(alive, 2),eq(alive,3)),
                 eq(alive, 3)
             );
         });
-    });
+    }), { it -> FullCell::cell(it);});
 }
 
 fn adjacents(cell: Cell) -> List<Cell> {
     with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        listOf8(
-            Cell(nadd(x, -1), nadd(y, -1)),
-            Cell(nadd(x, -1), y),
-            Cell(nadd(x, -1), nadd(y, 1)),
-            Cell(x, nadd(y, 1)),
-            Cell(x, nadd(y, -1)),
-            Cell(nadd(x, 1), nadd(y, -1)),
-            Cell(nadd(x, 1), y),
-            Cell(nadd(x, 1), nadd(y, 1))
-        );
+        with4(nadd(x, -1), nadd(x, 1), nadd(y, -1), nadd(y, 1), { left, right, up, down ->
+            listOf8(
+                Cell(left, up),
+                Cell(left, y),
+                Cell(left, down),
+                Cell(x, up),
+                Cell(x, down),
+                Cell(right, up),
+                Cell(right, y),
+                Cell(right, down)
+            );
+        });
     });
 }
 
@@ -58,12 +65,11 @@ fn readCellFile(file: str) -> List<Cell> {
 
 fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     with2(EnumerateEntry::index(line), EnumerateEntry::value(line), { y, lineStr ->
-        listFMap(listEnumerate(chars(lineStr)), { cell ->
-            with2(EnumerateEntry::index(cell), EnumerateEntry::value(cell), { x, cellStr ->
-                ifImmediate(List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> itn(0);}),
-                    listOf(Cell(x, y)), List::Empty());
+        listMap(listFilter(listEnumerate(chars(lineStr)), { cell ->
+            with(EnumerateEntry::value(cell), { cellStr ->
+                List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> itn(0);});
             });
-        });
+        }), { cell -> Cell(EnumerateEntry::index(cell), y); });
     });
 }
 

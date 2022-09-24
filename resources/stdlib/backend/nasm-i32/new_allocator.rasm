@@ -169,7 +169,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     mov     dword ebx,[eax + 12] ; the count
 
     %ifdef LOG_DEBUG
-    cmp     ebx,0
+    test    ebx,ebx
     jz      .negative_count
     %endif
 
@@ -180,7 +180,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     %endif
 
     mov     dword [eax + 12],ebx
-    cmp     ebx,0
+    test    ebx,ebx
     jnz     .end
 
     %ifdef LOG_DEBUG
@@ -210,6 +210,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     %ifdef LOG_DEBUG
     $call(sprintln, "end deref")
     %endif
+
     pop     ebx
     pop     eax
 }/
@@ -234,7 +235,6 @@ asm freeMem(address: i32) /{
 asm addRef(address: i32, descr: &str) /{
     push    eax
     push    ebx
-    push    ecx
 
     %ifdef LOG_DEBUG
     $call(sprint, "start addRef ")
@@ -244,11 +244,13 @@ asm addRef(address: i32, descr: &str) /{
     %endif
 
     %ifdef LOG_DEBUG
+    push    ecx
     mov     dword ecx, _reusable_heap_table
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,ecx
     $call(sprint, "  reusable size ")
     $call(nprintln, ebx)
+    pop     ecx
     %endif
 
     %ifdef LOG_DEBUG
@@ -273,8 +275,8 @@ asm addRef(address: i32, descr: &str) /{
     mov     dword [eax + 12],ebx
 
     mov     dword ebx,[eax + 16]
-    cmp     ebx,0                ; no reusable_table
-    je     .allocate
+    test    ebx,ebx                ; no reusable_table
+    jz     .allocate
 
     $call(removeFromReused, ebx)
     mov     dword [eax + 16],0
@@ -289,7 +291,6 @@ asm addRef(address: i32, descr: &str) /{
     $call(sprintln, "end addRef")
     %endif
 
-    pop     ecx
     pop     ebx
     pop     eax
 }/

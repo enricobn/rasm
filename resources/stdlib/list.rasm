@@ -146,3 +146,9 @@ struct EnumerateEntry<T> {
     index: i32,
     value: T
 }
+
+fn zipList<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
+    listFMap(l1, { v1 ->
+        listMap(l2, { v2 -> zipFunction(v1, v2); });
+    });
+}

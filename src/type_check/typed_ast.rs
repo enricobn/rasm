@@ -534,6 +534,8 @@ fn verify_function_call(
 
     let parameters_types = if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
         function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
+    } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
+        function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
     } else if let Some(TypedVarKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, return_type: _ }) = &parameter_ref.type_ref.ast_type {
             parameters.iter().map(|it| it.ast_type.clone()).collect::<Vec<ASTTypedType>>()

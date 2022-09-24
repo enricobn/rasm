@@ -77,8 +77,7 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
 
     //println!("dereferencing enum {type_name}");
     CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
-    CodeGen::add(&mut result, &format!("push {ws} $address"), None, true);
-    CodeGen::add(&mut result, "pop ebx", None, true);
+    CodeGen::add(&mut result, &format!("mov {ws} ebx,$address"), None, true);
     CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
     for (i, variant) in enum_def.clone().variants.iter().enumerate() {
         if !variant.parameters.is_empty() {
