@@ -115,32 +115,39 @@ fn create_free_body(
         true,
     );
 
-    //println!("dereferencing enum {type_name}");
-    CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
-    CodeGen::add(&mut result, &format!("push {ws} $address"), None, true);
-    CodeGen::add(&mut result, "pop ebx", None, true);
-    CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
-    for (i, property) in struct_def.clone().properties.iter().enumerate() {
-        if let Some(name) = CodeGen::get_reference_type_name(&property.type_ref.ast_type) {
-            let free = format!("{name}_{function_name}");
-            let descr = format!(
-                "{descr}, variant {}, type {name}, par {}",
-                property.name, property.name
-            );
-            let key = code_gen.statics.add_str(&descr);
-            //println!("dereferencing par {:?}", par);
-            CodeGen::add(
-                &mut result,
-                &format!("push     {ws} [ebx + {}]", i * wl),
-                None,
-                true,
-            );
-            CodeGen::add(&mut result, &format!("call     {free}"), None, true);
-            CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+    if has_references(struct_def) {
+        //println!("dereferencing enum {type_name}");
+        CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
+        CodeGen::add(&mut result, &format!("mov {ws} ebx, $address"), None, true);
+        CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+        for (i, property) in struct_def.clone().properties.iter().enumerate() {
+            if let Some(name) = CodeGen::get_reference_type_name(&property.type_ref.ast_type) {
+                let free = format!("{name}_{function_name}");
+                /*let descr = format!(
+                    "{descr}, variant {}, type {name}, par {}",
+                    property.name, property.name
+                );
+                 */
+                //let key = code_gen.statics.add_str(&descr);
+                //println!("dereferencing par {:?}", par);
+                CodeGen::add(
+                    &mut result,
+                    &format!("push     {ws} [ebx + {}]", i * wl),
+                    None,
+                    true,
+                );
+                CodeGen::add(&mut result, &format!("call     {free}"), None, true);
+                CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+            }
         }
+
+        CodeGen::add(&mut result, "pop ebx", None, true);
     }
 
-    CodeGen::add(&mut result, "pop ebx", None, true);
-
     result
+}
+
+fn has_references(stuct_def: &ASTTypedStructDef) -> bool {
+    stuct_def.properties.iter().any(|it|
+        CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
 }

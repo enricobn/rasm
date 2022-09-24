@@ -75,31 +75,38 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
     CodeGen::add(&mut result, &format!("call  {asm_function_name}"), None, true);
     CodeGen::add(&mut result, &format!("add  {},{}", backend.stack_pointer(), wl * 2), None, true);
 
-    //println!("dereferencing enum {type_name}");
-    CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
-    CodeGen::add(&mut result, &format!("mov {ws} ebx,$address"), None, true);
-    CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
-    for (i, variant) in enum_def.clone().variants.iter().enumerate() {
-        if !variant.parameters.is_empty() {
-            CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-            CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
-            for (j, par) in variant.parameters.iter().rev().enumerate() {
-                if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
-                    let free = format!("{name}_{function_name}");
-                    let descr = format!("{descr}, variant {}, type {name}, par {}", variant.name, par.name);
-                    let key = code_gen.statics.add_str(&descr);
-                    //println!("dereferencing par {:?}", par);
-                    CodeGen::add(&mut result, &format!("push     {ws} [ebx + {}]", (j + 1) * wl), None, true);
-                    CodeGen::add(&mut result, &format!("call     {free}"), None, true);
-                    CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+    if has_references(enum_def) {
+        //println!("dereferencing enum {type_name}");
+        CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
+        CodeGen::add(&mut result, &format!("mov {ws} ebx,$address"), None, true);
+        CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+        for (i, variant) in enum_def.clone().variants.iter().enumerate() {
+            if !variant.parameters.is_empty() {
+                CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
+                for (j, par) in variant.parameters.iter().rev().enumerate() {
+                    if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
+                        let free = format!("{name}_{function_name}");
+                        //let descr = format!("{descr}, variant {}, type {name}, par {}", variant.name, par.name);
+                        //let key = code_gen.statics.add_str(&descr);
+                        //println!("dereferencing par {:?}", par);
+                        CodeGen::add(&mut result, &format!("push     {ws} [ebx + {}]", (j + 1) * wl), None, true);
+                        CodeGen::add(&mut result, &format!("call     {free}"), None, true);
+                        CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+                    }
                 }
+                CodeGen::add(&mut result, &format!("._variant_{i}:"), None, false);
             }
-            CodeGen::add(&mut result, &format!("._variant_{i}:"), None, false);
         }
-    }
 
-    CodeGen::add(&mut result, "pop ebx", None, true);
+        CodeGen::add(&mut result, "pop ebx", None, true);
+    }
 
 
     result
+}
+
+fn has_references(enum_def: &ASTTypedEnumDef) -> bool {
+    enum_def.variants.iter().flat_map(|it| it.parameters.iter()).any(|it|
+        CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
 }
