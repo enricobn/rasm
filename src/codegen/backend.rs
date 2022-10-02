@@ -64,6 +64,15 @@ impl BackendAsm386 {
             libc,
         }
     }
+
+    fn log_command(command: &Command) {
+        let mut s = String::new();
+        s.push_str(&format!("running command: {}", &command.get_program().to_str().unwrap()));
+        for arg in command.get_args() {
+            s.push_str(&format!(" {}", &arg.to_str().unwrap()));
+        }
+        info!("{s}");
+    }
 }
 
 impl Backend for BackendAsm386 {
@@ -94,43 +103,51 @@ impl Backend for BackendAsm386 {
     fn compile_and_link(&self, source_file: String) {
         info!("source file : '{}'", source_file);
         let path = Path::new(&source_file);
-        let nasm_output = Command::new("nasm")
-            .arg("-f")
+        let mut nasm_command = Command::new("nasm");
+        nasm_command.arg("-f")
             .arg("elf")
             .arg("-g")
             .arg("-F")
             .arg("dwarf")
-            .arg(source_file.clone())
+            .arg(source_file.clone());
+        BackendAsm386::log_command(&nasm_command);
+        let nasm_output = nasm_command
             .stderr(Stdio::inherit())
             .output()
             .expect("failed to execute nasm");
         if nasm_output.status.success() {
             let linker_output = match self.linker {
-                Linker::Ld => Command::new("ld")
-                    .arg("-m")
-                    .arg("elf_i386")
-                    .arg(path.with_extension("o"))
-                    .arg("-lc")
-                    .arg("-I")
-                    .arg("/lib32/ld-linux.so.2")
-                    .arg("-o")
-                    .arg(path.with_extension(""))
-                    .stderr(Stdio::inherit())
-                    .output()
-                    .expect("failed to execute ld"),
+                Linker::Ld => {
+                    let mut ld_command = Command::new("ld");
+                    ld_command
+                        .arg("-m")
+                        .arg("elf_i386")
+                        .arg(path.with_extension("o"))
+                        .arg("-lc")
+                        .arg("-I")
+                        .arg("/lib32/ld-linux.so.2")
+                        .arg("-o")
+                        .arg(path.with_extension(""));
+                    BackendAsm386::log_command(&ld_command);
+                    ld_command.stderr(Stdio::inherit())
+                        .output()
+                        .expect("failed to execute ld")
+                },
                 Linker::Gcc => {
                     let libraries = self.requires.iter().filter(|it| *it != "libc").map(|it| format!("-l{it}"))
                         .collect::<Vec<String>>();
 
-                    Command::new("gcc")
+                    let mut gcc_command = Command::new("gcc");
+                    gcc_command
                         .arg("-m32")
                         .arg("-gdwarf")
                         //.arg("-static")
                         .arg("-o")
                         .arg(path.with_extension(""))
                         .arg(path.with_extension("o"))
-                        .args(libraries)
-                        .stderr(Stdio::inherit())
+                        .args(libraries);
+                    BackendAsm386::log_command(&gcc_command);
+                    gcc_command.stderr(Stdio::inherit())
                         .output()
                         .expect("failed to execute gcc")
                 }
