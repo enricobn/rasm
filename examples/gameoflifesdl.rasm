@@ -1,5 +1,6 @@
 // time ./gameoflifesdl examples/f116.cells 100
 // 12,762
+// 10,686 - used let statement
 
 include "std.rasm"
 include "sdl.rasm"
@@ -24,14 +25,14 @@ fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
             sdlRenderClear(ren);
             sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
 
-            runWith(allCells(width, height), { allCells ->
-                printCells(ren,
-                    listFoldL(range(0, count), start, { prev, act ->
-                        printCells(ren, prev, width, height);
-                        //sdlDelay(1000);
-                        next(prev, allCells);
-                      }), width, height);
-            });
+            let allCells = allCells(width, height);
+
+            printCells(ren,
+                listFoldL(range(0, count), start, { prev, act ->
+                    printCells(ren, prev, width, height);
+                    //sdlDelay(1000);
+                    next(prev, allCells);
+                  }), width, height);
 
             sdlDestroyRenderer(ren);
             sdlDestroyWindow(win);

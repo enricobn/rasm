@@ -497,12 +497,22 @@ impl Parser {
                 if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
                 self.get_token_kind_n(1)
                 {
+                    let statement =
+                        if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
+                            let let_statement = ASTStatement::LetStatement(name.clone(), ASTFunctionCallExpression(call));
+                            self.parser_data.pop();
+                            self.state.pop();
+                            let_statement
+                        } else {
+                            ASTStatement::Expression(
+                                ASTFunctionCallExpression(call),
+                            )
+                        };
+
                     if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
                         if let RASMBody(mut calls) = def.body {
-                            calls.push(ASTStatement::Expression(
-                                ASTExpression::ASTFunctionCallExpression(call),
-                            ));
+                            calls.push(statement);
                             def.body = RASMBody(calls);
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = ParserData::FunctionDef(def);
@@ -515,7 +525,7 @@ impl Parser {
                     {
                         let mut def = def.clone();
                         let mut calls = def.body;
-                        calls.push(ASTStatement::Expression(ASTFunctionCallExpression(call)));
+                        calls.push(statement);
                         def.body = calls;
                         let l = self.parser_data.len();
                         self.parser_data[l - 2] = ParserData::LambdaDef(def);
@@ -523,19 +533,9 @@ impl Parser {
                         self.i += 2;
                         self.state.pop();
                         return ProcessResult::Continue;
-                    } else if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
-                        // TODO
-                        let l = self.parser_data.len();
-                        self.parser_data[l - 2] = ParserData::Let(name.clone());
-                        self.parser_data.pop();
-                        self.parser_data.pop();
-                        self.i += 2;
-                        self.state.pop();
-                        self.state.pop();
-                        return ProcessResult::Continue;
                     } else {
                         self.body
-                            .push(ASTStatement::Expression(ASTFunctionCallExpression(call)));
+                            .push(statement);
                     }
                     self.parser_data.pop();
                     self.state.pop();

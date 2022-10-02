@@ -40,7 +40,7 @@ impl Display for ASTTypedLambdaDef {
         let body = self
             .body
             .iter()
-            .map(|it| format!("{it};"))
+            .map(|it| format!("{it}"))
             .collect::<Vec<String>>()
             .join("");
 
@@ -417,6 +417,7 @@ pub fn convert_to_typed_module(
     typed_context: &mut TypeConversionContext,
     debug_asm: bool,
     print_allocation: bool,
+    printl_module: bool
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
 
@@ -506,7 +507,9 @@ pub fn convert_to_typed_module(
         native_body: module.native_body.clone(),
     };
 
-    print_typed_module(&result);
+    if printl_module {
+        print_typed_module(&result);
+    }
 
     verify(&result);
 
@@ -524,7 +527,7 @@ fn verify(module: &ASTTypedModule) {
         let mut context = TypedValContext::new(None);
 
         for (i, par) in function_def.parameters.iter().enumerate() {
-            context.insert(par.name.clone(), TypedValKind::ParameterRef(i, par.clone()));
+            context.insert_par(par.name.clone(), i, par.clone());
         }
 
         if let ASTTypedFunctionBody::RASMBody(expressions) = &function_def.body {
@@ -542,8 +545,24 @@ fn verify_statement(module: &ASTTypedModule, context: &mut TypedValContext, stat
                 verify_function_call(module, &context, call);
             }
         }
-        ASTTypedStatement::LetStatement(_, e) => {
-            // TODO insert in context
+        ASTTypedStatement::LetStatement(name, e) => {
+            if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                let type_ref = if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
+                    function_def.return_type.clone()
+                } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
+                    function_def.return_type.clone()
+                } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
+                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters: _, return_type }) = &parameter_ref.type_ref.ast_type {
+                        return_type.clone().map(|it| *it)
+                    } else {
+                        panic!()
+                    }
+                } else {
+                    panic!("{call}")
+                };
+                context.insert_let(name.clone(), type_ref.unwrap());
+            }
+
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                 verify_function_call(module, &context, call);
             }
@@ -620,6 +639,8 @@ fn get_type_of_typed_expression(
         ASTTypedExpression::Val(v) => {
             if let Some(TypedValKind::ParameterRef(i, par)) = context.get(v) {
                 Some(par.type_ref.ast_type.clone())
+            } else if let Some(TypedValKind::LetRef(i, ast_type)) = context.get(v) {
+                Some(ast_type.ast_type.clone())
             } else {
                 panic!("Unknown val {v}");
             }
@@ -646,7 +667,24 @@ fn get_type_of_typed_expression(
                     name: name.clone(),
                     type_ref: parameters.get(i).unwrap().clone(),
                 };
-                context.insert(name.clone(), TypedValKind::ParameterRef(i, parameter_def));
+                context.insert_par(name.clone(), i, parameter_def);
+            }
+
+            for statement in lambda_def.body.iter() {
+                match statement {
+                    ASTTypedStatement::Expression(e) => {
+                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                            verify_function_call(module, &context, call);
+                        }
+                    }
+                    ASTTypedStatement::LetStatement(name, e) => {
+                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                            let type_ref = module.functions_by_name.get(&call.function_name).unwrap().return_type.clone().unwrap();
+                            context.insert_let(name.clone(), type_ref);
+                            verify_function_call(module, &context, call);
+                        }
+                    }
+                }
             }
 
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
@@ -661,21 +699,6 @@ fn get_type_of_typed_expression(
             } else {
                 None
             };
-
-            for statement in lambda_def.body.iter() {
-                match statement {
-                    ASTTypedStatement::Expression(e) => {
-                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                            verify_function_call(module, &context, call);
-                        }
-                    }
-                    ASTTypedStatement::LetStatement(_, e) => {
-                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                            verify_function_call(module, &context, call);
-                        }
-                    }
-                }
-            }
 
             if let Some(t) = return_type {
                 assert_eq!(t.ast_type, real_return_type.clone().unwrap_or_else(|| panic!("expected {}", t.ast_type)))

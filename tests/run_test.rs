@@ -180,6 +180,11 @@ fn test_chars() {
     test("chars", Vec::new(), "H,e,l,l,o\n");
 }
 
+#[test]
+fn test_let() {
+    test("let", vec![], "20\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

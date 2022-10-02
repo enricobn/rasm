@@ -5,6 +5,8 @@ Doing
 
 Next
 -----
+- optimization
+  - when inlining there's no need to reserve/restore memory in the stack for the parameter
 - TextMacro:
     - TextMacroEvaluator It should be better to pass in a TypedValContext
     - is it possible to use TextMacro in standard functions? (but for what?)

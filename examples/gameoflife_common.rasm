@@ -10,9 +10,9 @@ struct FullCell {
 
 fn allCells(width: i32, height: i32) -> List<FullCell> {
     zipList(range(0, height), range(0, width), { y, x ->
-        with(Cell(x, y), { cell ->
-            FullCell(cell, adjacents(cell));
-        });
+        let cell = Cell(x, y);
+
+        FullCell(cell, adjacents(cell));
     });
 }
 
@@ -22,9 +22,8 @@ fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
 
 fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
     listMap(listFilter(allCells, { it ->
-        let itIsAlive = isAlive(cells, FullCell::cell(it));
         let adjsAlive = listCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
-        ifImmediate(itIsAlive,
+        ifImmediate(isAlive(cells, FullCell::cell(it)),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         );
@@ -32,45 +31,51 @@ fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
 }
 
 fn adjacents(cell: Cell) -> List<Cell> {
-    with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        with4(nadd(x, -1), nadd(x, 1), nadd(y, -1), nadd(y, 1), { left, right, up, down ->
-            listOf8(
-                Cell(left, up),
-                Cell(left, y),
-                Cell(left, down),
-                Cell(x, up),
-                Cell(x, down),
-                Cell(right, up),
-                Cell(right, y),
-                Cell(right, down)
-            );
-        });
-    });
+    let x = Cell::x(cell);
+    let y = Cell::y(cell);
+
+    let left = nadd(x, -1);
+    let right = nadd(x, 1);
+    let up = nadd(y, -1);
+    let down = nadd(y, 1);
+
+    listOf8(
+        Cell(left, up),
+        Cell(left, y),
+        Cell(left, down),
+        Cell(x, up),
+        Cell(x, down),
+        Cell(right, up),
+        Cell(right, y),
+        Cell(right, down)
+    );
 }
 
 /** false = 0 true = any other value **/
 fn isAlive(cells: List<Cell>, cell: Cell) -> i32 {
-    with2(Cell::x(cell), Cell::y(cell), { x, y ->
-        listAnyMatch(cells, { it ->
-            and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
-        });
+    let x = Cell::x(cell);
+    let y = Cell::y(cell);
+
+    listAnyMatch(cells, { it ->
+        and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
     });
 }
 
 fn readCellFile(file: str) -> List<Cell> {
-    with(listEnumerate(filterLines(lines(readFile(file)))), { lines ->
-        listFMap(lines, { line -> lineCells(line); });
-    });
+    let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
+
+    listFMap(linesEnumerate, { line -> lineCells(line); });
 }
 
 fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
-    with2(EnumerateEntry::index(line), EnumerateEntry::value(line), { y, lineStr ->
-        listMap(listFilter(listEnumerate(chars(lineStr)), { cell ->
-            with(EnumerateEntry::value(cell), { cellStr ->
-                List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> itn(0);});
-            });
-        }), { cell -> Cell(EnumerateEntry::index(cell), y); });
-    });
+    let y = EnumerateEntry::index(line);
+    let lineStr = EnumerateEntry::value(line);
+
+    listMap(listFilter(listEnumerate(chars(lineStr)), { cell ->
+        let cellStr = EnumerateEntry::value(cell);
+
+        List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> itn(0);});
+    }), { cell -> Cell(EnumerateEntry::index(cell), y); });
 }
 
 fn filterLines(lines: List<str>) -> List<str> {
