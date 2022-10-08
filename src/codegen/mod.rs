@@ -1167,22 +1167,10 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        before.push_str(&format!("; {} = {}\n", call_parameters.to_remove_from_stack_name(), call_parameters.to_remove_from_stack()));
         before.push_str(&call_parameters.before().replace(&call_parameters.to_remove_from_stack_name(), &(call_parameters.to_remove_from_stack() * self.backend.word_len()).to_string()));
-        //before.push_str(&call_parameters.before());
 
         if inline {
             if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
-                CodeGen::add(
-                    before,
-                    &format!(
-                        "; To remove from stack  {}+{}",
-                        added_to_stack, call_parameters.to_remove_from_stack_name()
-                    ),
-                    None,
-                    true,
-                );
-
                 let mut added_to_stack = added_to_stack.clone();
                 added_to_stack.push_str(&format!(" + {}", context.let_vals() * self.backend.word_len()));
 
@@ -1344,8 +1332,6 @@ impl<'a> CodeGen<'a> {
             );
         }
         CodeGen::add_empty_line(before);
-
-        before.replace(&call_parameters.to_remove_from_stack_name(), &call_parameters.to_remove_from_stack().to_string());
 
         lambda_calls
     }

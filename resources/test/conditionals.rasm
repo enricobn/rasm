@@ -1,10 +1,9 @@
 include "std.rasm"
 
-print();
 
 //False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
 
-fn print() {
+
     ifRun(0,{ -> sprintln("True");},{ -> sprintln("False");});
 
     ifRun(1,{ -> sprintln("True");},{ -> sprintln("False");});
@@ -43,5 +42,5 @@ fn print() {
     assert(not(0));
     assertFalse(not(1));
 
-}
+
 
