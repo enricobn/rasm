@@ -316,7 +316,7 @@ impl<'a> CodeGen<'a> {
                             call,
                             &main_context,
                             None,
-                            0,
+                            "0".into(),
                             None,
                             0,
                             false,
@@ -627,7 +627,7 @@ impl<'a> CodeGen<'a> {
                                         call_expression,
                                         &context,
                                         Some(function_def),
-                                        0,
+                                        "0".into(),
                                         lambda_space,
                                         indent + 1,
                                         false,
@@ -660,7 +660,11 @@ impl<'a> CodeGen<'a> {
                                         true,
                                         &tmp_stack,
                                         self.dereference,
+                                        self.id,
                                     );
+
+                                    self.id += 1;
+
                                     self.add_val(
                                         &context,
                                         &lambda_space,
@@ -697,7 +701,7 @@ impl<'a> CodeGen<'a> {
                                         call,
                                         &context,
                                         Some(function_def),
-                                        0,
+                                        "0".into(),
                                         lambda_space,
                                         indent + 1,
                                         false,
@@ -725,12 +729,15 @@ impl<'a> CodeGen<'a> {
                     false,
                     &stack,
                     self.dereference,
+                    self.id,
                 );
+
+                self.id += 1;
 
                 let new_body = function_call_parameters.resolve_asm_parameters(
                     &mut self.statics,
                     body,
-                    context.let_vals(),
+                    (context.let_vals() * self.backend.word_len()).to_string(),
                     indent,
                 );
                 self.definitions.push_str(&new_body);
@@ -802,7 +809,7 @@ impl<'a> CodeGen<'a> {
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: Option<&ASTTypedFunctionDef>,
-        added_to_stack: usize,
+        added_to_stack: String,
         lambda_space: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
@@ -965,7 +972,7 @@ impl<'a> CodeGen<'a> {
         function_call: &&ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: &Option<&ASTTypedFunctionDef>,
-        added_to_stack: usize,
+        added_to_stack: String,
         before: &mut String,
         parameters: Vec<ASTTypedParameterDef>,
         inline: bool,
@@ -1019,7 +1026,10 @@ impl<'a> CodeGen<'a> {
             false,
             stack,
             self.dereference,
+            self.id,
         );
+
+        self.id += 1;
 
         if !function_call.parameters.is_empty() {
             // as for C calling conventions parameters are pushed in reverse order
@@ -1060,11 +1070,14 @@ impl<'a> CodeGen<'a> {
                         call_parameters.add_number(&param_name, n, None);
                     }
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                        let mut added_to_stack = added_to_stack.clone();
+                        added_to_stack.push_str(" + ");
+                        added_to_stack.push_str(&call_parameters.to_remove_from_stack_name());
                         let (bf, af, mut inner_lambda_calls) = self.call_function(
                             call,
                             context,
                             *parent_def,
-                            added_to_stack + call_parameters.to_remove_from_stack(),
+                            added_to_stack,
                             lambda_space_opt,
                             indent + 1,
                             false,
@@ -1154,23 +1167,29 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        before.push_str(&call_parameters.before());
+        before.push_str(&format!("; {} = {}\n", call_parameters.to_remove_from_stack_name(), call_parameters.to_remove_from_stack()));
+        before.push_str(&call_parameters.before().replace(&call_parameters.to_remove_from_stack_name(), &(call_parameters.to_remove_from_stack() * self.backend.word_len()).to_string()));
+        //before.push_str(&call_parameters.before());
 
         if inline {
             if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
                 CodeGen::add(
                     before,
                     &format!(
-                        "; To remove from stack  {}",
-                        added_to_stack + call_parameters.to_remove_from_stack()
+                        "; To remove from stack  {}+{}",
+                        added_to_stack, call_parameters.to_remove_from_stack_name()
                     ),
                     None,
                     true,
                 );
+
+                let mut added_to_stack = added_to_stack.clone();
+                added_to_stack.push_str(&format!(" + {}", context.let_vals() * self.backend.word_len()));
+
                 before.push_str(&call_parameters.resolve_asm_parameters(
                     &mut self.statics,
                     body,
-                    added_to_stack + context.let_vals(),
+                    added_to_stack,
                     indent,
                 ));
             } else {
@@ -1325,6 +1344,8 @@ impl<'a> CodeGen<'a> {
             );
         }
         CodeGen::add_empty_line(before);
+
+        before.replace(&call_parameters.to_remove_from_stack_name(), &call_parameters.to_remove_from_stack().to_string());
 
         lambda_calls
     }

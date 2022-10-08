@@ -1,3 +1,6 @@
+// time ./fibonacci 40
+// 102334155
+// 0m1,650s
 include "std.rasm"
 
 nprintln(fib(atoi(argv(1))));

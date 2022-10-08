@@ -19,7 +19,8 @@ pub struct FunctionCallParameters<'a> {
     lambda_slots_to_deallocate: usize,
     stack: &'a Stack,
     after: Vec<String>,
-    dereference: bool
+    dereference: bool,
+    id: usize
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -39,7 +40,7 @@ impl<'a> FunctionCallParameters<'a> {
     /// ```
     ///
     /// ```
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a Stack, dereference: bool) -> Self {
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a Stack, dereference: bool, id: usize) -> Self {
         Self {
             parameters_added: 0,
             before: String::new(),
@@ -53,6 +54,7 @@ impl<'a> FunctionCallParameters<'a> {
             stack,
             after: Vec::new(),
             dereference,
+            id
         }
     }
 
@@ -198,6 +200,10 @@ impl<'a> FunctionCallParameters<'a> {
         }
     }
 
+    pub fn to_remove_from_stack_name(&self) -> String {
+        format!("$_to_remove_rom_stack{}", self.id)
+    }
+
     fn debug_and_before(&mut self, descr: &str, indent: usize) {
         debug!("{} {descr}", " ".repeat(indent * 4));
         CodeGen::add(&mut self.before, "", Some(descr), true);
@@ -285,7 +291,7 @@ impl<'a> FunctionCallParameters<'a> {
         self.parameter_added_to_stack(&format!("lambda from lambda space: {}", val_name));
     }
 
-    pub fn resolve_asm_parameters(&self, statics: &mut Statics, body: &str, to_remove_from_stack: usize, ident: usize) -> String {
+    pub fn resolve_asm_parameters(&self, statics: &mut Statics, body: &str, to_remove_from_stack: String, ident: usize) -> String {
         let mut result = body.to_string();
 
         result = TextMacroEvaluator::new(self.parameters.clone()).translate(self.backend, statics, &result);
@@ -308,9 +314,9 @@ impl<'a> FunctionCallParameters<'a> {
                 if self.inline {
                     debug!("{} i {}, self.to_remove_from_stack {}, to_remove_from_stack {}", " ".repeat(ident * 4), i, self.parameters_added, to_remove_from_stack);
                     result.push_str(&format!(";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n", i, self.parameters_added, to_remove_from_stack));
-                    (i as i32 - self.to_remove_from_stack() as i32 - to_remove_from_stack as i32) * word_len
+                    format!("{}-({})", (i as i32 - self.to_remove_from_stack() as i32) * word_len, to_remove_from_stack)
                 } else {
-                    (i + 2) * self.backend.word_len() as i32
+                    format!("{}", (i + 2) * self.backend.word_len() as i32)
                 };
 
             let address = format!("[{}+{}]", self.backend.stack_base_pointer(), relative_address);
@@ -328,8 +334,8 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn to_remove_from_stack(&self) -> usize {
-        self.parameters.len()
-        //self.parameters_added
+        //self.parameters.len()
+        self.parameters_added
     }
 
     pub fn before(&self) -> String {
