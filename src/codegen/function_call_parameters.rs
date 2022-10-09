@@ -136,19 +136,26 @@ impl<'a> FunctionCallParameters<'a> {
                          comment, true);
         }
 
-        // TODO optimize: do not create parameters that are overridden by parent memcopy
         context.iter().for_each(|(name, kind)| {
-            let relative_adress = match kind {
-                TypedValKind::ParameterRef(index, _) => {
-                    (index + 2) as i32
-                }
-                TypedValKind::LetRef(index, _) => {
-                    -(*index as i32 + 1)
-                }
+            // we do not create val that are overridden by parent memcopy
+            let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
+                parent_lambda.context.get(name).is_some()
+            } else {
+                false
             };
-            self.indirect_mov(
-                &format!("{}+{}", stack_base_pointer, relative_adress * word_len as i32),
-                &format!("ecx + {}", i * word_len), "ebx", Some(&format!("context parameter {}", name)));
+            if !already_in_parent {
+                let relative_address = match kind {
+                    TypedValKind::ParameterRef(index, _) => {
+                        (index + 2) as i32
+                    }
+                    TypedValKind::LetRef(index, _) => {
+                        -(*index as i32 + 1)
+                    }
+                };
+                self.indirect_mov(
+                    &format!("{}+{}", stack_base_pointer, relative_address * word_len as i32),
+                    &format!("ecx + {}", i * word_len), "ebx", Some(&format!("context parameter {}", name)));
+            }
 
             lambda_space.add_context_parameter(name.clone(), i);
             i += 1;

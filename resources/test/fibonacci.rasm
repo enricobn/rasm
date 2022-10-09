@@ -1,8 +1,7 @@
 // time ./fibonacci 40
 // 102334155
-// 0m1,650s
-// optimize inline stack allocation
-// 0m1,557s
+// 1,650
+// 1,557s - optimize inline stack allocation
 include "std.rasm"
 
 nprintln(fib(atoi(argv(1))));

@@ -1,6 +1,7 @@
 // time ./gameoflifesdl examples/f116.cells 100
 // 12,762
 // 10,686 - used let statement
+// 10,227 - optimized lambda space creation
 
 include "std.rasm"
 include "sdl.rasm"
@@ -46,8 +47,11 @@ fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
     sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
     sdlRenderFillRect(ren, SDLRect(0, 0, nmul(10, width), nmul(10, height)));
     sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+
+    let xRange = range(0, width);
+
     listForeach(range(0, height), { y ->
-        listForeach(range(0, width), { x ->
+        listForeach(xRange, { x ->
             ifRun(isAlive(cells, Cell(x, y)), { ->
                  sdlRenderFillRect(ren, SDLRect(nmul(10, x), nmul(10, y), 10, 10));
             }, { -> });
