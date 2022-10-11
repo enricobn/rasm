@@ -1,6 +1,7 @@
 include "std.rasm"
 
 nprintln(test(5));
+nListPrintln(test2(5));
 
 fn test(n: i32) -> i32 {
     let ten = itn(10);
@@ -14,4 +15,10 @@ fn test(n: i32) -> i32 {
 
 fn test1(v: i32, f: fn(i32) -> i32) -> i32 {
     f(v);
+}
+
+
+fn test2(n: i32) -> List<i32> {
+    let ten = listOf(10);
+    listAppend(listOf(20), ten);
 }

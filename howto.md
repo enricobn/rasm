@@ -10,6 +10,8 @@
   printf "%s", x
 
 ## profile
+To use valgrind you have to link with gcc, but for now there is not a way to force it, other than requiring libc:  
+requires "libc"
 
 valgrind --tool=callgrind ./list
 callgrind_annotate --tree=both --inclusive=yes --auto=yes --show-percs=yes callgrind.out."pid"

@@ -182,7 +182,7 @@ fn test_chars() {
 
 #[test]
 fn test_let() {
-    test("let", vec![], "20\n");
+    test("let", vec![], "20\n20,10\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

@@ -3,6 +3,7 @@
 // 10,686 - used let statement
 // 10,227 - optimized lambda space creation
 // 10,180 - optimized memcopy
+// 11,948 - dereference has been reset
 
 include "std.rasm"
 include "sdl.rasm"
