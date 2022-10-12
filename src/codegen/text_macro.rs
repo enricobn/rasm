@@ -3,7 +3,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::ASTTypedParameterDef;
 use regex::Regex;
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 
 pub enum MacroParam {
     Plain(String),
@@ -17,14 +17,14 @@ pub struct TextMacro {
 }
 
 pub struct TextMacroEvaluator {
-    evaluators: HashMap<String, Box<dyn TextMacroEval>>,
+    evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>,
     parameters: Vec<ASTTypedParameterDef>,
 }
 
 impl TextMacroEvaluator {
     // TODO It should be better to pass in a TypedValContext
     pub fn new(parameters: Vec<ASTTypedParameterDef>) -> Self {
-        let mut evaluators: HashMap<String, Box<dyn TextMacroEval>> = HashMap::new();
+        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
         evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator::new()));
         evaluators.insert("ccall".into(), Box::new(CCallTextMacroEvaluator::new()));
         Self {

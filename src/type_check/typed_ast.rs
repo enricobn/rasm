@@ -4,7 +4,6 @@ use crate::parser::ast::{ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTF
 use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use crate::codegen::statics::Statics;
 
@@ -268,8 +267,8 @@ pub struct ASTTypedStructDef {
 
 struct ConvContext<'a> {
     module: &'a EnhancedASTModule,
-    enums: HashMap<ASTType, ASTTypedType>,
-    structs: HashMap<ASTType, ASTTypedType>,
+    enums: LinkedHashMap<ASTType, ASTTypedType>,
+    structs: LinkedHashMap<ASTType, ASTTypedType>,
     enum_defs: Vec<ASTTypedEnumDef>,
     struct_defs: Vec<ASTTypedStructDef>,
     count: usize,
@@ -279,8 +278,8 @@ impl<'a> ConvContext<'a> {
     fn new(module: &'a EnhancedASTModule) -> Self {
         Self {
             module,
-            enums: HashMap::new(),
-            structs: HashMap::new(),
+            enums: LinkedHashMap::new(),
+            structs: LinkedHashMap::new(),
             enum_defs: Vec::new(),
             struct_defs: Vec::new(),
             count: 0,
@@ -303,7 +302,7 @@ impl<'a> ConvContext<'a> {
                     .unwrap();
 
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = HashMap::new();
+                let mut generic_to_type = LinkedHashMap::new();
                 for (i, p) in enum_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(
                         p.clone(),
@@ -371,7 +370,7 @@ impl<'a> ConvContext<'a> {
                     .unwrap();
 
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = HashMap::new();
+                let mut generic_to_type = LinkedHashMap::new();
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(
                         p.clone(),
@@ -734,7 +733,7 @@ fn add_mandatory_function(
 fn struct_property(
     conv_context: &mut ConvContext,
     property: &ASTStructPropertyDef,
-    generic_to_type: &HashMap<String, ASTType>,
+    generic_to_type: &LinkedHashMap<String, ASTType>,
 ) -> ASTTypedStructPropertyDef {
     if let Some(new_type) = substitute(&property.type_ref, generic_to_type) {
         ASTTypedStructPropertyDef {
@@ -808,7 +807,7 @@ fn statement(it: &ASTStatement) -> ASTTypedStatement {
 fn enum_variant(
     conv_context: &mut ConvContext,
     variant: &ASTEnumVariantDef,
-    generic_to_type: &HashMap<String, ASTType>,
+    generic_to_type: &LinkedHashMap<String, ASTType>,
     enum_type: &ASTType,
     enum_typed_type: &ASTTypedType,
     message: &str,

@@ -1,6 +1,6 @@
 use log::debug;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::{EnhancedASTModule, ValContext, ValKind};
@@ -80,7 +80,7 @@ pub fn convert(
         let mut new_body = Vec::new();
 
         for statement in body.iter() {
-            let mut resolved_param_types = HashMap::new();
+            let mut resolved_param_types = LinkedHashMap::new();
 
             match statement {
                 ASTStatement::Expression(expr) => {
@@ -200,7 +200,7 @@ pub fn convert(
                                     it,
                                     &mut context,
                                     &mut type_conversion_context,
-                                    &HashMap::new(),
+                                    &LinkedHashMap::new(),
                                 );
 
                                 let new_statement = match converted_statement {
@@ -217,7 +217,7 @@ pub fn convert(
                                                 it,
                                                 &context,
                                                 &mut type_conversion_context,
-                                                &HashMap::new(),
+                                                &LinkedHashMap::new(),
                                                 new_function_def.return_type.clone(),
                                             )
                                             {
@@ -276,7 +276,7 @@ pub fn convert(
                                 &context,
                                 &function_call,
                                 &mut type_conversion_context,
-                                &HashMap::new(),
+                                &LinkedHashMap::new(),
                                 None,
                             ) {
                                 something_to_convert = true;
@@ -382,7 +382,7 @@ fn convert_statement_in_body(
     statement: &ASTStatement,
     context: &mut ValContext,
     typed_context: &mut TypeConversionContext,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
     match statement {
         ASTStatement::Expression(e) => {
@@ -401,7 +401,7 @@ fn convert_expr_in_body(
     expr: &ASTExpression,
     context: &ValContext,
     typed_context: &mut TypeConversionContext,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
     debug_i!("converting expr in body {expr}");
 
@@ -447,7 +447,7 @@ fn convert_last_statement_in_body(
     statement: &ASTStatement,
     context: &ValContext,
     typed_context: &mut TypeConversionContext,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
     return_type: Option<ASTTypeRef>,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
     match statement {
@@ -477,7 +477,7 @@ fn convert_last_expr_in_body(
     expr: &ASTExpression,
     context: &ValContext,
     typed_context: &mut TypeConversionContext,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
     return_type: Option<ASTTypeRef>,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
     debug_i!("converting last expr in body {expr}");
@@ -542,7 +542,7 @@ fn convert_call(
     context: &ValContext,
     call: &ASTFunctionCall,
     typed_context: &mut TypeConversionContext,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
     expected_return_type: Option<Option<ASTTypeRef>>,
 ) -> Result<Option<ASTFunctionCall>, TypeCheckError> {
     debug_i!("converting call {}", call);
@@ -627,7 +627,7 @@ fn convert_call(
                 }
                 ASTExpression::ASTFunctionCallExpression(call) => {
                     if let Some(ast_function_call) =
-                    convert_call(module, context, call, typed_context, &HashMap::new(), None)?
+                    convert_call(module, context, call, typed_context, &LinkedHashMap::new(), None)?
                     {
                         something_to_convert = true;
                         //info!("new_function_defs {:?} used_untyped_function_defs {:?}", new_function_defs, used_untyped_function_defs);
@@ -1166,14 +1166,14 @@ fn get_type_of_expression(
 fn extract_generic_types_from_effective_type(
     parametric_type: &ASTType,
     effective_type: &ASTType,
-) -> Result<HashMap<String, ASTType>, TypeCheckError> {
+) -> Result<LinkedHashMap<String, ASTType>, TypeCheckError> {
     debug_i!("extract_generic_types_from_effective_type:");
     indent!();
 
     debug_i!("parametric_type {}", parametric_type);
     debug_i!("effective_type  {}", effective_type);
 
-    let mut result: HashMap<String, ASTType> = HashMap::new();
+    let mut result: LinkedHashMap<String, ASTType> = LinkedHashMap::new();
 
     if parametric_type == effective_type {
         dedent!();
@@ -1300,7 +1300,7 @@ fn convert_lambda(
     lambda: &ASTLambdaDef,
     context: &ValContext,
     typed_context: &mut TypeConversionContext,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTLambdaDef>, TypeCheckError> {
     debug_i!("converting lambda_type {lambda_type}, lambda {lambda}");
     indent!();
@@ -1349,7 +1349,7 @@ fn convert_lambda(
         .iter()
         .map(|it| {
             let converted_expr =
-                convert_statement_in_body(module, it, &mut context, typed_context, &HashMap::new());
+                convert_statement_in_body(module, it, &mut context, typed_context, &LinkedHashMap::new());
 
 
             let new_statement = match converted_expr {
@@ -1398,7 +1398,7 @@ fn convert_lambda(
 
 fn substitute(
     ast_type: &ASTTypeRef,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Option<ASTTypeRef> {
     let new_ast_type = substitute_type(&ast_type.ast_type, resolved_param_types);
 
@@ -1410,7 +1410,7 @@ fn substitute(
 
 fn substitute_type(
     ast_type: &ASTType,
-    resolved_param_types: &HashMap<String, ASTType>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Option<ASTType> {
     debug_i!("substitute {ast_type} {:?}", resolved_param_types);
     indent!();
@@ -1499,7 +1499,7 @@ fn update(
     result_type: ASTType,
     expr: ASTExpression,
     par: &ASTParameterDef,
-    resolved_param_types: &mut HashMap<String, ASTType>,
+    resolved_param_types: &mut LinkedHashMap<String, ASTType>,
     parameters: &mut Vec<ASTParameterDef>,
     expressions: &mut Vec<ASTExpression>,
 ) -> Result<bool, TypeCheckError> {
@@ -1546,7 +1546,8 @@ fn update(
 #[cfg(test)]
 mod tests {
     use crate::codegen::backend::BackendAsm386;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
+    use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::EnhancedASTModule;
 
@@ -1563,7 +1564,7 @@ mod tests {
         let effective_type = i32();
         let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type)?;
 
-        let mut expected_result = HashMap::new();
+        let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1584,7 +1585,7 @@ mod tests {
 
         let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type)?;
 
-        let mut expected_result = HashMap::new();
+        let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1606,7 +1607,7 @@ mod tests {
 
         let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type)?;
 
-        let mut expected_result = HashMap::new();
+        let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1628,7 +1629,7 @@ mod tests {
 
         let result = extract_generic_types_from_effective_type(&parametric_type, &effective_type)?;
 
-        let mut expected_result = HashMap::new();
+        let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);

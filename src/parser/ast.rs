@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
@@ -241,6 +242,16 @@ pub trait MyToString {
 }
 
 impl MyToString for HashMap<String, ASTType> {
+    fn my_to_string(&self) -> String {
+        let pars: Vec<String> = self
+            .iter()
+            .map(|(name, it)| format!("{name}={it}"))
+            .collect();
+        pars.join(",")
+    }
+}
+
+impl MyToString for LinkedHashMap<String, ASTType> {
     fn my_to_string(&self) -> String {
         let pars: Vec<String> = self
             .iter()

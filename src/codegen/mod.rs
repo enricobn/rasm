@@ -6,7 +6,7 @@ pub mod text_macro;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
-use crate::codegen::stack::Stack;
+use crate::codegen::stack::{Stack, StackEntryType};
 use crate::codegen::statics::Statics;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
@@ -634,6 +634,7 @@ impl<'a> CodeGen<'a> {
                                         &stack,
                                     );
 
+                                    /*
                                     assert_eq!(
                                         stack.size(),
                                         0,
@@ -642,6 +643,8 @@ impl<'a> CodeGen<'a> {
                                         call_expression.function_name,
                                         stack
                                     );
+
+                                     */
 
                                     before.push_str(&bf);
 
@@ -696,6 +699,7 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::ASTFunctionCallExpression(call) => {
                                     let type_ref = self.module.functions_by_name.get(&call.function_name.replace("::", "_")).unwrap().return_type.clone().unwrap();
                                     context.insert_let(name.clone(), type_ref.clone());
+                                    let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name, wl);
 
                                     let (bf, af, mut lambda_calls_) = self.call_function(
                                         call,
@@ -709,11 +713,11 @@ impl<'a> CodeGen<'a> {
                                     );
 
                                     before.push_str(&bf);
-                                    CodeGen::add(&mut before, &format!("mov {ws} [{bp} - {}], eax", context.let_vals() * wl), Some(""), true);
+                                    CodeGen::add(&mut before, &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp), Some(""), true);
 
                                     if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
                                         self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"));
-                                        after.push_str(&self.call_deref(&format!("[{bp} - {}]", context.let_vals() * wl), &type_name, &format!("for let val {name}")));
+                                        after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name)), &type_name, &format!("for let val {name}")));
                                     }
 
                                     Self::insert_on_top(&af.join("\n"), &mut after);
@@ -742,25 +746,34 @@ impl<'a> CodeGen<'a> {
                 let new_body = function_call_parameters.resolve_asm_parameters(
                     &mut self.statics,
                     body,
-                    (context.let_vals() * self.backend.word_len()).to_string(),
+                    (stack.size() * self.backend.word_len()).to_string(),
                     indent,
                 );
                 self.definitions.push_str(&new_body);
             }
         }
 
-        if context.let_vals() > 0 {
-            CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
+        if stack.size() > 0 {
+            //CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
+            CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", stack.size()), Some("local vals (let)"), true);
         }
 
         self.definitions.push_str(&before);
 
         self.definitions.push_str(&after);
 
-        if context.let_vals() > 0 {
-            CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
-        }
+        if stack.size() > 0 {
+            //CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
+            /*if context.let_vals() * wl != stack.size() {
+                println!("Stack: \n{:?}", stack);
+                println!("Context: \n{:?}", context);
+                panic!();
+            }
 
+             */
+            CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", stack.size()), Some("local vals (let)"), true);
+            stack.remove_all();
+        }
 
         CodeGen::add(
             &mut self.definitions,
@@ -1178,7 +1191,7 @@ impl<'a> CodeGen<'a> {
         if inline {
             if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
                 let mut added_to_stack = added_to_stack.clone();
-                added_to_stack.push_str(&format!(" + {}", context.let_vals() * self.backend.word_len()));
+                added_to_stack.push_str(&format!(" + {}", stack.size()));
 
                 before.push_str(&call_parameters.resolve_asm_parameters(
                     &mut self.statics,
@@ -1317,7 +1330,7 @@ impl<'a> CodeGen<'a> {
 
             //debug!("going to remove from stack {}/{}", parent_def_description, function_call.function_name);
 
-            stack.remove(call_parameters.to_remove_from_stack());
+            //stack.remove(FunctionCallParameter, call_parameters.to_remove_from_stack());
         }
 
         after.insert(0, call_parameters.after().join("\n"));

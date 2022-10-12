@@ -335,7 +335,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn parameter_added_to_stack(&mut self, param_name: &str) {
         self.parameters_added += 1;
-        self.stack.reserve(param_name, 1);
+        //self.stack.reserve(StackEntryType::FunctionCallParameter, param_name, 1);
     }
 
     pub fn to_remove_from_stack(&self) -> usize {

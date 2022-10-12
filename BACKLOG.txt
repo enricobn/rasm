@@ -1,10 +1,11 @@
 Doing
 ------
-- sdl examples
-  - how to reference external structs?
+- optimizing references stack using the stack pointer
 
 Next
 -----
+- sdl examples
+  - how to reference external structs?
 - optimization
   - when inlining there's no need to reserve/restore memory in the stack for the parameter
 - TextMacro:
