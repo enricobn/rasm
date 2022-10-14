@@ -104,7 +104,7 @@ impl<'a> FunctionCallParameters<'a> {
     fn add_code_for_reference_type(&mut self, code_gen: &mut CodeGen, comment: Option<&str>, name: &str, source: &str, descr: &str) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
-            let descr_key = code_gen.call_add_ref(&mut self.before, self.backend, source, name, descr);
+            let descr_key = code_gen.call_add_ref(&mut self.before, self.backend, source, name, descr, &code_gen.module.clone());
             let pos = self.push_to_scope_stack(source, descr_key, descr);
 
             self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name, descr, pos));
@@ -394,7 +394,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         let mut result = String::new();
         CodeGen::add(&mut result, "; scope pop", None, true);
-        result.push_str(&code_gen.call_deref(&format!("[{} - {}]", backend.stack_base_pointer(), pos), type_name, descr));
+        result.push_str(&code_gen.call_deref(&format!("[{} - {}]", backend.stack_base_pointer(), pos), type_name, descr, &code_gen.module.clone()));
         result
     }
 

@@ -16,22 +16,26 @@ pub fn typed_struct_functions_creator(
     let mut native_body = module.native_body.clone();
 
     for struct_def in module.structs.iter() {
-        create_free(
-            code_gen,
-            backend,
-            &mut functions_by_name,
-            &struct_def,
-            "deref",
-            "deref",
-        );
-        create_free(
-            code_gen,
-            backend,
-            &mut functions_by_name,
-            &struct_def,
-            "addRef",
-            "addRef",
-        );
+        if struct_has_references(struct_def) {
+            create_free(
+                code_gen,
+                backend,
+                &mut functions_by_name,
+                &struct_def,
+                "deref",
+                "deref",
+                module,
+            );
+            create_free(
+                code_gen,
+                backend,
+                &mut functions_by_name,
+                &struct_def,
+                "addRef",
+                "addRef",
+                module,
+            );
+        }
     }
 
     let mut result = module.clone();
@@ -48,6 +52,7 @@ fn create_free(
     struct_def: &ASTTypedStructDef,
     asm_function_name: &str,
     function_name: &str,
+    module: &ASTTypedModule
 ) {
     let ast_type = ASTTypedType::Struct {
         name: struct_def.name.clone(),
@@ -63,6 +68,7 @@ fn create_free(
         struct_def,
         asm_function_name,
         function_name,
+        module
     );
     let body = ASTTypedFunctionBody::ASMBody(body_str);
 
@@ -90,6 +96,7 @@ fn create_free_body(
     struct_def: &ASTTypedStructDef,
     asm_function_name: &str,
     function_name: &str,
+    module: &ASTTypedModule
 ) -> String {
     let ws = backend.word_size();
     let wl = backend.word_len();
@@ -115,29 +122,19 @@ fn create_free_body(
         true,
     );
 
-    if has_references(struct_def) {
-        //println!("dereferencing enum {type_name}");
+    if struct_has_references(struct_def) {
         CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, $address"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
         for (i, property) in struct_def.clone().properties.iter().enumerate() {
             if let Some(name) = CodeGen::get_reference_type_name(&property.type_ref.ast_type) {
-                let free = format!("{name}_{function_name}");
-                /*let descr = format!(
-                    "{descr}, variant {}, type {name}, par {}",
-                    property.name, property.name
-                );
-                 */
-                //let key = code_gen.statics.add_str(&descr);
-                //println!("dereferencing par {:?}", par);
-                CodeGen::add(
-                    &mut result,
-                    &format!("push     {ws} [ebx + {}]", i * wl),
-                    None,
-                    true,
-                );
-                CodeGen::add(&mut result, &format!("call     {free}"), None, true);
-                CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+                if function_name == "deref" {
+                    result.push_str(&code_gen.call_deref(&format!("[ebx + {}]", i * wl), &name,
+                                                         &format!("dereferencing {}.{} : {}", struct_def.name, property.name, name), module));
+                    result.push_str("\n");
+                } else {
+                    code_gen.call_add_ref(&mut result, *backend, &format!("[ebx + {}]", i * wl), &name, "", module);
+                }
             }
         }
 
@@ -147,7 +144,7 @@ fn create_free_body(
     result
 }
 
-fn has_references(stuct_def: &ASTTypedStructDef) -> bool {
+pub fn struct_has_references(stuct_def: &ASTTypedStructDef) -> bool {
     stuct_def.properties.iter().any(|it|
         CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
 }

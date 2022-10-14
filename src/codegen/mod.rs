@@ -15,15 +15,15 @@ use crate::parser::ast::{
     ASTStructDef, ASTTypeRef,
 };
 use linked_hash_map::{Iter, LinkedHashMap};
-use log::{debug, info};
+use log::{debug, info, log_enabled};
 use std::collections::HashSet;
 use std::ops::Deref;
 
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
-use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
-use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
+use crate::transformations::typed_enum_functions_creator::{enum_has_references, typed_enum_functions_creator};
+use crate::transformations::typed_struct_functions_creator::{struct_has_references, typed_struct_functions_creator};
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
@@ -290,8 +290,8 @@ impl<'a> CodeGen<'a> {
         let module = convert(backend, &module, debug_asm, print_memory_info, print_module);
         let module = typed_enum_functions_creator(&mut result, backend, &module);
         let module = typed_struct_functions_creator(&mut result, backend, &module);
-
         result.module = module;
+
         result
     }
 
@@ -712,8 +712,8 @@ impl<'a> CodeGen<'a> {
 
                                     if self.dereference {
                                         if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
-                                            self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"));
-                                            after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name)), &type_name, &format!("for let val {name}")));
+                                            self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"), &self.module.clone());
+                                            after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name)), &type_name, &format!("for let val {name}"), &self.module.clone()));
                                         }
                                     }
 
@@ -1423,22 +1423,46 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn call_deref(&mut self, source: &str, type_name: &str, descr: &str) -> String {
+    pub fn call_deref(&mut self, source: &str, type_name: &str, descr: &str, module: &ASTTypedModule) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
         let mut result = String::new();
 
-        //println!("calling deref for {:?}", type_ref);
+        let has_references =
+            if "str" == type_name {
+                true
+            } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
+                struct_has_references(struct_def)
+            } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
+                enum_has_references(enum_def)
+            } else {
+                panic!("cannot find type {descr} {type_name}: {:?}", module.enums.iter().map(|it| &it.name).collect::<Vec<_>>());
+            };
+
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
-        CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(
-            &mut result,
-            &format!("call     {type_name}_deref"),
-            None,
-            true,
-        );
-        CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+        if has_references {
+            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(
+                &mut result,
+                &format!("call     {type_name}_deref"),
+                None,
+                true,
+            );
+            CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+        } else {
+            let key = self.statics.add_str(descr);
+
+            CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
+            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(
+                &mut result,
+                &"call     deref".to_string(),
+                None,
+                true,
+            );
+            CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
+        }
 
         result
     }
@@ -1458,7 +1482,7 @@ impl<'a> CodeGen<'a> {
         backend: &dyn Backend,
         source: &str,
         type_name: &str,
-        descr: &str,
+        descr: &str, module: &ASTTypedModule,
     ) -> String {
         //println!("add ref {descr}");
         let ws = backend.word_size();
@@ -1467,9 +1491,25 @@ impl<'a> CodeGen<'a> {
         let key = self.statics.add_str(descr);
 
         CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
-        CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(out, &format!("call     {type_name}_addRef"), None, true);
-        CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+
+        let has_references = if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
+            struct_has_references(struct_def)
+        } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
+            enum_has_references(enum_def)
+        } else {
+            true
+        };
+
+        if has_references {
+            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(out, &format!("call     {type_name}_addRef"), None, true);
+            CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+        } else {
+            CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
+            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(out, &format!("call     addRef"), None, true);
+            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+        }
 
         key
     }

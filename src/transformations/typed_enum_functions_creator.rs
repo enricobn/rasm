@@ -13,8 +13,8 @@ pub fn typed_enum_functions_creator(
     let mut native_body = module.native_body.clone();
 
     for enum_def in module.enums.iter() {
-        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "deref", "deref");
-        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "addRef", "addRef");
+        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "deref", "deref", module);
+        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "addRef", "addRef", module);
     }
 
     let mut result = module.clone();
@@ -30,6 +30,7 @@ fn create_free(
     functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     enum_def: &ASTTypedEnumDef,
     asm_function_name: &str, function_name: &str,
+    module: &ASTTypedModule,
 ) {
     let ast_type = ASTTypedType::Enum {
         name: enum_def.name.clone(),
@@ -39,7 +40,7 @@ fn create_free(
         ast_ref: false,
     };
 
-    let body_str = create_free_body(code_gen, &backend, enum_def, asm_function_name, function_name);
+    let body_str = create_free_body(code_gen, &backend, enum_def, asm_function_name, function_name, module);
     let body = ASTTypedFunctionBody::ASMBody(body_str);
 
     let fun_name = format!("{}_{function_name}", enum_def.name);
@@ -60,7 +61,7 @@ fn create_free(
     );
 }
 
-fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &ASTTypedEnumDef, asm_function_name: &str, function_name: &str) -> String {
+fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &ASTTypedEnumDef, asm_function_name: &str, function_name: &str, module: &ASTTypedModule) -> String {
     let ws = backend.word_size();
     let wl = backend.word_len();
 
@@ -75,8 +76,7 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
     CodeGen::add(&mut result, &format!("call  {asm_function_name}"), None, true);
     CodeGen::add(&mut result, &format!("add  {},{}", backend.stack_pointer(), wl * 2), None, true);
 
-    if has_references(enum_def) {
-        //println!("dereferencing enum {type_name}");
+    if enum_has_references(enum_def) {
         CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx,$address"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
@@ -86,13 +86,13 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
                 CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
                     if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
-                        let free = format!("{name}_{function_name}");
-                        //let descr = format!("{descr}, variant {}, type {name}, par {}", variant.name, par.name);
-                        //let key = code_gen.statics.add_str(&descr);
-                        //println!("dereferencing par {:?}", par);
-                        CodeGen::add(&mut result, &format!("push     {ws} [ebx + {}]", (j + 1) * wl), None, true);
-                        CodeGen::add(&mut result, &format!("call     {free}"), None, true);
-                        CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+                        if function_name == "deref" {
+                            result.push_str(&code_gen.call_deref(&format!("[ebx + {}]", (j + 1) * wl), &name,
+                                                                 &format!("dereferencing {}.{} : {}", enum_def.name, par.name, name), module));
+                            result.push_str("\n");
+                        } else {
+                            code_gen.call_add_ref(&mut result, *backend, &format!("[ebx + {}]", (j + 1) * wl), &name, "", module);
+                        }
                     }
                 }
                 CodeGen::add(&mut result, &format!("._variant_{i}:"), None, false);
@@ -106,7 +106,7 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
     result
 }
 
-fn has_references(enum_def: &ASTTypedEnumDef) -> bool {
+pub fn enum_has_references(enum_def: &ASTTypedEnumDef) -> bool {
     enum_def.variants.iter().flat_map(|it| it.parameters.iter()).any(|it|
         CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
 }
