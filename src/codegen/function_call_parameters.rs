@@ -2,7 +2,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedValKind};
-use crate::codegen::stack::Stack;
+use crate::codegen::stack::{Stack, StackEntryType};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedTypeRef};
@@ -105,9 +105,9 @@ impl<'a> FunctionCallParameters<'a> {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
             let descr_key = code_gen.call_add_ref(&mut self.before, self.backend, source, name, descr);
-            Self::push_to_scope_stack(self.backend, &mut self.before, source, descr_key, descr);
+            let pos = self.push_to_scope_stack(source, descr_key, descr);
 
-            self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name, descr));
+            self.after.insert(0, Self::pop_from_scope_stack_and_deref(code_gen, self.backend, name, descr, pos));
         }
     }
 
@@ -149,7 +149,7 @@ impl<'a> FunctionCallParameters<'a> {
                         (index + 2) as i32
                     }
                     TypedValKind::LetRef(index, _) => {
-                        -(*index as i32 + 1)
+                        -(self.stack.find_relative_to_bp(StackEntryType::LetVal, name) as i32 / self.backend.word_len() as i32)
                     }
                 };
                 self.indirect_mov(
@@ -381,56 +381,20 @@ impl<'a> FunctionCallParameters<'a> {
         result
     }
 
-    fn push_to_scope_stack(backend: &dyn Backend, out: &mut String, what: &str, descr_key: String, descr: &str) {
+    fn push_to_scope_stack(&mut self, what: &str, descr_key: String, descr: &str) -> usize {
+        let pos = self.stack.reserve(StackEntryType::RefToDereference, what, self.backend.word_len());
         //println!("push_to_scope_stack {descr}");
-        let tmp_register = "ecx";
-        CodeGen::add(out, "; scope push", None, true);
-        CodeGen::add(out, &format!("push     {} eax", backend.word_size()), None, true);
-        CodeGen::add(out, &format!("push     {} {tmp_register}", backend.word_size()), None, true);
-        CodeGen::add(out, &format!("mov     {tmp_register},[_scope_stack]"), None, true);
-        CodeGen::add(out, &format!("mov     eax,{what}"), None, true);
-
-        /*
-        CodeGen::add(out, &format!("push     {} {descr_key}", backend.word_size()), None, true);
-        CodeGen::add(out, "call    sprintln", None, true);
-        CodeGen::add(out, &format!("add     {}, {}", backend.stack_pointer(), backend.word_len()), None, true);
-
-        CodeGen::add(out, &format!("push     {} eax", backend.word_size()), None, true);
-        CodeGen::add(out, "call     nprintln", None, true);
-        CodeGen::add(out, &format!("add     {}, {}", backend.stack_pointer(), backend.word_len()), None, true);
-
-         */
-
-        CodeGen::add(out, &format!("mov     [{tmp_register}],eax"), None, true);
-        CodeGen::add(out, &format!("add     {tmp_register},{}", backend.word_len()), None, true);
-        CodeGen::add(out, &format!("mov     {} [_scope_stack],{tmp_register}", backend.word_size()), None, true);
-        CodeGen::add(out, &format!("pop     {tmp_register}"), None, true);
-        CodeGen::add(out, "pop    eax", None, true);
+        CodeGen::add(&mut self.before, "; scope push", None, true);
+        CodeGen::add(&mut self.before, &format!("mov     {} [{} - {}], {what}", self.backend.word_size(), self.backend.stack_base_pointer(), pos), None, true);
+        pos
     }
 
-    fn pop_from_scope_stack_and_deref(code_gen: &mut CodeGen, backend: &dyn Backend, type_name: &str, descr: &str) -> String {
+    fn pop_from_scope_stack_and_deref(code_gen: &mut CodeGen, backend: &dyn Backend, type_name: &str, descr: &str, pos: usize) -> String {
         //println!("pop_from_scope_stack_and_deref {descr}");
 
-        let register_to_store_result = "ecx";
         let mut result = String::new();
         CodeGen::add(&mut result, "; scope pop", None, true);
-        CodeGen::add(&mut result, &format!("push {} {register_to_store_result}", backend.word_size()), None, true);
-        CodeGen::add(&mut result, &format!("mov     {register_to_store_result},[_scope_stack]"), None, true);
-        CodeGen::add(&mut result, &format!("sub     {register_to_store_result},{}", backend.word_len()), None, true);
-        CodeGen::add(&mut result, &format!("mov     {} [_scope_stack],{register_to_store_result}", backend.word_size()), None, true);
-
-        /*
-        CodeGen::add(&mut result, &format!("push     {} [{register_to_store_result}]", backend.word_size()), None, true);
-        CodeGen::add(&mut result, "call     nprintln", None, true);
-        CodeGen::add(&mut result, &format!("add     {}, {}", backend.stack_pointer(), backend.word_len()), None, true);
-
-         */
-
-
-        //CodeGen::add(out, &format!("add     {register_to_store_result},{}", backend.word_len()), None, true);
-        //CodeGen::insert_on_top(&result, out);
-        result.push_str(&code_gen.call_deref(&format!("[{register_to_store_result}]"), type_name, descr));
-        CodeGen::add(&mut result, &format!("pop {register_to_store_result}"), None, true);
+        result.push_str(&code_gen.call_deref(&format!("[{} - {}]", backend.stack_base_pointer(), pos), type_name, descr));
         result
     }
 

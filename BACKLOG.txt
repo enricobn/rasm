@@ -1,13 +1,14 @@
 Doing
 ------
-- optimizing references stack using the stack pointer
 
 Next
 -----
+- rename Stack and allocate one slot at the time
+- let in main
+- optimization:
+  if a ref type is has not other references there's no need to call his ref / deref fun, we can use the simple one
 - sdl examples
   - how to reference external structs?
-- optimization
-  - when inlining there's no need to reserve/restore memory in the stack for the parameter
 - TextMacro:
     - TextMacroEvaluator It should be better to pass in a TypedValContext
     - is it possible to use TextMacro in standard functions? (but for what?)

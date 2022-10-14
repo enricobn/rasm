@@ -333,7 +333,7 @@ impl<'a> CodeGen<'a> {
                     }
                 },
                 ASTTypedStatement::LetStatement(_name, _e) => {
-                    panic!("let statement: unsupported");
+                    panic!("let statement: not supported here, for now");
                 }
             }
         }
@@ -341,7 +341,7 @@ impl<'a> CodeGen<'a> {
         self.body.push_str(&after);
 
         info!("stack {:?}", stack);
-        assert_eq!(stack.size(), 0);
+//        assert_eq!(stack.size(), 0);
 
         // TODO add a command line argument
         //Parser::print(&self.module);
@@ -380,10 +380,6 @@ impl<'a> CodeGen<'a> {
             "_lambda_space_stack_buffer".into(),
             Mem(self.lambda_space_size, Bytes),
         );
-
-        self.statics.insert("_scope_stack".into(), Mem(4, Bytes));
-        self.statics
-            .insert("_scope_stack_buffer".into(), Mem(16 * 1024 * 1024, Bytes));
 
         self.statics
             .insert("_reusable_heap_table".into(), Mem(16 * 1024 * 1024, Bytes));
@@ -435,9 +431,6 @@ impl<'a> CodeGen<'a> {
         );
         CodeGen::add(&mut asm, "mov     [_lambda_space_stack], eax", None, true);
 
-        CodeGen::add(&mut asm, "mov     eax, _scope_stack_buffer", None, true);
-        CodeGen::add(&mut asm, "mov     [_scope_stack], eax", None, true);
-
         CodeGen::add(&mut asm, "mov     eax, _reusable_heap_table", None, true);
         CodeGen::add(
             &mut asm,
@@ -482,7 +475,9 @@ impl<'a> CodeGen<'a> {
             true,
         );
 
+        asm.push_str(&format!("sub  {}, {}\n", self.backend.stack_pointer(), stack.size()));
         asm.push_str(&self.body);
+        asm.push_str(&format!("add  {}, {}\n", self.backend.stack_pointer(), stack.size()));
 
         CodeGen::add(
             &mut asm,
@@ -715,9 +710,11 @@ impl<'a> CodeGen<'a> {
                                     before.push_str(&bf);
                                     CodeGen::add(&mut before, &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp), Some(""), true);
 
-                                    if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
-                                        self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"));
-                                        after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name)), &type_name, &format!("for let val {name}")));
+                                    if self.dereference {
+                                        if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
+                                            self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"));
+                                            after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name)), &type_name, &format!("for let val {name}")));
+                                        }
                                     }
 
                                     Self::insert_on_top(&af.join("\n"), &mut after);

@@ -4,6 +4,7 @@
 // 10,227 - optimized lambda space creation
 // 10,180 - optimized memcopy
 // 11,948 - dereference has been reset
+// 11,899 - optimization: references in stack vs scope stack
 
 include "std.rasm"
 include "sdl.rasm"
