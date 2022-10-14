@@ -3,10 +3,7 @@ Doing
 
 Next
 -----
-- rename Stack and allocate one slot at the time
 - let in main
-- optimization:
-  if a ref type is has not other references there's no need to call his ref / deref fun, we can use the simple one
 - sdl examples
   - how to reference external structs?
 - TextMacro:

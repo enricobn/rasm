@@ -6,7 +6,7 @@ pub mod text_macro;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
-use crate::codegen::stack::{Stack, StackEntryType};
+use crate::codegen::stack::{StackVals, StackEntryType};
 use crate::codegen::statics::Statics;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
@@ -15,7 +15,7 @@ use crate::parser::ast::{
     ASTStructDef, ASTTypeRef,
 };
 use linked_hash_map::{Iter, LinkedHashMap};
-use log::{debug, info, log_enabled};
+use log::{debug, info};
 use std::collections::HashSet;
 use std::ops::Deref;
 
@@ -304,7 +304,7 @@ impl<'a> CodeGen<'a> {
         // for now main has no context
         let main_context = TypedValContext::new(None);
 
-        let stack = Stack::new();
+        let stack = StackVals::new();
 
         let mut after = String::new();
 
@@ -475,9 +475,9 @@ impl<'a> CodeGen<'a> {
             true,
         );
 
-        asm.push_str(&format!("sub  {}, {}\n", self.backend.stack_pointer(), stack.size()));
+        asm.push_str(&format!("sub  {}, {}\n", self.backend.stack_pointer(), stack.len() * self.backend.word_len()));
         asm.push_str(&self.body);
-        asm.push_str(&format!("add  {}, {}\n", self.backend.stack_pointer(), stack.size()));
+        asm.push_str(&format!("add  {}, {}\n", self.backend.stack_pointer(), stack.len() * self.backend.word_len()));
 
         CodeGen::add(
             &mut asm,
@@ -607,7 +607,7 @@ impl<'a> CodeGen<'a> {
             i += 1;
         }
 
-        let stack = Stack::new();
+        let stack = StackVals::new();
 
         let mut after = String::new();
 
@@ -649,7 +649,7 @@ impl<'a> CodeGen<'a> {
                                 }
                                 ASTTypedExpression::Val(val) => {
                                     // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
-                                    let tmp_stack = Stack::new();
+                                    let tmp_stack = StackVals::new();
 
                                     let mut parameters = FunctionCallParameters::new(
                                         self.backend,
@@ -694,7 +694,7 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::ASTFunctionCallExpression(call) => {
                                     let type_ref = self.module.functions_by_name.get(&call.function_name.replace("::", "_")).unwrap().return_type.clone().unwrap();
                                     context.insert_let(name.clone(), type_ref.clone());
-                                    let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name, wl);
+                                    let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
 
                                     let (bf, af, mut lambda_calls_) = self.call_function(
                                         call,
@@ -713,7 +713,7 @@ impl<'a> CodeGen<'a> {
                                     if self.dereference {
                                         if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
                                             self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"), &self.module.clone());
-                                            after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name)), &type_name, &format!("for let val {name}"), &self.module.clone()));
+                                            after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name) * self.backend.word_len()), &type_name, &format!("for let val {name}"), &self.module.clone()));
                                         }
                                     }
 
@@ -743,32 +743,24 @@ impl<'a> CodeGen<'a> {
                 let new_body = function_call_parameters.resolve_asm_parameters(
                     &mut self.statics,
                     body,
-                    (stack.size() * self.backend.word_len()).to_string(),
+                    (stack.len() * self.backend.word_len()).to_string(),
                     indent,
                 );
                 self.definitions.push_str(&new_body);
             }
         }
 
-        if stack.size() > 0 {
+        if stack.len() > 0 {
             //CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
-            CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", stack.size()), Some("local vals (let)"), true);
+            CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", stack.len() * self.backend.word_len()), Some("local vals (let)"), true);
         }
 
         self.definitions.push_str(&before);
 
         self.definitions.push_str(&after);
 
-        if stack.size() > 0 {
-            //CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
-            /*if context.let_vals() * wl != stack.size() {
-                println!("Stack: \n{:?}", stack);
-                println!("Context: \n{:?}", context);
-                panic!();
-            }
-
-             */
-            CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", stack.size()), Some("local vals (let)"), true);
+        if stack.len() > 0 {
+            CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", stack.len() * self.backend.word_len()), Some("local vals (let)"), true);
             stack.remove_all();
         }
 
@@ -829,7 +821,7 @@ impl<'a> CodeGen<'a> {
         lambda_space: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
-        stack: &Stack,
+        stack_vals: &StackVals,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
         let mut before = String::new();
         let mut after = Vec::new();
@@ -865,7 +857,7 @@ impl<'a> CodeGen<'a> {
                 lambda_space,
                 indent,
                 is_lambda,
-                stack,
+                stack_vals,
                 &mut after,
             )
         } else if let Some(function_def) = self
@@ -900,7 +892,7 @@ impl<'a> CodeGen<'a> {
                 lambda_space,
                 indent,
                 is_lambda,
-                stack,
+                stack_vals,
                 &mut after,
             )
         } else if let Some(TypedValKind::ParameterRef(index, par)) =
@@ -967,7 +959,7 @@ impl<'a> CodeGen<'a> {
                     lambda_space,
                     indent,
                     true,
-                    stack,
+                    stack_vals,
                     &mut after,
                 )
             } else {
@@ -997,7 +989,7 @@ impl<'a> CodeGen<'a> {
         lambda_space_opt: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
-        stack: &Stack,
+        stack_vals: &StackVals,
         after: &mut Vec<String>,
     ) -> Vec<LambdaCall> {
         /*
@@ -1040,7 +1032,7 @@ impl<'a> CodeGen<'a> {
             parameters.clone(),
             inline,
             false,
-            stack,
+            stack_vals,
             self.dereference,
             self.id,
         );
@@ -1097,7 +1089,7 @@ impl<'a> CodeGen<'a> {
                             lambda_space_opt,
                             indent + 1,
                             false,
-                            stack,
+                            stack_vals,
                         );
 
                         call_parameters.push(&bf);
@@ -1187,8 +1179,8 @@ impl<'a> CodeGen<'a> {
 
         if inline {
             if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
-                let mut added_to_stack = added_to_stack.clone();
-                added_to_stack.push_str(&format!(" + {}", stack.size()));
+                let mut added_to_stack = added_to_stack;
+                added_to_stack.push_str(&format!(" + {}", stack_vals.len() * self.backend.word_len()));
 
                 before.push_str(&call_parameters.resolve_asm_parameters(
                     &mut self.statics,

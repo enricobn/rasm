@@ -2,7 +2,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedValKind};
-use crate::codegen::stack::{Stack, StackEntryType};
+use crate::codegen::stack::{StackVals, StackEntryType};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedTypeRef};
@@ -17,10 +17,10 @@ pub struct FunctionCallParameters<'a> {
     immediate: bool,
     has_inline_lambda_param: bool,
     lambda_slots_to_deallocate: usize,
-    stack: &'a Stack,
+    stack_vals: &'a StackVals,
     after: Vec<String>,
     dereference: bool,
-    id: usize
+    id: usize,
 }
 
 impl<'a> FunctionCallParameters<'a> {
@@ -40,7 +40,7 @@ impl<'a> FunctionCallParameters<'a> {
     /// ```
     ///
     /// ```
-    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a Stack, dereference: bool, id: usize) -> Self {
+    pub fn new(backend: &'a dyn Backend, parameters: Vec<ASTTypedParameterDef>, inline: bool, immediate: bool, stack: &'a StackVals, dereference: bool, id: usize) -> Self {
         Self {
             parameters_added: 0,
             before: String::new(),
@@ -51,10 +51,10 @@ impl<'a> FunctionCallParameters<'a> {
             immediate,
             has_inline_lambda_param: false,
             lambda_slots_to_deallocate: 0,
-            stack,
+            stack_vals: stack,
             after: Vec::new(),
             dereference,
-            id
+            id,
         }
     }
 
@@ -149,7 +149,7 @@ impl<'a> FunctionCallParameters<'a> {
                         (index + 2) as i32
                     }
                     TypedValKind::LetRef(index, _) => {
-                        -(self.stack.find_relative_to_bp(StackEntryType::LetVal, name) as i32 / self.backend.word_len() as i32)
+                        -(self.stack_vals.find_relative_to_bp(StackEntryType::LetVal, name) as i32)
                     }
                 };
                 self.indirect_mov(
@@ -382,7 +382,7 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn push_to_scope_stack(&mut self, what: &str, descr_key: String, descr: &str) -> usize {
-        let pos = self.stack.reserve(StackEntryType::RefToDereference, what, self.backend.word_len());
+        let pos = self.stack_vals.reserve(StackEntryType::RefToDereference, what) * self.backend.word_len();
         //println!("push_to_scope_stack {descr}");
         CodeGen::add(&mut self.before, "; scope push", None, true);
         CodeGen::add(&mut self.before, &format!("mov     {} [{} - {}], {what}", self.backend.word_size(), self.backend.stack_base_pointer(), pos), None, true);
