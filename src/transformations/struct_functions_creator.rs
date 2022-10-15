@@ -81,6 +81,6 @@ fn create_function_for_struct_property(backend: &dyn Backend, struct_def: &ASTSt
         return_type: Some(property_def.type_ref.clone()),
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
         param_types: struct_def.type_parameters.clone(),
-        inline: false,
+        inline: true,
     }
 }

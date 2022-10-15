@@ -6,6 +6,7 @@
 // 11,948 - dereference has been reset
 // 11,899 - optimization: references in stack vs scope stack
 // 11,019 - optimized listAnyMatch
+// 10,330 - inlined struct property getter
 
 include "std.rasm"
 include "sdl.rasm"
