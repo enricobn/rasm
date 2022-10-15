@@ -302,7 +302,7 @@ impl<'a> CodeGen<'a> {
         self.functions = self.module.functions_by_name.clone();
 
         // for now main has no context
-        let main_context = TypedValContext::new(None);
+        let mut context = TypedValContext::new(None);
 
         let stack = StackVals::new();
 
@@ -314,7 +314,7 @@ impl<'a> CodeGen<'a> {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let (bf, af, mut lambda_calls) = self.call_function(
                             call,
-                            &main_context,
+                            &context,
                             None,
                             "0".into(),
                             None,
@@ -332,8 +332,45 @@ impl<'a> CodeGen<'a> {
                         panic!("unsupported expression in body {e}");
                     }
                 },
-                ASTTypedStatement::LetStatement(_name, _e) => {
-                    panic!("let statement: not supported here, for now");
+                ASTTypedStatement::LetStatement(name, expr) => {
+                    match expr {
+                        ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                            let wl = self.backend.word_len();
+                            let ws = self.backend.word_size();
+                            let bp = self.backend.stack_base_pointer();
+                            let type_ref = self.module.functions_by_name.get(&call.function_name.replace("::", "_")).unwrap().return_type.clone().unwrap();
+                            context.insert_let(name.clone(), type_ref.clone());
+                            let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
+
+                            let (bf, af, mut lambda_calls) = self.call_function(
+                                call,
+                                &context,
+                                None,
+                                "0".into(),
+                                None,
+                                0,
+                                false,
+                                &stack,
+                            );
+
+                            self.body.push_str(&bf);
+                            CodeGen::add(&mut self.body, &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp), Some(""), true);
+
+                            if self.dereference {
+                                if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
+                                    let mut body = self.body.clone();
+                                    self.call_add_ref(&mut body, self.backend, "eax", &type_name, &format!("for let val {name}"), &self.module.clone());
+                                    self.body = body;
+                                    after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name) * self.backend.word_len()), &type_name, &format!("for let val {name}"), &self.module.clone()));
+                                }
+                            }
+
+                            Self::insert_on_top(&af.join("\n"), &mut after);
+
+                            self.lambdas.append(&mut lambda_calls);
+                        }
+                        _ => { panic!("unsupported let expression {expr}"); }
+                    }
                 }
             }
         }

@@ -4,9 +4,9 @@
 include "std.rasm"
 include "../../examples/gameoflife_common.rasm"
 
-runWith(readCellFile(argv(1)), { start ->
-    run(moveCells(start, 10), 30, atoi(argv(2)));
-});
+let start = readCellFile(argv(1));
+
+run(moveCells(start, 10), 30, atoi(argv(2)));
 
 fn run(start: List<Cell>, size: i32, count: i32) {
     runWith(allCells(size, size), { allCells ->

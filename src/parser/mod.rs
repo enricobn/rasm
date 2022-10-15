@@ -250,6 +250,11 @@ impl Parser {
                         self.panic("Cannot parse external")
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
+                    } else if let Some((name, next_i)) = self.try_parse_let() {
+                        self.parser_data.push(ParserData::Let(name));
+                        self.state.push(ParserState::Let);
+                        self.i = next_i;
+                        continue;
                     }
                     self.panic("Unknown statement");
                 }

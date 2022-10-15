@@ -3,7 +3,6 @@ Doing
 
 Next
 -----
-- let in main
 - sdl examples
   - how to reference external structs?
 - TextMacro:

@@ -15,10 +15,11 @@ extern "printf"
 
 sdlInit();
 
-runWith(readCellFile(argv(1)), { start ->
-    run(moveCells(start, 20), 80, 50, atoi(argv(2)));
-    //run(moveCells(start, 10), 30, 30, atoi(argv(2)));
-});
+let start = readCellFile(argv(1));
+
+run(moveCells(start, 20), 80, 50, atoi(argv(2)));
+//run(moveCells(start, 10), 30, 30, atoi(argv(2)));
+
 
 sdlQuit();
 

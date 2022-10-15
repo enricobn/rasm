@@ -150,10 +150,9 @@ pub fn convert(
                                 ))
                             }
                             Ok(None) => {
-                                let type_ref = module
-                                    .functions_by_name
+                                let type_ref = type_conversion_context
                                     .get(&call.function_name)
-                                    .unwrap()
+                                    .unwrap_or_else(|| panic!("{}", &call.function_name))
                                     .return_type
                                     .clone()
                                     .unwrap();
