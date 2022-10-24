@@ -18,7 +18,9 @@ it will produce a "file name" executable
 for example:  
 `target/release/rasm resources/test/fibonacci.rasm`  
 will produce fibonacci file  
-you can run it
+you can run it with:  
+`./fibonacci 40`  
+it should print the fortieth fibonacci number (102334155)
 
 ## LIBC examples/test
 
