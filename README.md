@@ -11,6 +11,12 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 
 ## Compile
 
+### Prerequisites
+
+#### To install 32 bit libc libraries on Ubuntu
+
+`sudo apt install gcc-multilib g++-multilib libc++-dev`
+
 To compile a rasm program:  
 `target/release/rasm "file name".rasm`    
 it will produce a "file name" executable
@@ -22,16 +28,7 @@ you can run it with:
 `./fibonacci 40`  
 it should print the fortieth fibonacci number (102334155)
 
-## LIBC examples/test
-
-### To install 32 bit libc libraries on Ubuntu
-
-`sudo apt install gcc-multilib g++-multilib`  
-`sudo apt install libc++-dev`
-
 ## SDL examples
-
-install libc libraries (see above)
 
 ### To install SDL 32 bit libraries on Ubuntu
 

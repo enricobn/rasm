@@ -38,19 +38,10 @@ Next
 - I would like to have some namespace for functions, to be xx.yy.zz::function_name
 - I can close an already closed TokensGroup (make a test)
 - safe command line arguments (use Option?)
-- add command line argument to print the syntax tree
+- add command line arguments:
+  - to print the syntax tree
+  - to print memory allocation
+  - to debug asm
 - rename lambda to closure?
 - line errors in codegen
 - threads
-- dynamic strings
-
-BUGS
------
-- if an enum or a struct has no generic types
-- "fn listMap<T("    should not be valid because the angle bracket is not closed, but now it works, but probably the type parameters are gone...
-  - look at param_types_matcher
-- a fn with an asm block /{ }/ is interpreted as asm
-- error when a parameter of an asm function starts the same as another : v v1
-    - we must process them in size order descending
-- error when an enum variant starts the same as another : T T1
-- error returning a value ina a lambda: look at val_in_lambda.rasm
