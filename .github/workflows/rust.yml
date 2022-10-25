@@ -16,7 +16,6 @@ jobs:
 
     steps:
       - uses: ilammy/setup-nasm@v1
-          - version: 2.14.02
       - uses: actions/checkout@v3
       - name: Build
         run: cargo build --verbose
