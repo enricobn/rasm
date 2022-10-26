@@ -3,6 +3,8 @@ Doing
 
 Next
 -----
+- rust.yaml:
+  - try to remove ilammy/setup-nasm@v1 and add nasm to apt-get install
 - sdl examples
   - how to reference external structs?
 - TextMacro:
@@ -18,7 +20,7 @@ Next
     be overridden with an environment var with a list of folders, separated by colon
   - ??? add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
     or add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
-- delete asm, object and executable file on compile
+- delete asm, object and executable file before compile
 - I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
 - support for boolean and char
@@ -38,7 +40,7 @@ Next
 - I would like to have some namespace for functions, to be xx.yy.zz::function_name
 - I can close an already closed TokensGroup (make a test)
 - safe command line arguments (use Option?)
-- add command line arguments:
+- add command line arguments to the compiler:
   - to print the syntax tree
   - to print memory allocation
   - to debug asm
