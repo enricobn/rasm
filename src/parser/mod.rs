@@ -157,7 +157,7 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, inline, param_types, next_i)) =
-                    AsmDefParser::new(self).try_parse()
+                        AsmDefParser::new(self).try_parse()
                     {
                         self.parser_data
                             .push(ParserData::FunctionDef(ASTFunctionDef {
@@ -504,14 +504,15 @@ impl Parser {
                 {
                     let statement =
                         if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
-                            let let_statement = ASTStatement::LetStatement(name.clone(), ASTFunctionCallExpression(call));
+                            let let_statement = ASTStatement::LetStatement(
+                                name.clone(),
+                                ASTFunctionCallExpression(call),
+                            );
                             self.parser_data.pop();
                             self.state.pop();
                             let_statement
                         } else {
-                            ASTStatement::Expression(
-                                ASTFunctionCallExpression(call),
-                            )
+                            ASTStatement::Expression(ASTFunctionCallExpression(call))
                         };
 
                     if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
@@ -539,8 +540,7 @@ impl Parser {
                         self.state.pop();
                         return ProcessResult::Continue;
                     } else {
-                        self.body
-                            .push(statement);
+                        self.body.push(statement);
                     }
                     self.parser_data.pop();
                     self.state.pop();

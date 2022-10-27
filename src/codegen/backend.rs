@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::ASTTypedTypeRef;
 use log::info;
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
 
 pub trait Backend {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -67,7 +67,10 @@ impl BackendAsm386 {
 
     fn log_command(command: &Command) {
         let mut s = String::new();
-        s.push_str(&format!("running command: {}", &command.get_program().to_str().unwrap()));
+        s.push_str(&format!(
+            "running command: {}",
+            &command.get_program().to_str().unwrap()
+        ));
         for arg in command.get_args() {
             s.push_str(&format!(" {}", &arg.to_str().unwrap()));
         }
@@ -104,7 +107,8 @@ impl Backend for BackendAsm386 {
         info!("source file : '{}'", source_file);
         let path = Path::new(&source_file);
         let mut nasm_command = Command::new("nasm");
-        nasm_command.arg("-f")
+        nasm_command
+            .arg("-f")
             .arg("elf")
             .arg("-g")
             .arg("-F")
@@ -129,12 +133,17 @@ impl Backend for BackendAsm386 {
                         .arg("-o")
                         .arg(path.with_extension(""));
                     BackendAsm386::log_command(&ld_command);
-                    ld_command.stderr(Stdio::inherit())
+                    ld_command
+                        .stderr(Stdio::inherit())
                         .output()
                         .expect("failed to execute ld")
-                },
+                }
                 Linker::Gcc => {
-                    let libraries = self.requires.iter().filter(|it| *it != "libc").map(|it| format!("-l{it}"))
+                    let libraries = self
+                        .requires
+                        .iter()
+                        .filter(|it| *it != "libc")
+                        .map(|it| format!("-l{it}"))
                         .collect::<Vec<String>>();
 
                     let mut gcc_command = Command::new("gcc");
@@ -147,7 +156,8 @@ impl Backend for BackendAsm386 {
                         .arg(path.with_extension("o"))
                         .args(libraries);
                     BackendAsm386::log_command(&gcc_command);
-                    gcc_command.stderr(Stdio::inherit())
+                    gcc_command
+                        .stderr(Stdio::inherit())
                         .output()
                         .expect("failed to execute gcc")
                 }
@@ -196,7 +206,6 @@ impl Backend for BackendAsm386 {
         }
     }
 
-
     /// Returns the name of the functions called in the code
     ///
     /// # Arguments
@@ -205,7 +214,6 @@ impl Backend for BackendAsm386 {
     ///
     /// returns: Vec<String>
     fn called_functions(&self, body: &str) -> Vec<String> {
-
         // TODO I don't like to create it
         let evaluator = TextMacroEvaluator::new(Vec::new());
 
@@ -215,15 +223,23 @@ impl Backend for BackendAsm386 {
             body,
         );
 
-        body.lines().map(|it| {
-            let line = self.remove_comments_from_line(it.to_string());
-            line.trim().to_string()
-        }).filter(|it| !it.starts_with(';') && it.contains("call") && !it.contains('[') && !it.contains('$'))
+        body.lines()
+            .map(|it| {
+                let line = self.remove_comments_from_line(it.to_string());
+                line.trim().to_string()
+            })
+            .filter(|it| {
+                !it.starts_with(';')
+                    && it.contains("call")
+                    && !it.contains('[')
+                    && !it.contains('$')
+            })
             .map(|it| {
                 let pos = it.find("call").unwrap();
                 let s = it.split_at(pos + 4).1.trim();
                 String::from_iter(s.chars().take_while(|it| !it.is_whitespace()))
-            }).filter(|it| !it.is_empty() && !self.externals.contains(it))
+            })
+            .filter(|it| !it.is_empty() && !self.externals.contains(it))
             .collect()
     }
 
@@ -242,21 +258,27 @@ impl Backend for BackendAsm386 {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use crate::codegen::backend::{Backend, BackendAsm386};
+    use std::collections::HashSet;
 
     #[test]
     fn called_functions() {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
-        assert_eq!(sut.called_functions("call something"), vec!["something".to_string()]);
+        assert_eq!(
+            sut.called_functions("call something"),
+            vec!["something".to_string()]
+        );
     }
 
     #[test]
     fn called_functions_in_comment() {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
-        assert_eq!(sut.called_functions("mov    eax, 1; call something".into()), Vec::<String>::new());
+        assert_eq!(
+            sut.called_functions("mov    eax, 1; call something".into()),
+            Vec::<String>::new()
+        );
     }
 
     #[test]
@@ -266,6 +288,9 @@ mod tests {
 
         let sut = BackendAsm386::new(Default::default(), externals);
 
-        assert_eq!(sut.called_functions("call something".into()), Vec::<String>::new());
+        assert_eq!(
+            sut.called_functions("call something".into()),
+            Vec::<String>::new()
+        );
     }
 }

@@ -2,7 +2,6 @@ use std::process::{Command, Stdio};
 use tempdir::TempDir;
 
 #[cfg(test)]
-
 #[test]
 fn test_helloworld() {
     test("helloworld", Vec::new(), "Hello world\n");
@@ -10,22 +9,22 @@ fn test_helloworld() {
 
 #[test]
 fn test_fibonacci() {
-    test("fibonacci", vec!["10"],"55\n");
+    test("fibonacci", vec!["10"], "55\n");
 }
 
 #[test]
 fn test_inline() {
-    test("inline", Vec::new(),"29\n");
+    test("inline", Vec::new(), "29\n");
 }
 
 #[test]
 fn test_cmdlineargs() {
-    test("cmdlineargs", vec!["hello", "world"],"3\nhello\nworld\n");
+    test("cmdlineargs", vec!["hello", "world"], "3\nhello\nworld\n");
 }
 
 #[test]
 fn test_atoi() {
-    test("atoi", vec!["1000"],"1000\n");
+    test("atoi", vec!["1000"], "1000\n");
 }
 
 #[test]
@@ -35,37 +34,41 @@ fn test_conditionals() {
 
 #[test]
 fn test_mc91() {
-    test("mc91", Vec::new(),"91\n");
+    test("mc91", Vec::new(), "91\n");
 }
 
 #[test]
 fn test_enum() {
-    test("enum", Vec::new(),"Some(a value)\nNone\nT2\n10\nSome(a value)\n");
+    test(
+        "enum",
+        Vec::new(),
+        "Some(a value)\nNone\nT2\n10\nSome(a value)\n",
+    );
 }
 
 #[test]
 fn test_lambda_0() {
-    test("lambda", vec!["0"],"0\n");
+    test("lambda", vec!["0"], "0\n");
 }
 
 #[test]
 fn test_lambda_1() {
-    test("lambda", vec!["1"],"1\n");
+    test("lambda", vec!["1"], "1\n");
 }
 
 #[test]
 fn test_lambda_2() {
-    test("lambda", vec!["2"],"2\n");
+    test("lambda", vec!["2"], "2\n");
 }
 
 #[test]
 fn test_lambda_3() {
-    test("lambda", vec!["3"],"3\n");
+    test("lambda", vec!["3"], "3\n");
 }
 
 #[test]
 fn test_lambda_params() {
-    test("lambda_params", vec!["20"],"35\n");
+    test("lambda_params", vec!["20"], "35\n");
 }
 
 #[test]
@@ -80,52 +83,52 @@ fn test_list_map() {
 
 #[test]
 fn test_recurse() {
-    test("recurse", Vec::new(),"5\n4\n3\n2\n1\n0\n");
+    test("recurse", Vec::new(), "5\n4\n3\n2\n1\n0\n");
 }
 
 #[test]
 fn test_val() {
-    test("val", vec!["10"],"10\n10\n10\n");
+    test("val", vec!["10"], "10\n10\n10\n");
 }
 
 #[test]
 fn test_val_in_lambda() {
-    test("val_in_lambda", vec!["10"],"10\n");
+    test("val_in_lambda", vec!["10"], "10\n");
 }
 
 #[test]
 fn test_params_order() {
-    test("params_order", vec![],"0\n1\n");
+    test("params_order", vec![], "0\n1\n");
 }
 
 #[test]
 fn test_list_fmap() {
-    test("list_fmap", vec![],"0,5,1,5\n");
+    test("list_fmap", vec![], "0,5,1,5\n");
 }
 
 #[test]
 fn test_list_fold() {
-    test("list_fold", vec!["3"],"4\n10\n");
+    test("list_fold", vec!["3"], "4\n10\n");
 }
 
 #[test]
 fn test_function_as_arg() {
-    test("function_as_arg", vec!["3"],"13\n");
+    test("function_as_arg", vec!["3"], "13\n");
 }
 
 #[test]
 fn test_inner_context() {
-    test("inner_context", vec![],"13\n");
+    test("inner_context", vec![], "13\n");
 }
 
 #[test]
 fn test_list_append() {
-    test("list_append", vec![],"1,2\n");
+    test("list_append", vec![], "1,2\n");
 }
 
 #[test]
 fn test_list_flatten() {
-    test("list_flatten", vec![],"1,2,3,4\n");
+    test("list_flatten", vec![], "1,2,3,4\n");
 }
 
 #[test]
@@ -140,14 +143,22 @@ fn test_structs() {
 
 #[test]
 fn test_read_file() {
-    test("read_file", vec!["resources/test/test.txt"], "hello\nworld\n");
+    test(
+        "read_file",
+        vec!["resources/test/test.txt"],
+        "hello\nworld\n",
+    );
 }
 
 #[test]
 #[ignore]
 // TODO find a way to re enable it
 fn test_malloc() {
-    test("malloc", vec![], "Some(1)\nSome(2)\nSome(3)\nSome(4)\nSome(5)\n24 bytes allocated\n");
+    test(
+        "malloc",
+        vec![],
+        "Some(1)\nSome(2)\nSome(3)\nSome(4)\nSome(5)\n24 bytes allocated\n",
+    );
 }
 
 #[test]
@@ -157,12 +168,20 @@ fn test_list_filter() {
 
 #[test]
 fn test_print() {
-    test("print", Vec::new(), "Hello world\nHi\n10\n40\n45\none\ntwo\n");
+    test(
+        "print",
+        Vec::new(),
+        "Hello world\nHi\n10\n40\n45\none\ntwo\n",
+    );
 }
 
 #[test]
 fn test_str() {
-    test("str", Vec::new(), "Hello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\n1\n0\n0\n0\n");
+    test(
+        "str",
+        Vec::new(),
+        "Hello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\n1\n0\n0\n0\n",
+    );
 }
 
 #[test]
@@ -214,9 +233,6 @@ fn test_(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     assert!(output.status.success());
 
     if let Some(eo) = expected_output {
-        assert_eq!(
-            String::from_utf8_lossy(&output.stdout),
-            eo
-        );
+        assert_eq!(String::from_utf8_lossy(&output.stdout), eo);
     }
 }

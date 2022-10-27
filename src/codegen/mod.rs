@@ -6,13 +6,12 @@ pub mod text_macro;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
-use crate::codegen::stack::{StackVals, StackEntryType};
+use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::parser::ast::{
-    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement,
-    ASTStructDef, ASTTypeRef,
+    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeRef,
 };
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
@@ -22,8 +21,12 @@ use std::ops::Deref;
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
-use crate::transformations::typed_enum_functions_creator::{enum_has_references, typed_enum_functions_creator};
-use crate::transformations::typed_struct_functions_creator::{struct_has_references, typed_struct_functions_creator};
+use crate::transformations::typed_enum_functions_creator::{
+    enum_has_references, typed_enum_functions_creator,
+};
+use crate::transformations::typed_struct_functions_creator::{
+    struct_has_references, typed_struct_functions_creator,
+};
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
@@ -143,9 +146,13 @@ impl TypedValContext {
         }
     }
 
-    pub fn insert_par(&mut self, key: String, index: usize, par: ASTTypedParameterDef) -> Option<TypedValKind> {
-        self
-            .value_to_address
+    pub fn insert_par(
+        &mut self,
+        key: String,
+        index: usize,
+        par: ASTTypedParameterDef,
+    ) -> Option<TypedValKind> {
+        self.value_to_address
             .insert(key, TypedValKind::ParameterRef(index, par))
     }
 
@@ -332,53 +339,84 @@ impl<'a> CodeGen<'a> {
                         panic!("unsupported expression in body {e}");
                     }
                 },
-                ASTTypedStatement::LetStatement(name, expr) => {
-                    match expr {
-                        ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                            let wl = self.backend.word_len();
-                            let ws = self.backend.word_size();
-                            let bp = self.backend.stack_base_pointer();
-                            let type_ref = self.module.functions_by_name.get(&call.function_name.replace("::", "_")).unwrap().return_type.clone().unwrap();
-                            context.insert_let(name.clone(), type_ref.clone());
-                            let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
+                ASTTypedStatement::LetStatement(name, expr) => match expr {
+                    ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                        let wl = self.backend.word_len();
+                        let ws = self.backend.word_size();
+                        let bp = self.backend.stack_base_pointer();
+                        let type_ref = self
+                            .module
+                            .functions_by_name
+                            .get(&call.function_name.replace("::", "_"))
+                            .unwrap()
+                            .return_type
+                            .clone()
+                            .unwrap();
+                        context.insert_let(name.clone(), type_ref.clone());
+                        let address_relative_to_bp =
+                            stack.reserve(StackEntryType::LetVal, name) * wl;
 
-                            let (bf, af, mut lambda_calls) = self.call_function(
-                                call,
-                                &context,
-                                None,
-                                "0".into(),
-                                None,
-                                0,
-                                false,
-                                &stack,
-                            );
+                        let (bf, af, mut lambda_calls) = self.call_function(
+                            call,
+                            &context,
+                            None,
+                            "0".into(),
+                            None,
+                            0,
+                            false,
+                            &stack,
+                        );
 
-                            self.body.push_str(&bf);
-                            CodeGen::add(&mut self.body, &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp), Some(""), true);
+                        self.body.push_str(&bf);
+                        CodeGen::add(
+                            &mut self.body,
+                            &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp),
+                            Some(""),
+                            true,
+                        );
 
-                            if self.dereference {
-                                if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
-                                    let mut body = self.body.clone();
-                                    self.call_add_ref(&mut body, self.backend, "eax", &type_name, &format!("for let val {name}"), &self.module.clone());
-                                    self.body = body;
-                                    after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name) * self.backend.word_len()), &type_name, &format!("for let val {name}"), &self.module.clone()));
-                                }
+                        if self.dereference {
+                            if let Some(type_name) =
+                            CodeGen::get_reference_type_name(&type_ref.ast_type)
+                            {
+                                let mut body = self.body.clone();
+                                self.call_add_ref(
+                                    &mut body,
+                                    self.backend,
+                                    "eax",
+                                    &type_name,
+                                    &format!("for let val {name}"),
+                                    &self.module.clone(),
+                                );
+                                self.body = body;
+                                after.push_str(&self.call_deref(
+                                    &format!(
+                                        "[{bp} - {}]",
+                                        stack.find_relative_to_bp(StackEntryType::LetVal, name)
+                                            * self.backend.word_len()
+                                    ),
+                                    &type_name,
+                                    &format!("for let val {name}"),
+                                    &self.module.clone(),
+                                ));
                             }
-
-                            Self::insert_on_top(&af.join("\n"), &mut after);
-
-                            self.lambdas.append(&mut lambda_calls);
                         }
-                        _ => { panic!("unsupported let expression {expr}"); }
+
+                        Self::insert_on_top(&af.join("\n"), &mut after);
+
+                        self.lambdas.append(&mut lambda_calls);
                     }
-                }
+                    _ => {
+                        panic!("unsupported let expression {expr}");
+                    }
+                },
             }
         }
 
         self.body.push_str(&after);
 
         debug!("stack {:?}", stack);
-//        assert_eq!(stack.size(), 0);
+        //        assert_eq!(stack.size(), 0);
 
         // TODO add a command line argument
         //Parser::print(&self.module);
@@ -512,9 +550,17 @@ impl<'a> CodeGen<'a> {
             true,
         );
 
-        asm.push_str(&format!("sub  {}, {}\n", self.backend.stack_pointer(), stack.len() * self.backend.word_len()));
+        asm.push_str(&format!(
+            "sub  {}, {}\n",
+            self.backend.stack_pointer(),
+            stack.len() * self.backend.word_len()
+        ));
         asm.push_str(&self.body);
-        asm.push_str(&format!("add  {}, {}\n", self.backend.stack_pointer(), stack.len() * self.backend.word_len()));
+        asm.push_str(&format!(
+            "add  {}, {}\n",
+            self.backend.stack_pointer(),
+            stack.len() * self.backend.word_len()
+        ));
 
         CodeGen::add(
             &mut asm,
@@ -726,41 +772,74 @@ impl<'a> CodeGen<'a> {
                                 }
                             }
                         }
-                        ASTTypedStatement::LetStatement(name, expr) => {
-                            match expr {
-                                ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                                    let type_ref = self.module.functions_by_name.get(&call.function_name.replace("::", "_")).unwrap().return_type.clone().unwrap();
-                                    context.insert_let(name.clone(), type_ref.clone());
-                                    let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
+                        ASTTypedStatement::LetStatement(name, expr) => match expr {
+                            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                                let type_ref = self
+                                    .module
+                                    .functions_by_name
+                                    .get(&call.function_name.replace("::", "_"))
+                                    .unwrap()
+                                    .return_type
+                                    .clone()
+                                    .unwrap();
+                                context.insert_let(name.clone(), type_ref.clone());
+                                let address_relative_to_bp =
+                                    stack.reserve(StackEntryType::LetVal, name) * wl;
 
-                                    let (bf, af, mut lambda_calls_) = self.call_function(
-                                        call,
-                                        &context,
-                                        Some(function_def),
-                                        "0".into(),
-                                        lambda_space,
-                                        indent + 1,
-                                        false,
-                                        &stack,
-                                    );
+                                let (bf, af, mut lambda_calls_) = self.call_function(
+                                    call,
+                                    &context,
+                                    Some(function_def),
+                                    "0".into(),
+                                    lambda_space,
+                                    indent + 1,
+                                    false,
+                                    &stack,
+                                );
 
-                                    before.push_str(&bf);
-                                    CodeGen::add(&mut before, &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp), Some(""), true);
+                                before.push_str(&bf);
+                                CodeGen::add(
+                                    &mut before,
+                                    &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp),
+                                    Some(""),
+                                    true,
+                                );
 
-                                    if self.dereference {
-                                        if let Some(type_name) = CodeGen::get_reference_type_name(&type_ref.ast_type) {
-                                            self.call_add_ref(&mut before, self.backend, "eax", &type_name, &format!("for let val {name}"), &self.module.clone());
-                                            after.push_str(&self.call_deref(&format!("[{bp} - {}]", stack.find_relative_to_bp(StackEntryType::LetVal, name) * self.backend.word_len()), &type_name, &format!("for let val {name}"), &self.module.clone()));
-                                        }
+                                if self.dereference {
+                                    if let Some(type_name) =
+                                    CodeGen::get_reference_type_name(&type_ref.ast_type)
+                                    {
+                                        self.call_add_ref(
+                                            &mut before,
+                                            self.backend,
+                                            "eax",
+                                            &type_name,
+                                            &format!("for let val {name}"),
+                                            &self.module.clone(),
+                                        );
+                                        after.push_str(&self.call_deref(
+                                            &format!(
+                                                "[{bp} - {}]",
+                                                stack.find_relative_to_bp(
+                                                    StackEntryType::LetVal,
+                                                    name,
+                                                ) * self.backend.word_len()
+                                            ),
+                                            &type_name,
+                                            &format!("for let val {name}"),
+                                            &self.module.clone(),
+                                        ));
                                     }
-
-                                    Self::insert_on_top(&af.join("\n"), &mut after);
-
-                                    lambda_calls.append(&mut lambda_calls_);
                                 }
-                                _ => { panic!("unsupported let expression {expr}"); }
+
+                                Self::insert_on_top(&af.join("\n"), &mut after);
+
+                                lambda_calls.append(&mut lambda_calls_);
                             }
-                        }
+                            _ => {
+                                panic!("unsupported let expression {expr}");
+                            }
+                        },
                     }
                 }
             }
@@ -789,7 +868,12 @@ impl<'a> CodeGen<'a> {
 
         if stack.len() > 0 {
             //CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
-            CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", stack.len() * self.backend.word_len()), Some("local vals (let)"), true);
+            CodeGen::add(
+                &mut self.definitions,
+                &format!("sub   {sp}, {}", stack.len() * self.backend.word_len()),
+                Some("local vals (let)"),
+                true,
+            );
         }
 
         self.definitions.push_str(&before);
@@ -797,7 +881,12 @@ impl<'a> CodeGen<'a> {
         self.definitions.push_str(&after);
 
         if stack.len() > 0 {
-            CodeGen::add(&mut self.definitions, &format!("add   {sp}, {}", stack.len() * self.backend.word_len()), Some("local vals (let)"), true);
+            CodeGen::add(
+                &mut self.definitions,
+                &format!("add   {sp}, {}", stack.len() * self.backend.word_len()),
+                Some("local vals (let)"),
+                true,
+            );
             stack.remove_all();
         }
 
@@ -1212,12 +1301,18 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        before.push_str(&call_parameters.before().replace(&call_parameters.to_remove_from_stack_name(), &(call_parameters.to_remove_from_stack() * self.backend.word_len()).to_string()));
+        before.push_str(&call_parameters.before().replace(
+            &call_parameters.to_remove_from_stack_name(),
+            &(call_parameters.to_remove_from_stack() * self.backend.word_len()).to_string(),
+        ));
 
         if inline {
             if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
                 let mut added_to_stack = added_to_stack;
-                added_to_stack.push_str(&format!(" + {}", stack_vals.len() * self.backend.word_len()));
+                added_to_stack.push_str(&format!(
+                    " + {}",
+                    stack_vals.len() * self.backend.word_len()
+                ));
 
                 before.push_str(&call_parameters.resolve_asm_parameters(
                     &mut self.statics,
@@ -1452,22 +1547,30 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn call_deref(&mut self, source: &str, type_name: &str, descr: &str, module: &ASTTypedModule) -> String {
+    pub fn call_deref(
+        &mut self,
+        source: &str,
+        type_name: &str,
+        descr: &str,
+        module: &ASTTypedModule,
+    ) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
         let mut result = String::new();
 
-        let has_references =
-            if "str" == type_name {
-                true
-            } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-                struct_has_references(struct_def)
-            } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-                enum_has_references(enum_def)
-            } else {
-                panic!("cannot find type {descr} {type_name}: {:?}", module.enums.iter().map(|it| &it.name).collect::<Vec<_>>());
-            };
+        let has_references = if "str" == type_name {
+            true
+        } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
+            struct_has_references(struct_def)
+        } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
+            enum_has_references(enum_def)
+        } else {
+            panic!(
+                "cannot find type {descr} {type_name}: {:?}",
+                module.enums.iter().map(|it| &it.name).collect::<Vec<_>>()
+            );
+        };
 
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
         if has_references {
@@ -1484,12 +1587,7 @@ impl<'a> CodeGen<'a> {
 
             CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(
-                &mut result,
-                &"call     deref".to_string(),
-                None,
-                true,
-            );
+            CodeGen::add(&mut result, &"call     deref".to_string(), None, true);
             CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
@@ -1511,7 +1609,8 @@ impl<'a> CodeGen<'a> {
         backend: &dyn Backend,
         source: &str,
         type_name: &str,
-        descr: &str, module: &ASTTypedModule,
+        descr: &str,
+        module: &ASTTypedModule,
     ) -> String {
         //println!("add ref {descr}");
         let ws = backend.word_size();
@@ -1521,13 +1620,14 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
-        let has_references = if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-            struct_has_references(struct_def)
-        } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-            enum_has_references(enum_def)
-        } else {
-            true
-        };
+        let has_references =
+            if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
+                struct_has_references(struct_def)
+            } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
+                enum_has_references(enum_def)
+            } else {
+                true
+            };
 
         if has_references {
             CodeGen::add(out, &format!("push     {ws} {source}"), None, true);

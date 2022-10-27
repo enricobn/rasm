@@ -21,11 +21,16 @@ pub struct StackVals {
 
 impl StackVals {
     pub fn new() -> Self {
-        Self { reserved_slots: RefCell::new(Vec::new()) }
+        Self {
+            reserved_slots: RefCell::new(Vec::new()),
+        }
     }
 
     pub fn reserve(&self, entry_type: StackEntryType, desc: &str) -> usize {
-        self.reserved_slots.borrow_mut().push(StackEntry { entry_type, desc: desc.to_string() });
+        self.reserved_slots.borrow_mut().push(StackEntry {
+            entry_type,
+            desc: desc.to_string(),
+        });
         debug!("stack {:?}", self);
         self.len()
     }
@@ -64,7 +69,7 @@ impl StackVals {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::stack::{StackVals, StackEntryType};
+    use crate::codegen::stack::{StackEntryType, StackVals};
 
     #[test]
     fn find_relative_to_bp() {
@@ -76,7 +81,10 @@ mod tests {
 
         assert_eq!(1, stack.find_relative_to_bp(StackEntryType::LetVal, "val1"));
         assert_eq!(2, stack.find_relative_to_bp(StackEntryType::LetVal, "val2"));
-        assert_eq!(3, stack.find_relative_to_bp(StackEntryType::RefToDereference, "ref1"));
+        assert_eq!(
+            3,
+            stack.find_relative_to_bp(StackEntryType::RefToDereference, "ref1")
+        );
         assert_eq!(4, stack.find_relative_to_bp(StackEntryType::LetVal, "val3"));
     }
 }

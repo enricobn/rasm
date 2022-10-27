@@ -1,27 +1,24 @@
 extern crate core;
 
-pub(crate) mod lexer;
-pub(crate) mod parser;
 pub(crate) mod codegen;
 pub mod compiler;
+pub(crate) mod lexer;
+pub(crate) mod parser;
 //pub mod type_check;
 pub mod transformations;
 pub mod type_check;
 #[macro_use]
 pub mod utils;
 
+use crate::compiler::Compiler;
+use env_logger::Builder;
+use log::info;
 use std::env;
 use std::ops::Add;
 use std::path::Path;
-use env_logger::Builder;
-use log::info;
-use crate::compiler::Compiler;
 
 fn main() {
-
-    Builder::from_default_env()
-        .format_timestamp_millis()
-        .init();
+    Builder::from_default_env().format_timestamp_millis().init();
 
     let path = env::current_dir();
 

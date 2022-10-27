@@ -1,8 +1,8 @@
-use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
-use crate::parser::ast::{ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Parametric};
+use crate::parser::ast::{ASTType, ASTTypeRef, BuiltinTypeKind};
 use crate::parser::ParserTrait;
 
 pub struct TypeParser<'a> {
@@ -14,25 +14,50 @@ impl<'a> TypeParser<'a> {
         Self { parser }
     }
 
-    pub fn try_parse_type_ref(&self, n: usize, context_param_types: &[String]) -> Option<(ASTTypeRef, usize)> {
+    pub fn try_parse_type_ref(
+        &self,
+        n: usize,
+        context_param_types: &[String],
+    ) -> Option<(ASTTypeRef, usize)> {
         self.try_parse_type_ref_rec(n, context_param_types, 0)
     }
 
-    fn try_parse_type_ref_rec(&self, n: usize, context_param_types: &[String], rec: usize) -> Option<(ASTTypeRef, usize)> {
+    fn try_parse_type_ref_rec(
+        &self,
+        n: usize,
+        context_param_types: &[String],
+        rec: usize,
+    ) -> Option<(ASTTypeRef, usize)> {
         if let Some(kind) = self.parser.get_token_kind_n(n) {
-
             if let TokenKind::Punctuation(PunctuationKind::And) = kind {
                 if let Some((ast_type, next_i)) = self.try_parse(n + 1, context_param_types, rec) {
-                    return Some((ASTTypeRef { ast_ref: true, ast_type }, next_i));
+                    return Some((
+                        ASTTypeRef {
+                            ast_ref: true,
+                            ast_type,
+                        },
+                        next_i,
+                    ));
                 }
             } else if let Some((ast_type, next_i)) = self.try_parse(n, context_param_types, rec) {
-                return Some((ASTTypeRef { ast_ref: false, ast_type }, next_i));
+                return Some((
+                    ASTTypeRef {
+                        ast_ref: false,
+                        ast_type,
+                    },
+                    next_i,
+                ));
             }
         }
         None
     }
 
-    fn try_parse(&self, n: usize, context_param_types: &[String], rec: usize) -> Option<(ASTType, usize)> {
+    fn try_parse(
+        &self,
+        n: usize,
+        context_param_types: &[String],
+        rec: usize,
+    ) -> Option<(ASTType, usize)> {
         if let Some(kind) = self.parser.get_token_kind_n(n) {
             let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::AlphaNumeric(type_name) = kind {
@@ -43,13 +68,21 @@ impl<'a> TypeParser<'a> {
                 } else if context_param_types.contains(type_name) {
                     Some((Parametric(type_name.into()), next_i))
                 } else {
-                    let (param_types, next_i) = if let Some((param_types, next_i)) = self.try_parse_parameter_types(n + 1, context_param_types, rec) {
+                    let (param_types, next_i) = if let Some((param_types, next_i)) =
+                    self.try_parse_parameter_types(n + 1, context_param_types, rec)
+                    {
                         (param_types, next_i)
                     } else {
                         (vec![], next_i)
                     };
 
-                    Some((Custom { name: type_name.into(), param_types }, next_i))
+                    Some((
+                        Custom {
+                            name: type_name.into(),
+                            param_types,
+                        },
+                        next_i,
+                    ))
                 }
             } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
                 Some(self.parse_fn(n + 1, context_param_types, rec))
@@ -61,7 +94,12 @@ impl<'a> TypeParser<'a> {
         }
     }
 
-    fn try_parse_parameter_types(&self, n: usize, context_param_types: &[String], rec: usize) -> Option<(Vec<ASTTypeRef>, usize)> {
+    fn try_parse_parameter_types(
+        &self,
+        n: usize,
+        context_param_types: &[String],
+        rec: usize,
+    ) -> Option<(Vec<ASTTypeRef>, usize)> {
         let mut types = Vec::new();
         let mut next_i = self.parser.get_i() + n + 1;
 
@@ -69,7 +107,8 @@ impl<'a> TypeParser<'a> {
             panic!()
         }
 
-        if let Some(TokenKind::Bracket(BracketKind::Angle, Open)) = self.parser.get_token_kind_n(n) {
+        if let Some(TokenKind::Bracket(BracketKind::Angle, Open)) = self.parser.get_token_kind_n(n)
+        {
             let mut inner_n = n + 1;
             loop {
                 let kind = self.parser.get_token_kind_n(inner_n);
@@ -78,7 +117,9 @@ impl<'a> TypeParser<'a> {
                     break;
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = kind {
                     inner_n += 1;
-                } else if let Some((ast_type, inner_next_i)) = self.try_parse_type_ref(inner_n, context_param_types) {
+                } else if let Some((ast_type, inner_next_i)) =
+                self.try_parse_type_ref(inner_n, context_param_types)
+                {
                     types.push(ast_type);
                     next_i = inner_next_i;
                     inner_n = next_i - self.parser.get_i();
@@ -92,7 +133,12 @@ impl<'a> TypeParser<'a> {
         }
     }
 
-    fn parse_fn(&self, out_n: usize, context_param_types: &[String], rec: usize) -> (ASTType, usize) {
+    fn parse_fn(
+        &self,
+        out_n: usize,
+        context_param_types: &[String],
+        rec: usize,
+    ) -> (ASTType, usize) {
         let mut n = out_n;
         let mut parameters = Vec::new();
 
@@ -106,12 +152,16 @@ impl<'a> TypeParser<'a> {
                 if let Some(TokenKind::Bracket(Round, Close)) = self.parser.get_token_kind_n(n) {
                     n += 1;
                     break;
-                } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = self.parser.get_token_kind_n(n) {
+                } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) =
+                self.parser.get_token_kind_n(n)
+                {
                     n += 1;
                     continue;
                 }
 
-                if let Some((t, next_i)) = self.try_parse_type_ref_rec(n, context_param_types, rec + 1) {
+                if let Some((t, next_i)) =
+                self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
+                {
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
                     continue;
@@ -121,17 +171,27 @@ impl<'a> TypeParser<'a> {
                 }
             }
 
-            if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) = self.parser.get_token_kind_n(n) {
+            if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) =
+            self.parser.get_token_kind_n(n)
+            {
                 n += 1;
             } else {
                 self.parser.panic("Error parsing fn type: expected -> ");
                 panic!();
             }
 
-            let return_type = if let (Some(TokenKind::Bracket(Round, Open)), Some(TokenKind::Bracket(Round, Close))) = (self.parser.get_token_kind_n(n), self.parser.get_token_kind_n(n + 1)) {
+            let return_type = if let (
+                Some(TokenKind::Bracket(Round, Open)),
+                Some(TokenKind::Bracket(Round, Close)),
+            ) = (
+                self.parser.get_token_kind_n(n),
+                self.parser.get_token_kind_n(n + 1),
+            ) {
                 n += 2;
                 None
-            } else if let Some((t, next_i)) = self.try_parse_type_ref_rec(n, context_param_types, rec + 1) {
+            } else if let Some((t, next_i)) =
+            self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
+            {
                 n = next_i - self.parser.get_i();
                 Some(Box::new(t))
             } else {
@@ -139,7 +199,13 @@ impl<'a> TypeParser<'a> {
                 panic!();
             };
 
-            (Builtin(BuiltinTypeKind::Lambda { return_type, parameters }), self.parser.get_i() + n)
+            (
+                Builtin(BuiltinTypeKind::Lambda {
+                    return_type,
+                    parameters,
+                }),
+                self.parser.get_i() + n,
+            )
         } else {
             self.parser.panic("Error parsing fn type: expected (");
             panic!();
@@ -149,9 +215,9 @@ impl<'a> TypeParser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::parser::ast::lambda_unit;
     use crate::parser::test_utils::get_parser;
-    use super::*;
 
     #[test]
     fn test_i32() {
@@ -185,8 +251,20 @@ mod tests {
 
     #[test]
     fn test_custom_type() {
-        let parse_result = try_parse_with_context("Dummy<T,T1>", &["T".into(),"T1".into()]);
-        assert_eq!(Some((Custom { name: "Dummy".into(), param_types: vec![ASTTypeRef::parametric("T", false), ASTTypeRef::parametric("T1", false)] }, 6)), parse_result);
+        let parse_result = try_parse_with_context("Dummy<T,T1>", &["T".into(), "T1".into()]);
+        assert_eq!(
+            Some((
+                Custom {
+                    name: "Dummy".into(),
+                    param_types: vec![
+                        ASTTypeRef::parametric("T", false),
+                        ASTTypeRef::parametric("T1", false),
+                    ],
+                },
+                6
+            )),
+            parse_result
+        );
     }
 
     #[test]
@@ -198,14 +276,30 @@ mod tests {
     #[test]
     fn test_not_param_type() {
         let parse_result = try_parse_with_context("T", &["F".into()]);
-        assert_eq!(Some((Custom { name: "T".into(), param_types: vec![] }, 1)), parse_result);
+        assert_eq!(
+            Some((
+                Custom {
+                    name: "T".into(),
+                    param_types: vec![],
+                },
+                1
+            )),
+            parse_result
+        );
     }
 
     #[test]
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
-        let option_t = ASTTypeRef::custom("Option", false, vec![ASTTypeRef::parametric("T", false)]);
-        assert_eq!(Some((ASTTypeRef::custom("List", false, vec![option_t]).ast_type, 7)), parse_result);
+        let option_t =
+            ASTTypeRef::custom("Option", false, vec![ASTTypeRef::parametric("T", false)]);
+        assert_eq!(
+            Some((
+                ASTTypeRef::custom("List", false, vec![option_t]).ast_type,
+                7
+            )),
+            parse_result
+        );
     }
 
     fn try_parse(source: &str) -> Option<(ASTType, usize)> {

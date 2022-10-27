@@ -1,12 +1,12 @@
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use log::info;
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::BackendAsm386;
 use crate::codegen::CodeGen;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use log::info;
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 
 pub struct Compiler {
     src: String,
@@ -15,10 +15,7 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn compile(src: String, out: String) {
-        let compiler = Compiler {
-            src,
-            out,
-        };
+        let compiler = Compiler { src, out };
         compiler._compile()
     }
 
@@ -34,16 +31,27 @@ impl Compiler {
 
                 let backend = BackendAsm386::new(module.requires.clone(), module.externals.clone());
 
-                let mut code_gen = CodeGen::new(&backend, module, 1024 * 1024,
-                                                64 * 1024 * 1024, 1024 * 1024, false, false,
-                                                true, false);
+                let mut code_gen = CodeGen::new(
+                    &backend,
+                    module,
+                    1024 * 1024,
+                    64 * 1024 * 1024,
+                    1024 * 1024,
+                    false,
+                    false,
+                    true,
+                    false,
+                );
 
                 let asm = code_gen.asm();
 
                 info!("Code generation ended");
 
                 let out_path = Path::new(&self.out);
-                File::create(out_path).unwrap().write_all(asm.as_bytes()).unwrap();
+                File::create(out_path)
+                    .unwrap()
+                    .write_all(asm.as_bytes())
+                    .unwrap();
 
                 backend.compile_and_link(self.out.to_string());
 

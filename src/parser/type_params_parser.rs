@@ -2,17 +2,18 @@ use crate::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, TokenKin
 use crate::parser::ParserTrait;
 
 pub struct TypeParamsParser<'a> {
-    parser: &'a dyn ParserTrait
+    parser: &'a dyn ParserTrait,
 }
 
-impl <'a> TypeParamsParser<'a> {
-
+impl<'a> TypeParamsParser<'a> {
     pub fn new(parser: &'a dyn ParserTrait) -> Self {
         Self { parser }
     }
 
     pub fn try_parse(&self, n: usize) -> Option<(Vec<String>, usize)> {
-        if let Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)) = self.parser.get_token_kind_n(n) {
+        if let Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)) =
+        self.parser.get_token_kind_n(n)
+        {
             let mut j = n + 1;
             let mut types = Vec::new();
 
@@ -20,12 +21,13 @@ impl <'a> TypeParamsParser<'a> {
                 if let Some(kind) = self.parser.get_token_kind_n(j) {
                     if let TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close) = kind {
                         break;
-                    } else if let TokenKind::Punctuation(PunctuationKind::Comma) = kind {
-
-                    } else if let TokenKind::AlphaNumeric(type_name) = kind {
+                    } else if let TokenKind::Punctuation(PunctuationKind::Comma) = kind {} else if let TokenKind::AlphaNumeric(type_name) = kind {
                         types.push(type_name.to_string());
                     } else {
-                        self.parser.panic(&format!("expected a parametric type or a comma, found {:?}", kind));
+                        self.parser.panic(&format!(
+                            "expected a parametric type or a comma, found {:?}",
+                            kind
+                        ));
                         break;
                     }
                 } else {
@@ -41,13 +43,12 @@ impl <'a> TypeParamsParser<'a> {
         }
         None
     }
-
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::get_parser;
     use super::*;
+    use crate::parser::test_utils::get_parser;
 
     #[test]
     fn test() {
@@ -63,6 +64,4 @@ mod tests {
 
         sut.try_parse(0)
     }
-
 }
-

@@ -1,6 +1,6 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, TokenKind};
-use crate::parser::ParserTrait;
 use crate::parser::type_params_parser::TypeParamsParser;
+use crate::parser::ParserTrait;
 
 pub struct AsmDefParser<'a> {
     parser: &'a dyn ParserTrait,
@@ -28,19 +28,28 @@ impl<'a> AsmDefParser<'a> {
         if let Some(TokenKind::KeyWord(KeywordKind::Asm)) = self.parser.get_token_kind_n(n) {
             let mut current_n = n + 1;
 
-            if let Some(TokenKind::AlphaNumeric(function_name)) = self.parser.get_token_kind_n(current_n) {
+            if let Some(TokenKind::AlphaNumeric(function_name)) =
+            self.parser.get_token_kind_n(current_n)
+            {
                 let type_params_parser = TypeParamsParser::new(self.parser);
 
-                let type_params =
-                    if let Some((type_params, next_i_t)) = type_params_parser.try_parse(current_n + 1) {
-                        current_n = next_i_t - self.parser.get_i() - 1;
-                        type_params
-                    } else {
-                        vec![]
-                    };
+                let type_params = if let Some((type_params, next_i_t)) =
+                type_params_parser.try_parse(current_n + 1)
+                {
+                    current_n = next_i_t - self.parser.get_i() - 1;
+                    type_params
+                } else {
+                    vec![]
+                };
 
-                if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) = self.parser.get_token_kind_n(current_n + 1) {
-                    return Some((function_name.clone(), type_params, self.parser.get_i() + current_n + 2));
+                if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
+                self.parser.get_token_kind_n(current_n + 1)
+                {
+                    return Some((
+                        function_name.clone(),
+                        type_params,
+                        self.parser.get_i() + current_n + 2,
+                    ));
                 }
             }
         }
@@ -50,17 +59,21 @@ impl<'a> AsmDefParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::get_parser;
     use super::*;
+    use crate::parser::test_utils::get_parser;
 
     #[test]
     fn test() {
-        let parse_result = try_parse("inline asm aFun<T>(o: Option<T>) /{
-        }/");
+        let parse_result = try_parse(
+            "inline asm aFun<T>(o: Option<T>) /{
+        }/",
+        );
 
-        assert_eq!(Some(("aFun".into(), true, vec!["T".into()], 7)), parse_result);
+        assert_eq!(
+            Some(("aFun".into(), true, vec!["T".into()], 7)),
+            parse_result
+        );
     }
-
 
     fn try_parse(source: &str) -> Option<(String, bool, Vec<String>, usize)> {
         let parser = get_parser(source);

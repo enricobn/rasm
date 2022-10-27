@@ -2,8 +2,8 @@ use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::ASTTypedParameterDef;
-use regex::Regex;
 use linked_hash_map::LinkedHashMap;
+use regex::Regex;
 
 pub enum MacroParam {
     Plain(String),
@@ -271,7 +271,10 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         result.push_str("    push   ebx\n");
         result.push_str("    push   ecx\n");
         result.push_str(&format!("    mov   {ws} ebx, esp\n"));
-        result.push_str(&format!("    sub   {sp}, {}\n", wl * (parameters.len() - 1)));
+        result.push_str(&format!(
+            "    sub   {sp}, {}\n",
+            wl * (parameters.len() - 1)
+        ));
         // stack 16 bytes alignment
         result.push_str("    and   esp,0xfffffff0\n");
 
@@ -436,17 +439,13 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new(vec![])
-            .translate(
-                &backend,
-                &mut statics,
-                "mov     eax, 1          ; $call(any)",
-            );
-
-        assert_eq!(
-            result,
-            "mov     eax, 1          ; $call(any)"
+        let result = TextMacroEvaluator::new(vec![]).translate(
+            &backend,
+            &mut statics,
+            "mov     eax, 1          ; $call(any)",
         );
+
+        assert_eq!(result, "mov     eax, 1          ; $call(any)");
     }
 
     fn backend() -> BackendAsm386 {

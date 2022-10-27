@@ -1,11 +1,15 @@
+use crate::codegen::statics::Statics;
 use crate::codegen::{EnhancedASTModule, TypedValContext, TypedValKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
-use crate::parser::ast::{ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{
+    ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, ASTTypeRef,
+    BuiltinTypeKind,
+};
 use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::fmt::{Display, Formatter};
-use crate::codegen::statics::Statics;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -207,8 +211,10 @@ pub enum ASTTypedStatement {
 impl Display for ASTTypedStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTTypedStatement::Expression(e) => { f.write_str(&format!("{e};\n")) }
-            ASTTypedStatement::LetStatement(name, e) => { f.write_str(&format!("let {name} = {e};\n")) }
+            ASTTypedStatement::Expression(e) => f.write_str(&format!("{e};\n")),
+            ASTTypedStatement::LetStatement(name, e) => {
+                f.write_str(&format!("let {name} = {e};\n"))
+            }
         }
     }
 }
@@ -231,7 +237,12 @@ pub struct ASTTypedEnumDef {
 
 impl Display for ASTTypedEnumDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let variants = self.variants.iter().map(|it| format!("  {it}")).collect::<Vec<_>>().join("\n");
+        let variants = self
+            .variants
+            .iter()
+            .map(|it| format!("  {it}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         f.write_str(&format!("enum {} {{\n{variants}\n}}", self.name))
     }
 }
@@ -254,7 +265,12 @@ pub struct ASTTypedEnumVariantDef {
 
 impl Display for ASTTypedEnumVariantDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let pars = self.parameters.iter().map(|it| format!("{it}")).collect::<Vec<_>>().join(",");
+        let pars = self
+            .parameters
+            .iter()
+            .map(|it| format!("{it}"))
+            .collect::<Vec<_>>()
+            .join(",");
         f.write_str(&format!("{}({pars})", self.name))
     }
 }
@@ -324,14 +340,14 @@ impl<'a> ConvContext<'a> {
                     .collect();
 
                 if let Some(found) = self.enum_defs.iter().find(|it| it.variants == variants) {
-                    self.enums.values().find(|it| {
-                        match it {
-                            ASTTypedType::Enum { name } => {
-                                name == &found.name
-                            }
-                            _ => panic!()
-                        }
-                    }).unwrap().clone()
+                    self.enums
+                        .values()
+                        .find(|it| match it {
+                            ASTTypedType::Enum { name } => name == &found.name,
+                            _ => panic!(),
+                        })
+                        .unwrap()
+                        .clone()
                 } else {
                     self.enum_defs.push(ASTTypedEnumDef {
                         name: new_name,
@@ -374,7 +390,13 @@ impl<'a> ConvContext<'a> {
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(
                         p.clone(),
-                        cloned_param_types.get(i).expect(&format!("Cannot find parametric type {p} for struct {name}")).ast_type.clone(),
+                        cloned_param_types
+                            .get(i)
+                            .expect(&format!(
+                                "Cannot find parametric type {p} for struct {name}"
+                            ))
+                            .ast_type
+                            .clone(),
                     );
                 }
 
@@ -416,7 +438,7 @@ pub fn convert_to_typed_module(
     typed_context: &mut TypeConversionContext,
     debug_asm: bool,
     print_allocation: bool,
-    printl_module: bool
+    printl_module: bool,
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
 
@@ -454,7 +476,7 @@ pub fn convert_to_typed_module(
         "sysRead",
         "sysClose",
         "fileSize",
-        "freeMem"
+        "freeMem",
     ];
 
     if print_allocation {
@@ -486,7 +508,7 @@ pub fn convert_to_typed_module(
             "nprint",
             "printRefCount",
             "printReplacedReused",
-            "addReused"
+            "addReused",
         ])
     }
 
@@ -537,7 +559,11 @@ fn verify(module: &ASTTypedModule) {
     }
 }
 
-fn verify_statement(module: &ASTTypedModule, context: &mut TypedValContext, statement: &ASTTypedStatement) {
+fn verify_statement(
+    module: &ASTTypedModule,
+    context: &mut TypedValContext,
+    statement: &ASTTypedStatement,
+) {
     match statement {
         ASTTypedStatement::Expression(e) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
@@ -546,19 +572,29 @@ fn verify_statement(module: &ASTTypedModule, context: &mut TypedValContext, stat
         }
         ASTTypedStatement::LetStatement(name, e) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                let type_ref = if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
-                    function_def.return_type.clone()
-                } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
-                    function_def.return_type.clone()
-                } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
-                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters: _, return_type }) = &parameter_ref.type_ref.ast_type {
-                        return_type.clone().map(|it| *it)
+                let type_ref =
+                    if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
+                        function_def.return_type.clone()
+                    } else if let Some(function_def) = module
+                        .functions_by_name
+                        .get(&call.function_name.replace("::", "_"))
+                    {
+                        function_def.return_type.clone()
+                    } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) =
+                    context.get(&call.function_name)
+                    {
+                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                                         parameters: _,
+                                                         return_type,
+                                                     }) = &parameter_ref.type_ref.ast_type
+                        {
+                            return_type.clone().map(|it| *it)
+                        } else {
+                            panic!()
+                        }
                     } else {
-                        panic!()
-                    }
-                } else {
-                    panic!("{call}")
-                };
+                        panic!("{call}")
+                    };
                 context.insert_let(name.clone(), type_ref.unwrap());
             }
 
@@ -576,26 +612,46 @@ fn verify_function_call(
 ) {
     debug!("call {call}");
 
-    let parameters_types = if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
-        function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
-    } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
-        function_def.parameters.iter().map(|it| it.type_ref.ast_type.clone()).collect::<Vec<ASTTypedType>>()
-    } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) = context.get(&call.function_name) {
-        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, return_type: _ }) = &parameter_ref.type_ref.ast_type {
-            parameters.iter().map(|it| it.ast_type.clone()).collect::<Vec<ASTTypedType>>()
+    let parameters_types =
+        if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
+            function_def
+                .parameters
+                .iter()
+                .map(|it| it.type_ref.ast_type.clone())
+                .collect::<Vec<ASTTypedType>>()
+        } else if let Some(function_def) = module
+            .functions_by_name
+            .get(&call.function_name.replace("::", "_"))
+        {
+            function_def
+                .parameters
+                .iter()
+                .map(|it| it.type_ref.ast_type.clone())
+                .collect::<Vec<ASTTypedType>>()
+        } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) =
+        context.get(&call.function_name)
+        {
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                             parameters,
+                                             return_type: _,
+                                         }) = &parameter_ref.type_ref.ast_type
+            {
+                parameters
+                    .iter()
+                    .map(|it| it.ast_type.clone())
+                    .collect::<Vec<ASTTypedType>>()
+            } else {
+                panic!();
+            }
         } else {
-            panic!();
-        }
-    } else {
-        panic!("{call}");
-    };
+            panic!("{call}");
+        };
 
     for (i, expr) in call.parameters.iter().enumerate() {
         let par = parameters_types.get(i).unwrap().clone();
         debug!("par type {par}");
         assert_eq!(
-            get_type_of_typed_expression(module, context, expr, Some(&par))
-                .unwrap(),
+            get_type_of_typed_expression(module, context, expr, Some(&par)).unwrap(),
             par
         );
     }
@@ -618,7 +674,10 @@ fn get_type_of_typed_expression(
             if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
                 debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
-            } else if let Some(function_def) = module.functions_by_name.get(&call.function_name.replace("::", "_")) {
+            } else if let Some(function_def) = module
+                .functions_by_name
+                .get(&call.function_name.replace("::", "_"))
+            {
                 debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(TypedValKind::ParameterRef(i, par)) =
@@ -626,7 +685,11 @@ fn get_type_of_typed_expression(
             {
                 debug!("found function in context");
 
-                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters: _, return_type }) = &par.type_ref.ast_type {
+                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                                 parameters: _,
+                                                 return_type,
+                                             }) = &par.type_ref.ast_type
+                {
                     return_type.clone().map(|it| it.ast_type)
                 } else {
                     panic!("expected lambda, found: {}", &par.type_ref.ast_type);
@@ -678,7 +741,13 @@ fn get_type_of_typed_expression(
                     }
                     ASTTypedStatement::LetStatement(name, e) => {
                         if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                            let type_ref = module.functions_by_name.get(&call.function_name).unwrap().return_type.clone().unwrap();
+                            let type_ref = module
+                                .functions_by_name
+                                .get(&call.function_name)
+                                .unwrap()
+                                .return_type
+                                .clone()
+                                .unwrap();
                             context.insert_let(name.clone(), type_ref);
                             verify_function_call(module, &context, call);
                         }
@@ -700,7 +769,12 @@ fn get_type_of_typed_expression(
             };
 
             if let Some(t) = return_type {
-                assert_eq!(t.ast_type, real_return_type.clone().unwrap_or_else(|| panic!("expected {}", t.ast_type)))
+                assert_eq!(
+                    t.ast_type,
+                    real_return_type
+                        .clone()
+                        .unwrap_or_else(|| panic!("expected {}", t.ast_type))
+                )
             } else if real_return_type.is_some() {
                 panic!()
             }
@@ -799,8 +873,10 @@ fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
 
 fn statement(it: &ASTStatement) -> ASTTypedStatement {
     match it {
-        ASTStatement::Expression(e) => { ASTTypedStatement::Expression(expression(e)) }
-        ASTStatement::LetStatement(name, e) => { ASTTypedStatement::LetStatement(name.clone(), expression(e)) }
+        ASTStatement::Expression(e) => ASTTypedStatement::Expression(expression(e)),
+        ASTStatement::LetStatement(name, e) => {
+            ASTTypedStatement::LetStatement(name.clone(), expression(e))
+        }
     }
 }
 

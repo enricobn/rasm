@@ -6,7 +6,8 @@ thread_local! {
     pub static INDENT : RefCell<usize> = RefCell::new(0);
 }
 
-#[macro_export] macro_rules! debug_i {
+#[macro_export]
+macro_rules! debug_i {
     ($ ( $ a: expr), *) => {
         unsafe {
         $crate::utils::debug_indent::INDENT.with(|indent| {
@@ -21,7 +22,8 @@ thread_local! {
     };
 }
 
-#[macro_export] macro_rules! indent {
+#[macro_export]
+macro_rules! indent {
     () => {
         unsafe {
             if crate::utils::debug_indent::ENABLE_INDENT {
@@ -33,7 +35,8 @@ thread_local! {
     };
 }
 
-#[macro_export] macro_rules! dedent {
+#[macro_export]
+macro_rules! dedent {
     () => {
         unsafe {
             if crate::utils::debug_indent::ENABLE_INDENT {

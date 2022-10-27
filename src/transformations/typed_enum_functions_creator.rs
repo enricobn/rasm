@@ -1,8 +1,11 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::CodeGen;
+use crate::type_check::typed_ast::{
+    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef,
+};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use crate::type_check::typed_ast::{ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef};
 
 pub fn typed_enum_functions_creator(
     code_gen: &mut CodeGen,
@@ -13,8 +16,24 @@ pub fn typed_enum_functions_creator(
     let mut native_body = module.native_body.clone();
 
     for enum_def in module.enums.iter() {
-        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "deref", "deref", module);
-        create_free(code_gen, backend, &mut functions_by_name, &enum_def, "addRef", "addRef", module);
+        create_free(
+            code_gen,
+            backend,
+            &mut functions_by_name,
+            &enum_def,
+            "deref",
+            "deref",
+            module,
+        );
+        create_free(
+            code_gen,
+            backend,
+            &mut functions_by_name,
+            &enum_def,
+            "addRef",
+            "addRef",
+            module,
+        );
     }
 
     let mut result = module.clone();
@@ -29,7 +48,8 @@ fn create_free(
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     enum_def: &ASTTypedEnumDef,
-    asm_function_name: &str, function_name: &str,
+    asm_function_name: &str,
+    function_name: &str,
     module: &ASTTypedModule,
 ) {
     let ast_type = ASTTypedType::Enum {
@@ -40,14 +60,24 @@ fn create_free(
         ast_ref: false,
     };
 
-    let body_str = create_free_body(code_gen, &backend, enum_def, asm_function_name, function_name, module);
+    let body_str = create_free_body(
+        code_gen,
+        &backend,
+        enum_def,
+        asm_function_name,
+        function_name,
+        module,
+    );
     let body = ASTTypedFunctionBody::ASMBody(body_str);
 
     let fun_name = format!("{}_{function_name}", enum_def.name);
 
     let function_def = ASTTypedFunctionDef {
         name: fun_name.clone(),
-        parameters: vec![ASTTypedParameterDef { name: "address".into(), type_ref }],
+        parameters: vec![ASTTypedParameterDef {
+            name: "address".into(),
+            type_ref,
+        }],
         body,
         inline: false,
         return_type: None,
@@ -55,13 +85,17 @@ fn create_free(
 
     debug!("created function {function_def}");
 
-    functions_by_name.insert(
-        fun_name,
-        function_def,
-    );
+    functions_by_name.insert(fun_name, function_def);
 }
 
-fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &ASTTypedEnumDef, asm_function_name: &str, function_name: &str, module: &ASTTypedModule) -> String {
+fn create_free_body(
+    code_gen: &mut CodeGen,
+    backend: &&dyn Backend,
+    enum_def: &ASTTypedEnumDef,
+    asm_function_name: &str,
+    function_name: &str,
+    module: &ASTTypedModule,
+) -> String {
     let ws = backend.word_size();
     let wl = backend.word_len();
 
@@ -73,8 +107,18 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
     CodeGen::add(&mut result, "", Some(&descr), true);
     CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
     CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
-    CodeGen::add(&mut result, &format!("call  {asm_function_name}"), None, true);
-    CodeGen::add(&mut result, &format!("add  {},{}", backend.stack_pointer(), wl * 2), None, true);
+    CodeGen::add(
+        &mut result,
+        &format!("call  {asm_function_name}"),
+        None,
+        true,
+    );
+    CodeGen::add(
+        &mut result,
+        &format!("add  {},{}", backend.stack_pointer(), wl * 2),
+        None,
+        true,
+    );
 
     if enum_has_references(enum_def) {
         CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
@@ -87,11 +131,22 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
                     if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
                         if function_name == "deref" {
-                            result.push_str(&code_gen.call_deref(&format!("[ebx + {}]", (j + 1) * wl), &name,
-                                                                 &format!("dereferencing {}.{} : {}", enum_def.name, par.name, name), module));
+                            result.push_str(&code_gen.call_deref(
+                                &format!("[ebx + {}]", (j + 1) * wl),
+                                &name,
+                                &format!("dereferencing {}.{} : {}", enum_def.name, par.name, name),
+                                module,
+                            ));
                             result.push_str("\n");
                         } else {
-                            code_gen.call_add_ref(&mut result, *backend, &format!("[ebx + {}]", (j + 1) * wl), &name, "", module);
+                            code_gen.call_add_ref(
+                                &mut result,
+                                *backend,
+                                &format!("[ebx + {}]", (j + 1) * wl),
+                                &name,
+                                "",
+                                module,
+                            );
                         }
                     }
                 }
@@ -102,11 +157,13 @@ fn create_free_body(code_gen: &mut CodeGen, backend: &&dyn Backend, enum_def: &A
         CodeGen::add(&mut result, "pop ebx", None, true);
     }
 
-
     result
 }
 
 pub fn enum_has_references(enum_def: &ASTTypedEnumDef) -> bool {
-    enum_def.variants.iter().flat_map(|it| it.parameters.iter()).any(|it|
-        CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
+    enum_def
+        .variants
+        .iter()
+        .flat_map(|it| it.parameters.iter())
+        .any(|it| CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
 }

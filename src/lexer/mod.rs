@@ -1,10 +1,12 @@
 pub(crate) mod tokens;
 
+use crate::lexer::tokens::{
+    BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
+};
+use log::debug;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use log::debug;
-use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind};
 
 #[derive(Debug, PartialEq)]
 enum LexStatus {
@@ -21,11 +23,10 @@ pub struct Lexer {
     source: String,
     index: usize,
     row: usize,
-    column: usize
+    column: usize,
 }
 
 impl Lexer {
-
     pub fn from_file(path: &Path) -> Result<Self, String> {
         let mut s = String::new();
         if let Ok(mut file) = File::open(path) {
@@ -41,7 +42,12 @@ impl Lexer {
     }
 
     pub fn new(source: String) -> Self {
-        Self { source, index: 0, row: 1, column: 1 }
+        Self {
+            source,
+            index: 0,
+            row: 1,
+            column: 1,
+        }
     }
 
     fn some_token(&self, kind: TokenKind) -> Option<Token> {
@@ -53,12 +59,15 @@ impl Lexer {
             '(' => Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)),
             ')' => Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)),
             '[' => Some(TokenKind::Bracket(BracketKind::Square, BracketStatus::Open)),
-            ']' => Some(TokenKind::Bracket(BracketKind::Square, BracketStatus::Close)),
+            ']' => Some(TokenKind::Bracket(
+                BracketKind::Square,
+                BracketStatus::Close,
+            )),
             '{' => Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)),
             '}' => Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close)),
             '<' => Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)),
             '>' => Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close)),
-            _ => None
+            _ => None,
         }
     }
 
@@ -76,10 +85,9 @@ impl Lexer {
             "&" => Some(TokenKind::Punctuation(PunctuationKind::And)),
             "->" => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
             "=" => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
-            _ => None
+            _ => None,
         }
     }
-
 }
 
 const END_OF_FILE: char = '\u{0}';
@@ -97,15 +105,14 @@ impl Iterator for Lexer {
         let mut status = LexStatus::None;
         let mut exit = false;
         loop {
-            let c =
-                if let Some(a_char) = chars.next() {
-                    a_char
-                } else if exit {
-                    break;
-                } else {
-                    exit = true;
-                    END_OF_FILE
-                };
+            let c = if let Some(a_char) = chars.next() {
+                a_char
+            } else if exit {
+                break;
+            } else {
+                exit = true;
+                END_OF_FILE
+            };
 
             //debug!("status {:?}, actual <{}>, c <{}>", status, actual, c);
 
@@ -151,7 +158,13 @@ impl Iterator for Lexer {
                         status = LexStatus::AlphaNumeric;
                         actual.push(c);
                     } else if c != END_OF_FILE {
-                        debug!("WARNING: unknown char '{}' ({}) at {},{} ***", c, c.escape_debug(), self.row, self.column);
+                        debug!(
+                            "WARNING: unknown char '{}' ({}) at {},{} ***",
+                            c,
+                            c.escape_debug(),
+                            self.row,
+                            self.column
+                        );
                     }
                 }
                 LexStatus::WhiteSpace => {
@@ -213,12 +226,14 @@ impl Iterator for Lexer {
                 }
                 LexStatus::AsmBlock => {
                     if actual.ends_with("}/") {
-                        let token = self.some_token(TokenKind::AsmBLock(actual.split_at(actual.len() - 2).0.into()));
+                        let token = self.some_token(TokenKind::AsmBLock(
+                            actual.split_at(actual.len() - 2).0.into(),
+                        ));
                         return token;
                     } else if c == '\n' {
-                            self.row += 1;
-                            self.column = 0;
-                            actual.push(c);
+                        self.row += 1;
+                        self.column = 0;
+                        actual.push(c);
                     } else {
                         actual.push(c);
                     }
@@ -257,97 +272,139 @@ mod tests {
     fn test2() {
         let lexer = Lexer::from_file(Path::new("resources/test/test2.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
-        assert_eq!(vec![Comment("// test2.rasm file".into()),
-                        AlphaNumeric("println".into()),
-                        Bracket(Round, Open),
-                        StringLiteral("hello world".into()),
-                        Bracket(Round, Close),
-                        Punctuation(SemiColon)], lst);
+        assert_eq!(
+            vec![
+                Comment("// test2.rasm file".into()),
+                AlphaNumeric("println".into()),
+                Bracket(Round, Open),
+                StringLiteral("hello world".into()),
+                Bracket(Round, Close),
+                Punctuation(SemiColon),
+            ],
+            lst
+        );
     }
 
     #[test]
     fn test3() {
         let lexer = Lexer::from_file(Path::new("resources/test/test3.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
-        assert_eq!(vec![Comment("// test3.rasm file".into()),
-                        AlphaNumeric("println".into()),
-                        Bracket(Round, Open),
-                        Number("100".into()),
-                        Bracket(Round, Close), EndOfLine,
-                        AlphaNumeric("println".into()),
-                        Bracket(Round, Open),
-                        Number("100.123".into()),
-                        Bracket(Round, Close)], lst);
+        assert_eq!(
+            vec![
+                Comment("// test3.rasm file".into()),
+                AlphaNumeric("println".into()),
+                Bracket(Round, Open),
+                Number("100".into()),
+                Bracket(Round, Close),
+                EndOfLine,
+                AlphaNumeric("println".into()),
+                Bracket(Round, Open),
+                Number("100.123".into()),
+                Bracket(Round, Close),
+            ],
+            lst
+        );
     }
 
     #[test]
     fn test4() {
         let lexer = Lexer::from_file(Path::new("resources/test/test4.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
-        assert_eq!(vec![Comment("// test4.rasm file".into()),
-                        KeyWord(KeywordKind::Fn),
-                        WhiteSpaces(" ".into()),
-                        AlphaNumeric("add".into()),
-                        Bracket(Round, Open),
-                        AlphaNumeric("a".into()),
-                        Punctuation(Colon),
-                        WhiteSpaces(" ".into()),
-                        AlphaNumeric("i32".into()),
-                        Punctuation(Comma),
-                        WhiteSpaces(" ".into()),
-                        AlphaNumeric("b".into()),
-                        Punctuation(Colon),
-                        WhiteSpaces(" ".into()),
-                        AlphaNumeric("i32".into()),
-                        Bracket(Round, Close),
-                        WhiteSpaces(" ".into()),
-                        Punctuation(RightArrow),
-                        WhiteSpaces(" ".into()),
-                        AlphaNumeric("i32".into()),
-                        WhiteSpaces(" ".into()),
-                        Bracket(Brace, Open),
-                        EndOfLine,
-                        WhiteSpaces("    ".into()),
-                        AlphaNumeric("I32".into()),
-                        Punctuation(Colon),
-                        Punctuation(Colon),
-                        AlphaNumeric("add".into()),
-                        Bracket(Round, Open),
-                        AlphaNumeric("a".into()),
-                        Punctuation(Comma),
-                        WhiteSpaces(" ".into()),
-                        AlphaNumeric("b".into()),
-                        Bracket(Round, Close),
-                        EndOfLine,
-                        Bracket(Brace, Close)], lst);
+        assert_eq!(
+            vec![
+                Comment("// test4.rasm file".into()),
+                KeyWord(KeywordKind::Fn),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("add".into()),
+                Bracket(Round, Open),
+                AlphaNumeric("a".into()),
+                Punctuation(Colon),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("i32".into()),
+                Punctuation(Comma),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("b".into()),
+                Punctuation(Colon),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("i32".into()),
+                Bracket(Round, Close),
+                WhiteSpaces(" ".into()),
+                Punctuation(RightArrow),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("i32".into()),
+                WhiteSpaces(" ".into()),
+                Bracket(Brace, Open),
+                EndOfLine,
+                WhiteSpaces("    ".into()),
+                AlphaNumeric("I32".into()),
+                Punctuation(Colon),
+                Punctuation(Colon),
+                AlphaNumeric("add".into()),
+                Bracket(Round, Open),
+                AlphaNumeric("a".into()),
+                Punctuation(Comma),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("b".into()),
+                Bracket(Round, Close),
+                EndOfLine,
+                Bracket(Brace, Close),
+            ],
+            lst
+        );
     }
 
     #[test]
     fn test5() {
         let lexer = Lexer::from_file(Path::new("resources/test/test5.rasm")).unwrap();
-        let lst: Vec<TokenKind> = lexer.map(|it| it.kind).filter(|it| {
-            matches!(it, TokenKind::AsmBLock(_))
-        }).collect();
-        assert_eq!(vec![AsmBLock("\n    add assembler code\n".into()), AsmBLock("\n    sub assembler code\n".into())], lst);
+        let lst: Vec<TokenKind> = lexer
+            .map(|it| it.kind)
+            .filter(|it| matches!(it, TokenKind::AsmBLock(_)))
+            .collect();
+        assert_eq!(
+            vec![
+                AsmBLock("\n    add assembler code\n".into()),
+                AsmBLock("\n    sub assembler code\n".into()),
+            ],
+            lst
+        );
     }
 
     #[test]
     fn test6() {
         let lexer = Lexer::from_file(Path::new("resources/test/test6.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
-        assert_eq!(vec![Comment("// test6.rasm file".into()), Comment("/*\n   A multi\n   line comment\n */".into())], lst);
+        assert_eq!(
+            vec![
+                Comment("// test6.rasm file".into()),
+                Comment("/*\n   A multi\n   line comment\n */".into()),
+            ],
+            lst
+        );
     }
 
     #[test]
     fn test7() {
         let lexer = Lexer::from_file(Path::new("resources/test/test7.rasm")).unwrap();
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
-        assert_eq!(vec![Comment("// test7.rasm file".into()), KeyWord(KeywordKind::Fn),
-                        WhiteSpaces(" ".into()), AlphaNumeric("add".into()), Bracket(Round, Open),
-                        AlphaNumeric("s".into()), Punctuation(Colon), WhiteSpaces(" ".into()),
-                        Punctuation(And),
-                        AlphaNumeric("str".into()), Bracket(Round, Close),
-                        WhiteSpaces(" ".into()), Bracket(Brace, Open), Bracket(Brace, Close)], lst);
+        assert_eq!(
+            vec![
+                Comment("// test7.rasm file".into()),
+                KeyWord(KeywordKind::Fn),
+                WhiteSpaces(" ".into()),
+                AlphaNumeric("add".into()),
+                Bracket(Round, Open),
+                AlphaNumeric("s".into()),
+                Punctuation(Colon),
+                WhiteSpaces(" ".into()),
+                Punctuation(And),
+                AlphaNumeric("str".into()),
+                Bracket(Round, Close),
+                WhiteSpaces(" ".into()),
+                Bracket(Brace, Open),
+                Bracket(Brace, Close),
+            ],
+            lst
+        );
     }
 
     /*
@@ -362,8 +419,8 @@ mod tests {
 
         let lst: Vec<TokenKind> = lexer
             .filter(|it| it.)
-        assert_eq!(vec![Comment("// test6.rasm file".into()), Comment("/*\n   A multi\n   line comment\n */".into())], lst);
+        assert_eq!(vec![Comment("// test6.rasm file".into()), Comment("/*\n   A multi\n   line comment\n */
+    ".into())], lst);
     }
      */
-
 }

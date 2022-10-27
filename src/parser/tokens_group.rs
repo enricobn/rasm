@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
-use linked_hash_map::LinkedHashMap;
-use crate::parser::ParserTrait;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
+use crate::parser::ParserTrait;
+use linked_hash_map::LinkedHashMap;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug)]
 pub struct TokensGroup {
@@ -10,7 +10,6 @@ pub struct TokensGroup {
     quantifier: Quantifier,
     current_group: Vec<TokensGroup>,
 }
-
 
 impl Display for TokensGroup {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -31,11 +30,18 @@ impl Display for TokensGroup {
 impl TokensGroup {
     pub fn new(name: Vec<String>, quantifier: Quantifier) -> Self {
         //println!("created group {:?}", name);
-        Self { name, current_group: Vec::new(), tokens_matchers: Vec::new(), quantifier }
+        Self {
+            name,
+            current_group: Vec::new(),
+            tokens_matchers: Vec::new(),
+            quantifier,
+        }
     }
 
     pub fn add_matcher<T: 'static>(&mut self, matcher: T)
-        where T: TokensMatcherTrait {
+        where
+            T: TokensMatcherTrait,
+    {
         //println!("adding matcher {:?}", &matcher);
         if let Some(first) = self.current_group.first_mut() {
             first.add_matcher(matcher);
@@ -54,7 +60,10 @@ impl TokensGroup {
             let group = TokensGroup::new(n, quantifier);
             self.current_group.push(group);
         } else {
-            self.current_group.first_mut().unwrap().start_group(name, quantifier);
+            self.current_group
+                .first_mut()
+                .unwrap()
+                .start_group(name, quantifier);
         }
     }
 
@@ -65,13 +74,18 @@ impl TokensGroup {
         } else {
             if self.current_group.first_mut().unwrap().end_group() {
                 //self.groups.insert(self.len(), self.current_group.pop().unwrap());
-                self.tokens_matchers.push(Box::new(self.current_group.pop().unwrap()));
+                self.tokens_matchers
+                    .push(Box::new(self.current_group.pop().unwrap()));
             }
             false
         }
     }
 
-    pub fn push_result(map: &mut LinkedHashMap<String, Vec<TokensMatcherResult>>, key: String, result: TokensMatcherResult) {
+    pub fn push_result(
+        map: &mut LinkedHashMap<String, Vec<TokensMatcherResult>>,
+        key: String,
+        result: TokensMatcherResult,
+    ) {
         if !map.contains_key(&key) {
             map.insert(key.clone(), Vec::new());
         }
@@ -90,7 +104,8 @@ impl TokensMatcherTrait for TokensGroup {
 
         let mut tokens = Vec::new();
         let mut values = Vec::new();
-        let mut groups_result: LinkedHashMap<String, Vec<TokensMatcherResult>> = LinkedHashMap::new();
+        let mut groups_result: LinkedHashMap<String, Vec<TokensMatcherResult>> =
+            LinkedHashMap::new();
 
         let mut num_of_matches = 0;
 
@@ -141,10 +156,16 @@ impl TokensMatcherTrait for TokensGroup {
             Quantifier::One => num_of_matches == 1,
             Quantifier::AtLeastOne => num_of_matches >= 1,
             Quantifier::ZeroOrMore => true,
-            Quantifier::AtMostOne => num_of_matches <= 1
+            Quantifier::AtMostOne => num_of_matches <= 1,
         } {
             //println!("matched all for {:?}, values {:?}, group values: {:?}\n", self, values, groups_result);
-            Some(TokensMatcherResult::new(tokens, values, groups_result, i, num_of_matches))
+            Some(TokensMatcherResult::new(
+                tokens,
+                values,
+                groups_result,
+                i,
+                num_of_matches,
+            ))
         } else {
             //println!("not matched all for {:?}, found {} matches\n", self, num_of_matches);
             None
@@ -158,8 +179,8 @@ impl TokensMatcherTrait for TokensGroup {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::tokens_matcher::{AlphanumericTokenMatcher};
     use super::*;
+    use crate::parser::tokens_matcher::AlphanumericTokenMatcher;
 
     #[test]
     fn test() {
@@ -179,5 +200,4 @@ mod tests {
         let s = format!("sut {:?}", sut);
         assert_eq!(2, s.matches("\"main\", \"g1\", \"g2\"").count());
     }
-
 }

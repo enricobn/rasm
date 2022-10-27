@@ -1,6 +1,6 @@
+use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
@@ -45,7 +45,12 @@ pub struct ASTLambdaDef {
 impl Display for ASTLambdaDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self.parameter_names.join(",");
-        let body = self.body.iter().map(|it| format!("{it};")).collect::<Vec<String>>().join("");
+        let body = self
+            .body
+            .iter()
+            .map(|it| format!("{it};"))
+            .collect::<Vec<String>>()
+            .join("");
 
         f.write_str(&format!("{{ {pars} -> {body} }}"))
     }
@@ -227,12 +232,8 @@ pub enum ASTStatement {
 impl Display for ASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTStatement::Expression(e) => {
-                f.write_str(&format!("{e};\n"))
-            }
-            ASTStatement::LetStatement(name, e) => {
-                f.write_str(&format!("let {name} = {e};\n"))
-            }
+            ASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
+            ASTStatement::LetStatement(name, e) => f.write_str(&format!("let {name} = {e};\n")),
         }
     }
 }

@@ -21,7 +21,7 @@ impl TypeConversionContext {
         original_name: &String,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
-        debug!("trying to add new function {function_def}" );
+        debug!("trying to add new function {function_def}");
 
         if let Some(same_name_functions) = self.new_function_defs.get_mut(original_name) {
             if let Some(already_present) = same_name_functions.iter().find(|it| {

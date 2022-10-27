@@ -1,9 +1,9 @@
-use std::fmt::{Debug, Display, Formatter};
-use linked_hash_map::LinkedHashMap;
-use crate::lexer::tokens::{Token, TokenKind};
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
-use crate::parser::ParserTrait;
+use crate::lexer::tokens::{Token, TokenKind};
 use crate::parser::tokens_group::TokensGroup;
+use crate::parser::ParserTrait;
+use linked_hash_map::LinkedHashMap;
+use std::fmt::{Debug, Display, Formatter};
 
 pub trait TokensMatcherTrait: Debug + Sync + Display {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
@@ -30,11 +30,15 @@ impl Default for TokensMatcher {
 
 impl TokensMatcher {
     pub fn new(name: &str, quantifier: Quantifier) -> Self {
-        Self { group: TokensGroup::new(vec![name.to_string()], quantifier) }
+        Self {
+            group: TokensGroup::new(vec![name.to_string()], quantifier),
+        }
     }
 
     pub fn add_matcher<T: 'static>(&mut self, matcher: T)
-        where T: TokensMatcherTrait {
+        where
+            T: TokensMatcherTrait,
+    {
         self.group.add_matcher(matcher);
     }
 
@@ -84,8 +88,20 @@ pub struct TokensMatcherResult {
 }
 
 impl TokensMatcherResult {
-    pub fn new(tokens: Vec<Token>, values: Vec<String>, groups_results: LinkedHashMap<String, Vec<Self>>, next_n: usize, num_of_matches: usize) -> Self {
-        Self { tokens, values, next_n, groups_results, num_of_matches }
+    pub fn new(
+        tokens: Vec<Token>,
+        values: Vec<String>,
+        groups_results: LinkedHashMap<String, Vec<Self>>,
+        next_n: usize,
+        num_of_matches: usize,
+    ) -> Self {
+        Self {
+            tokens,
+            values,
+            next_n,
+            groups_results,
+            num_of_matches,
+        }
     }
 
     pub fn tokens(&self) -> &Vec<Token> {
@@ -105,14 +121,16 @@ impl TokensMatcherResult {
     }
 
     pub fn group_results(&self, name: &str) -> Vec<&Self> {
-        let mut result: Vec<&Self> =
-            if let Some(results) = self.groups_results.get(name) {
-                results.iter().collect()
-            } else {
-                Vec::new()
-            };
+        let mut result: Vec<&Self> = if let Some(results) = self.groups_results.get(name) {
+            results.iter().collect()
+        } else {
+            Vec::new()
+        };
 
-        let mut x = self.groups_results.values().flatten()
+        let mut x = self
+            .groups_results
+            .values()
+            .flatten()
             .flat_map(|group_result| group_result.group_results(name))
             .collect();
 
@@ -122,18 +140,18 @@ impl TokensMatcherResult {
     }
 
     pub fn group_values(&self, name: &str) -> Vec<String> {
-        let mut result: Vec<String> =
-            if let Some(results) = self.groups_results.get(name) {
-                results.iter()
-                    .flat_map(|group_result| {
-                        group_result.values.iter().cloned()
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
+        let mut result: Vec<String> = if let Some(results) = self.groups_results.get(name) {
+            results
+                .iter()
+                .flat_map(|group_result| group_result.values.iter().cloned())
+                .collect()
+        } else {
+            Vec::new()
+        };
 
-        let mut x = self.groups_results.values()
+        let mut x = self
+            .groups_results
+            .values()
             .flatten()
             .flat_map(|group_result| group_result.group_values(name))
             .collect();
@@ -190,7 +208,10 @@ impl AlphanumericTokenMatcher {
     }
 }
 
-impl<T> TokensMatcherTrait for T where T: TokenMatcher {
+impl<T> TokensMatcherTrait for T
+    where
+        T: TokenMatcher,
+{
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(token) = parser.get_token_n(n) {
             //println!("TokenMatcher match_tokens n {} token {:?}", n, token);
@@ -200,7 +221,13 @@ impl<T> TokensMatcherTrait for T where T: TokenMatcher {
                 } else {
                     vec![]
                 };
-                Some(TokensMatcherResult::new( vec![token.clone()], values, LinkedHashMap::new(), n + 1, 1))
+                Some(TokensMatcherResult::new(
+                    vec![token.clone()],
+                    values,
+                    LinkedHashMap::new(),
+                    n + 1,
+                    1,
+                ))
             } else {
                 None
             }
@@ -240,10 +267,10 @@ impl Display for AlphanumericTokenMatcher {
 
 #[cfg(test)]
 mod tests {
-    use linked_hash_map::LinkedHashMap;
+    use super::*;
     use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind};
     use crate::parser::test_utils::get_parser;
-    use super::*;
+    use linked_hash_map::LinkedHashMap;
 
     #[test]
     fn test_result_values() {
@@ -268,7 +295,10 @@ mod tests {
         assert_eq!(vec!["T", "T1", "T2"], result.group_values("type"));
     }
 
-    fn new_result_with_inner_results(name: &str, group_values: Vec<TokensMatcherResult>) -> TokensMatcherResult {
+    fn new_result_with_inner_results(
+        name: &str,
+        group_values: Vec<TokensMatcherResult>,
+    ) -> TokensMatcherResult {
         let mut results = LinkedHashMap::new();
         results.insert(name.into(), group_values);
 
@@ -345,14 +375,17 @@ mod tests {
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            assert_eq!(vec![
-                TokenKind::KeyWord(KeywordKind::Enum),
-                AlphaNumeric("Option".into()),
-                TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open),
-                AlphaNumeric("T".into()),
-                TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close),
-                TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)],
-                       match_result.kinds());
+            assert_eq!(
+                vec![
+                    TokenKind::KeyWord(KeywordKind::Enum),
+                    AlphaNumeric("Option".into()),
+                    TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open),
+                    AlphaNumeric("T".into()),
+                    TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close),
+                    TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open),
+                ],
+                match_result.kinds()
+            );
             assert_eq!(&vec!["Option", "T"], match_result.values());
         } else {
             panic!();
@@ -407,11 +440,14 @@ mod tests {
         let parser = get_parser("enum Option {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            assert_eq!(vec![
-                TokenKind::KeyWord(KeywordKind::Enum),
-                AlphaNumeric("Option".into()),
-                TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)],
-                       match_result.kinds());
+            assert_eq!(
+                vec![
+                    TokenKind::KeyWord(KeywordKind::Enum),
+                    AlphaNumeric("Option".into()),
+                    TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open),
+                ],
+                match_result.kinds()
+            );
             assert_eq!(&vec!["Option".to_string()], match_result.values());
             assert!(match_result.group_values("type").is_empty());
             assert!(match_result.group_values("unknown").is_empty());
@@ -423,17 +459,19 @@ mod tests {
         let parser = get_parser("enum Option<T,Y> {");
 
         if let Some(match_result) = matcher.match_tokens(&parser, 0) {
-            assert_eq!(vec![
-                TokenKind::KeyWord(KeywordKind::Enum),
-                AlphaNumeric("Option".into()),
-                TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open),
-                AlphaNumeric("T".into()),
-                TokenKind::Punctuation(PunctuationKind::Comma),
-                AlphaNumeric("Y".into()),
-                TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close),
-                TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open),
-            ],
-                       match_result.kinds());
+            assert_eq!(
+                vec![
+                    TokenKind::KeyWord(KeywordKind::Enum),
+                    AlphaNumeric("Option".into()),
+                    TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open),
+                    AlphaNumeric("T".into()),
+                    TokenKind::Punctuation(PunctuationKind::Comma),
+                    AlphaNumeric("Y".into()),
+                    TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close),
+                    TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open),
+                ],
+                match_result.kinds()
+            );
             assert_eq!(&vec!["Option"], match_result.values());
             assert_eq!(vec!["T", "Y"], match_result.group_values("type"));
             assert_eq!(8, match_result.next_n());

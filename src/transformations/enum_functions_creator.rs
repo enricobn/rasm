@@ -145,7 +145,9 @@ fn create_constructors(
         let return_type = Some(type_ref);
         let body_str = if variant.parameters.is_empty() {
             let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-            code_gen.statics.insert(label.clone(), MemoryValue::I32Value(0));
+            code_gen
+                .statics
+                .insert(label.clone(), MemoryValue::I32Value(0));
             //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
             //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
 
