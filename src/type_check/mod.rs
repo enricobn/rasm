@@ -80,7 +80,7 @@ pub fn convert(
         let mut new_body = Vec::new();
 
         for statement in body.iter() {
-            let mut resolved_param_types = LinkedHashMap::new();
+            let resolved_param_types = LinkedHashMap::new();
 
             match statement {
                 ASTStatement::Expression(expr) => {
@@ -418,7 +418,7 @@ fn convert_expr_in_body(
             resolved_param_types,
             None,
         )?
-            .map(ASTExpression::ASTFunctionCallExpression),
+            .map(ASTFunctionCallExpression),
         ASTExpression::StringLiteral(_) => None,
         ASTExpression::Val(p) => {
             /*
@@ -490,7 +490,7 @@ fn convert_last_expr_in_body(
     indent!();
 
     let result = match expr {
-        ASTExpression::ASTFunctionCallExpression(call) => {
+        ASTFunctionCallExpression(call) => {
             //extract_generic_types_from_effective_type()
 
             if let Some(ASTTypeRef {
@@ -507,7 +507,7 @@ fn convert_last_expr_in_body(
                         resolved_param_types,
                         Some(return_type),
                     )?
-                        .map(ASTExpression::ASTFunctionCallExpression);
+                        .map(ASTFunctionCallExpression);
 
                     debug_i!("converted call {:?}", result);
                     dedent!();
@@ -634,7 +634,7 @@ fn convert_call(
                         &mut expressions,
                     )? || something_to_convert;
                 }
-                ASTExpression::ASTFunctionCallExpression(call) => {
+                ASTFunctionCallExpression(call) => {
                     if let Some(ast_function_call) =
                     convert_call(module, context, call, typed_context, &LinkedHashMap::new(), None)?
                     {
@@ -661,7 +661,7 @@ fn convert_call(
                             );
                             update(
                                 result_type.ast_type,
-                                ASTExpression::ASTFunctionCallExpression(ast_function_call),
+                                ASTFunctionCallExpression(ast_function_call),
                                 par,
                                 &mut resolved_param_types,
                                 &mut converted_parameters,
@@ -677,7 +677,7 @@ fn convert_call(
                             if let Some(rt) = &inner_function_def.return_type {
                                 update(
                                     rt.clone().ast_type,
-                                    ASTExpression::ASTFunctionCallExpression(ast_function_call),
+                                    ASTFunctionCallExpression(ast_function_call),
                                     par,
                                     &mut resolved_param_types,
                                     &mut converted_parameters,
@@ -685,7 +685,7 @@ fn convert_call(
                                 )?;
                             } else {
                                 converted_parameters.push(par.clone());
-                                expressions.push(ASTExpression::ASTFunctionCallExpression(
+                                expressions.push(ASTFunctionCallExpression(
                                     ast_function_call,
                                 ));
                             }
@@ -706,7 +706,7 @@ fn convert_call(
                                 );
                                 something_to_convert = update(
                                     result_type.ast_type,
-                                    ASTExpression::ASTFunctionCallExpression(call.clone()),
+                                    ASTFunctionCallExpression(call.clone()),
                                     par,
                                     &mut resolved_param_types,
                                     &mut converted_parameters,
@@ -742,7 +742,7 @@ fn convert_call(
                                         debug_i!("new_call {new_call}");
                                         something_to_convert = true;
                                         converted_parameters.push(par.clone());
-                                        expressions.push(ASTExpression::ASTFunctionCallExpression(
+                                        expressions.push(ASTFunctionCallExpression(
                                             new_call,
                                         ));
                                         converted = true;
@@ -1130,7 +1130,7 @@ fn get_type_of_expression(
 
     let result = match expr {
         ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::ASTString)),
-        ASTExpression::ASTFunctionCallExpression(call) => {
+        ASTFunctionCallExpression(call) => {
             if let Some(function_def) = module
                 .functions_by_name
                 .get(&call.function_name)
@@ -1430,17 +1430,16 @@ fn substitute_type(
                 return_type,
             } => {
                 let mut something_substituted = false;
-                let new_parameters = parameters
-                    .iter()
-                    .map(|it| {
-                        if let Some(new_t) = substitute(it, resolved_param_types) {
-                            something_substituted = true;
-                            new_t
-                        } else {
-                            it.clone()
+                let new_parameters =
+                    match substitute_type_refs(parameters, resolved_param_types) {
+                        None => {
+                            parameters.clone()
                         }
-                    })
-                    .collect();
+                        Some(new_parameters) => {
+                            something_substituted = true;
+                            new_parameters
+                        }
+                    };
 
                 let new_return_type = return_type.clone().map(|it| {
                     if let Some(new_t) = substitute(&it, resolved_param_types) {
@@ -1470,27 +1469,10 @@ fn substitute_type(
             }
         }
         ASTType::Custom { name, param_types } => {
-            let mut something_substituted = false;
-
-            let new_param_types = param_types
-                .iter()
-                .map(|it| {
-                    if let Some(new_t) = substitute(it, resolved_param_types) {
-                        something_substituted = true;
-                        new_t
-                    } else {
-                        it.clone()
-                    }
-                })
-                .collect();
-            if something_substituted {
-                Some(ASTType::Custom {
-                    name: name.clone(),
-                    param_types: new_param_types,
-                })
-            } else {
-                None
-            }
+            substitute_type_refs(param_types, resolved_param_types).map(|new_param_types| ASTType::Custom {
+                name: name.clone(),
+                param_types: new_param_types,
+            })
         }
     };
 
@@ -1501,6 +1483,27 @@ fn substitute_type(
     }
     dedent!();
     result
+}
+
+fn substitute_type_refs(types: &[ASTTypeRef], resolved_param_types: &LinkedHashMap<String, ASTType>) -> Option<Vec<ASTTypeRef>> {
+    let mut something_substituted = false;
+    let new_types = types
+        .iter()
+        .map(|it| {
+            if let Some(new_t) = substitute(it, resolved_param_types) {
+                something_substituted = true;
+                new_t
+            } else {
+                it.clone()
+            }
+        })
+        .collect();
+
+    if something_substituted {
+        Some(new_types)
+    } else {
+        None
+    }
 }
 
 fn update(
@@ -1706,7 +1709,7 @@ mod tests {
         );
 
         let par =
-            if let Some(ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(e))) =
+            if let Some(ASTStatement::Expression(ASTFunctionCallExpression(e))) =
             module.body.get(0)
             {
                 Some(e)
