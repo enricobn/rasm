@@ -9,8 +9,8 @@ thread_local! {
 #[macro_export] macro_rules! debug_i {
     ($ ( $ a: expr), *) => {
         unsafe {
-        crate::utils::debug_indent::INDENT.with(|indent| {
-            let s = if !crate::utils::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
+        $crate::utils::debug_indent::INDENT.with(|indent| {
+            let s = if !$crate::utils::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
                 "".into()
             } else {
                 "|  ".repeat(*indent.borrow())
