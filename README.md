@@ -13,11 +13,11 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 
 ### Prerequisites
 
-#### To install 32 bit libc libraries on Ubuntu
+#### On Ubuntu
 
-`sudo apt install gcc-multilib g++-multilib libc++-dev`
+`sudo apt install gcc-multilib g++-multilib libc++-dev nasm`
 
-To compile a rasm program:  
+### Compile a rasm program
 `target/release/rasm "file name".rasm`    
 it will produce a "file name" executable
 
