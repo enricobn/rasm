@@ -3,8 +3,6 @@ Doing
 
 Next
 -----
-- rust.yaml:
-  - try to remove ilammy/setup-nasm@v1 and add nasm to apt-get install
 - sdl examples
   - how to reference external structs?
 - TextMacro:
