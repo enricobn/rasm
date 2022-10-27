@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, info};
 use std::fmt::{Display, Formatter};
 use linked_hash_map::LinkedHashMap;
 
@@ -300,8 +300,10 @@ pub fn convert(
         &mut type_conversion_context,
         debug_asm,
         print_allocation,
-        print_module
+        print_module,
     );
+
+    info!("Type check ended ({count} passes)");
     typed_module
 }
 
@@ -383,10 +385,11 @@ fn convert_statement_in_body(
     typed_context: &mut TypeConversionContext,
     resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
+
     match statement {
         ASTStatement::Expression(e) => {
             convert_expr_in_body(module, e, context, typed_context, resolved_param_types)
-                .map(|ito| ito.map(|it| ASTStatement::Expression(it)))
+                .map(|ito| ito.map(ASTStatement::Expression))
         }
         ASTStatement::LetStatement(name, e) => {
             convert_expr_in_body(module, e, context, typed_context, resolved_param_types)
@@ -437,6 +440,9 @@ fn convert_expr_in_body(
         ASTExpression::Lambda(_) => None,
     };
 
+    if result.is_some() {
+        debug_i!("something converted in convert_expr_in_body");
+    }
     dedent!();
     Ok(result)
 }
@@ -586,7 +592,11 @@ fn convert_call(
     let mut resolved_param_types = resolved_param_types.clone();
 
     // TODO I don't like count, probably something seems to be converted,but is not...
-    while something_to_convert && count < 100 {
+    while something_to_convert {
+        if count > 100 {
+            panic!("Count exceeded converting {call}");
+        }
+
         something_to_convert = false;
 
         expressions.clear();
@@ -685,7 +695,6 @@ fn convert_call(
                             if let Some(rt) = &inner_function_def.return_type {
                                 // the generic types of the inner function are not the same of the this function
                                 let result_type = if get_generic_types(&rt.ast_type).is_empty() {
-                                    something_to_convert = true;
                                     inner_function_def.return_type.clone().unwrap()
                                 } else {
                                     par.clone().type_ref
@@ -695,14 +704,14 @@ fn convert_call(
                                     "expression {}",
                                     ASTExpression::ASTFunctionCallExpression(call.clone())
                                 );
-                                update(
+                                something_to_convert = update(
                                     result_type.ast_type,
                                     ASTExpression::ASTFunctionCallExpression(call.clone()),
                                     par,
                                     &mut resolved_param_types,
                                     &mut converted_parameters,
                                     &mut expressions,
-                                )?;
+                                )? || something_to_convert;
                             } else {
                                 panic!("A Void result is not supported");
                             }
@@ -722,16 +731,6 @@ fn convert_call(
                                     &par.type_ref.ast_type,
                                 )?;
                                 if !map.is_empty() {
-                                    /*
-                                    let inner_function_def = typed_context
-                                        .get(&call.function_name)
-                                        .unwrap_or_else(|| {
-                                            module.functions_by_name.get(&call.original_function_name)
-                                                .unwrap_or_else(|| panic!("Cannot find function {}", call.original_function_name))
-                                        });
-
-                                     */
-
                                     if let Some(new_call) = convert_call(
                                         module,
                                         context,
@@ -830,7 +829,7 @@ fn convert_call(
 
                     let new_return_type = match &par.type_ref.ast_type {
                         ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                             parameters: _,
+                                             parameters: _lambda_parameters,
                                              return_type, // TODO I cannot convert the return type at this stage
                                          }) => {
                             if let Some(rt) = return_type {
@@ -940,10 +939,20 @@ fn convert_call(
                                                 return_type: _,
                                             }) = &par.type_ref.ast_type
                     {
+                        let new_parameters: Vec<ASTTypeRef> = parameters.iter().map(|it| {
+                            match substitute(it, &resolved_param_types) {
+                                None => { it.clone() }
+                                Some(p) => {
+                                    something_converted = true;
+                                    p
+                                }
+                            }
+                        }).collect();
+
                         something_to_convert = update(
                             ASTType::Builtin(BuiltinTypeKind::Lambda {
                                 return_type: new_return_type.map(Box::new),
-                                parameters: parameters.clone(),
+                                parameters: new_parameters,
                             }),
                             ASTExpression::Lambda(effective_lambda),
                             par,
@@ -1555,7 +1564,7 @@ mod tests {
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
         ASTParameterDef, ASTStatement, ASTType, ASTTypeRef, BuiltinTypeKind,
     };
-    use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
+    use crate::type_check::{convert, convert_call, extract_generic_types_from_effective_type, TypeCheckError};
 
     #[test]
     fn test_extract_generic_types_from_effective_type_simple() -> Result<(), TypeCheckError> {

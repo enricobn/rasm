@@ -15,7 +15,7 @@ use crate::parser::ast::{
     ASTStructDef, ASTTypeRef,
 };
 use linked_hash_map::{Iter, LinkedHashMap};
-use log::{debug, info};
+use log::debug;
 use std::collections::HashSet;
 use std::ops::Deref;
 
@@ -377,7 +377,7 @@ impl<'a> CodeGen<'a> {
 
         self.body.push_str(&after);
 
-        info!("stack {:?}", stack);
+        debug!("stack {:?}", stack);
 //        assert_eq!(stack.size(), 0);
 
         // TODO add a command line argument
