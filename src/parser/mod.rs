@@ -552,7 +552,7 @@ impl Parser {
                     let mut before_call = before_call.clone();
                     before_call
                         .parameters
-                        .push(ASTExpression::ASTFunctionCallExpression(call));
+                        .push(ASTFunctionCallExpression(call));
                     let l = self.parser_data.len();
                     self.parser_data[l - 2] = ParserData::FunctionCall(before_call);
                     self.parser_data.pop();
@@ -645,7 +645,7 @@ impl Parser {
         module
             .functions
             .iter()
-            .for_each(|f| Self::print_function_def(f))
+            .for_each(Self::print_function_def)
     }
 
     pub fn print_enhanced(module: &EnhancedASTModule) {
@@ -656,7 +656,7 @@ impl Parser {
         module
             .functions_by_name
             .values()
-            .for_each(|f| Self::print_function_def(f))
+            .for_each(Self::print_function_def)
     }
 
     pub fn print_function_def(f: &ASTFunctionDef) {

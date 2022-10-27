@@ -26,8 +26,8 @@ macro_rules! debug_i {
 macro_rules! indent {
     () => {
         unsafe {
-            if crate::utils::debug_indent::ENABLE_INDENT {
-                crate::utils::debug_indent::INDENT.with(|indent| {
+            if $crate::utils::debug_indent::ENABLE_INDENT {
+                $crate::utils::debug_indent::INDENT.with(|indent| {
                     *indent.borrow_mut() += 1;
                 });
             }
@@ -39,8 +39,8 @@ macro_rules! indent {
 macro_rules! dedent {
     () => {
         unsafe {
-            if crate::utils::debug_indent::ENABLE_INDENT {
-                crate::utils::debug_indent::INDENT.with(|indent| {
+            if $crate::utils::debug_indent::ENABLE_INDENT {
+                $crate::utils::debug_indent::INDENT.with(|indent| {
                     *indent.borrow_mut() -= 1;
                 });
             }

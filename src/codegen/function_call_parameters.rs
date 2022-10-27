@@ -462,7 +462,7 @@ impl<'a> FunctionCallParameters<'a> {
             self.has_inline_lambda_param = true;
             src = format!("[edx + {}]", lambda_space_index * word_len);
             self.parameters_values
-                .insert(original_param_name.into(), src.clone());
+                .insert(original_param_name.into(), src);
             /*
             if let ASTTypedType::Enum { name } = &par_type_ref.ast_type {
                 self.add_code_for_reference_type(code_gen, None, name, &src, true, &descr);

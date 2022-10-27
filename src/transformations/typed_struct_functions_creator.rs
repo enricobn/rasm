@@ -13,7 +13,7 @@ pub fn typed_struct_functions_creator(
     module: &ASTTypedModule,
 ) -> ASTTypedModule {
     let mut functions_by_name = module.functions_by_name.clone();
-    let mut native_body = module.native_body.clone();
+    let native_body = module.native_body.clone();
 
     for struct_def in module.structs.iter() {
         if struct_has_references(struct_def) {
@@ -21,7 +21,7 @@ pub fn typed_struct_functions_creator(
                 code_gen,
                 backend,
                 &mut functions_by_name,
-                &struct_def,
+                struct_def,
                 "deref",
                 "deref",
                 module,
@@ -30,7 +30,7 @@ pub fn typed_struct_functions_creator(
                 code_gen,
                 backend,
                 &mut functions_by_name,
-                &struct_def,
+                struct_def,
                 "addRef",
                 "addRef",
                 module,
@@ -138,7 +138,7 @@ fn create_free_body(
                         ),
                         module,
                     ));
-                    result.push_str("\n");
+                    result.push('\n');
                 } else {
                     code_gen.call_add_ref(
                         &mut result,

@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use log::debug;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum StackEntryType {
     LetVal,
     RefToDereference,

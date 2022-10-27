@@ -151,7 +151,7 @@ impl Iterator for Lexer {
                         actual.push(c);
                     } else if c == '"' {
                         status = LexStatus::String;
-                    } else if c.is_digit(10) {
+                    } else if c.is_ascii_digit() {
                         status = LexStatus::Numeric;
                         actual.push(c);
                     } else if c.is_alphanumeric() {

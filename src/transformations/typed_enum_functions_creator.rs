@@ -13,14 +13,14 @@ pub fn typed_enum_functions_creator(
     module: &ASTTypedModule,
 ) -> ASTTypedModule {
     let mut functions_by_name = module.functions_by_name.clone();
-    let mut native_body = module.native_body.clone();
+    let native_body = module.native_body.clone();
 
     for enum_def in module.enums.iter() {
         create_free(
             code_gen,
             backend,
             &mut functions_by_name,
-            &enum_def,
+            enum_def,
             "deref",
             "deref",
             module,
@@ -29,7 +29,7 @@ pub fn typed_enum_functions_creator(
             code_gen,
             backend,
             &mut functions_by_name,
-            &enum_def,
+            enum_def,
             "addRef",
             "addRef",
             module,
@@ -137,7 +137,7 @@ fn create_free_body(
                                 &format!("dereferencing {}.{} : {}", enum_def.name, par.name, name),
                                 module,
                             ));
-                            result.push_str("\n");
+                            result.push('\n');
                         } else {
                             code_gen.call_add_ref(
                                 &mut result,

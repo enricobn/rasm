@@ -466,7 +466,7 @@ fn convert_last_statement_in_body(
             resolved_param_types,
             return_type,
         )
-            .map(|ito| ito.map(|it| ASTStatement::Expression(it))),
+            .map(|ito| ito.map(ASTStatement::Expression)),
         ASTStatement::LetStatement(name, e) => convert_last_expr_in_body(
             module,
             e,
@@ -500,7 +500,7 @@ fn convert_last_expr_in_body(
                             ast_type,
                         }) = &return_type
             {
-                if get_generic_types(&ast_type).is_empty() {
+                if get_generic_types(ast_type).is_empty() {
                     let result = convert_call(
                         module,
                         context,
@@ -1586,7 +1586,7 @@ mod tests {
         ASTParameterDef, ASTStatement, ASTType, ASTTypeRef, BuiltinTypeKind,
     };
     use crate::type_check::{
-        convert, convert_call, extract_generic_types_from_effective_type, TypeCheckError,
+        convert, extract_generic_types_from_effective_type, TypeCheckError,
     };
 
     #[test]

@@ -65,7 +65,7 @@ fn create_match_like_function(
     return_type: Option<ASTTypeRef>,
     extra_generic: Option<String>,
 ) {
-    let body = enum_match_body(backend, &enum_def);
+    let body = enum_match_body(backend, enum_def);
 
     let function_body = ASTFunctionBody::ASMBody(body);
     let param_types = enum_def
@@ -123,14 +123,7 @@ fn create_match_like_function(
     );
 }
 
-fn create_constructors(
-    code_gen: &mut CodeGen,
-    backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
-    native_body: &mut String,
-    enum_def: &ASTEnumDef,
-    param_types: &Vec<ASTTypeRef>,
-) {
+fn create_constructors(code_gen: &mut CodeGen, backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>, native_body: &mut String, enum_def: &ASTEnumDef, param_types: &Vec<ASTTypeRef>) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 

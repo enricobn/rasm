@@ -121,7 +121,7 @@ impl Display for ASTType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTParameterDef {
     pub name: String,
     pub type_ref: ASTTypeRef,
@@ -133,7 +133,7 @@ impl Display for ASTParameterDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTStructPropertyDef {
     pub name: String,
     pub type_ref: ASTTypeRef,

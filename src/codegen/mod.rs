@@ -1535,13 +1535,13 @@ impl<'a> CodeGen<'a> {
             if code.is_empty() {
                 out.push_str("    ");
             }
-            out.push_str(&"; ".to_string());
+            out.push_str("; ");
             out.push_str(c);
         }
         out.push('\n');
     }
 
-    pub fn insert_on_top(src: &String, dest: &mut String) {
+    pub fn insert_on_top(src: &str, dest: &mut String) {
         for line in src.lines().rev() {
             dest.insert_str(0, &(line.to_string() + "\n"));
         }
@@ -1587,7 +1587,7 @@ impl<'a> CodeGen<'a> {
 
             CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(&mut result, &"call     deref".to_string(), None, true);
+            CodeGen::add(&mut result, "call     deref", None, true);
             CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
@@ -1636,7 +1636,7 @@ impl<'a> CodeGen<'a> {
         } else {
             CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(out, &format!("call     addRef"), None, true);
+            CodeGen::add(out, &"call     addRef".to_string(), None, true);
             CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
 

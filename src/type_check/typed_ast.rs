@@ -412,7 +412,7 @@ impl<'a> ConvContext<'a> {
                     .collect();
 
                 self.struct_defs.push(ASTTypedStructDef {
-                    name: new_name.clone(),
+                    name: new_name,
                     properties,
                 });
 
@@ -567,7 +567,7 @@ fn verify_statement(
     match statement {
         ASTTypedStatement::Expression(e) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                verify_function_call(module, &context, call);
+                verify_function_call(module, context, call);
             }
         }
         ASTTypedStatement::LetStatement(name, e) => {
@@ -599,7 +599,7 @@ fn verify_statement(
             }
 
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                verify_function_call(module, &context, call);
+                verify_function_call(module, context, call);
             }
         }
     }

@@ -71,7 +71,7 @@ impl<'a> StructParser<'a> {
 
     pub fn parse_properties(
         &self,
-        type_parameters: &Vec<String>,
+        type_parameters: &[String],
         n: usize,
     ) -> Option<(Vec<ASTStructPropertyDef>, usize)> {
         if let Some(result) =

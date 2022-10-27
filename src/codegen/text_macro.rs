@@ -87,18 +87,16 @@ impl TextMacroEvaluator {
 
         for c in s.to_string().chars() {
             match state {
-                State::Standard => {
-                    if c == ',' {
-                        let param = self.get_param(&mut actual_param);
+                State::Standard => if c == ',' {
+                    let param = self.get_param(&actual_param);
 
-                        result.push(param);
+                    result.push(param);
 
-                        actual_param = String::new();
-                        state = State::None;
-                    } else {
-                        actual_param.push(c);
-                    }
-                }
+                    actual_param = String::new();
+                    state = State::None;
+                } else {
+                    actual_param.push(c);
+                },
                 State::None => {
                     if !c.is_whitespace() {
                         if c == '"' {
@@ -124,7 +122,7 @@ impl TextMacroEvaluator {
         match state {
             State::None => {}
             State::Standard => {
-                let param = self.get_param(&mut actual_param);
+                let param = self.get_param(&actual_param);
                 result.push(param);
             }
             State::StringLiteral => {
@@ -135,10 +133,10 @@ impl TextMacroEvaluator {
         result
     }
 
-    fn get_param(&self, actual_param: &String) -> MacroParam {
+    fn get_param(&self, actual_param: &str) -> MacroParam {
         let p = actual_param.trim();
 
-        let is_ref = if let Some(par_name) = p.strip_prefix("$") {
+        let is_ref = if let Some(par_name) = p.strip_prefix('$') {
             if let Some(par) = self.parameters.iter().find(|it| it.name == par_name) {
                 CodeGen::get_reference_type_name(&par.type_ref.ast_type).is_some()
             } else {
@@ -148,13 +146,11 @@ impl TextMacroEvaluator {
             false
         };
 
-        let param = if is_ref {
+        if is_ref {
             MacroParam::Ref(p.into())
         } else {
             MacroParam::Plain(p.into())
-        };
-
-        param
+        }
     }
 
     pub fn eval_macro(
@@ -176,7 +172,7 @@ trait TextMacroEval {
         &self,
         backend: &dyn Backend,
         statics: &mut Statics,
-        parameters: &Vec<MacroParam>,
+        parameters: &[MacroParam],
     ) -> String;
 }
 
@@ -193,7 +189,7 @@ impl TextMacroEval for CallTextMacroEvaluator {
         &self,
         backend: &dyn Backend,
         statics: &mut Statics,
-        parameters: &Vec<MacroParam>,
+        parameters: &[MacroParam],
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
             function_name
@@ -253,7 +249,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         &self,
         backend: &dyn Backend,
         statics: &mut Statics,
-        parameters: &Vec<MacroParam>,
+        parameters: &[MacroParam],
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
             function_name

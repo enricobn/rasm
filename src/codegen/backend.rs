@@ -246,7 +246,7 @@ impl Backend for BackendAsm386 {
     fn remove_comments_from_line(&self, line: String) -> String {
         if let Some(pos) = line.find(';') {
             if pos > 0 {
-                line.split_at(pos).0.to_string().clone()
+                line.split_at(pos).0.to_string()
             } else {
                 String::new()
             }
@@ -276,7 +276,7 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions("mov    eax, 1; call something".into()),
+            sut.called_functions("mov    eax, 1; call something"),
             Vec::<String>::new()
         );
     }
@@ -289,7 +289,7 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), externals);
 
         assert_eq!(
-            sut.called_functions("call something".into()),
+            sut.called_functions("call something"),
             Vec::<String>::new()
         );
     }
