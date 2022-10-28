@@ -368,12 +368,8 @@ impl<'a> CodeGen<'a> {
                         );
 
                         self.body.push_str(&bf);
-                        CodeGen::add(
-                            &mut self.body,
-                            &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp),
-                            Some(""),
-                            true,
-                        );
+
+                        self.backend.store_function_result_in_stack(&mut self.body, -(address_relative_to_bp as i32));
 
                         if self.dereference {
                             if let Some(type_name) =
@@ -798,12 +794,8 @@ impl<'a> CodeGen<'a> {
                                 );
 
                                 before.push_str(&bf);
-                                CodeGen::add(
-                                    &mut before,
-                                    &format!("mov {ws} [{bp} - {}], eax", address_relative_to_bp),
-                                    Some(""),
-                                    true,
-                                );
+
+                                self.backend.store_function_result_in_stack(&mut before, -(address_relative_to_bp as i32));
 
                                 if self.dereference {
                                     if let Some(type_name) =

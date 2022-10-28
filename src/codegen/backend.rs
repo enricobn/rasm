@@ -40,6 +40,8 @@ pub trait Backend {
     fn called_functions(&self, body: &str) -> Vec<String>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
+
+    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32);
 }
 
 enum Linker {
@@ -253,6 +255,18 @@ impl Backend for BackendAsm386 {
         } else {
             line
         }
+    }
+
+    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
+        let ws = self.word_size();
+        let bp = self.stack_base_pointer();
+
+        CodeGen::add(
+            code,
+            &format!("mov {ws} [{bp} + {}], eax", address_relative_to_bp),
+            Some(""),
+            true,
+        );
     }
 }
 
