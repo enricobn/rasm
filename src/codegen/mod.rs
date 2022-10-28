@@ -662,18 +662,7 @@ impl<'a> CodeGen<'a> {
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
 
-        CodeGen::add(
-            &mut self.definitions,
-            &format!("push    {}", bp),
-            None,
-            true,
-        );
-        CodeGen::add(
-            &mut self.definitions,
-            &format!("mov     {},{}", bp, sp),
-            None,
-            true,
-        );
+        self.backend.function_preamble(&mut self.definitions);
 
         let mut before = String::new();
 

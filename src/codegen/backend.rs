@@ -54,6 +54,8 @@ pub trait Backend {
         module: &ASTTypedModule,
         statics: &mut Statics,
     ) -> String;
+
+    fn function_preamble(&self, out: &mut String);
 }
 
 enum Linker {
@@ -319,6 +321,24 @@ impl Backend for BackendAsm386 {
         }
 
         key
+    }
+
+    fn function_preamble(&self, out: &mut String) {
+        let sp = self.stack_pointer();
+        let bp = self.stack_base_pointer();
+
+        CodeGen::add(
+            out,
+            &format!("push    {}", bp),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!("mov     {},{}", bp, sp),
+            None,
+            true,
+        );
     }
 }
 
