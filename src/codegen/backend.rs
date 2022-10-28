@@ -8,6 +8,7 @@ use log::info;
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use crate::codegen::stack::StackVals;
 
 pub trait Backend {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -56,6 +57,12 @@ pub trait Backend {
     ) -> String;
 
     fn function_preamble(&self, out: &mut String);
+
+    fn restore_stack(&self, stack: &StackVals, out: &mut String);
+
+    fn reserve_stack(&self, stack: &StackVals, out: &mut String);
+
+    fn function_end(&self, out: &mut String);
 }
 
 enum Linker {
@@ -339,6 +346,42 @@ impl Backend for BackendAsm386 {
             None,
             true,
         );
+    }
+
+    fn restore_stack(&self, stack: &StackVals, out: &mut String) {
+        if stack.len() > 0 {
+            let sp = self.stack_pointer();
+            CodeGen::add(
+                out,
+                &format!("add   {sp}, {}", stack.len() * self.word_len()),
+                Some("local vals (let)"),
+                true,
+            );
+            stack.remove_all();
+        }
+    }
+
+    fn reserve_stack(&self, stack: &StackVals, out: &mut String) {
+        if stack.len() > 0 {
+            let sp = self.stack_pointer();
+            CodeGen::add(
+                out,
+                &format!("sub   {sp}, {}", stack.len() * self.word_len()),
+                Some("local vals (let)"),
+                true,
+            );
+        }
+    }
+
+    fn function_end(&self, out: &mut String) {
+        let bp = self.stack_base_pointer();
+        CodeGen::add(
+            out,
+            &format!("pop     {}", bp),
+            None,
+            true,
+        );
+        CodeGen::add(out, "ret", None, true);
     }
 }
 

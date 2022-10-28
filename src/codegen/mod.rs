@@ -658,7 +658,6 @@ impl<'a> CodeGen<'a> {
             false,
         );
 
-        let sp = self.backend.stack_pointer();
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
 
@@ -687,7 +686,7 @@ impl<'a> CodeGen<'a> {
             i += 1;
         }
 
-        let stack = StackVals::new();
+        let mut stack = StackVals::new();
 
         let mut after = String::new();
 
@@ -708,18 +707,6 @@ impl<'a> CodeGen<'a> {
                                         false,
                                         &stack,
                                     );
-
-                                    /*
-                                    assert_eq!(
-                                        stack.size(),
-                                        0,
-                                        "function def {} calling {} stack {:?}",
-                                        function_def.name,
-                                        call_expression.function_name,
-                                        stack
-                                    );
-
-                                     */
 
                                     before.push_str(&bf);
 
@@ -862,37 +849,16 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        if stack.len() > 0 {
-            //CodeGen::add(&mut self.definitions, &format!("sub   {sp}, {}", context.let_vals() * wl), Some("local vals (let)"), true);
-            CodeGen::add(
-                &mut self.definitions,
-                &format!("sub   {sp}, {}", stack.len() * self.backend.word_len()),
-                Some("local vals (let)"),
-                true,
-            );
-        }
+        self.backend.reserve_stack(&stack, &mut self.definitions);
 
         self.definitions.push_str(&before);
 
         self.definitions.push_str(&after);
 
-        if stack.len() > 0 {
-            CodeGen::add(
-                &mut self.definitions,
-                &format!("add   {sp}, {}", stack.len() * self.backend.word_len()),
-                Some("local vals (let)"),
-                true,
-            );
-            stack.remove_all();
-        }
+        self.backend.restore_stack(&stack, &mut self.definitions);
 
-        CodeGen::add(
-            &mut self.definitions,
-            &format!("pop     {}", bp),
-            None,
-            true,
-        );
-        CodeGen::add(&mut self.definitions, "ret", None, true);
+        self.backend.function_end(&mut self.definitions);
+
         lambda_calls
     }
 
