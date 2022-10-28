@@ -1,4 +1,5 @@
 use crate::codegen::backend::Backend;
+use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType,
@@ -11,6 +12,7 @@ pub fn enum_functions_creator(
     code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &EnhancedASTModule,
+    statics: &mut Statics,
 ) -> EnhancedASTModule {
     let mut functions_by_name = module.functions_by_name.clone();
     let mut native_body = module.native_body.clone();
@@ -29,6 +31,7 @@ pub fn enum_functions_creator(
             &mut native_body,
             enum_def,
             &param_types,
+            statics,
         );
 
         create_match_like_function(
@@ -123,7 +126,15 @@ fn create_match_like_function(
     );
 }
 
-fn create_constructors(code_gen: &mut CodeGen, backend: &dyn Backend, functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>, native_body: &mut String, enum_def: &ASTEnumDef, param_types: &Vec<ASTTypeRef>) {
+fn create_constructors(
+    code_gen: &mut CodeGen,
+    backend: &dyn Backend,
+    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    native_body: &mut String,
+    enum_def: &ASTEnumDef,
+    param_types: &Vec<ASTTypeRef>,
+    statics: &mut Statics,
+) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
 
@@ -138,9 +149,7 @@ fn create_constructors(code_gen: &mut CodeGen, backend: &dyn Backend, functions_
         let return_type = Some(type_ref);
         let body_str = if variant.parameters.is_empty() {
             let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-            code_gen
-                .statics
-                .insert(label.clone(), MemoryValue::I32Value(0));
+            statics.insert(label.clone(), MemoryValue::I32Value(0));
             //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
             //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
 

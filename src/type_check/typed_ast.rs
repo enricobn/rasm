@@ -1,4 +1,3 @@
-use crate::codegen::statics::Statics;
 use crate::codegen::{EnhancedASTModule, TypedValContext, TypedValKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
@@ -226,7 +225,6 @@ pub struct ASTTypedModule {
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
     pub native_body: String,
-    pub statics: Statics,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -524,7 +522,6 @@ pub fn convert_to_typed_module(
         structs: conv_context.struct_defs,
         enums: conv_context.enum_defs,
         functions_by_name,
-        statics: module.statics.clone(),
         native_body: module.native_body.clone(),
     };
 

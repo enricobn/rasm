@@ -124,6 +124,7 @@ impl<'a> FunctionCallParameters<'a> {
         comment: Option<&str>,
         param_type_ref: ASTTypedTypeRef,
         descr: &str,
+        statics: &mut Statics,
     ) {
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
@@ -141,7 +142,7 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
         if let Some(name) = CodeGen::get_reference_type_name(&param_type_ref.ast_type) {
-            self.add_code_for_reference_type(code_gen, comment, &name, "eax", &descr);
+            self.add_code_for_reference_type(code_gen, comment, &name, "eax", &descr, statics);
         }
         self.parameter_added_to_stack("function call result");
     }
@@ -153,16 +154,17 @@ impl<'a> FunctionCallParameters<'a> {
         name: &str,
         source: &str,
         descr: &str,
+        statics: &mut Statics,
     ) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
-            let descr_key = code_gen.call_add_ref(
+            let descr_key = self.backend.call_add_ref(
                 &mut self.before,
-                self.backend,
                 source,
                 name,
                 descr,
                 &code_gen.module.clone(),
+                statics,
             );
             let pos = self.push_to_scope_stack(source, descr_key, descr);
 

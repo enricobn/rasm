@@ -1,7 +1,9 @@
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::CodeGen;
-use crate::type_check::typed_ast::ASTTypedTypeRef;
+use crate::transformations::typed_enum_functions_creator::enum_has_references;
+use crate::transformations::typed_struct_functions_creator::struct_has_references;
+use crate::type_check::typed_ast::{ASTTypedModule, ASTTypedTypeRef};
 use log::info;
 use std::collections::HashSet;
 use std::path::Path;
@@ -42,6 +44,16 @@ pub trait Backend {
     fn remove_comments_from_line(&self, line: String) -> String;
 
     fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32);
+
+    fn call_add_ref(
+        &self,
+        out: &mut String,
+        source: &str,
+        type_name: &str,
+        descr: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
+    ) -> String;
 }
 
 enum Linker {
@@ -268,6 +280,46 @@ impl Backend for BackendAsm386 {
             true,
         );
     }
+
+    fn call_add_ref(
+        &self,
+        out: &mut String,
+        source: &str,
+        type_name: &str,
+        descr: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
+    ) -> String {
+        //println!("add ref {descr}");
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        let key = statics.add_str(descr);
+
+        CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
+
+        let has_references =
+            if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
+                struct_has_references(struct_def)
+            } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
+                enum_has_references(enum_def)
+            } else {
+                true
+            };
+
+        if has_references {
+            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(out, &format!("call     {type_name}_addRef"), None, true);
+            CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+        } else {
+            CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
+            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(out, "call     addRef", None, true);
+            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+        }
+
+        key
+    }
 }
 
 #[cfg(test)]
@@ -302,9 +354,6 @@ mod tests {
 
         let sut = BackendAsm386::new(Default::default(), externals);
 
-        assert_eq!(
-            sut.called_functions("call something"),
-            Vec::<String>::new()
-        );
+        assert_eq!(sut.called_functions("call something"), Vec::<String>::new());
     }
 }

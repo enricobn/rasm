@@ -126,6 +126,10 @@ impl Statics {
         self.statics.get(key)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.statics.is_empty()
+    }
+
     fn print_res(&mut self, backend: &dyn Backend) -> String {
         let mut asm = String::new();
 

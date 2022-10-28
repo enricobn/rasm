@@ -1,4 +1,5 @@
 use crate::codegen::backend::Backend;
+use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
@@ -11,6 +12,7 @@ pub fn typed_struct_functions_creator(
     code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &ASTTypedModule,
+    statics: &mut Statics,
 ) -> ASTTypedModule {
     let mut functions_by_name = module.functions_by_name.clone();
     let native_body = module.native_body.clone();
@@ -25,6 +27,7 @@ pub fn typed_struct_functions_creator(
                 "deref",
                 "deref",
                 module,
+                statics,
             );
             create_free(
                 code_gen,
@@ -34,6 +37,7 @@ pub fn typed_struct_functions_creator(
                 "addRef",
                 "addRef",
                 module,
+                statics,
             );
         }
     }
@@ -53,6 +57,7 @@ fn create_free(
     asm_function_name: &str,
     function_name: &str,
     module: &ASTTypedModule,
+    statics: &mut Statics,
 ) {
     let ast_type = ASTTypedType::Struct {
         name: struct_def.name.clone(),
@@ -69,6 +74,7 @@ fn create_free(
         asm_function_name,
         function_name,
         module,
+        statics,
     );
     let body = ASTTypedFunctionBody::ASMBody(body_str);
 
@@ -97,6 +103,7 @@ fn create_free_body(
     asm_function_name: &str,
     function_name: &str,
     module: &ASTTypedModule,
+    statics: &mut Statics,
 ) -> String {
     let ws = backend.word_size();
     let wl = backend.word_len();
@@ -104,7 +111,7 @@ fn create_free_body(
     let mut result = String::new();
 
     let descr = format!("type {}", struct_def.name);
-    let key = code_gen.statics.add_str(&descr);
+    let key = statics.add_str(&descr);
 
     CodeGen::add(&mut result, "", Some(&descr), true);
     CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
@@ -140,13 +147,13 @@ fn create_free_body(
                     ));
                     result.push('\n');
                 } else {
-                    code_gen.call_add_ref(
+                    backend.call_add_ref(
                         &mut result,
-                        *backend,
                         &format!("[ebx + {}]", i * wl),
                         &name,
                         "",
                         module,
+                        statics,
                     );
                 }
             }
