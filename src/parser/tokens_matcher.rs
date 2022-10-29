@@ -36,8 +36,8 @@ impl TokensMatcher {
     }
 
     pub fn add_matcher<T: 'static>(&mut self, matcher: T)
-        where
-            T: TokensMatcherTrait,
+    where
+        T: TokensMatcherTrait,
     {
         self.group.add_matcher(matcher);
     }
@@ -209,8 +209,8 @@ impl AlphanumericTokenMatcher {
 }
 
 impl<T> TokensMatcherTrait for T
-    where
-        T: TokenMatcher,
+where
+    T: TokenMatcher,
 {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(token) = parser.get_token_n(n) {

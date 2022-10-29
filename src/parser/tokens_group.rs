@@ -39,8 +39,8 @@ impl TokensGroup {
     }
 
     pub fn add_matcher<T: 'static>(&mut self, matcher: T)
-        where
-            T: TokensMatcherTrait,
+    where
+        T: TokensMatcherTrait,
     {
         //println!("adding matcher {:?}", &matcher);
         if let Some(first) = self.current_group.first_mut() {

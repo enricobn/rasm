@@ -211,14 +211,14 @@ pub fn convert(
                                     Ok(None) => {
                                         if index == body.len() - 1 {
                                             if let Ok(Some(new_expr)) =
-                                            convert_last_statement_in_body(
-                                                module,
-                                                it,
-                                                &context,
-                                                &mut type_conversion_context,
-                                                &LinkedHashMap::new(),
-                                                new_function_def.return_type.clone(),
-                                            )
+                                                convert_last_statement_in_body(
+                                                    module,
+                                                    it,
+                                                    &context,
+                                                    &mut type_conversion_context,
+                                                    &LinkedHashMap::new(),
+                                                    new_function_def.return_type.clone(),
+                                                )
                                             {
                                                 debug_i!(
                                                     "converted last expr in body {}",
@@ -420,7 +420,7 @@ fn convert_expr_in_body(
             resolved_param_types,
             None,
         )?
-            .map(ASTFunctionCallExpression),
+        .map(ASTFunctionCallExpression),
         ASTExpression::StringLiteral(_) => None,
         ASTExpression::Val(_) => {
             /*
@@ -466,7 +466,7 @@ fn convert_last_statement_in_body(
             resolved_param_types,
             return_type,
         )
-            .map(|ito| ito.map(ASTStatement::Expression)),
+        .map(|ito| ito.map(ASTStatement::Expression)),
         ASTStatement::LetStatement(name, e) => convert_last_expr_in_body(
             module,
             e,
@@ -475,7 +475,7 @@ fn convert_last_statement_in_body(
             resolved_param_types,
             return_type,
         )
-            .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it))),
+        .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it))),
     }
 }
 
@@ -496,9 +496,9 @@ fn convert_last_expr_in_body(
             //extract_generic_types_from_effective_type()
 
             if let Some(ASTTypeRef {
-                            ast_ref: _,
-                            ast_type,
-                        }) = &return_type
+                ast_ref: _,
+                ast_type,
+            }) = &return_type
             {
                 if get_generic_types(ast_type).is_empty() {
                     let result = convert_call(
@@ -509,7 +509,7 @@ fn convert_last_expr_in_body(
                         resolved_param_types,
                         Some(return_type),
                     )?
-                        .map(ASTFunctionCallExpression);
+                    .map(ASTFunctionCallExpression);
 
                     debug_i!("converted call {:?}", result);
                     dedent!();
@@ -728,7 +728,7 @@ fn convert_call(
                         // Above we try to deduce the type of the parameter from the expression, now we try the contrary..
                         let mut converted = false;
                         if let Some(te) =
-                        get_type_of_expression(module, context, expr, typed_context)
+                            get_type_of_expression(module, context, expr, typed_context)
                         {
                             if !get_generic_types(&te).is_empty() {
                                 let map = extract_generic_types_from_effective_type(
@@ -832,9 +832,9 @@ fn convert_call(
 
                     let new_return_type = match &par.type_ref.ast_type {
                         ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                             parameters: _lambda_parameters,
-                                             return_type, // TODO I cannot convert the return type at this stage
-                                         }) => {
+                            parameters: _lambda_parameters,
+                            return_type, // TODO I cannot convert the return type at this stage
+                        }) => {
                             if let Some(rt) = return_type {
                                 if let Some(new_t) = substitute(rt, &resolved_param_types) {
                                     something_to_convert = true;
@@ -884,7 +884,7 @@ fn convert_call(
                                 //println!("statement {it}");
                                 if i == effective_lambda.body.len() - 1 {
                                     if let Some(te) =
-                                    get_type_of_statement(module, &context, it, typed_context)
+                                        get_type_of_statement(module, &context, it, typed_context)
                                     {
                                         let result = extract_generic_types_from_effective_type(
                                             &te,
@@ -943,9 +943,9 @@ fn convert_call(
                     }
 
                     if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                                parameters,
-                                                return_type: _,
-                                            }) = &par.type_ref.ast_type
+                        parameters,
+                        return_type: _,
+                    }) = &par.type_ref.ast_type
                     {
                         let new_parameters: Vec<ASTTypeRef> = parameters
                             .iter()
@@ -975,7 +975,7 @@ fn convert_call(
                             "Expected Lambda but found {}",
                             &par.type_ref.ast_type
                         )
-                            .into());
+                        .into());
                     }
                 }
             }
@@ -1096,7 +1096,7 @@ fn convert_call(
     };
 
     let effective_function = if let Some(f) =
-    typed_context.try_add_new(&call.original_function_name, &new_function_def)
+        typed_context.try_add_new(&call.original_function_name, &new_function_def)
     {
         f
     } else {
@@ -1148,9 +1148,9 @@ fn get_type_of_expression(
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(ValKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
                 if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                            return_type,
-                                            parameters: _,
-                                        }) = &par.type_ref.ast_type
+                    return_type,
+                    parameters: _,
+                }) = &par.type_ref.ast_type
                 {
                     return_type.clone().map(|it| it.ast_type)
                 } else {
@@ -1206,9 +1206,9 @@ fn extract_generic_types_from_effective_type(
                 return_type: p_return_type,
             } => match effective_type {
                 ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                     parameters: e_parameters,
-                                     return_type: e_return_type,
-                                 }) => {
+                    parameters: e_parameters,
+                    return_type: e_return_type,
+                }) => {
                     for (i, p_p) in p_parameters.iter().enumerate() {
                         let e_p = e_parameters.get(i).unwrap();
                         let inner_result = extract_generic_types_from_effective_type(
@@ -1289,9 +1289,9 @@ fn get_context_from_lambda(
     for (inner_i, name) in lambda.parameter_names.iter().enumerate() {
         match lambda_type {
             ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                 parameters,
-                                 return_type: _, // I cannot convert the return type at this stage
-                             }) => {
+                parameters,
+                return_type: _, // I cannot convert the return type at this stage
+            }) => {
                 let pp = parameters.get(inner_i).unwrap();
 
                 context.insert_par(
@@ -1329,9 +1329,9 @@ fn convert_lambda(
     for (inner_i, name) in lambda.parameter_names.iter().enumerate() {
         match &lambda_type {
             ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                 parameters,
-                                 return_type: _, // I cannot convert the return type at this stage
-                             }) => {
+                parameters,
+                return_type: _, // I cannot convert the return type at this stage
+            }) => {
                 let pp = parameters.get(inner_i).unwrap();
 
                 if let Some(new_t) = substitute(pp, resolved_param_types) {
@@ -1727,7 +1727,7 @@ mod tests {
         );
 
         let par = if let Some(ASTStatement::Expression(ASTFunctionCallExpression(e))) =
-        module.body.get(0)
+            module.body.get(0)
         {
             Some(e)
         } else {
