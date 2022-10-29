@@ -87,7 +87,7 @@ impl<'a> StructParser<'a> {
                 let parser = *type_result.get(i).unwrap();
                 let type_parser = TypeParser::new(parser);
                 let name = parameters_s.get(i).unwrap().clone();
-                if let Some((type_ref, next_i)) = type_parser.try_parse_type_ref(0, type_parameters)
+                if let Some((type_ref, _)) = type_parser.try_parse_type_ref(0, type_parameters)
                 {
                     parameters.push(ASTStructPropertyDef { name, type_ref });
                 } else {

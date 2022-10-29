@@ -9,7 +9,6 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 pub fn typed_enum_functions_creator(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &ASTTypedModule,
     statics: &mut Statics,
@@ -19,7 +18,6 @@ pub fn typed_enum_functions_creator(
 
     for enum_def in module.enums.iter() {
         create_free(
-            code_gen,
             backend,
             &mut functions_by_name,
             enum_def,
@@ -29,7 +27,6 @@ pub fn typed_enum_functions_creator(
             statics,
         );
         create_free(
-            code_gen,
             backend,
             &mut functions_by_name,
             enum_def,
@@ -48,7 +45,6 @@ pub fn typed_enum_functions_creator(
 }
 
 fn create_free(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     enum_def: &ASTTypedEnumDef,
@@ -66,7 +62,6 @@ fn create_free(
     };
 
     let body_str = create_free_body(
-        code_gen,
         backend,
         enum_def,
         asm_function_name,
@@ -95,7 +90,6 @@ fn create_free(
 }
 
 fn create_free_body(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     enum_def: &ASTTypedEnumDef,
     asm_function_name: &str,
@@ -138,11 +132,12 @@ fn create_free_body(
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
                     if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
                         if function_name == "deref" {
-                            result.push_str(&code_gen.call_deref(
+                            result.push_str(&backend.call_deref(
                                 &format!("[ebx + {}]", (j + 1) * wl),
                                 &name,
                                 &format!("dereferencing {}.{} : {}", enum_def.name, par.name, name),
                                 module,
+                                statics,
                             ));
                             result.push('\n');
                         } else {

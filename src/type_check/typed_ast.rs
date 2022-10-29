@@ -577,8 +577,8 @@ fn verify_statement(
                         .get(&call.function_name.replace("::", "_"))
                     {
                         function_def.return_type.clone()
-                    } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) =
-                        context.get(&call.function_name)
+                    } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
+                    context.get(&call.function_name)
                     {
                         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                                                          parameters: _,
@@ -625,7 +625,7 @@ fn verify_function_call(
                 .iter()
                 .map(|it| it.type_ref.ast_type.clone())
                 .collect::<Vec<ASTTypedType>>()
-        } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) =
+        } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
         context.get(&call.function_name)
         {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -677,7 +677,7 @@ fn get_type_of_typed_expression(
             {
                 debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
-            } else if let Some(TypedValKind::ParameterRef(i, par)) =
+            } else if let Some(TypedValKind::ParameterRef(_, par)) =
             context.get(&call.function_name)
             {
                 debug!("found function in context");
@@ -696,9 +696,9 @@ fn get_type_of_typed_expression(
             }
         }
         ASTTypedExpression::Val(v) => {
-            if let Some(TypedValKind::ParameterRef(i, par)) = context.get(v) {
+            if let Some(TypedValKind::ParameterRef(_, par)) = context.get(v) {
                 Some(par.type_ref.ast_type.clone())
-            } else if let Some(TypedValKind::LetRef(i, ast_type)) = context.get(v) {
+            } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(v) {
                 Some(ast_type.ast_type.clone())
             } else {
                 panic!("Unknown val {v}");
@@ -986,46 +986,7 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
         ASTType::Parametric(p) => {
             panic!("Unresolved parametric type '{p}': {message}");
         }
-        ASTType::Custom { name, param_types } => {
-            /*
-            if let Some(enum_def) = self.module.enums.iter().find(|it| &it.name == name) {
-                ASTTypedType::Enum {
-                    name: name.clone(),
-                    param_types: param_types
-                        .iter()
-                        .map(|it| type_ref(it, &format!("{message}, enum {name}")))
-                        .collect(),
-                }
-            } else if let Some(struct_def) =
-            self.module.structs.iter().find(|it| &it.name == name)
-            {
-                ASTTypedType::Struct {
-                    name: name.clone(),
-                    param_types: param_types
-                        .iter()
-                        .map(|it| type_ref(it, &format!("{message}, struct {name}")))
-                        .collect(),
-                }
-            } else if let Some(resolved_enum_def) = self
-                .enums
-                .iter()
-                .flat_map(|it| it.1.iter())
-                .find(|it| &it.enum_def.name == name)
-            {
-                ASTTypedType::Enum {
-                    name: name.clone(),
-                    param_types: resolved_enum_def
-                        .parameter_types
-                        .iter()
-                        .map(|it| self.type_ref(it, &format!("{message}, enum {name}")))
-                        .collect(),
-                }
-            } else {
-                panic!("Cannot find Custom type '{name}'");
-            }
-
-             */
-
+        ASTType::Custom { name, param_types: _ } => {
             if conv_context.module.enums.iter().any(|it| &it.name == name) {
                 if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
                     e

@@ -54,7 +54,6 @@ impl Statics {
     pub fn generate_code(
         &mut self,
         backend: &dyn Backend,
-        debug: bool,
     ) -> (String, String, String) {
         let mut data = String::new();
         let mut bss = String::new();

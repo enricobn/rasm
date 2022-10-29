@@ -54,6 +54,15 @@ pub trait Backend {
         descr: &str,
         module: &ASTTypedModule,
         statics: &mut Statics,
+    );
+
+    fn call_deref(
+        &self,
+        source: &str,
+        type_name: &str,
+        descr: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
     ) -> String;
 
     fn function_preamble(&self, out: &mut String);
@@ -298,7 +307,7 @@ impl Backend for BackendAsm386 {
         descr: &str,
         module: &ASTTypedModule,
         statics: &mut Statics,
-    ) -> String {
+    ) {
         //println!("add ref {descr}");
         let ws = self.word_size();
         let wl = self.word_len();
@@ -326,8 +335,54 @@ impl Backend for BackendAsm386 {
             CodeGen::add(out, "call     addRef", None, true);
             CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
+    }
 
-        key
+    fn call_deref(
+        &self,
+        source: &str,
+        type_name: &str,
+        descr: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
+    ) -> String {
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        let mut result = String::new();
+
+        let has_references = if "str" == type_name {
+            true
+        } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
+            struct_has_references(struct_def)
+        } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
+            enum_has_references(enum_def)
+        } else {
+            panic!(
+                "cannot find type {descr} {type_name}: {:?}",
+                module.enums.iter().map(|it| &it.name).collect::<Vec<_>>()
+            );
+        };
+
+        CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
+        if has_references {
+            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(
+                &mut result,
+                &format!("call     {type_name}_deref"),
+                None,
+                true,
+            );
+            CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+        } else {
+            let key = statics.add_str(descr);
+
+            CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
+            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(&mut result, "call     deref", None, true);
+            CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
+        }
+
+        result
     }
 
     fn function_preamble(&self, out: &mut String) {

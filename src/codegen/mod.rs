@@ -23,16 +23,16 @@ use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
 use crate::transformations::typed_enum_functions_creator::{
-    enum_has_references, typed_enum_functions_creator,
+    typed_enum_functions_creator,
 };
 use crate::transformations::typed_struct_functions_creator::{
-    struct_has_references, typed_struct_functions_creator,
+    typed_struct_functions_creator,
 };
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement,
-    ASTTypedStructDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
+    ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
 };
 
 pub struct CodeGen<'a> {
@@ -53,14 +53,14 @@ pub struct CodeGen<'a> {
     dereference: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemoryValue {
     StringValue(String),
     I32Value(i32),
     Mem(usize, MemoryUnit),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemoryUnit {
     Bytes,
     Words,
@@ -108,17 +108,10 @@ impl ValContext {
         self.value_to_address.get(key)
     }
 
-    pub fn iter(&self) -> Iter<String, ValKind> {
-        self.value_to_address.iter()
-    }
-
     pub fn names(&self) -> Vec<&String> {
         self.value_to_address.keys().collect()
     }
 
-    fn is_empty(&self) -> bool {
-        self.value_to_address.is_empty()
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -181,9 +174,6 @@ impl TypedValContext {
         self.value_to_address.is_empty()
     }
 
-    fn let_vals(&self) -> usize {
-        self.let_index
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -292,7 +282,6 @@ impl<'a> CodeGen<'a> {
         };
 
         let module = enum_functions_creator(
-            &mut result,
             backend,
             &EnhancedASTModule::new(&module),
             &mut statics,
@@ -301,8 +290,8 @@ impl<'a> CodeGen<'a> {
         let module = str_functions_creator(&module);
 
         let module = convert(backend, &module, debug_asm, print_memory_info, print_module);
-        let module = typed_enum_functions_creator(&mut result, backend, &module, &mut statics);
-        let module = typed_struct_functions_creator(&mut result, backend, &module, &mut statics);
+        let module = typed_enum_functions_creator(backend, &module, &mut statics);
+        let module = typed_struct_functions_creator(backend, &module, &mut statics);
         result.module = module;
         result.statics = statics;
 
@@ -394,7 +383,7 @@ impl<'a> CodeGen<'a> {
                                     &mut self.statics,
                                 );
                                 self.body = body;
-                                after.push_str(&self.call_deref(
+                                after.push_str(&self.backend.call_deref(
                                     &format!(
                                         "[{bp} - {}]",
                                         stack.find_relative_to_bp(StackEntryType::LetVal, name)
@@ -403,6 +392,7 @@ impl<'a> CodeGen<'a> {
                                     &type_name,
                                     &format!("for let val {name}"),
                                     &self.module.clone(),
+                                    &mut self.statics,
                                 ));
                             }
                         }
@@ -483,7 +473,7 @@ impl<'a> CodeGen<'a> {
 
         let (data, bss, code) = self
             .statics
-            .generate_code(self.backend.borrow(), self.debug_asm);
+            .generate_code(self.backend.borrow());
 
         asm.push_str(&data);
 
@@ -684,7 +674,7 @@ impl<'a> CodeGen<'a> {
             i += 1;
         }
 
-        let mut stack = StackVals::new();
+        let stack = StackVals::new();
 
         let mut after = String::new();
 
@@ -736,7 +726,6 @@ impl<'a> CodeGen<'a> {
                                         val,
                                         val,
                                         "",
-                                        &format!("function {}", function_def.name),
                                     );
 
                                     before.push_str(&parameters.before());
@@ -798,7 +787,7 @@ impl<'a> CodeGen<'a> {
                                             &self.module.clone(),
                                             &mut self.statics,
                                         );
-                                        after.push_str(&self.call_deref(
+                                        after.push_str(&self.backend.call_deref(
                                             &format!(
                                                 "[{bp} - {}]",
                                                 stack.find_relative_to_bp(
@@ -809,6 +798,7 @@ impl<'a> CodeGen<'a> {
                                             &type_name,
                                             &format!("for let val {name}"),
                                             &self.module.clone(),
+                                            &mut self.statics
                                         ));
                                     }
                                 }
@@ -858,44 +848,6 @@ impl<'a> CodeGen<'a> {
         self.backend.function_end(&mut self.definitions);
 
         lambda_calls
-    }
-
-    pub fn is_constructor(&self, function_name: &str) -> bool {
-        self.is_enum_parametric_variant_constructor(function_name)
-            || self.is_struct_constructor(function_name)
-    }
-
-    pub fn is_enum_parametric_variant_constructor(&self, function_name: &str) -> bool {
-        self.module
-            .enums
-            .iter()
-            .flat_map(|enum_def| {
-                enum_def
-                    .variants
-                    .iter()
-                    .filter(|variant| !variant.parameters.is_empty())
-                    .map(|variant| enum_def.variant_function_name(variant))
-            })
-            .any(|it| it == function_name)
-    }
-
-    pub fn is_struct_constructor(&self, function_name: &str) -> bool {
-        self.module
-            .structs
-            .iter()
-            .map(|struct_def| &struct_def.name)
-            .any(|it| it == function_name)
-    }
-
-    pub fn try_get_struct(&self, type_name: &str) -> Option<&ASTTypedStructDef> {
-        self.module.structs.iter().find(|it| it.name == type_name)
-    }
-
-    pub fn try_get_enum(&self, type_name: &str) -> Option<&ASTTypedEnumDef> {
-        self.module
-            .enums
-            .iter()
-            .find(|enum_def| enum_def.name == type_name)
     }
 
     fn call_function(
@@ -1210,7 +1162,6 @@ impl<'a> CodeGen<'a> {
                             &param_name,
                             name,
                             &error_msg,
-                            &format!("call {}", function_call.function_name),
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -1289,112 +1240,110 @@ impl<'a> CodeGen<'a> {
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
-        } else {
-            if is_lambda {
-                if let Some(address) =
-                lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
-                {
-                    CodeGen::add(
-                        before,
-                        &format!("mov eax, [{} + 8]", self.backend.stack_base_pointer()),
-                        None,
-                        true,
-                    );
-                    // we add the address to the "lambda space" as the last parameter of the lambda
-                    CodeGen::add(
-                        before,
-                        &format!("add eax, {}", address * self.backend.word_len() as usize),
-                        Some("address to the \"lambda space\""),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        &format!("push {} [eax]", self.backend.pointer_size()),
-                        Some("address to the \"lambda space\""),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        "mov eax, [eax]",
-                        Some("address to the \"lambda space\""),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        "call [eax]",
-                        Some(&format!("Calling function {}", function_call.function_name)),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        &format!(
-                            "add  {}, {}",
-                            self.backend.stack_pointer(),
-                            self.backend.word_len()
-                        ),
-                        None,
-                        true,
-                    );
-                } else if let Some(TypedValKind::ParameterRef(index, _)) =
-                context.get(&function_call.function_name)
-                {
-                    CodeGen::add(
-                        before,
-                        "",
-                        Some(&format!(
-                            "calling lambda parameter reference to {}",
-                            &function_call.function_name
-                        )),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        &format!(
-                            "mov eax, [{} + {} + {}]",
-                            self.backend.stack_base_pointer(),
-                            self.backend.word_len(),
-                            (index + 1) * self.backend.word_len() as usize
-                        ),
-                        None,
-                        true,
-                    );
-                    // we add the address to the "lambda space" as the last parameter to the lambda
-                    CodeGen::add(
-                        before,
-                        &format!("push {} eax", self.backend.pointer_size()),
-                        Some("address to the \"lambda space\""),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        "call [eax]",
-                        Some(&format!("Calling function {}", function_call.function_name)),
-                        true,
-                    );
-                    CodeGen::add(
-                        before,
-                        &format!(
-                            "add  {}, {}",
-                            self.backend.stack_pointer(),
-                            self.backend.word_len()
-                        ),
-                        None,
-                        true,
-                    );
-                } else {
-                    panic!(
-                        "lambda space does not contain {}",
-                        function_call.function_name
-                    );
-                }
-            } else {
+        } else if is_lambda {
+            if let Some(address) =
+            lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
+            {
                 CodeGen::add(
                     before,
-                    &format!("call    {}", address_to_call),
+                    &format!("mov eax, [{} + 8]", self.backend.stack_base_pointer()),
+                    None,
+                    true,
+                );
+                // we add the address to the "lambda space" as the last parameter of the lambda
+                CodeGen::add(
+                    before,
+                    &format!("add eax, {}", address * self.backend.word_len() as usize),
+                    Some("address to the \"lambda space\""),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    &format!("push {} [eax]", self.backend.pointer_size()),
+                    Some("address to the \"lambda space\""),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    "mov eax, [eax]",
+                    Some("address to the \"lambda space\""),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    "call [eax]",
                     Some(&format!("Calling function {}", function_call.function_name)),
                     true,
                 );
+                CodeGen::add(
+                    before,
+                    &format!(
+                        "add  {}, {}",
+                        self.backend.stack_pointer(),
+                        self.backend.word_len()
+                    ),
+                    None,
+                    true,
+                );
+            } else if let Some(TypedValKind::ParameterRef(index, _)) =
+            context.get(&function_call.function_name)
+            {
+                CodeGen::add(
+                    before,
+                    "",
+                    Some(&format!(
+                        "calling lambda parameter reference to {}",
+                        &function_call.function_name
+                    )),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    &format!(
+                        "mov eax, [{} + {} + {}]",
+                        self.backend.stack_base_pointer(),
+                        self.backend.word_len(),
+                        (index + 1) * self.backend.word_len() as usize
+                    ),
+                    None,
+                    true,
+                );
+                // we add the address to the "lambda space" as the last parameter to the lambda
+                CodeGen::add(
+                    before,
+                    &format!("push {} eax", self.backend.pointer_size()),
+                    Some("address to the \"lambda space\""),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    "call [eax]",
+                    Some(&format!("Calling function {}", function_call.function_name)),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    &format!(
+                        "add  {}, {}",
+                        self.backend.stack_pointer(),
+                        self.backend.word_len()
+                    ),
+                    None,
+                    true,
+                );
+            } else {
+                panic!(
+                    "lambda space does not contain {}",
+                    function_call.function_name
+                );
             }
+        } else {
+            CodeGen::add(
+                before,
+                &format!("call    {}", address_to_call),
+                Some(&format!("Calling function {}", function_call.function_name)),
+                true,
+            );
         }
 
         if call_parameters.to_remove_from_stack() > 0 {
@@ -1451,32 +1400,27 @@ impl<'a> CodeGen<'a> {
         param_name: &str,
         val_name: &str,
         error_msg: &str,
-        descr: &str,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
                 TypedValKind::ParameterRef(index, par) => {
                     call_parameters.add_parameter_ref(
-                        self,
                         param_name.into(),
                         val_name,
                         &par.type_ref,
                         *index,
                         lambda_space_opt,
                         *indent,
-                        descr,
                     );
                 }
 
                 TypedValKind::LetRef(index, ast_type_ref) => call_parameters.add_let_val_ref(
-                    self,
                     param_name.into(),
                     val_name,
                     &ast_type_ref,
                     *index,
                     lambda_space_opt,
                     *indent,
-                    descr,
                 ),
             }
         } else {
@@ -1511,53 +1455,6 @@ impl<'a> CodeGen<'a> {
         for line in src.lines().rev() {
             dest.insert_str(0, &(line.to_string() + "\n"));
         }
-    }
-
-    pub fn call_deref(
-        &mut self,
-        source: &str,
-        type_name: &str,
-        descr: &str,
-        module: &ASTTypedModule,
-    ) -> String {
-        let ws = self.backend.word_size();
-        let wl = self.backend.word_len();
-
-        let mut result = String::new();
-
-        let has_references = if "str" == type_name {
-            true
-        } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-            struct_has_references(struct_def)
-        } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-            enum_has_references(enum_def)
-        } else {
-            panic!(
-                "cannot find type {descr} {type_name}: {:?}",
-                module.enums.iter().map(|it| &it.name).collect::<Vec<_>>()
-            );
-        };
-
-        CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
-        if has_references {
-            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(
-                &mut result,
-                &format!("call     {type_name}_deref"),
-                None,
-                true,
-            );
-            CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
-        } else {
-            let key = self.statics.add_str(descr);
-
-            CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
-            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(&mut result, "call     deref", None, true);
-            CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
-        }
-
-        result
     }
 
     pub fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {

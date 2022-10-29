@@ -422,7 +422,7 @@ fn convert_expr_in_body(
         )?
             .map(ASTFunctionCallExpression),
         ASTExpression::StringLiteral(_) => None,
-        ASTExpression::Val(p) => {
+        ASTExpression::Val(_) => {
             /*
             if let Some(kind) = context.get(p) {
                 match kind {
@@ -520,7 +520,7 @@ fn convert_last_expr_in_body(
             None
         }
         ASTExpression::StringLiteral(_) => None,
-        ASTExpression::Val(p) => {
+        ASTExpression::Val(_) => {
             /*
             if let Some(kind) = context.get(p) {
                 match kind {
@@ -556,7 +556,7 @@ fn convert_call(
 
     indent!();
 
-    if let Some(p) = context.get(&call.function_name) {
+    if context.get(&call.function_name).is_some() {
         debug_i!("found function in context parameters");
         dedent!();
         return Ok(None);

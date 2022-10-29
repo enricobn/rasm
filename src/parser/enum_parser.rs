@@ -98,7 +98,7 @@ impl<'a> EnumParser<'a> {
                             //println!("parsing parameter {}, n: {}", parameters_s.get(i).unwrap(), n);
                             let parser = *type_result.get(i).unwrap();
                             let type_parser = TypeParser::new(parser);
-                            if let Some((type_ref, next_i)) =
+                            if let Some((type_ref, _)) =
                             type_parser.try_parse_type_ref(0, type_parameters)
                             {
                                 parameters.push(ASTParameterDef {

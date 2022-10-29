@@ -9,7 +9,6 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 pub fn enum_functions_creator(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &EnhancedASTModule,
     statics: &mut Statics,
@@ -25,7 +24,6 @@ pub fn enum_functions_creator(
             .collect();
 
         create_constructors(
-            code_gen,
             backend,
             &mut functions_by_name,
             &mut native_body,
@@ -127,7 +125,6 @@ fn create_match_like_function(
 }
 
 fn create_constructors(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
     native_body: &mut String,

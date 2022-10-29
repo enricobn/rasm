@@ -9,7 +9,6 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 pub fn typed_struct_functions_creator(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     module: &ASTTypedModule,
     statics: &mut Statics,
@@ -20,7 +19,6 @@ pub fn typed_struct_functions_creator(
     for struct_def in module.structs.iter() {
         if struct_has_references(struct_def) {
             create_free(
-                code_gen,
                 backend,
                 &mut functions_by_name,
                 struct_def,
@@ -30,7 +28,6 @@ pub fn typed_struct_functions_creator(
                 statics,
             );
             create_free(
-                code_gen,
                 backend,
                 &mut functions_by_name,
                 struct_def,
@@ -50,7 +47,6 @@ pub fn typed_struct_functions_creator(
 }
 
 fn create_free(
-    code_gen: &mut CodeGen,
     backend: &dyn Backend,
     functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     struct_def: &ASTTypedStructDef,
@@ -68,7 +64,6 @@ fn create_free(
     };
 
     let body_str = create_free_body(
-        code_gen,
         &backend,
         struct_def,
         asm_function_name,
@@ -97,7 +92,6 @@ fn create_free(
 }
 
 fn create_free_body(
-    code_gen: &mut CodeGen,
     backend: &&dyn Backend,
     struct_def: &ASTTypedStructDef,
     asm_function_name: &str,
@@ -136,7 +130,7 @@ fn create_free_body(
         for (i, property) in struct_def.clone().properties.iter().enumerate() {
             if let Some(name) = CodeGen::get_reference_type_name(&property.type_ref.ast_type) {
                 if function_name == "deref" {
-                    result.push_str(&code_gen.call_deref(
+                    result.push_str(&backend.call_deref(
                         &format!("[ebx + {}]", i * wl),
                         &name,
                         &format!(
@@ -144,6 +138,7 @@ fn create_free_body(
                             struct_def.name, property.name, name
                         ),
                         module,
+                        statics,
                     ));
                     result.push('\n');
                 } else {
