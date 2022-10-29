@@ -12,7 +12,7 @@ impl<'a> TypeParamsParser<'a> {
 
     pub fn try_parse(&self, n: usize) -> Option<(Vec<String>, usize)> {
         if let Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)) =
-        self.parser.get_token_kind_n(n)
+            self.parser.get_token_kind_n(n)
         {
             let mut j = n + 1;
             let mut types = Vec::new();

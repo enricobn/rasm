@@ -1,3 +1,4 @@
+use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::CodeGen;
@@ -8,7 +9,6 @@ use log::info;
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use crate::codegen::stack::StackVals;
 
 pub trait Backend {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -334,18 +334,8 @@ impl Backend for BackendAsm386 {
         let sp = self.stack_pointer();
         let bp = self.stack_base_pointer();
 
-        CodeGen::add(
-            out,
-            &format!("push    {}", bp),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!("mov     {},{}", bp, sp),
-            None,
-            true,
-        );
+        CodeGen::add(out, &format!("push    {}", bp), None, true);
+        CodeGen::add(out, &format!("mov     {},{}", bp, sp), None, true);
     }
 
     fn restore_stack(&self, stack: &StackVals, out: &mut String) {
@@ -375,12 +365,7 @@ impl Backend for BackendAsm386 {
 
     fn function_end(&self, out: &mut String) {
         let bp = self.stack_base_pointer();
-        CodeGen::add(
-            out,
-            &format!("pop     {}", bp),
-            None,
-            true,
-        );
+        CodeGen::add(out, &format!("pop     {}", bp), None, true);
         CodeGen::add(out, "ret", None, true);
     }
 }

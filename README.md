@@ -18,6 +18,7 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 `sudo apt install gcc-multilib g++-multilib libc++-dev nasm`
 
 ### Compile a rasm program
+
 `target/release/rasm "file name".rasm`    
 it will produce a "file name" executable
 

@@ -69,7 +69,7 @@ impl<'a> TypeParser<'a> {
                     Some((Parametric(type_name.into()), next_i))
                 } else {
                     let (param_types, next_i) = if let Some((param_types, next_i)) =
-                    self.try_parse_parameter_types(n + 1, context_param_types, rec)
+                        self.try_parse_parameter_types(n + 1, context_param_types, rec)
                     {
                         (param_types, next_i)
                     } else {

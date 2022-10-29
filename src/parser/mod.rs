@@ -213,7 +213,7 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, type_params, next_i)) =
-                    EnumParser::new(self).try_parse()
+                        EnumParser::new(self).try_parse()
                     {
                         self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
                             name,
@@ -550,9 +550,7 @@ impl Parser {
                 self.before_last_parser_data()
                 {
                     let mut before_call = before_call.clone();
-                    before_call
-                        .parameters
-                        .push(ASTFunctionCallExpression(call));
+                    before_call.parameters.push(ASTFunctionCallExpression(call));
                     let l = self.parser_data.len();
                     self.parser_data[l - 2] = ParserData::FunctionCall(before_call);
                     self.parser_data.pop();
@@ -642,10 +640,7 @@ impl Parser {
             println!("{call}");
         });
         println!();
-        module
-            .functions
-            .iter()
-            .for_each(Self::print_function_def)
+        module.functions.iter().for_each(Self::print_function_def)
     }
 
     pub fn print_enhanced(module: &EnhancedASTModule) {

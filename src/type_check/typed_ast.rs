@@ -578,7 +578,7 @@ fn verify_statement(
                     {
                         function_def.return_type.clone()
                     } else if let Some(TypedValKind::ParameterRef(i, parameter_ref)) =
-                    context.get(&call.function_name)
+                        context.get(&call.function_name)
                     {
                         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                                                          parameters: _,

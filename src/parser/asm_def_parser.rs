@@ -29,7 +29,7 @@ impl<'a> AsmDefParser<'a> {
             let mut current_n = n + 1;
 
             if let Some(TokenKind::AlphaNumeric(function_name)) =
-            self.parser.get_token_kind_n(current_n)
+                self.parser.get_token_kind_n(current_n)
             {
                 let type_params_parser = TypeParamsParser::new(self.parser);
 

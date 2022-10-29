@@ -40,7 +40,7 @@ impl<'a> EnumParser<'a> {
     pub fn try_parse_enum(&self) -> Option<(ASTEnumDef, usize)> {
         if let Some((name, type_parameters, next_i)) = self.try_parse() {
             if let Some((variants, next_i)) =
-            self.parse_variants(&type_parameters, next_i - self.parser.get_i())
+                self.parse_variants(&type_parameters, next_i - self.parser.get_i())
             {
                 return Some((
                     ASTEnumDef {

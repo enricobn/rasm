@@ -37,7 +37,7 @@ impl<'a> StructParser<'a> {
     pub fn try_parse_struct(&self) -> Option<(ASTStructDef, usize)> {
         if let Some((name, type_parameters, next_i)) = self.try_parse() {
             if let Some((properties, next_i)) =
-            self.parse_properties(&type_parameters, next_i - self.parser.get_i())
+                self.parse_properties(&type_parameters, next_i - self.parser.get_i())
             {
                 return Some((
                     ASTStructDef {

@@ -87,16 +87,18 @@ impl TextMacroEvaluator {
 
         for c in s.to_string().chars() {
             match state {
-                State::Standard => if c == ',' {
-                    let param = self.get_param(&actual_param);
+                State::Standard => {
+                    if c == ',' {
+                        let param = self.get_param(&actual_param);
 
-                    result.push(param);
+                        result.push(param);
 
-                    actual_param = String::new();
-                    state = State::None;
-                } else {
-                    actual_param.push(c);
-                },
+                        actual_param = String::new();
+                        state = State::None;
+                    } else {
+                        actual_param.push(c);
+                    }
+                }
                 State::None => {
                     if !c.is_whitespace() {
                         if c == '"' {

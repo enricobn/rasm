@@ -291,18 +291,16 @@ impl<'a> CodeGen<'a> {
             dereference,
         };
 
-        let module =
-            enum_functions_creator(&mut result, backend, &EnhancedASTModule::new(&module), &mut statics);
+        let module = enum_functions_creator(
+            &mut result,
+            backend,
+            &EnhancedASTModule::new(&module),
+            &mut statics,
+        );
         let module = struct_functions_creator(backend, &module);
         let module = str_functions_creator(&module);
 
-        let module = convert(
-            backend,
-            &module,
-            debug_asm,
-            print_memory_info,
-            print_module,
-        );
+        let module = convert(backend, &module, debug_asm, print_memory_info, print_module);
         let module = typed_enum_functions_creator(&mut result, backend, &module, &mut statics);
         let module = typed_struct_functions_creator(&mut result, backend, &module, &mut statics);
         result.module = module;
