@@ -113,7 +113,7 @@ impl Display for TokenKind {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PunctuationKind {
     And,
     Dot,
@@ -124,7 +124,7 @@ pub enum PunctuationKind {
     SemiColon,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BracketKind {
     Angle,
     Brace,
@@ -132,13 +132,13 @@ pub enum BracketKind {
     Square,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BracketStatus {
     Close,
     Open,
 }
 
-#[derive(Debug, PartialEq, EnumIter, Clone)]
+#[derive(Debug, PartialEq, Eq, EnumIter, Clone)]
 pub enum KeywordKind {
     Asm,
     Enum,

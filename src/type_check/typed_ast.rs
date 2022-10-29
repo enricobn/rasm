@@ -390,9 +390,9 @@ impl<'a> ConvContext<'a> {
                         p.clone(),
                         cloned_param_types
                             .get(i)
-                            .expect(&format!(
-                                "Cannot find parametric type {p} for struct {name}"
-                            ))
+                            .unwrap_or_else(|| {
+                                panic!("Cannot find parametric type {p} for struct {name}")
+                            })
                             .ast_type
                             .clone(),
                     );

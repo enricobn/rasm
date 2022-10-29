@@ -278,7 +278,7 @@ pub struct ASTModule {
     pub externals: HashSet<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTEnumDef {
     pub name: String,
     pub type_parameters: Vec<String>,
@@ -295,7 +295,7 @@ impl ASTEnumDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTEnumVariantDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
@@ -313,7 +313,7 @@ impl Display for ASTEnumVariantDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTStructDef {
     pub name: String,
     pub type_parameters: Vec<String>,

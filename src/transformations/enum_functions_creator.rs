@@ -129,7 +129,7 @@ fn create_constructors(
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
     native_body: &mut String,
     enum_def: &ASTEnumDef,
-    param_types: &Vec<ASTTypeRef>,
+    param_types: &[ASTTypeRef],
     statics: &mut Statics,
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
@@ -137,7 +137,7 @@ fn create_constructors(
 
         let ast_type = ASTType::Custom {
             name: enum_def.name.clone(),
-            param_types: param_types.clone(),
+            param_types: param_types.to_vec(),
         };
         let type_ref = ASTTypeRef {
             ast_type,

@@ -1405,7 +1405,7 @@ impl<'a> CodeGen<'a> {
                 TypedValKind::LetRef(index, ast_type_ref) => call_parameters.add_let_val_ref(
                     param_name.into(),
                     val_name,
-                    &ast_type_ref,
+                    ast_type_ref,
                     *index,
                     lambda_space_opt,
                     *indent,
