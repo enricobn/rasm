@@ -522,37 +522,16 @@ impl<'a> CodeGen<'a> {
         );
 
         CodeGen::add(&mut asm, "", None, true);
-        CodeGen::add(
-            &mut asm,
-            "push    ebp       ; save old call frame",
-            None,
-            true,
-        );
-        CodeGen::add(
-            &mut asm,
-            "mov     ebp, esp  ; initialize new call frame",
-            None,
-            true,
-        );
 
-        asm.push_str(&format!(
-            "sub  {}, {}\n",
-            self.backend.stack_pointer(),
-            stack.len() * self.backend.word_len()
-        ));
+        self.backend.function_preamble(&mut asm);
+
+        self.backend.reserve_stack(&stack, &mut asm);
+
         asm.push_str(&self.body);
-        asm.push_str(&format!(
-            "add  {}, {}\n",
-            self.backend.stack_pointer(),
-            stack.len() * self.backend.word_len()
-        ));
 
-        CodeGen::add(
-            &mut asm,
-            "pop    ebp       ; restore old call frame",
-            None,
-            true,
-        );
+        self.backend.restore_stack(&stack, &mut asm);
+
+        self.backend.function_end(&mut asm, false);
 
         if self.print_memory_info {
             Self::print_memory_info(&mut asm);
@@ -833,7 +812,7 @@ impl<'a> CodeGen<'a> {
 
         self.backend.restore_stack(&stack, &mut self.definitions);
 
-        self.backend.function_end(&mut self.definitions);
+        self.backend.function_end(&mut self.definitions, true);
 
         lambda_calls
     }

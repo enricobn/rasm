@@ -71,7 +71,7 @@ pub trait Backend {
 
     fn reserve_stack(&self, stack: &StackVals, out: &mut String);
 
-    fn function_end(&self, out: &mut String);
+    fn function_end(&self, out: &mut String, add_return: bool);
 }
 
 enum Linker {
@@ -418,10 +418,12 @@ impl Backend for BackendAsm386 {
         }
     }
 
-    fn function_end(&self, out: &mut String) {
+    fn function_end(&self, out: &mut String, add_return: bool) {
         let bp = self.stack_base_pointer();
         CodeGen::add(out, &format!("pop     {}", bp), None, true);
-        CodeGen::add(out, "ret", None, true);
+        if add_return {
+            CodeGen::add(out, "ret", None, true);
+        }
     }
 }
 
