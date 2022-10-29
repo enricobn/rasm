@@ -51,10 +51,7 @@ impl Statics {
         label
     }
 
-    pub fn generate_code(
-        &mut self,
-        backend: &dyn Backend,
-    ) -> (String, String, String) {
+    pub fn generate_code(&mut self, backend: &dyn Backend) -> (String, String, String) {
         let mut data = String::new();
         let mut bss = String::new();
 

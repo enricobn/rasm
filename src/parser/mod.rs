@@ -224,7 +224,7 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, type_params, next_i)) =
-                    StructParser::new(self).try_parse()
+                        StructParser::new(self).try_parse()
                     {
                         self.parser_data.push(ParserData::StructDef(ASTStructDef {
                             name,
@@ -281,7 +281,7 @@ impl Parser {
                         if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
                             self.i = next_i;
                             if let Some((type_ref, next_i)) =
-                            TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
+                                TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
                             {
                                 self.i = next_i;
                                 self.parser_data.push(ParserData::FunctionDefParameter(
@@ -332,7 +332,7 @@ impl Parser {
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
                         if let Some((type_ref, next_i)) =
-                        TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
+                            TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
                         {
                             self.i = next_i;
 
@@ -351,7 +351,7 @@ impl Parser {
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
                         if let Some((variants, next_i)) =
-                        EnumParser::new(self).parse_variants(&def.type_parameters, 0)
+                            EnumParser::new(self).parse_variants(&def.type_parameters, 0)
                         {
                             def.variants = variants;
                             self.enums.push(def);
@@ -383,7 +383,7 @@ impl Parser {
                                 panic!("expected rasm body, found {:?}", def.body);
                             }
                         } else if let Some(ParserData::LambdaDef(def)) =
-                        self.before_last_parser_data()
+                            self.before_last_parser_data()
                         {
                             let mut def = def.clone();
                             let mut calls = def.body;
@@ -404,7 +404,7 @@ impl Parser {
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
                         if let Some((properties, next_i)) =
-                        StructParser::new(self).parse_properties(&def.type_parameters, 0)
+                            StructParser::new(self).parse_properties(&def.type_parameters, 0)
                         {
                             def.properties = properties;
                             self.structs.push(def);
@@ -500,7 +500,7 @@ impl Parser {
             } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind
             {
                 if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
-                self.get_token_kind_n(1)
+                    self.get_token_kind_n(1)
                 {
                     let statement =
                         if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
@@ -547,7 +547,7 @@ impl Parser {
                     self.i += 2;
                     return ProcessResult::Continue;
                 } else if let Some(ParserData::FunctionCall(before_call)) =
-                self.before_last_parser_data()
+                    self.before_last_parser_data()
                 {
                     let mut before_call = before_call.clone();
                     before_call.parameters.push(ASTFunctionCallExpression(call));
@@ -585,7 +585,7 @@ impl Parser {
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
                 if let Some((ref type_ref, next_i)) =
-                TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
+                    TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
                 {
                     self.i = next_i;
                     def.return_type = Some(type_ref.clone());
@@ -710,7 +710,7 @@ impl Parser {
             if let Some((variant, next_i)) = self.try_parse_enum_constructor() {
                 return Some((function_name.clone() + "::" + &variant, next_i));
             } else if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
-            self.get_token_kind_n(1)
+                self.get_token_kind_n(1)
             {
                 //println!("found function call {}", function_name);
                 return Some((function_name.clone(), self.i + 2));
@@ -840,7 +840,7 @@ impl Parser {
     fn try_parse_reference_to_val(&self) -> Option<(String, usize)> {
         if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
-            self.get_token_kind_n(1)
+                self.get_token_kind_n(1)
             {
                 return Some((name.clone(), self.get_i() + 2));
             }
@@ -852,7 +852,7 @@ impl Parser {
         if let Some(TokenKind::KeyWord(KeywordKind::Let)) = self.get_token_kind() {
             if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
                 if let Some(TokenKind::Punctuation(PunctuationKind::Equal)) =
-                self.get_token_kind_n(2)
+                    self.get_token_kind_n(2)
                 {
                     return Some((name.clone(), self.get_i() + 3));
                 } else {
@@ -944,7 +944,7 @@ mod tests {
 
         let par =
             if let Some(ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(e))) =
-            module.body.get(0)
+                module.body.get(0)
             {
                 Some(e)
             } else {

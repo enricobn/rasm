@@ -118,7 +118,7 @@ impl<'a> TypeParser<'a> {
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = kind {
                     inner_n += 1;
                 } else if let Some((ast_type, inner_next_i)) =
-                self.try_parse_type_ref(inner_n, context_param_types)
+                    self.try_parse_type_ref(inner_n, context_param_types)
                 {
                     types.push(ast_type);
                     next_i = inner_next_i;
@@ -153,14 +153,14 @@ impl<'a> TypeParser<'a> {
                     n += 1;
                     break;
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) =
-                self.parser.get_token_kind_n(n)
+                    self.parser.get_token_kind_n(n)
                 {
                     n += 1;
                     continue;
                 }
 
                 if let Some((t, next_i)) =
-                self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
+                    self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
                 {
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
@@ -172,7 +172,7 @@ impl<'a> TypeParser<'a> {
             }
 
             if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) =
-            self.parser.get_token_kind_n(n)
+                self.parser.get_token_kind_n(n)
             {
                 n += 1;
             } else {
@@ -190,7 +190,7 @@ impl<'a> TypeParser<'a> {
                 n += 2;
                 None
             } else if let Some((t, next_i)) =
-            self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
+                self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
             {
                 n = next_i - self.parser.get_i();
                 Some(Box::new(t))

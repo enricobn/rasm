@@ -22,24 +22,19 @@ use std::ops::Deref;
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
-use crate::transformations::typed_enum_functions_creator::{
-    typed_enum_functions_creator,
-};
-use crate::transformations::typed_struct_functions_creator::{
-    typed_struct_functions_creator,
-};
+use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
+use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement,
-    ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, ASTTypedTypeRef,
+    BuiltinTypedTypeKind,
 };
 
 pub struct CodeGen<'a> {
     pub module: ASTTypedModule,
     id: usize,
     statics: Statics,
-    // key=memory_label
     body: String,
     definitions: String,
     lambdas: Vec<LambdaCall>,
@@ -111,7 +106,6 @@ impl ValContext {
     pub fn names(&self) -> Vec<&String> {
         self.value_to_address.keys().collect()
     }
-
 }
 
 #[derive(Clone, Debug)]
@@ -173,7 +167,6 @@ impl TypedValContext {
     fn is_empty(&self) -> bool {
         self.value_to_address.is_empty()
     }
-
 }
 
 #[derive(Clone, Debug)]
@@ -281,11 +274,8 @@ impl<'a> CodeGen<'a> {
             dereference,
         };
 
-        let module = enum_functions_creator(
-            backend,
-            &EnhancedASTModule::new(&module),
-            &mut statics,
-        );
+        let module =
+            enum_functions_creator(backend, &EnhancedASTModule::new(&module), &mut statics);
         let module = struct_functions_creator(backend, &module);
         let module = str_functions_creator(&module);
 
@@ -371,7 +361,7 @@ impl<'a> CodeGen<'a> {
 
                         if self.dereference {
                             if let Some(type_name) =
-                            CodeGen::get_reference_type_name(&type_ref.ast_type)
+                                CodeGen::get_reference_type_name(&type_ref.ast_type)
                             {
                                 let mut body = self.body.clone();
                                 self.backend.call_add_ref(
@@ -471,9 +461,7 @@ impl<'a> CodeGen<'a> {
         asm.push_str("        tv_sec  dd 0\n");
         asm.push_str("        tv_usec dd 0\n");
 
-        let (data, bss, code) = self
-            .statics
-            .generate_code(self.backend.borrow());
+        let (data, bss, code) = self.statics.generate_code(self.backend.borrow());
 
         asm.push_str(&data);
 
@@ -777,7 +765,7 @@ impl<'a> CodeGen<'a> {
 
                                 if self.dereference {
                                     if let Some(type_name) =
-                                    CodeGen::get_reference_type_name(&type_ref.ast_type)
+                                        CodeGen::get_reference_type_name(&type_ref.ast_type)
                                     {
                                         self.backend.call_add_ref(
                                             &mut before,
@@ -798,7 +786,7 @@ impl<'a> CodeGen<'a> {
                                             &type_name,
                                             &format!("for let val {name}"),
                                             &self.module.clone(),
-                                            &mut self.statics
+                                            &mut self.statics,
                                         ));
                                     }
                                 }
@@ -865,7 +853,7 @@ impl<'a> CodeGen<'a> {
         let mut after = Vec::new();
 
         let lambda_calls = if let Some(function_def) =
-        self.functions.get(&function_call.function_name)
+            self.functions.get(&function_call.function_name)
         {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
@@ -934,12 +922,12 @@ impl<'a> CodeGen<'a> {
                 &mut after,
             )
         } else if let Some(TypedValKind::ParameterRef(index, par)) =
-        context.get(&function_call.function_name)
+            context.get(&function_call.function_name)
         {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                             return_type: _,
-                                             parameters,
-                                         }) = par.clone().type_ref.ast_type
+                return_type: _,
+                parameters,
+            }) = par.clone().type_ref.ast_type
             {
                 let wl = self.backend.word_len() as usize;
                 let bp = self.backend.stack_base_pointer();
@@ -1167,9 +1155,9 @@ impl<'a> CodeGen<'a> {
                     ASTTypedExpression::Lambda(lambda_def) => {
                         let (return_type, parameters_types) =
                             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                                             return_type,
-                                                             parameters,
-                                                         }) = param_type.ast_type
+                                return_type,
+                                parameters,
+                            }) = param_type.ast_type
                             {
                                 (return_type, parameters)
                             } else {
@@ -1242,7 +1230,7 @@ impl<'a> CodeGen<'a> {
             }
         } else if is_lambda {
             if let Some(address) =
-            lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
+                lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
                 CodeGen::add(
                     before,
@@ -1286,7 +1274,7 @@ impl<'a> CodeGen<'a> {
                     true,
                 );
             } else if let Some(TypedValKind::ParameterRef(index, _)) =
-            context.get(&function_call.function_name)
+                context.get(&function_call.function_name)
             {
                 CodeGen::add(
                     before,

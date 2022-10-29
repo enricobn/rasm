@@ -21,7 +21,8 @@ impl<'a> TypeParamsParser<'a> {
                 if let Some(kind) = self.parser.get_token_kind_n(j) {
                     if let TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close) = kind {
                         break;
-                    } else if let TokenKind::Punctuation(PunctuationKind::Comma) = kind {} else if let TokenKind::AlphaNumeric(type_name) = kind {
+                    } else if let TokenKind::Punctuation(PunctuationKind::Comma) = kind {
+                    } else if let TokenKind::AlphaNumeric(type_name) = kind {
                         types.push(type_name.to_string());
                     } else {
                         self.parser.panic(&format!(

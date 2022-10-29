@@ -75,8 +75,8 @@ impl<'a> StructParser<'a> {
         n: usize,
     ) -> Option<(Vec<ASTStructPropertyDef>, usize)> {
         if let Some(result) =
-        Self::properties_matcher("properties", Quantifier::One, type_parameters)
-            .match_tokens(self.parser, n)
+            Self::properties_matcher("properties", Quantifier::One, type_parameters)
+                .match_tokens(self.parser, n)
         {
             let parameters_s = result.group_values("parameter");
             let type_result = result.group_results("parameter_type");
@@ -87,8 +87,7 @@ impl<'a> StructParser<'a> {
                 let parser = *type_result.get(i).unwrap();
                 let type_parser = TypeParser::new(parser);
                 let name = parameters_s.get(i).unwrap().clone();
-                if let Some((type_ref, _)) = type_parser.try_parse_type_ref(0, type_parameters)
-                {
+                if let Some((type_ref, _)) = type_parser.try_parse_type_ref(0, type_parameters) {
                     parameters.push(ASTStructPropertyDef { name, type_ref });
                 } else {
                     self.parser

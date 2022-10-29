@@ -578,12 +578,12 @@ fn verify_statement(
                     {
                         function_def.return_type.clone()
                     } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
-                    context.get(&call.function_name)
+                        context.get(&call.function_name)
                     {
                         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                                         parameters: _,
-                                                         return_type,
-                                                     }) = &parameter_ref.type_ref.ast_type
+                            parameters: _,
+                            return_type,
+                        }) = &parameter_ref.type_ref.ast_type
                         {
                             return_type.clone().map(|it| *it)
                         } else {
@@ -626,12 +626,12 @@ fn verify_function_call(
                 .map(|it| it.type_ref.ast_type.clone())
                 .collect::<Vec<ASTTypedType>>()
         } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
-        context.get(&call.function_name)
+            context.get(&call.function_name)
         {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                             parameters,
-                                             return_type: _,
-                                         }) = &parameter_ref.type_ref.ast_type
+                parameters,
+                return_type: _,
+            }) = &parameter_ref.type_ref.ast_type
             {
                 parameters
                     .iter()
@@ -678,14 +678,14 @@ fn get_type_of_typed_expression(
                 debug!("found function in module");
                 function_def.return_type.clone().map(|it| it.ast_type)
             } else if let Some(TypedValKind::ParameterRef(_, par)) =
-            context.get(&call.function_name)
+                context.get(&call.function_name)
             {
                 debug!("found function in context");
 
                 if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                                 parameters: _,
-                                                 return_type,
-                                             }) = &par.type_ref.ast_type
+                    parameters: _,
+                    return_type,
+                }) = &par.type_ref.ast_type
                 {
                     return_type.clone().map(|it| it.ast_type)
                 } else {
@@ -714,9 +714,9 @@ fn get_type_of_typed_expression(
                 }
                 Some(t) => match t {
                     ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                              parameters,
-                                              return_type,
-                                          }) => (parameters, return_type),
+                        parameters,
+                        return_type,
+                    }) => (parameters, return_type),
                     _ => panic!(),
                 },
             };
@@ -986,7 +986,10 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
         ASTType::Parametric(p) => {
             panic!("Unresolved parametric type '{p}': {message}");
         }
-        ASTType::Custom { name, param_types: _ } => {
+        ASTType::Custom {
+            name,
+            param_types: _,
+        } => {
             if conv_context.module.enums.iter().any(|it| &it.name == name) {
                 if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
                     e

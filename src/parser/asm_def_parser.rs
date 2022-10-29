@@ -34,7 +34,7 @@ impl<'a> AsmDefParser<'a> {
                 let type_params_parser = TypeParamsParser::new(self.parser);
 
                 let type_params = if let Some((type_params, next_i_t)) =
-                type_params_parser.try_parse(current_n + 1)
+                    type_params_parser.try_parse(current_n + 1)
                 {
                     current_n = next_i_t - self.parser.get_i() - 1;
                     type_params
@@ -43,7 +43,7 @@ impl<'a> AsmDefParser<'a> {
                 };
 
                 if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
-                self.parser.get_token_kind_n(current_n + 1)
+                    self.parser.get_token_kind_n(current_n + 1)
                 {
                     return Some((
                         function_name.clone(),

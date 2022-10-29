@@ -396,11 +396,11 @@ mod tests {
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
             },
         }])
-            .translate(
-                &backend,
-                &mut statics,
-                "a line\n$call(sprintln, $s)\nanother line\n",
-            );
+        .translate(
+            &backend,
+            &mut statics,
+            "a line\n$call(sprintln, $s)\nanother line\n",
+        );
 
         assert_eq!(
             result,
@@ -420,11 +420,11 @@ mod tests {
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
             },
         }])
-            .translate(
-                &backend,
-                &mut statics,
-                "a line\n$ccall(printf, $s)\nanother line\n",
-            );
+        .translate(
+            &backend,
+            &mut statics,
+            "a line\n$ccall(printf, $s)\nanother line\n",
+        );
 
         assert_eq!(
             result,

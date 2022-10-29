@@ -99,7 +99,7 @@ impl<'a> EnumParser<'a> {
                             let parser = *type_result.get(i).unwrap();
                             let type_parser = TypeParser::new(parser);
                             if let Some((type_ref, _)) =
-                            type_parser.try_parse_type_ref(0, type_parameters)
+                                type_parser.try_parse_type_ref(0, type_parameters)
                             {
                                 parameters.push(ASTParameterDef {
                                     name: parameters_s.get(i).unwrap().clone(),
@@ -174,12 +174,12 @@ impl TokensMatcherTrait for ParameterMatcher {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(TokenKind::AlphaNumeric(name)) = parser.get_token_kind_n(n) {
             if let Some(TokenKind::Punctuation(PunctuationKind::Colon)) =
-            parser.get_token_kind_n(n + 1)
+                parser.get_token_kind_n(n + 1)
             {
                 let type_parser = TypeParser::new(parser);
                 // I don't care of type_ref since who evaluates this resul gets only the tokens
                 if let Some((_type_ref, next_i)) =
-                type_parser.try_parse_type_ref(n + 2, &self.context_param_types)
+                    type_parser.try_parse_type_ref(n + 2, &self.context_param_types)
                 {
                     let next_n = next_i - parser.get_i();
 
