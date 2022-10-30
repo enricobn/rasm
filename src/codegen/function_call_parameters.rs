@@ -3,7 +3,11 @@ use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedValKind};
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedTypeRef};
+use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTStatement};
+use crate::type_check::typed_ast::{
+    print_function_def, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedTypeRef,
+};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
@@ -190,17 +194,11 @@ impl<'a> FunctionCallParameters<'a> {
     ) -> LambdaSpace {
         let mut lambda_space = LambdaSpace::new(context.clone());
 
-        let num_of_values_in_context = context.iter().count();
-
         let stack_base_pointer = self.backend.stack_base_pointer();
         let stack_pointer = self.backend.stack_pointer();
         let word_len = self.backend.word_len() as usize;
         let word_size = self.backend.word_size();
         let pointer_size = self.backend.pointer_size();
-
-        self.lambda_slots_to_deallocate += num_of_values_in_context + 1;
-
-        let mut i = 1;
 
         CodeGen::add(
             &mut self.before,
@@ -209,67 +207,82 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
 
-        Self::allocate_lambda_space(
-            self.backend,
-            &mut self.before,
-            "ecx",
-            num_of_values_in_context + 1,
-        );
+        if !self.body_reads_from_context(&def.body, context) {
+            println!("lambda does not read from context:");
+            print_function_def(def);
 
-        if !context.is_empty() {
-            CodeGen::add(
+            self.lambda_slots_to_deallocate += 1;
+
+            Self::allocate_lambda_space(self.backend, &mut self.before, "ecx", 1);
+        } else {
+            let num_of_values_in_context = context.iter().count();
+
+            self.lambda_slots_to_deallocate += num_of_values_in_context + 1;
+
+            Self::allocate_lambda_space(
+                self.backend,
                 &mut self.before,
-                &format!("push  {} ebx", self.backend.word_size()),
-                comment,
-                true,
+                "ecx",
+                num_of_values_in_context + 1,
             );
-        }
 
-        context.iter().for_each(|(name, kind)| {
-            // we do not create val that are overridden by parent memcopy
-            let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
-                parent_lambda.context.get(name).is_some()
-            } else {
-                false
-            };
-            if !already_in_parent {
-                let relative_address = match kind {
-                    TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
-                    TypedValKind::LetRef(_, _) => {
-                        -(self
-                            .stack_vals
-                            .find_relative_to_bp(StackEntryType::LetVal, name)
-                            as i32)
-                    }
-                };
-                self.indirect_mov(
-                    &format!(
-                        "{}+{}",
-                        stack_base_pointer,
-                        relative_address * word_len as i32
-                    ),
-                    &format!("ecx + {}", i * word_len),
-                    "ebx",
-                    Some(&format!("context parameter {}", name)),
+            if !context.is_empty() {
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("push  {} ebx", self.backend.word_size()),
+                    comment,
+                    true,
                 );
             }
 
-            lambda_space.add_context_parameter(name.clone(), i);
-            i += 1;
-        });
+            let mut i = 1;
 
-        if !context.is_empty() {
-            CodeGen::add(&mut self.before, "pop  ebx", comment, true);
-        }
+            context.iter().for_each(|(name, kind)| {
+                // we do not create val that are overridden by parent memcopy
+                let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
+                    parent_lambda.context.get(name).is_some()
+                } else {
+                    false
+                };
+                if !already_in_parent {
+                    let relative_address = match kind {
+                        TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
+                        TypedValKind::LetRef(_, _) => {
+                            -(self
+                                .stack_vals
+                                .find_relative_to_bp(StackEntryType::LetVal, name)
+                                as i32)
+                        }
+                    };
+                    self.indirect_mov(
+                        &format!(
+                            "{}+{}",
+                            stack_base_pointer,
+                            relative_address * word_len as i32
+                        ),
+                        &format!("ecx + {}", i * word_len),
+                        "ebx",
+                        Some(&format!("context parameter {}", name)),
+                    );
+                }
 
-        // I copy the lambda space of the parent
-        if let Some(parent_lambda) = parent_lambda_space {
-            self.mem_copy_words(
-                &format!("[{}+8]", stack_base_pointer),
-                "ecx",
-                parent_lambda.parameters_indexes.len() + 1,
-                None,
-            );
+                lambda_space.add_context_parameter(name.clone(), i);
+                i += 1;
+            });
+
+            if !context.is_empty() {
+                CodeGen::add(&mut self.before, "pop  ebx", comment, true);
+            }
+
+            // I copy the lambda space of the parent
+            if let Some(parent_lambda) = parent_lambda_space {
+                self.mem_copy_words(
+                    &format!("[{}+8]", stack_base_pointer),
+                    "ecx",
+                    parent_lambda.parameters_indexes.len() + 1,
+                    None,
+                );
+            }
         }
 
         CodeGen::add(
@@ -291,7 +304,6 @@ impl<'a> FunctionCallParameters<'a> {
             comment,
             true,
         );
-        //CodeGen::add(&mut self.before, &format!("add ecx, {}", (num_of_values_in_context + 1) * word_len), comment, true);
 
         CodeGen::add(&mut self.before, "pop  ecx", comment, true);
 
@@ -348,6 +360,57 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn to_remove_from_stack_name(&self) -> String {
         format!("$_to_remove_rom_stack{}", self.id)
+    }
+
+    fn body_reads_from_context(
+        &self,
+        body: &ASTTypedFunctionBody,
+        context: &TypedValContext,
+    ) -> bool {
+        if let ASTTypedFunctionBody::RASMBody(statements) = body {
+            statements
+                .iter()
+                .any(|it| self.statement_reads_from_context(it, context))
+        } else {
+            true
+        }
+    }
+
+    fn statement_reads_from_context(
+        &self,
+        statement: &ASTTypedStatement,
+        context: &TypedValContext,
+    ) -> bool {
+        match statement {
+            ASTTypedStatement::Expression(expr) => {
+                self.expression_reads_from_context(expr, context)
+            }
+            ASTTypedStatement::LetStatement(_, expr) => {
+                self.expression_reads_from_context(expr, context)
+            }
+        }
+    }
+
+    fn expression_reads_from_context(
+        &self,
+        expr: &ASTTypedExpression,
+        context: &TypedValContext,
+    ) -> bool {
+        match expr {
+            ASTTypedExpression::StringLiteral(_) => false,
+            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                if context.get(&call.function_name).is_some() {
+                    true
+                } else {
+                    call.parameters
+                        .iter()
+                        .any(|it| self.expression_reads_from_context(it, context))
+                }
+            }
+            ASTTypedExpression::Val(name) => context.get(name).is_some(),
+            ASTTypedExpression::Number(_) => false,
+            ASTTypedExpression::Lambda(_) => true, // TODO
+        }
     }
 
     fn debug_and_before(&mut self, descr: &str, indent: usize) {
