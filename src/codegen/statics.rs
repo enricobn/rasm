@@ -5,7 +5,7 @@ use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
 use linked_hash_map::LinkedHashMap;
 use pad::PadStr;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Statics {
     id: usize,
     statics: LinkedHashMap<String, MemoryValue>,
@@ -100,6 +100,10 @@ impl Statics {
                         def.push_str(&format!("{}", len));
                         CodeGen::add(&mut bss, &def, None, true);
                     }
+                    MemoryValue::RefToLabel(name) => {
+                        def.push_str(&format!("dd    {name}"));
+                        CodeGen::add(&mut data, &def, None, true);
+                    }
                 }
             }
         }
@@ -145,6 +149,7 @@ impl Statics {
                 Mem(_, _) => {
                     Self::print_address(&mut asm, id);
                 }
+                MemoryValue::RefToLabel(_) => {}
             }
         }
         CodeGen::add(&mut asm, "%endif", None, false);

@@ -7,6 +7,7 @@
 // 11,899 - optimization: references in stack vs scope stack
 // 11,019 - optimized listAnyMatch
 // 10,330 - inlined struct property getter
+// 9,989  - optimized lambdas that do not read from context
 
 include "std.rasm"
 include "sdl.rasm"

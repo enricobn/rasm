@@ -53,6 +53,7 @@ pub enum MemoryValue {
     StringValue(String),
     I32Value(i32),
     Mem(usize, MemoryUnit),
+    RefToLabel(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -409,10 +410,6 @@ impl<'a> CodeGen<'a> {
         self.create_lambdas(self.lambdas.clone(), 0);
 
         self.create_all_functions();
-
-        // create only used functions
-
-        //self.create_only_used_functions();
 
         let mut asm = String::new();
 
@@ -1162,8 +1159,13 @@ impl<'a> CodeGen<'a> {
 
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
-                        let lambda_space =
-                            call_parameters.add_lambda(&mut def, lambda_space_opt, context, None);
+                        let lambda_space = call_parameters.add_lambda(
+                            &mut def,
+                            lambda_space_opt,
+                            context,
+                            None,
+                            &mut self.statics,
+                        );
 
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {

@@ -2,7 +2,10 @@ use crate::codegen::backend::Backend;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
-use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedValKind};
+use crate::codegen::{
+    CodeGen, LambdaSpace, MemoryUnit, MemoryValue, TypedValContext, TypedValKind,
+};
+use crate::debug_i;
 use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTStatement};
 use crate::type_check::typed_ast::{
     print_function_def, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
@@ -191,6 +194,7 @@ impl<'a> FunctionCallParameters<'a> {
         parent_lambda_space: Option<&LambdaSpace>,
         context: &TypedValContext,
         comment: Option<&str>,
+        statics: &mut Statics,
     ) -> LambdaSpace {
         let mut lambda_space = LambdaSpace::new(context.clone());
 
@@ -200,21 +204,33 @@ impl<'a> FunctionCallParameters<'a> {
         let word_size = self.backend.word_size();
         let pointer_size = self.backend.pointer_size();
 
-        CodeGen::add(
-            &mut self.before,
-            &format!("push  {} ecx", self.backend.word_size()),
-            comment,
-            true,
-        );
-
         if !self.body_reads_from_context(&def.body, context) {
-            println!("lambda does not read from context:");
-            print_function_def(def);
+            let key = format!("_ls_{}", def.name);
 
-            self.lambda_slots_to_deallocate += 1;
+            statics.insert(key.clone(), MemoryValue::RefToLabel(def.name.clone()));
 
-            Self::allocate_lambda_space(self.backend, &mut self.before, "ecx", 1);
+            debug_i!("lambda does not read from context: {def}");
+
+            let to_remove_from_stack = self.to_remove_from_stack();
+            CodeGen::add(
+                &mut self.before,
+                &format!(
+                    "mov {} [{} + {}], {key}",
+                    word_size,
+                    stack_pointer,
+                    (to_remove_from_stack) * word_len as usize
+                ),
+                comment,
+                true,
+            );
         } else {
+            CodeGen::add(
+                &mut self.before,
+                &format!("push  {} ecx", self.backend.word_size()),
+                comment,
+                true,
+            );
+
             let num_of_values_in_context = context.iter().count();
 
             self.lambda_slots_to_deallocate += num_of_values_in_context + 1;
@@ -283,29 +299,29 @@ impl<'a> FunctionCallParameters<'a> {
                     None,
                 );
             }
+
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov {} [ecx], {}", pointer_size, def.name),
+                None,
+                true,
+            );
+            // + 1 due to push ecx
+            let to_remove_from_stack = self.to_remove_from_stack();
+            CodeGen::add(
+                &mut self.before,
+                &format!(
+                    "mov {} [{} + {}], ecx",
+                    word_size,
+                    stack_pointer,
+                    (to_remove_from_stack + 1) * word_len as usize
+                ),
+                comment,
+                true,
+            );
+
+            CodeGen::add(&mut self.before, "pop  ecx", comment, true);
         }
-
-        CodeGen::add(
-            &mut self.before,
-            &format!("mov {} [ecx], {}", pointer_size, def.name),
-            None,
-            true,
-        );
-        // + 1 due to push ecx
-        let to_remove_from_stack = self.to_remove_from_stack();
-        CodeGen::add(
-            &mut self.before,
-            &format!(
-                "mov {} [{} + {}], ecx",
-                word_size,
-                stack_pointer,
-                (to_remove_from_stack + 1) * word_len as usize
-            ),
-            comment,
-            true,
-        );
-
-        CodeGen::add(&mut self.before, "pop  ecx", comment, true);
 
         self.parameter_added_to_stack();
 
@@ -409,7 +425,10 @@ impl<'a> FunctionCallParameters<'a> {
             }
             ASTTypedExpression::Val(name) => context.get(name).is_some(),
             ASTTypedExpression::Number(_) => false,
-            ASTTypedExpression::Lambda(_) => true, // TODO
+            ASTTypedExpression::Lambda(lambda_def) => lambda_def
+                .body
+                .iter()
+                .any(|it| self.statement_reads_from_context(it, context)),
         }
     }
 
