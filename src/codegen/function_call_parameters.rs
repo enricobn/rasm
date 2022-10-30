@@ -2,14 +2,11 @@ use crate::codegen::backend::Backend;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
-use crate::codegen::{
-    CodeGen, LambdaSpace, MemoryUnit, MemoryValue, TypedValContext, TypedValKind,
-};
+use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedValKind};
 use crate::debug_i;
-use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTStatement};
 use crate::type_check::typed_ast::{
-    print_function_def, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedTypeRef,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
+    ASTTypedStatement, ASTTypedTypeRef,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
