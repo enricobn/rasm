@@ -213,6 +213,11 @@ fn test_dereference() {
     );
 }
 
+#[test]
+fn test_vec() {
+    test("vec", vec![], "");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

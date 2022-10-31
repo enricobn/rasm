@@ -149,6 +149,7 @@ pub enum KeywordKind {
     Let,
     Requires,
     Struct,
+    Type,
 }
 
 impl KeywordKind {
@@ -163,6 +164,7 @@ impl KeywordKind {
             KeywordKind::Let => "let".into(),
             KeywordKind::Requires => "requires".into(),
             KeywordKind::Struct => "struct".into(),
+            KeywordKind::Type => "type".into(),
         }
     }
 

@@ -1,0 +1,3 @@
+include "std.rasm"
+
+type Vec<T>;

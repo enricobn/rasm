@@ -12,12 +12,13 @@ use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTStructDef,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::param_types_matcher;
 use crate::parser::struct_parser::StructParser;
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
+use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
 
@@ -52,6 +53,7 @@ pub struct Parser {
     file_name: Option<String>,
     requires: HashSet<String>,
     externals: HashSet<String>,
+    types: Vec<ASTTypeDef>,
 }
 
 #[derive(Clone, Debug)]
@@ -102,6 +104,7 @@ impl Parser {
             file_name,
             requires: HashSet::new(),
             externals: HashSet::new(),
+            types: Vec::new(),
         }
     }
 
@@ -255,6 +258,17 @@ impl Parser {
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
+                    } else if let TokenKind::KeyWord(KeywordKind::Type) = token.kind {
+                        let (type_def, next_i) = self.parse_type_def();
+                        if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                            self.get_token_kind_n(next_i - self.i)
+                        {
+                            self.types.push(type_def);
+                            self.i = next_i + 1;
+                            continue;
+                        } else {
+                            self.panic("Missing semicolon)")
+                        }
                     }
                     self.panic("Unknown statement");
                 }
@@ -598,7 +612,6 @@ impl Parser {
                 return ProcessResult::Continue;
             } else {
                 self.panic("");
-                panic!();
             };
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
             self.state.push(ParserState::FunctionBody);
@@ -689,7 +702,7 @@ impl Parser {
         }
     }
 
-    fn panic(&self, message: &str) {
+    fn panic(&self, message: &str) -> ! {
         self.debug(message);
         panic!("{}", self.error_msg(message));
     }
@@ -755,7 +768,6 @@ impl Parser {
                 ))
             } else {
                 self.panic("Cannot parse function definition");
-                None
             }
         } else {
             None
@@ -866,6 +878,30 @@ impl Parser {
             }
         }
         None
+    }
+
+    fn parse_type_def(&self) -> (ASTTypeDef, usize) {
+        if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
+            if let Some((type_parameters, next_n)) = TypeParamsParser::new(self).try_parse(2) {
+                (
+                    ASTTypeDef {
+                        type_parameters,
+                        name: name.clone(),
+                    },
+                    next_n,
+                )
+            } else {
+                (
+                    ASTTypeDef {
+                        type_parameters: Vec::new(),
+                        name: name.clone(),
+                    },
+                    2,
+                )
+            }
+        } else {
+            self.panic("Error parsing include")
+        }
     }
 }
 

@@ -320,6 +320,12 @@ pub struct ASTStructDef {
     pub properties: Vec<ASTStructPropertyDef>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ASTTypeDef {
+    pub name: String,
+    pub type_parameters: Vec<String>
+}
+
 pub fn lambda(return_type: Option<Box<ASTTypeRef>>) -> ASTType {
     ASTType::Builtin(BuiltinTypeKind::Lambda {
         parameters: Vec::new(),
