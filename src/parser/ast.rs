@@ -276,6 +276,7 @@ pub struct ASTModule {
     pub structs: Vec<ASTStructDef>,
     pub requires: HashSet<String>,
     pub externals: HashSet<String>,
+    pub types: Vec<ASTTypeDef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -323,7 +324,7 @@ pub struct ASTStructDef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTTypeDef {
     pub name: String,
-    pub type_parameters: Vec<String>
+    pub type_parameters: Vec<String>,
 }
 
 pub fn lambda(return_type: Option<Box<ASTTypeRef>>) -> ASTType {

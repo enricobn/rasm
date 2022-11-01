@@ -69,14 +69,9 @@ pub enum BuiltinTypedTypeKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedType {
     Builtin(BuiltinTypedTypeKind),
-    Enum {
-        name: String,
-        //param_types: Vec<ASTTypedTypeRef>,
-    },
-    Struct {
-        name: String,
-        //param_types: Vec<ASTTypedTypeRef>,
-    },
+    Enum { name: String },
+    Struct { name: String },
+    Type { name: String },
 }
 
 impl Display for ASTTypedType {
@@ -115,6 +110,7 @@ impl Display for ASTTypedType {
              */
             ASTTypedType::Enum { name } => f.write_str(&name.to_string()),
             ASTTypedType::Struct { name } => f.write_str(&name.to_string()),
+            ASTTypedType::Type { name } => f.write_str(&name.to_string()),
         }
     }
 }
@@ -225,6 +221,7 @@ pub struct ASTTypedModule {
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
     pub native_body: String,
+    pub types: Vec<ASTTypedTypeDef>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -279,12 +276,19 @@ pub struct ASTTypedStructDef {
     pub properties: Vec<ASTTypedStructPropertyDef>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ASTTypedTypeDef {
+    pub name: String,
+}
+
 struct ConvContext<'a> {
     module: &'a EnhancedASTModule,
     enums: LinkedHashMap<ASTType, ASTTypedType>,
     structs: LinkedHashMap<ASTType, ASTTypedType>,
+    types: LinkedHashMap<ASTType, ASTTypedType>,
     enum_defs: Vec<ASTTypedEnumDef>,
     struct_defs: Vec<ASTTypedStructDef>,
+    type_defs: Vec<ASTTypedTypeDef>,
     count: usize,
 }
 
@@ -294,8 +298,10 @@ impl<'a> ConvContext<'a> {
             module,
             enums: LinkedHashMap::new(),
             structs: LinkedHashMap::new(),
+            types: LinkedHashMap::new(),
             enum_defs: Vec::new(),
             struct_defs: Vec::new(),
+            type_defs: Vec::new(),
             count: 0,
         }
     }
@@ -304,6 +310,7 @@ impl<'a> ConvContext<'a> {
         debug!("add_enum {enum_type}");
         self.count += 1;
         if self.count > 100 {
+            // TODO why???
             panic!();
         }
         match enum_type {
@@ -372,6 +379,7 @@ impl<'a> ConvContext<'a> {
         debug!("add_struct {struct_type}");
         self.count += 1;
         if self.count > 100 {
+            // TODO why???
             panic!();
         }
         match struct_type {
@@ -427,6 +435,59 @@ impl<'a> ConvContext<'a> {
 
     pub fn get_struct(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
         self.structs.get(enum_type).cloned()
+    }
+
+    pub fn add_type(&mut self, typed_type: &ASTType) -> ASTTypedType {
+        debug!("add_type {typed_type}");
+        self.count += 1;
+        if self.count > 100 {
+            // TODO why???
+            panic!();
+        }
+        match typed_type {
+            ASTType::Custom { name, param_types } => {
+                let type_def = self
+                    .module
+                    .types
+                    .iter()
+                    .find(|it| &it.name == name)
+                    .unwrap();
+
+                let cloned_param_types = param_types.clone();
+                let mut generic_to_type = LinkedHashMap::new();
+                for (i, p) in type_def.type_parameters.iter().enumerate() {
+                    generic_to_type.insert(
+                        p.clone(),
+                        cloned_param_types
+                            .get(i)
+                            .unwrap_or_else(|| {
+                                panic!("Cannot find parametric type {p} for type {name}")
+                            })
+                            .ast_type
+                            .clone(),
+                    );
+                }
+
+                let new_name = format!("{name}_{}", self.types.len());
+                let type_typed_type = ASTTypedType::Type {
+                    name: new_name.clone(),
+                };
+
+                self.type_defs.push(ASTTypedTypeDef { name: new_name });
+
+                self.types
+                    .insert(typed_type.clone(), type_typed_type.clone());
+
+                type_typed_type
+            }
+            _ => {
+                panic!()
+            }
+        }
+    }
+
+    pub fn get_type(&self, type_def_type: &ASTType) -> Option<ASTTypedType> {
+        self.types.get(type_def_type).cloned()
     }
 }
 
@@ -523,6 +584,7 @@ pub fn convert_to_typed_module(
         enums: conv_context.enum_defs,
         functions_by_name,
         native_body: module.native_body.clone(),
+        types: conv_context.type_defs,
     };
 
     if printl_module {
@@ -1006,6 +1068,12 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
                     e
                 } else {
                     conv_context.add_struct(&t_ref.ast_type)
+                }
+            } else if conv_context.module.types.iter().any(|it| &it.name == name) {
+                if let Some(e) = conv_context.get_type(&t_ref.ast_type) {
+                    e
+                } else {
+                    conv_context.add_type(&t_ref.ast_type)
                 }
             } else {
                 panic!("Cannot find custom type {name}");

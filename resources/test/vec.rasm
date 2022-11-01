@@ -1,3 +1,137 @@
 include "std.rasm"
 
 type Vec<T>;
+
+let v = vecRange(0, 2);
+let m = vecMap(v, { n -> nadd(n, 10);});
+
+nVecPrintln(v);
+nVecPrintln(m);
+
+fn nVecPrintln(v: Vec<i32>) {
+    vecForeach(v, { n -> nprint(n); sprint(",");});
+    println();
+}
+
+asm vecOf<T>(value: T) -> Vec<T> /{
+    $call(malloc, 8)
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 1
+    add     eax, 4
+    push    ebx
+    mov     dword ebx, $value
+    mov     dword [eax], ebx
+    pop     ebx
+    pop     eax
+}/
+
+asm vecForeach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
+    push    ebx
+    push    ecx
+    push    edx
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]
+    mov     dword ecx, [ebx]    ; count
+    add     ebx, 4  ; address of first value
+    mov     edx, $f         ; points to the lambda space
+.loop:
+    cmp     dword ecx, 0
+    jz      .end
+    push    dword [ebx]
+    push    edx             ; the address to the lambda space is the last argument of every lambda
+    call    [edx]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
+    add     esp, 8
+    add     ebx, 4
+    dec     ecx
+    jmp     .loop
+
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+// end exclusive
+asm vecRange(start: i32, end: i32) -> Vec<i32> /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword ebx, $end
+    sub     dword ebx, $start
+    push    ebx                 ; the size
+    inc     ebx                 ; + 1 for the size
+    add     ebx, ebx
+    add     ebx, ebx
+    $call(malloc, ebx)
+    pop     ebx
+    push    eax
+    mov     dword ecx, [eax]
+    mov     dword [ecx], ebx    ; the size
+    add     ecx, 4              ; the pointer to the next value
+    mov     dword edx, 0        ; the actual value
+.loop:
+    cmp     dword ebx, 0
+    jz      .end
+    mov     dword [ecx], edx
+
+    add     ecx, 4
+    dec     ebx
+    inc     edx
+    jmp     .loop
+.end:
+    pop     eax
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]
+    mov     dword ecx, [ebx]    ; size
+    push    ecx
+    inc     ecx                 ; + 1 for the size
+    add     ecx, ecx
+    add     ecx, ecx
+    $call(malloc, ecx)
+    pop     ecx
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], ecx
+    mov     edx, eax
+    add     edx, 4          ; address of first value to write
+    add     ebx, 4          ; address of first value to read
+.loop:
+    cmp     dword ecx, 0
+    jz      .end
+    push    dword [ebx]
+    push    dword $f
+    mov     dword eax, $f
+    call    [eax]
+    add     esp, 8
+    mov     dword [edx], eax
+    add     ebx, 4
+    add     edx, 4
+    dec     ecx
+    jmp .loop
+.end:
+    pop     eax
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+// TODO I think it cannot be used, since we cannot determine the type of T
+asm Vec<T>() -> Vec<T> /{
+    $call(malloc, 4)
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 0
+    pop     eax
+}/

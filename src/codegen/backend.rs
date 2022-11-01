@@ -4,6 +4,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::CodeGen;
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
+use crate::transformations::typed_type_functions_creator::type_has_references;
 use crate::type_check::typed_ast::{ASTTypedModule, ASTTypedTypeRef};
 use log::info;
 use std::collections::HashSet;
@@ -356,6 +357,8 @@ impl Backend for BackendAsm386 {
             struct_has_references(struct_def)
         } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
             enum_has_references(enum_def)
+        } else if let Some(type_def) = module.types.iter().find(|it| it.name == type_name) {
+            type_has_references(type_def)
         } else {
             panic!(
                 "cannot find type {descr} {type_name}: {:?}",

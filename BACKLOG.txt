@@ -1,9 +1,20 @@
 Doing
 ------
-- move all asm code to backend
+- Vec
 
 Next
 -----
+- Vec
+  - how to reference / dereference the content of a type?
+  - gameoflifevec
+    - listToVec
+    - vecAnyMatch
+    - vecOf8
+    - vecFilter
+    - vecCount
+    - zipVec
+  -
+- move all asm code to backend
 - sdl examples
   - how to reference external structs?
 - TextMacro:

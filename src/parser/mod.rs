@@ -465,6 +465,7 @@ impl Parser {
             structs: self.structs.clone(),
             requires: self.requires.clone(),
             externals: self.externals.clone(),
+            types: self.types.clone(),
         }
     }
 

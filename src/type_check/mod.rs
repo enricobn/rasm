@@ -1716,6 +1716,7 @@ mod tests {
             functions: vec![function_def],
             requires: Default::default(),
             externals: Default::default(),
+            types: Vec::new(),
         };
 
         let new_module = convert(

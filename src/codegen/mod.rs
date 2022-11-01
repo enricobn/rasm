@@ -11,7 +11,8 @@ use crate::codegen::statics::Statics;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::parser::ast::{
-    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeRef,
+    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
+    ASTTypeRef,
 };
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
@@ -24,6 +25,7 @@ use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
+use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
@@ -201,6 +203,7 @@ pub struct EnhancedASTModule {
     pub statics: Statics,
     pub requires: HashSet<String>,
     pub externals: HashSet<String>,
+    pub types: Vec<ASTTypeDef>,
 }
 
 impl EnhancedASTModule {
@@ -220,6 +223,7 @@ impl EnhancedASTModule {
             statics: Statics::new(),
             requires: module.requires.clone(),
             externals: module.externals.clone(),
+            types: module.types.clone(),
         }
     }
 }
@@ -261,6 +265,7 @@ impl<'a> CodeGen<'a> {
                 functions_by_name: LinkedHashMap::new(),
                 structs: Vec::new(),
                 enums: Vec::new(),
+                types: Vec::new(),
             },
             body: String::new(),
             statics: statics.clone(),
@@ -285,6 +290,8 @@ impl<'a> CodeGen<'a> {
         let module = convert(backend, &module, debug_asm, print_memory_info, print_module);
         let module = typed_enum_functions_creator(backend, &module, &mut statics);
         let module = typed_struct_functions_creator(backend, &module, &mut statics);
+        let module = typed_type_functions_creator(backend, &module, &mut statics);
+
         result.module = module;
         result.statics = statics;
 
@@ -1443,6 +1450,7 @@ impl<'a> CodeGen<'a> {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString) => Some("str".into()),
             ASTTypedType::Enum { name } => Some(name.clone()),
             ASTTypedType::Struct { name } => Some(name.clone()),
+            ASTTypedType::Type { name } => Some(name.clone()),
             _ => None,
         }
     }
