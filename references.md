@@ -21,3 +21,6 @@ https://en.wikipedia.org/wiki/X86_instruction_listings
 
 x86 Assembly/X86 Architecture (registers and flags)  
 https://en.wikibooks.org/wiki/X86_Assembly/X86_Architecture
+
+X86 calling conventions
+https://en.wikipedia.org/wiki/X86_calling_conventions

@@ -215,7 +215,7 @@ fn test_dereference() {
 
 #[test]
 fn test_vec() {
-    test("vec", vec![], "0,1,\n10,11,\n");
+    test("vec", vec![], "0,1,\n10,11,\ntrue\nfalse\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

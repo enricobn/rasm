@@ -3,10 +3,13 @@ include "std.rasm"
 type Vec<T>;
 
 let v = vecRange(0, 2);
-let m = vecMap(v, { n -> nadd(n, 10);});
-
 nVecPrintln(v);
+
+let m = vecMap(v, { n -> nadd(n, 10);});
 nVecPrintln(m);
+
+ifRun(vecAnyMatch(v, { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(vecAnyMatch(v, { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
 
 fn nVecPrintln(v: Vec<i32>) {
     vecForeach(v, { n -> nprint(n); sprint(",");});
@@ -93,7 +96,7 @@ asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     push    edx
 
     mov     dword ebx, $vec
-    mov     dword ebx, [ebx]
+    mov     dword ebx, [ebx]    ; the address of the allocated memory
     mov     dword ecx, [ebx]    ; size
     push    ecx
     inc     ecx                 ; + 1 for the size
@@ -122,6 +125,40 @@ asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     jmp .loop
 .end:
     pop     eax
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+/** false = 0 true = any other value **/
+asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]    ; the address of the allocated memory
+    mov     dword ecx, [ebx]    ; size
+    add     ebx, 4              ; the address of the first value
+.loop:
+    cmp     dword ecx, 0
+    jz      .false
+    push    dword [ebx]
+    push    dword $f
+    mov     dword eax, $f
+    call    [eax]
+    add     esp, 8
+    cmp     dword eax, 0
+    jnz      .true
+    add     ebx, 4
+    dec     ecx
+    jmp     .loop
+.false:
+    mov     dword eax, 0
+    jmp     .end
+.true:
+    mov     dword eax, 1
+.end:
     pop     edx
     pop     ecx
     pop     ebx
