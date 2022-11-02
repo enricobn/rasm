@@ -1,0 +1,11 @@
+include "std.rasm"
+
+let r = range(0, 2);
+ifRun(listAnyMatch(range(0,2), { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(listAnyMatch(r, { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
+let r1 = range(0, 2);
+ifRun(listAnyMatch(range(0,2), { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(listAnyMatch(r1, { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
+let r2 = range(0, 2);
+ifRun(listAnyMatch(range(0,2), { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(listAnyMatch(r2, { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});

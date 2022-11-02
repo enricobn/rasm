@@ -204,6 +204,15 @@ fn test_let() {
     test("let", vec![], "20\n20,10\n");
 }
 
+#[test]
+fn test_dereference() {
+    test(
+        "dereference",
+        vec![],
+        "true\ntrue\nfalse\nfalse\ntrue\ntrue\n",
+    );
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

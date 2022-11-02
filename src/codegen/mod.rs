@@ -31,6 +31,8 @@ use crate::type_check::typed_ast::{
     BuiltinTypedTypeKind,
 };
 
+pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
+
 pub struct CodeGen<'a> {
     pub module: ASTTypedModule,
     id: usize,
@@ -301,6 +303,7 @@ impl<'a> CodeGen<'a> {
         let stack = StackVals::new();
 
         let mut after = String::new();
+        let mut before = String::new();
 
         for statement in &self.module.body.clone() {
             match statement {
@@ -316,7 +319,7 @@ impl<'a> CodeGen<'a> {
                             false,
                             &stack,
                         );
-                        self.body.push_str(&bf);
+                        before.push_str(&bf);
 
                         Self::insert_on_top(&af.join("\n"), &mut after);
 
@@ -353,10 +356,10 @@ impl<'a> CodeGen<'a> {
                             &stack,
                         );
 
-                        self.body.push_str(&bf);
+                        before.push_str(&bf);
 
                         self.backend.store_function_result_in_stack(
-                            &mut self.body,
+                            &mut before,
                             -(address_relative_to_bp as i32),
                         );
 
@@ -364,16 +367,15 @@ impl<'a> CodeGen<'a> {
                             if let Some(type_name) =
                                 CodeGen::get_reference_type_name(&type_ref.ast_type)
                             {
-                                let mut body = self.body.clone();
                                 self.backend.call_add_ref(
-                                    &mut body,
+                                    &mut before,
                                     "eax",
                                     &type_name,
                                     &format!("for let val {name}"),
                                     &self.module.clone(),
                                     &mut self.statics,
                                 );
-                                self.body = body;
+
                                 after.push_str(&self.backend.call_deref(
                                     &format!(
                                         "[{bp} - {}]",
@@ -399,6 +401,10 @@ impl<'a> CodeGen<'a> {
             }
         }
 
+        self.body.push_str(&before.replace(
+            STACK_VAL_SIZE_NAME,
+            &(stack.len() * self.backend.word_len()).to_string(),
+        ));
         self.body.push_str(&after);
 
         debug!("stack {:?}", stack);
@@ -794,16 +800,19 @@ impl<'a> CodeGen<'a> {
                 let new_body = function_call_parameters.resolve_asm_parameters(
                     &mut self.statics,
                     body,
-                    (stack.len() * self.backend.word_len()).to_string(),
+                    "0".into(),
                     indent,
                 );
-                self.definitions.push_str(&new_body);
+                before.push_str(&new_body);
             }
         }
 
         self.backend.reserve_stack(&stack, &mut self.definitions);
 
-        self.definitions.push_str(&before);
+        self.definitions.push_str(&before.replace(
+            STACK_VAL_SIZE_NAME,
+            &(stack.len() * self.backend.word_len()).to_string(),
+        ));
 
         self.definitions.push_str(&after);
 
@@ -1187,6 +1196,7 @@ impl<'a> CodeGen<'a> {
             }
         }
 
+        //before.push_str(&call_parameters.before());
         before.push_str(&call_parameters.before().replace(
             &call_parameters.to_remove_from_stack_name(),
             &(call_parameters.to_remove_from_stack() * self.backend.word_len()).to_string(),
@@ -1194,11 +1204,13 @@ impl<'a> CodeGen<'a> {
 
         if inline {
             if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
-                let mut added_to_stack = added_to_stack;
+                /*let mut added_to_stack = added_to_stack;
                 added_to_stack.push_str(&format!(
                     " + {}",
                     stack_vals.len() * self.backend.word_len()
                 ));
+
+                 */
 
                 before.push_str(&call_parameters.resolve_asm_parameters(
                     &mut self.statics,

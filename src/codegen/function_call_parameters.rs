@@ -614,9 +614,10 @@ impl<'a> FunctionCallParameters<'a> {
                     to_remove_from_stack
                 ));
                 format!(
-                    "{}-({})",
+                    "{}-({})-{}",
                     (i as i32 - self.to_remove_from_stack() as i32) * word_len,
-                    to_remove_from_stack
+                    to_remove_from_stack,
+                    crate::codegen::STACK_VAL_SIZE_NAME
                 )
             } else {
                 format!("{}", (i + 2) * self.backend.word_len() as i32)
