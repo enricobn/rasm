@@ -7,11 +7,9 @@ Next
 - Vec
   - how to reference / dereference the content of a type?
   - gameoflifevec
-    - listToVec
-    - vecAnyMatch
+    - listToVec?
     - vecOf8
     - vecFilter
-    - vecCount
     - zipVec
   -
 - move all asm code to backend

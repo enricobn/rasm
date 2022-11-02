@@ -11,6 +11,13 @@ nVecPrintln(m);
 ifRun(vecAnyMatch(v, { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
 ifRun(vecAnyMatch(v, { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
 
+ifRun(vecAnyMatch(vecRange(0, 2), { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(vecAnyMatch(vecRange(0, 2), { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
+
+nprintln(vecCount(vecRange(0, 10), { n -> eq(n, 5);}));
+nprintln(vecCount(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));
+nprintln(vecCount(vecRange(0, 10), { n -> lessOrEqual(n, 1);}));
+
 fn nVecPrintln(v: Vec<i32>) {
     vecForeach(v, { n -> nprint(n); sprint(",");});
     println();
@@ -85,6 +92,8 @@ asm vecRange(start: i32, end: i32) -> Vec<i32> /{
     jmp     .loop
 .end:
     pop     eax
+    ; $call(sprint, "vecRange ")
+    ; $call(nprintln, eax)
     pop     edx
     pop     ecx
     pop     ebx
@@ -132,9 +141,11 @@ asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 
 /** false = 0 true = any other value **/
 asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
+    ; $call(sprint, "vecAnyMatch ")
+    ; $call(nprintln, $vec)
+
     push    ebx
     push    ecx
-    push    edx
 
     mov     dword ebx, $vec
     mov     dword ebx, [ebx]    ; the address of the allocated memory
@@ -143,10 +154,14 @@ asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
 .loop:
     cmp     dword ecx, 0
     jz      .false
+    ; $call(sprint, "  n ")
+    ; $call(nprint, [ebx])
     push    dword [ebx]
     push    dword $f
     mov     dword eax, $f
     call    [eax]
+    ; $call(sprint, " = ")
+    ; $call(nprintln, eax)
     add     esp, 8
     cmp     dword eax, 0
     jnz      .true
@@ -159,6 +174,40 @@ asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
 .true:
     mov     dword eax, 1
 .end:
+    ; $call(sprint, "  result = ")
+    ; $call(nprintln, eax)
+    pop     ecx
+    pop     ebx
+}/
+
+asm vecCount<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
+    ; $call(sprintln, "vecCount")
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]    ; the address of the allocated memory
+    mov     dword ecx, [ebx]    ; size
+    add     ebx, 4              ; the address of the first value
+    mov     dword edx, 0        ; result
+.loop:
+    cmp     dword ecx, 0
+    jz      .end
+    push    dword [ebx]
+    push    dword $f
+    mov     dword eax, $f
+    call    [eax]
+    add     esp, 8
+    cmp     dword eax, 0
+    jz      .false
+    inc     edx
+.false:
+    add     ebx, 4
+    dec     ecx
+    jmp     .loop
+.end:
+    mov     dword eax, edx
     pop     edx
     pop     ecx
     pop     ebx
