@@ -18,6 +18,9 @@ nprintln(vecCount(vecRange(0, 10), { n -> eq(n, 5);}));
 nprintln(vecCount(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));
 nprintln(vecCount(vecRange(0, 10), { n -> lessOrEqual(n, 1);}));
 
+nVecPrintln(vecFilter(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));
+nVecPrintln(vecFilter(vecRange(0, 10), { n -> eq(n, 5);}));
+
 fn nVecPrintln(v: Vec<i32>) {
     vecForeach(v, { n -> nprint(n); sprint(",");});
     println();
@@ -208,6 +211,60 @@ asm vecCount<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
     jmp     .loop
 .end:
     mov     dword eax, edx
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax, $vec
+    mov     dword ecx, [eax]
+    mov     dword ebx, [ecx]    ; the size of the original array
+    add     ecx, 4              ; the address of the value in the old array
+
+    push    ebx
+    ; multiply ebx by 4
+    shl     ebx, 2
+    ; add the space for the size
+    add     ebx, 4
+    $call(malloc, ebx)
+    pop     ebx
+
+    push    eax
+
+    mov     dword edx, [eax]
+    add     edx, 4  ; the address of the value in the new array
+
+
+.loop:
+    cmp     ebx, 0
+    jz      .end
+    push    dword [ecx]
+    push    dword $filter
+    mov     dword eax, $filter
+    call    [eax]
+    add     esp, 8
+    cmp     dword eax, 0
+    jz      .false
+    mov     dword eax, [ecx]
+    mov     dword [edx], eax
+    add     edx, 4
+.false
+    dec     ebx
+    add     ecx, 4
+    jmp     .loop
+.end:
+    pop     eax
+    sub     edx, [eax]
+    ; divide ebx by 4, we get the len
+    shr     edx, 2
+    dec     edx         ; we remove 1 for the size
+    mov     dword ecx, [eax]
+    mov     dword [ecx], edx
     pop     edx
     pop     ecx
     pop     ebx
