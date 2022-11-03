@@ -7,7 +7,7 @@ Next
 - Vec
   - how to reference / dereference the content of a type?
   - gameoflifevec
-    - listToVec?
+    - vecFoldL
   -
 - move all asm code to backend
 - sdl examples
