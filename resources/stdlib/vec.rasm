@@ -1,1 +1,11 @@
 type Vec<T>;
+
+fn zipVec<T1,T2,T>(l1: Vec<T1>, l2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> {
+    vecFMap(l1, { v1 ->
+        vecMap(l2, { v2 -> zipFunction(v1, v2); });
+    });
+}
+
+fn vecFMap<T,T1>(l: Vec<T>, map: fn(T) -> Vec<T1>) -> Vec<T1> {
+    vecFlatten(vecMap(l, map));
+}

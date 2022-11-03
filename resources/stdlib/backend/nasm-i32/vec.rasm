@@ -201,7 +201,7 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     mov     dword eax, $vec
     mov     dword ecx, [eax]
     mov     dword ebx, [ecx]    ; the size of the original array
-    add     ecx, 4              ; the address of the value in the old array
+    add     ecx, 4              ; the address of the value in the original array
 
     push    ebx
     ; multiply ebx by 4
@@ -230,7 +230,7 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     mov     dword eax, [ecx]
     mov     dword [edx], eax
     add     edx, 4
-.false
+.false:
     dec     ebx
     add     ecx, 4
     jmp     .loop
@@ -245,6 +245,26 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     pop     edx
     pop     ecx
     pop     ebx
+}/
+
+asm vecOf2<T>(v1: T, v2: T) -> Vec<T> /{
+    $call(malloc, 12)
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 2
+    add     eax, 4
+
+    push    ebx
+
+    mov     dword ebx, $v1
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v2
+    mov     dword [eax], ebx
+
+    pop     ebx
+    pop     eax
 }/
 
 asm vecOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
@@ -289,6 +309,94 @@ asm vecOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> 
 
     pop     ebx
     pop     eax
+}/
+
+asm vecFlatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
+    $call(vecFlattenCreate, $vec)
+    push    eax
+
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     edx, [eax]
+    add     edx, 4              ; the address of the value in the result array
+
+    mov     dword eax, $vec
+    mov     dword ecx, [eax]
+    mov     dword ebx, [ecx]    ; the size of the original array
+    add     ecx, 4              ; the address of the value in the original array
+
+.loop:
+    cmp     ebx, 0
+    jz      .endLoop
+    push    ecx
+    mov     dword ecx, [ecx]    ; the address of the allocation table of the inner array
+    mov     dword ecx, [ecx]    ; the address of the memory of the inner array
+    mov     dword eax, [ecx]    ; the size of the inner array
+    shl     eax, 2              ; the length in bytes
+
+    add     ecx, 4
+    $call(memcopy, ecx, edx, eax)
+    pop     ecx
+
+    add     ecx, 4
+    add     edx, eax
+    dec     ebx
+    jmp     .loop
+.endLoop:
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+
+/* TODO theoretically it should be asm vecFlattenCreate<T>(vec: Vec<Vec<i32>>) -> Vec<T>
+ *      but for now there's no support for calling a generic function from assembly
+ *      (the real function name is different for each real type)...
+ */
+asm vecFlattenCreate(vec: i32) -> i32 /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax, $vec
+    mov     dword ecx, [eax]
+    mov     dword ebx, [ecx]    ; the size of the original array
+    add     ecx, 4              ; the address of the value in the original array
+    mov     edx, 0              ; the size of the new array
+
+.loop:
+    cmp     ebx, 0
+    jz      .endLoop
+    push    ecx
+    mov     dword ecx, [ecx]
+    mov     dword ecx, [ecx]
+    add     dword edx, [ecx]
+    pop     ecx
+    add     ecx, 4
+    dec     ebx
+    jmp     .loop
+.endLoop:
+    push    edx
+    inc     edx
+    shl     edx,2
+    $call(malloc, edx)
+    pop     edx
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], edx
+    pop     eax
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm vecLength<T>(vec: Vec<T>) -> i32 /{
+      mov     dword eax, $vec
+      mov     dword eax, [eax]
+      mov     dword eax, [eax]
 }/
 
 // TODO I think it cannot be used, since we cannot determine the type of T

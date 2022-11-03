@@ -8,7 +8,6 @@ Next
   - how to reference / dereference the content of a type?
   - gameoflifevec
     - listToVec?
-    - zipVec
   -
 - move all asm code to backend
 - sdl examples
