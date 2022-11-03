@@ -1,5 +1,6 @@
 include "backend/nasm-i32/all.rasm"
 include "list.rasm"
+include "vec.rasm"
 
 /**
  * Prints the string to standard output adding a line feed to the end.

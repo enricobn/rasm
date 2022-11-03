@@ -204,6 +204,7 @@ impl Parser {
                                 self.structs.append(&mut module.structs);
                                 self.requires.extend(module.requires);
                                 self.externals.extend(module.externals);
+                                self.types.extend(module.types);
                             }
                             Err(err) => {
                                 self.panic(&format!(

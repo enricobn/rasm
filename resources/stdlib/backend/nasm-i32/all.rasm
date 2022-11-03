@@ -5,6 +5,7 @@ include "list.rasm"
 include "new_allocator.rasm"
 include "logic.rasm"
 include "str.rasm"
+include "vec.rasm"
 
 extern "exit"
 
