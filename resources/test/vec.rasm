@@ -21,6 +21,8 @@ nprintln(vecCount(vecRange(0, 10), { n -> lessOrEqual(n, 1);}));
 nVecPrintln(vecFilter(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));
 nVecPrintln(vecFilter(vecRange(0, 10), { n -> eq(n, 5);}));
 
+nVecPrintln(vecOf8(10, 15, 21, 2, 2, 1, 4, 5));
+
 fn nVecPrintln(v: Vec<i32>) {
     vecForeach(v, { n -> nprint(n); sprint(",");});
     println();
@@ -268,6 +270,49 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     pop     edx
     pop     ecx
     pop     ebx
+}/
+
+asm vecOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
+    $call(malloc, 36)
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 8
+    add     eax, 4
+    push    ebx
+
+    mov     dword ebx, $v1
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v2
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v3
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v4
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v5
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v6
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v7
+    mov     dword [eax], ebx
+
+    add     eax, 4
+    mov     dword ebx, $v8
+    mov     dword [eax], ebx
+
+    pop     ebx
+    pop     eax
 }/
 
 // TODO I think it cannot be used, since we cannot determine the type of T
