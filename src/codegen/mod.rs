@@ -388,10 +388,12 @@ impl<'a> CodeGen<'a> {
 
                                 after.push_str(&self.backend.call_deref(
                                     &format!(
-                                        "[{bp} - {}]",
-                                        stack.find_relative_to_bp(StackEntryType::LetVal, name)
-                                            * self.backend.word_len()
-                                    ),
+                                            "[{bp} - {}]",
+                                            stack
+                                                .find_relative_to_bp(StackEntryType::LetVal, name)
+                                                .unwrap()
+                                                * self.backend.word_len()
+                                        ),
                                     &type_name,
                                     &format!("for let val {name}"),
                                     &self.module.clone(),
@@ -706,6 +708,7 @@ impl<'a> CodeGen<'a> {
                                         val,
                                         val,
                                         "",
+                                        &tmp_stack,
                                     );
 
                                     before.push_str(&parameters.before());
@@ -773,7 +776,7 @@ impl<'a> CodeGen<'a> {
                                                 stack.find_relative_to_bp(
                                                     StackEntryType::LetVal,
                                                     name,
-                                                ) * self.backend.word_len()
+                                                ).unwrap() * self.backend.word_len()
                                             ),
                                             &type_name,
                                             &format!("for let val {name}"),
@@ -1145,6 +1148,7 @@ impl<'a> CodeGen<'a> {
                             &param_name,
                             name,
                             &error_msg,
+                            stack_vals,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -1391,8 +1395,11 @@ impl<'a> CodeGen<'a> {
         param_name: &str,
         val_name: &str,
         error_msg: &str,
+        stack_vals: &StackVals,
     ) {
         if let Some(val_kind) = context.get(val_name) {
+            //println!("context {:?}\n stack_vals {:?}", context, stack_vals);
+
             match val_kind {
                 TypedValKind::ParameterRef(index, par) => {
                     call_parameters.add_parameter_ref(
@@ -1405,14 +1412,20 @@ impl<'a> CodeGen<'a> {
                     );
                 }
 
-                TypedValKind::LetRef(index, ast_type_ref) => call_parameters.add_let_val_ref(
-                    param_name.into(),
-                    val_name,
-                    ast_type_ref,
-                    *index,
-                    lambda_space_opt,
-                    *indent,
-                ),
+                TypedValKind::LetRef(index, ast_type_ref) => {
+                    let index_in_context = stack_vals
+                        .find_relative_to_bp(StackEntryType::LetVal, val_name)
+                        .unwrap_or(*index + 1);
+
+                    call_parameters.add_let_val_ref(
+                        param_name.into(),
+                        val_name,
+                        ast_type_ref,
+                        index_in_context,
+                        lambda_space_opt,
+                        *indent,
+                    )
+                }
             }
         } else {
             panic!("Error adding val {}: {}", param_name, error_msg);

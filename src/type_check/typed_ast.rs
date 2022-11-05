@@ -802,7 +802,7 @@ fn get_type_of_typed_expression(
                         if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                             let type_ref = module
                                 .functions_by_name
-                                .get(&call.function_name)
+                                .get(&call.function_name.replace("::", "_"))
                                 .unwrap()
                                 .return_type
                                 .clone()

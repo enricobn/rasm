@@ -264,7 +264,7 @@ impl<'a> FunctionCallParameters<'a> {
                             -(self
                                 .stack_vals
                                 .find_relative_to_bp(StackEntryType::LetVal, name)
-                                as i32)
+                                .unwrap() as i32)
                         }
                     };
                     self.indirect_mov(
@@ -365,7 +365,7 @@ impl<'a> FunctionCallParameters<'a> {
             self.add_val_from_parameter(
                 original_param_name.clone(),
                 type_ref,
-                -(index_in_context as i32 + 1),
+                -(index_in_context as i32),
                 indent,
             );
         }

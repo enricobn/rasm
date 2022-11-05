@@ -43,7 +43,7 @@ impl StackVals {
         self.reserved_slots.borrow_mut().clear();
     }
 
-    pub fn find_relative_to_bp(&self, entry_type: StackEntryType, desc: &str) -> usize {
+    pub fn find_relative_to_bp(&self, entry_type: StackEntryType, desc: &str) -> Option<usize> {
         let mut result = 0;
         let mut found = false;
         for entry in self.reserved_slots.borrow().iter() {
@@ -60,10 +60,10 @@ impl StackVals {
         }
 
         if !found {
-            panic!();
+            None
+        } else {
+            Some(result)
         }
-
-        result
     }
 }
 
@@ -79,12 +79,21 @@ mod tests {
         assert_eq!(3, stack.reserve(StackEntryType::RefToDereference, "ref1"));
         assert_eq!(4, stack.reserve(StackEntryType::LetVal, "val3"));
 
-        assert_eq!(1, stack.find_relative_to_bp(StackEntryType::LetVal, "val1"));
-        assert_eq!(2, stack.find_relative_to_bp(StackEntryType::LetVal, "val2"));
         assert_eq!(
-            3,
+            Some(1),
+            stack.find_relative_to_bp(StackEntryType::LetVal, "val1")
+        );
+        assert_eq!(
+            Some(2),
+            stack.find_relative_to_bp(StackEntryType::LetVal, "val2")
+        );
+        assert_eq!(
+            Some(3),
             stack.find_relative_to_bp(StackEntryType::RefToDereference, "ref1")
         );
-        assert_eq!(4, stack.find_relative_to_bp(StackEntryType::LetVal, "val3"));
+        assert_eq!(
+            Some(4),
+            stack.find_relative_to_bp(StackEntryType::LetVal, "val3")
+        );
     }
 }
