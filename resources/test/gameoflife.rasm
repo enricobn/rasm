@@ -11,15 +11,14 @@ let count = atoi(argv(2));
 run(moveCells(start, 10), 30, count);
 
 fn run(start: List<Cell>, size: i32, count: i32) {
-    runWith(allCells(size, size), { allCells ->
-        printCells(
-            listFoldL(range(0, count), start, { prev, act ->
-                printCells(prev, size, size);
-                moveUp(size);
-                //sleep(0, 250000000);
-                next(prev, allCells);
-              }), size, size);
-      });
+    let allCells = allCells(size, size);
+    printCells(
+        listFoldL(range(0, count), start, { prev, act ->
+            printCells(prev, size, size);
+            moveUp(size);
+            //sleep(0, 250000000);
+            next(prev, allCells);
+          }), size, size);
 }
 
 fn printCells(cells: List<Cell>, width: i32, height: i32) {
