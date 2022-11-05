@@ -12,6 +12,7 @@ run(moveCells(start, 10), 30, count);
 
 fn run(start: List<Cell>, size: i32, count: i32) {
     let allCells = allCells(size, size);
+
     printCells(
         listFoldL(range(0, count), start, { prev, act ->
             printCells(prev, size, size);
