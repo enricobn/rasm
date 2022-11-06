@@ -642,6 +642,16 @@ impl<'a> CodeGen<'a> {
                 Some("lambda space address"),
                 true,
             );
+            CodeGen::add(
+                &mut self.definitions,
+                &format!(
+                    "mov     edx, [{}+{}]",
+                    self.backend.stack_base_pointer(),
+                    self.backend.word_len() * 2
+                ),
+                Some("The address to the lambda space for inline lambda param"),
+                true,
+            );
         }
 
         let mut context = TypedValContext::new(Some(parent_context));
@@ -1262,7 +1272,7 @@ impl<'a> CodeGen<'a> {
             {
                 CodeGen::add(
                     before,
-                    &format!("mov eax, [{} + 8]", self.backend.stack_base_pointer()),
+                    &format!("mov eax, edx"),
                     None,
                     true,
                 );

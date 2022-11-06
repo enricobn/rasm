@@ -503,7 +503,6 @@ impl<'a> FunctionCallParameters<'a> {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
         let word_len = self.backend.word_len() as usize;
-        let sbp = self.backend.stack_base_pointer();
 
         let src: String;
 
@@ -513,24 +512,11 @@ impl<'a> FunctionCallParameters<'a> {
             self.parameters_values
                 .insert(original_param_name.into(), src);
         } else {
-            CodeGen::add(
-                &mut self.before,
-                &format!("push  {} ebx", self.backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov     ebx, [{}+{}]", sbp, word_len * 2),
-                Some("The address to the lambda space"),
-                true,
-            );
-
             if self.immediate {
                 CodeGen::add(
                     &mut self.before,
                     &format!(
-                        "mov   {} eax,[ebx + {}]",
+                        "mov   {} eax,[edx + {}]",
                         self.backend.pointer_size(),
                         lambda_space_index * word_len
                     ),
@@ -538,8 +524,14 @@ impl<'a> FunctionCallParameters<'a> {
                     true,
                 );
             } else {
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("push  {} ebx", self.backend.word_size()),
+                    None,
+                    true,
+                );
                 self.indirect_mov(
-                    &format!("ebx + {}", lambda_space_index * word_len),
+                    &format!("edx + {}", lambda_space_index * word_len),
                     &format!(
                         "{} + {}",
                         self.backend.stack_pointer(),
@@ -548,9 +540,9 @@ impl<'a> FunctionCallParameters<'a> {
                     "ebx",
                     None,
                 );
+                CodeGen::add(&mut self.before, "pop  ebx", None, true);
             }
 
-            CodeGen::add(&mut self.before, "pop  ebx", None, true);
             self.parameter_added_to_stack();
         }
     }
@@ -662,19 +654,6 @@ impl<'a> FunctionCallParameters<'a> {
                     word_len * self.to_remove_from_stack()
                 ),
                 Some("Prepare stack for parameters"),
-                true,
-            );
-        }
-
-        if self.has_inline_lambda_param {
-            CodeGen::add(
-                &mut result,
-                &format!(
-                    "mov     edx, [{}+{}]",
-                    self.backend.stack_base_pointer(),
-                    word_len * 2
-                ),
-                Some("The address to the lambda space for inline lambda param"),
                 true,
             );
         }
