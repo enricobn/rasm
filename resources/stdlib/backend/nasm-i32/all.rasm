@@ -15,10 +15,12 @@ inline asm nadd(n1: i32, n2: i32) -> i32 /{
     add     eax, $n2
 }/
 
-/** Multiply two numbers **/
+/** Multiply two numbers, but we return only the low 32 bit (edx is saved) **/
 inline asm nmul(n1: i32, n2: i32) -> i32 /{
+    push    edx
     mov     eax, $n1
     mul     dword $n2
+    pop     edx
 }/
 
 asm exitMain(status: i32) /{
@@ -38,6 +40,7 @@ asm argc() -> i32 /{
 
 // TODO unsafe
 asm argv(i: i32) -> &str /{
+    push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
     mov ebx, _rasm_args
@@ -49,6 +52,7 @@ asm argv(i: i32) -> &str /{
     mov eax,[ebx]
     pop ecx
     pop ebx
+    pop edx
 }/
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep

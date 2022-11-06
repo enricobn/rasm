@@ -4,7 +4,7 @@
  **/
 asm atoi(s: &str) -> i32 /{
     push    ecx
-    push    edx
+    push    edx ; don't remove since imul stores the "high" result to edx
     mov edx, $s ; the pointer to the stack table our string
     mov dword edx, [edx]
     xor eax, eax ; zero a "result so far"
