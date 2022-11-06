@@ -80,6 +80,7 @@ asm vecRange(start: i32, end: i32) -> Vec<i32> /{
 }/
 
 asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+    ; $call(sprintln, "vecMap")
     push    ebx
     push    ecx
     push    edx
@@ -100,6 +101,8 @@ asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     add     edx, 4          ; address of first value to write
     add     ebx, 4          ; address of first value to read
 .loop:
+    ; $call(sprint, " - ")
+    ; $call(nprintln, ecx)
     cmp     dword ecx, 0
     jz      .end
     push    dword [ebx]
@@ -117,6 +120,7 @@ asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     pop     edx
     pop     ecx
     pop     ebx
+    ; $call(sprintln, "end vecMap")
 }/
 
 /** false = 0 true = any other value **/
@@ -134,25 +138,22 @@ asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
 .loop:
     cmp     dword ecx, 0
     jz      .false
-    ; $call(sprint, "  n ")
-    ; $call(nprint, [ebx])
+    ; $call(sprint, "  n=")
+    ; $call(nprintln, [ebx])
     push    dword [ebx]
     push    dword $f
     mov     dword eax, $f
     call    [eax]
-    ; $call(sprint, " = ")
+    ; $call(sprint, " =")
     ; $call(nprintln, eax)
     add     esp, 8
     cmp     dword eax, 0
-    jnz      .true
+    jnz      .end
     add     ebx, 4
     dec     ecx
     jmp     .loop
 .false:
     mov     dword eax, 0
-    jmp     .end
-.true:
-    mov     dword eax, 1
 .end:
     ; $call(sprint, "  result = ")
     ; $call(nprintln, eax)
@@ -193,6 +194,7 @@ asm vecCount<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
     pop     ebx
 }/
 
+// TODO the resulting vector is allocated with the size of the original vector, but the count of the elements is right
 asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     push    ebx
     push    ecx
@@ -202,6 +204,8 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     mov     dword ecx, [eax]
     mov     dword ebx, [ecx]    ; the size of the original array
     add     ecx, 4              ; the address of the value in the original array
+    ; $call(sprint, "vecFilter ")
+    ; $call(nprintln, ebx)
 
     push    ebx
     ; multiply ebx by 4
@@ -218,6 +222,8 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
 
 
 .loop:
+    ; $call(nprintln, edx)
+
     cmp     ebx, 0
     jz      .end
     push    dword [ecx]
@@ -236,7 +242,11 @@ asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
     jmp     .loop
 .end:
     pop     eax
-    sub     edx, [eax]
+    sub     dword edx, [eax]
+    ; $call(sprint, "end vecFilter ")
+    ; $call(nprint, eax)
+    ; $call(sprint, " ")
+    ; $call(nprintln, edx)
     ; divide ebx by 4, we get the len
     shr     edx, 2
     dec     edx         ; we remove 1 for the size
@@ -329,7 +339,7 @@ asm vecFlatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
 
 .loop:
     cmp     ebx, 0
-    jz      .endLoop
+    jz      .end
     push    ecx
     mov     dword ecx, [ecx]    ; the address of the allocation table of the inner array
     mov     dword ecx, [ecx]    ; the address of the memory of the inner array
@@ -344,7 +354,7 @@ asm vecFlatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     add     edx, eax
     dec     ebx
     jmp     .loop
-.endLoop:
+.end:
     pop     edx
     pop     ecx
     pop     ebx
@@ -368,7 +378,7 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
 
 .loop:
     cmp     ebx, 0
-    jz      .endLoop
+    jz      .end
     push    ecx
     mov     dword ecx, [ecx]
     mov     dword ecx, [ecx]
@@ -377,7 +387,7 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     add     ecx, 4
     dec     ebx
     jmp     .loop
-.endLoop:
+.end:
     push    edx
     inc     edx
     shl     edx,2
@@ -387,7 +397,6 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     mov     dword eax, [eax]
     mov     dword [eax], edx
     pop     eax
-.end:
     pop     edx
     pop     ecx
     pop     ebx
@@ -399,7 +408,35 @@ asm vecLength<T>(vec: Vec<T>) -> i32 /{
       mov     dword eax, [eax]
 }/
 
-// TODO I think it cannot be used, since we cannot determine the type of T
+asm vecFoldL<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax, $vec
+    mov     dword ecx, [eax]
+    mov     dword ebx, [ecx]    ; the size of the vector
+    add     ecx, 4              ; the address of the value in the vector
+    mov     eax, $zero          ; the actual value
+
+.loop:
+    cmp     ebx, 0
+    jz      .end
+    push    dword [ecx]
+    push    eax
+    push    dword $accum
+    mov     dword edx, $accum
+    call    [edx]
+    add     esp, 12
+    add     ecx, 4
+    dec     ebx
+    jmp     .loop
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
 asm Vec<T>() -> Vec<T> /{
     $call(malloc, 4)
     push    eax

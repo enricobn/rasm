@@ -31,3 +31,5 @@ nVecPrintln(vecFMap(vecOf2(1, 2), { n -> vecOf2(n, nadd(n, 10));}));
 nVecPrintln(zipVec(vecRange(0, 2), vecRange(0, 3), { n1, n2 -> nadd(n1, n2);}));
 
 nVecPrintln(listToVec(listOf3(0, 1, 2)));
+
+nprintln(vecFoldL(vecRange(0, 5), 0, { prev, act -> nadd(prev, act);}));
