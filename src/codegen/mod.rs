@@ -415,7 +415,7 @@ impl<'a> CodeGen<'a> {
 
         self.body.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
-            &(stack.len() * self.backend.word_len()).to_string(),
+            &(stack.len_of_all() * self.backend.word_len()).to_string(),
         ));
         self.body.push_str(&after);
 
@@ -635,6 +635,15 @@ impl<'a> CodeGen<'a> {
 
         let mut before = String::new();
 
+        if is_lambda {
+            CodeGen::add(
+                &mut self.definitions,
+                "push   edx",
+                Some("lambda space address"),
+                true,
+            );
+        }
+
         let mut context = TypedValContext::new(Some(parent_context));
 
         // I think it's useless
@@ -657,6 +666,10 @@ impl<'a> CodeGen<'a> {
         }
 
         let stack = StackVals::new();
+
+        if is_lambda {
+            stack.reserve(StackEntryType::Other, "push edx for lambda space");
+        }
 
         let mut after = String::new();
 
@@ -824,13 +837,21 @@ impl<'a> CodeGen<'a> {
 
         self.definitions.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
-            &(stack.len() * self.backend.word_len()).to_string(),
+            &(stack.len_of_all() * self.backend.word_len()).to_string(),
         ));
 
         self.definitions.push_str(&after);
 
         self.backend.restore_stack(&stack, &mut self.definitions);
 
+        if is_lambda {
+            CodeGen::add(
+                &mut self.definitions,
+                "pop   edx",
+                Some("lambda space address"),
+                true,
+            );
+        }
         self.backend.function_end(&mut self.definitions, true);
 
         lambda_calls

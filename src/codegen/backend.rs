@@ -397,11 +397,14 @@ impl Backend for BackendAsm386 {
     }
 
     fn restore_stack(&self, stack: &StackVals, out: &mut String) {
-        if stack.len() > 0 {
+        if stack.len_of_local_vals() > 0 {
             let sp = self.stack_pointer();
             CodeGen::add(
                 out,
-                &format!("add   {sp}, {}", stack.len() * self.word_len()),
+                &format!(
+                    "add   {sp}, {}",
+                    stack.len_of_local_vals() * self.word_len()
+                ),
                 Some("local vals (let)"),
                 true,
             );
@@ -410,11 +413,14 @@ impl Backend for BackendAsm386 {
     }
 
     fn reserve_stack(&self, stack: &StackVals, out: &mut String) {
-        if stack.len() > 0 {
+        if stack.len_of_local_vals() > 0 {
             let sp = self.stack_pointer();
             CodeGen::add(
                 out,
-                &format!("sub   {sp}, {}", stack.len() * self.word_len()),
+                &format!(
+                    "sub   {sp}, {}",
+                    stack.len_of_local_vals() * self.word_len()
+                ),
                 Some("local vals (let)"),
                 true,
             );

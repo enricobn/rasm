@@ -6,6 +6,7 @@ use log::debug;
 pub enum StackEntryType {
     LetVal,
     RefToDereference,
+    Other,
 }
 
 #[derive(Debug)]
@@ -32,11 +33,19 @@ impl StackVals {
             desc: desc.to_string(),
         });
         debug!("stack {:?}", self);
-        self.len()
+        self.len_of_all()
     }
 
-    pub fn len(&self) -> usize {
+    pub fn len_of_all(&self) -> usize {
         self.reserved_slots.borrow().len()
+    }
+
+    pub fn len_of_local_vals(&self) -> usize {
+        self.reserved_slots
+            .borrow()
+            .iter()
+            .filter(|it| !matches!(it.entry_type, StackEntryType::Other))
+            .count()
     }
 
     pub fn remove_all(&self) {
