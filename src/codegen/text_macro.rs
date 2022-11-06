@@ -266,6 +266,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         let mut result = String::new();
 
         result.push_str(&format!("; ccall macro, calling {function_name}\n"));
+        result.push_str("    push   edx\n");
         result.push_str("    push   ebx\n");
         result.push_str("    push   ecx\n");
         result.push_str(&format!("    mov   {ws} ebx, esp\n"));
@@ -307,6 +308,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         result.push_str("    mov   esp,ebx\n");
         result.push_str("    pop   ecx\n");
         result.push_str("    pop   ebx\n");
+        result.push_str("    pop   edx\n");
 
         result
     }
@@ -428,7 +430,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "a line\n; ccall macro, calling printf\n    push   ebx\n    push   ecx\n    mov   dword ebx, esp\n    sub   esp, 4\n    and   esp,0xfffffff0\n    mov dword ecx, $s\n    mov dword ecx, [ecx]\n   mov dword [esp+0], ecx\n\n    call printf\n    mov   esp,ebx\n    pop   ecx\n    pop   ebx\n\nanother line\n"
+            "a line\n; ccall macro, calling printf\n    push   edx\n    push   ebx\n    push   ecx\n    mov   dword ebx, esp\n    sub   esp, 4\n    and   esp,0xfffffff0\n    mov dword ecx, $s\n    mov dword ecx, [ecx]\n   mov dword [esp+0], ecx\n\n    call printf\n    mov   esp,ebx\n    pop   ecx\n    pop   ebx\n    pop   edx\n\nanother line\n"
         );
     }
 
