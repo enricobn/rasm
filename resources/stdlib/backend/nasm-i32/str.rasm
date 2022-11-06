@@ -80,7 +80,6 @@ asm slen(s: &str) -> i32 /{
 asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
     push ebx
     push ecx
-    push edx
 
     $call(slen, $s)
 
@@ -105,7 +104,6 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
 
     $call(someStr, eax)
 .end:
-    pop edx
     pop ecx
     pop ebx
 }/
@@ -165,7 +163,6 @@ asm nextChar(s: str, offset: i32) -> i32 /{
 asm seq(s1: str, s2: str) -> i32 /{
     push   ebx
     push   ecx
-    push   edx
 
     mov    eax, 1
     mov    ebx, $s1
@@ -186,7 +183,6 @@ asm seq(s1: str, s2: str) -> i32 /{
 .false:
     mov     eax,0
 .end:
-    pop   edx
     pop   ecx
     pop   ebx
 }/
