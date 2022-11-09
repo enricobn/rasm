@@ -30,7 +30,7 @@ asm lines(s: str) -> List<str> /{
     add     eax, 4
     ; then we get the pointer to the allocation table of the string, that is what we need
     mov     dword eax,[eax]
-    ; we must add a reference count otherwise is cleaned up bu allocator
+    ; we must add a reference count otherwise is cleaned up by allocator
     mov     dword [eax + 12], 1     ; count
     mov     ebx, eax
     pop     eax
