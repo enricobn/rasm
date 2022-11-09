@@ -1,0 +1,113 @@
+include "../resources/stdlib/backend/nasm-i32/debug.rasm"
+
+struct Cell {
+    x: i32,
+    y: i32
+}
+
+struct FullCell {
+    cell: Cell,
+    adjacents: Vec<Cell>
+}
+
+fn allCells(width: i32, height: i32) -> Vec<FullCell> {
+    zipVec(vecRange(0, height), vecRange(0, width), { y, x ->
+        let cell = Cell(x, y);
+
+        FullCell(cell, adjacents(cell));
+    });
+}
+
+fn moveCells(cells: Vec<Cell>, d: i32) -> Vec<Cell> {
+    vecMap(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
+}
+
+fn next(cells: Vec<Cell>, allCells: Vec<FullCell>) -> Vec<Cell> {
+    let result = vecMap(vecFilter(allCells, { it ->
+        let adjsAlive = vecCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
+        let cell = FullCell::cell(it);
+        ifImmediate(isAlive(cells, cell),
+            or(eq(adjsAlive, 2),eq(adjsAlive,3)),
+            eq(adjsAlive, 3)
+        );
+    }), { it -> FullCell::cell(it);});
+    result;
+}
+
+fn adjacents(cell: Cell) -> Vec<Cell> {
+    let x = Cell::x(cell);
+    let y = Cell::y(cell);
+
+    let left = nadd(x, -1);
+    let right = nadd(x, 1);
+    let up = nadd(y, -1);
+    let down = nadd(y, 1);
+
+    vecOf8(
+        Cell(left, up),
+        Cell(left, y),
+        Cell(left, down),
+        Cell(x, up),
+        Cell(x, down),
+        Cell(right, up),
+        Cell(right, y),
+        Cell(right, down)
+    );
+}
+
+/** false = 0 true = any other value **/
+fn isAlive(cells: Vec<Cell>, cell: Cell) -> i32 {
+    let x = Cell::x(cell);
+    let y = Cell::y(cell);
+
+    vecAnyMatch(cells, { it ->
+        and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
+    });
+}
+
+fn readCellFile(file: str) -> Vec<Cell> {
+    let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
+
+    let l = listFMap(linesEnumerate, { line -> lineCells(line); });
+    listToVec(l);
+}
+
+fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
+    let y = EnumerateEntry::index(line);
+    let lineStr = EnumerateEntry::value(line);
+
+    listMap(listFilter(listEnumerate(chars(lineStr)), { cell ->
+        let cellStr = EnumerateEntry::value(cell);
+
+        List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> itn(0);});
+    }), { cell -> Cell(EnumerateEntry::index(cell), y); });
+}
+
+fn filterLines(lines: List<str>) -> List<str> {
+    listFilter(lines, { line ->
+        List::match(chars(line), { head, tail -> not(seq(head, "!")); }, { -> itn(0);});
+    });
+}
+
+fn printCellsPlain(cells: Vec<Cell>) {
+    vecForeach(cells, { cell ->
+        nprint(Cell::x(cell));
+        sprint(",");
+        nprint(Cell::y(cell));
+        sprint(" ");
+    });
+
+    println();
+}
+
+fn printAllCellsPlain(cells: Vec<FullCell>) {
+    vecForeach(cells, { fullCell ->
+        let cell = FullCell::cell(fullCell);
+        nprint(Cell::x(cell));
+        sprint(",");
+        nprint(Cell::y(cell));
+        sprint(" ");
+    });
+
+    println();
+}

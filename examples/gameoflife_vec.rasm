@@ -1,0 +1,35 @@
+// run with: ./gameoflife_vec examples/simple.cells 130
+// 0,281s
+
+include "std.rasm"
+include "../../examples/gameoflife_vec_common.rasm"
+
+let file = argv(1);
+let start = readCellFile(file);
+let count = atoi(argv(2));
+let size = itn(30);
+
+run(moveCells(start, 10), size, count);
+
+fn run(start: Vec<Cell>, size: i32, count: i32) {
+    let allCells = allCells(size, size);
+
+    printCells(
+        vecFoldL(vecRange(0, count), start, { prev, act ->
+            printCells(prev, size, size);
+            moveUp(size);
+            //sleep(0, 250000000);
+            next(prev, allCells);
+          }), size, size);
+
+}
+
+fn printCells(cells: Vec<Cell>, width: i32, height: i32) {
+    vecForeach(vecRange(0, height), { y ->
+        vecForeach(vecRange(0, width), { x ->
+            let alive = isAlive(cells, Cell(x, y));
+            ifRun(alive, { -> sprint("*"); }, { -> sprint(" "); });
+        });
+        sprintln("");
+    });
+}

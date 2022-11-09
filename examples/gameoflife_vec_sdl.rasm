@@ -1,0 +1,69 @@
+// time ./gameoflife_vec_sdl examples/f116.cells 100
+// 2,051s
+
+include "std.rasm"
+include "sdl.rasm"
+
+include "gameoflife_vec_common.rasm"
+
+extern "printf"
+
+sdlInit();
+
+let file = argv(1);
+let start = readCellFile(file);
+let count = atoi(argv(2));
+
+run(moveCells(start, 20), 80, 50, count);
+
+fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
+    runOrError(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n", { win ->
+        runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
+            sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+            sdlRenderClear(ren);
+            sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+
+            let allCells = allCells(width, height);
+
+            printCells(ren,
+                vecFoldL(vecRange(0, count), start, { prev, act ->
+                    printCells(ren, prev, width, height);
+                    //sdlDelay(1000);
+                    next(prev, allCells);
+                  }), width, height);
+
+            sdlDestroyRenderer(ren);
+            sdlDestroyWindow(win);
+        });
+    });
+}
+
+fn printCells(ren: i32, cells: Vec<Cell>, width: i32, height: i32) {
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
+    sdlRenderFillRect(ren, SDLRect(0, 0, nmul(10, width), nmul(10, height)));
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+
+    let xRange = vecRange(0, width);
+
+    vecForeach(vecRange(0, height), { y ->
+        vecForeach(xRange, { x ->
+            ifRun(isAlive(cells, Cell(x, y)), { ->
+                 sdlRenderFillRect(ren, SDLRect(nmul(10, x), nmul(10, y), 10, 10));
+            }, { -> });
+        });
+    });
+    sdlRenderPresent(ren);
+}
+
+asm failure(message: str) /{
+    $ccall(SDL_GetError)
+    $ccall(printf, $message, eax)
+    $ccall(SDL_Quit)
+    $ccall(exit, 1)
+}/
+
+fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
+    ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
+}
