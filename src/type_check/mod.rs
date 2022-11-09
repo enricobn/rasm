@@ -46,6 +46,7 @@ pub fn convert(
     debug_asm: bool,
     print_allocation: bool,
     print_module: bool,
+    mandatory_functions: Vec<String>,
 ) -> ASTTypedModule {
     //unsafe {
     crate::utils::debug_indent::INDENT.with(|indent| {
@@ -306,6 +307,7 @@ pub fn convert(
         debug_asm,
         print_allocation,
         print_module,
+        mandatory_functions,
     );
 
     info!("Type check ended ({count} passes)");
@@ -1729,6 +1731,7 @@ mod tests {
             false,
             false,
             false,
+            Vec::new(),
         );
 
         let par = if let Some(ASTStatement::Expression(ASTFunctionCallExpression(e))) =

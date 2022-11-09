@@ -507,6 +507,7 @@ pub fn convert_to_typed_module(
     debug_asm: bool,
     print_allocation: bool,
     printl_module: bool,
+    mandatory_functions: Vec<String>,
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
 
@@ -519,12 +520,16 @@ pub fn convert_to_typed_module(
         );
     }
 
-    let mut default_functions = vec![
+    mandatory_functions
+        .iter()
+        .for_each(|it| add_function(module, &mut conv_context, &mut functions_by_name, it, true));
+
+    let default_functions = &mut vec![
         "malloc",
         "exitMain",
         "sprint",
-        "outOfHeapSpace",
-        "outOfMemory",
+        //"outOfHeapSpace",
+        //"outOfMemory",
         "slen",
         "sprintln",
         "println",
@@ -545,7 +550,6 @@ pub fn convert_to_typed_module(
         "sysClose",
         "fileSize",
         "freeMem",
-        "VecReferences", // TODO
     ];
 
     if print_allocation {
@@ -584,9 +588,9 @@ pub fn convert_to_typed_module(
     default_functions.sort();
     default_functions.dedup();
 
-    default_functions.iter().for_each(|it| {
-        add_mandatory_function(module, &mut conv_context, &mut functions_by_name, it)
-    });
+    default_functions
+        .iter()
+        .for_each(|it| add_function(module, &mut conv_context, &mut functions_by_name, it, false));
 
     let result = ASTTypedModule {
         body: new_body.iter().map(statement).collect(),
@@ -862,14 +866,17 @@ fn get_type_of_typed_expression(
     }
 }
 
-fn add_mandatory_function(
+fn add_function(
     module: &EnhancedASTModule,
     conv_context: &mut ConvContext,
     functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     function_name: &str,
+    mandatory: bool,
 ) {
     if let Some(f) = module.functions_by_name.get(function_name) {
         functions_by_name.insert(function_name.into(), function_def(conv_context, f));
+    } else if mandatory {
+        panic!("Cannot find mandatory function {function_name}");
     }
 }
 

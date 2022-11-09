@@ -3,7 +3,6 @@ Doing
 - Vec
   - vecFilter and vecFoldL dereference
   - vecFilter shrink (add a shrink function that shrinks allocated memory)
-  - get rid of adding VecReferences in convert_to_typed_module, it should be added automatically
 
 Next
 -----

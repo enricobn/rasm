@@ -23,6 +23,7 @@ use std::ops::Deref;
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
+use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
@@ -290,7 +291,16 @@ impl<'a> CodeGen<'a> {
         let module = struct_functions_creator(backend, &module);
         let module = str_functions_creator(&module);
 
-        let module = convert(backend, &module, debug_asm, print_memory_info, print_module);
+        let mandatory_functions = type_mandatory_functions(&module);
+
+        let module = convert(
+            backend,
+            &module,
+            debug_asm,
+            print_memory_info,
+            print_module,
+            mandatory_functions,
+        );
         let module = typed_enum_functions_creator(backend, &module, &mut statics);
         let module = typed_struct_functions_creator(backend, &module, &mut statics);
         let module = typed_type_functions_creator(backend, &module, &mut statics);
