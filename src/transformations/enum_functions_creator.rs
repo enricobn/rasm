@@ -114,6 +114,8 @@ fn create_match_like_function(
         inline: false,
         return_type,
         param_types,
+        // TODO calculate, even if I don't know if it's useful
+        resolved_generic_types: LinkedHashMap::new(),
     };
 
     debug!("created function {function_def}");
@@ -197,6 +199,8 @@ fn create_constructors(
             inline: variant.parameters.is_empty(),
             return_type,
             param_types: enum_def.type_parameters.clone(),
+            // TODO calculate, even if I don't know if it is useful
+            resolved_generic_types: LinkedHashMap::new(),
         };
 
         debug!("created function {function_def}");

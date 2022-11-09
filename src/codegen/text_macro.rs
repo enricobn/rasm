@@ -1,7 +1,7 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
-use crate::type_check::typed_ast::ASTTypedParameterDef;
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule};
 use linked_hash_map::LinkedHashMap;
 use regex::Regex;
 
@@ -18,22 +18,26 @@ pub struct TextMacro {
 
 pub struct TextMacroEvaluator {
     evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>,
-    parameters: Vec<ASTTypedParameterDef>,
 }
 
 impl TextMacroEvaluator {
-    // TODO It should be better to pass in a TypedValContext
-    pub fn new(parameters: Vec<ASTTypedParameterDef>) -> Self {
+    pub fn new() -> Self {
         let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
         evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator::new()));
         evaluators.insert("ccall".into(), Box::new(CCallTextMacroEvaluator::new()));
-        Self {
-            parameters,
-            evaluators,
-        }
+        evaluators.insert("addRef".into(), Box::new(AddRefMacro::new(false)));
+        evaluators.insert("deref".into(), Box::new(AddRefMacro::new(true)));
+        Self { evaluators }
     }
 
-    pub fn translate(&self, backend: &dyn Backend, statics: &mut Statics, body: &str) -> String {
+    pub fn translate(
+        &self,
+        backend: &dyn Backend,
+        statics: &mut Statics,
+        function_def: Option<&ASTTypedFunctionDef>,
+        body: &str,
+        module: Option<&ASTTypedModule>,
+    ) -> String {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
         let mut result = Vec::new();
@@ -53,10 +57,10 @@ impl TextMacroEvaluator {
 
                 let text_macro = TextMacro {
                     name: name.into(),
-                    parameters: self.parse_params(parameters),
+                    parameters: self.parse_params(parameters, function_def),
                 };
 
-                let s = self.eval_macro(backend, statics, &text_macro);
+                let s = self.eval_macro(backend, statics, &text_macro, function_def, module);
 
                 line_result = line_result.replace(whole, &s);
             }
@@ -73,7 +77,7 @@ impl TextMacroEvaluator {
         new_body
     }
 
-    fn parse_params(&self, s: &str) -> Vec<MacroParam> {
+    fn parse_params(&self, s: &str, function_def: Option<&ASTTypedFunctionDef>) -> Vec<MacroParam> {
         let mut result = Vec::new();
 
         enum State {
@@ -89,7 +93,7 @@ impl TextMacroEvaluator {
             match state {
                 State::Standard => {
                     if c == ',' {
-                        let param = self.get_param(&actual_param);
+                        let param = self.get_param(&actual_param, function_def);
 
                         result.push(param);
 
@@ -124,7 +128,7 @@ impl TextMacroEvaluator {
         match state {
             State::None => {}
             State::Standard => {
-                let param = self.get_param(&actual_param);
+                let param = self.get_param(&actual_param, function_def);
                 result.push(param);
             }
             State::StringLiteral => {
@@ -135,11 +139,20 @@ impl TextMacroEvaluator {
         result
     }
 
-    fn get_param(&self, actual_param: &str) -> MacroParam {
+    fn get_param(
+        &self,
+        actual_param: &str,
+        function_def: Option<&ASTTypedFunctionDef>,
+    ) -> MacroParam {
         let p = actual_param.trim();
 
         let is_ref = if let Some(par_name) = p.strip_prefix('$') {
-            if let Some(par) = self.parameters.iter().find(|it| it.name == par_name) {
+            if let Some(par) = function_def
+                .map(|it| it.parameters.clone())
+                .unwrap_or_default()
+                .iter()
+                .find(|it| it.name == par_name)
+            {
                 CodeGen::get_reference_type_name(&par.type_ref.ast_type).is_some()
             } else {
                 false
@@ -160,12 +173,20 @@ impl TextMacroEvaluator {
         backend: &dyn Backend,
         statics: &mut Statics,
         text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        module: Option<&ASTTypedModule>,
     ) -> String {
         let evaluator = self
             .evaluators
             .get(&text_macro.name)
             .unwrap_or_else(|| panic!("{} macro not found", &text_macro.name));
-        evaluator.eval_macro(backend, statics, &text_macro.parameters)
+        evaluator.eval_macro(
+            backend,
+            statics,
+            &text_macro.parameters,
+            function_def,
+            module,
+        )
     }
 }
 
@@ -175,6 +196,8 @@ trait TextMacroEval {
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
+        function_def: Option<&ASTTypedFunctionDef>,
+        module: Option<&ASTTypedModule>,
     ) -> String;
 }
 
@@ -192,6 +215,8 @@ impl TextMacroEval for CallTextMacroEvaluator {
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _module: Option<&ASTTypedModule>,
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
             function_name
@@ -252,6 +277,8 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _module: Option<&ASTTypedModule>,
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
             function_name
@@ -314,6 +341,70 @@ impl TextMacroEval for CCallTextMacroEvaluator {
     }
 }
 
+struct AddRefMacro {
+    deref: bool,
+}
+
+impl AddRefMacro {
+    fn new(deref: bool) -> Self {
+        Self { deref }
+    }
+}
+
+impl TextMacroEval for AddRefMacro {
+    fn eval_macro(
+        &self,
+        backend: &dyn Backend,
+        statics: &mut Statics,
+        parameters: &[MacroParam],
+        function_def: Option<&ASTTypedFunctionDef>,
+        module: Option<&ASTTypedModule>,
+    ) -> String {
+        if let Some(fd) = function_def {
+            if let Some(MacroParam::Plain(generic_type_name)) = parameters.get(0) {
+                if let Some(MacroParam::Plain(address)) = parameters.get(1) {
+                    if let Some(ast_type) = fd.generic_types.get(generic_type_name) {
+                        if let Some(type_name) = CodeGen::get_reference_type_name(ast_type) {
+                            if let Some(ast_module) = module {
+                                let mut result = String::new();
+                                if self.deref {
+                                    result.push_str(
+                                        &backend.call_deref(
+                                            address, &type_name, "", ast_module, statics,
+                                        ),
+                                    );
+                                } else {
+                                    backend.call_add_ref(
+                                        &mut result,
+                                        address,
+                                        &type_name,
+                                        "",
+                                        ast_module,
+                                        statics,
+                                    );
+                                }
+                                result
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        panic!("Cannot find generic type {generic_type_name}")
+                    }
+                } else {
+                    panic!("Error getting the address")
+                }
+            } else {
+                panic!("Error getting the generic type name")
+            }
+        } else {
+            String::new()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::codegen::backend::BackendAsm386;
@@ -321,8 +412,10 @@ mod tests {
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
     use crate::codegen::MemoryValue;
     use crate::type_check::typed_ast::{
-        ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
+        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
+        ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
     };
+    use linked_hash_map::LinkedHashMap;
     use std::collections::HashSet;
 
     #[test]
@@ -339,7 +432,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let result =
-            TextMacroEvaluator::new(vec![]).eval_macro(&backend, &mut statics, &text_macro);
+            TextMacroEvaluator::new().eval_macro(&backend, &mut statics, &text_macro, None, None);
 
         assert_eq!(
             result,
@@ -352,10 +445,12 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new(vec![]).translate(
+        let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            None,
             "a line\n$call(nprint,10)\nanother line\n",
+            None,
         );
 
         assert_eq!(
@@ -369,10 +464,12 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new(vec![]).translate(
+        let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            None,
             "a line\n$call(sprintln, \"Hello, world\")\nanother line\n",
+            None,
         );
 
         assert_eq!(
@@ -391,17 +488,27 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new(vec![ASTTypedParameterDef {
-            name: "s".into(),
-            type_ref: ASTTypedTypeRef {
-                ast_ref: false,
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
-            },
-        }])
-        .translate(
+        let function_def = ASTTypedFunctionDef {
+            name: "aFun".into(),
+            parameters: vec![ASTTypedParameterDef {
+                name: "s".into(),
+                type_ref: ASTTypedTypeRef {
+                    ast_ref: false,
+                    ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
+                },
+            }],
+            body: ASTTypedFunctionBody::ASMBody("".into()),
+            generic_types: LinkedHashMap::new(),
+            return_type: None,
+            inline: false,
+        };
+
+        let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            Some(&function_def),
             "a line\n$call(sprintln, $s)\nanother line\n",
+            None,
         );
 
         assert_eq!(
@@ -415,17 +522,27 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new(vec![ASTTypedParameterDef {
-            name: "s".into(),
-            type_ref: ASTTypedTypeRef {
-                ast_ref: false,
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
-            },
-        }])
-        .translate(
+        let function_def = ASTTypedFunctionDef {
+            name: "aFun".into(),
+            parameters: vec![ASTTypedParameterDef {
+                name: "s".into(),
+                type_ref: ASTTypedTypeRef {
+                    ast_ref: false,
+                    ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
+                },
+            }],
+            body: ASTTypedFunctionBody::ASMBody("".into()),
+            generic_types: LinkedHashMap::new(),
+            return_type: None,
+            inline: false,
+        };
+
+        let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            Some(&function_def),
             "a line\n$ccall(printf, $s)\nanother line\n",
+            None,
         );
 
         assert_eq!(
@@ -439,13 +556,26 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new(vec![]).translate(
+        let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            None,
             "mov     eax, 1          ; $call(any)",
+            None,
         );
 
         assert_eq!(result, "mov     eax, 1          ; $call(any)");
+    }
+
+    fn simple_module_def() -> ASTTypedModule {
+        ASTTypedModule {
+            body: vec![],
+            functions_by_name: Default::default(),
+            enums: vec![],
+            structs: vec![],
+            native_body: "".to_string(),
+            types: vec![],
+        }
     }
 
     fn backend() -> BackendAsm386 {

@@ -1,5 +1,6 @@
 use crate::codegen::EnhancedASTModule;
 use crate::lexer::Lexer;
+use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use std::collections::HashSet;
 use std::path::Path;
@@ -154,6 +155,7 @@ impl Parser {
                                 return_type: None,
                                 inline: false,
                                 param_types,
+                                resolved_generic_types: LinkedHashMap::new(),
                             }));
                         self.state.push(ParserState::FunctionDef);
                         self.state.push(ParserState::FunctionDefParameter);
@@ -170,6 +172,7 @@ impl Parser {
                                 return_type: None,
                                 inline,
                                 param_types,
+                                resolved_generic_types: LinkedHashMap::new(),
                             }));
                         self.state.push(ParserState::FunctionDef);
                         self.state.push(ParserState::FunctionDefParameter);
@@ -938,6 +941,7 @@ pub trait ParserTrait {
 
 #[cfg(test)]
 mod tests {
+    use linked_hash_map::LinkedHashMap;
     use std::path::Path;
 
     use crate::lexer::Lexer;
@@ -1043,6 +1047,7 @@ mod tests {
             return_type: None,
             inline: false,
             param_types: vec!["T".into(), "T1".into()],
+            resolved_generic_types: LinkedHashMap::new(),
         };
 
         assert_eq!(module.functions, vec![function_def]);

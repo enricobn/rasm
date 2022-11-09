@@ -2,6 +2,7 @@ use crate::codegen::backend::Backend;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
+use crate::type_check::typed_ast::ASTTypedModule;
 use linked_hash_map::LinkedHashMap;
 use pad::PadStr;
 
@@ -130,7 +131,7 @@ impl Statics {
         self.statics.is_empty()
     }
 
-    fn print_res(&mut self, backend: &dyn Backend) -> String {
+    fn print_res(&mut self, backend: &dyn Backend, module: &ASTTypedModule) -> String {
         let mut asm = String::new();
 
         CodeGen::add(&mut asm, "%ifdef LOG_DEBUG", None, false);
@@ -154,7 +155,7 @@ impl Statics {
         }
         CodeGen::add(&mut asm, "%endif", None, false);
 
-        TextMacroEvaluator::new(vec![]).translate(backend, self, &asm)
+        TextMacroEvaluator::new().translate(backend, self, None, &asm, Some(module))
     }
 
     fn print_address(asm: &mut String, address: &str) {

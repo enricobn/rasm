@@ -158,6 +158,7 @@ impl<'a> Iterator for TypeConversionContextIterator<'a> {
 mod tests {
     use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef};
     use crate::type_check::typed_context::TypeConversionContext;
+    use linked_hash_map::LinkedHashMap;
 
     #[test]
     fn test() {
@@ -192,6 +193,7 @@ mod tests {
             return_type: None,
             inline: false,
             param_types: Vec::new(),
+            resolved_generic_types: LinkedHashMap::new(),
         }
     }
 }

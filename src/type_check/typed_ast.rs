@@ -17,6 +17,7 @@ pub struct ASTTypedFunctionDef {
     pub return_type: Option<ASTTypedTypeRef>,
     pub body: ASTTypedFunctionBody,
     pub inline: bool,
+    pub generic_types: LinkedHashMap<String, ASTTypedType>,
 }
 
 impl Display for ASTTypedFunctionDef {
@@ -278,7 +279,9 @@ pub struct ASTTypedStructDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedTypeDef {
+    pub original_name: String,
     pub name: String,
+    pub generic_types: LinkedHashMap<String, ASTTypedType>,
 }
 
 struct ConvContext<'a> {
@@ -437,14 +440,14 @@ impl<'a> ConvContext<'a> {
         self.structs.get(enum_type).cloned()
     }
 
-    pub fn add_type(&mut self, typed_type: &ASTType) -> ASTTypedType {
-        debug!("add_type {typed_type}");
+    pub fn add_type(&mut self, ast_type: &ASTType) -> ASTTypedType {
+        debug!("add_type {ast_type}");
         self.count += 1;
         if self.count > 100 {
             // TODO why???
             panic!();
         }
-        match typed_type {
+        match ast_type {
             ASTType::Custom { name, param_types } => {
                 let type_def = self
                     .module
@@ -454,17 +457,20 @@ impl<'a> ConvContext<'a> {
                     .unwrap();
 
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = LinkedHashMap::new();
+                let mut generic_types = LinkedHashMap::new();
                 for (i, p) in type_def.type_parameters.iter().enumerate() {
-                    generic_to_type.insert(
+                    generic_types.insert(
                         p.clone(),
-                        cloned_param_types
-                            .get(i)
-                            .unwrap_or_else(|| {
-                                panic!("Cannot find parametric type {p} for type {name}")
-                            })
-                            .ast_type
-                            .clone(),
+                        typed_type(
+                            self,
+                            &cloned_param_types
+                                .get(i)
+                                .unwrap_or_else(|| {
+                                    panic!("Cannot find parametric type {p} for type {name}")
+                                })
+                                .ast_type,
+                            "",
+                        ),
                     );
                 }
 
@@ -473,10 +479,13 @@ impl<'a> ConvContext<'a> {
                     name: new_name.clone(),
                 };
 
-                self.type_defs.push(ASTTypedTypeDef { name: new_name });
+                self.type_defs.push(ASTTypedTypeDef {
+                    original_name: name.clone(),
+                    name: new_name,
+                    generic_types,
+                });
 
-                self.types
-                    .insert(typed_type.clone(), type_typed_type.clone());
+                self.types.insert(ast_type.clone(), type_typed_type.clone());
 
                 type_typed_type
             }
@@ -536,6 +545,7 @@ pub fn convert_to_typed_module(
         "sysClose",
         "fileSize",
         "freeMem",
+        "VecReferences", // TODO
     ];
 
     if print_allocation {
@@ -871,12 +881,12 @@ fn struct_property(
     if let Some(new_type) = substitute(&property.type_ref, generic_to_type) {
         ASTTypedStructPropertyDef {
             name: property.name.clone(),
-            type_ref: type_ref(conv_context, &new_type, ""),
+            type_ref: typed_type_ref(conv_context, &new_type, ""),
         }
     } else {
         ASTTypedStructPropertyDef {
             name: property.name.clone(),
-            type_ref: type_ref(conv_context, &property.type_ref, ""),
+            type_ref: typed_type_ref(conv_context, &property.type_ref, ""),
         }
     }
 }
@@ -885,11 +895,19 @@ fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTType
     if !def.param_types.is_empty() {
         panic!("function def has generics: {def}");
     }
+
+    let mut generic_types = LinkedHashMap::new();
+
+    for (name, ast_type) in def.resolved_generic_types.iter() {
+        let typed_type = typed_type(conv_context, ast_type, "");
+        generic_types.insert(name.into(), typed_type);
+    }
+
     ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(&def.body),
         return_type: def.return_type.clone().map(|it| {
-            type_ref(
+            typed_type_ref(
                 conv_context,
                 &it,
                 &format!("function {} return type", def.name),
@@ -901,6 +919,7 @@ fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTType
             .iter()
             .map(|it| parameter_def(conv_context, it, &format!("function {}", def.name)))
             .collect(),
+        generic_types,
     }
 }
 
@@ -980,7 +999,7 @@ fn enum_variant(
                     } else {
                         ASTTypedParameterDef {
                             name: it.name.clone(),
-                            type_ref: type_ref(conv_context, &new_type, ""),
+                            type_ref: typed_type_ref(conv_context, &new_type, ""),
                         }
                     }
                 } else {
@@ -1009,7 +1028,7 @@ fn parameter_def(
 ) -> ASTTypedParameterDef {
     ASTTypedParameterDef {
         name: parameter_def.name.clone(),
-        type_ref: type_ref(
+        type_ref: typed_type_ref(
             conv_context,
             &parameter_def.type_ref,
             &format!("{message}: parameter {}", parameter_def.name),
@@ -1017,8 +1036,21 @@ fn parameter_def(
     }
 }
 
-fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -> ASTTypedTypeRef {
-    let ast_type = match &t_ref.ast_type {
+fn typed_type_ref(
+    conv_context: &mut ConvContext,
+    t_ref: &ASTTypeRef,
+    message: &str,
+) -> ASTTypedTypeRef {
+    let ast_type = typed_type(conv_context, &t_ref.ast_type, &message);
+
+    ASTTypedTypeRef {
+        ast_type,
+        ast_ref: t_ref.ast_ref,
+    }
+}
+
+fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str) -> ASTTypedType {
+    match ast_type {
         ASTType::Builtin(kind) => match kind {
             BuiltinTypeKind::ASTString => ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
             BuiltinTypeKind::ASTI32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTI32),
@@ -1029,7 +1061,7 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
                 parameters: parameters
                     .iter()
                     .map(|it| {
-                        type_ref(
+                        typed_type_ref(
                             conv_context,
                             it,
                             &(message.to_owned() + ", lambda parameter"),
@@ -1037,7 +1069,7 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
                     })
                     .collect(),
                 return_type: return_type.clone().map(|it| {
-                    Box::new(type_ref(
+                    Box::new(typed_type_ref(
                         conv_context,
                         &it,
                         &(message.to_owned() + ", lambda return type"),
@@ -1053,10 +1085,10 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
             param_types: _,
         } => {
             if conv_context.module.enums.iter().any(|it| &it.name == name) {
-                if let Some(e) = conv_context.get_enum(&t_ref.ast_type) {
+                if let Some(e) = conv_context.get_enum(ast_type) {
                     e
                 } else {
-                    conv_context.add_enum(&t_ref.ast_type)
+                    conv_context.add_enum(ast_type)
                 }
             } else if conv_context
                 .module
@@ -1064,26 +1096,21 @@ fn type_ref(conv_context: &mut ConvContext, t_ref: &ASTTypeRef, message: &str) -
                 .iter()
                 .any(|it| &it.name == name)
             {
-                if let Some(e) = conv_context.get_struct(&t_ref.ast_type) {
+                if let Some(e) = conv_context.get_struct(ast_type) {
                     e
                 } else {
-                    conv_context.add_struct(&t_ref.ast_type)
+                    conv_context.add_struct(ast_type)
                 }
             } else if conv_context.module.types.iter().any(|it| &it.name == name) {
-                if let Some(e) = conv_context.get_type(&t_ref.ast_type) {
+                if let Some(e) = conv_context.get_type(ast_type) {
                     e
                 } else {
-                    conv_context.add_type(&t_ref.ast_type)
+                    conv_context.add_type(ast_type)
                 }
             } else {
                 panic!("Cannot find custom type {name}");
             }
         }
-    };
-
-    ASTTypedTypeRef {
-        ast_type,
-        ast_ref: t_ref.ast_ref,
     }
 }
 

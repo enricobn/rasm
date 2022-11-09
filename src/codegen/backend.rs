@@ -5,7 +5,7 @@ use crate::codegen::CodeGen;
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
-use crate::type_check::typed_ast::{ASTTypedModule, ASTTypedTypeRef};
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule, ASTTypedTypeRef};
 use log::info;
 use std::collections::HashSet;
 use std::path::Path;
@@ -41,7 +41,12 @@ pub trait Backend {
     /// * `body`: the code to scan for function calls
     ///
     /// returns: Vec<String>
-    fn called_functions(&self, body: &str) -> Vec<String>;
+    fn called_functions(
+        &self,
+        function_def: Option<&ASTTypedFunctionDef>,
+        body: &str,
+        module: Option<&ASTTypedModule>,
+    ) -> Vec<String>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
 
@@ -246,14 +251,21 @@ impl Backend for BackendAsm386 {
     /// * `body`: the code to scan for function calls
     ///
     /// returns: Vec<String>
-    fn called_functions(&self, body: &str) -> Vec<String> {
+    fn called_functions(
+        &self,
+        function_def: Option<&ASTTypedFunctionDef>,
+        body: &str,
+        module: Option<&ASTTypedModule>,
+    ) -> Vec<String> {
         // TODO I don't like to create it
-        let evaluator = TextMacroEvaluator::new(Vec::new());
+        let evaluator = TextMacroEvaluator::new();
 
         let body = evaluator.translate(
             self,
             &mut Statics::new(), // TODO I don't like to create it
+            function_def,
             body,
+            module,
         );
 
         body.lines()
@@ -322,6 +334,8 @@ impl Backend for BackendAsm386 {
                 struct_has_references(struct_def)
             } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
                 enum_has_references(enum_def)
+            } else if let Some(type_def) = module.types.iter().find(|it| it.name == type_name) {
+                type_has_references(type_def)
             } else {
                 true
             };
@@ -446,7 +460,7 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions("call something"),
+            sut.called_functions(None, "call something", None),
             vec!["something".to_string()]
         );
     }
@@ -456,7 +470,7 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions("mov    eax, 1; call something"),
+            sut.called_functions(None, "mov    eax, 1; call something", None),
             Vec::<String>::new()
         );
     }
@@ -468,6 +482,9 @@ mod tests {
 
         let sut = BackendAsm386::new(Default::default(), externals);
 
-        assert_eq!(sut.called_functions("call something"), Vec::<String>::new());
+        assert_eq!(
+            sut.called_functions(None, "call something", None),
+            Vec::<String>::new()
+        );
     }
 }

@@ -4,6 +4,7 @@ use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType,
     ASTTypeRef,
 };
+use linked_hash_map::LinkedHashMap;
 
 pub fn struct_functions_creator(
     backend: &dyn Backend,
@@ -55,6 +56,8 @@ pub fn struct_functions_creator(
             inline: false,
             return_type,
             param_types: struct_def.type_parameters.clone(),
+            // TODO calculate, even if I don't know if it is useful
+            resolved_generic_types: LinkedHashMap::new(),
         };
         functions_by_name.insert(struct_def.name.clone(), function_def);
     }
@@ -158,5 +161,6 @@ fn create_function_for_struct_property(
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
         param_types: struct_def.type_parameters.clone(),
         inline: true,
+        resolved_generic_types: LinkedHashMap::new(),
     }
 }

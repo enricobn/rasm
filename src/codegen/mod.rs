@@ -838,6 +838,8 @@ impl<'a> CodeGen<'a> {
                     body,
                     "0".into(),
                     indent,
+                    Some(function_def),
+                    &self.module,
                 );
                 before.push_str(&new_body);
             }
@@ -1207,6 +1209,7 @@ impl<'a> CodeGen<'a> {
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                             inline: false,
+                            generic_types: LinkedHashMap::new(),
                         };
 
                         self.id += 1;
@@ -1262,6 +1265,8 @@ impl<'a> CodeGen<'a> {
                     body,
                     added_to_stack,
                     indent,
+                    None,
+                    &self.module,
                 ));
             } else {
                 panic!("Only asm can be inlined, for now...");
@@ -1270,12 +1275,7 @@ impl<'a> CodeGen<'a> {
             if let Some(address) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                CodeGen::add(
-                    before,
-                    &format!("mov eax, edx"),
-                    None,
-                    true,
-                );
+                CodeGen::add(before, "mov eax, edx", None, true);
                 // we add the address to the "lambda space" as the last parameter of the lambda
                 CodeGen::add(
                     before,

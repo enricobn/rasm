@@ -10,6 +10,7 @@ pub struct ASTFunctionDef {
     pub body: ASTFunctionBody,
     pub inline: bool,
     pub param_types: Vec<String>,
+    pub resolved_generic_types: LinkedHashMap<String, ASTType>,
 }
 
 impl Display for ASTFunctionDef {

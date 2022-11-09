@@ -1,12 +1,15 @@
 Doing
 ------
 - Vec
+  - vecFilter and vecFoldL dereference
+  - vecFilter shrink (add a shrink function that shrinks allocated memory)
+  - get rid of adding VecReferences in convert_to_typed_module, it should be added automatically
 
 Next
 -----
-- Vec
-  - how to reference / dereference the content of a type?
-
+- allocator
+  - check for size >= allocated and use shrink
+  - try to pack two consecutive free "slots"
 - move all asm code to backend
 - sdl examples
   - how to reference external structs?

@@ -5,8 +5,8 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedValKind};
 use crate::debug_i;
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
-    ASTTypedStatement, ASTTypedTypeRef,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedTypeRef,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -553,13 +553,15 @@ impl<'a> FunctionCallParameters<'a> {
         body: &str,
         to_remove_from_stack: String,
         ident: usize,
+        function_def: Option<&ASTTypedFunctionDef>,
+        module: &ASTTypedModule,
     ) -> String {
-        let mut result = body.to_string();
-
-        result = TextMacroEvaluator::new(self.parameters.clone()).translate(
+        let mut result = TextMacroEvaluator::new().translate(
             self.backend,
             statics,
-            &result,
+            function_def,
+            body,
+            Some(module),
         );
 
         let mut i = 0;

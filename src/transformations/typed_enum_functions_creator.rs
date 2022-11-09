@@ -82,6 +82,7 @@ fn create_free(
         body,
         inline: false,
         return_type: None,
+        generic_types: LinkedHashMap::new(),
     };
 
     debug!("created function {function_def}");

@@ -79,9 +79,9 @@ pub fn convert(
 
         let mut new_body = Vec::new();
 
-        for statement in body.iter() {
-            let resolved_param_types = LinkedHashMap::new();
+        let resolved_param_types = LinkedHashMap::new();
 
+        for statement in body.iter() {
             match statement {
                 ASTStatement::Expression(expr) => {
                     if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
@@ -260,11 +260,13 @@ pub fn convert(
                             .collect(),
                     );
 
+                    new_function_def.resolved_generic_types = resolved_param_types.clone();
+
                     type_conversion_context.replace_body(&new_function_def);
                 }
                 ASTFunctionBody::ASMBody(body) => {
                     backend
-                        .called_functions(body)
+                        .called_functions(None, body, None)
                         .iter()
                         .for_each(|function_name| {
                             let function_call = ASTFunctionCall {
@@ -1093,6 +1095,7 @@ fn convert_call(
         body: function_def.body.clone(),
         param_types: remaining_generic_types,
         inline: function_def.inline,
+        resolved_generic_types: resolved_param_types.clone(),
     };
 
     let effective_function = if let Some(f) =
@@ -1132,7 +1135,7 @@ fn get_type_of_expression(
     module: &EnhancedASTModule,
     context: &ValContext,
     expr: &ASTExpression,
-    typed_context: &mut TypeConversionContext,
+    typed_context: &TypeConversionContext,
 ) -> Option<ASTType> {
     debug_i!("get_type_of_expression {expr}");
     indent!();
@@ -1707,6 +1710,7 @@ mod tests {
             inline: false,
             return_type: None,
             param_types: vec!["T".into()],
+            resolved_generic_types: LinkedHashMap::new(),
         };
 
         let module = ASTModule {
