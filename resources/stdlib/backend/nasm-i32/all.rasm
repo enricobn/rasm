@@ -39,7 +39,7 @@ asm argc() -> i32 /{
 }/
 
 // TODO unsafe
-asm argv(i: i32) -> &str /{
+asm argv(i: i32) -> str /{
     push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
@@ -76,7 +76,7 @@ inline asm itn(n: i32) -> i32 /{
     mov     eax,$n
 }/
 
-asm memcopy(source: &i32, dest: &i32, len: i32) /{
+asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi
     push    edi

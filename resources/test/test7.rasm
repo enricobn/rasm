@@ -1,2 +1,2 @@
 // test7.rasm file
-fn add(s: &str) {}
+fn add(s: str) {}

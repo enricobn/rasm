@@ -2,7 +2,7 @@ use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
 use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Parametric};
-use crate::parser::ast::{ASTType, ASTTypeRef, BuiltinTypeKind};
+use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::parser::ParserTrait;
 
 pub struct TypeParser<'a> {
@@ -14,40 +14,22 @@ impl<'a> TypeParser<'a> {
         Self { parser }
     }
 
-    pub fn try_parse_type_ref(
+    pub fn try_parse_ast_type(
         &self,
         n: usize,
         context_param_types: &[String],
-    ) -> Option<(ASTTypeRef, usize)> {
-        self.try_parse_type_ref_rec(n, context_param_types, 0)
+    ) -> Option<(ASTType, usize)> {
+        self.try_parse_ast_type_rec(n, context_param_types, 0)
     }
 
-    fn try_parse_type_ref_rec(
+    fn try_parse_ast_type_rec(
         &self,
         n: usize,
         context_param_types: &[String],
         rec: usize,
-    ) -> Option<(ASTTypeRef, usize)> {
-        if let Some(kind) = self.parser.get_token_kind_n(n) {
-            if let TokenKind::Punctuation(PunctuationKind::And) = kind {
-                if let Some((ast_type, next_i)) = self.try_parse(n + 1, context_param_types, rec) {
-                    return Some((
-                        ASTTypeRef {
-                            ast_ref: true,
-                            ast_type,
-                        },
-                        next_i,
-                    ));
-                }
-            } else if let Some((ast_type, next_i)) = self.try_parse(n, context_param_types, rec) {
-                return Some((
-                    ASTTypeRef {
-                        ast_ref: false,
-                        ast_type,
-                    },
-                    next_i,
-                ));
-            }
+    ) -> Option<(ASTType, usize)> {
+        if let Some((ast_type, next_i)) = self.try_parse(n, context_param_types, rec) {
+            return Some((ast_type, next_i));
         }
         None
     }
@@ -99,7 +81,7 @@ impl<'a> TypeParser<'a> {
         n: usize,
         context_param_types: &[String],
         rec: usize,
-    ) -> Option<(Vec<ASTTypeRef>, usize)> {
+    ) -> Option<(Vec<ASTType>, usize)> {
         let mut types = Vec::new();
         let mut next_i = self.parser.get_i() + n + 1;
 
@@ -118,7 +100,7 @@ impl<'a> TypeParser<'a> {
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = kind {
                     inner_n += 1;
                 } else if let Some((ast_type, inner_next_i)) =
-                    self.try_parse_type_ref(inner_n, context_param_types)
+                    self.try_parse_ast_type(inner_n, context_param_types)
                 {
                     types.push(ast_type);
                     next_i = inner_next_i;
@@ -160,7 +142,7 @@ impl<'a> TypeParser<'a> {
                 }
 
                 if let Some((t, next_i)) =
-                    self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
+                    self.try_parse_ast_type_rec(n, context_param_types, rec + 1)
                 {
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
@@ -190,7 +172,7 @@ impl<'a> TypeParser<'a> {
                 n += 2;
                 None
             } else if let Some((t, next_i)) =
-                self.try_parse_type_ref_rec(n, context_param_types, rec + 1)
+                self.try_parse_ast_type_rec(n, context_param_types, rec + 1)
             {
                 n = next_i - self.parser.get_i();
                 Some(Box::new(t))
@@ -239,14 +221,14 @@ mod tests {
 
     #[test]
     fn test_lambda1() {
-        let parse_result = try_parse("fn(&i32,&str) -> &i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }, ASTTypeRef { ast_type: Builtin(ASTString), ast_ref: true }], return_type: Some(ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }) }), 11))");
+        let parse_result = try_parse("fn(i32,str) -> i32");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(ASTI32), Builtin(ASTString)], return_type: Some(Builtin(ASTI32)) }), 8))");
     }
 
     #[test]
     fn test_lambda2() {
-        let parse_result = try_parse("fn(fn() -> (),&str) -> &i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [ASTTypeRef { ast_type: Builtin(Lambda { parameters: [], return_type: None }), ast_ref: false }, ASTTypeRef { ast_type: Builtin(ASTString), ast_ref: true }], return_type: Some(ASTTypeRef { ast_type: Builtin(ASTI32), ast_ref: true }) }), 15))");
+        let parse_result = try_parse("fn(fn() -> (),str) -> i32");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: None }), Builtin(ASTString)], return_type: Some(Builtin(ASTI32)) }), 13))");
     }
 
     #[test]
@@ -257,8 +239,8 @@ mod tests {
                 Custom {
                     name: "Dummy".into(),
                     param_types: vec![
-                        ASTTypeRef::parametric("T", false),
-                        ASTTypeRef::parametric("T1", false),
+                        ASTType::Parametric("T".into()),
+                        ASTType::Parametric("T1".into()),
                     ],
                 },
                 6
@@ -291,11 +273,16 @@ mod tests {
     #[test]
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
-        let option_t =
-            ASTTypeRef::custom("Option", false, vec![ASTTypeRef::parametric("T", false)]);
+        let option_t = Custom {
+            name: "Option".into(),
+            param_types: vec![Parametric("T".into())],
+        };
         assert_eq!(
             Some((
-                ASTTypeRef::custom("List", false, vec![option_t]).ast_type,
+                Custom {
+                    name: "List".into(),
+                    param_types: vec![option_t]
+                },
                 7
             )),
             parse_result

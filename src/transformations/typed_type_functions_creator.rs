@@ -3,7 +3,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
-    ASTTypedTypeDef, ASTTypedTypeRef,
+    ASTTypedTypeDef,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -56,10 +56,6 @@ fn create_free(
     let ast_type = ASTTypedType::Type {
         name: type_def.name.clone(),
     };
-    let type_ref = ASTTypedTypeRef {
-        ast_type,
-        ast_ref: false,
-    };
 
     let body_str = create_free_body(
         backend,
@@ -77,7 +73,7 @@ fn create_free(
         name: fun_name.clone(),
         parameters: vec![ASTTypedParameterDef {
             name: "address".into(),
-            type_ref,
+            ast_type,
         }],
         body,
         inline: false,

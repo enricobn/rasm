@@ -11,8 +11,8 @@ use crate::codegen::statics::Statics;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::parser::ast::{
-    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
-    ASTTypeRef,
+    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
+    ASTTypeDef,
 };
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
@@ -30,8 +30,7 @@ use crate::transformations::typed_type_functions_creator::typed_type_functions_c
 use crate::type_check::convert;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
-    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, ASTTypedTypeRef,
-    BuiltinTypedTypeKind,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 
 /// It's a constant that will be replaced by the code generator with the size (in bytes)
@@ -100,10 +99,10 @@ impl ValContext {
         result
     }
 
-    pub fn insert_let(&mut self, key: String, type_ref: ASTTypeRef) -> Option<ValKind> {
+    pub fn insert_let(&mut self, key: String, ast_type: ASTType) -> Option<ValKind> {
         let result = self
             .value_to_address
-            .insert(key, ValKind::LetRef(self.let_index, type_ref));
+            .insert(key, ValKind::LetRef(self.let_index, ast_type));
         self.let_index += 1;
         result
     }
@@ -120,7 +119,7 @@ impl ValContext {
 #[derive(Clone, Debug)]
 pub enum ValKind {
     ParameterRef(usize, ASTParameterDef),
-    LetRef(usize, ASTTypeRef),
+    LetRef(usize, ASTType),
 }
 
 #[derive(Clone, Debug)]
@@ -153,10 +152,14 @@ impl TypedValContext {
             .insert(key, TypedValKind::ParameterRef(index, par))
     }
 
-    pub fn insert_let(&mut self, key: String, type_ref: ASTTypedTypeRef) -> Option<TypedValKind> {
+    pub fn insert_let(
+        &mut self,
+        key: String,
+        ast_typed_type: ASTTypedType,
+    ) -> Option<TypedValKind> {
         let result = self
             .value_to_address
-            .insert(key, TypedValKind::LetRef(self.let_index, type_ref));
+            .insert(key, TypedValKind::LetRef(self.let_index, ast_typed_type));
         self.let_index += 1;
         result
     }
@@ -181,7 +184,7 @@ impl TypedValContext {
 #[derive(Clone, Debug)]
 pub enum TypedValKind {
     ParameterRef(usize, ASTTypedParameterDef),
-    LetRef(usize, ASTTypedTypeRef),
+    LetRef(usize, ASTTypedType),
 }
 
 #[derive(Debug, Clone)]
@@ -353,7 +356,7 @@ impl<'a> CodeGen<'a> {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let wl = self.backend.word_len();
                         let bp = self.backend.stack_base_pointer();
-                        let type_ref = self
+                        let ast_typed_type = self
                             .module
                             .functions_by_name
                             .get(&call.function_name.replace("::", "_"))
@@ -361,7 +364,7 @@ impl<'a> CodeGen<'a> {
                             .return_type
                             .clone()
                             .unwrap();
-                        context.insert_let(name.clone(), type_ref.clone());
+                        context.insert_let(name.clone(), ast_typed_type.clone());
                         let address_relative_to_bp =
                             stack.reserve(StackEntryType::LetVal, name) * wl;
 
@@ -385,7 +388,7 @@ impl<'a> CodeGen<'a> {
 
                         if self.dereference {
                             if let Some(type_name) =
-                                CodeGen::get_reference_type_name(&type_ref.ast_type)
+                                CodeGen::get_reference_type_name(&ast_typed_type)
                             {
                                 self.backend.call_add_ref(
                                     &mut before,
@@ -761,7 +764,7 @@ impl<'a> CodeGen<'a> {
                         }
                         ASTTypedStatement::LetStatement(name, expr) => match expr {
                             ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                                let type_ref = self
+                                let ast_typed_type = self
                                     .module
                                     .functions_by_name
                                     .get(&call.function_name.replace("::", "_"))
@@ -769,7 +772,7 @@ impl<'a> CodeGen<'a> {
                                     .return_type
                                     .clone()
                                     .unwrap();
-                                context.insert_let(name.clone(), type_ref.clone());
+                                context.insert_let(name.clone(), ast_typed_type.clone());
                                 let address_relative_to_bp =
                                     stack.reserve(StackEntryType::LetVal, name) * wl;
 
@@ -793,7 +796,7 @@ impl<'a> CodeGen<'a> {
 
                                 if self.dereference {
                                     if let Some(type_name) =
-                                        CodeGen::get_reference_type_name(&type_ref.ast_type)
+                                        CodeGen::get_reference_type_name(&ast_typed_type)
                                     {
                                         self.backend.call_add_ref(
                                             &mut before,
@@ -968,7 +971,7 @@ impl<'a> CodeGen<'a> {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 return_type: _,
                 parameters,
-            }) = par.clone().type_ref.ast_type
+            }) = &par.ast_type
             {
                 let wl = self.backend.word_len() as usize;
                 let bp = self.backend.stack_base_pointer();
@@ -980,7 +983,7 @@ impl<'a> CodeGen<'a> {
                         self.id += 1;
                         ASTTypedParameterDef {
                             name,
-                            type_ref: it.clone(),
+                            ast_type: it.clone(),
                         }
                     })
                     .collect();
@@ -1126,7 +1129,7 @@ impl<'a> CodeGen<'a> {
                             param_index, function_call.function_name
                         )
                     })
-                    .type_ref
+                    .ast_type
                     .clone();
 
                 debug!(
@@ -1199,11 +1202,11 @@ impl<'a> CodeGen<'a> {
                             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                                 return_type,
                                 parameters,
-                            }) = param_type.ast_type
+                            }) = param_type
                             {
                                 (return_type, parameters)
                             } else {
-                                panic!("Parameter is not a lambda: {:?}", param_type.ast_type);
+                                panic!("Parameter is not a lambda: {:?}", param_type);
                             };
 
                         if parameters_types.len() != lambda_def.parameter_names.len() {
@@ -1238,7 +1241,7 @@ impl<'a> CodeGen<'a> {
                         for i in 0..parameters_types.len() {
                             def.parameters.push(ASTTypedParameterDef {
                                 name: lambda_def.parameter_names.get(i).unwrap().clone(),
-                                type_ref: parameters_types.get(i).unwrap().clone(),
+                                ast_type: parameters_types.get(i).unwrap().clone(),
                             });
                             // TODO check if the parameter name collides with some context var
                         }
@@ -1446,14 +1449,14 @@ impl<'a> CodeGen<'a> {
                     call_parameters.add_parameter_ref(
                         param_name.into(),
                         val_name,
-                        &par.type_ref,
+                        &par.ast_type,
                         *index,
                         lambda_space_opt,
                         *indent,
                     );
                 }
 
-                TypedValKind::LetRef(index, ast_type_ref) => {
+                TypedValKind::LetRef(index, ast_typed_type) => {
                     let index_in_context = stack_vals
                         .find_relative_to_bp(StackEntryType::LetVal, val_name)
                         .unwrap_or(*index + 1);
@@ -1461,7 +1464,7 @@ impl<'a> CodeGen<'a> {
                     call_parameters.add_let_val_ref(
                         param_name.into(),
                         val_name,
-                        ast_type_ref,
+                        ast_typed_type,
                         index_in_context,
                         lambda_space_opt,
                         *indent,

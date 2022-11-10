@@ -1,8 +1,8 @@
 include "std.rasm"
 
 enum Test {
-    T1(v1: i32, v2: i32, o: Option<&str>),
-    T2(v1: i32, o: Option<&str>)
+    T1(v1: i32, v2: i32, o: Option<str>),
+    T2(v1: i32, o: Option<str>)
 }
 
 printOption(Option::Some("a value"));
@@ -21,6 +21,6 @@ Test::run(
        printOption(o);
    });
 
-fn printOption(o: Option<&str>) {
+fn printOption(o: Option<str>) {
     Option::run(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
 }

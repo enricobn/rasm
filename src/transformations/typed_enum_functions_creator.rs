@@ -3,7 +3,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedType, ASTTypedTypeRef,
+    ASTTypedParameterDef, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -56,10 +56,6 @@ fn create_free(
     let ast_type = ASTTypedType::Enum {
         name: enum_def.name.clone(),
     };
-    let type_ref = ASTTypedTypeRef {
-        ast_type,
-        ast_ref: false,
-    };
 
     let body_str = create_free_body(
         backend,
@@ -77,7 +73,7 @@ fn create_free(
         name: fun_name.clone(),
         parameters: vec![ASTTypedParameterDef {
             name: "address".into(),
-            type_ref,
+            ast_type,
         }],
         body,
         inline: false,
@@ -131,7 +127,7 @@ fn create_free_body(
                 CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
                 CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
-                    if let Some(name) = CodeGen::get_reference_type_name(&par.type_ref.ast_type) {
+                    if let Some(name) = CodeGen::get_reference_type_name(&par.ast_type) {
                         if function_name == "deref" {
                             result.push_str(&backend.call_deref(
                                 &format!("[ebx + {}]", (j + 1) * wl),
@@ -168,5 +164,5 @@ pub fn enum_has_references(enum_def: &ASTTypedEnumDef) -> bool {
         .variants
         .iter()
         .flat_map(|it| it.parameters.iter())
-        .any(|it| CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
+        .any(|it| CodeGen::get_reference_type_name(&it.ast_type).is_some())
 }

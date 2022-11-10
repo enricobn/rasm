@@ -3,7 +3,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, EnhancedASTModule, MemoryValue};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType,
-    ASTTypeRef, BuiltinTypeKind,
+    BuiltinTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -17,10 +17,10 @@ pub fn enum_functions_creator(
     let mut native_body = module.native_body.clone();
 
     for enum_def in module.enums.iter() {
-        let param_types: Vec<ASTTypeRef> = enum_def
+        let param_types: Vec<ASTType> = enum_def
             .type_parameters
             .iter()
-            .map(|it| ASTTypeRef::parametric(it, false))
+            .map(|it| ASTType::Parametric(it.into()))
             .collect();
 
         create_constructors(
@@ -37,7 +37,7 @@ pub fn enum_functions_creator(
             &mut functions_by_name,
             &enum_def,
             "Match",
-            Some(ASTTypeRef::parametric("_T", false)),
+            Some(ASTType::Parametric("_T".into())),
             Some("_T".into()),
         );
 
@@ -63,7 +63,7 @@ fn create_match_like_function(
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
     enum_def: &&ASTEnumDef,
     name: &str,
-    return_type: Option<ASTTypeRef>,
+    return_type: Option<ASTType>,
     extra_generic: Option<String>,
 ) {
     let body = enum_match_body(backend, enum_def);
@@ -72,16 +72,13 @@ fn create_match_like_function(
     let param_types = enum_def
         .type_parameters
         .iter()
-        .map(|it| ASTTypeRef::parametric(it, false))
+        .map(|it| ASTType::Parametric(it.into()))
         .collect();
     let mut parameters = vec![ASTParameterDef {
         name: "value".into(),
-        type_ref: ASTTypeRef {
-            ast_type: ASTType::Custom {
-                name: enum_def.name.clone(),
-                param_types,
-            },
-            ast_ref: true,
+        ast_type: ASTType::Custom {
+            name: enum_def.name.clone(),
+            param_types,
         },
     }];
     for variant in enum_def.variants.iter() {
@@ -90,15 +87,12 @@ fn create_match_like_function(
             parameters: variant
                 .parameters
                 .iter()
-                .map(|it| it.type_ref.clone())
+                .map(|it| it.ast_type.clone())
                 .collect(),
         });
         parameters.push(ASTParameterDef {
             name: variant.name.clone(),
-            type_ref: ASTTypeRef {
-                ast_type,
-                ast_ref: true,
-            },
+            ast_type: ast_type,
         });
     }
     let mut param_types = enum_def.type_parameters.clone();
@@ -131,7 +125,7 @@ fn create_constructors(
     functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
     native_body: &mut String,
     enum_def: &ASTEnumDef,
-    param_types: &[ASTTypeRef],
+    param_types: &[ASTType],
     statics: &mut Statics,
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
@@ -141,11 +135,7 @@ fn create_constructors(
             name: enum_def.name.clone(),
             param_types: param_types.to_vec(),
         };
-        let type_ref = ASTTypeRef {
-            ast_type,
-            ast_ref: false,
-        };
-        let return_type = Some(type_ref);
+        let return_type = Some(ast_type);
         let body_str = if variant.parameters.is_empty() {
             let label = format!("_enum_{}_{}", enum_def.name, variant.name);
             statics.insert(label.clone(), MemoryValue::I32Value(0));

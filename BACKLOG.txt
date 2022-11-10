@@ -1,11 +1,13 @@
 Doing
 ------
-- Vec
-  - vecFilter and vecFoldL dereference
-  - vecFilter shrink (add a shrink function that shrinks allocated memory)
 
 Next
 -----
+- optimize
+  - can a recursive function's lambda space be reused?
+- Vec
+  - vecFilter and vecFoldL dereference
+  - vecFilter shrink (add a shrink function that shrinks allocated memory)
 - allocator
   - check for size >= allocated and use shrink
   - try to pack two consecutive free "slots"
@@ -13,7 +15,6 @@ Next
 - sdl examples
   - how to reference external structs?
 - TextMacro:
-    - TextMacroEvaluator It should be better to pass in a TypedValContext
     - is it possible to use TextMacro in standard functions? (but for what?)
     - is it possible to inline the functions called with TextMacro?
 - game of life: if we don't pass a number, it should run until no cells are alive

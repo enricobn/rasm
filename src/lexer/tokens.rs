@@ -81,9 +81,6 @@ impl Display for TokenKind {
                 write!(f, "{}", n)
             }
             TokenKind::Punctuation(p) => match p {
-                PunctuationKind::And => {
-                    write!(f, "&")
-                }
                 PunctuationKind::Dot => {
                     write!(f, ".")
                 }
@@ -115,7 +112,6 @@ impl Display for TokenKind {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PunctuationKind {
-    And,
     Dot,
     Colon,
     Comma,

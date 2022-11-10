@@ -140,7 +140,7 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     pop     ebx
 }/
 
-asm deref(address: i32, descr: &str) -> i32 /{
+asm deref(address: i32, descr: str) -> i32 /{
     push    eax
     push    ebx
 
@@ -236,7 +236,7 @@ asm freeMem(address: i32) /{
     pop ebx
 }/
 
-asm addRef(address: i32, descr: &str) /{
+asm addRef(address: i32, descr: str) /{
     push    eax
     push    ebx
 
@@ -337,21 +337,21 @@ asm removeFromReused(address: i32) /{
 
 fn printReplacedReused(address: i32, value: i32) {
     sprint("  replaced reused ");
-    nprint($address);
+    nprint(address);
     sprint(" with value ");
-    nprintln($value);
+    nprintln(value);
 }
 
 fn addReused(address: i32, value: i32) {
     sprint("  add reused ");
-    nprint($address);
+    nprint(address);
     sprint(" with value ");
-    nprintln($value);
+    nprintln(value);
 }
 
 fn printRefCount(count: i32) {
     sprint("  ref count: ");
-    nprintln($count);
+    nprintln(count);
 }
 
 fn invalidAddress() {

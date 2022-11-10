@@ -103,7 +103,7 @@ asm malloc(size: i32) -> i32 /{
     pop     ebx
 }/
 
-asm deref(address: i32, descr: &str) -> i32 /{
+asm deref(address: i32, descr: str) -> i32 /{
     push    eax
     push    ebx
 
@@ -172,7 +172,7 @@ asm deref(address: i32, descr: &str) -> i32 /{
     pop     eax
 }/
 
-asm addRef(address: i32, descr: &str) /{
+asm addRef(address: i32, descr: str) /{
     push    eax
     push    ebx
 

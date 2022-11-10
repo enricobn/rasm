@@ -87,8 +87,8 @@ impl<'a> StructParser<'a> {
                 let parser = *type_result.get(i).unwrap();
                 let type_parser = TypeParser::new(parser);
                 let name = parameters_s.get(i).unwrap().clone();
-                if let Some((type_ref, _)) = type_parser.try_parse_type_ref(0, type_parameters) {
-                    parameters.push(ASTStructPropertyDef { name, type_ref });
+                if let Some((ast_type, _)) = type_parser.try_parse_ast_type(0, type_parameters) {
+                    parameters.push(ASTStructPropertyDef { name, ast_type });
                 } else {
                     self.parser
                         .panic(&format!("Cannot parse type for property {}:", name));
@@ -106,7 +106,7 @@ impl<'a> StructParser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::ASTType::{Builtin, Parametric};
-    use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef, ASTTypeRef, BuiltinTypeKind};
+    use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind};
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
 
@@ -121,18 +121,12 @@ mod tests {
 
         let x = ASTStructPropertyDef {
             name: "x".into(),
-            type_ref: ASTTypeRef {
-                ast_type: Builtin(BuiltinTypeKind::ASTI32),
-                ast_ref: false,
-            },
+            ast_type: Builtin(BuiltinTypeKind::ASTI32),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
-            type_ref: ASTTypeRef {
-                ast_type: Builtin(BuiltinTypeKind::ASTI32),
-                ast_ref: false,
-            },
+            ast_type: Builtin(BuiltinTypeKind::ASTI32),
         };
 
         assert_eq!(
@@ -159,18 +153,12 @@ mod tests {
 
         let x = ASTStructPropertyDef {
             name: "index".into(),
-            type_ref: ASTTypeRef {
-                ast_type: Builtin(BuiltinTypeKind::ASTI32),
-                ast_ref: false,
-            },
+            ast_type: Builtin(BuiltinTypeKind::ASTI32),
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
-            type_ref: ASTTypeRef {
-                ast_type: Parametric("T".into()),
-                ast_ref: false,
-            },
+            ast_type: Parametric("T".into()),
         };
 
         assert_eq!(

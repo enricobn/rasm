@@ -5,7 +5,7 @@ use crate::codegen::CodeGen;
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule, ASTTypedTypeRef};
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule, ASTTypedType};
 use log::info;
 use std::collections::HashSet;
 use std::path::Path;
@@ -16,7 +16,7 @@ pub trait Backend {
 
     fn address_from_stack_pointer(&self, index: i8) -> String;
 
-    fn type_len(&self, type_ref: &ASTTypedTypeRef) -> u8;
+    fn type_len(&self, ast_typed_type: &ASTTypedType) -> u8;
 
     fn word_len(&self) -> usize;
 
@@ -26,7 +26,7 @@ pub trait Backend {
 
     fn compile_and_link(&self, source_file: String);
 
-    fn type_size(&self, type_ref: &ASTTypedTypeRef) -> Option<String>;
+    fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
     fn pointer_size(&self) -> String;
 
@@ -125,7 +125,7 @@ impl Backend for BackendAsm386 {
         format!("[esp+{}]", index * 4)
     }
 
-    fn type_len(&self, _type_ref: &ASTTypedTypeRef) -> u8 {
+    fn type_len(&self, _ast_tped_type: &ASTTypedType) -> u8 {
         4
     }
 
@@ -209,8 +209,8 @@ impl Backend for BackendAsm386 {
         }
     }
 
-    fn type_size(&self, type_ref: &ASTTypedTypeRef) -> Option<String> {
-        let type_len = self.type_len(type_ref);
+    fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String> {
+        let type_len = self.type_len(ast_typed_type);
 
         if type_len == 1 {
             Some("byte".to_string())

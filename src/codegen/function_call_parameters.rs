@@ -6,7 +6,7 @@ use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedVa
 use crate::debug_i;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedTypeRef,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -126,7 +126,7 @@ impl<'a> FunctionCallParameters<'a> {
         &mut self,
         code_gen: &mut CodeGen,
         comment: Option<&str>,
-        param_type_ref: ASTTypedTypeRef,
+        param_type: ASTTypedType,
         descr: &str,
         statics: &mut Statics,
     ) {
@@ -145,7 +145,7 @@ impl<'a> FunctionCallParameters<'a> {
             comment,
             true,
         );
-        if let Some(name) = CodeGen::get_reference_type_name(&param_type_ref.ast_type) {
+        if let Some(name) = CodeGen::get_reference_type_name(&param_type) {
             self.add_code_for_reference_type(code_gen, &name, "eax", &descr, statics);
         }
         self.parameter_added_to_stack();
@@ -329,7 +329,7 @@ impl<'a> FunctionCallParameters<'a> {
         &mut self,
         original_param_name: String,
         val_name: &str,
-        type_ref: &ASTTypedTypeRef,
+        ast_typed_type: &ASTTypedType,
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
@@ -341,7 +341,7 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             self.add_val_from_parameter(
                 original_param_name,
-                type_ref,
+                ast_typed_type,
                 index_in_context as i32 + 2,
                 indent,
             );
@@ -352,7 +352,7 @@ impl<'a> FunctionCallParameters<'a> {
         &mut self,
         original_param_name: String,
         val_name: &str,
-        type_ref: &ASTTypedTypeRef,
+        ast_typed_type: &ASTTypedType,
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
@@ -364,7 +364,7 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             self.add_val_from_parameter(
                 original_param_name.clone(),
-                type_ref,
+                ast_typed_type,
                 -(index_in_context as i32),
                 indent,
             );
@@ -437,7 +437,7 @@ impl<'a> FunctionCallParameters<'a> {
     fn add_val_from_parameter(
         &mut self,
         original_param_name: String,
-        type_ref: &ASTTypedTypeRef,
+        ast_typed_type: &ASTTypedType,
         index_relative_to_bp: i32,
         indent: usize,
     ) {
@@ -461,8 +461,8 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             let type_size = self
                 .backend
-                .type_size(type_ref)
-                .unwrap_or_else(|| panic!("Unsupported type size: {:?}", type_ref));
+                .type_size(ast_typed_type)
+                .unwrap_or_else(|| panic!("Unsupported type size: {:?}", ast_typed_type));
 
             if self.immediate {
                 CodeGen::add(

@@ -37,7 +37,7 @@ fn listForeach<T>(l: List<T>, map: fn(T) -> ()) {
 }
 
 /** false = 0 true = 1 **/
-fn listAnyMatch<T>(l: &List<T>, predicate: fn(T) -> i32) -> i32 {
+fn listAnyMatch<T>(l: List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> ifImmediateThen(predicate(head), 1, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
 }
 
@@ -45,11 +45,11 @@ fn listCount<T>(l: List<T>, predicate: fn(T) -> i32) -> i32 {
     List::match(l, { head,tail -> nadd(listCount(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> itn(0); });
 }
 
-fn listAddLeft<T>(l: &List<T>, value: T) -> List<T> {
+fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {
     List::Full(value, l);
 }
 
-fn listAddRight<T>(l: &List<T>, value: T) -> List<T> {
+fn listAddRight<T>(l: List<T>, value: T) -> List<T> {
     List::match(l, { head, tail -> List::Full(head, listAddRight(tail, value));}, { -> List::Full(value, List::Empty());});
 }
 

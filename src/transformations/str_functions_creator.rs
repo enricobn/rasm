@@ -1,6 +1,6 @@
 use crate::codegen::EnhancedASTModule;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType, ASTTypeRef, BuiltinTypeKind,
+    ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType, BuiltinTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
 
@@ -12,10 +12,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         name: "str_deref".into(),
         parameters: vec![ASTParameterDef {
             name: "s".into(),
-            type_ref: ASTTypeRef {
-                ast_ref: false,
-                ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
-            },
+            ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
         }],
         body,
         inline: false,
@@ -30,10 +27,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         name: "str_addRef".into(),
         parameters: vec![ASTParameterDef {
             name: "s".into(),
-            type_ref: ASTTypeRef {
-                ast_ref: false,
-                ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
-            },
+            ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
         }],
         body,
         inline: false,

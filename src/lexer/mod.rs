@@ -20,6 +20,7 @@ enum LexStatus {
 }
 
 pub struct Lexer {
+    source_file: String,
     source: String,
     index: usize,
     row: usize,
@@ -32,7 +33,7 @@ impl Lexer {
         if let Ok(mut file) = File::open(path) {
             if let Ok(size) = file.read_to_string(&mut s) {
                 debug!("Reading file {:?}, size {}", path, size);
-                Ok(Lexer::new(s))
+                Ok(Lexer::new(s, path.to_str().unwrap().into()))
             } else {
                 Err(format!("Cannot read file {:?}", path.to_str()))
             }
@@ -41,8 +42,9 @@ impl Lexer {
         }
     }
 
-    pub fn new(source: String) -> Self {
+    pub fn new(source: String, source_file: String) -> Self {
         Self {
+            source_file,
             source,
             index: 0,
             row: 1,
@@ -82,7 +84,6 @@ impl Lexer {
             "," => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
             ":" => Some(TokenKind::Punctuation(PunctuationKind::Colon)),
             ";" => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
-            "&" => Some(TokenKind::Punctuation(PunctuationKind::And)),
             "->" => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
             "=" => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
             _ => None,
@@ -158,10 +159,11 @@ impl Iterator for Lexer {
                         status = LexStatus::AlphaNumeric;
                         actual.push(c);
                     } else if c != END_OF_FILE {
-                        debug!(
-                            "WARNING: unknown char '{}' ({}) at {},{} ***",
+                        panic!(
+                            "unknown char '{}' ({}) in {} at {},{} ***",
                             c,
                             c.escape_debug(),
+                            self.source_file,
                             self.row,
                             self.column
                         );
@@ -396,7 +398,6 @@ mod tests {
                 AlphaNumeric("s".into()),
                 Punctuation(Colon),
                 WhiteSpaces(" ".into()),
-                Punctuation(And),
                 AlphaNumeric("str".into()),
                 Bracket(Round, Close),
                 WhiteSpaces(" ".into()),

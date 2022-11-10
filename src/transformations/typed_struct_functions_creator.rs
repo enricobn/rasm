@@ -3,7 +3,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
-    ASTTypedStructDef, ASTTypedType, ASTTypedTypeRef,
+    ASTTypedStructDef, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -58,10 +58,6 @@ fn create_free(
     let ast_type = ASTTypedType::Struct {
         name: struct_def.name.clone(),
     };
-    let type_ref = ASTTypedTypeRef {
-        ast_type,
-        ast_ref: false,
-    };
 
     let body_str = create_free_body(
         &backend,
@@ -79,7 +75,7 @@ fn create_free(
         name: fun_name.clone(),
         parameters: vec![ASTTypedParameterDef {
             name: "address".into(),
-            type_ref,
+            ast_type,
         }],
         body,
         inline: false,
@@ -129,7 +125,7 @@ fn create_free_body(
         CodeGen::add(&mut result, &format!("mov {ws} ebx, $address"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
         for (i, property) in struct_def.clone().properties.iter().enumerate() {
-            if let Some(name) = CodeGen::get_reference_type_name(&property.type_ref.ast_type) {
+            if let Some(name) = CodeGen::get_reference_type_name(&property.ast_type) {
                 if function_name == "deref" {
                     result.push_str(&backend.call_deref(
                         &format!("[ebx + {}]", i * wl),
@@ -165,5 +161,5 @@ pub fn struct_has_references(stuct_def: &ASTTypedStructDef) -> bool {
     stuct_def
         .properties
         .iter()
-        .any(|it| CodeGen::get_reference_type_name(&it.type_ref.ast_type).is_some())
+        .any(|it| CodeGen::get_reference_type_name(&it.ast_type).is_some())
 }

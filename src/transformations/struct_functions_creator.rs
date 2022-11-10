@@ -2,7 +2,6 @@ use crate::codegen::backend::Backend;
 use crate::codegen::{CodeGen, EnhancedASTModule};
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType,
-    ASTTypeRef,
 };
 use linked_hash_map::LinkedHashMap;
 
@@ -13,21 +12,17 @@ pub fn struct_functions_creator(
     let mut functions_by_name = module.functions_by_name.clone();
 
     for struct_def in &module.structs {
-        let param_types: Vec<ASTTypeRef> = struct_def
+        let param_types: Vec<ASTType> = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTTypeRef::parametric(it, false))
+            .map(|it| ASTType::Parametric(it.into()))
             .collect();
 
         let ast_type = ASTType::Custom {
             name: struct_def.name.clone(),
             param_types: param_types.clone(),
         };
-        let type_ref = ASTTypeRef {
-            ast_type,
-            ast_ref: true,
-        };
-        let return_type = Some(type_ref);
+        let return_type = Some(ast_type);
         let body_str = struct_constructor_body(backend, struct_def);
         let body = ASTFunctionBody::ASMBody(body_str);
 
@@ -36,7 +31,7 @@ pub fn struct_functions_creator(
             .iter()
             .map(|it| ASTParameterDef {
                 name: it.name.clone(),
-                type_ref: it.type_ref.clone(),
+                ast_type: it.ast_type.clone(),
             })
             .collect();
 
@@ -142,22 +137,19 @@ fn create_function_for_struct_property(
     let param_types = struct_def
         .type_parameters
         .iter()
-        .map(|it| ASTTypeRef::parametric(it, false))
+        .map(|it| ASTType::Parametric(it.into()))
         .collect();
 
     ASTFunctionDef {
         name: struct_def.name.clone() + "_" + &property_def.name,
         parameters: vec![ASTParameterDef {
             name: "v".into(),
-            type_ref: ASTTypeRef {
-                ast_type: ASTType::Custom {
-                    name: struct_def.name.clone(),
-                    param_types,
-                },
-                ast_ref: false,
+            ast_type: ASTType::Custom {
+                name: struct_def.name.clone(),
+                param_types,
             },
         }],
-        return_type: Some(property_def.type_ref.clone()),
+        return_type: Some(property_def.ast_type.clone()),
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
         param_types: struct_def.type_parameters.clone(),
         inline: true,

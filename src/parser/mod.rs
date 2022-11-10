@@ -298,12 +298,12 @@ impl Parser {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
                         if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
                             self.i = next_i;
-                            if let Some((type_ref, next_i)) =
-                                TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
+                            if let Some((ast_type, next_i)) =
+                                TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
                             {
                                 self.i = next_i;
                                 self.parser_data.push(ParserData::FunctionDefParameter(
-                                    ASTParameterDef { name, type_ref },
+                                    ASTParameterDef { name, ast_type },
                                 ));
                                 self.state.pop();
                                 continue;
@@ -349,14 +349,14 @@ impl Parser {
                 }
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
-                        if let Some((type_ref, next_i)) =
-                            TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
+                        if let Some((ast_type, next_i)) =
+                            TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
                         {
                             self.i = next_i;
 
                             let mut def = def.clone();
                             self.i = next_i;
-                            def.return_type = Some(type_ref);
+                            def.return_type = Some(ast_type);
                             let l = self.parser_data.len();
                             self.parser_data[l - 1] = ParserData::FunctionDef(def);
                             self.state.pop();
@@ -603,11 +603,11 @@ impl Parser {
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                if let Some((ref type_ref, next_i)) =
-                    TypeParser::new(self).try_parse_type_ref(0, &def.param_types)
+                if let Some((ref ast_type, next_i)) =
+                    TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
                 {
                     self.i = next_i;
-                    def.return_type = Some(type_ref.clone());
+                    def.return_type = Some(ast_type.clone());
                 } else {
                     def.return_type = None
                 }
@@ -1034,7 +1034,7 @@ mod tests {
 
     #[test]
     fn function_def_with_type_parameters() {
-        let lexer = Lexer::new("fn p<T,T1>() {}".into());
+        let lexer = Lexer::new("fn p<T,T1>() {}".into(), "a test file".into());
 
         let mut parser = Parser::new(lexer, None);
 

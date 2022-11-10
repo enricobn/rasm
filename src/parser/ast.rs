@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 pub struct ASTFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
-    pub return_type: Option<ASTTypeRef>,
+    pub return_type: Option<ASTType>,
     pub body: ASTFunctionBody,
     pub inline: bool,
     pub param_types: Vec<String>,
@@ -68,8 +68,8 @@ pub enum BuiltinTypeKind {
     ASTString,
     ASTI32,
     Lambda {
-        parameters: Vec<ASTTypeRef>,
-        return_type: Option<Box<ASTTypeRef>>,
+        parameters: Vec<ASTType>,
+        return_type: Option<Box<ASTType>>,
     },
 }
 
@@ -79,7 +79,7 @@ pub enum ASTType {
     Parametric(String),
     Custom {
         name: String,
-        param_types: Vec<ASTTypeRef>,
+        param_types: Vec<ASTType>,
     },
 }
 
@@ -125,60 +125,26 @@ impl Display for ASTType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTParameterDef {
     pub name: String,
-    pub type_ref: ASTTypeRef,
+    pub ast_type: ASTType,
 }
 
 impl Display for ASTParameterDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{}:{}", self.name, self.type_ref))
+        f.write_str(&format!("{}:{}", self.name, self.ast_type))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTStructPropertyDef {
     pub name: String,
-    pub type_ref: ASTTypeRef,
+    pub ast_type: ASTType,
 }
 
 impl ASTParameterDef {
-    pub fn new(name: &str, type_ref: ASTTypeRef) -> ASTParameterDef {
+    pub fn new(name: &str, ast_type: ASTType) -> ASTParameterDef {
         ASTParameterDef {
             name: name.into(),
-            type_ref,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ASTTypeRef {
-    pub ast_type: ASTType,
-    pub ast_ref: bool,
-}
-
-impl Display for ASTTypeRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.ast_ref {
-            f.write_str("&")?
-        }
-        f.write_str(&format!("{}", self.ast_type))
-    }
-}
-
-impl ASTTypeRef {
-    pub fn parametric(name: &str, ast_ref: bool) -> ASTTypeRef {
-        ASTTypeRef {
-            ast_type: ASTType::Parametric(name.into()),
-            ast_ref,
-        }
-    }
-
-    pub fn custom(name: &str, ast_ref: bool, param_types: Vec<ASTTypeRef>) -> ASTTypeRef {
-        ASTTypeRef {
-            ast_type: ASTType::Custom {
-                name: name.into(),
-                param_types,
-            },
-            ast_ref,
+            ast_type,
         }
     }
 }
@@ -328,7 +294,7 @@ pub struct ASTTypeDef {
     pub type_parameters: Vec<String>,
 }
 
-pub fn lambda(return_type: Option<Box<ASTTypeRef>>) -> ASTType {
+pub fn lambda(return_type: Option<Box<ASTType>>) -> ASTType {
     ASTType::Builtin(BuiltinTypeKind::Lambda {
         parameters: Vec::new(),
         return_type,

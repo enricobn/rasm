@@ -5,7 +5,7 @@ include "vec.rasm"
 /**
  * Prints the string to standard output adding a line feed to the end.
  **/
-fn sprintln(s: &str) {
+fn sprintln(s: str) {
     sprint(s);
     println();
 }

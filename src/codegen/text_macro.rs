@@ -153,7 +153,7 @@ impl TextMacroEvaluator {
                 .iter()
                 .find(|it| it.name == par_name)
             {
-                CodeGen::get_reference_type_name(&par.type_ref.ast_type).is_some()
+                CodeGen::get_reference_type_name(&par.ast_type).is_some()
             } else {
                 false
             }
@@ -412,8 +412,8 @@ mod tests {
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
     use crate::codegen::MemoryValue;
     use crate::type_check::typed_ast::{
-        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
-        ASTTypedType, ASTTypedTypeRef, BuiltinTypedTypeKind,
+        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
+        BuiltinTypedTypeKind,
     };
     use linked_hash_map::LinkedHashMap;
     use std::collections::HashSet;
@@ -492,10 +492,7 @@ mod tests {
             name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
-                type_ref: ASTTypedTypeRef {
-                    ast_ref: false,
-                    ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
-                },
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
@@ -526,10 +523,7 @@ mod tests {
             name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
-                type_ref: ASTTypedTypeRef {
-                    ast_ref: false,
-                    ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
-                },
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
@@ -565,17 +559,6 @@ mod tests {
         );
 
         assert_eq!(result, "mov     eax, 1          ; $call(any)");
-    }
-
-    fn simple_module_def() -> ASTTypedModule {
-        ASTTypedModule {
-            body: vec![],
-            functions_by_name: Default::default(),
-            enums: vec![],
-            structs: vec![],
-            native_body: "".to_string(),
-            types: vec![],
-        }
     }
 
     fn backend() -> BackendAsm386 {
