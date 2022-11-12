@@ -69,6 +69,7 @@ pub enum BuiltinTypeKind {
     String,
     I32,
     Bool,
+    Char,
     Lambda {
         parameters: Vec<ASTType>,
         return_type: Option<Box<ASTType>>,
@@ -92,6 +93,7 @@ impl Display for ASTType {
                 BuiltinTypeKind::String => f.write_str("str"),
                 BuiltinTypeKind::I32 => f.write_str("i32"),
                 BuiltinTypeKind::Bool => f.write_str("bool"),
+                BuiltinTypeKind::Char => f.write_str("char"),
                 BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,

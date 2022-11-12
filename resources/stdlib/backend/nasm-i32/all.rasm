@@ -38,7 +38,7 @@ asm argc() -> i32 /{
     mov     eax,[_rasm_args]
 }/
 
-// TODO unsafe
+// TODO unsafe use Option
 asm argv(i: i32) -> str /{
     push edx ; since the mul function stores the result even in edx
     push ebx

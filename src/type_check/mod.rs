@@ -350,6 +350,9 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
             BuiltinTypeKind::Bool => {
                 vec![]
             }
+            BuiltinTypeKind::Char => {
+                vec![]
+            }
             BuiltinTypeKind::Lambda {
                 parameters,
                 return_type,
@@ -1199,6 +1202,7 @@ fn extract_generic_types_from_effective_type(
             BuiltinTypeKind::String => {}
             BuiltinTypeKind::I32 => {}
             BuiltinTypeKind::Bool => {}
+            BuiltinTypeKind::Char => {}
             BuiltinTypeKind::Lambda {
                 parameters: p_parameters,
                 return_type: p_return_type,

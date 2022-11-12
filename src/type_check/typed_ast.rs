@@ -62,6 +62,7 @@ pub enum BuiltinTypedTypeKind {
     String,
     I32,
     Bool,
+    Char,
     Lambda {
         parameters: Vec<ASTTypedType>,
         return_type: Option<Box<ASTTypedType>>,
@@ -83,6 +84,7 @@ impl Display for ASTTypedType {
                 BuiltinTypedTypeKind::String => f.write_str("str"),
                 BuiltinTypedTypeKind::I32 => f.write_str("i32"),
                 BuiltinTypedTypeKind::Bool => f.write_str("bool"),
+                BuiltinTypedTypeKind::Char => f.write_str("char"),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -1025,6 +1027,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
             BuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             BuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
             BuiltinTypeKind::Bool => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
+            BuiltinTypeKind::Char => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
             BuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
