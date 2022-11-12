@@ -108,7 +108,7 @@ inline asm greater(a: i32, b: i32) -> bool /{
     mov     eax,0 ; false
 }/
 
-/** TODO it should be a bool
+/**
  *  a  == b
  *  false = 0 true = 1
  **/

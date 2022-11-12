@@ -12,6 +12,7 @@ pub struct Statics {
     statics: LinkedHashMap<String, MemoryValue>,
     // string -> (label, value_label)
     strings_map: LinkedHashMap<String, (String, String)>,
+    chars_map: LinkedHashMap<char, (String, String)>,
 }
 
 impl Statics {
@@ -20,6 +21,7 @@ impl Statics {
             id: 0,
             statics: LinkedHashMap::new(),
             strings_map: LinkedHashMap::new(),
+            chars_map: LinkedHashMap::new(),
         }
     }
 
@@ -32,6 +34,21 @@ impl Statics {
 
             self.strings_map
                 .insert(s.into(), (label.clone(), value_label));
+
+            label
+        }
+    }
+
+    pub fn add_char(&mut self, c: &char) -> String {
+        if let Some((label, _)) = self.chars_map.get(c) {
+            label.clone()
+        } else {
+            let value_label =
+                self.insert_prefix("_cv".into(), MemoryValue::StringValue(c.to_string()));
+            let label = self.insert_prefix("_c".into(), Mem(1, MemoryUnit::Words));
+
+            self.chars_map
+                .insert(c.clone(), (label.clone(), value_label));
 
             label
         }

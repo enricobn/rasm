@@ -17,6 +17,7 @@ enum LexStatus {
     Numeric,
     String,
     WhiteSpace,
+    Char,
 }
 
 pub struct Lexer {
@@ -89,6 +90,13 @@ impl Lexer {
             _ => None,
         }
     }
+
+    fn panic(&self, message: &str) -> ! {
+        panic!(
+            "Error at {}:{}:{} {message}",
+            self.source_file, self.row, self.column
+        )
+    }
 }
 
 const END_OF_FILE: char = '\u{0}';
@@ -158,6 +166,8 @@ impl Iterator for Lexer {
                     } else if c.is_alphanumeric() {
                         status = LexStatus::AlphaNumeric;
                         actual.push(c);
+                    } else if c == '\'' {
+                        status = LexStatus::Char
                     } else if c != END_OF_FILE {
                         panic!(
                             "unknown char '{}' ({}) in {} at {},{} ***",
@@ -179,6 +189,20 @@ impl Iterator for Lexer {
                 LexStatus::String => {
                     if c == '"' {
                         let token = self.some_token(TokenKind::StringLiteral(actual));
+                        self.index += 1;
+                        self.column += 1;
+                        return token;
+                    } else {
+                        actual.push(c);
+                    }
+                }
+                LexStatus::Char => {
+                    if c == '\'' {
+                        if actual.chars().count() != 1 {
+                            self.panic(&format!("Invalid char literal '{actual}'"))
+                        }
+                        let token =
+                            self.some_token(TokenKind::CharLiteral(actual.chars().next().unwrap()));
                         self.index += 1;
                         self.column += 1;
                         return token;

@@ -61,6 +61,7 @@ pub struct Parser {
 pub enum ValueType {
     Boolean(bool),
     Number(i32),
+    Char(char),
 }
 
 #[derive(Clone, Debug)]
@@ -502,6 +503,12 @@ impl Parser {
                 self.add_parameter_to_call_and_update_parser_data(
                     call,
                     ASTExpression::StringLiteral(value.clone()),
+                );
+                return ProcessResult::Continue;
+            } else if let TokenKind::CharLiteral(c) = &token.kind {
+                self.add_parameter_to_call_and_update_parser_data(
+                    call,
+                    ASTExpression::Value(ValueType::Char(*c), self.get_index_from_token(&token)),
                 );
                 return ProcessResult::Continue;
             } else if let TokenKind::Number(value) = &token.kind {

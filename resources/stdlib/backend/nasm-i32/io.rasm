@@ -95,7 +95,7 @@ asm sprint(s: str) /{
     pop     edx
 }/
 
-fn printESC() /{
+asm printESC() /{
     push    eax
     push    ebx
     push    ecx

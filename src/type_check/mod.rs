@@ -110,7 +110,7 @@ pub fn convert(
                             }
                             Ok(None) => new_body.push(statement.clone()),
                             Err(e) => {
-                                panic!("{e}");
+                                panic!("{e} expression: {:?}", expr);
                             }
                         }
                     } else {
@@ -822,6 +822,17 @@ fn convert_call(
                             &mut expressions,
                         )? || something_to_convert;
                     }
+                    ValueType::Char(_) => {
+                        debug_i!("calling update for Char");
+                        something_to_convert = update(
+                            &ASTType::Builtin(BuiltinTypeKind::Char),
+                            expr.clone(),
+                            par,
+                            &mut resolved_param_types,
+                            &mut converted_parameters,
+                            &mut expressions,
+                        )? || something_to_convert;
+                    }
                 },
                 ASTExpression::Lambda(lambda) => {
                     let mut effective_lambda = if let Some(new_lambda) = convert_lambda(
@@ -1167,6 +1178,7 @@ fn get_type_of_expression(
         ASTExpression::Value(val_type, _) => match val_type {
             ValueType::Boolean(_) => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
             ValueType::Number(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+            ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
         },
         ASTExpression::Lambda(_) => {
             todo!()

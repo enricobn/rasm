@@ -1,4 +1,9 @@
 include "std.rasm"
 
+cprint('è');
+println();
+bprintln(ceq('A', 'A'));
+bprintln(ceq('A', 'b'));
+
 //listPrintln(lines("first\nsecond\nthird\n☀\n"), { it -> sprint(it); });
 listPrintln(chars("Hello"), { it -> sprint(it); });

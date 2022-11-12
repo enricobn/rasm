@@ -755,6 +755,9 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::StringLiteral(_) => {
                                     panic!("unsupported");
                                 }
+                                ASTTypedExpression::CharLiteral(_) => {
+                                    panic!("unsupported");
+                                }
                                 ASTTypedExpression::Lambda(_) => {
                                     panic!("unsupported");
                                 }
@@ -788,6 +791,18 @@ impl<'a> CodeGen<'a> {
                                             &format!(
                                                 "mov     {} eax, {n}",
                                                 self.backend.word_size()
+                                            ),
+                                            None,
+                                            true,
+                                        );
+                                    }
+                                    ValueType::Char(c) => {
+                                        CodeGen::add(
+                                            &mut before,
+                                            &format!(
+                                                "mov     {} eax, {}",
+                                                self.backend.word_size(),
+                                                *c as u32
                                             ),
                                             None,
                                             true,
@@ -1178,6 +1193,10 @@ impl<'a> CodeGen<'a> {
                         let label = self.statics.add_str(value);
                         call_parameters.add_string_literal(&param_name, label, None);
                     }
+                    ASTTypedExpression::CharLiteral(c) => {
+                        let label = self.statics.add_char(c);
+                        call_parameters.add_string_literal(&param_name, label, None);
+                    }
                     ASTTypedExpression::Value(value_type, _) => match value_type {
                         ValueType::Boolean(b) => {
                             if *b {
@@ -1187,6 +1206,9 @@ impl<'a> CodeGen<'a> {
                             }
                         }
                         ValueType::Number(n) => call_parameters.add_number(&param_name, n, None),
+                        ValueType::Char(c) => {
+                            call_parameters.add_number(&param_name, &(*c as i32), None)
+                        }
                     },
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let mut added_to_stack = added_to_stack.clone();

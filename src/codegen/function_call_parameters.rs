@@ -411,6 +411,7 @@ impl<'a> FunctionCallParameters<'a> {
     ) -> bool {
         match expr {
             ASTTypedExpression::StringLiteral(_) => false,
+            ASTTypedExpression::CharLiteral(_) => false,
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if context.get(&call.function_name).is_some() {
                     true

@@ -211,6 +211,7 @@ impl Display for ASTExpression {
             ASTExpression::Value(val_type, _) => match val_type {
                 ValueType::Boolean(b) => f.write_str(&format!("{b}")),
                 ValueType::Number(n) => f.write_str(&format!("{n}")),
+                ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }

@@ -164,6 +164,7 @@ impl Display for ASTTypedFunctionCall {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedExpression {
     StringLiteral(String),
+    CharLiteral(char),
     ASTFunctionCallExpression(ASTTypedFunctionCall),
     ValueRef(String, ASTIndex),
     Value(ValueType, ASTIndex),
@@ -175,6 +176,7 @@ impl Display for ASTTypedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypedExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
+            ASTTypedExpression::CharLiteral(c) => f.write_str(&format!("'{c}'")),
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
@@ -184,6 +186,7 @@ impl Display for ASTTypedExpression {
             ASTTypedExpression::Value(val_type, _) => match val_type {
                 ValueType::Boolean(b) => f.write_str(&format!("{b}")),
                 ValueType::Number(n) => f.write_str(&format!("{n}")),
+                ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }
@@ -728,6 +731,9 @@ fn get_type_of_typed_expression(
         ASTTypedExpression::StringLiteral(_) => {
             Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
         }
+        ASTTypedExpression::CharLiteral(_) => {
+            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char))
+        }
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
             debug!("function call expression");
 
@@ -770,6 +776,7 @@ fn get_type_of_typed_expression(
         ASTTypedExpression::Value(val_type, _) => match val_type {
             ValueType::Boolean(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
             ValueType::Number(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+            ValueType::Char(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
         },
         ASTTypedExpression::Lambda(lambda_def) => {
             let mut context = TypedValContext::new(Some(context));

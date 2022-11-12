@@ -186,3 +186,36 @@ asm seq(s1: str, s2: str) -> bool /{
     pop   ecx
     pop   ebx
 }/
+
+asm cprint(c: char) /{
+    push    edx
+    push    ecx
+    push    eax
+
+    $call(malloc,2)
+    mov     ecx, [eax]
+    mov     dword edx, $c
+    mov     dword [ecx],edx
+    mov     dword [ecx + 1],0
+
+    mov     dword edx, 1
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+
+    pop     eax
+    pop     ecx
+    pop     edx
+}/
+
+/** TODO it should be a bool
+ *  a  == b
+ *  false = 0 true = 1
+ **/
+inline asm ceq(a: char, b: char) -> bool /{
+    mov     eax,$a
+    cmp     eax,$b
+    mov     eax,1 ; true
+    je      $+7  ; Jump if equals
+    mov     eax,0 ; false
+}/

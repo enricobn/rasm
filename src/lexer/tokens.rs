@@ -26,6 +26,7 @@ pub enum TokenKind {
     Number(String),
     Punctuation(PunctuationKind),
     StringLiteral(String),
+    CharLiteral(char),
     WhiteSpaces(String),
 }
 
@@ -106,6 +107,7 @@ impl Display for TokenKind {
             TokenKind::WhiteSpaces(_) => {
                 write!(f, "WS")
             }
+            TokenKind::CharLiteral(c) => write!(f, "{c}"),
         }
     }
 }
