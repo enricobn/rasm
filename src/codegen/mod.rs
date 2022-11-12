@@ -14,6 +14,7 @@ use crate::parser::ast::{
     ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
     ASTTypeDef,
 };
+use crate::parser::ValueType;
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
 use std::borrow::Borrow;
@@ -720,7 +721,7 @@ impl<'a> CodeGen<'a> {
 
                                     lambda_calls.append(&mut lambda_calls_);
                                 }
-                                ASTTypedExpression::Val(val) => {
+                                ASTTypedExpression::ValueRef(val, _index) => {
                                     // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
                                     let tmp_stack = StackVals::new();
 
@@ -754,12 +755,45 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::StringLiteral(_) => {
                                     panic!("unsupported");
                                 }
-                                ASTTypedExpression::Number(_) => {
-                                    panic!("unsupported");
-                                }
                                 ASTTypedExpression::Lambda(_) => {
                                     panic!("unsupported");
                                 }
+                                ASTTypedExpression::Value(value_type, _) => match value_type {
+                                    ValueType::Boolean(b) => {
+                                        if *b {
+                                            CodeGen::add(
+                                                &mut before,
+                                                &format!(
+                                                    "mov     {} eax, 1",
+                                                    self.backend.word_size()
+                                                ),
+                                                None,
+                                                true,
+                                            );
+                                        } else {
+                                            CodeGen::add(
+                                                &mut before,
+                                                &format!(
+                                                    "mov     {} eax, 0",
+                                                    self.backend.word_size()
+                                                ),
+                                                None,
+                                                true,
+                                            );
+                                        }
+                                    }
+                                    ValueType::Number(n) => {
+                                        CodeGen::add(
+                                            &mut before,
+                                            &format!(
+                                                "mov     {} eax, {n}",
+                                                self.backend.word_size()
+                                            ),
+                                            None,
+                                            true,
+                                        );
+                                    }
+                                },
                             }
                         }
                         ASTTypedStatement::LetStatement(name, expr) => match expr {
@@ -1144,9 +1178,16 @@ impl<'a> CodeGen<'a> {
                         let label = self.statics.add_str(value);
                         call_parameters.add_string_literal(&param_name, label, None);
                     }
-                    ASTTypedExpression::Number(n) => {
-                        call_parameters.add_number(&param_name, n, None);
-                    }
+                    ASTTypedExpression::Value(value_type, _) => match value_type {
+                        ValueType::Boolean(b) => {
+                            if *b {
+                                call_parameters.add_number(&param_name, &1, None);
+                            } else {
+                                call_parameters.add_number(&param_name, &0, None);
+                            }
+                        }
+                        ValueType::Number(n) => call_parameters.add_number(&param_name, n, None),
+                    },
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let mut added_to_stack = added_to_stack.clone();
                         added_to_stack.push_str(" + ");
@@ -1181,7 +1222,7 @@ impl<'a> CodeGen<'a> {
 
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
-                    ASTTypedExpression::Val(name) => {
+                    ASTTypedExpression::ValueRef(name, _index) => {
                         let error_msg = format!(
                             "Cannot find val {}, calling function {}",
                             name, function_call.function_name
@@ -1507,7 +1548,7 @@ impl<'a> CodeGen<'a> {
 
     pub fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
         match ast_type {
-            ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString) => Some("str".into()),
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
             ASTTypedType::Enum { name } => Some(name.clone()),
             ASTTypedType::Struct { name } => Some(name.clone()),
             ASTTypedType::Type { name } => Some(name.clone()),

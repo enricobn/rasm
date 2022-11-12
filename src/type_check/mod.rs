@@ -10,6 +10,7 @@ use crate::parser::ast::{
     ASTType, BuiltinTypeKind,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
+use crate::parser::ValueType;
 use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::{debug_i, dedent, indent};
@@ -340,10 +341,13 @@ fn unknown_function_in_expr(
 fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
     return match ast_type {
         ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::ASTString => {
+            BuiltinTypeKind::String => {
                 vec![]
             }
-            BuiltinTypeKind::ASTI32 => {
+            BuiltinTypeKind::I32 => {
+                vec![]
+            }
+            BuiltinTypeKind::Bool => {
                 vec![]
             }
             BuiltinTypeKind::Lambda {
@@ -426,7 +430,7 @@ fn convert_expr_in_body(
         )?
         .map(ASTFunctionCallExpression),
         ASTExpression::StringLiteral(_) => None,
-        ASTExpression::Val(_) => {
+        ASTExpression::ValueRef(_, _) => {
             /*
             if let Some(kind) = context.get(p) {
                 match kind {
@@ -442,7 +446,7 @@ fn convert_expr_in_body(
              */
             None
         }
-        ASTExpression::Number(_) => None,
+        ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(_) => None,
     };
 
@@ -520,7 +524,7 @@ fn convert_last_expr_in_body(
             None
         }
         ASTExpression::StringLiteral(_) => None,
-        ASTExpression::Val(_) => {
+        ASTExpression::ValueRef(_, _index) => {
             /*
             if let Some(kind) = context.get(p) {
                 match kind {
@@ -536,7 +540,7 @@ fn convert_last_expr_in_body(
              */
             None
         }
-        ASTExpression::Number(_) => None,
+        ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(_) => None,
     };
 
@@ -619,7 +623,7 @@ fn convert_call(
                     debug_i!("calling update for StringLiteral");
 
                     something_to_convert = update(
-                        &ASTType::Builtin(BuiltinTypeKind::ASTString),
+                        &ASTType::Builtin(BuiltinTypeKind::String),
                         expr.clone(),
                         par,
                         &mut resolved_param_types,
@@ -751,7 +755,7 @@ fn convert_call(
                         }
                     }
                 }
-                ASTExpression::Val(v) => {
+                ASTExpression::ValueRef(v, _) => {
                     let result_type = match context.get(v).unwrap_or_else(|| {
                         panic!("cannot find val {v}, actual context {:?}", context.names())
                     }) {
@@ -792,17 +796,30 @@ fn convert_call(
                         expressions.push(expr.clone());
                     }
                 }
-                ASTExpression::Number(_) => {
-                    debug_i!("calling update for Number");
-                    something_to_convert = update(
-                        &ASTType::Builtin(BuiltinTypeKind::ASTI32),
-                        expr.clone(),
-                        par,
-                        &mut resolved_param_types,
-                        &mut converted_parameters,
-                        &mut expressions,
-                    )? || something_to_convert;
-                }
+                ASTExpression::Value(val_type, _index) => match val_type {
+                    ValueType::Boolean(_) => {
+                        debug_i!("calling update for Bool");
+                        something_to_convert = update(
+                            &ASTType::Builtin(BuiltinTypeKind::Bool),
+                            expr.clone(),
+                            par,
+                            &mut resolved_param_types,
+                            &mut converted_parameters,
+                            &mut expressions,
+                        )? || something_to_convert;
+                    }
+                    ValueType::Number(_) => {
+                        debug_i!("calling update for Number");
+                        something_to_convert = update(
+                            &ASTType::Builtin(BuiltinTypeKind::I32),
+                            expr.clone(),
+                            par,
+                            &mut resolved_param_types,
+                            &mut converted_parameters,
+                            &mut expressions,
+                        )? || something_to_convert;
+                    }
+                },
                 ASTExpression::Lambda(lambda) => {
                     let mut effective_lambda = if let Some(new_lambda) = convert_lambda(
                         module,
@@ -1115,7 +1132,7 @@ fn get_type_of_expression(
     indent!();
 
     let result = match expr {
-        ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::ASTString)),
+        ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::String)),
         ASTFunctionCallExpression(call) => {
             if let Some(function_def) = module
                 .functions_by_name
@@ -1137,14 +1154,17 @@ fn get_type_of_expression(
                 panic!();
             }
         }
-        ASTExpression::Val(v) => {
+        ASTExpression::ValueRef(v, index) => {
             if let Some(ValKind::ParameterRef(_i, par)) = context.get(v) {
                 Some(par.ast_type.clone())
             } else {
-                panic!("Unknown val {v}");
+                panic!("Unknown val {v} : {index}");
             }
         }
-        ASTExpression::Number(_) => Some(ASTType::Builtin(BuiltinTypeKind::ASTI32)),
+        ASTExpression::Value(val_type, _) => match val_type {
+            ValueType::Boolean(_) => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
+            ValueType::Number(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+        },
         ASTExpression::Lambda(_) => {
             todo!()
         }
@@ -1176,8 +1196,9 @@ fn extract_generic_types_from_effective_type(
 
     match parametric_type {
         ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::ASTString => {}
-            BuiltinTypeKind::ASTI32 => {}
+            BuiltinTypeKind::String => {}
+            BuiltinTypeKind::I32 => {}
+            BuiltinTypeKind::Bool => {}
             BuiltinTypeKind::Lambda {
                 parameters: p_parameters,
                 return_type: p_return_type,
@@ -1240,7 +1261,11 @@ fn extract_generic_types_from_effective_type(
             ASTType::Parametric(_) => {}
             _ => {
                 dedent!();
-                return Err(format!("unmatched types {:?}", effective_type).into());
+                return Err(format!(
+                    "unmatched types generic type: {:?}, effective type: {:?}",
+                    parametric_type, effective_type
+                )
+                .into());
             }
         },
     }
@@ -1538,9 +1563,10 @@ mod tests {
 
     use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModule,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
         ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
     };
+    use crate::parser::ValueType;
     use crate::type_check::{convert, extract_generic_types_from_effective_type, TypeCheckError};
 
     fn init() {
@@ -1630,14 +1656,21 @@ mod tests {
     }
 
     fn i32() -> ASTType {
-        ASTType::Builtin(BuiltinTypeKind::ASTI32)
+        ASTType::Builtin(BuiltinTypeKind::I32)
     }
 
     #[test]
     fn test() {
         init();
 
-        let parameter = ASTExpression::Number(10);
+        let parameter = ASTExpression::Value(
+            ValueType::Number(10),
+            ASTIndex {
+                file_name: None,
+                row: 0,
+                column: 0,
+            },
+        );
 
         let call = ASTStatement::Expression(ASTFunctionCallExpression(ASTFunctionCall {
             original_function_name: "consume".into(),

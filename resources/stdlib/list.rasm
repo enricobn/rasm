@@ -37,11 +37,11 @@ fn listForeach<T>(l: List<T>, map: fn(T) -> ()) {
 }
 
 /** false = 0 true = 1 **/
-fn listAnyMatch<T>(l: List<T>, predicate: fn(T) -> i32) -> i32 {
-    List::match(l, { head,tail -> ifImmediateThen(predicate(head), 1, { -> listAnyMatch(tail, predicate); }); }, { -> itn(0); });
+fn listAnyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
+    List::match(l, { head,tail -> ifImmediateThen(predicate(head), true, { -> listAnyMatch(tail, predicate); }); }, { -> false; });
 }
 
-fn listCount<T>(l: List<T>, predicate: fn(T) -> i32) -> i32 {
+fn listCount<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
     List::match(l, { head,tail -> nadd(listCount(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> itn(0); });
 }
 
@@ -129,7 +129,7 @@ fn listReverse<T>(l: List<T>) -> List<T> {
     }, { -> List::Empty(); });
 }
 
-fn listFilter<T>(l: List<T>, filter: fn(T) -> i32) -> List<T> {
+fn listFilter<T>(l: List<T>, filter: fn(T) -> bool) -> List<T> {
     List::match(l, { head, tail ->
         if(filter(head), { -> List::Full(head, listFilter(tail, filter)); }, { -> listFilter(tail, filter);});
     }, { -> List::Empty(); });

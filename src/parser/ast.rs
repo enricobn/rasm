@@ -1,3 +1,4 @@
+use crate::parser::ValueType;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -65,8 +66,9 @@ pub enum ASTFunctionBody {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltinTypeKind {
-    ASTString,
-    ASTI32,
+    String,
+    I32,
+    Bool,
     Lambda {
         parameters: Vec<ASTType>,
         return_type: Option<Box<ASTType>>,
@@ -87,8 +89,9 @@ impl Display for ASTType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::ASTString => f.write_str("str"),
-                BuiltinTypeKind::ASTI32 => f.write_str("i32"),
+                BuiltinTypeKind::String => f.write_str("str"),
+                BuiltinTypeKind::I32 => f.write_str("i32"),
+                BuiltinTypeKind::Bool => f.write_str("bool"),
                 BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -165,11 +168,30 @@ impl Display for ASTFunctionCall {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ASTIndex {
+    pub file_name: Option<String>,
+    pub row: usize,
+    pub column: usize,
+}
+
+impl Display for ASTIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "{}:{}:{}",
+            &self.file_name.clone().unwrap_or_else(|| "".into()),
+            self.row,
+            self.column
+        ))
+    }
+}
+
+// TODO can we do partialeq? It depends on ASTIndex
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTFunctionCall),
-    Val(String),
-    Number(i32),
+    ValueRef(String, ASTIndex),
+    Value(ValueType, ASTIndex),
     Lambda(ASTLambdaDef),
     //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
@@ -183,8 +205,11 @@ impl Display for ASTExpression {
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
                 f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
             }
-            ASTExpression::Val(p) => f.write_str(p),
-            ASTExpression::Number(b) => f.write_str(&format!("{b}")),
+            ASTExpression::ValueRef(name, _index) => f.write_str(name),
+            ASTExpression::Value(val_type, _) => match val_type {
+                ValueType::Boolean(b) => f.write_str(&format!("{b}")),
+                ValueType::Number(n) => f.write_str(&format!("{n}")),
+            },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }
     }

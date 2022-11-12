@@ -139,12 +139,14 @@ pub enum KeywordKind {
     Asm,
     Enum,
     Extern,
+    False,
     Fn,
     Include,
     Inline,
     Let,
     Requires,
     Struct,
+    True,
     Type,
 }
 
@@ -154,12 +156,14 @@ impl KeywordKind {
             KeywordKind::Asm => "asm".into(),
             KeywordKind::Enum => "enum".into(),
             KeywordKind::Extern => "extern".into(),
+            KeywordKind::False => "false".into(),
             KeywordKind::Fn => "fn".into(),
             KeywordKind::Include => "include".into(),
             KeywordKind::Inline => "inline".into(),
             KeywordKind::Let => "let".into(),
             KeywordKind::Requires => "requires".into(),
             KeywordKind::Struct => "struct".into(),
+            KeywordKind::True => "true".into(),
             KeywordKind::Type => "type".into(),
         }
     }

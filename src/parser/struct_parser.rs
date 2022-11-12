@@ -121,12 +121,12 @@ mod tests {
 
         let x = ASTStructPropertyDef {
             name: "x".into(),
-            ast_type: Builtin(BuiltinTypeKind::ASTI32),
+            ast_type: Builtin(BuiltinTypeKind::I32),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
-            ast_type: Builtin(BuiltinTypeKind::ASTI32),
+            ast_type: Builtin(BuiltinTypeKind::I32),
         };
 
         assert_eq!(
@@ -153,7 +153,7 @@ mod tests {
 
         let x = ASTStructPropertyDef {
             name: "index".into(),
-            ast_type: Builtin(BuiltinTypeKind::ASTI32),
+            ast_type: Builtin(BuiltinTypeKind::I32),
         };
 
         let y = ASTStructPropertyDef {

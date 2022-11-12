@@ -12,7 +12,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         name: "str_deref".into(),
         parameters: vec![ASTParameterDef {
             name: "s".into(),
-            ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
+            ast_type: ASTType::Builtin(BuiltinTypeKind::String),
         }],
         body,
         inline: false,
@@ -27,7 +27,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         name: "str_addRef".into(),
         parameters: vec![ASTParameterDef {
             name: "s".into(),
-            ast_type: ASTType::Builtin(BuiltinTypeKind::ASTString),
+            ast_type: ASTType::Builtin(BuiltinTypeKind::String),
         }],
         body,
         inline: false,

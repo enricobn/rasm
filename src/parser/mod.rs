@@ -12,7 +12,7 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule,
+    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
     ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
 };
 use crate::parser::enum_parser::EnumParser;
@@ -57,6 +57,12 @@ pub struct Parser {
     types: Vec<ASTTypeDef>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueType {
+    Boolean(bool),
+    Number(i32),
+}
+
 #[derive(Clone, Debug)]
 enum ParserData {
     EnumDef(ASTEnumDef),
@@ -65,7 +71,7 @@ enum ParserData {
     FunctionDefParameter(ASTParameterDef),
     LambdaDef(ASTLambdaDef),
     Let(String),
-    Val(String),
+    Val(ASTExpression, ASTIndex),
     StructDef(ASTStructDef),
 }
 
@@ -334,8 +340,9 @@ impl Parser {
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
                         continue;
-                    } else if let Some((val_name, next_i)) = self.try_parse_reference_to_val() {
-                        self.parser_data.push(ParserData::Val(val_name));
+                    } else if let Some((expr, next_i)) = self.try_parse_val() {
+                        self.parser_data
+                            .push(ParserData::Val(expr, self.get_index(0).unwrap()));
                         self.state.push(ParserState::Val);
                         self.i = next_i;
                         continue;
@@ -385,12 +392,12 @@ impl Parser {
                     }
                 }
                 Some(ParserState::Val) => {
-                    if let Some(ParserData::Val(val_name)) = self.last_parser_data() {
+                    if let Some(ParserData::Val(expr, _index)) = self.last_parser_data() {
                         if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
-                            debug!("Found val {} in function {}", val_name, def.name);
+                            debug!("Found {:?} in function {}", expr, def.name);
                             let mut def = def.clone();
                             if let RASMBody(mut calls) = def.body {
-                                calls.push(ASTStatement::Expression(ASTExpression::Val(val_name)));
+                                calls.push(ASTStatement::Expression(expr));
                                 def.body = RASMBody(calls);
                                 let l = self.parser_data.len();
                                 self.parser_data[l - 2] = ParserData::FunctionDef(def);
@@ -406,7 +413,7 @@ impl Parser {
                             let mut def = def.clone();
                             let mut calls = def.body;
 
-                            calls.push(ASTStatement::Expression(ASTExpression::Val(val_name)));
+                            calls.push(ASTStatement::Expression(expr));
                             def.body = calls;
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = ParserData::LambdaDef(def);
@@ -473,6 +480,22 @@ impl Parser {
         }
     }
 
+    fn get_index(&self, n: usize) -> Option<ASTIndex> {
+        self.get_token_n(n).map(|it| ASTIndex {
+            file_name: self.file_name.clone(),
+            row: it.row,
+            column: it.column,
+        })
+    }
+
+    fn get_index_from_token(&self, token: &Token) -> ASTIndex {
+        ASTIndex {
+            file_name: self.file_name.clone(),
+            row: token.row,
+            column: token.column,
+        }
+    }
+
     fn process_function_call(&mut self, token: Token) -> ProcessResult {
         if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
             if let TokenKind::StringLiteral(value) = &token.kind {
@@ -484,10 +507,47 @@ impl Parser {
             } else if let TokenKind::Number(value) = &token.kind {
                 self.add_parameter_to_call_and_update_parser_data(
                     call,
-                    ASTExpression::Number(value.parse().unwrap()),
+                    ASTExpression::Value(
+                        ValueType::Number(value.parse().unwrap()),
+                        self.get_index_from_token(&token),
+                    ),
+                );
+                return ProcessResult::Continue;
+            } else if let TokenKind::KeyWord(KeywordKind::True) = &token.kind {
+                self.add_parameter_to_call_and_update_parser_data(
+                    call,
+                    ASTExpression::Value(
+                        ValueType::Boolean(true),
+                        self.get_index_from_token(&token),
+                    ),
+                );
+                return ProcessResult::Continue;
+            } else if let TokenKind::KeyWord(KeywordKind::False) = &token.kind {
+                self.add_parameter_to_call_and_update_parser_data(
+                    call,
+                    ASTExpression::Value(
+                        ValueType::Boolean(false),
+                        self.get_index_from_token(&token),
+                    ),
                 );
                 return ProcessResult::Continue;
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
+                /*
+                if name == "true" {
+                    self.add_parameter_to_call_and_update_parser_data(
+                        call,
+                        ASTExpression::Value(ValueType::Boolean(true), self.get_index_from_token(&token)),
+                    );
+                    return ProcessResult::Continue;
+                } else if name == "false" {
+                    self.add_parameter_to_call_and_update_parser_data(
+                        call,
+                        ASTExpression::Value(ValueType::Boolean(false), self.get_index_from_token(&token)),
+                    );
+                    return ProcessResult::Continue;
+                } else
+
+                 */
                 if let Some((function_name, next_i)) = self.try_parse_function_call() {
                     self.parser_data
                         .push(ParserData::FunctionCall(ASTFunctionCall {
@@ -500,7 +560,7 @@ impl Parser {
                 } else {
                     self.add_parameter_to_call_and_update_parser_data(
                         call,
-                        ASTExpression::Val(name.clone()),
+                        ASTExpression::ValueRef(name.clone(), self.get_index_from_token(&token)),
                     );
                 }
                 return ProcessResult::Continue;
@@ -854,12 +914,33 @@ impl Parser {
         (parameter_names, self.i + n)
     }
 
-    fn try_parse_reference_to_val(&self) -> Option<(String, usize)> {
-        if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
+    fn try_parse_val(&self) -> Option<(ASTExpression, usize)> {
+        if let Some(TokenKind::KeyWord(KeywordKind::True)) = self.get_token_kind() {
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
                 self.get_token_kind_n(1)
             {
-                return Some((name.clone(), self.get_i() + 2));
+                return Some((
+                    ASTExpression::Value(ValueType::Boolean(true), self.get_index(0).unwrap()),
+                    self.get_i() + 2,
+                ));
+            }
+        } else if let Some(TokenKind::KeyWord(KeywordKind::False)) = self.get_token_kind() {
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                self.get_token_kind_n(1)
+            {
+                return Some((
+                    ASTExpression::Value(ValueType::Boolean(false), self.get_index(0).unwrap()),
+                    self.get_i() + 2,
+                ));
+            }
+        } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                self.get_token_kind_n(1)
+            {
+                return Some((
+                    ASTExpression::ValueRef(name.clone(), self.get_index(0).unwrap()),
+                    self.get_i() + 2,
+                ));
             }
         }
         None
@@ -946,7 +1027,7 @@ mod tests {
 
     use crate::lexer::Lexer;
     use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTStatement};
-    use crate::parser::Parser;
+    use crate::parser::{Parser, ValueType};
 
     #[test]
     fn test() {
@@ -1001,12 +1082,12 @@ mod tests {
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
             assert_eq!("nadd", call.function_name);
             assert_eq!(2, call.parameters.len());
-            if let Some(ASTExpression::Number(n)) = call.parameters.get(0) {
+            if let Some(ASTExpression::Value(ValueType::Number(n), _)) = call.parameters.get(0) {
                 assert_eq!(10, *n);
             } else {
                 panic!();
             }
-            if let Some(ASTExpression::Number(n)) = call.parameters.get(1) {
+            if let Some(ASTExpression::Value(ValueType::Number(n), _)) = call.parameters.get(1) {
                 assert_eq!(20, *n);
             } else {
                 panic!();

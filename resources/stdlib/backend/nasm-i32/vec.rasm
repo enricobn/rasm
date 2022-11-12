@@ -122,7 +122,7 @@ asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 }/
 
 /** false = 0 true = any other value **/
-asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
+asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     push    ebx
     push    ecx
 
@@ -150,7 +150,7 @@ asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
     pop     ebx
 }/
 
-asm vecCount<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
+asm vecCount<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -183,7 +183,7 @@ asm vecCount<T>(vec: Vec<T>, f: fn(T) -> i32) -> i32 /{
 }/
 
 // TODO the resulting vector is allocated with the size of the original vector, but the count of the elements is right
-asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> i32) -> Vec<T> /{
+asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx

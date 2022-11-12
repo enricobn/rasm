@@ -492,7 +492,7 @@ mod tests {
             name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
@@ -523,7 +523,7 @@ mod tests {
             name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),

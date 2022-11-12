@@ -4,9 +4,9 @@ include "std.rasm"
 //False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
 
 
-    ifRun(0,{ -> sprintln("True");},{ -> sprintln("False");});
+    ifRun(false,{ -> sprintln("True");},{ -> sprintln("False");});
 
-    ifRun(1,{ -> sprintln("True");},{ -> sprintln("False");});
+    ifRun(true,{ -> sprintln("True");},{ -> sprintln("False");});
 
     ifRun(eq(0,0),{ -> sprintln("equal");},{ -> sprintln("not equal");});
 
@@ -26,21 +26,21 @@ include "std.rasm"
 
     ifRun(lessOrEqual(2,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
 
-    nprintln(ifImmediate(0, 100, 200));
-    nprintln(ifImmediate(1, 100, 200));
+    nprintln(ifImmediate(false, 100, 200));
+    nprintln(ifImmediate(true, 100, 200));
 
     // TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
-    assertFalse(or(0, 0));
-    assert(or(1, 0));
-    assert(or(0, 1));
-    assert(or(1, 1));
+    assertFalse(or(false, false));
+    assert(or(true, false));
+    assert(or(false, true));
+    assert(or(true, true));
 
-    assertFalse(and(0, 0));
-    assertFalse(and(1, 0));
-    assertFalse(and(0, 1));
-    assert(and(1, 1));
-    assert(not(0));
-    assertFalse(not(1));
+    assertFalse(and(false, false));
+    assertFalse(and(true, false));
+    assertFalse(and(false, true));
+    assert(and(true, true));
+    assert(not(false));
+    assertFalse(not(true));
 
 
 

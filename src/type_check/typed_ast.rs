@@ -1,9 +1,10 @@
 use crate::codegen::{EnhancedASTModule, TypedValContext, TypedValKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
     ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
+use crate::parser::ValueType;
 use crate::type_check::{substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -58,8 +59,9 @@ pub enum ASTTypedFunctionBody {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltinTypedTypeKind {
-    ASTString,
-    ASTI32,
+    String,
+    I32,
+    Bool,
     Lambda {
         parameters: Vec<ASTTypedType>,
         return_type: Option<Box<ASTTypedType>>,
@@ -78,8 +80,9 @@ impl Display for ASTTypedType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypedType::Builtin(kind) => match kind {
-                BuiltinTypedTypeKind::ASTString => f.write_str("str"),
-                BuiltinTypedTypeKind::ASTI32 => f.write_str("i32"),
+                BuiltinTypedTypeKind::String => f.write_str("str"),
+                BuiltinTypedTypeKind::I32 => f.write_str("i32"),
+                BuiltinTypedTypeKind::Bool => f.write_str("bool"),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -160,8 +163,8 @@ impl Display for ASTTypedFunctionCall {
 pub enum ASTTypedExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTTypedFunctionCall),
-    Val(String),
-    Number(i32),
+    ValueRef(String, ASTIndex),
+    Value(ValueType, ASTIndex),
     Lambda(ASTTypedLambdaDef),
     //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
@@ -175,8 +178,11 @@ impl Display for ASTTypedExpression {
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
                 f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
             }
-            ASTTypedExpression::Val(p) => f.write_str(p),
-            ASTTypedExpression::Number(n) => f.write_str(&format!("{n}")),
+            ASTTypedExpression::ValueRef(name, _index) => f.write_str(name),
+            ASTTypedExpression::Value(val_type, _) => match val_type {
+                ValueType::Boolean(b) => f.write_str(&format!("{b}")),
+                ValueType::Number(n) => f.write_str(&format!("{n}")),
+            },
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }
     }
@@ -702,7 +708,9 @@ fn verify_function_call(
         debug!("par type {par}");
         assert_eq!(
             get_type_of_typed_expression(module, context, expr, Some(&par)).unwrap(),
-            par
+            par,
+            "expression {:?}",
+            expr
         );
     }
 }
@@ -716,7 +724,7 @@ fn get_type_of_typed_expression(
     debug!("expression {expr} {:?}", ast_type);
     match expr {
         ASTTypedExpression::StringLiteral(_) => {
-            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString))
+            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
         }
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
             debug!("function call expression");
@@ -748,16 +756,19 @@ fn get_type_of_typed_expression(
                 panic!("Cannot find function {}", &call.function_name);
             }
         }
-        ASTTypedExpression::Val(v) => {
-            if let Some(TypedValKind::ParameterRef(_, par)) = context.get(v) {
+        ASTTypedExpression::ValueRef(name, _) => {
+            if let Some(TypedValKind::ParameterRef(_, par)) = context.get(name) {
                 Some(par.ast_type.clone())
-            } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(v) {
+            } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(name) {
                 Some(ast_type.clone())
             } else {
-                panic!("Unknown val {v}");
+                panic!("Unknown val {name}");
             }
         }
-        ASTTypedExpression::Number(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTI32)),
+        ASTTypedExpression::Value(val_type, _) => match val_type {
+            ValueType::Boolean(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
+            ValueType::Number(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+        },
         ASTTypedExpression::Lambda(lambda_def) => {
             let mut context = TypedValContext::new(Some(context));
 
@@ -819,19 +830,17 @@ fn get_type_of_typed_expression(
             };
 
             if let Some(t) = return_type {
-                assert_eq!(
-                    t.as_ref(),
-                    &real_return_type
-                        .clone()
-                        .unwrap_or_else(|| panic!("expected {}", t))
-                )
+                let rt = real_return_type
+                    .clone()
+                    .unwrap_or_else(|| panic!("expected {:?}, but got None", t));
+                assert_eq!(t.as_ref(), &rt, "expression {:?}", expr)
             } else if real_return_type.is_some() {
                 panic!()
             }
 
             Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters: parameters.clone(),
-                return_type: real_return_type.map(|it| Box::new(it)),
+                return_type: real_return_type.map(Box::new),
             }))
         }
     }
@@ -907,8 +916,10 @@ fn expression(expression: &ASTExpression) -> ASTTypedExpression {
         ASTExpression::ASTFunctionCallExpression(fc) => {
             ASTTypedExpression::ASTFunctionCallExpression(function_call(fc))
         }
-        ASTExpression::Val(v) => ASTTypedExpression::Val(v.clone()),
-        ASTExpression::Number(n) => ASTTypedExpression::Number(*n),
+        ASTExpression::ValueRef(v, index) => ASTTypedExpression::ValueRef(v.clone(), index.clone()),
+        ASTExpression::Value(val_type, index) => {
+            ASTTypedExpression::Value(val_type.clone(), index.clone())
+        }
         ASTExpression::Lambda(l) => ASTTypedExpression::Lambda(lambda_def(l)),
     }
 }
@@ -1011,8 +1022,9 @@ fn parameter_def(
 fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str) -> ASTTypedType {
     match ast_type {
         ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::ASTString => ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTString),
-            BuiltinTypeKind::ASTI32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::ASTI32),
+            BuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+            BuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+            BuiltinTypeKind::Bool => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
             BuiltinTypeKind::Lambda {
                 return_type,
                 parameters,

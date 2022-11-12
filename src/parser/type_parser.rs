@@ -44,9 +44,11 @@ impl<'a> TypeParser<'a> {
             let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::AlphaNumeric(type_name) = kind {
                 if type_name == "i32" {
-                    Some((Builtin(BuiltinTypeKind::ASTI32), next_i))
+                    Some((Builtin(BuiltinTypeKind::I32), next_i))
                 } else if type_name == "str" {
-                    Some((Builtin(BuiltinTypeKind::ASTString), next_i))
+                    Some((Builtin(BuiltinTypeKind::String), next_i))
+                } else if type_name == "bool" {
+                    Some((Builtin(BuiltinTypeKind::Bool), next_i))
                 } else if context_param_types.contains(type_name) {
                     Some((Parametric(type_name.into()), next_i))
                 } else {
@@ -204,13 +206,13 @@ mod tests {
     #[test]
     fn test_i32() {
         let parse_result = try_parse("i32");
-        assert_eq!(Some((Builtin(BuiltinTypeKind::ASTI32), 1)), parse_result);
+        assert_eq!(Some((Builtin(BuiltinTypeKind::I32), 1)), parse_result);
     }
 
     #[test]
     fn test_str() {
         let parse_result = try_parse("str");
-        assert_eq!(Some((Builtin(BuiltinTypeKind::ASTString), 1)), parse_result);
+        assert_eq!(Some((Builtin(BuiltinTypeKind::String), 1)), parse_result);
     }
 
     #[test]
@@ -222,13 +224,13 @@ mod tests {
     #[test]
     fn test_lambda1() {
         let parse_result = try_parse("fn(i32,str) -> i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(ASTI32), Builtin(ASTString)], return_type: Some(Builtin(ASTI32)) }), 8))");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(I32), Builtin(String)], return_type: Some(Builtin(I32)) }), 8))");
     }
 
     #[test]
     fn test_lambda2() {
         let parse_result = try_parse("fn(fn() -> (),str) -> i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: None }), Builtin(ASTString)], return_type: Some(Builtin(ASTI32)) }), 13))");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: None }), Builtin(String)], return_type: Some(Builtin(I32)) }), 13))");
     }
 
     #[test]

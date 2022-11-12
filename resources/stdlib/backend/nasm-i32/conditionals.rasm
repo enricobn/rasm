@@ -1,5 +1,4 @@
-/** false = 0 true = any other value **/
-inline asm if<T>(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+13
@@ -14,8 +13,7 @@ inline asm if<T>(cond: i32, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     add     esp, 4
 }/
 
-/** false = 0 true = any other value **/
-inline asm ifRun(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) /{
+inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+13
@@ -37,7 +35,7 @@ inline asm ifRun(cond: i32, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     if you need a short circuit then use if function
     false = 0 true = any other value
 **/
-inline asm ifImmediate<T>(cond: i32, vtrue: T, vfalse: T) -> T /{
+inline asm ifImmediate<T>(cond: bool, vtrue: T, vfalse: T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+10
@@ -59,7 +57,7 @@ inline asm ifImmediate<T>(cond: i32, vtrue: T, vfalse: T) -> T /{
     if you need a full short circuit then use the if function
     false = 0 true = any other value
 **/
-inline asm ifImmediateThen<T>(cond: i32, vtrue: T, ffalse: fn() -> T) -> T /{
+inline asm ifImmediateThen<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+10
@@ -78,7 +76,7 @@ inline asm ifImmediateThen<T>(cond: i32, vtrue: T, ffalse: fn() -> T) -> T /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
+inline asm lessOrEqual(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -90,7 +88,7 @@ inline asm lessOrEqual(a: i32, b: i32) -> i32 /{
  *  a  < b
  *  false = 0 true = 1
  **/
-inline asm less(a: i32, b: i32) -> i32 /{
+inline asm less(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -102,7 +100,7 @@ inline asm less(a: i32, b: i32) -> i32 /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-inline asm greater(a: i32, b: i32) -> i32 /{
+inline asm greater(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -114,7 +112,7 @@ inline asm greater(a: i32, b: i32) -> i32 /{
  *  a  == b
  *  false = 0 true = 1
  **/
-inline asm eq(a: i32, b: i32) -> i32 /{
+inline asm eq(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true

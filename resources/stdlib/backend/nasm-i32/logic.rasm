@@ -1,14 +1,14 @@
-inline asm or(a: i32, b: i32) -> i32 /{
+inline asm or(a: bool, b: bool) -> bool /{
     mov     eax,$a
     or      dword eax,$b
 }/
 
-inline asm and(a: i32, b: i32) -> i32 /{
+inline asm and(a: bool, b: bool) -> bool /{
     mov     eax,$a
     and     dword eax,$b
 }/
 
-inline asm not(a: i32) -> i32 /{
+inline asm not(a: bool) -> bool /{
     mov     eax,$a
     xor     dword eax,1
 }/

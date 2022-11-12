@@ -420,8 +420,8 @@ impl<'a> FunctionCallParameters<'a> {
                         .any(|it| self.expression_reads_from_context(it, context))
                 }
             }
-            ASTTypedExpression::Val(name) => context.get(name).is_some(),
-            ASTTypedExpression::Number(_) => false,
+            ASTTypedExpression::ValueRef(name, _) => context.get(name).is_some(),
+            ASTTypedExpression::Value(_, _) => false,
             ASTTypedExpression::Lambda(lambda_def) => lambda_def
                 .body
                 .iter()

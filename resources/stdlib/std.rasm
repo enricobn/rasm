@@ -18,6 +18,11 @@ fn nprintln(n: i32) {
     println();
 }
 
+fn bprintln(b: bool) {
+    ifRun(b, { -> sprintln("true");}, { -> sprintln("false");});
+}
+
+
 // https://man7.org/linux/man-pages/man4/console_codes.4.html
 fn moveUp(count: i32) {
     printESC();
@@ -26,14 +31,14 @@ fn moveUp(count: i32) {
     sprint("A");
 }
 
-fn assert(value: i32) {
+fn assert(value: bool) {
     ifRun(value,{ -> },{ ->
         sprintln("assertion failed");
         exitMain(1);
     });
 }
 
-fn assertFalse(value: i32) {
+fn assertFalse(value: bool) {
     ifRun(value,{ ->
         sprintln("assertion failed");
         exitMain(1);
