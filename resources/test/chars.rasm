@@ -1,5 +1,9 @@
 include "std.rasm"
 
+cprint('a');
+println();
+cprint('è');
+println();
 cprint('😀');
 println();
 bprintln(ceq('A', 'A'));
