@@ -192,21 +192,38 @@ asm cprint(c: char) /{
     push    ecx
     push    eax
 
-    $call(malloc,5)
-    mov     ecx, [eax]
-    mov     dword edx, $c
-    mov     dword [ecx],edx
-    mov     byte [ecx + 4],0
+    push    dword 0
+    push    dword $c
+    mov     dword ecx,esp
 
-    $call(slen,eax)
+    ; TODO count
+    $call(slenOfAddress,ecx)
     mov     dword edx, eax
     mov     ebx, 1
     mov     eax, 4
     int     80h
+    add     esp,8
 
     pop     eax
     pop     ecx
     pop     edx
+}/
+
+/** Returns the length of the string, but passing not the allocation address, but the real string address **/
+asm slenOfAddress(s: i32) -> i32 /{
+    push    ebx
+    mov     eax, $s
+    mov     ebx, eax
+
+.nextchar:
+    cmp     byte [eax], 0
+    jz      .finished
+    inc     eax
+    jmp     .nextchar
+
+.finished:
+    sub     eax, ebx
+    pop     ebx
 }/
 
 /** TODO it should be a bool
