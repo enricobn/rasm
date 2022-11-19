@@ -180,7 +180,7 @@ fn test_str() {
     test(
         "str",
         Vec::new(),
-        "Hello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n",
+        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n",
     );
 }
 
@@ -196,7 +196,7 @@ fn test_lines() {
 
 #[test]
 fn test_chars() {
-    test("chars", Vec::new(), "è\ntrue\nfalse\nH,e,l,l,o\n");
+    test("chars", Vec::new(), "😀\ntrue\nfalse\nH,e,l,l,o\n");
 }
 
 #[test]

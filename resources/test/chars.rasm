@@ -1,6 +1,6 @@
 include "std.rasm"
 
-cprint('è');
+cprint('😀');
 println();
 bprintln(ceq('A', 'A'));
 bprintln(ceq('A', 'b'));
