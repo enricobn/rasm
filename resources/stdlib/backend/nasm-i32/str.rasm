@@ -192,13 +192,14 @@ asm cprint(c: char) /{
     push    ecx
     push    eax
 
-    $call(malloc,2)
+    $call(malloc,5)
     mov     ecx, [eax]
     mov     dword edx, $c
     mov     dword [ecx],edx
-    mov     dword [ecx + 1],0
+    mov     byte [ecx + 4],0
 
-    mov     dword edx, 1
+    $call(slen,eax)
+    mov     dword edx, eax
     mov     ebx, 1
     mov     eax, 4
     int     80h

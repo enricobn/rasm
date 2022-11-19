@@ -1200,15 +1200,13 @@ impl<'a> CodeGen<'a> {
                     ASTTypedExpression::Value(value_type, _) => match value_type {
                         ValueType::Boolean(b) => {
                             if *b {
-                                call_parameters.add_number(&param_name, &1, None);
+                                call_parameters.add_i32(&param_name, 1, None);
                             } else {
-                                call_parameters.add_number(&param_name, &0, None);
+                                call_parameters.add_i32(&param_name, 0, None);
                             }
                         }
-                        ValueType::Number(n) => call_parameters.add_number(&param_name, n, None),
-                        ValueType::Char(c) => {
-                            call_parameters.add_number(&param_name, &(*c as i32), None)
-                        }
+                        ValueType::Number(n) => call_parameters.add_i32(&param_name, *n, None),
+                        ValueType::Char(c) => call_parameters.add_char(&param_name, *c, None),
                     },
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let mut added_to_stack = added_to_stack.clone();

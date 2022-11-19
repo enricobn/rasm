@@ -100,7 +100,28 @@ impl<'a> FunctionCallParameters<'a> {
         }
     }
 
-    pub fn add_number(&mut self, param_name: &str, n: &i32, comment: Option<&str>) {
+    pub fn add_char(&mut self, param_name: &str, c: char, comment: Option<&str>) {
+        let mut b = [0; 4];
+        c.encode_utf8(&mut b);
+
+        let result = Self::array_to_u32_le(&b);
+
+        self.add_number(param_name, result.to_string(), comment);
+    }
+
+    /// little endian
+    fn array_to_u32_le(array: &[u8; 4]) -> u32 {
+        (array[0] as u32)
+            + ((array[1] as u32) << 8)
+            + ((array[2] as u32) << 16)
+            + ((array[3] as u32) << 24)
+    }
+
+    pub fn add_i32(&mut self, param_name: &str, n: i32, comment: Option<&str>) {
+        self.add_number(param_name, n.to_string(), comment);
+    }
+
+    fn add_number(&mut self, param_name: &str, n: String, comment: Option<&str>) {
         if self.inline {
             self.parameters_values
                 .insert(param_name.into(), format!("{}", n));
