@@ -203,3 +203,38 @@ asm sysClose(descriptor: i32) /{
 
     pop     ebx
 }/
+
+asm cprint(c: char) /{
+    push    edx
+    push    ecx
+    push    ebx
+    push    eax
+
+    mov     dword   edx,1
+    mov     dword   eax,$c
+
+    and     eax,0xFFFFFF00
+    jz     .end
+    inc     edx
+    and     eax,0xFFFF0000
+    jz      .end
+    inc     edx
+    and     eax,0xFF00000
+    jz      .end
+    inc     edx
+.end:
+    ; we use the stack pointer as the address of the "string" to be printed
+    push    dword $c
+    mov     dword ecx,esp
+
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+
+    add     esp,4
+
+    pop     eax
+    pop     ebx
+    pop     ecx
+    pop     edx
+}/

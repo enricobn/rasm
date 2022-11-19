@@ -1,11 +1,8 @@
 include "std.rasm"
 
-cprint('a');
-println();
-cprint('è');
-println();
-cprint('😀');
-println();
+cprintln('a');
+cprintln('è');
+cprintln('😀');
 bprintln(ceq('A', 'A'));
 bprintln(ceq('A', 'b'));
 
