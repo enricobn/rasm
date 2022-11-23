@@ -734,9 +734,9 @@ impl Parser {
         });
         println!();
         module
-            .functions_by_name
-            .values()
-            .for_each(Self::print_function_def)
+            .functions()
+            .iter()
+            .for_each(|it| Self::print_function_def(it))
     }
 
     pub fn print_function_def(f: &ASTFunctionDef) {

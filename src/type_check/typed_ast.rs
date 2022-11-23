@@ -862,7 +862,7 @@ fn add_function(
     function_name: &str,
     mandatory: bool,
 ) {
-    if let Some(f) = module.functions_by_name.get(function_name) {
+    if let Some(f) = module.find_function(function_name) {
         functions_by_name.insert(function_name.into(), function_def(conv_context, f));
     } else if mandatory {
         panic!("Cannot find mandatory function {function_name}");

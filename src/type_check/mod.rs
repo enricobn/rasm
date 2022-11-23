@@ -576,8 +576,7 @@ fn convert_call(
     let mut function_def_from_module = true;
 
     let function_def = module
-        .functions_by_name
-        .get(&call.function_name)
+        .find_function(&call.function_name)
         .unwrap_or_else(|| {
             function_def_from_module = false;
             cloned_typed_context
@@ -1149,8 +1148,7 @@ fn get_type_of_expression(
         ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::String)),
         ASTFunctionCallExpression(call) => {
             if let Some(function_def) = module
-                .functions_by_name
-                .get(&call.function_name)
+                .find_function(&call.function_name)
                 .or_else(|| typed_context.get(&call.function_name))
             {
                 function_def.return_type.clone()

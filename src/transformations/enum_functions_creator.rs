@@ -13,7 +13,8 @@ pub fn enum_functions_creator(
     module: &EnhancedASTModule,
     statics: &mut Statics,
 ) -> EnhancedASTModule {
-    let mut functions_by_name = module.functions_by_name.clone();
+    let mut result = module.clone();
+
     let mut native_body = module.native_body.clone();
 
     for enum_def in module.enums.iter() {
@@ -25,7 +26,7 @@ pub fn enum_functions_creator(
 
         create_constructors(
             backend,
-            &mut functions_by_name,
+            &mut result,
             &mut native_body,
             enum_def,
             &param_types,
@@ -34,25 +35,16 @@ pub fn enum_functions_creator(
 
         create_match_like_function(
             backend,
-            &mut functions_by_name,
+            &mut result,
             &enum_def,
             "Match",
             Some(ASTType::Parametric("_T".into())),
             Some("_T".into()),
         );
 
-        create_match_like_function(
-            backend,
-            &mut functions_by_name,
-            &enum_def,
-            "Run",
-            None,
-            None,
-        );
+        create_match_like_function(backend, &mut result, &enum_def, "Run", None, None);
     }
 
-    let mut result = module.clone();
-    result.functions_by_name = functions_by_name;
     result.native_body = native_body;
 
     result
@@ -60,7 +52,7 @@ pub fn enum_functions_creator(
 
 fn create_match_like_function(
     backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    module: &mut EnhancedASTModule,
     enum_def: &&ASTEnumDef,
     name: &str,
     return_type: Option<ASTType>,
@@ -114,7 +106,7 @@ fn create_match_like_function(
 
     debug!("created function {function_def}");
 
-    functions_by_name.insert(
+    module.add_function(
         enum_def.name.clone() + "::" + &name.to_lowercase(),
         function_def,
     );
@@ -122,7 +114,7 @@ fn create_match_like_function(
 
 fn create_constructors(
     backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTFunctionDef>,
+    module: &mut EnhancedASTModule,
     native_body: &mut String,
     enum_def: &ASTEnumDef,
     param_types: &[ASTType],
@@ -195,7 +187,7 @@ fn create_constructors(
 
         debug!("created function {function_def}");
 
-        functions_by_name.insert(
+        module.add_function(
             enum_def.name.clone() + "::" + &variant.name.clone(),
             function_def,
         );

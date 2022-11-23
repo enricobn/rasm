@@ -204,7 +204,7 @@ pub struct LambdaSpace {
 pub struct EnhancedASTModule {
     pub body: Vec<ASTStatement>,
     /// key: logical name
-    pub functions_by_name: LinkedHashMap<String, ASTFunctionDef>,
+    functions_by_name: LinkedHashMap<String, ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
     pub native_body: String,
@@ -233,6 +233,18 @@ impl EnhancedASTModule {
             externals: module.externals.clone(),
             types: module.types.clone(),
         }
+    }
+
+    pub fn add_function(&mut self, key: String, function_def: ASTFunctionDef) {
+        self.functions_by_name.insert(key, function_def);
+    }
+
+    pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
+        self.functions_by_name.get(name)
+    }
+
+    pub fn functions(&self) -> Vec<&ASTFunctionDef> {
+        self.functions_by_name.values().collect()
     }
 }
 

@@ -9,7 +9,7 @@ pub fn struct_functions_creator(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
 ) -> EnhancedASTModule {
-    let mut functions_by_name = module.functions_by_name.clone();
+    let mut result = module.clone();
 
     for struct_def in &module.structs {
         let param_types: Vec<ASTType> = struct_def
@@ -38,7 +38,7 @@ pub fn struct_functions_creator(
         for (i, property_def) in struct_def.properties.iter().enumerate() {
             let property_function =
                 create_function_for_struct_property(backend, struct_def, property_def, i);
-            functions_by_name.insert(
+            result.add_function(
                 struct_def.name.clone() + "::" + &property_def.name.clone(),
                 property_function,
             );
@@ -54,11 +54,8 @@ pub fn struct_functions_creator(
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: LinkedHashMap::new(),
         };
-        functions_by_name.insert(struct_def.name.clone(), function_def);
+        result.add_function(struct_def.name.clone(), function_def);
     }
-
-    let mut result = module.clone();
-    result.functions_by_name = functions_by_name;
 
     result
 }
