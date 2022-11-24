@@ -148,6 +148,7 @@ impl Parser {
                                 original_function_name: function_name.clone(),
                                 function_name,
                                 parameters: Vec::new(),
+                                index: self.get_index(0).unwrap(),
                             }));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
@@ -337,6 +338,7 @@ impl Parser {
                                 original_function_name: function_name.clone(),
                                 function_name,
                                 parameters: Vec::new(),
+                                index: self.get_index(0).unwrap(),
                             }));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
@@ -452,6 +454,7 @@ impl Parser {
                                 original_function_name: function_name.clone(),
                                 function_name,
                                 parameters: Vec::new(),
+                                index: self.get_index(0).unwrap(),
                             }));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
@@ -561,6 +564,7 @@ impl Parser {
                             original_function_name: function_name.clone(),
                             function_name,
                             parameters: Vec::new(),
+                            index: self.get_index(0).unwrap(),
                         }));
                     self.state.push(ParserState::FunctionCall);
                     self.i = next_i;

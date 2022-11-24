@@ -11,14 +11,15 @@ use crate::codegen::statics::Statics;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::parser::ast::{
-    ASTEnumDef, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
-    ASTTypeDef,
+    ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTParameterDef, ASTStatement,
+    ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
 use crate::parser::ValueType;
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
 use std::borrow::Borrow;
 use std::collections::HashSet;
+use std::iter::zip;
 use std::ops::Deref;
 
 use crate::transformations::enum_functions_creator::enum_functions_creator;
@@ -258,6 +259,79 @@ impl EnhancedASTModule {
         } else {
             None
         }
+    }
+
+    pub fn find_call(
+        &self,
+        call: &ASTFunctionCall,
+        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+    ) -> Option<&ASTFunctionDef> {
+        let name = call.function_name.clone();
+        if let Some(functions) = self.functions_by_name.get(&name) {
+            if functions.is_empty() {
+                panic!("cannot find functions {name}");
+            } else if functions.len() != 1 {
+                let lambda = |it: &&ASTFunctionDef| {
+                    if it.name != name {
+                        false
+                    } else if let Some(parameter_types) = parameter_types_filter.clone() {
+                        Self::almost_same_parameters_types(
+                            &it.parameters
+                                .iter()
+                                .map(|it| it.ast_type.clone())
+                                .collect::<Vec<ASTType>>(),
+                            &parameter_types,
+                        )
+                    } else {
+                        true
+                    }
+                };
+                let count = functions.iter().filter(lambda).count();
+                if count != 1 {
+                    panic!(
+                        "found more than one function for call {call} filter {:?}: {}",
+                        parameter_types_filter, call.index
+                    );
+                } else {
+                    functions.iter().find(lambda)
+                }
+            } else {
+                functions.first()
+            }
+        } else {
+            None
+        }
+    }
+
+    fn almost_same_parameters_types(
+        parameters1: &Vec<ASTType>,
+        parameters2: &Vec<Option<ASTType>>,
+    ) -> bool {
+        let result = if parameters1.len() != parameters2.len() {
+            false
+        } else {
+            zip(parameters1.iter(), parameters2.iter()).all(|(p1, p2)| match p1 {
+                ASTType::Builtin(kind) => {
+                    match kind {
+                        BuiltinTypeKind::Lambda { .. } => true, // TODO
+                        _ => p2.iter().map(|p| p == p1).next().unwrap_or(false),
+                    }
+                }
+                ASTType::Parametric(_) => true, // TODO
+                ASTType::Custom {
+                    name: p1_name,
+                    param_types: _,
+                } => match p2 {
+                    Some(ASTType::Custom {
+                        name,
+                        param_types: _,
+                    }) => name == p1_name,
+                    None => true,
+                    _ => false,
+                },
+            })
+        };
+        result
     }
 
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {

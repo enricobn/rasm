@@ -1,13 +1,14 @@
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use std::fmt::{Display, Formatter};
+use std::iter::zip;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::{EnhancedASTModule, ValContext, ValKind};
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
-    ASTType, BuiltinTypeKind,
+    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
+    ASTParameterDef, ASTType, BuiltinTypeKind,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::parser::ValueType;
@@ -275,6 +276,11 @@ pub fn convert(
                                 original_function_name: function_name.clone(),
                                 function_name: function_name.clone(),
                                 parameters: Vec::new(),
+                                index: ASTIndex {
+                                    file_name: None,
+                                    row: 0,
+                                    column: 0,
+                                },
                             };
 
                             if let Ok(Some(_call)) = convert_call(
@@ -405,8 +411,13 @@ fn convert_statement_in_body(
                 .map(|ito| ito.map(ASTStatement::Expression))
         }
         ASTStatement::LetStatement(name, e) => {
-            convert_expr_in_body(module, e, context, typed_context, resolved_param_types)
-                .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it)))
+            let result =
+                convert_expr_in_body(module, e, context, typed_context, resolved_param_types)
+                    .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it)));
+
+            let ast_type = get_type_of_expression(module, context, e, typed_context).unwrap();
+            context.insert_let(name.into(), ast_type);
+            result
         }
     }
 }
@@ -575,8 +586,14 @@ fn convert_call(
 
     let mut function_def_from_module = true;
 
+    let call_parameters_types = call
+        .parameters
+        .iter()
+        .map(|it| get_type_of_expression(module, context, it, typed_context))
+        .collect::<Vec<Option<ASTType>>>();
+
     let function_def = module
-        .find_function(&call.function_name)
+        .find_call(call, Some(call_parameters_types))
         .unwrap_or_else(|| {
             function_def_from_module = false;
             cloned_typed_context
@@ -850,7 +867,7 @@ fn convert_call(
 
                     let new_return_type = match &par.ast_type {
                         ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters: _lambda_parameters,
+                            parameters: lambda_parameters,
                             return_type, // TODO I cannot convert the return type at this stage
                         }) => {
                             if let Some(rt) = return_type {
@@ -858,8 +875,43 @@ fn convert_call(
                                     something_to_convert = true;
                                     Some(new_t)
                                 } else if let Some(last) = effective_lambda.body.last() {
-                                    let result_type =
-                                        get_type_of_statement(module, context, last, typed_context);
+                                    let mut context = context.clone();
+
+                                    zip(
+                                        effective_lambda.parameter_names.iter(),
+                                        lambda_parameters.iter(),
+                                    )
+                                    .for_each(
+                                        |(name, ast_type)| {
+                                            context.insert_par(
+                                                name.into(),
+                                                ASTParameterDef {
+                                                    name: name.into(),
+                                                    ast_type: ast_type.clone(),
+                                                },
+                                            );
+                                        },
+                                    );
+
+                                    for statement in effective_lambda.body.iter() {
+                                        if let ASTStatement::LetStatement(name, expr) = statement {
+                                            let ast_type = get_type_of_expression(
+                                                module,
+                                                &context,
+                                                expr,
+                                                typed_context,
+                                            )
+                                            .unwrap();
+                                            context.insert_let(name.clone(), ast_type);
+                                        }
+                                    }
+
+                                    let result_type = get_type_of_statement(
+                                        module,
+                                        &context,
+                                        last,
+                                        typed_context,
+                                    );
 
                                     // the generic types of the expression do not belong to this
                                     if result_type
@@ -1118,6 +1170,7 @@ fn convert_call(
         original_function_name: call.original_function_name.clone(),
         function_name: effective_function.name,
         parameters: expressions,
+        index: call.index.clone(),
     }))
 }
 
@@ -1147,12 +1200,7 @@ fn get_type_of_expression(
     let result = match expr {
         ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::String)),
         ASTFunctionCallExpression(call) => {
-            if let Some(function_def) = module
-                .find_function(&call.function_name)
-                .or_else(|| typed_context.get(&call.function_name))
-            {
-                function_def.return_type.clone()
-            } else if let Some(ValKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
+            if let Some(ValKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
                 if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                     return_type,
                     parameters: _,
@@ -1163,14 +1211,29 @@ fn get_type_of_expression(
                     panic!("Expected a lambda");
                 }
             } else {
-                panic!();
+                let call_parameters_types = call
+                    .parameters
+                    .iter()
+                    .map(|it| get_type_of_expression(module, context, it, typed_context))
+                    .collect::<Vec<Option<ASTType>>>();
+                if let Some(function_def) = module
+                    .find_call(call, Some(call_parameters_types))
+                    .or_else(|| typed_context.get(&call.function_name))
+                {
+                    function_def.return_type.clone()
+                } else {
+                    panic!();
+                }
             }
         }
         ASTExpression::ValueRef(v, index) => {
-            if let Some(ValKind::ParameterRef(_i, par)) = context.get(v) {
-                Some(par.ast_type.clone())
+            if let Some(value) = context.get(v) {
+                match value {
+                    ValKind::ParameterRef(_i, par) => Some(par.ast_type.clone()),
+                    ValKind::LetRef(_name, ast_type) => Some(ast_type.clone()),
+                }
             } else {
-                panic!("Unknown val {v} : {index}");
+                panic!("Unknown val {v} context {:?}: {index}", context);
             }
         }
         ASTExpression::Value(val_type, _) => match val_type {
@@ -1178,9 +1241,7 @@ fn get_type_of_expression(
             ValueType::Number(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
             ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
         },
-        ASTExpression::Lambda(_) => {
-            todo!()
-        }
+        ASTExpression::Lambda(_) => None,
     };
 
     debug_i!("result {:?}", result);
@@ -1690,6 +1751,11 @@ mod tests {
             original_function_name: "consume".into(),
             function_name: "consume".into(),
             parameters: vec![parameter],
+            index: ASTIndex {
+                file_name: None,
+                row: 0,
+                column: 0,
+            },
         }));
 
         let function_def = ASTFunctionDef {

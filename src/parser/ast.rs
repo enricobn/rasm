@@ -159,6 +159,7 @@ pub struct ASTFunctionCall {
     pub original_function_name: String,
     pub function_name: String,
     pub parameters: Vec<ASTExpression>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTFunctionCall {

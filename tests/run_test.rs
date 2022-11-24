@@ -222,6 +222,11 @@ fn test_vec() {
     );
 }
 
+#[test]
+fn test_poly() {
+    test("poly", vec![], "11,12\n11,12,\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }
