@@ -204,7 +204,7 @@ pub struct LambdaSpace {
 pub struct EnhancedASTModule {
     pub body: Vec<ASTStatement>,
     /// key: logical name
-    functions_by_name: LinkedHashMap<String, ASTFunctionDef>,
+    functions_by_name: LinkedHashMap<String, Vec<ASTFunctionDef>>,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
     pub native_body: String,
@@ -216,10 +216,15 @@ pub struct EnhancedASTModule {
 
 impl EnhancedASTModule {
     pub fn new(module: &ASTModule) -> Self {
-        let mut functions_by_name = LinkedHashMap::new();
+        let mut functions_by_name: LinkedHashMap<String, Vec<ASTFunctionDef>> =
+            LinkedHashMap::new();
 
         module.functions.iter().for_each(|it| {
-            functions_by_name.insert(it.name.clone(), it.clone());
+            if let Some(functions) = functions_by_name.get_mut(&it.name) {
+                functions.push(it.clone());
+            } else {
+                functions_by_name.insert(it.name.clone(), vec![it.clone()]);
+            }
         });
 
         Self {
@@ -236,15 +241,30 @@ impl EnhancedASTModule {
     }
 
     pub fn add_function(&mut self, key: String, function_def: ASTFunctionDef) {
-        self.functions_by_name.insert(key, function_def);
+        if let Some(functions) = self.functions_by_name.get_mut(&key) {
+            functions.push(function_def);
+        } else {
+            self.functions_by_name.insert(key, vec![function_def]);
+        }
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
-        self.functions_by_name.get(name)
+        if let Some(functions) = self.functions_by_name.get(name) {
+            if functions.len() != 1 {
+                panic!("{} functions with name {name}", functions.len());
+            } else {
+                functions.first()
+            }
+        } else {
+            None
+        }
     }
 
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
-        self.functions_by_name.values().collect()
+        self.functions_by_name
+            .values()
+            .flat_map(|it| it.iter())
+            .collect()
     }
 }
 
