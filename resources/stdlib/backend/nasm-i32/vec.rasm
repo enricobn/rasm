@@ -1,5 +1,5 @@
 fn nVecPrintln(v: Vec<i32>) {
-    foreach(v, { n -> nprint(n); sprint(",");});
+    forEach(v, { n -> nprint(n); sprint(",");});
     println();
 }
 
@@ -16,7 +16,7 @@ asm vecOf<T>(value: T) -> Vec<T> /{
     pop     eax
 }/
 
-asm foreach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
+asm forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     push    ebx
     push    ecx
     push    edx

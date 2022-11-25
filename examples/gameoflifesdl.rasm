@@ -60,8 +60,8 @@ fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
 
     let xRange = range(0, width);
 
-    foreach(range(0, height), { y ->
-        foreach(xRange, { x ->
+    forEach(range(0, height), { y ->
+        forEach(xRange, { x ->
             ifRun(isAlive(cells, Cell(x, y)), { ->
                  sdlRenderFillRect(ren, SDLRect(nmul(10, x), nmul(10, y), 10, 10));
             }, { -> });
