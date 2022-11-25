@@ -9,7 +9,7 @@ struct FullCell {
 }
 
 fn allCells(width: i32, height: i32) -> List<FullCell> {
-    zipList(range(0, height), range(0, width), { y, x ->
+    zip(range(0, height), range(0, width), { y, x ->
         let cell = Cell(x, y);
 
         FullCell(cell, adjacents(cell));
@@ -21,8 +21,8 @@ fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
 }
 
 fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
-    map(listFilter(allCells, { it ->
-        let adjsAlive = listCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
+    map(filter(allCells, { it ->
+        let adjsAlive = count(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
         ifImmediate(isAlive(cells, FullCell::cell(it)),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
@@ -56,7 +56,7 @@ fn isAlive(cells: List<Cell>, cell: Cell) -> bool {
     let x = Cell::x(cell);
     let y = Cell::y(cell);
 
-    listAnyMatch(cells, { it ->
+    anyMatch(cells, { it ->
         and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
     });
 }
@@ -71,7 +71,7 @@ fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     let y = EnumerateEntry::index(line);
     let lineStr = EnumerateEntry::value(line);
 
-    map(listFilter(listEnumerate(chars(lineStr)), { cell ->
+    map(filter(listEnumerate(chars(lineStr)), { cell ->
         let cellStr = EnumerateEntry::value(cell);
 
         List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> false;});
@@ -79,7 +79,7 @@ fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
 }
 
 fn filterLines(lines: List<str>) -> List<str> {
-    listFilter(lines, { line ->
+    filter(lines, { line ->
         List::match(chars(line), { head, tail -> not(seq(head, "!")); }, { -> false;});
     });
 }

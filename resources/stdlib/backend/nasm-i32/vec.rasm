@@ -150,7 +150,7 @@ asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     pop     ebx
 }/
 
-asm vecCount<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
+asm count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -183,7 +183,7 @@ asm vecCount<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
 }/
 
 // TODO the resulting vector is allocated with the size of the original vector, but the count of the elements is right
-asm vecFilter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
+asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -296,7 +296,7 @@ asm vecOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> 
     pop     eax
 }/
 
-asm vecFlatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
+asm flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     $call(vecFlattenCreate, $vec)
     push    eax
 
@@ -383,7 +383,7 @@ asm vecLength<T>(vec: Vec<T>) -> i32 /{
       mov     dword eax, [eax]
 }/
 
-asm vecFoldL<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     push    ebx
     push    ecx
     push    edx

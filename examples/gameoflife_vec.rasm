@@ -15,7 +15,7 @@ fn run(start: Vec<Cell>, size: i32, count: i32) {
     let allCells = allCells(size, size);
 
     printCells(
-        vecFoldL(vecRange(0, count), start, { prev, act ->
+        foldLeft(vecRange(0, count), start, { prev, act ->
             printCells(prev, size, size);
             moveUp(size);
             //sleep(0, 250000000);

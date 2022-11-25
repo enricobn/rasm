@@ -37,12 +37,12 @@ fn foreach<T>(l: List<T>, f: fn(T) -> ()) {
 }
 
 /** false = 0 true = 1 **/
-fn listAnyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
-    List::match(l, { head,tail -> ifImmediateThen(predicate(head), true, { -> listAnyMatch(tail, predicate); }); }, { -> false; });
+fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
+    List::match(l, { head,tail -> ifImmediateThen(predicate(head), true, { -> anyMatch(tail, predicate); }); }, { -> false; });
 }
 
-fn listCount<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
-    List::match(l, { head,tail -> nadd(listCount(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> itn(0); });
+fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
+    List::match(l, { head,tail -> nadd(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> itn(0); });
 }
 
 fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {
@@ -99,12 +99,12 @@ fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
 }
 
 fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
-    listFlatten(map(l, f));
+    flatten(map(l, f));
 }
 
-fn listFlatten<T>(l: List<List<T>>) -> List<T> {
+fn flatten<T>(l: List<List<T>>) -> List<T> {
     List::match(l, { head, tail ->
-        listAppend(head, listFlatten(tail));
+        listAppend(head, flatten(tail));
     },
     { -> List::Empty(); });
 }
@@ -113,14 +113,14 @@ fn listAppend<T>(dest: List<T>, source: List<T>) -> List<T> {
     List::match(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
 }
 
-fn listFoldL<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
+fn foldLeft<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
     List::match(l, { head, tail ->
-         listFoldL(tail, accum(zero, head), accum);
+         foldLeft(tail, accum(zero, head), accum);
     }, { -> zero; });
 }
 
-fn listFoldR<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    listFoldL(listReverse(l), zero, accum);
+fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
+    foldLeft(listReverse(l), zero, accum);
 }
 
 fn listReverse<T>(l: List<T>) -> List<T> {
@@ -129,9 +129,9 @@ fn listReverse<T>(l: List<T>) -> List<T> {
     }, { -> List::Empty(); });
 }
 
-fn listFilter<T>(l: List<T>, filter: fn(T) -> bool) -> List<T> {
+fn filter<T>(l: List<T>, f: fn(T) -> bool) -> List<T> {
     List::match(l, { head, tail ->
-        if(filter(head), { -> List::Full(head, listFilter(tail, filter)); }, { -> listFilter(tail, filter);});
+        if(f(head), { -> List::Full(head, filter(tail, f)); }, { -> filter(tail, f);});
     }, { -> List::Empty(); });
 }
 
@@ -148,7 +148,7 @@ struct EnumerateEntry<T> {
     value: T
 }
 
-fn zipList<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
+fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
     fmap(l1, { v1 ->
         map(l2, { v2 -> zipFunction(v1, v2); });
     });

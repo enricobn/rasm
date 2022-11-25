@@ -11,7 +11,7 @@ struct FullCell {
 }
 
 fn allCells(width: i32, height: i32) -> Vec<FullCell> {
-    zipVec(vecRange(0, height), vecRange(0, width), { y, x ->
+    zip(vecRange(0, height), vecRange(0, width), { y, x ->
         let cell = Cell(x, y);
 
         FullCell(cell, adjacents(cell));
@@ -23,8 +23,8 @@ fn moveCells(cells: Vec<Cell>, d: i32) -> Vec<Cell> {
 }
 
 fn next(cells: Vec<Cell>, allCells: Vec<FullCell>) -> Vec<Cell> {
-    let result = map(vecFilter(allCells, { it ->
-        let adjsAlive = vecCount(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
+    let result = map(filter(allCells, { it ->
+        let adjsAlive = count(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
         let cell = FullCell::cell(it);
         ifImmediate(isAlive(cells, cell),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
@@ -76,7 +76,7 @@ fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     let y = EnumerateEntry::index(line);
     let lineStr = EnumerateEntry::value(line);
 
-    map(listFilter(listEnumerate(chars(lineStr)), { cell ->
+    map(filter(listEnumerate(chars(lineStr)), { cell ->
         let cellStr = EnumerateEntry::value(cell);
 
         List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> false;});
@@ -84,7 +84,7 @@ fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
 }
 
 fn filterLines(lines: List<str>) -> List<str> {
-    listFilter(lines, { line ->
+    filter(lines, { line ->
         List::match(chars(line), { head, tail -> not(seq(head, "!")); }, { -> false;});
     });
 }

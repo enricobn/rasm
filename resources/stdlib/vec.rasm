@@ -1,17 +1,17 @@
 type Vec<T>;
 
-fn zipVec<T1,T2,T>(l1: Vec<T1>, l2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> {
+fn zip<T1,T2,T>(l1: Vec<T1>, l2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> {
     fmap(l1, { v1 ->
         map(l2, { v2 -> zipFunction(v1, v2); });
     });
 }
 
 fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
-    vecFlatten(map(l, f));
+    flatten(map(l, f));
 }
 
 fn listToVec<T>(l: List<T>) -> Vec<T> {
-    List::match(l, { head, tail -> vecFlatten(vecOf2(vecOf(head), listToVec(tail)));},
+    List::match(l, { head, tail -> flatten(vecOf2(vecOf(head), listToVec(tail)));},
         { -> Vec(); });
 }
 

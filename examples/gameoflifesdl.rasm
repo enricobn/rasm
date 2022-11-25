@@ -39,7 +39,7 @@ fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
             let allCells = allCells(width, height);
 
             printCells(ren,
-                listFoldL(range(0, count), start, { prev, act ->
+                foldLeft(range(0, count), start, { prev, act ->
                     printCells(ren, prev, width, height);
                     //sdlDelay(1000);
                     next(prev, allCells);
