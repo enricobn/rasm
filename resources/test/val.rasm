@@ -2,7 +2,7 @@ include "std.rasm"
 
 runWith(atoi(argv(1)), { arg ->
     nprintln(parameter(arg));
-    nprintln(lambdaParameter(arg, { p -> itn(p);}));
+    nprintln(lambdaParameter(arg, { p -> it(p);}));
     nprintln(context(arg));
 });
 

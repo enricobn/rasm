@@ -6,7 +6,7 @@ fn test(p1: i32, p2: i32) {
 
 }
 
-fn nItPrint(it: i32) -> i32 {
-    nprintln(it);
-    itn(it);
+fn nItPrint(n: i32) -> i32 {
+    nprintln(n);
+    it(n);
 }

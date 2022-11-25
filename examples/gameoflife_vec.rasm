@@ -7,7 +7,7 @@ include "../../examples/gameoflife_vec_common.rasm"
 let file = argv(1);
 let start = readCellFile(file);
 let count = atoi(argv(2));
-let size = itn(30);
+let size = it(30);
 
 run(moveCells(start, 10), size, count);
 

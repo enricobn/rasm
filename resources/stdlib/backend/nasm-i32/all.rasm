@@ -72,7 +72,7 @@ asm sleep(sec: i32, nsec: i32) -> i32 /{
 }/
 
 // TODO get rid of this, for now is used to return constants
-inline asm itn(n: i32) -> i32 /{
+inline asm it(n: i32) -> i32 /{
     mov     eax,$n
 }/
 

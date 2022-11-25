@@ -4,10 +4,10 @@ nprintln(test(5));
 nListPrintln(test2(5));
 
 fn test(n: i32) -> i32 {
-    let ten = itn(10);
+    let ten = it(10);
 
     test1(ten, { v ->
-        let five = itn(5);
+        let five = it(5);
 
         nadd(n, nadd(v, five));
     });

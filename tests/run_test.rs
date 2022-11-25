@@ -223,8 +223,8 @@ fn test_vec() {
 }
 
 #[test]
-fn test_poly() {
-    test("poly", vec![], "11,12\n11,12,\n");
+fn test_function_overloading() {
+    test("function_overloading", vec![], "11,12\n11,12,\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
