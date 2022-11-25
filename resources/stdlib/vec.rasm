@@ -14,3 +14,12 @@ fn listToVec<T>(l: List<T>) -> Vec<T> {
     List::match(l, { head, tail -> vecFlatten(vecOf2(vecOf(head), listToVec(tail)));},
         { -> Vec(); });
 }
+
+fn vecPrintln<T>(v: Vec<T>, print: fn(T) -> ()) {
+    vecPrint(v, print);
+    sprintln("");
+}
+
+fn vecPrint<T>(v: Vec<T>, print: fn(T) -> ()) {
+    vecForeach(v, { n -> print(n); sprint(",");});
+}

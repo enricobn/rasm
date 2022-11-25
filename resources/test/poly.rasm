@@ -1,0 +1,5 @@
+include "std.rasm"
+
+listPrintln(map(listOf2(1,2), { n -> nadd(n, 10);}), { n -> nprint(n);});
+
+vecPrintln(map(vecOf2(1,2), { n -> nadd(n, 10);}), { n -> nprint(n);});
