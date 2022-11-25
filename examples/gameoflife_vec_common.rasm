@@ -68,7 +68,7 @@ fn isAlive(cells: Vec<Cell>, cell: Cell) -> bool {
 fn readCellFile(file: str) -> Vec<Cell> {
     let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
 
-    let l = listFMap(linesEnumerate, { line -> lineCells(line); });
+    let l = fmap(linesEnumerate, { line -> lineCells(line); });
     listToVec(l);
 }
 

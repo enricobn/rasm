@@ -26,7 +26,7 @@ nprintln(vecLength(vecRange(0, 10)));
 let vecOfVecs = vecOf2(vecOf(1), vecOf2(2, 3));
 nVecPrintln(vecFlatten(vecOfVecs));
 
-nVecPrintln(vecFMap(vecOf2(1, 2), { n -> vecOf2(n, nadd(n, 10));}));
+nVecPrintln(fmap(vecOf2(1, 2), { n -> vecOf2(n, nadd(n, 10));}));
 
 nVecPrintln(zipVec(vecRange(0, 2), vecRange(0, 3), { n1, n2 -> nadd(n1, n2);}));
 

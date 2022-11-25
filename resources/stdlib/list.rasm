@@ -98,7 +98,7 @@ fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
     }, { -> });
 }
 
-fn listFMap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
+fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
     listFlatten(map(l, f));
 }
 
@@ -149,7 +149,7 @@ struct EnumerateEntry<T> {
 }
 
 fn zipList<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
-    listFMap(l1, { v1 ->
+    fmap(l1, { v1 ->
         map(l2, { v2 -> zipFunction(v1, v2); });
     });
 }

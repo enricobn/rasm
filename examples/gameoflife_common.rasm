@@ -64,7 +64,7 @@ fn isAlive(cells: List<Cell>, cell: Cell) -> bool {
 fn readCellFile(file: str) -> List<Cell> {
     let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
 
-    listFMap(linesEnumerate, { line -> lineCells(line); });
+    fmap(linesEnumerate, { line -> lineCells(line); });
 }
 
 fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
