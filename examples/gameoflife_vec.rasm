@@ -25,8 +25,8 @@ fn run(start: Vec<Cell>, size: i32, count: i32) {
 }
 
 fn printCells(cells: Vec<Cell>, width: i32, height: i32) {
-    vecForeach(vecRange(0, height), { y ->
-        vecForeach(vecRange(0, width), { x ->
+    foreach(vecRange(0, height), { y ->
+        foreach(vecRange(0, width), { x ->
             let alive = isAlive(cells, Cell(x, y));
             ifRun(alive, { -> sprint("*"); }, { -> sprint(" "); });
         });

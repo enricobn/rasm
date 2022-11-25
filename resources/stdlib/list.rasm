@@ -32,8 +32,8 @@ fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
     List::match(l, { head,tail -> List::Full(f(head), map(tail, f)); }, { -> List::Empty();});
 }
 
-fn listForeach<T>(l: List<T>, map: fn(T) -> ()) {
-    List::run(l, { head,tail -> map(head); listForeach(tail, map); }, { -> });
+fn foreach<T>(l: List<T>, f: fn(T) -> ()) {
+    List::run(l, { head,tail -> f(head); foreach(tail, f); }, { -> });
 }
 
 /** false = 0 true = 1 **/

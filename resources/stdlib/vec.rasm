@@ -21,5 +21,5 @@ fn vecPrintln<T>(v: Vec<T>, print: fn(T) -> ()) {
 }
 
 fn vecPrint<T>(v: Vec<T>, print: fn(T) -> ()) {
-    vecForeach(v, { n -> print(n); sprint(",");});
+    foreach(v, { n -> print(n); sprint(",");});
 }
