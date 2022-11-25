@@ -28,8 +28,8 @@ fn range(start: i32, end: i32) -> List<i32> {
     });
 }
 
-fn listMap<T,T1>(l: List<T>, map: fn(T) -> T1) -> List<T1> {
-    List::match(l, { head,tail -> List::Full(map(head), listMap(tail, map)); }, { -> List::Empty();});
+fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
+    List::match(l, { head,tail -> List::Full(f(head), map(tail, f)); }, { -> List::Empty();});
 }
 
 fn listForeach<T>(l: List<T>, map: fn(T) -> ()) {
@@ -98,8 +98,8 @@ fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
     }, { -> });
 }
 
-fn listFMap<T,T1>(l: List<T>, map: fn(T) -> List<T1>) -> List<T1> {
-    listFlatten(listMap(l, map));
+fn listFMap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
+    listFlatten(map(l, f));
 }
 
 fn listFlatten<T>(l: List<List<T>>) -> List<T> {
@@ -150,6 +150,6 @@ struct EnumerateEntry<T> {
 
 fn zipList<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
     listFMap(l1, { v1 ->
-        listMap(l2, { v2 -> zipFunction(v1, v2); });
+        map(l2, { v2 -> zipFunction(v1, v2); });
     });
 }

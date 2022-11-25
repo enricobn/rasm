@@ -3,7 +3,7 @@ include "std.rasm"
 let v = vecRange(0, 2);
 nVecPrintln(v);
 
-let m = vecMap(v, { n -> nadd(n, 10);});
+let m = map(v, { n -> nadd(n, 10);});
 nVecPrintln(m);
 
 ifRun(vecAnyMatch(v, { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});

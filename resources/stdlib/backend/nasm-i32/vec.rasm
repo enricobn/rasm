@@ -77,7 +77,7 @@ asm vecRange(start: i32, end: i32) -> Vec<i32> /{
     pop     ebx
 }/
 
-asm vecMap<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     push    ebx
     push    ecx
     push    edx
