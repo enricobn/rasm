@@ -1,4 +1,4 @@
-use crate::codegen::EnhancedASTModule;
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::lexer::Lexer;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};

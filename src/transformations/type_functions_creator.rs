@@ -1,4 +1,4 @@
-use crate::codegen::EnhancedASTModule;
+use crate::codegen::enhanced_module::EnhancedASTModule;
 
 pub fn type_mandatory_functions(module: &EnhancedASTModule) -> Vec<String> {
     let mut result = Vec::new();

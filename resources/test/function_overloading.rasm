@@ -1,9 +1,12 @@
 include "std.rasm"
 
-listPrintln(map(listOf2(1,2), { n -> nadd(n, 10);}), { n -> nprint(n);});
-
-vecPrintln(map(vecOf2(1,2), { n -> nadd(n, 10);}), { n -> nprint(n);});
+sprintln(myToString(10));
+sprintln(myToString("Hello"));
 
 fn myToString(s: str) -> str {
-    s;
+    it(s);
+}
+
+fn myToString(n: i32) -> i32 {
+    it(n);
 }

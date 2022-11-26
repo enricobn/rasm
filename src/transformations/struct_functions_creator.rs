@@ -1,5 +1,6 @@
 use crate::codegen::backend::Backend;
-use crate::codegen::{CodeGen, EnhancedASTModule};
+use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::CodeGen;
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType,
 };

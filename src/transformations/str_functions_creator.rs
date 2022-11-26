@@ -1,4 +1,4 @@
-use crate::codegen::EnhancedASTModule;
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType, BuiltinTypeKind,
 };

@@ -1,6 +1,7 @@
 use crate::codegen::backend::Backend;
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::{CodeGen, EnhancedASTModule, MemoryValue};
+use crate::codegen::{CodeGen, MemoryValue};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType,
     BuiltinTypeKind,

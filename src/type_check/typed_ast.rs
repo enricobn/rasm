@@ -1,4 +1,5 @@
-use crate::codegen::{EnhancedASTModule, TypedValContext, TypedValKind};
+use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::{TypedValContext, TypedValKind};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,

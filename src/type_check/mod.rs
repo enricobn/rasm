@@ -4,7 +4,8 @@ use std::fmt::{Display, Formatter};
 use std::iter::zip;
 
 use crate::codegen::backend::Backend;
-use crate::codegen::{EnhancedASTModule, ValContext, ValKind};
+use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::{ValContext, ValKind};
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
@@ -50,11 +51,9 @@ pub fn convert(
     print_module: bool,
     mandatory_functions: Vec<String>,
 ) -> ASTTypedModule {
-    //unsafe {
     crate::utils::debug_indent::INDENT.with(|indent| {
         *indent.borrow_mut() = 0;
     });
-    //}
 
     let mut body = module.body.clone();
 
@@ -85,92 +84,17 @@ pub fn convert(
         let resolved_param_types = LinkedHashMap::new();
 
         for statement in body.iter() {
-            match statement {
-                ASTStatement::Expression(expr) => {
-                    if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
-                        let converted_call = convert_call(
-                            module,
-                            &context,
-                            call,
-                            &mut type_conversion_context,
-                            &resolved_param_types,
-                            None,
-                        );
-
-                        match converted_call {
-                            Ok(Some(new_call)) => {
-                                something_to_convert = true;
-                                debug_i!(
-                                    "converted call {} in {}",
-                                    call.function_name,
-                                    new_call.function_name
-                                );
-                                new_body.push(ASTStatement::Expression(ASTFunctionCallExpression(
-                                    new_call,
-                                )))
-                            }
-                            Ok(None) => new_body.push(statement.clone()),
-                            Err(e) => {
-                                panic!("{e} expression: {:?}", expr);
-                            }
-                        }
-                    } else {
-                        panic!("unsupported {statement}");
-                    }
-                }
-                ASTStatement::LetStatement(name, expr) => {
-                    if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
-                        let converted_call = convert_call(
-                            module,
-                            &context,
-                            call,
-                            &mut type_conversion_context,
-                            &resolved_param_types,
-                            None,
-                        );
-
-                        match converted_call {
-                            Ok(Some(new_call)) => {
-                                something_to_convert = true;
-                                debug_i!(
-                                    "converted call {} in {}",
-                                    call.function_name,
-                                    new_call.function_name
-                                );
-
-                                let ast_type = type_conversion_context
-                                    .get(&new_call.function_name)
-                                    .unwrap()
-                                    .return_type
-                                    .clone()
-                                    .unwrap();
-
-                                context.insert_let(name.clone(), ast_type);
-
-                                new_body.push(ASTStatement::LetStatement(
-                                    name.clone(),
-                                    ASTFunctionCallExpression(new_call),
-                                ))
-                            }
-                            Ok(None) => {
-                                let ast_type = type_conversion_context
-                                    .get(&call.function_name)
-                                    .unwrap_or_else(|| panic!("{}", &call.function_name))
-                                    .return_type
-                                    .clone()
-                                    .unwrap();
-                                context.insert_let(name.clone(), ast_type);
-                                new_body.push(statement.clone())
-                            }
-                            Err(e) => {
-                                panic!("{e}");
-                            }
-                        }
-                    } else {
-                        panic!("unsupported {statement}")
-                    }
-                }
-            }
+            debug_i!("converting statement {statement}");
+            indent!();
+            something_to_convert |= convert_statement(
+                module,
+                &mut context,
+                &mut type_conversion_context,
+                &mut new_body,
+                &resolved_param_types,
+                statement,
+            );
+            dedent!();
         }
 
         body = new_body.clone();
@@ -178,124 +102,16 @@ pub fn convert(
         let len_before = type_conversion_context.len();
 
         for function_def in type_conversion_context.clone().iter() {
-            debug_i!("converting function {}", function_def);
+            debug_i!("converting function {}", function_def.name);
             indent!();
 
-            let mut context = ValContext::new(None);
-
-            for par in function_def.parameters.iter() {
-                //debug_i!("inserting par {} in context", par.name);
-                context.insert_par(par.name.clone(), par.clone());
-            }
-
-            match &function_def.body {
-                ASTFunctionBody::RASMBody(body) => {
-                    let mut new_function_def = function_def.clone();
-
-                    new_function_def.body = ASTFunctionBody::RASMBody(
-                        body.iter()
-                            .enumerate()
-                            .map(|(index, it)| {
-                                //println!("statement {it}");
-                                let converted_statement = convert_statement_in_body(
-                                    module,
-                                    it,
-                                    &mut context,
-                                    &mut type_conversion_context,
-                                    &LinkedHashMap::new(),
-                                );
-
-                                let new_statement = match converted_statement {
-                                    Ok(Some(new_expr)) => {
-                                        debug_i!("converted expr {}", new_expr);
-                                        something_to_convert = true;
-                                        new_expr
-                                    }
-                                    Ok(None) => {
-                                        if index == body.len() - 1 {
-                                            if let Ok(Some(new_expr)) =
-                                                convert_last_statement_in_body(
-                                                    module,
-                                                    it,
-                                                    &context,
-                                                    &mut type_conversion_context,
-                                                    &LinkedHashMap::new(),
-                                                    new_function_def.return_type.clone(),
-                                                )
-                                            {
-                                                debug_i!(
-                                                    "converted last expr in body {}",
-                                                    new_expr
-                                                );
-                                                new_expr
-                                            } else {
-                                                it.clone()
-                                            }
-                                        } else {
-                                            it.clone()
-                                        }
-                                    }
-                                    Err(e) => {
-                                        panic!("Error converting {it} in {function_def} : {e}");
-                                    }
-                                };
-
-                                match &new_statement {
-                                    ASTStatement::Expression(_) => {}
-                                    ASTStatement::LetStatement(name, expr) => match expr {
-                                        ASTFunctionCallExpression(call) => {
-                                            let ast_type = type_conversion_context
-                                                .get(&call.function_name)
-                                                .unwrap()
-                                                .return_type
-                                                .clone()
-                                                .unwrap();
-                                            context.insert_let(name.clone(), ast_type);
-                                        }
-                                        _ => {
-                                            panic!("unsupported let value {expr}")
-                                        }
-                                    },
-                                }
-
-                                new_statement
-                            })
-                            .collect(),
-                    );
-
-                    new_function_def.resolved_generic_types = resolved_param_types.clone();
-
-                    type_conversion_context.replace_body(&new_function_def);
-                }
-                ASTFunctionBody::ASMBody(body) => {
-                    backend
-                        .called_functions(None, body, None)
-                        .iter()
-                        .for_each(|function_name| {
-                            let function_call = ASTFunctionCall {
-                                original_function_name: function_name.clone(),
-                                function_name: function_name.clone(),
-                                parameters: Vec::new(),
-                                index: ASTIndex {
-                                    file_name: None,
-                                    row: 0,
-                                    column: 0,
-                                },
-                            };
-
-                            if let Ok(Some(_call)) = convert_call(
-                                module,
-                                &context,
-                                &function_call,
-                                &mut type_conversion_context,
-                                &LinkedHashMap::new(),
-                                None,
-                            ) {
-                                something_to_convert = true;
-                            }
-                        });
-                }
-            }
+            something_to_convert |= convert_function_def(
+                backend,
+                module,
+                &mut type_conversion_context,
+                &resolved_param_types,
+                &function_def,
+            );
 
             dedent!();
         }
@@ -319,6 +135,229 @@ pub fn convert(
 
     info!("Type check ended ({count} passes)");
     typed_module
+}
+
+fn convert_function_def(
+    backend: &dyn Backend,
+    module: &EnhancedASTModule,
+    mut type_conversion_context: &mut TypeConversionContext,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
+    function_def: &ASTFunctionDef,
+) -> bool {
+    let mut something_to_convert = false;
+
+    let mut context = ValContext::new(None);
+
+    for par in function_def.parameters.iter() {
+        //debug_i!("inserting par {} in context", par.name);
+        context.insert_par(par.name.clone(), par.clone());
+    }
+
+    match &function_def.body {
+        ASTFunctionBody::RASMBody(body) => {
+            let mut new_function_def = function_def.clone();
+
+            new_function_def.body = ASTFunctionBody::RASMBody(
+                body.iter()
+                    .enumerate()
+                    .map(|(index, it)| {
+                        //println!("statement {it}");
+                        let converted_statement = convert_statement_in_body(
+                            module,
+                            it,
+                            &mut context,
+                            &mut type_conversion_context,
+                            &LinkedHashMap::new(),
+                        );
+
+                        let new_statement = match converted_statement {
+                            Ok(Some(new_expr)) => {
+                                debug_i!("converted expr {}", new_expr);
+                                something_to_convert = true;
+                                new_expr
+                            }
+                            Ok(None) => {
+                                if index == body.len() - 1 {
+                                    if let Ok(Some(new_expr)) = convert_last_statement_in_body(
+                                        module,
+                                        it,
+                                        &context,
+                                        &mut type_conversion_context,
+                                        &LinkedHashMap::new(),
+                                        new_function_def.return_type.clone(),
+                                    ) {
+                                        debug_i!("converted last expr in body {}", new_expr);
+                                        new_expr
+                                    } else {
+                                        it.clone()
+                                    }
+                                } else {
+                                    it.clone()
+                                }
+                            }
+                            Err(e) => {
+                                panic!("Error converting {it} in {function_def} : {e}");
+                            }
+                        };
+
+                        match &new_statement {
+                            ASTStatement::Expression(_) => {}
+                            ASTStatement::LetStatement(name, expr) => match expr {
+                                ASTFunctionCallExpression(call) => {
+                                    let ast_type = type_conversion_context
+                                        .get(&call.function_name)
+                                        .unwrap()
+                                        .return_type
+                                        .clone()
+                                        .unwrap();
+                                    context.insert_let(name.clone(), ast_type);
+                                }
+                                _ => {
+                                    panic!("unsupported let value {expr}")
+                                }
+                            },
+                        }
+
+                        new_statement
+                    })
+                    .collect(),
+            );
+
+            new_function_def.resolved_generic_types = resolved_param_types.clone();
+
+            type_conversion_context.replace_body(&new_function_def);
+        }
+        ASTFunctionBody::ASMBody(body) => {
+            backend
+                .called_functions(None, body, None)
+                .iter()
+                .for_each(|function_name| {
+                    let function_call = ASTFunctionCall {
+                        original_function_name: function_name.clone(),
+                        function_name: function_name.clone(),
+                        parameters: Vec::new(),
+                        index: ASTIndex {
+                            file_name: None,
+                            row: 0,
+                            column: 0,
+                        },
+                    };
+
+                    if let Ok(Some(_call)) = convert_call(
+                        module,
+                        &context,
+                        &function_call,
+                        &mut type_conversion_context,
+                        &LinkedHashMap::new(),
+                        None,
+                    ) {
+                        something_to_convert = true;
+                    }
+                });
+        }
+    }
+
+    something_to_convert
+}
+
+fn convert_statement(
+    module: &EnhancedASTModule,
+    context: &mut ValContext,
+    mut type_conversion_context: &mut TypeConversionContext,
+    new_body: &mut Vec<ASTStatement>,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
+    statement: &ASTStatement,
+) -> bool {
+    let mut something_to_convert = false;
+
+    match statement {
+        ASTStatement::Expression(expr) => {
+            if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
+                let converted_call = convert_call(
+                    module,
+                    &context,
+                    call,
+                    &mut type_conversion_context,
+                    &resolved_param_types,
+                    None,
+                );
+
+                match converted_call {
+                    Ok(Some(new_call)) => {
+                        something_to_convert = true;
+                        debug_i!(
+                            "converted call {} in {}",
+                            call.function_name,
+                            new_call.function_name
+                        );
+                        new_body.push(ASTStatement::Expression(ASTFunctionCallExpression(
+                            new_call,
+                        )))
+                    }
+                    Ok(None) => new_body.push(statement.clone()),
+                    Err(e) => {
+                        panic!("{e} expression: {:?}", expr);
+                    }
+                }
+            } else {
+                panic!("unsupported {statement}");
+            }
+        }
+        ASTStatement::LetStatement(name, expr) => {
+            if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
+                let converted_call = convert_call(
+                    module,
+                    &context,
+                    call,
+                    &mut type_conversion_context,
+                    &resolved_param_types,
+                    None,
+                );
+
+                match converted_call {
+                    Ok(Some(new_call)) => {
+                        something_to_convert = true;
+                        debug_i!(
+                            "converted call {} in {}",
+                            call.function_name,
+                            new_call.function_name
+                        );
+
+                        let ast_type = type_conversion_context
+                            .get(&new_call.function_name)
+                            .unwrap()
+                            .return_type
+                            .clone()
+                            .unwrap();
+
+                        context.insert_let(name.clone(), ast_type);
+
+                        new_body.push(ASTStatement::LetStatement(
+                            name.clone(),
+                            ASTFunctionCallExpression(new_call),
+                        ))
+                    }
+                    Ok(None) => {
+                        let ast_type = type_conversion_context
+                            .get(&call.function_name)
+                            .unwrap_or_else(|| panic!("{}", &call.function_name))
+                            .return_type
+                            .clone()
+                            .unwrap();
+                        context.insert_let(name.clone(), ast_type);
+                        new_body.push(statement.clone())
+                    }
+                    Err(e) => {
+                        panic!("{e}");
+                    }
+                }
+            } else {
+                panic!("unsupported {statement}")
+            }
+        }
+    }
+
+    something_to_convert
 }
 
 /*
@@ -1634,7 +1673,7 @@ mod tests {
     use linked_hash_map::LinkedHashMap;
     use std::collections::HashSet;
 
-    use crate::codegen::EnhancedASTModule;
+    use crate::codegen::enhanced_module::EnhancedASTModule;
 
     use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
     use crate::parser::ast::{
