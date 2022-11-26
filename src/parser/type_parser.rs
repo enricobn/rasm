@@ -242,10 +242,7 @@ mod tests {
             Some((
                 Custom {
                     name: "Dummy".into(),
-                    param_types: vec![
-                        ASTType::Parametric("T".into()),
-                        ASTType::Parametric("T1".into()),
-                    ],
+                    param_types: vec![Parametric("T".into()), Parametric("T1".into()),],
                 },
                 6
             )),

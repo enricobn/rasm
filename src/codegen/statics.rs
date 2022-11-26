@@ -47,8 +47,7 @@ impl Statics {
                 self.insert_prefix("_cv".into(), MemoryValue::StringValue(c.to_string()));
             let label = self.insert_prefix("_c".into(), Mem(1, MemoryUnit::Words));
 
-            self.chars_map
-                .insert(c.clone(), (label.clone(), value_label));
+            self.chars_map.insert(*c, (label.clone(), value_label));
 
             label
         }

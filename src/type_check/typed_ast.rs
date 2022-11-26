@@ -455,7 +455,7 @@ impl<'a> ConvContext<'a> {
                         p.clone(),
                         typed_type(
                             self,
-                            &cloned_param_types.get(i).unwrap_or_else(|| {
+                            cloned_param_types.get(i).unwrap_or_else(|| {
                                 panic!("Cannot find parametric type {p} for type {name}")
                             }),
                             "",
@@ -698,10 +698,7 @@ fn verify_function_call(
                 return_type: _,
             }) = &parameter_ref.ast_type
             {
-                parameters
-                    .iter()
-                    .map(|it| it.clone())
-                    .collect::<Vec<ASTTypedType>>()
+                parameters.to_vec()
             } else {
                 panic!();
             }

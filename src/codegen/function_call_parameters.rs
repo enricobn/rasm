@@ -123,8 +123,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn add_number(&mut self, param_name: &str, n: String, comment: Option<&str>) {
         if self.inline {
-            self.parameters_values
-                .insert(param_name.into(), format!("{}", n));
+            self.parameters_values.insert(param_name.into(), n);
         } else {
             let to_remove_from_stack = self.to_remove_from_stack();
             CodeGen::add(

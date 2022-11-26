@@ -57,7 +57,7 @@ pub struct Parser {
     types: Vec<ASTTypeDef>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ValueType {
     Boolean(bool),
     Number(i32),

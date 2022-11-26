@@ -85,7 +85,7 @@ fn create_match_like_function(
         });
         parameters.push(ASTParameterDef {
             name: variant.name.clone(),
-            ast_type: ast_type,
+            ast_type,
         });
     }
     let mut param_types = enum_def.type_parameters.clone();

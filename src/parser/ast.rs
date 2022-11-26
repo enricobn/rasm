@@ -170,7 +170,7 @@ impl Display for ASTFunctionCall {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTIndex {
     pub file_name: Option<String>,
     pub row: usize,

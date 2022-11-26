@@ -15,7 +15,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum TokenKind {
     AlphaNumeric(String),
     AsmBLock(String),

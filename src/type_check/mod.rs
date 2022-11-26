@@ -166,7 +166,7 @@ fn convert_function_def(
                             module,
                             it,
                             &mut context,
-                            &mut type_conversion_context,
+                            type_conversion_context,
                             &LinkedHashMap::new(),
                         );
 
@@ -182,7 +182,7 @@ fn convert_function_def(
                                         module,
                                         it,
                                         &context,
-                                        &mut type_conversion_context,
+                                        type_conversion_context,
                                         &LinkedHashMap::new(),
                                         new_function_def.return_type.clone(),
                                     ) {
@@ -247,7 +247,7 @@ fn convert_function_def(
                         module,
                         &context,
                         &function_call,
-                        &mut type_conversion_context,
+                        type_conversion_context,
                         &LinkedHashMap::new(),
                         None,
                     ) {
@@ -275,10 +275,10 @@ fn convert_statement(
             if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
                 let converted_call = convert_call(
                     module,
-                    &context,
+                    context,
                     call,
-                    &mut type_conversion_context,
-                    &resolved_param_types,
+                    type_conversion_context,
+                    resolved_param_types,
                     None,
                 );
 
@@ -307,10 +307,10 @@ fn convert_statement(
             if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
                 let converted_call = convert_call(
                     module,
-                    &context,
+                    context,
                     call,
-                    &mut type_conversion_context,
-                    &resolved_param_types,
+                    type_conversion_context,
+                    resolved_param_types,
                     None,
                 );
 
@@ -402,12 +402,10 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
                 parameters,
                 return_type,
             } => {
-                let mut par_types: Vec<String> = parameters
-                    .iter()
-                    .flat_map(|it| get_generic_types(&it))
-                    .collect();
+                let mut par_types: Vec<String> =
+                    parameters.iter().flat_map(get_generic_types).collect();
                 if let Some(rt) = return_type {
-                    par_types.append(&mut get_generic_types(&rt.as_ref()));
+                    par_types.append(&mut get_generic_types(rt.as_ref()));
                 }
                 par_types.sort();
                 par_types.dedup();
@@ -427,7 +425,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
                     ASTType::Parametric(name) => {
                         vec![name]
                     }
-                    _ => get_generic_types(&it),
+                    _ => get_generic_types(it),
                 })
                 .collect();
             result.sort();
@@ -709,7 +707,7 @@ fn convert_call(
 
                         if let Some(rt) = &inner_function_def.return_type {
                             // the generic types of the inner function are not the same of the this function
-                            let result_type = if get_generic_types(&rt).is_empty() {
+                            let result_type = if get_generic_types(rt).is_empty() {
                                 inner_function_def.return_type.clone().unwrap()
                             } else {
                                 par.clone().ast_type
@@ -752,7 +750,7 @@ fn convert_call(
                         if let Some(inner_function_def) = typed_context.get(&call.function_name) {
                             if let Some(rt) = &inner_function_def.return_type {
                                 // the generic types of the inner function are not the same of the this function
-                                let result_type = if get_generic_types(&rt).is_empty() {
+                                let result_type = if get_generic_types(rt).is_empty() {
                                     inner_function_def.return_type.clone().unwrap()
                                 } else {
                                     par.clone().ast_type
@@ -829,7 +827,7 @@ fn convert_call(
                             }
                         }
                         ValKind::LetRef(_, ast_type) => {
-                            let gen_types = get_generic_types(&ast_type);
+                            let gen_types = get_generic_types(ast_type);
 
                             if gen_types.is_empty() {
                                 Some(ast_type.clone())
@@ -854,41 +852,21 @@ fn convert_call(
                         expressions.push(expr.clone());
                     }
                 }
-                ASTExpression::Value(val_type, _index) => match val_type {
-                    ValueType::Boolean(_) => {
-                        debug_i!("calling update for Bool");
-                        something_to_convert = update(
-                            &ASTType::Builtin(BuiltinTypeKind::Bool),
-                            expr.clone(),
-                            par,
-                            &mut resolved_param_types,
-                            &mut converted_parameters,
-                            &mut expressions,
-                        )? || something_to_convert;
-                    }
-                    ValueType::Number(_) => {
-                        debug_i!("calling update for Number");
-                        something_to_convert = update(
-                            &ASTType::Builtin(BuiltinTypeKind::I32),
-                            expr.clone(),
-                            par,
-                            &mut resolved_param_types,
-                            &mut converted_parameters,
-                            &mut expressions,
-                        )? || something_to_convert;
-                    }
-                    ValueType::Char(_) => {
-                        debug_i!("calling update for Char");
-                        something_to_convert = update(
-                            &ASTType::Builtin(BuiltinTypeKind::Char),
-                            expr.clone(),
-                            par,
-                            &mut resolved_param_types,
-                            &mut converted_parameters,
-                            &mut expressions,
-                        )? || something_to_convert;
-                    }
-                },
+                ASTExpression::Value(val_type, _index) => {
+                    let ast_type = match val_type {
+                        ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
+                        ValueType::Number(_) => ASTType::Builtin(BuiltinTypeKind::I32),
+                        ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
+                    };
+                    something_to_convert = update(
+                        &ast_type,
+                        expr.clone(),
+                        par,
+                        &mut resolved_param_types,
+                        &mut converted_parameters,
+                        &mut expressions,
+                    )? || something_to_convert;
+                }
                 ASTExpression::Lambda(lambda) => {
                     let mut effective_lambda = if let Some(new_lambda) = convert_lambda(
                         module,
@@ -990,7 +968,7 @@ fn convert_call(
                                         get_type_of_statement(module, &context, it, typed_context)
                                     {
                                         let result =
-                                            extract_generic_types_from_effective_type(&te, &rt)?;
+                                            extract_generic_types_from_effective_type(&te, rt)?;
 
                                         let converted_expr = convert_statement_in_body(
                                             module,
@@ -1323,15 +1301,14 @@ fn extract_generic_types_from_effective_type(
                 }) => {
                     for (i, p_p) in p_parameters.iter().enumerate() {
                         let e_p = e_parameters.get(i).unwrap();
-                        let inner_result = extract_generic_types_from_effective_type(&p_p, &e_p)?;
+                        let inner_result = extract_generic_types_from_effective_type(p_p, e_p)?;
 
                         result.extend(inner_result.into_iter());
                     }
 
                     for p_t in p_return_type {
                         if let Some(e_t) = e_return_type {
-                            let inner_result =
-                                extract_generic_types_from_effective_type(&p_t, &e_t)?;
+                            let inner_result = extract_generic_types_from_effective_type(p_t, e_t)?;
 
                             result.extend(inner_result.into_iter());
                         } else {
@@ -1367,7 +1344,7 @@ fn extract_generic_types_from_effective_type(
 
                 for (i, p_p) in p_param_types.iter().enumerate() {
                     let e_p = e_param_types.get(i).unwrap();
-                    let inner_result = extract_generic_types_from_effective_type(&p_p, &e_p)?;
+                    let inner_result = extract_generic_types_from_effective_type(p_p, e_p)?;
 
                     result.extend(inner_result.into_iter());
                 }
