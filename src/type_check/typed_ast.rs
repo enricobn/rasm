@@ -703,7 +703,10 @@ fn verify_function_call(
                 panic!();
             }
         } else {
-            panic!("{call}");
+            panic!(
+                "{call} functions: {:?}",
+                module.functions_by_name.keys().collect::<Vec<_>>()
+            );
         };
 
     for (i, expr) in call.parameters.iter().enumerate() {
