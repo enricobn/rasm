@@ -1,5 +1,3 @@
-extern crate core;
-
 pub(crate) mod codegen;
 pub mod compiler;
 pub(crate) mod lexer;

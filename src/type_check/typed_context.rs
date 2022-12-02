@@ -1,16 +1,17 @@
 use crate::parser::ast::ASTFunctionDef;
+use crate::type_check::functions_container::FunctionsContainer;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 #[derive(Debug, Clone)]
 pub struct TypeConversionContext {
-    new_function_defs: LinkedHashMap<String, Vec<ASTFunctionDef>>,
+    new_function_defs: FunctionsContainer,
 }
 
 impl TypeConversionContext {
     pub fn new() -> Self {
         Self {
-            new_function_defs: LinkedHashMap::new(),
+            new_function_defs: FunctionsContainer::new(),
         }
     }
 
@@ -19,86 +20,28 @@ impl TypeConversionContext {
         original_name: &String,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
-        debug!("trying to add new function {function_def}");
-
-        if let Some(same_name_functions) = self.new_function_defs.get_mut(original_name) {
-            if let Some(already_present) = same_name_functions.iter().find(|it| {
-                it.parameters == function_def.parameters
-                    && it.return_type == function_def.return_type
-            }) {
-                debug!("already added as {already_present}");
-                Some(already_present.clone())
-            } else {
-                same_name_functions.push(function_def.clone());
-                None
-            }
-        } else {
-            let same_name_functions = vec![function_def.clone()];
-            self.new_function_defs
-                .insert(original_name.clone(), same_name_functions);
-            None
-        }
+        self.new_function_defs
+            .try_add_new(original_name, function_def)
     }
 
     pub fn replace_body(&mut self, function_def: &ASTFunctionDef) {
-        for (_, f_defs) in self.new_function_defs.iter_mut() {
-            for mut f_def in f_defs.iter_mut() {
-                if f_def.name == function_def.name {
-                    f_def.body = function_def.body.clone();
-                    return;
-                }
-            }
-        }
-        panic!("cannot find function {}", function_def.name)
+        self.new_function_defs.replace_body(function_def);
     }
 
-    pub fn iter(&'_ self) -> impl Iterator<Item = ASTFunctionDef> + '_ {
-        TypeConversionContextIterator::new(self)
-    }
-
-    pub fn get(&self, name: &str) -> Option<&ASTFunctionDef> {
-        let fake_name = name.replace("::", "_");
-
-        self.new_function_defs
-            .values()
-            .flat_map(|it| it.iter())
-            .find(|it| name == it.name || fake_name == it.name)
+    pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
+        self.new_function_defs.find_function(name)
     }
 
     pub fn len(&self) -> usize {
-        self.new_function_defs.iter().map(|it| it.1.len()).sum()
+        self.new_function_defs.len()
     }
 
     pub fn is_empty(&self) -> bool {
         self.new_function_defs.is_empty()
     }
-}
 
-struct TypeConversionContextIterator<'a> {
-    index: usize,
-    context: &'a TypeConversionContext,
-}
-
-impl<'a> TypeConversionContextIterator<'a> {
-    fn new(context: &'a TypeConversionContext) -> Self {
-        Self { index: 0, context }
-    }
-}
-
-impl<'a> Iterator for TypeConversionContextIterator<'a> {
-    type Item = ASTFunctionDef;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = self
-            .context
-            .new_function_defs
-            .values()
-            .flat_map(|it| it.iter())
-            .nth(self.index)
-            .cloned();
-        self.index += 1;
-
-        result
+    pub fn functions(&self) -> Vec<&ASTFunctionDef> {
+        self.new_function_defs.functions()
     }
 }
 
@@ -121,12 +64,16 @@ mod tests {
             .try_add_new(&"ff".into(), &simple_function_def("anotherNewFun"))
             .is_none());
 
-        assert!(context.get("aFun").is_some());
-        assert!(context.get("newFun").is_some());
-        assert!(context.get("anotherNewFun").is_some());
+        assert!(context.find_function("aFun").is_some());
+        assert!(context.find_function("newFun").is_some());
+        assert!(context.find_function("anotherNewFun").is_some());
 
         assert_eq!(
-            context.iter().map(|it| it.name).collect::<Vec<String>>(),
+            context
+                .functions()
+                .iter()
+                .map(|it| it.name.clone())
+                .collect::<Vec<String>>(),
             vec!["aFun", "newFun", "anotherNewFun"]
         );
 

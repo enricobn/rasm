@@ -502,7 +502,7 @@ pub fn convert_to_typed_module(
 
     let mut functions_by_name = LinkedHashMap::new();
 
-    for new_function_def in typed_context.iter() {
+    for new_function_def in typed_context.functions().iter() {
         functions_by_name.insert(
             new_function_def.name.clone(),
             function_def(&mut conv_context, &new_function_def),

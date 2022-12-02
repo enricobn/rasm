@@ -18,6 +18,7 @@ use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::{debug_i, dedent, indent};
 
+pub mod functions_container;
 pub mod typed_ast;
 pub mod typed_context;
 
@@ -103,7 +104,7 @@ pub fn convert(
 
         let len_before = type_conversion_context.len();
 
-        for function_def in type_conversion_context.clone().iter() {
+        for function_def in type_conversion_context.clone().functions().iter() {
             debug_i!("converting function {}", function_def.name);
             indent!();
 
@@ -212,7 +213,7 @@ fn convert_function_def(
                             ASTStatement::LetStatement(name, expr) => match expr {
                                 ASTFunctionCallExpression(call) => {
                                     let ast_type = type_conversion_context
-                                        .get(&call.function_name)
+                                        .find_function(&call.function_name)
                                         .unwrap()
                                         .return_type
                                         .clone()
@@ -369,7 +370,7 @@ fn convert_statement(
                         );
 
                         let ast_type = type_conversion_context
-                            .get(&new_call.function_name)
+                            .find_function(&new_call.function_name)
                             .unwrap()
                             .return_type
                             .clone()
@@ -384,7 +385,7 @@ fn convert_statement(
                     }
                     Ok(None) => {
                         let ast_type = type_conversion_context
-                            .get(&call.function_name)
+                            .find_function(&call.function_name)
                             .unwrap_or_else(|| panic!("{}", &call.function_name))
                             .return_type
                             .clone()
@@ -699,7 +700,7 @@ fn convert_call(
         .unwrap_or_else(|| {
             function_def_from_module = false;
             cloned_typed_context
-                .get(&call.function_name)
+                .find_function(&call.function_name)
                 .unwrap_or_else(|| panic!("function {}", call.function_name))
         });
 
@@ -765,7 +766,7 @@ fn convert_call(
                         //info!("new_function_defs {:?} used_untyped_function_defs {:?}", new_function_defs, used_untyped_function_defs);
 
                         let inner_function_def = typed_context
-                            .get(&ast_function_call.function_name)
+                            .find_function(&ast_function_call.function_name)
                             .unwrap_or_else(|| {
                                 panic!("Cannot find function {}", ast_function_call.function_name)
                             });
@@ -812,7 +813,9 @@ fn convert_call(
                             }
                         }
                     } else if !get_generic_types(&par.ast_type).is_empty() {
-                        if let Some(inner_function_def) = typed_context.get(&call.function_name) {
+                        if let Some(inner_function_def) =
+                            typed_context.find_function(&call.function_name)
+                        {
                             if let Some(rt) = &inner_function_def.return_type {
                                 // the generic types of the inner function are not the same of the this function
                                 let result_type = if get_generic_types(rt).is_empty() {
@@ -1067,7 +1070,7 @@ fn convert_call(
                                             match expr {
                                                 ASTFunctionCallExpression(call) => {
                                                     let ast_type = typed_context
-                                                        .get(&call.function_name)
+                                                        .find_function(&call.function_name)
                                                         .unwrap()
                                                         .return_type
                                                         .clone()
@@ -1346,7 +1349,7 @@ fn get_type_of_expression(
                     .collect::<Vec<Option<ASTType>>>();
                 if let Some(function_def) = module
                     .find_call(call, Some(call_parameters_types))
-                    .or_else(|| typed_context.get(&call.function_name))
+                    .or_else(|| typed_context.find_function(&call.function_name))
                 {
                     function_def.return_type.clone()
                 } else {
@@ -1587,7 +1590,7 @@ fn convert_lambda(
                 ASTStatement::LetStatement(name, expr) => match expr {
                     ASTFunctionCallExpression(call) => {
                         let ast_type = typed_context
-                            .get(&call.function_name)
+                            .find_function(&call.function_name)
                             .unwrap()
                             .return_type
                             .clone()
