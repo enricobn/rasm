@@ -105,7 +105,7 @@ pub fn convert(
         let len_before = type_conversion_context.len();
 
         for function_def in type_conversion_context.clone().functions().iter() {
-            debug_i!("converting function {}", function_def.name);
+            debug_i!("converting function {}", function_def);
             indent!();
 
             something_to_convert |= convert_function_def(
@@ -113,7 +113,7 @@ pub fn convert(
                 module,
                 &mut type_conversion_context,
                 &resolved_param_types,
-                &function_def,
+                function_def,
             );
 
             dedent!();
@@ -306,7 +306,7 @@ fn replace_native_call(body: &str, from_function: &str, to_function: &str) -> St
 fn convert_statement(
     module: &EnhancedASTModule,
     context: &mut ValContext,
-    mut type_conversion_context: &mut TypeConversionContext,
+    type_conversion_context: &mut TypeConversionContext,
     new_body: &mut Vec<ASTStatement>,
     resolved_param_types: &LinkedHashMap<String, ASTType>,
     statement: &ASTStatement,

@@ -53,12 +53,16 @@ impl FunctionsContainer {
     pub fn replace_body(&mut self, function_def: &ASTFunctionDef) {
         for (_, f_defs) in self.functions_by_name.iter_mut() {
             for mut f_def in f_defs.iter_mut() {
-                if f_def.name == function_def.name {
+                if f_def.name == function_def.name
+                    && f_def.parameters == function_def.parameters
+                    && f_def.return_type == function_def.return_type
+                {
                     f_def.body = function_def.body.clone();
                     return;
                 }
             }
         }
+
         panic!("cannot find function {}", function_def.name)
     }
 
@@ -86,7 +90,9 @@ impl FunctionsContainer {
         if let Some(functions) = self.functions_by_name.get(&name) {
             if functions.is_empty() {
                 panic!("cannot find functions {name}");
-            } else if functions.len() != 1 {
+            } else if functions.len() == 1 {
+                functions.first()
+            } else {
                 let lambda = |it: &&ASTFunctionDef| {
                     if it.name != name {
                         false
@@ -111,8 +117,6 @@ impl FunctionsContainer {
                 } else {
                     functions.iter().find(lambda)
                 }
-            } else {
-                functions.first()
             }
         } else {
             None

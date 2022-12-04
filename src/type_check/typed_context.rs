@@ -1,7 +1,5 @@
 use crate::parser::ast::ASTFunctionDef;
 use crate::type_check::functions_container::FunctionsContainer;
-use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 #[derive(Debug, Clone)]
 pub struct TypeConversionContext {
