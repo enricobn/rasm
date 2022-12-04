@@ -76,6 +76,10 @@ inline asm it(n: i32) -> i32 /{
     mov     eax,$n
 }/
 
+inline asm it(s: str) -> str /{
+    mov     eax,$s
+}/
+
 asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi
