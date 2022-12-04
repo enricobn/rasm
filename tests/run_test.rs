@@ -224,7 +224,7 @@ fn test_vec() {
 
 #[test]
 fn test_function_overloading() {
-    test("function_overloading", vec![], "11,12\n11,12,\n");
+    test("function_overloading", vec![], "a number\nHello\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

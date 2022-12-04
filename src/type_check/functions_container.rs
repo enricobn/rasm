@@ -38,6 +38,14 @@ impl FunctionsContainer {
             }) {
                 debug!("already added as {already_present}");
                 Some(already_present.clone())
+            } else if same_name_functions
+                .iter()
+                .any(|it| it.name == function_def.name)
+            {
+                let mut def = function_def.clone();
+                def.name = format!("{}_{}", def.name, same_name_functions.len());
+                same_name_functions.push(def.clone());
+                Some(def)
             } else {
                 same_name_functions.push(function_def.clone());
                 None

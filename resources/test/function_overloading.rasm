@@ -7,6 +7,6 @@ fn myToString(s: str) -> str {
     it(s);
 }
 
-fn myToString(n: i32) -> i32 {
-    it(n);
+fn myToString(n: i32) -> str {
+    it("a number");
 }
