@@ -72,12 +72,8 @@ asm sleep(sec: i32, nsec: i32) -> i32 /{
 }/
 
 // TODO get rid of this, for now is used to return constants
-inline asm it(n: i32) -> i32 /{
-    mov     eax,$n
-}/
-
-inline asm it(s: str) -> str /{
-    mov     eax,$s
+inline asm it<T>(v: T) -> T /{
+    mov     eax,$v
 }/
 
 asm memcopy(source: i32, dest: i32, len: i32) /{

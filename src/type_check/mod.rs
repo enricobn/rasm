@@ -105,7 +105,6 @@ pub fn convert(
         let len_before = type_conversion_context.len();
 
         for function_def in type_conversion_context.clone().functions().iter() {
-            println!("converting function {}", function_def);
             debug_i!("converting function {}", function_def);
             indent!();
 
