@@ -22,7 +22,7 @@ fn nListPrint(l: List<i32>) {
 // end exclusive
 fn range(start: i32, end: i32) -> List<i32> {
     if (less(start, end), { ->
-        List::Full(start, range(nadd(start, 1), end));
+        List::Full(start, range(add(start, 1), end));
     }, { ->
         List::Empty();
     });
@@ -42,7 +42,7 @@ fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
 }
 
 fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
-    List::match(l, { head,tail -> nadd(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> it(0); });
+    List::match(l, { head,tail -> add(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> it(0); });
 }
 
 fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {
@@ -140,7 +140,7 @@ fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
 }
 
 fn listEnumerateInternal<T>(l: List<T>, index: i32) -> List<EnumerateEntry<T>> {
-    List::match(l, { head,tail -> List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, nadd(index, 1))); }, { -> List::Empty();});
+    List::match(l, { head,tail -> List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, { -> List::Empty();});
 }
 
 struct EnumerateEntry<T> {

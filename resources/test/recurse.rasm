@@ -1,6 +1,6 @@
 include "std.rasm"
 
-recurse(5, {n -> nadd(n, -1);});
+recurse(5, {n -> add(n, -1);});
 
 fn recurse(n: i32, f: fn(i32) -> i32) {
     nprintln(n);

@@ -1091,7 +1091,7 @@ mod tests {
         let nprint_parameter = par.unwrap().parameters.get(0);
 
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
-            assert_eq!("nadd", call.function_name);
+            assert_eq!("add", call.function_name);
             assert_eq!(2, call.parameters.len());
             if let Some(ASTExpression::Value(ValueType::Number(n), _)) = call.parameters.get(0) {
                 assert_eq!(10, *n);

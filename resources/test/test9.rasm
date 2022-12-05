@@ -1,2 +1,2 @@
 // test9.rasm file
-nprint(nadd(10, 20));
+nprint(add(10, 20));

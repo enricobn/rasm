@@ -8,7 +8,7 @@ nprintln(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
     ifImmediateThen(lessOrEqual(n, 1),n,{ ->
-        nadd(fib(nadd(n,-1)), fib(nadd(n,-2)));
+        add(fib(add(n,-1)), fib(add(n,-2)));
     });
 }
 

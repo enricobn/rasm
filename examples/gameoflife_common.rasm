@@ -17,7 +17,7 @@ fn allCells(width: i32, height: i32) -> List<FullCell> {
 }
 
 fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
-    map(cells, { it -> Cell(nadd(Cell::x(it), d), nadd(Cell::y(it), d)); });
+    map(cells, { it -> Cell(add(Cell::x(it), d), add(Cell::y(it), d)); });
 }
 
 fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
@@ -34,10 +34,10 @@ fn adjacents(cell: Cell) -> List<Cell> {
     let x = Cell::x(cell);
     let y = Cell::y(cell);
 
-    let left = nadd(x, -1);
-    let right = nadd(x, 1);
-    let up = nadd(y, -1);
-    let down = nadd(y, 1);
+    let left = add(x, -1);
+    let right = add(x, 1);
+    let up = add(y, -1);
+    let down = add(y, 1);
 
     listOf8(
         Cell(left, up),

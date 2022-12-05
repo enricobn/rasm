@@ -3,7 +3,7 @@ include "std.rasm"
 inner1(atoi(argv(1)));
 
 fn inner1(n: i32) {
-    inner({ -> nadd(n, 10); });
+    inner({ -> add(n, 10); });
 }
 
 fn inner(f: fn() -> i32) {

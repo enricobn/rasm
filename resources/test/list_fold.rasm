@@ -1,5 +1,5 @@
 include "std.rasm"
 
-nprintln(foldLeft(range(0, atoi(argv(1))), 0, { prev, actual -> nadd(prev, nadd(prev, actual)); }));
+nprintln(foldLeft(range(0, atoi(argv(1))), 0, { prev, actual -> add(prev, add(prev, actual)); }));
 
-nprintln(foldRight(range(0, atoi(argv(1))), 0, { prev, actual -> nadd(prev, nadd(prev, actual)); }));
+nprintln(foldRight(range(0, atoi(argv(1))), 0, { prev, actual -> add(prev, add(prev, actual)); }));
