@@ -72,7 +72,7 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
         None,
         true,
     );
-    CodeGen::add(&mut body, "call malloc", None, true);
+    CodeGen::add(&mut body, "$call(malloc)", None, true);
     CodeGen::add(&mut body, &format!("add esp,{}", wl), None, true);
     CodeGen::add(&mut body, &format!("push {ws} eax"), None, true);
     CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);

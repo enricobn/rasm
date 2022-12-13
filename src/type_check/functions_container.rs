@@ -117,7 +117,9 @@ impl FunctionsContainer {
                     }
                 };
                 let count = functions.iter().filter(lambda).count();
-                if count != 1 {
+                if count == 0 {
+                    None
+                } else if count > 1 {
                     panic!(
                         "found more than one function for call {call} filter {:?}: {}",
                         parameter_types_filter, call.index

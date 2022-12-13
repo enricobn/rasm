@@ -38,12 +38,12 @@ pub fn enum_functions_creator(
             backend,
             &mut result,
             &enum_def,
-            "Match",
+            "match",
             Some(ASTType::Parametric("_T".into())),
             Some("_T".into()),
         );
 
-        create_match_like_function(backend, &mut result, &enum_def, "Run", None, None);
+        create_match_like_function(backend, &mut result, &enum_def, "run", None, None);
     }
 
     result.native_body = native_body;
@@ -95,7 +95,7 @@ fn create_match_like_function(
     }
 
     let function_def = ASTFunctionDef {
-        name: enum_def.name.clone() + name,
+        name: format!("{}_{}", enum_def.name, name),
         parameters,
         body: function_body,
         inline: false,
@@ -107,10 +107,7 @@ fn create_match_like_function(
 
     debug!("created function {function_def}");
 
-    module.add_function(
-        enum_def.name.clone() + "::" + &name.to_lowercase(),
-        function_def,
-    );
+    module.add_function(format!("{}::{}", enum_def.name, name), function_def);
 }
 
 fn create_constructors(
@@ -141,7 +138,7 @@ fn create_constructors(
                 None,
                 true,
             );
-            CodeGen::add(native_body, "call    malloc", None, true);
+            CodeGen::add(native_body, "$call(malloc)", None, true);
             CodeGen::add(
                 native_body,
                 &format!("add   {}, {}", backend.stack_pointer(), backend.word_len()),
@@ -213,7 +210,7 @@ fn enum_parametric_variant_constructor_body(
         None,
         true,
     );
-    CodeGen::add(&mut body, "call malloc", None, true);
+    CodeGen::add(&mut body, "$call(malloc)", None, true);
     CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
     CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
     CodeGen::add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);

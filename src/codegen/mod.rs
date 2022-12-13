@@ -9,6 +9,7 @@ use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::parser::ast::{ASTModule, ASTParameterDef, ASTType};
@@ -279,7 +280,14 @@ impl<'a> CodeGen<'a> {
 
     pub fn asm(&mut self) -> String {
         self.id = 0;
-        self.body = self.module.native_body.clone();
+        self.body = TextMacroEvaluator::new().translate(
+            self.backend,
+            &mut self.statics,
+            None,
+            &self.module.native_body,
+            Some(&self.module),
+        );
+
         self.definitions = String::new();
         self.functions = self.module.functions_by_name.clone();
 

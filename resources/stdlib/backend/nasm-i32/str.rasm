@@ -24,7 +24,7 @@ asm atoi(s: str) -> i32 /{
     pop    ecx
 }/
 
-asm sadd(s1: str, s2: str) -> str /{
+asm add(s1: str, s2: str) -> str /{
     push    ebx
     push    ecx
     push    edx

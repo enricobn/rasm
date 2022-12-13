@@ -1,9 +1,9 @@
 include "std.rasm"
 
 sprintln("😀");
-sprintln(sadd("Hello ", "world!"));
-sprintln(sadd(sadd("Hello", " "), sadd("world", "!")));
-nprintln(slen(sadd(sadd("Hello", " "), sadd("world", "!"))));
+sprintln(add("Hello ", "world!"));
+sprintln(add(add("Hello", " "), add("world", "!")));
+nprintln(slen(add(add("Hello", " "), add("world", "!"))));
 Option::run(substr("first\nsecond\nthird\n", 0, 5), { v -> sprintln(v);}, { -> sprintln("None");});
 Option::run(substr("first\nsecond\nthird\n", 6, 6), { v -> sprintln(v);}, { -> sprintln("None");});
 Option::run(substr("first\nsecond\nthird\n", 13, 5), { v -> sprintln(v);}, { -> sprintln("None");});
