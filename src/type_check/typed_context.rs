@@ -1,15 +1,15 @@
-use crate::parser::ast::ASTFunctionDef;
+use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType};
 use crate::type_check::functions_container::FunctionsContainer;
 
 #[derive(Debug, Clone)]
 pub struct TypeConversionContext {
-    new_function_defs: FunctionsContainer,
+    functions_by_name: FunctionsContainer,
 }
 
 impl TypeConversionContext {
     pub fn new() -> Self {
         Self {
-            new_function_defs: FunctionsContainer::new(),
+            functions_by_name: FunctionsContainer::new(),
         }
     }
 
@@ -18,28 +18,41 @@ impl TypeConversionContext {
         original_name: &String,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
-        self.new_function_defs
+        self.functions_by_name
             .try_add_new(original_name, function_def)
     }
 
     pub fn replace_body(&mut self, function_def: &ASTFunctionDef) {
-        self.new_function_defs.replace_body(function_def);
+        self.functions_by_name.replace_body(function_def);
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
-        self.new_function_defs.find_function(name)
+        self.functions_by_name.find_function(name)
     }
 
     pub fn len(&self) -> usize {
-        self.new_function_defs.len()
+        self.functions_by_name.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.new_function_defs.is_empty()
+        self.functions_by_name.is_empty()
     }
 
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
-        self.new_function_defs.functions()
+        self.functions_by_name.functions()
+    }
+
+    pub fn find_call(
+        &self,
+        call: &ASTFunctionCall,
+        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+    ) -> Option<&ASTFunctionDef> {
+        self.functions_by_name
+            .find_call(call, parameter_types_filter)
+    }
+
+    pub fn functions_desc(&self) -> Vec<String> {
+        self.functions_by_name.functions_desc()
     }
 }
 

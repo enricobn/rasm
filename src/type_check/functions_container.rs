@@ -26,7 +26,7 @@ impl FunctionsContainer {
 
     pub fn try_add_new(
         &mut self,
-        original_name: &String,
+        original_name: &str,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
         debug!("trying to add new function {function_def}");
@@ -53,7 +53,7 @@ impl FunctionsContainer {
         } else {
             let same_name_functions = vec![function_def.clone()];
             self.functions_by_name
-                .insert(original_name.clone(), same_name_functions);
+                .insert(original_name.into(), same_name_functions);
             None
         }
     }
@@ -83,7 +83,10 @@ impl FunctionsContainer {
             .collect::<Vec<_>>();
 
         if found.len() > 1 {
-            panic!("found more functions with name {name}");
+            panic!(
+                "found more functions with name {name}: {:?}",
+                found.iter().map(|it| format!("{it}")).collect::<Vec<_>>()
+            );
         } else {
             found.first().cloned()
         }
@@ -97,7 +100,10 @@ impl FunctionsContainer {
         let name = call.function_name.clone();
         if let Some(functions) = self.functions_by_name.get(&name) {
             if functions.is_empty() {
-                panic!("cannot find functions {name}");
+                panic!(
+                    "cannot find functions for call {call} filter {:?}",
+                    parameter_types_filter
+                );
             } else if functions.len() == 1 {
                 functions.first()
             } else {
@@ -133,7 +139,7 @@ impl FunctionsContainer {
         }
     }
 
-    fn almost_same_parameters_types(
+    fn almost_same_parameters_types_(
         parameters1: &Vec<ASTType>,
         parameters2: &Vec<Option<ASTType>>,
     ) -> bool {
@@ -164,6 +170,80 @@ impl FunctionsContainer {
         result
     }
 
+    fn almost_same_parameters_types(
+        parameter_types: &Vec<ASTType>,
+        parameter_types_filter: &Vec<Option<ASTType>>,
+    ) -> bool {
+        let result = if parameter_types.len() != parameter_types_filter.len() {
+            false
+        } else {
+            zip(parameter_types.iter(), parameter_types_filter.iter()).all(
+                |(parameter_type, parameter_type_filter)| {
+                    match parameter_type_filter {
+                        None => true,
+                        Some(expected_type) => {
+                            match expected_type {
+                                ASTType::Builtin(expected_kind) => match expected_kind {
+                                    BuiltinTypeKind::Lambda { .. } => matches!(
+                                        parameter_type,
+                                        ASTType::Builtin(BuiltinTypeKind::Lambda { .. }) // TODO we don't check the lambda
+                                    ),
+                                    _ => match parameter_type {
+                                        ASTType::Builtin(_) => expected_type == parameter_type,
+                                        ASTType::Parametric(_) => true,
+                                        ASTType::Custom { .. } => false,
+                                    },
+                                },
+                                ASTType::Parametric(_) => true,
+                                ASTType::Custom {
+                                    param_types: _,
+                                    name: expected_type_name,
+                                } => {
+                                    match parameter_type {
+                                        ASTType::Builtin(_) => false,
+                                        ASTType::Parametric(_) => true, // TODO
+                                        ASTType::Custom {
+                                            param_types: _,
+                                            name: type_name,
+                                        } => type_name == expected_type_name,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    /*
+                    match parameter_type {
+                        ASTType::Builtin(kind) => {
+                            match kind {
+                                BuiltinTypeKind::Lambda { .. } => true, // TODO
+                                _ => parameter_type_filter
+                                    .iter()
+                                    .map(|p| p == parameter_type)
+                                    .next()
+                                    .unwrap_or(false),
+                            }
+                        }
+                        ASTType::Parametric(_) => true, // TODO
+                        ASTType::Custom {
+                            name: p1_name,
+                            param_types: _,
+                        } => match parameter_type_filter {
+                            Some(ASTType::Custom {
+                                     name,
+                                     param_types: _,
+                                 }) => name == p1_name,
+                            None => true,
+                            _ => false,
+                        },
+                    }
+
+                     */
+                },
+            )
+        };
+        result
+    }
+
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
         self.functions_by_name
             .values()
@@ -177,5 +257,224 @@ impl FunctionsContainer {
 
     pub fn is_empty(&self) -> bool {
         self.functions_by_name.is_empty()
+    }
+
+    pub fn functions_desc(&self) -> Vec<String> {
+        let mut vec: Vec<String> = self.functions().iter().map(|it| format!("{it}")).collect();
+        vec.sort();
+        vec
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use linked_hash_map::LinkedHashMap;
+
+    use crate::parser::ast::ASTFunctionBody::ASMBody;
+    use crate::parser::ast::{
+        ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType,
+        BuiltinTypeKind,
+    };
+    use crate::parser::ValueType;
+    use crate::type_check::functions_container::FunctionsContainer;
+
+    #[test]
+    fn test() {
+        let mut sut = FunctionsContainer::new();
+
+        let function_def = create_function("toString", "n", BuiltinTypeKind::I32);
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_none());
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_1() {
+        let mut sut = FunctionsContainer::new();
+
+        let function_def = create_function("toString", "n", BuiltinTypeKind::I32);
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_none());
+
+        let function_def = create_function("toString", "b", BuiltinTypeKind::Bool);
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_2() {
+        let mut sut = FunctionsContainer::new();
+
+        let function_def = create_function("AModule::toString", "n", BuiltinTypeKind::I32);
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_none());
+
+        let function_def = create_function("AModule::toString", "b", BuiltinTypeKind::Bool);
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_some());
+
+        assert!(sut.find_function("AModule::toString").is_some());
+        assert!(sut.find_function("AModule::toString_1").is_some());
+    }
+
+    /*
+    #[test]
+    fn test_3() {
+        let mut sut = FunctionsContainer::new();
+
+        let function_def = create_function("AModule::toString", "n", BuiltinTypeKind::I32);
+
+        let result = sut.try_add_new("AModule::toString", &function_def);
+
+        assert!(result.is_none());
+
+        assert!(sut.find_function("AModule::toString").is_some());
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_none());
+
+        assert!(sut.find_function("AModule::toString").is_some());
+    }
+
+     */
+
+    #[test]
+    fn test_3() {
+        let mut sut = FunctionsContainer::new();
+
+        let function_def = create_function("toString", "n", BuiltinTypeKind::I32);
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_none());
+
+        assert!(sut.find_function("toString").is_some());
+
+        let mut function_def = create_function("toString", "n", BuiltinTypeKind::I32);
+        function_def.parameters = vec![];
+
+        let result = sut.try_add_new("toString", &function_def);
+
+        assert!(result.is_some());
+
+        assert!(sut.find_function("toString").is_some());
+        assert!(sut.find_function("toString_1").is_some());
+    }
+
+    #[test]
+    fn test_4() {
+        let mut sut = FunctionsContainer::new();
+
+        let function_def = create_add_function("n", BuiltinTypeKind::I32);
+
+        let result = sut.try_add_new("add", &function_def);
+
+        assert!(result.is_none());
+
+        let function_def = create_add_function("s", BuiltinTypeKind::String);
+
+        let result = sut.try_add_new("add", &function_def);
+
+        assert!(result.is_some());
+
+        let call = ASTFunctionCall {
+            original_function_name: "add".into(),
+            function_name: "add".into(),
+            parameters: vec![
+                ASTExpression::Value(
+                    ValueType::Number(10),
+                    ASTIndex {
+                        file_name: None,
+                        row: 0,
+                        column: 0,
+                    },
+                ),
+                ASTExpression::Value(
+                    ValueType::Number(20),
+                    ASTIndex {
+                        file_name: None,
+                        row: 0,
+                        column: 0,
+                    },
+                ),
+            ],
+            index: ASTIndex {
+                file_name: None,
+                row: 0,
+                column: 0,
+            },
+        };
+
+        let result = sut.find_call(
+            &call,
+            Some(vec![
+                Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+                Some(ASTType::Parametric("T".into())),
+            ]),
+        );
+
+        println!(
+            "{:?}",
+            sut.functions()
+                .iter()
+                .map(|it| format!("{it}"))
+                .collect::<Vec<_>>()
+        );
+
+        assert!(result.is_some());
+    }
+
+    fn create_function(
+        name: &str,
+        param_name: &str,
+        param_kind: BuiltinTypeKind,
+    ) -> ASTFunctionDef {
+        ASTFunctionDef {
+            name: name.into(),
+            body: ASMBody("".into()),
+            param_types: vec![],
+            parameters: vec![ASTParameterDef {
+                name: param_name.into(),
+                ast_type: ASTType::Builtin(param_kind),
+            }],
+            inline: false,
+            resolved_generic_types: LinkedHashMap::new(),
+            return_type: Some(ASTType::Builtin(BuiltinTypeKind::String)),
+        }
+    }
+
+    fn create_add_function(param_name: &str, param_kind: BuiltinTypeKind) -> ASTFunctionDef {
+        ASTFunctionDef {
+            name: "add".into(),
+            body: ASMBody("".into()),
+            param_types: vec![],
+            parameters: vec![
+                ASTParameterDef {
+                    name: param_name.into(),
+                    ast_type: ASTType::Builtin(param_kind.clone()),
+                },
+                ASTParameterDef {
+                    name: format!("{}_1", param_name),
+                    ast_type: ASTType::Builtin(param_kind.clone()),
+                },
+            ],
+            inline: false,
+            resolved_generic_types: LinkedHashMap::new(),
+            return_type: Some(ASTType::Builtin(param_kind)),
+        }
     }
 }

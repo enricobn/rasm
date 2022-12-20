@@ -704,7 +704,7 @@ fn verify_function_call(
             }
         } else {
             panic!(
-                "{call} functions: {:?}",
+                "cannot find function {call} functions: {:?}",
                 module.functions_by_name.keys().collect::<Vec<_>>()
             );
         };

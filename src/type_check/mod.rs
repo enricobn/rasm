@@ -88,7 +88,7 @@ pub fn convert(
         for statement in body.iter() {
             debug_i!("converting statement {statement}");
             indent!();
-            something_to_convert |= convert_statement(
+            let statement_converted = convert_statement(
                 module,
                 &mut context,
                 &mut type_conversion_context,
@@ -97,6 +97,11 @@ pub fn convert(
                 statement,
                 backend,
             );
+
+            if statement_converted {
+                debug_i!("statement converted {}", statement);
+            }
+            something_to_convert |= statement_converted;
             dedent!();
         }
 
@@ -108,13 +113,19 @@ pub fn convert(
             debug_i!("converting function {}", function_def);
             indent!();
 
-            something_to_convert |= convert_function_def(
+            let function_converted = convert_function_def(
                 backend,
                 module,
                 &mut type_conversion_context,
                 &resolved_param_types,
                 function_def,
             );
+
+            if function_converted {
+                debug_i!("function converted {}", function_def);
+            }
+
+            something_to_convert |= function_converted;
 
             dedent!();
         }
@@ -937,11 +948,24 @@ fn convert_call(
                     )? || something_to_convert;
                 }
                 ASTExpression::Lambda(lambda) => {
+                    let lambda_type =
+                        if let Some(new_type) = substitute(&par.ast_type, &resolved_param_types) {
+                            new_type
+                        } else {
+                            par.ast_type.clone()
+                        };
+                    let mut context = get_context_from_lambda(
+                        context,
+                        lambda,
+                        &lambda_type,
+                        &resolved_param_types,
+                    )?;
+
                     let mut effective_lambda = if let Some(new_lambda) = convert_lambda(
                         module,
                         &par.ast_type,
                         lambda,
-                        context,
+                        &context,
                         typed_context,
                         &resolved_param_types,
                         backend,
@@ -962,24 +986,6 @@ fn convert_call(
                                     something_to_convert = true;
                                     Some(new_t)
                                 } else if let Some(last) = effective_lambda.body.last() {
-                                    let mut context = context.clone();
-
-                                    zip(
-                                        effective_lambda.parameter_names.iter(),
-                                        lambda_parameters.iter(),
-                                    )
-                                    .for_each(
-                                        |(name, ast_type)| {
-                                            context.insert_par(
-                                                name.into(),
-                                                ASTParameterDef {
-                                                    name: name.into(),
-                                                    ast_type: ast_type.clone(),
-                                                },
-                                            );
-                                        },
-                                    );
-
                                     for statement in effective_lambda.body.iter() {
                                         if let ASTStatement::LetStatement(name, expr) = statement {
                                             let ast_type = get_type_of_expression(
@@ -1024,9 +1030,6 @@ fn convert_call(
 
                     // we try to convert the last expression
                     if let Some(rt) = &new_return_type {
-                        let mut context =
-                            get_context_from_lambda(context, &effective_lambda, &par.ast_type)?;
-
                         let new_body: Result<Vec<ASTStatement>, TypeCheckError> = effective_lambda
                             .body
                             .iter()
@@ -1484,6 +1487,7 @@ fn get_context_from_lambda(
     context: &ValContext,
     lambda: &ASTLambdaDef,
     lambda_type: &ASTType,
+    resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<ValContext, TypeCheckError> {
     let mut context = ValContext::new(Some(context));
 
@@ -1495,11 +1499,17 @@ fn get_context_from_lambda(
             }) => {
                 let pp = parameters.get(inner_i).unwrap();
 
+                let p = if let Some(ct) = substitute(pp, resolved_param_types) {
+                    ct
+                } else {
+                    pp.clone()
+                };
+
                 context.insert_par(
                     name.clone(),
                     ASTParameterDef {
                         name: name.clone(),
-                        ast_type: pp.clone(),
+                        ast_type: p,
                     },
                 );
             }
