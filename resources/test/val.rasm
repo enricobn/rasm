@@ -1,9 +1,9 @@
 include "std.rasm"
 
 runWith(atoi(argv(1)), { arg ->
-    nprintln(parameter(arg));
-    nprintln(lambdaParameter(arg, { p -> it(p);}));
-    nprintln(context(arg));
+    println(parameter(arg));
+    println(lambdaParameter(arg, { p -> it(p);}));
+    println(context(arg));
 });
 
 fn parameter(n: i32) -> i32 {

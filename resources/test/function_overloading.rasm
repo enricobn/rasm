@@ -3,7 +3,7 @@ include "std.rasm"
 sprintln(myToString(10));
 sprintln(myToString("Hello"));
 sprintln(add("Hello", " world"));
-nprintln(add(1, 10));
+println(add(1, 10));
 
 fn myToString(s: str) -> str {
     it(s);

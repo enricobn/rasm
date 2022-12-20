@@ -1,12 +1,13 @@
+use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::codegen::{TypedValContext, TypedValKind};
+use crate::codegen::{TypedValContext, TypedValKind, ValContext};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
     ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 use crate::parser::ValueType;
-use crate::type_check::{substitute, TypeConversionContext};
+use crate::type_check::{convert_call, substitute, TypeConversionContext};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::fmt::{Display, Formatter};
@@ -496,62 +497,67 @@ pub fn convert_to_typed_module(
     debug_asm: bool,
     print_allocation: bool,
     printl_module: bool,
-    mandatory_functions: Vec<String>,
+    mandatory_functions: Vec<DefaultFunctionCall>,
+    backend: &dyn Backend,
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
 
     let mut functions_by_name = LinkedHashMap::new();
 
-    for new_function_def in typed_context.functions().iter() {
-        functions_by_name.insert(
-            new_function_def.name.clone(),
-            function_def(&mut conv_context, &new_function_def),
-        );
-    }
-
     mandatory_functions
-        .iter()
-        .for_each(|it| add_function(module, &mut conv_context, &mut functions_by_name, it, true));
+        .into_iter()
+        .for_each(|it| add_default_function(module, it, true, typed_context, backend));
 
     let default_functions = &mut vec![
-        "malloc",
-        "exitMain",
-        "sprint",
+        DefaultFunctionCall::new_1("malloc", BuiltinTypeKind::I32),
+        DefaultFunctionCall::new_1("exitMain", BuiltinTypeKind::I32),
+        //"sprint",
         //"outOfHeapSpace",
         //"outOfMemory",
-        "slen",
-        "sprintln",
-        "println",
-        "addRef",
-        "memcopy",
-        "deref",
-        "negativeCount",
-        "invalidAddress",
-        "nprintln",
-        "nprint",
-        "removeFromReused",
-        "addStaticStringToHeap",
-        "createCmdLineArguments",
-        "str_addRef",
-        "str_deref",
-        "sysOpen",
-        "sysRead",
-        "sysClose",
-        "fileSize",
-        "freeMem",
+        //"slen",
+        //"sprintln",
+        //"println",
+        DefaultFunctionCall::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunctionCall::new_3(
+            "memcopy",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+        DefaultFunctionCall::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        //DefaultFunctionCall::new_0("negativeCount"),
+        //DefaultFunctionCall::new_0("invalidAddress"),
+        //DefaultFunctionCall::new_1("removeFromReused", BuiltinTypeKind::I32),
+        DefaultFunctionCall::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
+        DefaultFunctionCall::new_2(
+            "createCmdLineArguments",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+        DefaultFunctionCall::new_1("str_addRef", BuiltinTypeKind::I32),
+        DefaultFunctionCall::new_1("str_deref", BuiltinTypeKind::I32),
+        //"str_addRef",
+        //"str_deref",
+        //"sysOpen",
+        //"sysRead",
+        //"sysClose",
+        //"fileSize",
+        //"freeMem",
     ];
 
     if print_allocation {
         default_functions.append(&mut vec![
-            "printAllocated",
-            "printTableSlotsAllocated",
-            "printAllocatedString",
-            "printTableSlotsAllocatedString",
-            "nprint",
+            DefaultFunctionCall::new_0("printAllocated"),
+            DefaultFunctionCall::new_0("printTableSlotsAllocated"),
+            DefaultFunctionCall::new_0("printAllocatedString"),
+            DefaultFunctionCall::new_0("printTableSlotsAllocatedString"),
+            //"nprint",
         ])
     }
 
     if debug_asm {
+        /*
+        TODO
         default_functions.append(&mut vec![
             "startMalloc",
             "nprintln",
@@ -572,14 +578,22 @@ pub fn convert_to_typed_module(
             "printReplacedReused",
             "addReused",
         ])
+         */
     }
 
-    default_functions.sort();
-    default_functions.dedup();
+    default_functions.sort_by(|a, b| a.name.cmp(&b.name));
+    //default_functions.dedup_by(|a, b| a.name == b.name);
 
-    default_functions
-        .iter()
-        .for_each(|it| add_function(module, &mut conv_context, &mut functions_by_name, it, false));
+    for it in default_functions {
+        add_default_function(module, it.clone(), false, typed_context, backend)
+    }
+
+    for new_function_def in typed_context.functions().iter() {
+        functions_by_name.insert(
+            new_function_def.name.clone(),
+            function_def(&mut conv_context, &new_function_def),
+        );
+    }
 
     let result = ASTTypedModule {
         body: new_body.iter().map(statement).collect(),
@@ -856,17 +870,34 @@ fn get_type_of_typed_expression(
     }
 }
 
-fn add_function(
+fn add_default_function(
     module: &EnhancedASTModule,
-    conv_context: &mut ConvContext,
-    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
-    function_name: &str,
+    function_call: DefaultFunctionCall,
     mandatory: bool,
+    typed_context: &mut TypeConversionContext,
+    backend: &dyn Backend,
 ) {
-    if let Some(f) = module.find_function(function_name) {
-        functions_by_name.insert(function_name.into(), function_def(conv_context, f));
-    } else if mandatory {
-        panic!("Cannot find mandatory function {function_name}");
+    let context = ValContext::new(None);
+    let resolved_param_types = LinkedHashMap::new();
+
+    match convert_call(
+        module,
+        &context,
+        &function_call.to_call(),
+        typed_context,
+        &resolved_param_types,
+        None,
+        backend,
+    ) {
+        Ok(_) => {}
+        Err(e) => {
+            if mandatory {
+                panic!(
+                    "Error converting mandatory function {} : {e}",
+                    function_call.name
+                )
+            }
+        }
     }
 }
 
@@ -1130,5 +1161,86 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
             println!("}}");
         }
         ASTTypedFunctionBody::ASMBody(_) => println!(" {{...}}"),
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DefaultFunctionCall {
+    name: String,
+    param_types: Vec<ASTType>,
+}
+
+impl DefaultFunctionCall {
+    pub fn new(name: &str, param_types: Vec<ASTType>) -> Self {
+        Self {
+            name: name.into(),
+            param_types,
+        }
+    }
+
+    pub fn new_0(name: &str) -> Self {
+        Self {
+            name: name.into(),
+            param_types: vec![],
+        }
+    }
+
+    pub fn new_1(name: &str, kind: BuiltinTypeKind) -> Self {
+        Self {
+            name: name.into(),
+            param_types: vec![ASTType::Builtin(kind)],
+        }
+    }
+
+    pub fn new_2(name: &str, kind1: BuiltinTypeKind, kind2: BuiltinTypeKind) -> Self {
+        Self {
+            name: name.into(),
+            param_types: vec![ASTType::Builtin(kind1), ASTType::Builtin(kind2)],
+        }
+    }
+
+    pub fn new_3(
+        name: &str,
+        kind1: BuiltinTypeKind,
+        kind2: BuiltinTypeKind,
+        kind3: BuiltinTypeKind,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            param_types: vec![
+                ASTType::Builtin(kind1),
+                ASTType::Builtin(kind2),
+                ASTType::Builtin(kind3),
+            ],
+        }
+    }
+
+    pub fn to_call(&self) -> ASTFunctionCall {
+        ASTFunctionCall {
+            function_name: self.name.clone(),
+            original_function_name: self.name.clone(),
+            parameters: self
+                .param_types
+                .iter()
+                .map(|it| match it {
+                    ASTType::Builtin(kind) => match kind {
+                        BuiltinTypeKind::String => ASTExpression::StringLiteral("".into()),
+                        BuiltinTypeKind::I32 => {
+                            ASTExpression::Value(ValueType::Number(0), ASTIndex::none())
+                        }
+                        BuiltinTypeKind::Bool => {
+                            ASTExpression::Value(ValueType::Boolean(true), ASTIndex::none())
+                        }
+                        BuiltinTypeKind::Char => {
+                            ASTExpression::Value(ValueType::Char('a'), ASTIndex::none())
+                        }
+                        BuiltinTypeKind::Lambda { .. } => panic!(),
+                    },
+                    ASTType::Parametric(_) => panic!(),
+                    ASTType::Custom { .. } => panic!(),
+                })
+                .collect(),
+            index: ASTIndex::none(),
+        }
     }
 }

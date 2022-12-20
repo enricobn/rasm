@@ -5,7 +5,7 @@ asm malloc(size: i32) -> i32 /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "start malloc ")
-    $call(nprintln, $size)
+    $call(println, $size)
     %endif
 
     mov     dword ecx, _reusable_heap_table
@@ -14,7 +14,7 @@ asm malloc(size: i32) -> i32 /{
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,ecx
     $call(sprint, "  reusable size ")
-    $call(nprintln, ebx)
+    $call(println, ebx)
     %endif
 
     mov dword ebx,$size
@@ -31,9 +31,9 @@ asm malloc(size: i32) -> i32 /{
 .reusable_good:
     %ifdef LOG_DEBUG
     $call(sprint, "  reusing address ")
-    $call(nprint, eax)
+    $call(print, eax)
     $call(sprint, ", size ")
-    $call(nprintln, [eax + 8])
+    $call(println, [eax + 8])
     %endif
 
     $call(removeFromReused,ecx)
@@ -97,7 +97,7 @@ asm malloc(size: i32) -> i32 /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "  ")
-    $call(nprintln, eax)
+    $call(println, eax)
     $call(sprintln, "end malloc")
     %endif
 
@@ -146,7 +146,7 @@ asm deref(address: i32, descr: str) -> i32 /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "start deref ")
-    $call(nprintln, $address)
+    $call(println, $address)
     $call(sprint, "  ")
     $call(sprintln, $descr)
     %endif
@@ -156,7 +156,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,eax
     $call(sprint, "  reusable size ")
-    $call(nprintln, ebx)
+    $call(println, ebx)
     %endif
 
     %ifdef LOG_DEBUG
@@ -189,7 +189,7 @@ asm deref(address: i32, descr: str) -> i32 /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "  deallocated ")
-    $call(nprintln, eax)
+    $call(println, eax)
     %endif
 
     mov     dword [eax + 4],0; allocated false
@@ -242,7 +242,7 @@ asm addRef(address: i32, descr: str) /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "start addRef ")
-    $call(nprintln, $address)
+    $call(println, $address)
     $call(sprint, "  ")
     $call(sprintln, $descr)
     %endif
@@ -253,7 +253,7 @@ asm addRef(address: i32, descr: str) /{
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,ecx
     $call(sprint, "  reusable size ")
-    $call(nprintln, ebx)
+    $call(println, ebx)
     pop     ecx
     %endif
 
@@ -304,10 +304,10 @@ asm removeFromReused(address: i32) /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "  remove from reused ")
-    $call(nprint, $address)
+    $call(print, $address)
     $call(sprint, " ")
     mov     dword eax, $address
-    $call(nprint, [eax])
+    $call(print, [eax])
     %endif
 
     mov     dword eax,[_reusable_heap_table_next]
@@ -316,7 +316,7 @@ asm removeFromReused(address: i32) /{
 
     %ifdef LOG_DEBUG
     $call(sprint, " ")
-    $call(nprintln, eax)
+    $call(println, eax)
     %endif
 
     cmp     dword eax,$address
@@ -337,21 +337,21 @@ asm removeFromReused(address: i32) /{
 
 fn printReplacedReused(address: i32, value: i32) {
     sprint("  replaced reused ");
-    nprint(address);
+    print(address);
     sprint(" with value ");
-    nprintln(value);
+    println(value);
 }
 
 fn addReused(address: i32, value: i32) {
     sprint("  add reused ");
-    nprint(address);
+    print(address);
     sprint(" with value ");
-    nprintln(value);
+    println(value);
 }
 
 fn printRefCount(count: i32) {
     sprint("  ref count: ");
-    nprintln(count);
+    println(count);
 }
 
 fn invalidAddress() {
@@ -380,9 +380,7 @@ asm printAllocated() /{
     add     ebx, 5 * 4
     jmp     .loop
 .end:
-    push    ecx
-    call    nprint
-    add     esp, 4
+    $call(print, ecx)
     call    printAllocatedString
 
     pop     edx
@@ -404,9 +402,7 @@ asm printTableSlotsAllocated() /{
     add     ebx,5 * 4
     jmp     .loop
 .end:
-    push    eax
-    call    nprint
-    add     esp, 4
+    $call(print, eax)
     call    printTableSlotsAllocatedString
 
     pop     ebx

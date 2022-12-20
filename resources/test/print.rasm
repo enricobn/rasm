@@ -5,9 +5,9 @@ print();
 fn print() {
     sprintln("Hello world");
     sprintln("Hi");
-    nprintln(10);
-    nprintln(add(15, 25));
-    nprintln(add(15, add(10, 20)));
+    println(10);
+    println(add(15, 25));
+    println(add(15, add(10, 20)));
     sprintln2("one", "two");
 }
 

@@ -1,3 +1,3 @@
 include "std.rasm"
 
-nprintln(atoi(argv(1)));
+println(atoi(argv(1)));

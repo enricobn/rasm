@@ -12,12 +12,12 @@ Test::run(
     Test::T2(10, Option::Some("a value")),
     { v1, v2, o ->
         sprintln("T1");
-        nprintln(v1);
-        nprintln(v2);
+        println(v1);
+        println(v2);
         printOption(o);
     }, { v1, o ->
        sprintln("T2");
-       nprintln(v1);
+       println(v1);
        printOption(o);
    });
 

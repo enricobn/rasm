@@ -2,7 +2,6 @@ use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use regex::Regex;
 use std::fmt::{Display, Formatter};
-use std::iter::zip;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -14,7 +13,7 @@ use crate::parser::ast::{
 };
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::parser::ValueType;
-use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule};
+use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule, DefaultFunctionCall};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::{debug_i, dedent, indent};
 
@@ -51,7 +50,7 @@ pub fn convert(
     debug_asm: bool,
     print_allocation: bool,
     print_module: bool,
-    mandatory_functions: Vec<String>,
+    mandatory_functions: Vec<DefaultFunctionCall>,
 ) -> ASTTypedModule {
     crate::utils::debug_indent::INDENT.with(|indent| {
         *indent.borrow_mut() = 0;
@@ -148,6 +147,7 @@ pub fn convert(
         print_allocation,
         print_module,
         mandatory_functions,
+        backend,
     );
 
     info!("Type check ended ({count} passes)");
@@ -706,14 +706,18 @@ fn convert_call(
         .map(|it| get_type_of_expression(module, context, it, typed_context))
         .collect::<Vec<Option<ASTType>>>();
 
-    let function_def = module
-        .find_call(call, Some(call_parameters_types))
-        .unwrap_or_else(|| {
-            function_def_from_module = false;
-            cloned_typed_context
-                .find_function(&call.function_name)
-                .unwrap_or_else(|| panic!("function {}", call.function_name))
-        });
+    let mut function_def_opt = module.find_call(call, Some(call_parameters_types));
+
+    if function_def_opt.is_none() {
+        function_def_from_module = false;
+        function_def_opt = cloned_typed_context.find_function(&call.function_name);
+    }
+
+    if function_def_opt.is_none() {
+        return Err(format!("Cannot find function for {call}").into());
+    }
+
+    let function_def = function_def_opt.unwrap();
 
     debug_i!("function to convert {}", function_def);
 

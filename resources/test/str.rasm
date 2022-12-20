@@ -3,15 +3,15 @@ include "std.rasm"
 sprintln("😀");
 sprintln(add("Hello ", "world!"));
 sprintln(add(add("Hello", " "), add("world", "!")));
-nprintln(slen(add(add("Hello", " "), add("world", "!"))));
+println(slen(add(add("Hello", " "), add("world", "!"))));
 Option::run(substr("first\nsecond\nthird\n", 0, 5), { v -> sprintln(v);}, { -> sprintln("None");});
 Option::run(substr("first\nsecond\nthird\n", 6, 6), { v -> sprintln(v);}, { -> sprintln("None");});
 Option::run(substr("first\nsecond\nthird\n", 13, 5), { v -> sprintln(v);}, { -> sprintln("None");});
 //Option::run(substr("☀h", 1, 1), { v -> sprintln(v);}, { -> sprintln("None");});
 
-nprintln(nextChar("1", 0));
-nprintln(nextChar("è", 0));
-nprintln(nextChar("☀", 0));
+println(nextChar("1", 0));
+println(nextChar("è", 0));
+println(nextChar("☀", 0));
 bprintln(seq("Hello", "Hello"));
 bprintln(seq("Hell", "Hello"));
 bprintln(seq("Hello", "Hell"));

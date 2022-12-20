@@ -60,6 +60,15 @@ impl EnhancedASTModule {
             .find_call(call, parameter_types_filter)
     }
 
+    pub fn find_default_call(
+        &self,
+        name: String,
+        parameter_types_filter: Vec<ASTType>,
+    ) -> Option<&ASTFunctionDef> {
+        self.functions_by_name
+            .find_default_call(name, parameter_types_filter)
+    }
+
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
         self.functions_by_name.functions()
     }

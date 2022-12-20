@@ -4,10 +4,10 @@ nListPrintln(range(0, atoi(argv(1))));
 
 nListPrintln(listReverse(range(0, atoi(argv(1)))));
 
-nprintln(count(listOf6(1, 5, 3, 8, 4, 2), { it -> less(it, 5); }));
+println(count(listOf6(1, 5, 3, 8, 4, 2), { it -> less(it, 5); }));
 
 listPrintln(listEnumerate(listOf2("A", "B")), { it ->
-    nprint(EnumerateEntry::index(it));
+    print(EnumerateEntry::index(it));
     sprint("-");
     sprint(EnumerateEntry::value(it));
 });

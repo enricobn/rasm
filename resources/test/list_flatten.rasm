@@ -1,3 +1,3 @@
 include "std.rasm"
 
-listPrintln(flatten(listOf2(listOf2(1, 2), listOf2(3, 4))), { v -> nprint(v);});
+listPrintln(flatten(listOf2(listOf2(1, 2), listOf2(3, 4))), { v -> print(v);});

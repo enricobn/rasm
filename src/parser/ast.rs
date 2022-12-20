@@ -177,6 +177,12 @@ pub struct ASTIndex {
     pub column: usize,
 }
 
+impl ASTIndex {
+    pub fn none() -> Self {
+        Self {file_name: None, row:0, column: 0}
+    }
+}
+
 impl Display for ASTIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!(

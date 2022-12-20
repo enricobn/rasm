@@ -1,6 +1,6 @@
 include "std.rasm"
 
-nprintln(test(5));
+println(test(5));
 nListPrintln(test2(5));
 
 fn test(n: i32) -> i32 {

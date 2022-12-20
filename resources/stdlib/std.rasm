@@ -13,8 +13,8 @@ fn sprintln(s: str) {
 /**
  * Prints the number to standard output adding a line feed to the end.
  **/
-fn nprintln(n: i32) {
-    nprint(n);
+fn println(n: i32) {
+    print(n);
     println();
 }
 
@@ -27,7 +27,7 @@ fn bprintln(b: bool) {
 fn moveUp(count: i32) {
     printESC();
     sprint("[");
-    nprint(count);
+    print(count);
     sprint("A");
 }
 

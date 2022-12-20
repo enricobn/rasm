@@ -7,7 +7,7 @@ fn inner1(n: i32) {
 }
 
 fn inner(f: fn() -> i32) {
-    nprintln(do(f));
+    println(do(f));
 }
 
 fn do(f: fn() -> i32) -> i32 {

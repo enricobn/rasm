@@ -4,7 +4,7 @@
 // 1,557s - optimize inline stack allocation
 include "std.rasm"
 
-nprintln(fib(atoi(argv(1))));
+println(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
     ifImmediateThen(lessOrEqual(n, 1),n,{ ->

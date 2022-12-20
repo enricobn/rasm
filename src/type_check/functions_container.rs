@@ -139,6 +139,53 @@ impl FunctionsContainer {
         }
     }
 
+    pub fn find_default_call(
+        &self,
+        name: String,
+        parameter_types_filter: Vec<ASTType>,
+    ) -> Option<&ASTFunctionDef> {
+        if let Some(functions) = self.functions_by_name.get(&name) {
+            if functions.is_empty() {
+                panic!(
+                    "cannot find function {name} filter {:?}",
+                    parameter_types_filter
+                );
+            } else if functions.len() == 1 {
+                functions.first()
+            } else {
+                let lambda = |it: &&ASTFunctionDef| {
+                    if it.name != name {
+                        false
+                    } else {
+                        Self::almost_same_parameters_types(
+                            &it.parameters
+                                .iter()
+                                .map(|it| it.ast_type.clone())
+                                .collect::<Vec<ASTType>>(),
+                            &parameter_types_filter
+                                .iter()
+                                .map(|it| Some(it.clone()))
+                                .collect(),
+                        )
+                    }
+                };
+                let count = functions.iter().filter(lambda).count();
+                if count == 0 {
+                    None
+                } else if count > 1 {
+                    panic!(
+                        "found more than one function for {name} filter {:?}",
+                        parameter_types_filter
+                    );
+                } else {
+                    functions.iter().find(lambda)
+                }
+            }
+        } else {
+            None
+        }
+    }
+
     fn almost_same_parameters_types_(
         parameters1: &Vec<ASTType>,
         parameters2: &Vec<Option<ASTType>>,

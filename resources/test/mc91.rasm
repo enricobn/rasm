@@ -1,6 +1,6 @@
 include "std.rasm"
 
-nprintln(mc91(87));
+println(mc91(87));
 
 fn mc91(n: i32) -> i32 {
     if (greater(n, 100), { ->

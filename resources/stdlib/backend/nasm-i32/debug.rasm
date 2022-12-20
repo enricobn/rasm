@@ -1,4 +1,4 @@
 asm printAddress<T>(message: str, address: T) /{
     $call(sprint, $message)
-    $call(nprintln, $address)
+    $call(println, $address)
 }/

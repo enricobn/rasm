@@ -5,9 +5,7 @@ asm malloc(size: i32) -> i32 /{
 
     %ifdef LOG_DEBUG
     call    startMalloc
-    push    dword $size
-    call    nprintln
-    add     esp, 4
+    $call(println, $size)
     %endif
 
     mov     dword ebx,0               ; the counter of the position in the heap table
@@ -92,9 +90,7 @@ asm malloc(size: i32) -> i32 /{
 
     %ifdef LOG_DEBUG
     call    printTab
-    push    dword eax
-    call    nprintln
-    pop     eax
+    $call(println, eax)
     call    endMalloc
     %endif
 
@@ -110,9 +106,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     %ifdef LOG_DEBUG
     call    startDeref
     call    printTab
-    push    dword $address
-    call    nprintln
-    add     esp,4
+    $call(println, $address)
     call    printTab
     push    dword $descr
     call    sprintln
@@ -152,9 +146,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     %ifdef LOG_DEBUG
     call    deallocated
     call    printTab
-    push    eax
-    call    nprintln
-    pop     eax
+    $call(println, eax)
     %endif
     mov     dword [eax + 4],0; allocated false
     jmp     .end
@@ -182,7 +174,7 @@ asm addRef(address: i32, descr: str) /{
 
     %ifdef LOG_DEBUG
     call    printTab
-    $call(nprintln,$address)
+    $call(println,$address)
     %endif
     %ifdef LOG_DEBUG
     call    printTab
@@ -204,7 +196,7 @@ asm addRef(address: i32, descr: str) /{
 
     %ifdef LOG_DEBUG
     $call(sprint, "  ref count: ")
-    $call(nprintln,ebx)
+    $call(println,ebx)
     %endif
 
     mov     dword [eax + 12],ebx
@@ -224,7 +216,7 @@ asm addRef(address: i32, descr: str) /{
 
 fn printRefCount(count: i32) {
     sprint("  ref count: ");
-    nprintln($count);
+    println($count);
 }
 
 fn endDeref() {
@@ -308,9 +300,7 @@ asm printAllocated() /{
     add     ebx, 4 * 4
     jmp     .loop
 .end:
-    push    ecx
-    call    nprint
-    add     esp, 4
+    $call(print,ecx)
     call    printAllocatedString
 
     pop     edx
@@ -332,9 +322,7 @@ asm printTableSlotsAllocated() /{
     add     ebx,4*4
     jmp     .loop
 .end:
-    push    eax
-    call    nprint
-    add     esp, 4
+    $call(print,eax)
     call    printTableSlotsAllocatedString
 
     pop     ebx

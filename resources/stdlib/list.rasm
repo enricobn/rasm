@@ -13,7 +13,7 @@ fn nListPrintln(l: List<i32>) {
 fn nListPrint(l: List<i32>) {
     List::run(l,
         { head,tail ->
-            nprint(head);
+            print(head);
             List::run(tail, { head1,tail1 -> sprint(",");}, { -> });
             nListPrint(tail);
         }, { -> });
