@@ -27,11 +27,12 @@ use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
-use crate::type_check::convert;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use crate::type_check::typed_context::TypeConversionContext;
+use crate::type_check::{convert, replace_native_call};
 
 /// It's a constant that will be replaced by the code generator with the size (in bytes)
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function
@@ -53,6 +54,8 @@ pub struct CodeGen<'a> {
     lambda_space_size: usize,
     debug_asm: bool,
     dereference: bool,
+    enhanced_module: EnhancedASTModule,
+    type_conversion_context: TypeConversionContext,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -251,22 +254,25 @@ impl<'a> CodeGen<'a> {
             lambda_space_size,
             debug_asm,
             dereference,
+            enhanced_module: EnhancedASTModule::new(&module),
+            type_conversion_context: TypeConversionContext::new(),
         };
 
-        let module =
-            enum_functions_creator(backend, &EnhancedASTModule::new(&module), &mut statics);
+        let module = enum_functions_creator(backend, &result.enhanced_module, &mut statics);
         let module = struct_functions_creator(backend, &module);
         let module = str_functions_creator(&module);
+        result.enhanced_module = module.clone();
 
         let mandatory_functions = type_mandatory_functions(&module);
 
-        let module = convert(
+        let (module, type_conversion_context) = convert(
             backend,
             &module,
             debug_asm,
             print_memory_info,
             print_module,
             mandatory_functions,
+            &mut statics,
         );
         let module = typed_enum_functions_creator(backend, &module, &mut statics);
         let module = typed_struct_functions_creator(backend, &module, &mut statics);
@@ -274,19 +280,23 @@ impl<'a> CodeGen<'a> {
 
         result.module = module;
         result.statics = statics;
+        result.type_conversion_context = type_conversion_context;
 
         result
     }
 
     pub fn asm(&mut self) -> String {
         self.id = 0;
-        self.body = TextMacroEvaluator::new().translate(
+        self.body = self.module.native_body.clone();
+        /*TextMacroEvaluator::new().translate(
             self.backend,
             &mut self.statics,
             None,
             &self.module.native_body,
             Some(&self.module),
         );
+
+         */
 
         self.definitions = String::new();
         self.functions = self.module.functions_by_name.clone();
@@ -508,7 +518,8 @@ impl<'a> CodeGen<'a> {
             true,
         );
         CodeGen::add(&mut asm, "push    _rasm_args", None, true);
-        CodeGen::add(&mut asm, "call    createCmdLineArguments", None, true);
+        // TODO
+        CodeGen::add(&mut asm, "call    createCmdLineArguments_0", None, true);
         CodeGen::add(
             &mut asm,
             &format!(
@@ -526,7 +537,12 @@ impl<'a> CodeGen<'a> {
 
         self.backend.reserve_stack(&stack, &mut asm);
 
-        asm.push_str(&self.body);
+        let body = self.body.clone();
+        println!("body:\n{body}");
+        let new_body = self.translate_body(&body);
+        println!("mew body:\n{new_body}");
+
+        asm.push_str(&new_body);
 
         self.backend.restore_stack(&stack, &mut asm);
 
@@ -537,11 +553,112 @@ impl<'a> CodeGen<'a> {
         }
 
         CodeGen::add(&mut asm, "push   dword 0", None, true);
-        CodeGen::add(&mut asm, "call   exitMain", None, true);
+        // TODO
+        CodeGen::add(&mut asm, "call   exitMain_0", None, true);
 
         asm.push_str(&self.definitions);
 
         asm
+    }
+
+    fn translate_body(&mut self, body: &str) -> String {
+        let val_context = ValContext::new(None);
+
+        /*        for par in typed_function_def.parameters.iter() {
+            val_context.insert_par(
+                par.name.clone(),
+                ASTParameterDef {
+                    name: par.name.clone(),
+                    ast_type: type_to_untyped_type(&par.ast_type),
+                },
+            );
+        }*/
+
+        let mut new_body = body.to_string();
+
+        for name in self.type_conversion_context.functions_desc() {
+            println!("{name}");
+        }
+
+        self.backend
+            .called_functions(None, body, None, &val_context)
+            .iter()
+            .for_each(|it| {
+                println!("native call to {:?}, in main", it);
+                let function_call = it.to_call();
+
+                let filter = it
+                    .param_types
+                    .iter()
+                    .map(|ast_type| Some(ast_type.clone()))
+                    .collect();
+                if let Some(new_function_def) =
+                    self.type_conversion_context
+                        .find_call(&function_call, Some(filter), None)
+                {
+                    println!("converted to {new_function_def}");
+                    if function_call.function_name != new_function_def.name {
+                        new_body = replace_native_call(
+                            &new_body,
+                            &function_call.function_name,
+                            &new_function_def.name,
+                        );
+
+                        if body == &new_body {
+                            panic!(
+                                "{} -> {}",
+                                function_call.function_name, new_function_def.name
+                            );
+                        }
+                    }
+                } else {
+                    // panic!("cannot find call {function_call}");
+                    // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
+                    println!("cannot find call {function_call}");
+                }
+
+                /*                match convert_call(
+                                    &module,
+                                    &val_context,
+                                    &function_call,
+                                    &mut typed_context,
+                                    &LinkedHashMap::new(),
+                                    None,
+                                    backend,
+                                    &CallStack::new(),
+                                ) {
+                                    Ok(Some(new_call)) => {
+                                        println!("converted to {new_call}");
+                                        if function_call.function_name != new_call.function_name {
+                                            new_body = replace_native_call(
+                                                &new_body,
+                                                &function_call.function_name,
+                                                &new_call.function_name,
+                                            );
+
+                                            if body == &new_body {
+                                                panic!(
+                                                    "{} -> {}",
+                                                    function_call.function_name, new_call.function_name
+                                                );
+                                            }
+                                        }
+                                    }
+                                    Ok(None) => {}
+                                    Err(e) => {
+                                        panic!("Error converting body of main : {}", e.message);
+                                    }
+                                }
+                */
+            });
+
+        TextMacroEvaluator::new().translate(
+            self.backend,
+            &mut self.statics,
+            None,
+            &new_body,
+            Some(&self.module),
+        )
     }
 
     fn print_memory_info(asm: &mut String) {
@@ -605,6 +722,12 @@ impl<'a> CodeGen<'a> {
         );
 
         let mut lambda_calls = Vec::new();
+        CodeGen::add(
+            &mut self.definitions,
+            &format!("; function {}", function_def),
+            None,
+            false,
+        );
         CodeGen::add(
             &mut self.definitions,
             &format!("{}:", function_def.name),

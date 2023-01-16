@@ -79,7 +79,7 @@ asm sprint(s: str) /{
     push    eax
     mov     eax,$s
     push    eax
-    $call(slen)
+    $call(slen, $s)
 
     mov     edx, eax
     pop     eax

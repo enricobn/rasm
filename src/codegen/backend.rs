@@ -1,11 +1,14 @@
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
-use crate::codegen::CodeGen;
+use crate::codegen::text_macro::{MacroParam, TextMacroEvaluator};
+use crate::codegen::{CodeGen, ValContext, ValKind};
+use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule, ASTTypedType};
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedType, DefaultFunctionCall,
+};
 use log::info;
 use std::collections::HashSet;
 use std::path::Path;
@@ -46,7 +49,8 @@ pub trait Backend {
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
         module: Option<&ASTTypedModule>,
-    ) -> Vec<String>;
+        context: &ValContext,
+    ) -> Vec<DefaultFunctionCall>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
 
@@ -94,7 +98,7 @@ pub struct BackendAsm386 {
 
 impl BackendAsm386 {
     pub fn new(requires: HashSet<String>, externals: HashSet<String>) -> Self {
-        let libc = requires.contains("libc");
+        let libc = true; //requires.contains("libc");
         Self {
             requires,
             externals,
@@ -256,36 +260,48 @@ impl Backend for BackendAsm386 {
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
         module: Option<&ASTTypedModule>,
-    ) -> Vec<String> {
+        context: &ValContext,
+    ) -> Vec<DefaultFunctionCall> {
+        let mut result = Vec::new();
+
         // TODO I don't like to create it
         let evaluator = TextMacroEvaluator::new();
 
-        let body = evaluator.translate(
-            self,
-            &mut Statics::new(), // TODO I don't like to create it
-            function_def,
-            body,
-            module,
-        );
+        for m in evaluator.get_macros(self, function_def, body) {
+            if m.name == "call" {
+                println!("found call macro {:?}", m);
+                let types = m
+                    .parameters
+                    .iter()
+                    .skip(1)
+                    .map(|it| match it {
+                        MacroParam::Plain(_, opt_type) => match opt_type {
+                            None => ASTType::Builtin(BuiltinTypeKind::I32),
+                            Some(ast_type) => ast_type.clone(),
+                        },
+                        MacroParam::StringLiteral(_) => ASTType::Builtin(BuiltinTypeKind::String),
+                        MacroParam::Ref(name, None) => {
+                            // println!("found ref {name}");
+                            match context.get(name.strip_prefix('$').unwrap()).unwrap() {
+                                ValKind::ParameterRef(_, par) => par.ast_type.clone(),
+                                ValKind::LetRef(_, ast_type) => ast_type.clone(),
+                            }
+                        }
+                        MacroParam::Ref(name, Some(ast_type)) => ast_type.clone(),
+                    })
+                    .collect();
 
-        body.lines()
-            .map(|it| {
-                let line = self.remove_comments_from_line(it.to_string());
-                line.trim().to_string()
-            })
-            .filter(|it| {
-                !it.starts_with(';')
-                    && it.contains("call")
-                    && !it.contains('[')
-                    && !it.contains('$')
-            })
-            .map(|it| {
-                let pos = it.find("call").unwrap();
-                let s = it.split_at(pos + 4).1.trim();
-                String::from_iter(s.chars().take_while(|it| !it.is_whitespace()))
-            })
-            .filter(|it| !it.is_empty() && !self.externals.contains(it))
-            .collect()
+                let function_name =
+                    if let Some(MacroParam::Plain(function_name, _)) = m.parameters.get(0) {
+                        function_name
+                    } else {
+                        panic!("Error getting the function name");
+                    };
+
+                result.push(DefaultFunctionCall::new(function_name, types));
+            }
+        }
+        result
     }
 
     fn remove_comments_from_line(&self, line: String) -> String {
@@ -341,13 +357,30 @@ impl Backend for BackendAsm386 {
             };
 
         if has_references {
+            /*            CodeGen::add(
+                out,
+                &format!("$call({type_name}_addRef,{source}:{type_name})"),
+                None,
+                true,
+            );*/
+            let call = if type_name == "str" {
+                "call     str_addRef_0".to_string()
+            } else {
+                format!("call     {type_name}_addRef")
+            };
             CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(out, &format!("call     {type_name}_addRef"), None, true);
+            CodeGen::add(out, &call, None, true);
             CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
         } else {
+            /*            CodeGen::add(
+                out,
+                &format!("$call(addRef, {source}:{type_name},[{key}])"),
+                None,
+                true,
+            );*/
             CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(out, "call     addRef", None, true);
+            CodeGen::add(out, "call     addRef_0", None, true);
             CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
     }
@@ -382,20 +415,20 @@ impl Backend for BackendAsm386 {
 
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
         if has_references {
+            let call = if type_name == "str" {
+                "call     str_deref_0".to_string()
+            } else {
+                format!("call     {type_name}_deref")
+            };
             CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(
-                &mut result,
-                &format!("call     {type_name}_deref"),
-                None,
-                true,
-            );
+            CodeGen::add(&mut result, &call, None, true);
             CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
         } else {
             let key = statics.add_str(descr);
 
             CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(&mut result, "call     deref", None, true);
+            CodeGen::add(&mut result, "call     deref_0", None, true);
             CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
@@ -453,6 +486,8 @@ impl Backend for BackendAsm386 {
 #[cfg(test)]
 mod tests {
     use crate::codegen::backend::{Backend, BackendAsm386};
+    use crate::codegen::ValContext;
+    use crate::type_check::typed_ast::DefaultFunctionCall;
     use std::collections::HashSet;
 
     #[test]
@@ -460,8 +495,11 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions(None, "call something", None),
-            vec!["something".to_string()]
+            sut.called_functions(None, "$call(something)", None, &ValContext::new(None))
+                .get(0)
+                .unwrap()
+                .name,
+            "something".to_string()
         );
     }
 
@@ -470,8 +508,13 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions(None, "mov    eax, 1; call something", None),
-            Vec::<String>::new()
+            sut.called_functions(
+                None,
+                "mov    eax, 1; $call(something)",
+                None,
+                &ValContext::new(None)
+            ),
+            Vec::<DefaultFunctionCall>::new()
         );
     }
 
@@ -483,8 +526,8 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), externals);
 
         assert_eq!(
-            sut.called_functions(None, "call something", None),
-            Vec::<String>::new()
+            sut.called_functions(None, "call something", None, &ValContext::new(None)),
+            Vec::<DefaultFunctionCall>::new()
         );
     }
 }

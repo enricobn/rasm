@@ -1,7 +1,6 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedValKind};
 use crate::debug_i;
 use crate::type_check::typed_ast::{
@@ -577,13 +576,17 @@ impl<'a> FunctionCallParameters<'a> {
         function_def: Option<&ASTTypedFunctionDef>,
         module: &ASTTypedModule,
     ) -> String {
-        let mut result = TextMacroEvaluator::new().translate(
+        /*let mut result = TextMacroEvaluator::new().translate(
             self.backend,
             statics,
             function_def,
             body,
             Some(module),
         );
+
+         */
+
+        let mut result = body.to_string();
 
         let mut i = 0;
         let word_len = self.backend.word_len() as i32;
@@ -852,7 +855,8 @@ impl<'a> FunctionCallParameters<'a> {
             comment,
             true,
         );
-        CodeGen::add(&mut self.before, "call memcopy", comment, true);
+        // TODO $call
+        CodeGen::add(&mut self.before, "call memcopy_0", comment, true);
         self.restore_stack(3, comment);
     }
 

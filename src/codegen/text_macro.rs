@@ -1,19 +1,27 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
+use crate::lexer::tokens::Token;
+use crate::lexer::tokens::TokenKind::AlphaNumeric;
+use crate::lexer::Lexer;
+use crate::parser::ast::{ASTType, BuiltinTypeKind};
+use crate::parser::type_parser::TypeParser;
+use crate::parser::ParserTrait;
 use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule};
 use linked_hash_map::LinkedHashMap;
 use regex::Regex;
 
+#[derive(Debug)]
 pub enum MacroParam {
-    Plain(String),
+    Plain(String, Option<ASTType>),
     StringLiteral(String),
-    Ref(String),
+    Ref(String, Option<ASTType>),
 }
 
+#[derive(Debug)]
 pub struct TextMacro {
-    name: String,
-    parameters: Vec<MacroParam>,
+    pub name: String,
+    pub parameters: Vec<MacroParam>,
 }
 
 pub struct TextMacroEvaluator {
@@ -146,12 +154,46 @@ impl TextMacroEvaluator {
     ) -> MacroParam {
         let p = actual_param.trim();
 
-        let is_ref = if let Some(par_name) = p.strip_prefix('$') {
+        if p.starts_with('$') {
+            match function_def {
+                None => panic!("Cannot resolve reference without a function {p}"),
+                Some(f) => {
+                    let (par_name, par_type) =
+                        Self::parse_typed_argument(p.strip_prefix('$').unwrap());
+                    if !f.parameters.iter().any(|it| it.name == par_name) {
+                        panic!("Cannot find parameter {par_name}");
+                    } else {
+                        MacroParam::Ref(format!("${par_name}"), par_type)
+                    }
+                }
+            }
+        } else {
+            let (par_name, par_type) = Self::parse_typed_argument(p);
+
+            MacroParam::Plain(par_name.into(), par_type)
+        }
+
+        /*
+        let is_ref = if let Some(par_def) = p.strip_prefix('$') {
+            let (par_name, par_type) = if par_def.contains(":") {
+                let vec = par_def.split(":").collect::<Vec<_>>();
+                let par_type_name = vec.get(1).unwrap().trim();
+
+                if par_type_name == "i32" {
+                    (vec.get(0).unwrap().trim(), Some(ASTType::Builtin(BuiltinTypeKind::I32)))
+                } else if par_type_name == "str" {
+                    (vec.get(0).unwrap().trim(), Some(ASTType::Builtin(BuiltinTypeKind::String)))
+                } else {
+                    panic!("Unsupported type {par_type_name}");
+                }
+            } else {
+                (par_def, None)
+            };
             if let Some(par) = function_def
                 .map(|it| it.parameters.clone())
                 .unwrap_or_default()
                 .iter()
-                .find(|it| it.name == par_name)
+                .find(|it| it.name == *par_name)
             {
                 CodeGen::get_reference_type_name(&par.ast_type).is_some()
             } else {
@@ -164,8 +206,39 @@ impl TextMacroEvaluator {
         if is_ref {
             MacroParam::Ref(p.into())
         } else {
-            MacroParam::Plain(p.into())
+            MacroParam::Plain(p.into(), par)
         }
+
+         */
+    }
+
+    fn parse_typed_argument(p: &str) -> (&str, Option<ASTType>) {
+        let (par_name, par_type) = if p.contains(':') {
+            let vec = p.split(':').collect::<Vec<_>>();
+            let par_type_name = vec.get(1).unwrap().trim();
+            let par_name = vec.first().unwrap().trim();
+
+            // println!("found param type {par_type_name}");
+
+            if par_type_name == "i32" {
+                (par_name, Some(ASTType::Builtin(BuiltinTypeKind::I32)))
+            } else if par_type_name == "str" {
+                (par_name, Some(ASTType::Builtin(BuiltinTypeKind::String)))
+            } else {
+                let parser = TypeParserHelper::new(par_type_name);
+                // Parser::new(lexer, None);
+
+                let type_parser = TypeParser::new(&parser);
+
+                match type_parser.try_parse_ast_type(0, &[]) {
+                    None => panic!("Unsupported type {par_type_name}"),
+                    Some((ast_type, _)) => (par_name, Some(ast_type)),
+                }
+            }
+        } else {
+            (p, None)
+        };
+        (par_name, par_type)
     }
 
     pub fn eval_macro(
@@ -187,6 +260,65 @@ impl TextMacroEvaluator {
             function_def,
             module,
         )
+    }
+
+    pub fn get_macros(
+        &self,
+        backend: &dyn Backend,
+        function_def: Option<&ASTTypedFunctionDef>,
+        body: &str,
+    ) -> Vec<TextMacro> {
+        let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
+
+        let mut result = Vec::new();
+
+        let lines = body.lines();
+
+        for s in lines {
+            let stripped_comments = backend.remove_comments_from_line(s.to_string());
+            let matches = re.captures_iter(&stripped_comments);
+
+            for cap in matches {
+                let name = cap.get(1).unwrap().as_str();
+                let parameters = cap.get(2).unwrap().as_str();
+
+                let text_macro = TextMacro {
+                    name: name.into(),
+                    parameters: self.parse_params(parameters, function_def),
+                };
+
+                result.push(text_macro)
+            }
+        }
+
+        result
+    }
+}
+
+struct TypeParserHelper {
+    type_tokens: Vec<Token>,
+}
+
+impl TypeParserHelper {
+    fn new(type_str: &str) -> Self {
+        let lexer = Lexer::new(type_str.into(), "".into());
+        Self {
+            type_tokens: lexer.collect(),
+        }
+    }
+}
+
+impl ParserTrait for TypeParserHelper {
+    fn get_i(&self) -> usize {
+        0
+    }
+
+    fn get_token_n(&self, n: usize) -> Option<&Token> {
+        self.type_tokens.get(n)
+    }
+
+    fn panic(&self, message: &str) {
+        panic!("{message}")
     }
 }
 
@@ -218,7 +350,7 @@ impl TextMacroEval for CallTextMacroEvaluator {
         _function_def: Option<&ASTTypedFunctionDef>,
         _module: Option<&ASTTypedModule>,
     ) -> String {
-        let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
+        let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name
         } else {
             panic!("Error getting the function name");
@@ -234,14 +366,14 @@ impl TextMacroEval for CallTextMacroEvaluator {
                 .skip(1)
                 .rev()
                 .map(|it| match it {
-                    MacroParam::Plain(s) => {
+                    MacroParam::Plain(s, _) => {
                         format!("    push dword {s}")
                     }
                     MacroParam::StringLiteral(s) => {
                         let key = statics.add_str(s);
                         format!("    push dword [{key}]")
                     }
-                    MacroParam::Ref(s) => {
+                    MacroParam::Ref(s, _) => {
                         format!("    push dword {s}")
                     }
                 })
@@ -280,7 +412,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         _function_def: Option<&ASTTypedFunctionDef>,
         _module: Option<&ASTTypedModule>,
     ) -> String {
-        let function_name = if let Some(MacroParam::Plain(function_name)) = parameters.get(0) {
+        let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name
         } else {
             panic!("Error getting the function name");
@@ -312,14 +444,14 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                 .map(|(index, it)| {
                     let i = index - 1;
                     match it {
-                        MacroParam::Plain(s) => {
+                        MacroParam::Plain(s, _) => {
                             format!("    mov {ws} ecx, {s}\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
                         }
                         MacroParam::StringLiteral(s) => {
                             let key = statics.add_str(s);
                             format!("    mov {ws} ecx, [{key}]\n    mov {ws} ecx,[ecx]\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
                         }
-                        MacroParam::Ref(s) => {
+                        MacroParam::Ref(s, _) => {
                             format!("    mov {ws} ecx, {s}\n    mov {ws} ecx, [ecx]\n   mov {ws} [{sp}+{}], ecx\n", i * wl)
                         }
                     }
@@ -361,8 +493,8 @@ impl TextMacroEval for AddRefMacro {
         module: Option<&ASTTypedModule>,
     ) -> String {
         if let Some(fd) = function_def {
-            if let Some(MacroParam::Plain(generic_type_name)) = parameters.get(0) {
-                if let Some(MacroParam::Plain(address)) = parameters.get(1) {
+            if let Some(MacroParam::Plain(generic_type_name, _)) = parameters.get(0) {
+                if let Some(MacroParam::Plain(address, _)) = parameters.get(1) {
                     if let Some(ast_type) = fd.generic_types.get(generic_type_name) {
                         if let Some(type_name) = CodeGen::get_reference_type_name(ast_type) {
                             if let Some(ast_module) = module {
@@ -409,8 +541,10 @@ impl TextMacroEval for AddRefMacro {
 mod tests {
     use crate::codegen::backend::BackendAsm386;
     use crate::codegen::statics::Statics;
-    use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
+    use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
     use crate::codegen::MemoryValue;
+    use crate::parser::ast::{ASTType, BuiltinTypeKind};
+    use crate::parser::type_parser::TypeParser;
     use crate::type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
@@ -423,7 +557,7 @@ mod tests {
         let text_macro = TextMacro {
             name: "call".into(),
             parameters: vec![
-                MacroParam::Plain("sprintln".into()),
+                MacroParam::Plain("println".into(), None),
                 MacroParam::StringLiteral("Hello world".into()),
             ],
         };
@@ -436,12 +570,12 @@ mod tests {
 
         assert_eq!(
             result,
-            "; call macro, calling sprintln\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n"
+            "; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n"
         );
     }
 
     #[test]
-    fn parse() {
+    fn translate() {
         let backend = backend();
         let mut statics = Statics::new();
 
@@ -468,7 +602,7 @@ mod tests {
             &backend,
             &mut statics,
             None,
-            "a line\n$call(sprintln, \"Hello, world\")\nanother line\n",
+            "a line\n$call(println, \"Hello, world\")\nanother line\n",
             None,
         );
 
@@ -479,7 +613,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "a line\n; call macro, calling sprintln\n    push dword [_s_1]\n    call sprintln\n    add esp, 4\n\nanother line\n"
+            "a line\n; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n\nanother line\n"
         );
     }
 
@@ -504,13 +638,13 @@ mod tests {
             &backend,
             &mut statics,
             Some(&function_def),
-            "a line\n$call(sprintln, $s)\nanother line\n",
+            "a line\n$call(println, $s)\nanother line\n",
             None,
         );
 
         assert_eq!(
             result,
-            "a line\n; call macro, calling sprintln\n    push dword $s\n    call sprintln\n    add esp, 4\n\nanother line\n"
+            "a line\n; call macro, calling println\n    push dword $s\n    call println\n    add esp, 4\n\nanother line\n"
         );
     }
 
@@ -559,6 +693,70 @@ mod tests {
         );
 
         assert_eq!(result, "mov     eax, 1          ; $call(any)");
+    }
+
+    #[test]
+    fn test_get_macros() {
+        let backend = backend();
+
+        let function_def = ASTTypedFunctionDef {
+            name: "aFun".into(),
+            parameters: vec![ASTTypedParameterDef {
+                name: "s".into(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+            }],
+            body: ASTTypedFunctionBody::ASMBody("".into()),
+            generic_types: LinkedHashMap::new(),
+            return_type: None,
+            inline: false,
+        };
+
+        let macros =
+            TextMacroEvaluator::new().get_macros(&backend, Some(&function_def), "$call(slen, $s)");
+
+        let param = macros.get(0).unwrap().parameters.get(1).unwrap();
+        match param {
+            MacroParam::Plain(_, _) => panic!("plain"),
+            MacroParam::StringLiteral(_) => panic!("string literal"),
+            MacroParam::Ref(r, _) => assert_eq!(r, "$s"),
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn translate_typed() {
+        let backend = backend();
+        let mut statics = Statics::new();
+
+        let result = TextMacroEvaluator::new().translate(
+            &backend,
+            &mut statics,
+            None,
+            "$call(List_0_addRef,eax:List_0)",
+            None,
+        );
+
+        assert_eq!(
+            result,
+            "; call macro, calling List_0_addRef\n    push dword eax\n    call List_0_addRef\n    add esp, 4\n"
+        );
+    }
+
+    #[test]
+    fn parse_list_str() {
+        let parser = TypeParserHelper::new("List<str>");
+        let type_parser = TypeParser::new(&parser);
+
+        match type_parser.try_parse_ast_type(0, &[]) {
+            None => panic!("Unsupported type"),
+            Some((ast_type, _)) => assert_eq!(
+                ast_type,
+                ASTType::Custom {
+                    name: "List".into(),
+                    param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)]
+                }
+            ),
+        }
     }
 
     fn backend() -> BackendAsm386 {

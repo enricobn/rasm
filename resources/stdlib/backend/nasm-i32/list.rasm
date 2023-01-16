@@ -34,7 +34,7 @@ asm lines(s: str) -> List<str> /{
     mov     dword [eax + 12], 1     ; count
     mov     ebx, eax
     pop     eax
-    $call(addStrToList, eax, ebx)
+    $call(addStrToList, eax: List<str>, ebx: str)
     inc edx
     mov ebx, edx
     jmp .loop
@@ -57,7 +57,7 @@ asm lines(s: str) -> List<str> /{
     mov     dword [eax + 12], 1     ; count
     mov     ebx, eax
     pop     eax
-    $call(addStrToList, eax, ebx)
+    $call(addStrToList, eax: List<str>, ebx: str)
 
 .end:
     pop edx
@@ -102,7 +102,7 @@ asm chars(s: str) -> List<str> /{
     mov     dword [eax + 12], 1     ; count
     mov     edx, eax
     pop     eax
-    $call(addStrToList, eax, edx)
+    $call(addStrToList, eax: List<str>, edx: str)
     inc ebx
     inc ecx
     jmp .loop

@@ -206,10 +206,10 @@ asm deref(address: i32, descr: str) -> i32 /{
 
     jmp     .end
 .negative_count:
-    call    negativeCount
+    $call(negativeCount)
     jmp     .end
 .invalid_address:
-    call    invalidAddress
+    $call(invalidAddress)
 .end:
     %ifdef LOG_DEBUG
     $call(sprintln, "end deref")
@@ -289,7 +289,7 @@ asm addRef(address: i32, descr: str) /{
     mov     dword [eax + 4],1   ; allocated true
     jmp     .end
 .invalid_address:
-    call    invalidAddress
+    $call(invalidAddress)
 .end:
     %ifdef LOG_DEBUG
     $call(sprintln, "end addRef")

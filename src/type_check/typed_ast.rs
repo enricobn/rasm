@@ -1,5 +1,7 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::{TypedValContext, TypedValKind, ValContext};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
@@ -7,7 +9,11 @@ use crate::parser::ast::{
     ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 use crate::parser::ValueType;
-use crate::type_check::{convert_call, substitute, TypeConversionContext};
+use crate::type_check::call_stack::CallStack;
+use crate::type_check::{
+    convert_call, convert_function_def, et_called_function, replace_native_call, substitute,
+    TypeConversionContext,
+};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::fmt::{Display, Formatter};
@@ -59,7 +65,7 @@ pub enum ASTTypedFunctionBody {
     ASMBody(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuiltinTypedTypeKind {
     String,
     I32,
@@ -71,7 +77,7 @@ pub enum BuiltinTypedTypeKind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ASTTypedType {
     Builtin(BuiltinTypedTypeKind),
     Enum { name: String },
@@ -281,7 +287,7 @@ pub struct ASTTypedTypeDef {
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
 }
 
-struct ConvContext<'a> {
+pub struct ConvContext<'a> {
     module: &'a EnhancedASTModule,
     enums: LinkedHashMap<ASTType, ASTTypedType>,
     structs: LinkedHashMap<ASTType, ASTTypedType>,
@@ -293,7 +299,7 @@ struct ConvContext<'a> {
 }
 
 impl<'a> ConvContext<'a> {
-    fn new(module: &'a EnhancedASTModule) -> Self {
+    pub fn new(module: &'a EnhancedASTModule) -> Self {
         Self {
             module,
             enums: LinkedHashMap::new(),
@@ -499,10 +505,9 @@ pub fn convert_to_typed_module(
     printl_module: bool,
     mandatory_functions: Vec<DefaultFunctionCall>,
     backend: &dyn Backend,
+    statics: &mut Statics,
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
-
-    let mut functions_by_name = LinkedHashMap::new();
 
     mandatory_functions
         .into_iter()
@@ -511,12 +516,6 @@ pub fn convert_to_typed_module(
     let default_functions = &mut vec![
         DefaultFunctionCall::new_1("malloc", BuiltinTypeKind::I32),
         DefaultFunctionCall::new_1("exitMain", BuiltinTypeKind::I32),
-        //"sprint",
-        //"outOfHeapSpace",
-        //"outOfMemory",
-        //"slen",
-        //"sprintln",
-        //"println",
         DefaultFunctionCall::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
         DefaultFunctionCall::new_3(
             "memcopy",
@@ -534,8 +533,8 @@ pub fn convert_to_typed_module(
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
         ),
-        DefaultFunctionCall::new_1("str_addRef", BuiltinTypeKind::I32),
-        DefaultFunctionCall::new_1("str_deref", BuiltinTypeKind::I32),
+        DefaultFunctionCall::new_1("str_addRef", BuiltinTypeKind::String),
+        DefaultFunctionCall::new_1("str_deref", BuiltinTypeKind::String),
         //"str_addRef",
         //"str_deref",
         //"sysOpen",
@@ -588,21 +587,113 @@ pub fn convert_to_typed_module(
         add_default_function(module, it.clone(), false, typed_context, backend)
     }
 
-    for new_function_def in typed_context.functions().iter() {
-        functions_by_name.insert(
-            new_function_def.name.clone(),
-            function_def(&mut conv_context, &new_function_def),
-        );
+    let mut new_typed_context = typed_context.clone();
+
+    let mut functions_by_name = LinkedHashMap::new();
+
+    let mut count = 0;
+
+    loop {
+        println!("typed context loop {count}");
+
+        if count > 100 {
+            panic!()
+        }
+
+        for desc in new_typed_context.functions_desc() {
+            println!("{desc}");
+        }
+
+        let mut cloned_typed_context = new_typed_context.clone();
+
+        functions_by_name.clear();
+
+        let mut somethin_converted = false;
+
+        for new_function_def in new_typed_context.functions().into_iter() {
+            println!("converting function {new_function_def}");
+            let resolved_param_types = LinkedHashMap::new();
+            let converted_function = if let Some(function_converted) = convert_function_def(
+                backend,
+                module,
+                &mut cloned_typed_context,
+                &resolved_param_types,
+                new_function_def,
+            ) {
+                somethin_converted = true;
+                function_converted
+            } else {
+                new_function_def.clone()
+            };
+
+            functions_by_name.insert(
+                new_function_def.name.clone(),
+                function_def(
+                    &mut conv_context,
+                    &converted_function,
+                    backend,
+                    module,
+                    &mut cloned_typed_context,
+                ),
+            );
+
+            /*if new_function_def.name == "printRefCount_0" {
+                let f = new_typed_context
+                    .find_function(&new_function_def.name)
+                    .unwrap();
+                panic!("{:?}", f.body);
+            }*/
+        }
+
+        if somethin_converted || new_typed_context.len() != cloned_typed_context.len() {
+            println!(
+                "old vs new {} {}",
+                new_typed_context.len(),
+                cloned_typed_context.len()
+            );
+
+            new_typed_context = cloned_typed_context.clone();
+            count += 1;
+            continue;
+        } else {
+            break;
+        }
     }
 
-    let result = ASTTypedModule {
+    let mut result = ASTTypedModule {
         body: new_body.iter().map(statement).collect(),
         structs: conv_context.struct_defs,
         enums: conv_context.enum_defs,
-        functions_by_name,
+        functions_by_name: LinkedHashMap::new(),
         native_body: module.native_body.clone(),
         types: conv_context.type_defs,
     };
+
+    let evaluator = TextMacroEvaluator::new();
+
+    functions_by_name
+        .iter_mut()
+        .for_each(|it| match &it.1.body {
+            ASTTypedFunctionBody::RASMBody(_) => {}
+            ASTTypedFunctionBody::ASMBody(body) => {
+                // TODO statics
+                let new_body =
+                    evaluator.translate(backend, statics, Some(it.1), body, Some(&result));
+                it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
+            }
+        });
+
+    /*let mut result = TextMacroEvaluator::new().translate(
+        self.backend,
+        statics,
+        function_def,
+        body,
+        Some(module),
+    );
+
+         */
+
+    result.functions_by_name = functions_by_name;
 
     if printl_module {
         print_typed_module(&result);
@@ -718,7 +809,7 @@ fn verify_function_call(
             }
         } else {
             panic!(
-                "cannot find function {call} functions: {:?}",
+                "cannot find function for call {call} functions: {:?}",
                 module.functions_by_name.keys().collect::<Vec<_>>()
             );
         };
@@ -880,23 +971,31 @@ fn add_default_function(
     let context = ValContext::new(None);
     let resolved_param_types = LinkedHashMap::new();
 
+    let call = function_call.to_call();
+
     match convert_call(
         module,
         &context,
-        &function_call.to_call(),
+        &call,
         typed_context,
         &resolved_param_types,
         None,
         backend,
+        &CallStack::new(),
     ) {
-        Ok(_) => {}
+        Ok(Some(new_call)) => {
+            println!("new call {new_call} for default function {call}");
+        }
+        Ok(None) => {
+            println!("no new call for default function {call}");
+        }
         Err(e) => {
-            if mandatory {
-                panic!(
-                    "Error converting mandatory function {} : {e}",
-                    function_call.name
-                )
-            }
+            //if mandatory {
+            panic!(
+                "Error converting mandatory function {} : {e}",
+                function_call.name
+            )
+            //}
         }
     }
 }
@@ -919,7 +1018,13 @@ fn struct_property(
     }
 }
 
-fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTTypedFunctionDef {
+pub fn function_def(
+    conv_context: &mut ConvContext,
+    def: &ASTFunctionDef,
+    backend: &dyn Backend,
+    module: &EnhancedASTModule,
+    typed_context: &mut TypeConversionContext,
+) -> ASTTypedFunctionDef {
     if !def.param_types.is_empty() {
         panic!("function def has generics: {def}");
     }
@@ -931,7 +1036,7 @@ fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTType
         generic_types.insert(name.into(), typed_type);
     }
 
-    ASTTypedFunctionDef {
+    let mut typed_function_def = ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(&def.body),
         return_type: def.return_type.clone().map(|it| {
@@ -948,6 +1053,159 @@ fn function_def(conv_context: &mut ConvContext, def: &ASTFunctionDef) -> ASTType
             .map(|it| parameter_def(conv_context, it, &format!("function {}", def.name)))
             .collect(),
         generic_types,
+    };
+
+    match &typed_function_def.body {
+        ASTTypedFunctionBody::RASMBody(_) => {}
+        ASTTypedFunctionBody::ASMBody(body) => {
+            let mut val_context = ValContext::new(None);
+
+            for par in typed_function_def.parameters.iter() {
+                val_context.insert_par(
+                    par.name.clone(),
+                    ASTParameterDef {
+                        name: par.name.clone(),
+                        ast_type: type_to_untyped_type(&par.ast_type),
+                    },
+                );
+            }
+
+            let mut new_body = body.clone();
+
+            backend
+                .called_functions(Some(&typed_function_def), body, None, &val_context)
+                .iter()
+                .for_each(|it| {
+                    println!("native call to {:?}, in {}", it, typed_function_def.name);
+                    let function_call = it.to_call();
+
+                    let call_parameters_types = it
+                        .param_types
+                        .iter()
+                        .map(|it| Some(it.clone()))
+                        .collect::<Vec<Option<ASTType>>>();
+
+                    let function_def_opt = typed_context.find_call(
+                        &function_call,
+                        Some(call_parameters_types.clone()),
+                        None,
+                    );
+
+                    let function_name = if let Some(functiond_def) = function_def_opt {
+                        functiond_def.name.clone()
+                    } else {
+                        let function_def_opt = module.find_call(
+                            &function_call,
+                            Some(call_parameters_types.clone()),
+                            None,
+                        );
+
+                        if let Some(functiond_def) = function_def_opt {
+                            if let Some(rf) = typed_context.try_add_new(&it.name, &functiond_def) {
+                                rf.name
+                            } else {
+                                panic!("cannot find {}", it.to_call());
+                            }
+                        } else {
+                            panic!(
+                                "cannot find {} {:?} -> {:?}",
+                                it.to_call(),
+                                call_parameters_types,
+                                module.funcion_desc()
+                            );
+                        }
+                    };
+
+                    println!("found function for native call {function_name} ");
+
+                    if function_call.function_name != function_name {
+                        new_body = replace_native_call(
+                            &new_body,
+                            &function_call.function_name,
+                            &function_name,
+                        );
+
+                        if body == &new_body {
+                            panic!("{} -> {}", function_call.function_name, function_name);
+                        }
+                    }
+
+                    /*match convert_call(
+                        module,
+                        &val_context,
+                        &function_call,
+                        typed_context,
+                        &LinkedHashMap::new(),
+                        None,
+                        backend,
+                        &CallStack::new(),
+                    ) {
+                        Ok(Some(new_call)) => {
+                            println!("converted to {new_call}");
+                            if function_call.function_name != new_call.function_name {
+                                new_body = replace_native_call(
+                                    &new_body,
+                                    &function_call.function_name,
+                                    &new_call.function_name,
+                                );
+
+                                if body == &new_body {
+                                    panic!(
+                                        "{} -> {}",
+                                        function_call.function_name, new_call.function_name
+                                    );
+                                }
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            panic!("Error converting body of {def} : {}", e.message);
+                        }
+                    }*/
+                });
+
+            if body != &new_body {
+                typed_function_def.body = ASTTypedFunctionBody::ASMBody(new_body);
+                //typed_context.replace_body(&new_function_def);
+            }
+        }
+    }
+
+    typed_function_def
+}
+
+fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
+    match t {
+        ASTTypedType::Builtin(kind) => match kind {
+            BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
+            BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
+            BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
+            BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
+            BuiltinTypedTypeKind::Lambda {
+                parameters,
+                return_type,
+            } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters: parameters
+                    .iter()
+                    .map(|it| type_to_untyped_type(it))
+                    .collect(),
+                return_type: return_type
+                    .clone()
+                    .map(|it| Box::new(type_to_untyped_type(&it))),
+            }),
+        },
+        ASTTypedType::Enum { name } => ASTType::Custom {
+            name: name.into(),
+            param_types: Vec::new(),
+        },
+        ASTTypedType::Struct { name } => ASTType::Custom {
+            name: name.into(),
+            param_types: Vec::new(),
+        },
+        ASTTypedType::Type { name } => ASTType::Custom {
+            name: name.into(),
+            param_types: Vec::new(),
+        },
     }
 }
 
@@ -1133,9 +1391,9 @@ pub fn print_typed_module(module: &ASTTypedModule) {
     }
     /* TODO
     for struct_def in module.structs.iter() {
-        println!("{struct_def}");
+    println!("{struct_def}");
     }
-     */
+    */
 
     module.body.iter().for_each(|call| {
         println!("{call}");
@@ -1164,10 +1422,10 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DefaultFunctionCall {
-    name: String,
-    param_types: Vec<ASTType>,
+    pub name: String,
+    pub param_types: Vec<ASTType>,
 }
 
 impl DefaultFunctionCall {
@@ -1237,10 +1495,37 @@ impl DefaultFunctionCall {
                         BuiltinTypeKind::Lambda { .. } => panic!(),
                     },
                     ASTType::Parametric(_) => panic!(),
-                    ASTType::Custom { .. } => panic!(),
+                    ASTType::Custom { name, param_types } => {
+                        if name.starts_with("List") {
+                            let call_to_empty = ASTFunctionCall {
+                                function_name: "List::Empty".into(),
+                                parameters: Vec::new(),
+                                original_function_name: "List::Empty".into(),
+                                index: ASTIndex::none(),
+                            };
+                            ASTExpression::ASTFunctionCallExpression(call_to_empty)
+                        } else {
+                            panic!("unsupported type {name}")
+                        }
+                    }
                 })
                 .collect(),
             index: ASTIndex::none(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedFunctionCall {
+    pub name: String,
+    pub param_types: Vec<ASTTypedType>,
+}
+
+impl TypedFunctionCall {
+    pub fn new(name: &str, param_types: Vec<ASTTypedType>) -> Self {
+        Self {
+            name: name.into(),
+            param_types,
         }
     }
 }

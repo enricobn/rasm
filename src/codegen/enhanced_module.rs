@@ -26,7 +26,7 @@ impl EnhancedASTModule {
         let mut container = FunctionsContainer::new();
 
         module.functions.iter().for_each(|it| {
-            container.add_function(it.name.clone(), it.clone());
+            container.add_function(it.original_name.clone(), it.clone());
         });
 
         Self {
@@ -55,9 +55,24 @@ impl EnhancedASTModule {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        return_type_filter: Option<Option<ASTType>>,
     ) -> Option<&ASTFunctionDef> {
         self.functions_by_name
-            .find_call(call, parameter_types_filter)
+            .find_call(call, parameter_types_filter, return_type_filter, false)
+    }
+
+    pub fn find_call_vec(
+        &self,
+        call: &ASTFunctionCall,
+        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        return_type_filter: Option<Option<ASTType>>,
+    ) -> Vec<&ASTFunctionDef> {
+        self.functions_by_name.find_call_vec(
+            call,
+            parameter_types_filter,
+            return_type_filter,
+            false,
+        )
     }
 
     pub fn find_default_call(
@@ -71,5 +86,13 @@ impl EnhancedASTModule {
 
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
         self.functions_by_name.functions()
+    }
+
+    pub fn funcion_desc(&self) -> Vec<String> {
+        self.functions_by_name.functions_desc()
+    }
+
+    pub fn debug_i(&self) {
+        self.functions_by_name.debug_i("module");
     }
 }

@@ -107,7 +107,7 @@ fn create_free_body(
     CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
     CodeGen::add(
         &mut result,
-        &format!("call  {asm_function_name}"),
+        &format!("call  {asm_function_name}_0"),
         None,
         true,
     );
@@ -142,7 +142,7 @@ fn create_free_body(
                                 &mut result,
                                 &format!("[ebx + {}]", (j + 1) * wl),
                                 &name,
-                                "",
+                                &format!("add reference {}.{} : {}", enum_def.name, par.name, name),
                                 module,
                                 statics,
                             );

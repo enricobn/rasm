@@ -102,7 +102,7 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
 
     $call(memcopy, ebx, ecx, $len)
 
-    $call(someStr, eax)
+    $call(someStr, eax: str)
 .end:
     pop ecx
     pop ebx

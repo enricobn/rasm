@@ -1,3 +1,4 @@
+use crate::debug_i;
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType};
 use crate::type_check::functions_container::FunctionsContainer;
 
@@ -46,13 +47,28 @@ impl TypeConversionContext {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        return_type_filter: Option<Option<ASTType>>,
     ) -> Option<&ASTFunctionDef> {
         self.functions_by_name
-            .find_call(call, parameter_types_filter)
+            .find_call(call, parameter_types_filter, return_type_filter, true)
+    }
+
+    pub fn find_call_vec(
+        &self,
+        call: &ASTFunctionCall,
+        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        return_type_filter: Option<Option<ASTType>>,
+    ) -> Vec<&ASTFunctionDef> {
+        self.functions_by_name
+            .find_call_vec(call, parameter_types_filter, return_type_filter, true)
     }
 
     pub fn functions_desc(&self) -> Vec<String> {
         self.functions_by_name.functions_desc()
+    }
+
+    pub fn debug_i(&self) {
+        self.functions_by_name.debug_i("context");
     }
 }
 
@@ -100,6 +116,7 @@ mod tests {
             inline: false,
             param_types: Vec::new(),
             resolved_generic_types: LinkedHashMap::new(),
+            original_name: name.into(),
         }
     }
 }

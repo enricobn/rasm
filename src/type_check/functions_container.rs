@@ -1,4 +1,5 @@
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind};
+use crate::{debug_i, dedent, indent};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::iter::zip;
@@ -15,12 +16,13 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn add_function(&mut self, otiginal_name: String, function_def: ASTFunctionDef) {
-        if let Some(functions) = self.functions_by_name.get_mut(&otiginal_name) {
+    pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {
+        // let original_name = function_def.original_name.clone();
+        if let Some(functions) = self.functions_by_name.get_mut(&original_name) {
             functions.push(function_def);
         } else {
             self.functions_by_name
-                .insert(otiginal_name, vec![function_def]);
+                .insert(original_name, vec![function_def]);
         }
     }
 
@@ -29,7 +31,12 @@ impl FunctionsContainer {
         original_name: &str,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
+        if !function_def.param_types.is_empty() {
+            panic!("addin eneric function {function_def}");
+        }
+        // let original_name = &function_def.original_name;
         debug!("trying to add new function {function_def}");
+        // println!("trying to add new function {function_def} {original_name}");
 
         if let Some(same_name_functions) = self.functions_by_name.get_mut(original_name) {
             if let Some(already_present) = same_name_functions.iter().find(|it| {
@@ -38,23 +45,29 @@ impl FunctionsContainer {
             }) {
                 debug!("already added as {already_present}");
                 Some(already_present.clone())
-            } else if same_name_functions
-                .iter()
-                .any(|it| it.name == function_def.name)
-            {
+            } else {
                 let mut def = function_def.clone();
                 def.name = format!("{}_{}", def.name, same_name_functions.len());
+                /*                if def.name == "Option_None_37_0" {
+                    panic!()
+                }*/
+                println!("added {def} to function context");
                 same_name_functions.push(def.clone());
                 Some(def)
-            } else {
-                same_name_functions.push(function_def.clone());
-                None
             }
         } else {
-            let same_name_functions = vec![function_def.clone()];
+            let mut def = function_def.clone();
+            def.name = format!("{}_{}", def.name, 0);
+
+            /*            if def.name == "Option_None_37_0" {
+                panic!()
+            }*/
+
+            println!("added {def} to function context");
+            let same_name_functions = vec![def.clone()];
             self.functions_by_name
                 .insert(original_name.into(), same_name_functions);
-            None
+            Some(def)
         }
     }
 
@@ -71,7 +84,11 @@ impl FunctionsContainer {
             }
         }
 
-        panic!("cannot find function {}", function_def.name)
+        panic!(
+            "cannot find function {} {:?}",
+            function_def,
+            self.functions_desc()
+        )
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
@@ -96,46 +113,120 @@ impl FunctionsContainer {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        return_type_filter: Option<Option<ASTType>>,
+        filter_on_name: bool,
     ) -> Option<&ASTFunctionDef> {
-        let name = call.function_name.clone();
-        if let Some(functions) = self.functions_by_name.get(&name) {
+        let name = call.function_name.clone().replace("::", "_");
+        if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
             if functions.is_empty() {
                 panic!(
                     "cannot find functions for call {call} filter {:?}",
                     parameter_types_filter
                 );
-            } else if functions.len() == 1 {
-                functions.first()
             } else {
                 let lambda = |it: &&ASTFunctionDef| {
-                    if it.name != name {
-                        false
-                    } else if let Some(parameter_types) = parameter_types_filter.clone() {
-                        Self::almost_same_parameters_types(
-                            &it.parameters
-                                .iter()
-                                .map(|it| it.ast_type.clone())
-                                .collect::<Vec<ASTType>>(),
-                            &parameter_types,
-                        )
-                    } else {
-                        true
+                    if filter_on_name && it.name == call.function_name {
+                        return true;
                     }
+                    let verify_params =
+                        if let Some(parameter_types) = parameter_types_filter.clone() {
+                            Self::almost_same_parameters_types(
+                                &it.parameters
+                                    .iter()
+                                    .map(|it| it.ast_type.clone())
+                                    .collect::<Vec<ASTType>>(),
+                                &parameter_types,
+                            )
+                        } else {
+                            it.name == name
+                        };
+
+                    verify_params
+                        && match return_type_filter {
+                            None => true,
+                            Some(None) => it.return_type.is_none(),
+                            Some(ref rt) => match rt {
+                                None => it.return_type.is_none(),
+                                Some(t) => Self::almost_same_type(
+                                    &it.return_type.clone().unwrap(),
+                                    &Some(t.clone()),
+                                ),
+                            },
+                        }
                 };
-                let count = functions.iter().filter(lambda).count();
+                let matching_functions = functions.iter().filter(lambda).collect::<Vec<_>>();
+
+                let count = matching_functions.len();
                 if count == 0 {
                     None
                 } else if count > 1 {
+                    let f_descs = matching_functions
+                        .iter()
+                        .map(|it| format!("{it}"))
+                        .collect::<Vec<String>>()
+                        .join(",");
                     panic!(
-                        "found more than one function for call {call} filter {:?}: {}",
+                        "Found more than one function for call {call}\nfilter {:?}\nfunctions {f_descs}\n: {}",
                         parameter_types_filter, call.index
                     );
                 } else {
-                    functions.iter().find(lambda)
+                    matching_functions.first().cloned()
                 }
             }
         } else {
             None
+        }
+    }
+
+    pub fn find_call_vec(
+        &self,
+        call: &ASTFunctionCall,
+        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        return_type_filter: Option<Option<ASTType>>,
+        filter_on_name: bool,
+    ) -> Vec<&ASTFunctionDef> {
+        let name = call.function_name.clone().replace("::", "_");
+        if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
+            if functions.is_empty() {
+                panic!(
+                    "cannot find functions for call {call} filter {:?}",
+                    parameter_types_filter
+                );
+            } else {
+                let lambda = |it: &&ASTFunctionDef| {
+                    if filter_on_name && it.name == call.function_name {
+                        return true;
+                    }
+                    let verify_params =
+                        if let Some(parameter_types) = parameter_types_filter.clone() {
+                            Self::almost_same_parameters_types(
+                                &it.parameters
+                                    .iter()
+                                    .map(|it| it.ast_type.clone())
+                                    .collect::<Vec<ASTType>>(),
+                                &parameter_types,
+                            )
+                        } else {
+                            it.name == name
+                        };
+
+                    verify_params
+                        && match return_type_filter {
+                            None => true,
+                            Some(None) => it.return_type.is_none(),
+                            Some(ref rt) => match rt {
+                                None => it.return_type.is_none(),
+                                Some(t) => Self::almost_same_type(
+                                    &it.return_type.clone().unwrap(),
+                                    &Some(t.clone()),
+                                ),
+                            },
+                        }
+                };
+                functions.iter().filter(lambda).collect::<Vec<_>>()
+            }
+        } else {
+            vec![]
         }
     }
 
@@ -150,8 +241,6 @@ impl FunctionsContainer {
                     "cannot find function {name} filter {:?}",
                     parameter_types_filter
                 );
-            } else if functions.len() == 1 {
-                functions.first()
             } else {
                 let lambda = |it: &&ASTFunctionDef| {
                     if it.name != name {
@@ -226,38 +315,7 @@ impl FunctionsContainer {
         } else {
             zip(parameter_types.iter(), parameter_types_filter.iter()).all(
                 |(parameter_type, parameter_type_filter)| {
-                    match parameter_type_filter {
-                        None => true,
-                        Some(expected_type) => {
-                            match expected_type {
-                                ASTType::Builtin(expected_kind) => match expected_kind {
-                                    BuiltinTypeKind::Lambda { .. } => matches!(
-                                        parameter_type,
-                                        ASTType::Builtin(BuiltinTypeKind::Lambda { .. }) // TODO we don't check the lambda
-                                    ),
-                                    _ => match parameter_type {
-                                        ASTType::Builtin(_) => expected_type == parameter_type,
-                                        ASTType::Parametric(_) => true,
-                                        ASTType::Custom { .. } => false,
-                                    },
-                                },
-                                ASTType::Parametric(_) => true,
-                                ASTType::Custom {
-                                    param_types: _,
-                                    name: expected_type_name,
-                                } => {
-                                    match parameter_type {
-                                        ASTType::Builtin(_) => false,
-                                        ASTType::Parametric(_) => true, // TODO
-                                        ASTType::Custom {
-                                            param_types: _,
-                                            name: type_name,
-                                        } => type_name == expected_type_name,
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Self::almost_same_type(parameter_type, parameter_type_filter)
                     /*
                     match parameter_type {
                         ASTType::Builtin(kind) => {
@@ -291,6 +349,74 @@ impl FunctionsContainer {
         result
     }
 
+    fn almost_same_type(parameter_type: &ASTType, parameter_type_filter: &Option<ASTType>) -> bool {
+        match parameter_type_filter {
+            None => true,
+            Some(filter_type) => {
+                match filter_type {
+                    ASTType::Builtin(filter_kind) => match filter_kind {
+                        BuiltinTypeKind::Lambda {
+                            parameters: filter_ps,
+                            return_type: filter_rt,
+                        } => match parameter_type {
+                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters: a_p,
+                                return_type: a_rt,
+                            }) => {
+                                let parameter_same = filter_ps.len() == a_p.len()
+                                    && zip(filter_ps, a_p).all(|(filter_type, a)| {
+                                        Self::almost_same_type(a, &Some(filter_type.clone()))
+                                    });
+
+                                let return_type_same = match filter_rt {
+                                    None => a_rt.is_none(),
+                                    Some(filter_rt1) => match a_rt {
+                                        None => false,
+                                        Some(a_rt1) => Self::almost_same_type(
+                                            a_rt1,
+                                            &Some(*filter_rt1.clone()),
+                                        ),
+                                    },
+                                };
+
+                                parameter_same && return_type_same
+                            }
+                            _ => false,
+                        },
+                        _ => match parameter_type {
+                            ASTType::Builtin(_) => filter_type == parameter_type,
+                            ASTType::Parametric(_) => true,
+                            ASTType::Custom { .. } => false,
+                        },
+                    },
+                    ASTType::Parametric(_) => true,
+                    ASTType::Custom {
+                        param_types: expected_param_types,
+                        name: expected_type_name,
+                    } => {
+                        match parameter_type {
+                            ASTType::Builtin(_) => false,
+                            ASTType::Parametric(_) => true, // TODO
+                            ASTType::Custom {
+                                param_types,
+                                name: type_name,
+                            } => {
+                                type_name == expected_type_name
+                                    && param_types.len() == expected_param_types.len()
+                                    && param_types.iter().enumerate().all(|(i, pt)| {
+                                        Self::almost_same_type(
+                                            pt,
+                                            &expected_param_types.get(i).cloned(),
+                                        )
+                                    })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
         self.functions_by_name
             .values()
@@ -307,9 +433,22 @@ impl FunctionsContainer {
     }
 
     pub fn functions_desc(&self) -> Vec<String> {
-        let mut vec: Vec<String> = self.functions().iter().map(|it| format!("{it}")).collect();
+        let mut vec: Vec<String> = self
+            .functions_by_name
+            .iter()
+            .flat_map(|(k, v)| v.iter().map(|it| format!("{}/{it}", k.clone())))
+            .collect();
         vec.sort();
         vec
+    }
+
+    pub fn debug_i(&self, descr: &str) {
+        debug_i!("{descr}:");
+        indent!();
+        for x in self.functions_desc() {
+            debug_i!("{x}");
+        }
+        dedent!();
     }
 }
 
@@ -333,11 +472,11 @@ mod tests {
 
         let result = sut.try_add_new("toString", &function_def);
 
-        assert!(result.is_none());
+        assert!(result.is_some());
 
         let result = sut.try_add_new("toString", &function_def);
 
-        assert!(result.is_some());
+        assert!(result.is_none());
     }
 
     #[test]
@@ -472,6 +611,8 @@ mod tests {
                 Some(ASTType::Builtin(BuiltinTypeKind::I32)),
                 Some(ASTType::Parametric("T".into())),
             ]),
+            None,
+            false,
         );
 
         println!(
@@ -501,6 +642,7 @@ mod tests {
             inline: false,
             resolved_generic_types: LinkedHashMap::new(),
             return_type: Some(ASTType::Builtin(BuiltinTypeKind::String)),
+            original_name: name.into(),
         }
     }
 
@@ -522,6 +664,7 @@ mod tests {
             inline: false,
             resolved_generic_types: LinkedHashMap::new(),
             return_type: Some(ASTType::Builtin(param_kind)),
+            original_name: "add".into(),
         }
     }
 }

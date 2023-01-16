@@ -33,7 +33,7 @@ mod test_utils;
 mod tokens_group;
 pub mod tokens_matcher;
 mod type_params_parser;
-mod type_parser;
+pub mod type_parser;
 
 enum ProcessResult {
     Continue,
@@ -157,6 +157,7 @@ impl Parser {
                     {
                         self.parser_data
                             .push(ParserData::FunctionDef(ASTFunctionDef {
+                                original_name: name.clone(),
                                 name,
                                 parameters: Vec::new(),
                                 body: RASMBody(Vec::new()),
@@ -174,6 +175,7 @@ impl Parser {
                     {
                         self.parser_data
                             .push(ParserData::FunctionDef(ASTFunctionDef {
+                                original_name: name.clone(),
                                 name,
                                 parameters: Vec::new(),
                                 body: ASMBody("".into()),
@@ -1140,6 +1142,7 @@ mod tests {
             inline: false,
             param_types: vec!["T".into(), "T1".into()],
             resolved_generic_types: LinkedHashMap::new(),
+            original_name: "p".into(),
         };
 
         assert_eq!(module.functions, vec![function_def]);

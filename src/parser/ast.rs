@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
+    pub original_name: String,
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
     pub return_type: Option<ASTType>,
@@ -179,7 +180,11 @@ pub struct ASTIndex {
 
 impl ASTIndex {
     pub fn none() -> Self {
-        Self {file_name: None, row:0, column: 0}
+        Self {
+            file_name: None,
+            row: 0,
+            column: 0,
+        }
     }
 }
 

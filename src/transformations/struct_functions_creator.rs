@@ -46,6 +46,7 @@ pub fn struct_functions_creator(
         }
 
         let function_def = ASTFunctionDef {
+            original_name: struct_def.name.clone(),
             name: struct_def.name.clone(),
             parameters,
             body,
@@ -68,12 +69,11 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     CodeGen::add(&mut body, "push ebx", None, true);
     CodeGen::add(
         &mut body,
-        &format!("push     {}", struct_def.properties.len() * wl),
+        &format!("$call(malloc, {})", struct_def.properties.len() * wl),
         None,
         true,
     );
-    CodeGen::add(&mut body, "$call(malloc)", None, true);
-    CodeGen::add(&mut body, &format!("add esp,{}", wl), None, true);
+    //CodeGen::add(&mut body, &format!("add esp,{}", wl), None, true);
     CodeGen::add(&mut body, &format!("push {ws} eax"), None, true);
     CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
     for (i, par) in struct_def.properties.iter().enumerate() {
@@ -138,8 +138,10 @@ fn create_function_for_struct_property(
         .map(|it| ASTType::Parametric(it.into()))
         .collect();
 
+    let name = struct_def.name.clone() + "_" + &property_def.name;
     ASTFunctionDef {
-        name: struct_def.name.clone() + "_" + &property_def.name,
+        original_name: name.clone(),
+        name,
         parameters: vec![ASTParameterDef {
             name: "v".into(),
             ast_type: ASTType::Custom {

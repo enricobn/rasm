@@ -94,8 +94,11 @@ fn create_match_like_function(
         param_types.push(g);
     }
 
+    let f_name = format!("{}_{}", enum_def.name, name);
+
     let function_def = ASTFunctionDef {
-        name: format!("{}_{}", enum_def.name, name),
+        original_name: f_name.clone(),
+        name: f_name,
         parameters,
         body: function_body,
         inline: false,
@@ -134,17 +137,19 @@ fn create_constructors(
 
             CodeGen::add(
                 native_body,
-                &format!("push    {} {}", backend.word_size(), backend.word_len()),
+                &format!("$call(malloc, {})", backend.word_len()),
                 None,
                 true,
             );
-            CodeGen::add(native_body, "$call(malloc)", None, true);
+            /*
             CodeGen::add(
                 native_body,
                 &format!("add   {}, {}", backend.stack_pointer(), backend.word_len()),
                 None,
                 true,
             );
+
+             */
 
             CodeGen::add(
                 native_body,
@@ -171,8 +176,10 @@ fn create_constructors(
         };
         let body = ASTFunctionBody::ASMBody(body_str);
 
+        let name = enum_def.name.clone() + "_" + &variant.name.clone();
         let function_def = ASTFunctionDef {
-            name: enum_def.name.clone() + "_" + &variant.name.clone(),
+            original_name: name.clone(),
+            name,
             parameters: variant.parameters.clone(),
             body,
             // TODO we cannot inline parametric variant constructor, but I don't know why
@@ -204,14 +211,13 @@ fn enum_parametric_variant_constructor_body(
     CodeGen::add(
         &mut body,
         &format!(
-            "push     {}",
+            "$call(malloc, {})",
             (variant.parameters.len() + 1) * word_len as usize
         ),
         None,
         true,
     );
-    CodeGen::add(&mut body, "$call(malloc)", None, true);
-    CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
+    //CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
     CodeGen::add(&mut body, &format!("push {word_size} eax"), None, true);
     CodeGen::add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);
     // I put the variant number in the first location

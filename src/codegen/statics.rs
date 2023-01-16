@@ -127,13 +127,15 @@ impl Statics {
 
         for (_, (key, value_key)) in self.strings_map.iter() {
             CodeGen::add(&mut code, &format!("push dword {value_key}"), None, true);
-            CodeGen::add(&mut code, "call addStaticStringToHeap", None, true);
+            // TODO
+            CodeGen::add(&mut code, "call addStaticStringToHeap_0", None, true);
             CodeGen::add(
                 &mut code,
                 &format!("add {},{}", backend.stack_pointer(), backend.word_len()),
                 None,
                 true,
             );
+
             CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
         (data, bss, code)
@@ -178,7 +180,7 @@ impl Statics {
         let address_name = address.pad_to_width(50);
         CodeGen::add(
             asm,
-            &format!("$call(sprint, \"{address_name} \")"),
+            &format!("$call(print, \"{address_name} \")"),
             None,
             false,
         );

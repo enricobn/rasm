@@ -151,7 +151,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     mov     dword [eax + 4],0; allocated false
     jmp     .end
 .negative_count:
-    call    negativeCount
+    $call(negativeCount)
     jmp     .end
 .invalid_address:
     $call(sprintln, "Invalid address")
