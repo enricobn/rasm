@@ -2,7 +2,6 @@ use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::lexer::tokens::Token;
-use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::lexer::Lexer;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::parser::type_parser::TypeParser;

@@ -4,8 +4,8 @@ use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedValKind};
 use crate::debug_i;
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
+    ASTTypedStatement, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -569,23 +569,10 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn resolve_asm_parameters(
         &self,
-        statics: &mut Statics,
         body: &str,
         to_remove_from_stack: String,
         ident: usize,
-        function_def: Option<&ASTTypedFunctionDef>,
-        module: &ASTTypedModule,
     ) -> String {
-        /*let mut result = TextMacroEvaluator::new().translate(
-            self.backend,
-            statics,
-            function_def,
-            body,
-            Some(module),
-        );
-
-         */
-
         let mut result = body.to_string();
 
         let mut i = 0;

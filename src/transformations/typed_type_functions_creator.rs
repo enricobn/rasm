@@ -107,7 +107,7 @@ fn create_free_body(
     CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
     CodeGen::add(
         &mut result,
-        &format!("call  {asm_function_name}"),
+        &format!("call  {asm_function_name}_0"),
         None,
         true,
     );
@@ -172,9 +172,10 @@ fn loop_vec(
         None,
         true,
     );
+    // TODO REferences_0
     CodeGen::add(
         &mut result,
-        &format!("call  {}References", type_def.original_name),
+        &format!("call  {}References_0", type_def.original_name),
         None,
         true,
     );

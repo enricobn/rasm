@@ -44,14 +44,15 @@ impl FunctionsContainer {
                     && it.return_type == function_def.return_type
             }) {
                 debug!("already added as {already_present}");
-                Some(already_present.clone())
+                // Some(already_present.clone())
+                None
             } else {
                 let mut def = function_def.clone();
                 def.name = format!("{}_{}", def.name, same_name_functions.len());
                 /*                if def.name == "Option_None_37_0" {
                     panic!()
                 }*/
-                println!("added {def} to function context");
+                debug_i!("added {def} to function context");
                 same_name_functions.push(def.clone());
                 Some(def)
             }
@@ -63,7 +64,7 @@ impl FunctionsContainer {
                 panic!()
             }*/
 
-            println!("added {def} to function context");
+            debug_i!("added {def} to function context");
             let same_name_functions = vec![def.clone()];
             self.functions_by_name
                 .insert(original_name.into(), same_name_functions);
@@ -487,7 +488,7 @@ mod tests {
 
         let result = sut.try_add_new("toString", &function_def);
 
-        assert!(result.is_none());
+        assert!(result.is_some());
 
         let function_def = create_function("toString", "b", BuiltinTypeKind::Bool);
 
@@ -504,7 +505,7 @@ mod tests {
 
         let result = sut.try_add_new("toString", &function_def);
 
-        assert!(result.is_none());
+        assert!(result.is_some());
 
         let function_def = create_function("AModule::toString", "b", BuiltinTypeKind::Bool);
 
@@ -512,7 +513,7 @@ mod tests {
 
         assert!(result.is_some());
 
-        assert!(sut.find_function("AModule::toString").is_some());
+        assert!(sut.find_function("AModule::toString_0").is_some());
         assert!(sut.find_function("AModule::toString_1").is_some());
     }
 
@@ -546,9 +547,9 @@ mod tests {
 
         let result = sut.try_add_new("toString", &function_def);
 
-        assert!(result.is_none());
+        assert!(result.is_some());
 
-        assert!(sut.find_function("toString").is_some());
+        assert!(sut.find_function("toString_0").is_some());
 
         let mut function_def = create_function("toString", "n", BuiltinTypeKind::I32);
         function_def.parameters = vec![];
@@ -557,7 +558,7 @@ mod tests {
 
         assert!(result.is_some());
 
-        assert!(sut.find_function("toString").is_some());
+        assert!(sut.find_function("toString_0").is_some());
         assert!(sut.find_function("toString_1").is_some());
     }
 
@@ -569,7 +570,7 @@ mod tests {
 
         let result = sut.try_add_new("add", &function_def);
 
-        assert!(result.is_none());
+        assert!(result.is_some());
 
         let function_def = create_add_function("s", BuiltinTypeKind::String);
 

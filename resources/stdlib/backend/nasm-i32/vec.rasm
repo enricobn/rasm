@@ -297,7 +297,7 @@ asm vecOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> 
 }/
 
 asm flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
-    $call(vecFlattenCreate, $vec)
+    $call(vecFlattenCreate, $vec:i32)
     push    eax
 
     push    ebx
@@ -336,7 +336,7 @@ asm flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     pop     eax
 }/
 
-/* TODO theoretically it should be asm vecFlattenCreate<T>(vec: Vec<Vec<i32>>) -> Vec<T>
+/* TODO theoretically it should be asm vecFlattenCreate<T>(vec: Vec<Vec<T>>) -> Vec<T>
  *      but for now there's no support for calling a generic function from assembly
  *      (the real function name is different for each real type)...
  */

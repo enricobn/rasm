@@ -1,4 +1,4 @@
-use std::fmt::{format, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
@@ -79,7 +79,6 @@ pub fn convert(
         }
 
         debug_i!("convert loop {count}");
-        println!("\nconvert loop {count}");
         debug_i!("------------------------");
 
         indent!();
@@ -92,7 +91,6 @@ pub fn convert(
 
         for statement in body.iter() {
             debug_i!("converting statement {statement}");
-            println!("converting statement {statement}");
             indent!();
             let statement_converted = convert_statement(
                 module,
@@ -106,10 +104,9 @@ pub fn convert(
             );
 
             if statement_converted {
-                debug_i!("statement converted {}", statement);
-                println!("\nstatement converted {}\n", statement);
+                debug_i!("statement converted");
             } else {
-                println!("\nstatement NOT converted {}\n", statement);
+                debug_i!("statement NOT converted");
             }
             something_to_convert |= statement_converted;
             dedent!();
@@ -121,7 +118,6 @@ pub fn convert(
 
         for function_def in type_conversion_context.clone().functions().iter() {
             debug_i!("converting function {}", function_def);
-            println!("\nconverting function {}", function_def);
             indent!();
 
             let function_converted = convert_function_def(
@@ -133,9 +129,9 @@ pub fn convert(
             );
 
             if function_converted.is_some() {
-                println!("function converted {}\n", function_def);
+                debug_i!("function converted {}\n", function_def);
             } else {
-                println!("function NOT converted {}\n", function_def);
+                debug_i!("function NOT converted {}\n", function_def);
             }
 
             something_to_convert |= function_converted.is_some();
@@ -176,9 +172,6 @@ fn convert_function_def(
     resolved_param_types: &LinkedHashMap<String, ASTType>,
     function_def: &ASTFunctionDef,
 ) -> Option<ASTFunctionDef> {
-    // println!("convertin {}", function_def);
-    let mut something_to_convert = false;
-
     let mut context = ValContext::new(None);
 
     for par in function_def.parameters.iter() {
@@ -201,8 +194,6 @@ fn convert_function_def(
                 &call_stack,
                 return_type,
             ) {
-                something_to_convert = true;
-
                 let mut new_function_def = function_def.clone();
                 new_function_def.body = ASTFunctionBody::RASMBody(new_body.clone());
 
@@ -210,78 +201,12 @@ fn convert_function_def(
 
                 type_conversion_context.replace_body(&new_function_def);
 
-                if function_def.name == "addReused_0" {
-                    println!("\naddReused_0 {something_to_convert}");
-
-                    new_body.iter().for_each(|it| println!("{it}"));
-
-                    println!();
-
-                    let found = type_conversion_context
-                        .find_function(&new_function_def.name)
-                        .unwrap();
-
-                    match &found.body {
-                        ASTFunctionBody::RASMBody(ody) => {
-                            ody.iter().for_each(|it| println!("{it}"))
-                        }
-                        ASTFunctionBody::ASMBody(_) => {}
-                    }
-
-                    println!();
-                }
-
                 Some(new_function_def)
             } else {
                 None
             }
         }
-        ASTFunctionBody::ASMBody(body) => {
-            let mut new_body = body.clone();
-
-            /*            backend
-                           .called_functions(Some(function_def), body, None, &context)
-                           .iter()
-                           .for_each(|it| {
-                               println!("native call to {:?}, in {}", it, function_def.name);
-                               let function_call = it.to_call();
-
-                               if let Ok(Some(new_call)) = convert_call(
-                                   module,
-                                   &context,
-                                   &function_call,
-                                   type_conversion_context,
-                                   &LinkedHashMap::new(),
-                                   None,
-                                   backend,
-                               ) {
-                                   if function_call.function_name != new_call.function_name {
-                                       new_body = replace_native_call(
-                                           &new_body,
-                                           &function_call.function_name,
-                                           &new_call.function_name,
-                                       );
-
-                                       if body == &new_body {
-                                           panic!(
-                                               "{} -> {}",
-                                               function_call.function_name, new_call.function_name
-                                           );
-                                       }
-                                       something_to_convert = true;
-                                   }
-                               }
-                           });
-
-                       if body != &new_body {
-                           let mut new_function_def = function_def.clone();
-                           new_function_def.body = ASTFunctionBody::ASMBody(new_body);
-                           type_conversion_context.replace_body(&new_function_def);
-                       }
-
-            */
-            None
-        }
+        ASTFunctionBody::ASMBody(_) => None,
     }
 }
 
@@ -312,7 +237,7 @@ fn convert_ody(
                     &LinkedHashMap::new(),
                     return_type.clone(),
                     backend,
-                    &call_stack,
+                    call_stack,
                 )
             } else {
                 convert_statement_in_body(
@@ -322,7 +247,7 @@ fn convert_ody(
                     type_conversion_context,
                     &LinkedHashMap::new(),
                     backend,
-                    &call_stack,
+                    call_stack,
                 )
             };
 
@@ -333,30 +258,8 @@ fn convert_ody(
                     new_expr
                 }
                 Ok(None) => {
-                    debug_i!("nothin converted\n");
-                    /*if index == body.len() - 1 {
-                        match convert_last_statement_in_body(
-                            module,
-                            it,
-                            &context,
-                            type_conversion_context,
-                            &LinkedHashMap::new(),
-                            new_function_def.return_type.clone(),
-                            backend,
-                            &call_stack
-                        ) {
-                            Ok(Some(new_expr)) => {
-                                debug_i!("converted last expr in body {}", new_expr);
-                                new_expr
-                            },
-                            Ok(None) => it.clone(),
-                            Err(e) => {
-                                panic!("Error converting last expr in body {it} in {function_def}: {e}")
-                            }
-                        }
-                    } else {*/
+                    debug_i!("nothin converted");
                     it.clone()
-                    // }
                 }
                 Err(e) => {
                     panic!(
@@ -768,15 +671,13 @@ fn convert_last_expr_in_body(
 
                         if let ASTFunctionCallExpression(new_call) = new_expr {
                             if new_call == call {
-                                debug_i!("ut where equal\n");
+                                debug_i!("ut where equal");
                                 // TODO why???
                                 return Ok(None);
-                            } else {
-                                println!("\n");
                             }
                         }
                     } else {
-                        debug_i!("NOT converted call \n");
+                        debug_i!("NOT converted call");
                     }
                     dedent!();
                     return Ok(result);
@@ -883,6 +784,215 @@ pub fn convert_call(
             debug_i!("resolved generics {:?}", resolved_param_types);
 
             match expr {
+                ASTExpression::Lambda(lambda) => {
+                    let lambda_type =
+                        if let Some(new_type) = substitute(&par.ast_type, &resolved_param_types) {
+                            new_type
+                        } else {
+                            par.ast_type.clone()
+                        };
+                    let mut context = get_context_from_lambda(
+                        context,
+                        lambda,
+                        &lambda_type,
+                        &resolved_param_types,
+                    )?;
+
+                    let mut effective_lambda = if let Some(new_lambda) = convert_lambda(
+                        module,
+                        &par.ast_type,
+                        lambda,
+                        &context,
+                        typed_context,
+                        &resolved_param_types,
+                        backend,
+                        &call_stack,
+                    )? {
+                        // println!("lambda something to convert");
+                        something_to_convert = true;
+                        new_lambda
+                    } else {
+                        lambda.clone()
+                    };
+
+                    let new_return_type = match &par.ast_type {
+                        ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            parameters: _lambda_parameters,
+                            return_type, // TODO I cannot convert the return type at this stage
+                        }) => {
+                            if let Some(rt) = return_type {
+                                if let Some(new_t) = substitute(rt, &resolved_param_types) {
+                                    something_to_convert = true;
+                                    Some(new_t)
+                                } else if let Some(last) = effective_lambda.body.last() {
+                                    for statement in effective_lambda.body.iter() {
+                                        if let ASTStatement::LetStatement(name, expr) = statement {
+                                            let ast_type = get_type_of_expression(
+                                                module,
+                                                &context,
+                                                expr,
+                                                typed_context,
+                                                None,
+                                                &call_stack,
+                                            )
+                                            .unwrap();
+                                            context.insert_let(name.clone(), ast_type);
+                                        }
+                                    }
+
+                                    let result_type = get_type_of_statement(
+                                        module,
+                                        &context,
+                                        last,
+                                        typed_context,
+                                        &call_stack,
+                                    );
+
+                                    // the generic types of the expression do not belong to this
+                                    if result_type
+                                        .clone()
+                                        .map(|it| get_generic_types(&it).is_empty())
+                                        .unwrap_or(true)
+                                    {
+                                        result_type
+                                    } else {
+                                        Some(rt.as_ref().clone())
+                                    }
+                                } else {
+                                    Some(rt.as_ref().clone())
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        _ => {
+                            panic!()
+                        }
+                    };
+
+                    let mut effective_new_return_type = new_return_type.clone();
+
+                    // we try to convert the last expression
+                    if let Some(rt) = &new_return_type {
+                        let new_body: Result<Vec<ASTStatement>, TypeCheckError> = effective_lambda
+                            .body
+                            .iter()
+                            .enumerate()
+                            .map(|(i, it)| {
+                                if i == effective_lambda.body.len() - 1 {
+                                    if let Some(te) =
+                                        get_type_of_statement(module, &context, it, typed_context, &call_stack)
+                                    {
+                                        let result =
+                                            extract_generic_types_from_effective_type(&te, rt)
+                                                .map_err(|e| format!("{} in converting last expression in lambda {lambda} in call {call}", e.message))?;
+
+                                        let converted_expr = convert_statement_in_body(
+                                            module,
+                                            it,
+                                            &mut context,
+                                            typed_context,
+                                            &result,
+                                            backend,
+                                            &call_stack
+                                        );
+
+                                        let new_statement = match converted_expr {
+                                            Ok(Some(new_expr)) => {
+                                                something_converted = true;
+                                                new_expr
+                                            }
+                                            Ok(None) => it.clone(),
+                                            Err(e) => panic!("error converting {it}: {e}"),
+                                        };
+
+                                        debug_i!("lambda return type {rt} is {te}");
+
+                                        if !get_generic_types(rt).is_empty() && rt != &te {
+                                            if let Ok(ge) = extract_generic_types_from_effective_type(rt, &te) {
+                                                if let Some(new_t) = substitute(rt, &ge) {
+                                                    debug_i!("extracted {new_t}");
+                                                    if let Some(new_new_t) = substitute(&new_t, &resolved_param_types) {
+                                                        effective_new_return_type = Some(new_new_t);
+                                                    }
+
+                                                }
+                                            }
+                                        }
+
+                                        Ok(new_statement)
+                                    } else {
+                                        Ok(it.clone())
+                                    }
+                                } else {
+                                    match &it {
+                                        ASTStatement::Expression(_) => {}
+                                        ASTStatement::LetStatement(name, expr) => {
+                                            //heprintln!("added let {name}");
+                                            match expr {
+                                                ASTFunctionCallExpression(call) => {
+                                                    let ast_type = typed_context
+                                                        .find_function(&call.function_name)
+                                                        .unwrap()
+                                                        .return_type
+                                                        .clone()
+                                                        .unwrap();
+                                                    context.insert_let(name.clone(), ast_type);
+                                                }
+                                                _ => {
+                                                    panic!("unsupported let value {expr}")
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Ok(it.clone())
+                                }
+                            })
+                            .collect();
+
+                        effective_lambda.body = new_body?;
+                    }
+
+                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters,
+                        return_type: _,
+                    }) = &par.ast_type
+                    {
+                        let new_parameters: Vec<ASTType> = parameters
+                            .iter()
+                            .map(|it| match substitute(it, &resolved_param_types) {
+                                None => it.clone(),
+                                Some(p) => {
+                                    something_converted = true;
+                                    p
+                                }
+                            })
+                            .collect();
+
+                        /*
+                        sprintln!("lambda {lambda}");
+                        println!("effective_lambda {effective_lambda}");
+                        println!("{}", lambda == &effective_lambda);
+                        println!("{}", par.ast_type);
+                        println!("{:?}", new_return_type);
+                        */
+                        something_to_convert = update(
+                            &ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                return_type: effective_new_return_type.map(Box::new),
+                                parameters: new_parameters,
+                            }),
+                            ASTExpression::Lambda(effective_lambda),
+                            par,
+                            &mut resolved_param_types,
+                            &mut converted_parameters,
+                            &mut converted_expressions,
+                        )? || something_to_convert;
+                    } else {
+                        dedent!();
+                        return Err(format!("Expected Lambda but found {}", &par.ast_type).into());
+                    }
+                }
                 ASTExpression::StringLiteral(_) => {
                     debug_i!("calling update for StringLiteral");
 
@@ -1103,199 +1213,6 @@ pub fn convert_call(
                         &mut converted_expressions,
                     )? || something_to_convert;
                 }
-                ASTExpression::Lambda(lambda) => {
-                    let lambda_type =
-                        if let Some(new_type) = substitute(&par.ast_type, &resolved_param_types) {
-                            new_type
-                        } else {
-                            par.ast_type.clone()
-                        };
-                    let mut context = get_context_from_lambda(
-                        context,
-                        lambda,
-                        &lambda_type,
-                        &resolved_param_types,
-                    )?;
-
-                    let mut effective_lambda = if let Some(new_lambda) = convert_lambda(
-                        module,
-                        &par.ast_type,
-                        lambda,
-                        &context,
-                        typed_context,
-                        &resolved_param_types,
-                        backend,
-                        &call_stack,
-                    )? {
-                        // println!("lambda something to convert");
-                        something_to_convert = true;
-                        new_lambda
-                    } else {
-                        lambda.clone()
-                    };
-
-                    let new_return_type = match &par.ast_type {
-                        ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters: _lambda_parameters,
-                            return_type, // TODO I cannot convert the return type at this stage
-                        }) => {
-                            if let Some(rt) = return_type {
-                                if let Some(new_t) = substitute(rt, &resolved_param_types) {
-                                    something_to_convert = true;
-                                    Some(new_t)
-                                } else if let Some(last) = effective_lambda.body.last() {
-                                    for statement in effective_lambda.body.iter() {
-                                        if let ASTStatement::LetStatement(name, expr) = statement {
-                                            let ast_type = get_type_of_expression(
-                                                module,
-                                                &context,
-                                                expr,
-                                                typed_context,
-                                                None,
-                                                &call_stack,
-                                            )
-                                            .unwrap();
-                                            context.insert_let(name.clone(), ast_type);
-                                        }
-                                    }
-
-                                    let result_type = get_type_of_statement(
-                                        module,
-                                        &context,
-                                        last,
-                                        typed_context,
-                                        &call_stack,
-                                    );
-
-                                    // the generic types of the expression do not belong to this
-                                    if result_type
-                                        .clone()
-                                        .map(|it| get_generic_types(&it).is_empty())
-                                        .unwrap_or(true)
-                                    {
-                                        result_type
-                                    } else {
-                                        Some(rt.as_ref().clone())
-                                    }
-                                } else {
-                                    Some(rt.as_ref().clone())
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        _ => {
-                            panic!()
-                        }
-                    };
-
-                    // we try to convert the last expression
-                    if let Some(rt) = &new_return_type {
-                        let new_body: Result<Vec<ASTStatement>, TypeCheckError> = effective_lambda
-                                                .body
-                                                .iter()
-                                                .enumerate()
-                                                .map(|(i, it)| {
-                                                    if i == effective_lambda.body.len() - 1 {
-                                                        if let Some(te) =
-                                                            get_type_of_statement(module, &context, it, typed_context, &call_stack)
-                                                        {
-                                                            let result =
-                                                                extract_generic_types_from_effective_type(&te, rt)
-                                                                    .map_err(|e| format!("{} in converting last expression in lambda {lambda} in call {call}", e.message))?;
-
-                                                            let converted_expr = convert_statement_in_body(
-                                                                module,
-                                                                it,
-                                                                &mut context,
-                                                                typed_context,
-                                                                &result,
-                                                                backend,
-                                                                &call_stack
-                                                            );
-
-                                                            let new_statement = match converted_expr {
-                                                                Ok(Some(new_expr)) => {
-                                                                    something_converted = true;
-                                                                    new_expr
-                                                                }
-                                                                Ok(None) => it.clone(),
-                                                                Err(e) => panic!("error converting {it}: {e}"),
-                                                            };
-
-                                                            Ok(new_statement)
-                                                        } else {
-                                                            Ok(it.clone())
-                                                        }
-                                                    } else {
-                                                        match &it {
-                                                            ASTStatement::Expression(_) => {}
-                                                            ASTStatement::LetStatement(name, expr) => {
-                                                                //heprintln!("added let {name}");
-                                                                match expr {
-                                                                    ASTFunctionCallExpression(call) => {
-                                                                        let ast_type = typed_context
-                                                                            .find_function(&call.function_name)
-                                                                            .unwrap()
-                                                                            .return_type
-                                                                            .clone()
-                                                                            .unwrap();
-                                                                        context.insert_let(name.clone(), ast_type);
-                                                                    }
-                                                                    _ => {
-                                                                        panic!("unsupported let value {expr}")
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        Ok(it.clone())
-                                                    }
-                                                })
-                                                .collect();
-
-                        effective_lambda.body = new_body?;
-                    }
-
-                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                        parameters,
-                        return_type: _,
-                    }) = &par.ast_type
-                    {
-                        let new_parameters: Vec<ASTType> = parameters
-                            .iter()
-                            .map(|it| match substitute(it, &resolved_param_types) {
-                                None => it.clone(),
-                                Some(p) => {
-                                    something_converted = true;
-                                    p
-                                }
-                            })
-                            .collect();
-
-                        /*
-                        sprintln!("lambda {lambda}");
-                        println!("effective_lambda {effective_lambda}");
-                        println!("{}", lambda == &effective_lambda);
-                        println!("{}", par.ast_type);
-                        println!("{:?}", new_return_type);
-                        */
-                        something_to_convert = update(
-                            &ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                return_type: new_return_type.map(Box::new),
-                                parameters: new_parameters,
-                            }),
-                            ASTExpression::Lambda(effective_lambda),
-                            par,
-                            &mut resolved_param_types,
-                            &mut converted_parameters,
-                            &mut converted_expressions,
-                        )? || something_to_convert;
-                    } else {
-                        dedent!();
-                        return Err(format!("Expected Lambda but found {}", &par.ast_type).into());
-                    }
-                }
             }
             //}
         }
@@ -1388,7 +1305,6 @@ pub fn convert_call(
 
     if !something_converted {
         debug_i!("nothing converted for {call}");
-        println!("nothing converted for {call}");
 
         if function_def.param_types.is_empty() {
             debug_i!(
@@ -1555,6 +1471,7 @@ fn et_called_function(
         .collect::<Vec<Option<ASTType>>>();
 
     debug_i!("call_parameters_types {:?}", call_parameters_types);
+
     let mut function_def_opt = typed_context.find_call_vec(
         call,
         Some(call_parameters_types.clone()),
@@ -1814,7 +1731,7 @@ fn get_type_of_expression(
                             let skip = if let ASTExpression::ASTFunctionCallExpression(inner_call) =
                                 let_statement
                             {
-                                println!("addin inner call {inner_call}");
+                                debug_i!("addin inner call {inner_call}");
                                 // new_call_stack = call_stack.add(inner_call.clone());
                                 if call_stack.exists(inner_call) {
                                     panic!("loop");
@@ -1846,7 +1763,7 @@ fn get_type_of_expression(
                             let skip = if let ASTExpression::ASTFunctionCallExpression(inner_call) =
                                 ody_expr
                             {
-                                println!("addin inner call {inner_call}");
+                                debug_i!("addin inner call {inner_call}");
                                 // new_call_stack = call_stack.add(inner_call.clone());
                                 if call_stack.exists(inner_call) {
                                     panic!("loop");
@@ -1869,9 +1786,9 @@ fn get_type_of_expression(
                             }
                         }
                     });
-                println!("lamda return type: {:?}", lamda_return_type);
+                debug_i!("lamda return type: {:?}", lamda_return_type);
                 for par_name in &def.parameter_names {
-                    println!("par {par_name}: {:?}", lamda_val_context.get(par_name));
+                    debug_i!("par {par_name}: {:?}", lamda_val_context.get(par_name));
                 }
                 Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
                     return_type: lamda_return_type.map(Box::new),
@@ -2120,53 +2037,6 @@ fn convert_lambda(
         None
     };
 
-    /*    let new_body: Result<Vec<ASTStatement>, TypeCheckError> = lambda
-            .body
-            .iter()
-            .map(|it| {
-                let converted_expr = convert_statement_in_body(
-                    module,
-                    it,
-                    &mut context,
-                    typed_context,
-                    &LinkedHashMap::new(),
-                    backend,
-                    call_stack,
-                );
-
-                let new_statement = match converted_expr {
-                    Ok(Some(new_expr)) => {
-                        // println!("something converted expr {it}, {new_expr}");
-                        something_converted = true;
-                        new_expr
-                    }
-                    Ok(None) => it.clone(),
-                    Err(e) => panic!("error converting {it}: {e}"),
-                };
-
-                match &new_statement {
-                    ASTStatement::Expression(_) => {}
-                    ASTStatement::LetStatement(name, expr) => match expr {
-                        ASTFunctionCallExpression(call) => {
-                            let ast_type = typed_context
-                                .find_function(&call.function_name)
-                                .unwrap()
-                                .return_type
-                                .clone()
-                                .unwrap();
-                            context.insert_let(name.clone(), ast_type);
-                        }
-                        _ => {
-                            panic!("unsupported let value {expr}")
-                        }
-                    },
-                }
-
-                Ok(new_statement)
-            })
-            .collect();
-    */
-
     dedent!();
 
     Ok(result)
@@ -2293,7 +2163,6 @@ fn update(
             expressions.push(expr);
 
             debug_i!("converted type {}", t);
-            println!("converted type {}", t);
 
             parameters.push(ASTParameterDef {
                 name: par.name.clone(),
@@ -2421,6 +2290,8 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
+    // it cannot works since it need some default functions, like addref
     fn test() {
         init();
 

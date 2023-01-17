@@ -2,6 +2,7 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacroEvaluator};
 use crate::codegen::{CodeGen, ValContext, ValKind};
+use crate::debug_i;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
@@ -9,7 +10,7 @@ use crate::transformations::typed_type_functions_creator::type_has_references;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedType, DefaultFunctionCall,
 };
-use log::info;
+use log::{debug, info};
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -48,7 +49,6 @@ pub trait Backend {
         &self,
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
-        module: Option<&ASTTypedModule>,
         context: &ValContext,
     ) -> Vec<DefaultFunctionCall>;
 
@@ -259,7 +259,6 @@ impl Backend for BackendAsm386 {
         &self,
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
-        module: Option<&ASTTypedModule>,
         context: &ValContext,
     ) -> Vec<DefaultFunctionCall> {
         let mut result = Vec::new();
@@ -269,7 +268,7 @@ impl Backend for BackendAsm386 {
 
         for m in evaluator.get_macros(self, function_def, body) {
             if m.name == "call" {
-                println!("found call macro {:?}", m);
+                debug_i!("found call macro {:?}", m);
                 let types = m
                     .parameters
                     .iter()
@@ -281,13 +280,16 @@ impl Backend for BackendAsm386 {
                         },
                         MacroParam::StringLiteral(_) => ASTType::Builtin(BuiltinTypeKind::String),
                         MacroParam::Ref(name, None) => {
-                            // println!("found ref {name}");
+                            debug_i!("found ref {name}");
                             match context.get(name.strip_prefix('$').unwrap()).unwrap() {
                                 ValKind::ParameterRef(_, par) => par.ast_type.clone(),
                                 ValKind::LetRef(_, ast_type) => ast_type.clone(),
                             }
                         }
-                        MacroParam::Ref(name, Some(ast_type)) => ast_type.clone(),
+                        MacroParam::Ref(name, Some(ast_type)) => {
+                            debug_i!("found ref {name} : {ast_type}");
+                            ast_type.clone()
+                        }
                     })
                     .collect();
 
@@ -495,7 +497,7 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions(None, "$call(something)", None, &ValContext::new(None))
+            sut.called_functions(None, "$call(something)", &ValContext::new(None))
                 .get(0)
                 .unwrap()
                 .name,
@@ -511,7 +513,6 @@ mod tests {
             sut.called_functions(
                 None,
                 "mov    eax, 1; $call(something)",
-                None,
                 &ValContext::new(None)
             ),
             Vec::<DefaultFunctionCall>::new()
@@ -526,7 +527,7 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), externals);
 
         assert_eq!(
-            sut.called_functions(None, "call something", None, &ValContext::new(None)),
+            sut.called_functions(None, "call something", &ValContext::new(None)),
             Vec::<DefaultFunctionCall>::new()
         );
     }

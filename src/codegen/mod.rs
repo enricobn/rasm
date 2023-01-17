@@ -538,9 +538,7 @@ impl<'a> CodeGen<'a> {
         self.backend.reserve_stack(&stack, &mut asm);
 
         let body = self.body.clone();
-        println!("body:\n{body}");
         let new_body = self.translate_body(&body);
-        println!("mew body:\n{new_body}");
 
         asm.push_str(&new_body);
 
@@ -581,7 +579,7 @@ impl<'a> CodeGen<'a> {
         }
 
         self.backend
-            .called_functions(None, body, None, &val_context)
+            .called_functions(None, body, &val_context)
             .iter()
             .for_each(|it| {
                 println!("native call to {:?}, in main", it);
@@ -988,14 +986,8 @@ impl<'a> CodeGen<'a> {
 
                 self.id += 1;
 
-                let new_body = function_call_parameters.resolve_asm_parameters(
-                    &mut self.statics,
-                    body,
-                    "0".into(),
-                    indent,
-                    Some(function_def),
-                    &self.module,
-                );
+                let new_body =
+                    function_call_parameters.resolve_asm_parameters(body, "0".into(), indent);
                 before.push_str(&new_body);
             }
         }
@@ -1428,12 +1420,9 @@ impl<'a> CodeGen<'a> {
                  */
 
                 before.push_str(&call_parameters.resolve_asm_parameters(
-                    &mut self.statics,
                     body,
                     added_to_stack,
                     indent,
-                    None,
-                    &self.module,
                 ));
             } else {
                 panic!("Only asm can be inlined, for now...");

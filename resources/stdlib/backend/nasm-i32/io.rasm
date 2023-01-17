@@ -131,7 +131,7 @@ asm readFile(path: str) -> str /{
 
     sub     edx,1   ; we subtract one for 0 at the end of the string
 
-    $call(sysRead, ebx, eax, edx)
+    $call(sysRead, ebx:i32, eax:str, edx:i32)
 
     $call(sysClose, ebx)
 

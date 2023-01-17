@@ -3,6 +3,7 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::{TypedValContext, TypedValKind, ValContext};
+use crate::debug_i;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
@@ -11,8 +12,7 @@ use crate::parser::ast::{
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::{
-    convert_call, convert_function_def, et_called_function, replace_native_call, substitute,
-    TypeConversionContext,
+    convert_call, convert_function_def, replace_native_call, substitute, TypeConversionContext,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -1052,7 +1052,7 @@ pub fn function_def(
             .iter()
             .map(|it| parameter_def(conv_context, it, &format!("function {}", def.name)))
             .collect(),
-        generic_types,
+        generic_types: generic_types.clone(),
     };
 
     match &typed_function_def.body {
@@ -1073,16 +1073,23 @@ pub fn function_def(
             let mut new_body = body.clone();
 
             backend
-                .called_functions(Some(&typed_function_def), body, None, &val_context)
+                .called_functions(Some(&typed_function_def), body, &val_context)
                 .iter()
                 .for_each(|it| {
-                    println!("native call to {:?}, in {}", it, typed_function_def.name);
+                    debug_i!(
+                        "native call to {:?}, in {}, generic types {:?}",
+                        it,
+                        typed_function_def.name,
+                        &generic_types
+                    );
                     let function_call = it.to_call();
 
                     let call_parameters_types = it
                         .param_types
                         .iter()
-                        .map(|it| Some(it.clone()))
+                        .map(|it| {
+                            substitute(it, &def.resolved_generic_types).or_else(|| Some(it.clone()))
+                        })
                         .collect::<Vec<Option<ASTType>>>();
 
                     let function_def_opt = typed_context.find_call(
@@ -1093,6 +1100,18 @@ pub fn function_def(
 
                     let function_name = if let Some(functiond_def) = function_def_opt {
                         functiond_def.name.clone()
+                    } else if let Ok(Some(new_call)) = convert_call(
+                        module,
+                        &ValContext::new(None),
+                        &function_call,
+                        typed_context,
+                        &def.resolved_generic_types,
+                        None,
+                        backend,
+                        &CallStack::new(),
+                    ) {
+                        debug_i!("new_call {:?}", new_call);
+                        new_call.function_name
                     } else {
                         let function_def_opt = module.find_call(
                             &function_call,
@@ -1107,12 +1126,8 @@ pub fn function_def(
                                 panic!("cannot find {}", it.to_call());
                             }
                         } else {
-                            panic!(
-                                "cannot find {} {:?} -> {:?}",
-                                it.to_call(),
-                                call_parameters_types,
-                                module.funcion_desc()
-                            );
+                            module.debug_i();
+                            panic!("cannot find {} {:?}", it.to_call(), call_parameters_types);
                         }
                     };
 
@@ -1504,6 +1519,25 @@ impl DefaultFunctionCall {
                                 index: ASTIndex::none(),
                             };
                             ASTExpression::ASTFunctionCallExpression(call_to_empty)
+                        } else if name.starts_with("Vec") {
+                            let call_to_empty = ASTFunctionCall {
+                                function_name: "Vec".into(),
+                                parameters: Vec::new(),
+                                original_function_name: "Vec".into(),
+                                index: ASTIndex::none(),
+                            };
+
+                            let call = ASTFunctionCall {
+                                original_function_name: "vecOf".to_string(),
+                                function_name: "vecOf".to_string(),
+                                parameters: vec![ASTExpression::ASTFunctionCallExpression(
+                                    call_to_empty,
+                                )],
+                                index: ASTIndex::none(),
+                            };
+                            // TODO it's a trick to call vecflattencreate
+                            // ASTExpression::Value(ValueType::Number(0), ASTIndex::none())
+                            ASTExpression::ASTFunctionCallExpression(call)
                         } else {
                             panic!("unsupported type {name}")
                         }

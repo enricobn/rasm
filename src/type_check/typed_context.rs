@@ -1,4 +1,3 @@
-use crate::debug_i;
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType};
 use crate::type_check::functions_container::FunctionsContainer;
 
@@ -86,14 +85,14 @@ mod tests {
 
         assert!(context
             .try_add_new(&"f".into(), &simple_function_def("newFun"))
-            .is_none());
+            .is_some());
         assert!(context
             .try_add_new(&"ff".into(), &simple_function_def("anotherNewFun"))
-            .is_none());
+            .is_some());
 
-        assert!(context.find_function("aFun").is_some());
-        assert!(context.find_function("newFun").is_some());
-        assert!(context.find_function("anotherNewFun").is_some());
+        assert!(context.find_function("aFun_0").is_some());
+        assert!(context.find_function("newFun_0").is_some());
+        assert!(context.find_function("anotherNewFun_0").is_some());
 
         assert_eq!(
             context
@@ -101,7 +100,7 @@ mod tests {
                 .iter()
                 .map(|it| it.name.clone())
                 .collect::<Vec<String>>(),
-            vec!["aFun", "newFun", "anotherNewFun"]
+            vec!["aFun_0", "newFun_0", "anotherNewFun_0"]
         );
 
         assert_eq!(context.len(), 3);
