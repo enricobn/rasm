@@ -1,3 +1,8 @@
+use std::fmt::{Display, Formatter};
+
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
@@ -10,15 +15,11 @@ use crate::parser::ast::{
 };
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
-use crate::type_check::ConvertCallResult::Converted;
+use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
-    convert_call, convert_function_def, replace_native_call, substitute, ConvertCallResult,
-    TypeCheckError, TypeConversionContext,
+    convert_call, convert_function_def, replace_native_call, substitute, TypeConversionContext,
 };
 use crate::{debug_i, dedent, indent};
-use linked_hash_map::LinkedHashMap;
-use log::debug;
-use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -990,20 +991,18 @@ fn add_default_function(
         &CallStack::new(),
     ) {
         Err(e) => {
-            //if mandatory {
             panic!(
                 "Error converting mandatory function {} : {e}",
                 function_call.name
-            )
-            //}
+            );
         }
-        Ok(ConvertCallResult::NothingToConvert) => {
+        Ok(NothingToConvert) => {
             debug_i!("no new call for default function {call}");
         }
-        Ok(ConvertCallResult::SomethingConverted) => {
+        Ok(SomethingConverted) => {
             debug_i!("something converted, but not entirely for default function {call}");
         }
-        Ok(ConvertCallResult::Converted(new_call)) => {
+        Ok(Converted(new_call)) => {
             debug_i!("new call {new_call} for default function {call}");
         }
     }
@@ -1520,7 +1519,10 @@ impl DefaultFunctionCall {
                         BuiltinTypeKind::Lambda { .. } => panic!(),
                     },
                     ASTType::Parametric(_) => panic!(),
-                    ASTType::Custom { name, param_types } => {
+                    ASTType::Custom {
+                        name,
+                        param_types: _,
+                    } => {
                         if name.starts_with("List") {
                             let call_to_empty = ASTFunctionCall {
                                 function_name: "List::Empty".into(),

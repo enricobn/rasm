@@ -1,13 +1,11 @@
 use std::fmt::{Display, Formatter};
 use std::panic;
-use std::string::ToString;
 
+use backtrace::Backtrace;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use regex::Regex;
 use strum_macros::Display;
-
-use backtrace::Backtrace;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -342,12 +340,12 @@ fn convert_statement(
                     Err(e) => {
                         panic!("{e} expression: {:?}", expr);
                     }
-                    Ok(ConvertCallResult::NothingToConvert) => new_body.push(statement.clone()),
-                    Ok(ConvertCallResult::SomethingConverted) => {
+                    Ok(NothingToConvert) => new_body.push(statement.clone()),
+                    Ok(SomethingConverted) => {
                         new_body.push(statement.clone());
                         something_to_convert = true;
                     }
-                    Ok(ConvertCallResult::Converted(new_call)) => {
+                    Ok(Converted(new_call)) => {
                         something_to_convert = true;
                         debug_i!(
                             "converted call {} in {}",
@@ -380,7 +378,7 @@ fn convert_statement(
                     Err(e) => {
                         panic!("{e}");
                     }
-                    Ok(ConvertCallResult::NothingToConvert) => {
+                    Ok(NothingToConvert) => {
                         let ast_type = type_conversion_context
                             .find_function(&call.function_name)
                             .unwrap_or_else(|| panic!("{}", &call.function_name))
@@ -390,7 +388,7 @@ fn convert_statement(
                         context.insert_let(name.clone(), ast_type);
                         new_body.push(statement.clone())
                     }
-                    Ok(ConvertCallResult::SomethingConverted) => {
+                    Ok(SomethingConverted) => {
                         something_to_convert = true;
                         let ast_type = type_conversion_context
                             .find_function(&call.function_name)
@@ -401,7 +399,7 @@ fn convert_statement(
                         context.insert_let(name.clone(), ast_type);
                         new_body.push(statement.clone())
                     }
-                    Ok(ConvertCallResult::Converted(new_call)) => {
+                    Ok(Converted(new_call)) => {
                         something_to_convert = true;
                         debug_i!(
                             "converted call {} in {}",
@@ -581,10 +579,10 @@ fn convert_expr_in_body(
                 backend,
                 call_stack,
             )? {
-                ConvertCallResult::NothingToConvert => None,
+                NothingToConvert => None,
                 // TODO is right?
-                ConvertCallResult::SomethingConverted => Some(expr.clone()),
-                ConvertCallResult::Converted(new_call) => Some(ASTFunctionCallExpression(new_call)),
+                SomethingConverted => Some(expr.clone()),
+                Converted(new_call) => Some(ASTFunctionCallExpression(new_call)),
             }
         }
         ASTExpression::StringLiteral(_) => None,
@@ -693,15 +691,15 @@ fn convert_last_expr_in_body(
                     backend,
                     call_stack,
                 )? {
-                    ConvertCallResult::NothingToConvert => {
+                    NothingToConvert => {
                         debug_i!("NOT converted call");
                         None
                     }
-                    ConvertCallResult::SomethingConverted => {
+                    SomethingConverted => {
                         debug_i!("Something converted call");
                         Some(expr.clone())
                     }
-                    ConvertCallResult::Converted(new_call) => {
+                    Converted(new_call) => {
                         debug_i!("converted call {new_call}");
                         if &new_call == call {
                             debug_i!("ut where equal");
@@ -1889,8 +1887,7 @@ fn get_type_of_expression(
                         ASTStatement::LetStatement(name, let_statement) => {
                             // let mut new_call_stack = call_stack.clone();
 
-                            let skip = if let ASTExpression::ASTFunctionCallExpression(inner_call) =
-                                let_statement
+                            let skip = if let ASTFunctionCallExpression(inner_call) = let_statement
                             {
                                 debug_i!("addin inner call {inner_call}");
                                 // new_call_stack = call_stack.add(inner_call.clone());
@@ -1925,9 +1922,7 @@ fn get_type_of_expression(
                         ASTStatement::Expression(ody_expr) => {
                             // let mut new_call_stack = call_stack.clone();
 
-                            let skip = if let ASTExpression::ASTFunctionCallExpression(inner_call) =
-                                ody_expr
-                            {
+                            let skip = if let ASTFunctionCallExpression(inner_call) = ody_expr {
                                 debug_i!("addin inner call {inner_call}");
                                 // new_call_stack = call_stack.add(inner_call.clone());
                                 if call_stack.exists(inner_call) {

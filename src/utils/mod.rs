@@ -1,6 +1,4 @@
-#![feature(local_key_cell_methods)]
-
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
 #[macro_use]
 pub mod debug_indent;

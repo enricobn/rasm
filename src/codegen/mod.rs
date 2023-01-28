@@ -1,9 +1,10 @@
-pub mod backend;
-pub mod enhanced_module;
-mod function_call_parameters;
-pub mod stack;
-pub mod statics;
-pub mod text_macro;
+use std::borrow::Borrow;
+use std::ops::Deref;
+
+use linked_hash_map::{Iter, LinkedHashMap};
+use log::debug;
+
+use enhanced_module::EnhancedASTModule;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
@@ -12,14 +13,9 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
+use crate::debug_i;
 use crate::parser::ast::{ASTModule, ASTParameterDef, ASTType};
 use crate::parser::ValueType;
-use enhanced_module::EnhancedASTModule;
-use linked_hash_map::{Iter, LinkedHashMap};
-use log::debug;
-use std::borrow::Borrow;
-use std::ops::Deref;
-
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
@@ -33,6 +29,13 @@ use crate::type_check::typed_ast::{
 };
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{convert, replace_native_call};
+
+pub mod backend;
+pub mod enhanced_module;
+mod function_call_parameters;
+pub mod stack;
+pub mod statics;
+pub mod text_macro;
 
 /// It's a constant that will be replaced by the code generator with the size (in bytes)
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function
@@ -574,15 +577,13 @@ impl<'a> CodeGen<'a> {
 
         let mut new_body = body.to_string();
 
-        for name in self.type_conversion_context.functions_desc() {
-            println!("{name}");
-        }
+        self.type_conversion_context.debug_i();
 
         self.backend
             .called_functions(None, body, &val_context)
             .iter()
             .for_each(|it| {
-                println!("native call to {:?}, in main", it);
+                debug_i!("native call to {:?}, in main", it);
                 let function_call = it.to_call();
 
                 let filter = it
@@ -594,7 +595,7 @@ impl<'a> CodeGen<'a> {
                     self.type_conversion_context
                         .find_call(&function_call, Some(filter), None)
                 {
-                    println!("converted to {new_function_def}");
+                    debug_i!("converted to {new_function_def}");
                     if function_call.function_name != new_function_def.name {
                         new_body = replace_native_call(
                             &new_body,
@@ -1665,12 +1666,12 @@ impl<'a> CodeGen<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::backend::BackendAsm386;
     use std::collections::HashSet;
     use std::fs::File;
     use std::io::Read;
     use std::path::Path;
 
+    use crate::codegen::backend::BackendAsm386;
     use crate::codegen::CodeGen;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
