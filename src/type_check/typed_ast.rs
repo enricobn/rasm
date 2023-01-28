@@ -3,7 +3,6 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::{TypedValContext, TypedValKind, ValContext};
-use crate::debug_i;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
@@ -11,9 +10,12 @@ use crate::parser::ast::{
 };
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
+use crate::type_check::ConvertCallResult::Converted;
 use crate::type_check::{
-    convert_call, convert_function_def, replace_native_call, substitute, TypeConversionContext,
+    convert_call, convert_function_def, replace_native_call, substitute, ConvertCallResult,
+    TypeCheckError, TypeConversionContext,
 };
+use crate::{debug_i, dedent, indent};
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::fmt::{Display, Formatter};
@@ -594,15 +596,15 @@ pub fn convert_to_typed_module(
     let mut count = 0;
 
     loop {
-        println!("typed context loop {count}");
+        debug_i!("typed context loop {count}");
 
         if count > 100 {
             panic!()
         }
 
-        for desc in new_typed_context.functions_desc() {
-            println!("{desc}");
-        }
+        indent!();
+
+        new_typed_context.debug_i();
 
         let mut cloned_typed_context = new_typed_context.clone();
 
@@ -611,7 +613,7 @@ pub fn convert_to_typed_module(
         let mut somethin_converted = false;
 
         for new_function_def in new_typed_context.functions().into_iter() {
-            println!("converting function {new_function_def}");
+            debug_i!("converting function {new_function_def}");
             let resolved_param_types = LinkedHashMap::new();
             let converted_function = if let Some(function_converted) = convert_function_def(
                 backend,
@@ -619,7 +621,9 @@ pub fn convert_to_typed_module(
                 &mut cloned_typed_context,
                 &resolved_param_types,
                 new_function_def,
-            ) {
+            )
+            .unwrap()
+            {
                 somethin_converted = true;
                 function_converted
             } else {
@@ -646,7 +650,7 @@ pub fn convert_to_typed_module(
         }
 
         if somethin_converted || new_typed_context.len() != cloned_typed_context.len() {
-            println!(
+            debug_i!(
                 "old vs new {} {}",
                 new_typed_context.len(),
                 cloned_typed_context.len()
@@ -654,8 +658,10 @@ pub fn convert_to_typed_module(
 
             new_typed_context = cloned_typed_context.clone();
             count += 1;
+            dedent!();
             continue;
         } else {
+            dedent!();
             break;
         }
     }
@@ -983,12 +989,6 @@ fn add_default_function(
         backend,
         &CallStack::new(),
     ) {
-        Ok(Some(new_call)) => {
-            println!("new call {new_call} for default function {call}");
-        }
-        Ok(None) => {
-            println!("no new call for default function {call}");
-        }
         Err(e) => {
             //if mandatory {
             panic!(
@@ -996,6 +996,15 @@ fn add_default_function(
                 function_call.name
             )
             //}
+        }
+        Ok(ConvertCallResult::NothingToConvert) => {
+            debug_i!("no new call for default function {call}");
+        }
+        Ok(ConvertCallResult::SomethingConverted) => {
+            debug_i!("something converted, but not entirely for default function {call}");
+        }
+        Ok(ConvertCallResult::Converted(new_call)) => {
+            debug_i!("new call {new_call} for default function {call}");
         }
     }
 }
@@ -1100,7 +1109,8 @@ pub fn function_def(
 
                     let function_name = if let Some(functiond_def) = function_def_opt {
                         functiond_def.name.clone()
-                    } else if let Ok(Some(new_call)) = convert_call(
+                    //     TODO when SomethingConverted?
+                    } else if let Ok(Converted(new_call)) = convert_call(
                         module,
                         &ValContext::new(None),
                         &function_call,
@@ -1131,7 +1141,7 @@ pub fn function_def(
                         }
                     };
 
-                    println!("found function for native call {function_name} ");
+                    debug_i!("found function for native call {function_name} ");
 
                     if function_call.function_name != function_name {
                         new_body = replace_native_call(

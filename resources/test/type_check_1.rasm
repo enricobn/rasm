@@ -1,0 +1,10 @@
+include "std.rasm"
+
+listPrintln(doMap(), { it -> sprint(it);});
+
+fn doMap() -> List<str> {
+    map(
+        filter(range(0,1), { v -> eq(v, 0);}),
+        { v -> it("a number");}
+    );
+}

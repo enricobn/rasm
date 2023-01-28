@@ -14,11 +14,25 @@ use crate::compiler::Compiler;
 use env_logger::Builder;
 use log::info;
 use std::env;
+use std::io::Write;
 use std::ops::Add;
 use std::path::Path;
 
 fn main() {
-    Builder::from_default_env().format_timestamp_millis().init();
+    Builder::from_default_env()
+        .format_timestamp_millis()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} {}:{} [{}] - {}",
+                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                record.level(),
+                record.args()
+            )
+        })
+        .init();
 
     let path = env::current_dir();
 

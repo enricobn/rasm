@@ -231,6 +231,11 @@ fn test_function_overloading() {
     );
 }
 
+#[test]
+fn test_type_check_1() {
+    test("type_check_1", vec![], "a number\n");
+}
+
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {
     test_(source, args, Some(expected_output));
 }

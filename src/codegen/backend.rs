@@ -12,10 +12,11 @@ use crate::type_check::typed_ast::{
 };
 use log::{debug, info};
 use std::collections::HashSet;
+use std::panic::RefUnwindSafe;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-pub trait Backend {
+pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
 
     fn address_from_stack_pointer(&self, index: i8) -> String;

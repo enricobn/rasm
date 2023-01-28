@@ -1,5 +1,9 @@
-use crate::parser::ast::ASTFunctionCall;
 use std::fmt::{Display, Formatter};
+
+use log::debug;
+
+use crate::debug_i;
+use crate::parser::ast::ASTFunctionCall;
 
 #[derive(Debug, Clone)]
 pub struct CallStack {
@@ -26,7 +30,7 @@ impl CallStack {
 
     pub fn add(&self, call: ASTFunctionCall) -> Self {
         if self.exists(&call) {
-            println!("error addinf {call} stack\n{self}");
+            debug_i!("error adding {call} stack\n{self}");
         }
         let mut new_calls = self.calls.clone();
         new_calls.push(call);
