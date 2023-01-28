@@ -1,5 +1,6 @@
 // time ./gameoflife_vec_sdl examples/f116.cells 100
-// 2,051s
+// 1,782
+
 
 include "std.rasm"
 include "sdl.rasm"

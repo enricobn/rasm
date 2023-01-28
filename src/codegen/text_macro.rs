@@ -1,3 +1,6 @@
+use linked_hash_map::LinkedHashMap;
+use regex::Regex;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
@@ -6,9 +9,9 @@ use crate::lexer::Lexer;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule};
-use linked_hash_map::LinkedHashMap;
-use regex::Regex;
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedType, BuiltinTypedTypeKind,
+};
 
 #[derive(Debug)]
 pub enum MacroParam {
@@ -153,12 +156,14 @@ impl TextMacroEvaluator {
     ) -> MacroParam {
         let p = actual_param.trim();
 
-        if p.starts_with('$') {
+        if let Some(name) = p.strip_prefix('$') {
             match function_def {
                 None => panic!("Cannot resolve reference without a function {p}"),
                 Some(f) => {
-                    let (par_name, par_type) =
-                        Self::parse_typed_argument(p.strip_prefix('$').unwrap());
+                    let par_type = function_def
+                        .and_then(|it| it.parameters.iter().find(|par| par.name == name))
+                        .map(|it| it.ast_type.clone());
+                    let (par_name, par_type) = Self::parse_typed_argument(name, par_type);
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         panic!("Cannot find parameter {par_name}");
                     } else {
@@ -167,7 +172,7 @@ impl TextMacroEvaluator {
                 }
             }
         } else {
-            let (par_name, par_type) = Self::parse_typed_argument(p);
+            let (par_name, par_type) = Self::parse_typed_argument(p, None);
 
             MacroParam::Plain(par_name.into(), par_type)
         }
@@ -211,7 +216,7 @@ impl TextMacroEvaluator {
          */
     }
 
-    fn parse_typed_argument(p: &str) -> (&str, Option<ASTType>) {
+    fn parse_typed_argument(p: &str, typed_type: Option<ASTTypedType>) -> (&str, Option<ASTType>) {
         let (par_name, par_type) = if p.contains(':') {
             let vec = p.split(':').collect::<Vec<_>>();
             let par_type_name = vec.get(1).unwrap().trim();
@@ -234,6 +239,34 @@ impl TextMacroEvaluator {
                     Some((ast_type, _)) => (par_name, Some(ast_type)),
                 }
             }
+        } else if let Some(t) = typed_type {
+            let ast_type = match t {
+                ASTTypedType::Builtin(kind) => match kind {
+                    BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
+                    BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
+                    BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
+                    BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
+                    BuiltinTypedTypeKind::Lambda { .. } => {
+                        ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            parameters: vec![],
+                            return_type: None,
+                        })
+                    }
+                },
+                ASTTypedType::Enum { name } => ASTType::Custom {
+                    name,
+                    param_types: vec![],
+                },
+                ASTTypedType::Struct { name } => ASTType::Custom {
+                    name,
+                    param_types: vec![],
+                },
+                ASTTypedType::Type { name } => ASTType::Custom {
+                    name,
+                    param_types: vec![],
+                },
+            };
+            (p, Some(ast_type))
         } else {
             (p, None)
         };
@@ -411,6 +444,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         _function_def: Option<&ASTTypedFunctionDef>,
         _module: Option<&ASTTypedModule>,
     ) -> String {
+        println!("translate macro fun {:?}", _function_def);
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name
         } else {
@@ -441,6 +475,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                 .skip(1)
                 .rev()
                 .map(|(index, it)| {
+                    println!("{:?}", it);
                     let i = index - 1;
                     match it {
                         MacroParam::Plain(s, _) => {
@@ -450,8 +485,19 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                             let key = statics.add_str(s);
                             format!("    mov {ws} ecx, [{key}]\n    mov {ws} ecx,[ecx]\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
                         }
-                        MacroParam::Ref(s, _) => {
-                            format!("    mov {ws} ecx, {s}\n    mov {ws} ecx, [ecx]\n   mov {ws} [{sp}+{}], ecx\n", i * wl)
+                        MacroParam::Ref(s, t) => {
+                            let is_ref =
+                            if let Some(tt) = t {
+                                is_reference(tt)
+                            } else {
+                                false
+                            };
+
+                            if is_ref {
+                                format!("    mov {ws} ecx, {s}\n    mov {ws} ecx, [ecx]\n   mov {ws} [{sp}+{}], ecx\n", i * wl)
+                            } else {
+                                format!("    mov {ws} ecx, {s}\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
+                            }
                         }
                     }
                 })
@@ -470,6 +516,13 @@ impl TextMacroEval for CCallTextMacroEvaluator {
 
         result
     }
+}
+
+fn is_reference(ast_type: &ASTType) -> bool {
+    matches!(
+        ast_type,
+        ASTType::Builtin(BuiltinTypeKind::String) | ASTType::Custom { .. }
+    )
 }
 
 struct AddRefMacro {
@@ -538,6 +591,10 @@ impl TextMacroEval for AddRefMacro {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use linked_hash_map::LinkedHashMap;
+
     use crate::codegen::backend::BackendAsm386;
     use crate::codegen::statics::Statics;
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
@@ -548,8 +605,6 @@ mod tests {
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
-    use linked_hash_map::LinkedHashMap;
-    use std::collections::HashSet;
 
     #[test]
     fn call() {
