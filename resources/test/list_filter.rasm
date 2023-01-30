@@ -1,3 +1,3 @@
 include "std.rasm"
 
-listPrintln(filter(range(0,10), { v -> less(v, 5); }), { v -> print(v);});
+println(filter(range(0,10), { v -> less(v, 5); }));

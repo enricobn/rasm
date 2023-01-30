@@ -5,17 +5,12 @@ enum List<T> {
   Empty
 }
 
-fn nListPrintln(l: List<i32>) {
-    nListPrint(l);
-    println("");
-}
-
-fn nListPrint(l: List<i32>) {
+fn print<T>(l: List<T>) {
     List::run(l,
         { head,tail ->
             print(head);
             List::run(tail, { head1,tail1 -> print(",");}, { -> });
-            nListPrint(tail);
+            print(tail);
         }, { -> });
 }
 
@@ -85,16 +80,16 @@ fn listOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T>
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Full(v8, List::Empty()))))))));
 }
 
-fn listPrintln<T>(l: List<T>, print: fn(T) -> ()) {
-    listPrint(l, print);
+fn println<T>(l: List<T>, printFunction: fn(T) -> ()) {
+    print(l, printFunction);
     println("");
 }
 
-fn listPrint<T>(l: List<T>, printFunction: fn(T) -> ()) {
+fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
     List::run(l, { head,tail ->
         printFunction(head);
         List::run(tail, { head1,tail1 -> print(","); }, { -> });
-        listPrint(tail, printFunction);
+        print(tail, printFunction);
     }, { -> });
 }
 

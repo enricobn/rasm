@@ -6,5 +6,4 @@ cprintln('😀');
 println(ceq('A', 'A'));
 println(ceq('A', 'b'));
 
-//listPrintln(lines("first\nsecond\nthird\n☀\n"), { it -> print(it); });
-listPrintln(chars("Hello"), { it -> print(it); });
+println(chars("Hello"));

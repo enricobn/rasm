@@ -1,12 +1,12 @@
 include "std.rasm"
 
-nListPrintln(range(0, atoi(argv(1))));
+println(range(0, atoi(argv(1))));
 
-nListPrintln(listReverse(range(0, atoi(argv(1)))));
+println(listReverse(range(0, atoi(argv(1)))));
 
 println(count(listOf6(1, 5, 3, 8, 4, 2), { it -> less(it, 5); }));
 
-listPrintln(listEnumerate(listOf2("A", "B")), { it ->
+println(listEnumerate(listOf2("A", "B")), { it ->
     print(EnumerateEntry::index(it));
     print("-");
     print(EnumerateEntry::value(it));

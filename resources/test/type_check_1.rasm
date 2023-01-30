@@ -1,6 +1,6 @@
 include "std.rasm"
 
-listPrintln(doMap(), { it -> print(it);});
+println(doMap());
 
 fn doMap() -> List<str> {
     map(

@@ -1,4 +1,3 @@
 include "std.rasm"
 
-//listPrintln(lines("first\nsecond\nthird\n☀\n"), { it -> print(it); });
-listPrintln(lines("first\nsecond\nthird\n"), { it -> print(it); });
+println(lines("first\nsecond\nthird\n"));

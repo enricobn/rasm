@@ -1,7 +1,7 @@
 include "std.rasm"
 
 println(test(5));
-nListPrintln(test2(5));
+println(test2(5));
 
 fn test(n: i32) -> i32 {
     let ten = it(10);
