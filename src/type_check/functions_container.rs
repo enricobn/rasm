@@ -376,7 +376,7 @@ impl FunctionsContainer {
                     ASTType::Parametric(filter_generic_type) => {
                         let already_resolved_o = resolved_generic_types.get(filter_generic_type);
                         match parameter_type {
-                            ASTType::Parametric(parameter_generic_type) => {
+                            ASTType::Parametric(_parameter_generic_type) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Parametric : the context
                                 true

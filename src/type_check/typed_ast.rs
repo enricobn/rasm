@@ -979,7 +979,6 @@ fn add_default_function(
     backend: &dyn Backend,
 ) {
     let context = ValContext::new(None);
-    let resolved_param_types = LinkedHashMap::new();
 
     let call = function_call.to_call();
 
@@ -988,7 +987,6 @@ fn add_default_function(
         &context,
         &call,
         typed_context,
-        &resolved_param_types,
         None,
         backend,
         &CallStack::new(),
@@ -1119,7 +1117,6 @@ pub fn function_def(
                         &ValContext::new(None),
                         &function_call,
                         typed_context,
-                        &def.resolved_generic_types,
                         None,
                         backend,
                         &CallStack::new(),
