@@ -12,7 +12,7 @@ Option::run(substr("first\nsecond\nthird\n", 13, 5), { v -> println(v);}, { -> p
 println(nextChar("1", 0));
 println(nextChar("è", 0));
 println(nextChar("☀", 0));
-bprintln(seq("Hello", "Hello"));
-bprintln(seq("Hell", "Hello"));
-bprintln(seq("Hello", "Hell"));
-bprintln(seq("Hello", "Hella"));
+println(seq("Hello", "Hello"));
+println(seq("Hell", "Hello"));
+println(seq("Hello", "Hell"));
+println(seq("Hello", "Hella"));

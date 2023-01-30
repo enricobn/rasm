@@ -3,8 +3,8 @@ include "std.rasm"
 cprintln('a');
 cprintln('è');
 cprintln('😀');
-bprintln(ceq('A', 'A'));
-bprintln(ceq('A', 'b'));
+println(ceq('A', 'A'));
+println(ceq('A', 'b'));
 
 //listPrintln(lines("first\nsecond\nthird\n☀\n"), { it -> print(it); });
 listPrintln(chars("Hello"), { it -> print(it); });
