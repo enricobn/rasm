@@ -39,7 +39,7 @@ fn adjacents(cell: Cell) -> List<Cell> {
     let up = add(y, -1);
     let down = add(y, 1);
 
-    listOf8(
+    listOf(
         Cell(left, up),
         Cell(left, y),
         Cell(left, down),

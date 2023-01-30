@@ -52,31 +52,31 @@ fn listOf<T>(v: T) -> List<T> {
     List::Full(v, List::Empty());
 }
 
-fn listOf2<T>(v1: T, v2: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Empty()));
 }
 
-fn listOf3<T>(v1: T, v2: T, v3: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T, v3: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Empty())));
 }
 
-fn listOf4<T>(v1: T, v2: T, v3: T, v4: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T, v3: T, v4: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Empty()))));
 }
 
-fn listOf5<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Empty())))));
 }
 
-fn listOf6<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Empty()))))));
 }
 
-fn listOf7<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Empty())))))));
 }
 
-fn listOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T> {
+fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T> {
     List::Full(v1, List::Full(v2, List::Full(v3, List::Full(v4, List::Full(v5, List::Full(v6, List::Full(v7, List::Full(v8, List::Empty()))))))));
 }
 

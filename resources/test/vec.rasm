@@ -30,6 +30,6 @@ nVecPrintln(fmap(vecOf2(1, 2), { n -> vecOf2(n, add(n, 10));}));
 
 nVecPrintln(zip(vecRange(0, 2), vecRange(0, 3), { n1, n2 -> add(n1, n2);}));
 
-nVecPrintln(listToVec(listOf3(0, 1, 2)));
+nVecPrintln(listToVec(listOf(0, 1, 2)));
 
 println(foldLeft(vecRange(0, 5), 0, { prev, act -> add(prev, act);}));
