@@ -1,5 +1,15 @@
 extern crate core;
 
+use std::env;
+use std::io::Write;
+use std::ops::Add;
+use std::path::Path;
+
+use env_logger::Builder;
+use log::info;
+
+use crate::compiler::Compiler;
+
 pub(crate) mod codegen;
 pub mod compiler;
 pub(crate) mod lexer;
@@ -10,14 +20,6 @@ pub mod type_check;
 #[macro_use]
 pub mod utils;
 
-use crate::compiler::Compiler;
-use env_logger::Builder;
-use log::info;
-use std::env;
-use std::io::Write;
-use std::ops::Add;
-use std::path::Path;
-
 fn main() {
     Builder::from_default_env()
         .format_timestamp_millis()
@@ -25,7 +27,7 @@ fn main() {
             writeln!(
                 buf,
                 "{} {}:{} [{}] - {}",
-                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S.%3f"),
                 record.file().unwrap_or("unknown"),
                 record.line().unwrap_or(0),
                 record.level(),
