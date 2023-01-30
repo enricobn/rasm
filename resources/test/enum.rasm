@@ -11,16 +11,16 @@ printOption(Option::None());
 Test::run(
     Test::T2(10, Option::Some("a value")),
     { v1, v2, o ->
-        sprintln("T1");
+        println("T1");
         println(v1);
         println(v2);
         printOption(o);
     }, { v1, o ->
-       sprintln("T2");
+       println("T2");
        println(v1);
        printOption(o);
    });
 
 fn printOption(o: Option<str>) {
-    Option::run(o, { v -> sprint("Some(");sprint(v);sprintln(")");}, { -> sprintln("None");});
+    Option::run(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
 }

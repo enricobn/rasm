@@ -1,0 +1,4 @@
+include "std.rasm"
+
+println("a string");
+println(10);

@@ -17,9 +17,9 @@ fn listToVec<T>(l: List<T>) -> Vec<T> {
 
 fn vecPrintln<T>(v: Vec<T>, print: fn(T) -> ()) {
     vecPrint(v, print);
-    sprintln("");
+    println("");
 }
 
 fn vecPrint<T>(v: Vec<T>, print: fn(T) -> ()) {
-    forEach(v, { n -> print(n); sprint(",");});
+    forEach(v, { n -> print(n); print(",");});
 }

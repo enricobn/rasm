@@ -416,7 +416,7 @@ impl<'a> CodeGen<'a> {
         ));
         self.body.push_str(&after);
 
-        debug!("stack {:?}", stack);
+        // debug!("stack {:?}", stack);
         //        assert_eq!(stack.size(), 0);
 
         // TODO add a command line argument

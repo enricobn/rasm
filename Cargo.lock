@@ -161,6 +161,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "debug-cell"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35ee4fc02f25a0400fb57135bcdde6d58a3025718749375f2f97abc3deb3a4ef"
+dependencies = [
+ "backtrace",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -382,6 +391,7 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "chrono",
+ "debug-cell",
  "env_logger",
  "linked-hash-map",
  "log",

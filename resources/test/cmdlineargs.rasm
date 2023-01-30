@@ -5,7 +5,7 @@ printargv(1);
 
 fn printargv(n: i32) {
     ifRun(less(n,argc()),{ ->
-        sprintln(argv(n));
+        println(argv(n));
         printargv(add(n, 1));
     },{ -> });
 }

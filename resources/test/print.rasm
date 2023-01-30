@@ -3,15 +3,15 @@ include "std.rasm"
 print();
 
 fn print() {
-    sprintln("Hello world");
-    sprintln("Hi");
+    println("Hello world");
+    println("Hi");
     println(10);
     println(add(15, 25));
     println(add(15, add(10, 20)));
-    sprintln2("one", "two");
+    println2("one", "two");
 }
 
-fn sprintln2(s1: str, s2: str) {
-    sprintln(s1);
-    sprintln(s2);
+fn println2(s1: str, s2: str) {
+    println(s1);
+    println(s2);
 }

@@ -6,11 +6,11 @@ nVecPrintln(v);
 let m = map(v, { n -> add(n, 10);});
 nVecPrintln(m);
 
-ifRun(vecAnyMatch(v, { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
-ifRun(vecAnyMatch(v, { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(vecAnyMatch(v, { n -> eq(n, 0);}), { -> println("true");}, { -> println("false");});
+ifRun(vecAnyMatch(v, { n -> eq(n, 2);}), { -> println("true");}, { -> println("false");});
 
-ifRun(vecAnyMatch(vecRange(0, 2), { n -> eq(n, 0);}), { -> sprintln("true");}, { -> sprintln("false");});
-ifRun(vecAnyMatch(vecRange(0, 2), { n -> eq(n, 2);}), { -> sprintln("true");}, { -> sprintln("false");});
+ifRun(vecAnyMatch(vecRange(0, 2), { n -> eq(n, 0);}), { -> println("true");}, { -> println("false");});
+ifRun(vecAnyMatch(vecRange(0, 2), { n -> eq(n, 2);}), { -> println("true");}, { -> println("false");});
 
 println(count(vecRange(0, 10), { n -> eq(n, 5);}));
 println(count(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));

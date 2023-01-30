@@ -92,9 +92,9 @@ fn filterLines(lines: List<str>) -> List<str> {
 fn printCellsPlain(cells: Vec<Cell>) {
     forEach(cells, { cell ->
         print(Cell::x(cell));
-        sprint(",");
+        print(",");
         print(Cell::y(cell));
-        sprint(" ");
+        print(" ");
     });
 
     println();
@@ -104,9 +104,9 @@ fn printAllCellsPlain(cells: Vec<FullCell>) {
     forEach(cells, { fullCell ->
         let cell = FullCell::cell(fullCell);
         print(Cell::x(cell));
-        sprint(",");
+        print(",");
         print(Cell::y(cell));
-        sprint(" ");
+        print(" ");
     });
 
     println();

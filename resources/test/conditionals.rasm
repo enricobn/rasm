@@ -4,27 +4,27 @@ include "std.rasm"
 //False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
 
 
-    ifRun(false,{ -> sprintln("True");},{ -> sprintln("False");});
+    ifRun(false,{ -> println("True");},{ -> println("False");});
 
-    ifRun(true,{ -> sprintln("True");},{ -> sprintln("False");});
+    ifRun(true,{ -> println("True");},{ -> println("False");});
 
-    ifRun(eq(0,0),{ -> sprintln("equal");},{ -> sprintln("not equal");});
+    ifRun(eq(0,0),{ -> println("equal");},{ -> println("not equal");});
 
-    ifRun(eq(0,1),{ -> sprintln("equal");},{ -> sprintln("not equal");});
+    ifRun(eq(0,1),{ -> println("equal");},{ -> println("not equal");});
 
-    ifRun(less(1,2),{ -> sprintln("less");},{ -> sprintln("not less");});
+    ifRun(less(1,2),{ -> println("less");},{ -> println("not less");});
 
-    ifRun(less(0,0),{ -> sprintln("less");},{ -> sprintln("not less");});
+    ifRun(less(0,0),{ -> println("less");},{ -> println("not less");});
 
-    ifRun(greater(1,0),{ -> sprintln("greater");},{ -> sprintln("not greater");});
+    ifRun(greater(1,0),{ -> println("greater");},{ -> println("not greater");});
 
-    ifRun(greater(0,1),{ -> sprintln("greater");},{ -> sprintln("not greater");});
+    ifRun(greater(0,1),{ -> println("greater");},{ -> println("not greater");});
 
-    ifRun(lessOrEqual(0,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+    ifRun(lessOrEqual(0,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
-    ifRun(lessOrEqual(1,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+    ifRun(lessOrEqual(1,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
-    ifRun(lessOrEqual(2,1),{ -> sprintln("less or equal");},{ -> sprintln("not less or equal");});
+    ifRun(lessOrEqual(2,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
     println(ifImmediate(false, 100, 200));
     println(ifImmediate(true, 100, 200));

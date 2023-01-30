@@ -1,6 +1,6 @@
 include "std.rasm"
 
-listPrintln(doMap(), { it -> sprint(it);});
+listPrintln(doMap(), { it -> print(it);});
 
 fn doMap() -> List<str> {
     map(

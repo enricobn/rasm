@@ -4,7 +4,7 @@ asm malloc(size: i32) -> i32 /{
     push    edx
 
     %ifdef LOG_DEBUG
-    $call(sprint, "start malloc ")
+    $call(print, "start malloc ")
     $call(println, $size)
     %endif
 
@@ -13,7 +13,7 @@ asm malloc(size: i32) -> i32 /{
     %ifdef LOG_DEBUG
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,ecx
-    $call(sprint, "  reusable size ")
+    $call(print, "  reusable size ")
     $call(println, ebx)
     %endif
 
@@ -30,9 +30,9 @@ asm malloc(size: i32) -> i32 /{
     jmp    .reusable_loop
 .reusable_good:
     %ifdef LOG_DEBUG
-    $call(sprint, "  reusing address ")
+    $call(print, "  reusing address ")
     $call(print, eax)
-    $call(sprint, ", size ")
+    $call(print, ", size ")
     $call(println, [eax + 8])
     %endif
 
@@ -44,7 +44,7 @@ asm malloc(size: i32) -> i32 /{
 
 .allocation:
     %ifdef LOG_DEBUG
-    $call(sprintln, "  allocation ")
+    $call(println, "  allocation ")
     %endif
 
     mov     dword eax,_heap_table_next; the pointer to the heap table
@@ -52,25 +52,25 @@ asm malloc(size: i32) -> i32 /{
     add     edx,_heap_table
     cmp     eax,edx
     jb     .loop_ok
-    $call(sprintln, "Out of heap space")
+    $call(println, "Out of heap space")
     $call(exitMain, 1)
 
 .loop_ok:
     mov     dword eax,[_heap_table_next]
     %ifdef LOG_DEBUG
-    $call(sprintln, "  new address")
+    $call(println, "  new address")
     %endif
 
     mov     dword ecx,[_heap]
     sub     ecx,_heap_buffer
     cmp     ecx,[_heap_size]
     jb      .new_address_ok
-    $call(sprintln, "Out of memory")
+    $call(println, "Out of memory")
     $call(exitMain, 1)
 
 .new_address_ok:
     %ifdef LOG_DEBUG
-    $call(sprintln, "  newAddress Ok")
+    $call(println, "  newAddress Ok")
     %endif
 
     mov     dword ecx,[_heap]
@@ -81,7 +81,7 @@ asm malloc(size: i32) -> i32 /{
     mov     dword [eax + 5 * 4],0 ; to be sure that the next slot is considered free
 
     %ifdef LOG_DEBUG
-    $call(sprintln, "  allocate")
+    $call(println, "  allocate")
     %endif
 
     mov     dword [eax + 4], 1      ; allocated flag
@@ -96,9 +96,9 @@ asm malloc(size: i32) -> i32 /{
     ;mov     dword eax,[eax]
 
     %ifdef LOG_DEBUG
-    $call(sprint, "  ")
+    $call(print, "  ")
     $call(println, eax)
-    $call(sprintln, "end malloc")
+    $call(println, "end malloc")
     %endif
 
     pop     edx
@@ -116,7 +116,7 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     add     edx,_heap_table
     cmp     eax,edx
     jb     .ok
-    $call(sprintln, "Out of heap space")
+    $call(println, "Out of heap space")
     $call(exitMain, 1)
 
 .ok:
@@ -145,17 +145,17 @@ asm deref(address: i32, descr: str) -> i32 /{
     push    ebx
 
     %ifdef LOG_DEBUG
-    $call(sprint, "start deref ")
+    $call(print, "start deref ")
     $call(println, $address)
-    $call(sprint, "  ")
-    $call(sprintln, $descr)
+    $call(print, "  ")
+    $call(println, $descr)
     %endif
 
     %ifdef LOG_DEBUG
     mov     dword eax, _reusable_heap_table
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,eax
-    $call(sprint, "  reusable size ")
+    $call(print, "  reusable size ")
     $call(println, ebx)
     %endif
 
@@ -188,7 +188,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     jnz     .end
 
     %ifdef LOG_DEBUG
-    $call(sprint, "  deallocated ")
+    $call(print, "  deallocated ")
     $call(println, eax)
     %endif
 
@@ -212,7 +212,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     $call(invalidAddress)
 .end:
     %ifdef LOG_DEBUG
-    $call(sprintln, "end deref")
+    $call(println, "end deref")
     %endif
 
     pop     ebx
@@ -241,10 +241,10 @@ asm addRef(address: i32, descr: str) /{
     push    ebx
 
     %ifdef LOG_DEBUG
-    $call(sprint, "start addRef ")
+    $call(print, "start addRef ")
     $call(println, $address)
-    $call(sprint, "  ")
-    $call(sprintln, $descr)
+    $call(print, "  ")
+    $call(println, $descr)
     %endif
 
     %ifdef LOG_DEBUG
@@ -252,7 +252,7 @@ asm addRef(address: i32, descr: str) /{
     mov     dword ecx, _reusable_heap_table
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,ecx
-    $call(sprint, "  reusable size ")
+    $call(print, "  reusable size ")
     $call(println, ebx)
     pop     ecx
     %endif
@@ -292,7 +292,7 @@ asm addRef(address: i32, descr: str) /{
     $call(invalidAddress)
 .end:
     %ifdef LOG_DEBUG
-    $call(sprintln, "end addRef")
+    $call(println, "end addRef")
     %endif
 
     pop     ebx
@@ -303,9 +303,9 @@ asm removeFromReused(address: i32) /{
     push    eax
 
     %ifdef LOG_DEBUG
-    $call(sprint, "  remove from reused ")
+    $call(print, "  remove from reused ")
     $call(print, $address)
-    $call(sprint, " ")
+    $call(print, " ")
     mov     dword eax, $address
     $call(print, [eax])
     %endif
@@ -315,7 +315,7 @@ asm removeFromReused(address: i32) /{
     mov     dword [_reusable_heap_table_next],eax
 
     %ifdef LOG_DEBUG
-    $call(sprint, " ")
+    $call(print, " ")
     $call(println, eax)
     %endif
 
@@ -336,26 +336,26 @@ asm removeFromReused(address: i32) /{
 }/
 
 fn printReplacedReused(address: i32, value: i32) {
-    sprint("  replaced reused ");
+    print("  replaced reused ");
     print(address);
-    sprint(" with value ");
+    print(" with value ");
     println(value);
 }
 
 fn addReused(address: i32, value: i32) {
-    sprint("  add reused ");
+    print("  add reused ");
     print(address);
-    sprint(" with value ");
+    print(" with value ");
     println(value);
 }
 
 fn printRefCount(count: i32) {
-    sprint("  ref count: ");
+    print("  ref count: ");
     println(count);
 }
 
 fn invalidAddress() {
-    sprintln("invalid address");
+    println("invalid address");
     exitMain(1);
 }
 
@@ -410,19 +410,19 @@ asm printTableSlotsAllocated() /{
 }/
 
 fn printTableSlotsAllocatedString() {
-    sprintln(" table slots allocated");
+    println(" table slots allocated");
 }
 
 fn printAllocatedString() {
-    sprintln(" bytes allocated");
+    println(" bytes allocated");
 }
 
 fn negativeCount() {
-    sprintln("Negative allocation count");
+    println("Negative allocation count");
     exitMain(1);
 }
 
 fn derefAddressNotFound() {
-    sprintln("Deref: address not found");
+    println("Deref: address not found");
     exitMain(1);
 }

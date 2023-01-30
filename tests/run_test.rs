@@ -1,4 +1,5 @@
 use std::process::{Command, Stdio};
+
 use tempdir::TempDir;
 
 #[cfg(test)]
@@ -234,6 +235,11 @@ fn test_function_overloading() {
 #[test]
 fn test_type_check_1() {
     test("type_check_1", vec![], "a number\n");
+}
+
+#[test]
+fn test_println() {
+    test("println", vec![], "a string\n10\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

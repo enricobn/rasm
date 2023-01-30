@@ -15,7 +15,6 @@ pub struct StackEntry {
     desc: String,
 }
 
-#[derive(Debug)]
 pub struct StackVals {
     reserved_slots: RefCell<Vec<StackEntry>>,
 }
@@ -32,7 +31,7 @@ impl StackVals {
             entry_type,
             desc: desc.to_string(),
         });
-        debug!("stack {:?}", self);
+        // debug!("stack {:?}", self);
         self.len_of_all()
     }
 

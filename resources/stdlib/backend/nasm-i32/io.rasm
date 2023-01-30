@@ -72,7 +72,7 @@ asm println() /{
 /**
  * Prints the string to the standard output.
  **/
-asm sprint(s: str) /{
+asm print(s: str) /{
     push    edx
     push    ecx
     push    ebx

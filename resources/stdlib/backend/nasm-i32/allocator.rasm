@@ -108,9 +108,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     call    printTab
     $call(println, $address)
     call    printTab
-    push    dword $descr
-    call    sprintln
-    add     esp,4
+    $call(println, $descr)
     %endif
 
     ; we check if the address is valid
@@ -154,7 +152,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     $call(negativeCount)
     jmp     .end
 .invalid_address:
-    $call(sprintln, "Invalid address")
+    $call(println, "Invalid address")
     $call(exit, 1)
 .end:
     %ifdef LOG_DEBUG
@@ -178,7 +176,7 @@ asm addRef(address: i32, descr: str) /{
     %endif
     %ifdef LOG_DEBUG
     call    printTab
-    $call(sprintln,$descr)
+    $call(println,$descr)
     %endif
 
     ; we check if the address is valid
@@ -195,7 +193,7 @@ asm addRef(address: i32, descr: str) /{
     add     ebx,1
 
     %ifdef LOG_DEBUG
-    $call(sprint, "  ref count: ")
+    $call(print, "  ref count: ")
     $call(println,ebx)
     %endif
 
@@ -203,7 +201,7 @@ asm addRef(address: i32, descr: str) /{
     mov     dword [eax + 4],1; allocated true
     jmp     .end
 .invalid_address:
-    $call(sprintln, "Invalid address")
+    $call(println, "Invalid address")
     $call(exit, 1)
 .end:
     %ifdef LOG_DEBUG
@@ -215,68 +213,68 @@ asm addRef(address: i32, descr: str) /{
 }/
 
 fn printRefCount(count: i32) {
-    sprint("  ref count: ");
+    print("  ref count: ");
     println($count);
 }
 
 fn endDeref() {
-    sprintln("end deref");
+    println("end deref");
 }
 
 fn endAddRef() {
-    sprintln("end add_ref");
+    println("end add_ref");
 }
 
 fn startAddRef() {
-    sprintln("start add_ref");
+    println("start add_ref");
 }
 
 fn deallocated() {
-    sprintln("  deallocated");
+    println("  deallocated");
 }
 
 fn endMalloc() {
-    sprintln("end malloc");
+    println("end malloc");
 }
 
 fn startMalloc() {
-    sprint("start malloc ");
+    print("start malloc ");
 }
 
 fn startDeref() {
-    sprintln("start deref ");
+    println("start deref ");
 }
 
 fn printTab() {
-    sprint("  ");
+    print("  ");
 }
 
 fn loop() {
-    sprintln("  .loop");
+    println("  .loop");
 }
 
 fn loopOk() {
-    sprintln("  .loop_ok");
+    println("  .loop_ok");
 }
 
 fn newAddress() {
-    sprintln("  .new_address");
+    println("  .new_address");
 }
 
 fn newAddressOk() {
-    sprintln("  .new_address_ok");
+    println("  .new_address_ok");
 }
 
 fn allocate() {
-    sprintln("  .allocate");
+    println("  .allocate");
 }
 
 fn notAllocated() {
-    sprintln("  .not_allocated");
+    println("  .not_allocated");
 }
 
 fn reused() {
-    sprintln("  reused");
+    println("  reused");
 }
 
 asm printAllocated() /{
@@ -330,29 +328,29 @@ asm printTableSlotsAllocated() /{
 }/
 
 fn printTableSlotsAllocatedString() {
-    sprintln(" table slots allocated");
+    println(" table slots allocated");
 }
 
 fn printAllocatedString() {
-    sprintln(" bytes allocated");
+    println(" bytes allocated");
 }
 
 fn outOfHeapSpace() {
-    sprintln("Out of heap space");
+    println("Out of heap space");
     exit(1);
 }
 
 fn negativeCount() {
-    sprintln("Negative allocation count");
+    println("Negative allocation count");
     exit(1);
 }
 
 fn outOfMemory() {
-    sprintln("Out of memory");
+    println("Out of memory");
     exit(1);
 }
 
 fn derefAddressNotFound() {
-    sprintln("Deref: address not found");
+    println("Deref: address not found");
     exit(1);
 }

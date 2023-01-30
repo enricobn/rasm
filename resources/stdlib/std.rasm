@@ -3,44 +3,36 @@ include "list.rasm"
 include "vec.rasm"
 
 /**
- * Prints the string to standard output adding a line feed to the end.
- **/
-fn sprintln(s: str) {
-    sprint(s);
-    println();
-}
-
-/**
  * Prints the number to standard output adding a line feed to the end.
  **/
-fn println(n: i32) {
-    print(n);
+fn println<T>(v: T) {
+    print(v);
     println();
 }
 
 fn bprintln(b: bool) {
-    ifRun(b, { -> sprintln("true");}, { -> sprintln("false");});
+    ifRun(b, { -> println("true");}, { -> println("false");});
 }
 
 
 // https://man7.org/linux/man-pages/man4/console_codes.4.html
 fn moveUp(count: i32) {
     printESC();
-    sprint("[");
+    print("[");
     print(count);
-    sprint("A");
+    print("A");
 }
 
 fn assert(value: bool) {
     ifRun(value,{ -> },{ ->
-        sprintln("assertion failed");
+        println("assertion failed");
         exitMain(1);
     });
 }
 
 fn assertFalse(value: bool) {
     ifRun(value,{ ->
-        sprintln("assertion failed");
+        println("assertion failed");
         exitMain(1);
     }, { -> });
 }

@@ -1,3 +1,3 @@
 include "std.rasm"
 
-sprintln("Hello world");
+println("Hello world");

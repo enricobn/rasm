@@ -1,8 +1,8 @@
 include "std.rasm"
 
-sprintln(myToString(10));
-sprintln(myToString("Hello"));
-sprintln(add("Hello", " world"));
+println(myToString(10));
+println(myToString("Hello"));
+println(add("Hello", " world"));
 println(add(1, 10));
 
 fn myToString(s: str) -> str {

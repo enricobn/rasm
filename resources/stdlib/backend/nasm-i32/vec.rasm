@@ -1,5 +1,5 @@
 fn nVecPrintln(v: Vec<i32>) {
-    forEach(v, { n -> print(n); sprint(",");});
+    forEach(v, { n -> print(n); print(",");});
     println();
 }
 
@@ -98,7 +98,7 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     add     edx, 4          ; address of first value to write
     add     ebx, 4          ; address of first value to read
 .loop:
-    ; $call(sprint, " - ")
+    ; $call(print, " - ")
     ; $call(println, ecx)
     cmp     dword ecx, 0
     jz      .end

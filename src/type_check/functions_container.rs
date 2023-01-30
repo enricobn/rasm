@@ -1,9 +1,11 @@
+use std::iter::zip;
+
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind};
 use crate::utils::{format_option, format_option_option};
 use crate::{debug_i, dedent, indent};
-use linked_hash_map::LinkedHashMap;
-use log::debug;
-use std::iter::zip;
 
 #[derive(Clone, Debug)]
 pub struct FunctionsContainer {
@@ -184,7 +186,7 @@ impl FunctionsContainer {
         parameter_types_filter: Option<Vec<Option<ASTType>>>,
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
-    ) -> Vec<&ASTFunctionDef> {
+    ) -> Vec<ASTFunctionDef> {
         debug_i!(
             "find_call_vec {call} return type {} filter {:?}",
             format_option_option(&return_type_filter),
@@ -236,7 +238,7 @@ impl FunctionsContainer {
                             },
                         }
                 };
-                functions.iter().filter(lambda).collect::<Vec<_>>()
+                functions.iter().filter(lambda).cloned().collect::<Vec<_>>()
             }
         } else {
             vec![]

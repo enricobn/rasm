@@ -25,8 +25,8 @@ fn run(start: List<Cell>, size: i32, count: i32) {
 fn printCells(cells: List<Cell>, width: i32, height: i32) {
     forEach(range(0, height), { y ->
         forEach(range(0, width), { x ->
-            ifRun(isAlive(cells, Cell(x, y)), { -> sprint("*"); }, { -> sprint(" "); });
+            ifRun(isAlive(cells, Cell(x, y)), { -> print("*"); }, { -> print(" "); });
         });
-        sprintln("");
+        println("");
     });
 }

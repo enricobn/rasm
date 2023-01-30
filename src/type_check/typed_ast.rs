@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
@@ -502,7 +504,7 @@ impl<'a> ConvContext<'a> {
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
     new_body: Vec<ASTStatement>,
-    typed_context: &mut TypeConversionContext,
+    typed_context: &RefCell<TypeConversionContext>,
     debug_asm: bool,
     print_allocation: bool,
     printl_module: bool,
@@ -605,21 +607,21 @@ pub fn convert_to_typed_module(
 
         indent!();
 
-        new_typed_context.debug_i();
+        new_typed_context.borrow().debug_i();
 
-        let mut cloned_typed_context = new_typed_context.clone();
+        let cloned_typed_context = new_typed_context.clone();
 
         functions_by_name.clear();
 
         let mut somethin_converted = false;
 
-        for new_function_def in new_typed_context.functions().into_iter() {
+        for new_function_def in new_typed_context.borrow().functions().into_iter() {
             debug_i!("converting function {new_function_def}");
             let resolved_param_types = LinkedHashMap::new();
             let converted_function = if let Some(function_converted) = convert_function_def(
                 backend,
                 module,
-                &mut cloned_typed_context,
+                &cloned_typed_context,
                 &resolved_param_types,
                 new_function_def,
             )
@@ -638,7 +640,7 @@ pub fn convert_to_typed_module(
                     &converted_function,
                     backend,
                     module,
-                    &mut cloned_typed_context,
+                    &cloned_typed_context,
                 ),
             );
 
@@ -650,11 +652,13 @@ pub fn convert_to_typed_module(
             }*/
         }
 
-        if somethin_converted || new_typed_context.len() != cloned_typed_context.len() {
+        if somethin_converted
+            || new_typed_context.borrow().len() != cloned_typed_context.borrow().len()
+        {
             debug_i!(
                 "old vs new {} {}",
-                new_typed_context.len(),
-                cloned_typed_context.len()
+                new_typed_context.borrow().len(),
+                cloned_typed_context.borrow().len()
             );
 
             new_typed_context = cloned_typed_context.clone();
@@ -972,7 +976,7 @@ fn add_default_function(
     module: &EnhancedASTModule,
     function_call: DefaultFunctionCall,
     mandatory: bool,
-    typed_context: &mut TypeConversionContext,
+    typed_context: &RefCell<TypeConversionContext>,
     backend: &dyn Backend,
 ) {
     let context = ValContext::new(None);
@@ -1031,7 +1035,7 @@ pub fn function_def(
     def: &ASTFunctionDef,
     backend: &dyn Backend,
     module: &EnhancedASTModule,
-    typed_context: &mut TypeConversionContext,
+    typed_context: &RefCell<TypeConversionContext>,
 ) -> ASTTypedFunctionDef {
     if !def.param_types.is_empty() {
         panic!("function def has generics: {def}");
@@ -1100,7 +1104,9 @@ pub fn function_def(
                         })
                         .collect::<Vec<Option<ASTType>>>();
 
-                    let function_def_opt = typed_context.find_call(
+                    let cloned_typed_context = typed_context.clone().into_inner();
+
+                    let function_def_opt = cloned_typed_context.find_call(
                         &function_call,
                         Some(call_parameters_types.clone()),
                         None,
@@ -1129,7 +1135,10 @@ pub fn function_def(
                         );
 
                         if let Some(functiond_def) = function_def_opt {
-                            if let Some(rf) = typed_context.try_add_new(&it.name, &functiond_def) {
+                            if let Some(rf) = typed_context
+                                .borrow_mut()
+                                .try_add_new(&it.name, &functiond_def)
+                            {
                                 rf.name
                             } else {
                                 panic!("cannot find {}", it.to_call());
