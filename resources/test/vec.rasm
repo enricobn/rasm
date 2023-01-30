@@ -19,14 +19,14 @@ println(count(vecRange(0, 10), { n -> lessOrEqual(n, 1);}));
 nVecPrintln(filter(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));
 nVecPrintln(filter(vecRange(0, 10), { n -> eq(n, 5);}));
 
-nVecPrintln(vecOf8(10, 15, 21, 2, 2, 1, 4, 5));
+nVecPrintln(vecOf(10, 15, 21, 2, 2, 1, 4, 5));
 
 println(vecLength(vecRange(0, 10)));
 
-let vecOfVecs = vecOf2(vecOf(1), vecOf2(2, 3));
+let vecOfVecs = vecOf(vecOf(1), vecOf(2, 3));
 nVecPrintln(flatten(vecOfVecs));
 
-nVecPrintln(fmap(vecOf2(1, 2), { n -> vecOf2(n, add(n, 10));}));
+nVecPrintln(fmap(vecOf(1, 2), { n -> vecOf(n, add(n, 10));}));
 
 nVecPrintln(zip(vecRange(0, 2), vecRange(0, 3), { n1, n2 -> add(n1, n2);}));
 

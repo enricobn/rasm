@@ -234,7 +234,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     pop     ebx
 }/
 
-asm vecOf2<T>(v1: T, v2: T) -> Vec<T> /{
+asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
     $call(malloc, 12)
     push    eax
     mov     dword eax, [eax]
@@ -252,7 +252,7 @@ asm vecOf2<T>(v1: T, v2: T) -> Vec<T> /{
     pop     eax
 }/
 
-asm vecOf8<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
+asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
     $call(malloc, 36)
     push    eax
     mov     dword eax, [eax]

@@ -11,7 +11,7 @@ fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
 }
 
 fn listToVec<T>(l: List<T>) -> Vec<T> {
-    List::match(l, { head, tail -> flatten(vecOf2(vecOf(head), listToVec(tail)));},
+    List::match(l, { head, tail -> flatten(vecOf(vecOf(head), listToVec(tail)));},
         { -> Vec(); });
 }
 
