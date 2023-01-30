@@ -1,9 +1,11 @@
 use linked_hash_map::LinkedHashMap;
+use log::debug;
 use regex::Regex;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
+use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
@@ -444,7 +446,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         _function_def: Option<&ASTTypedFunctionDef>,
         _module: Option<&ASTTypedModule>,
     ) -> String {
-        println!("translate macro fun {:?}", _function_def);
+        debug_i!("translate macro fun {:?}", _function_def);
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name
         } else {
@@ -475,7 +477,6 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                 .skip(1)
                 .rev()
                 .map(|(index, it)| {
-                    println!("{:?}", it);
                     let i = index - 1;
                     match it {
                         MacroParam::Plain(s, _) => {

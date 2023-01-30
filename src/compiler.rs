@@ -1,12 +1,14 @@
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
+
+use log::info;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::BackendAsm386;
 use crate::codegen::CodeGen;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use log::info;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
 
 pub struct Compiler {
     src: String,
@@ -40,7 +42,7 @@ impl Compiler {
                     false,
                     false,
                     true,
-                    true,
+                    false,
                 );
 
                 let asm = code_gen.asm();
