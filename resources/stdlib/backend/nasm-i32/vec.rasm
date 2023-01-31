@@ -1,8 +1,3 @@
-fn nVecPrintln(v: Vec<i32>) {
-    forEach(v, { n -> print(n); print(",");});
-    println();
-}
-
 asm vecOf<T>(value: T) -> Vec<T> /{
     $call(malloc, 8)
     push    eax

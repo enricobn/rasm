@@ -15,11 +15,10 @@ fn listToVec<T>(l: List<T>) -> Vec<T> {
         { -> Vec(); });
 }
 
-fn vecPrintln<T>(v: Vec<T>, print: fn(T) -> ()) {
-    vecPrint(v, print);
-    println("");
+fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
+    forEach(v, { n -> printFunction(n); print(",");});
 }
 
-fn vecPrint<T>(v: Vec<T>, print: fn(T) -> ()) {
+fn print<T>(v: Vec<T>) {
     forEach(v, { n -> print(n); print(",");});
 }
