@@ -62,11 +62,3 @@ enum Option<T> {
   Some(value : T),
   None
 }
-
-/**
- * Prints the string to standard output adding a line feed to the end.
- **/
-fn cprintln(c: char) {
-    cprint(c);
-    println();
-}

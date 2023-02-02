@@ -1,10 +1,11 @@
+use linked_hash_map::LinkedHashMap;
+use pad::PadStr;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
 use crate::type_check::typed_ast::ASTTypedModule;
-use linked_hash_map::LinkedHashMap;
-use pad::PadStr;
 
 #[derive(Clone, Debug)]
 pub struct Statics {
@@ -39,7 +40,7 @@ impl Statics {
         }
     }
 
-    pub fn add_char(&mut self, c: &char) -> String {
+    /*    pub fn add_char(&mut self, c: &char) -> String {
         if let Some((label, _)) = self.chars_map.get(c) {
             label.clone()
         } else {
@@ -51,7 +52,7 @@ impl Statics {
 
             label
         }
-    }
+    }*/
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {
         assert!(self.statics.insert(key, value).is_none())

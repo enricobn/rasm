@@ -24,8 +24,9 @@ use crate::transformations::typed_enum_functions_creator::typed_enum_functions_c
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
-    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
+    BuiltinTypedTypeKind,
 };
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{convert, replace_native_call};
@@ -336,77 +337,19 @@ impl<'a> CodeGen<'a> {
                         panic!("unsupported expression in body {e}");
                     }
                 },
-                ASTTypedStatement::LetStatement(name, expr) => match expr {
-                    ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                        let wl = self.backend.word_len();
-                        let bp = self.backend.stack_base_pointer();
-                        let ast_typed_type = self
-                            .module
-                            .functions_by_name
-                            .get(&call.function_name.replace("::", "_"))
-                            .unwrap()
-                            .return_type
-                            .clone()
-                            .unwrap();
-                        context.insert_let(name.clone(), ast_typed_type.clone());
-                        let address_relative_to_bp =
-                            stack.reserve(StackEntryType::LetVal, name) * wl;
-
-                        let (bf, af, mut lambda_calls) = self.call_function(
-                            call,
-                            &context,
-                            None,
-                            "0".into(),
-                            None,
-                            0,
-                            false,
-                            &stack,
-                        );
-
-                        before.push_str(&bf);
-
-                        self.backend.store_function_result_in_stack(
-                            &mut before,
-                            -(address_relative_to_bp as i32),
-                        );
-
-                        if self.dereference {
-                            if let Some(type_name) =
-                                CodeGen::get_reference_type_name(&ast_typed_type)
-                            {
-                                self.backend.call_add_ref(
-                                    &mut before,
-                                    "eax",
-                                    &type_name,
-                                    &format!("for let val {name}"),
-                                    &self.module.clone(),
-                                    &mut self.statics,
-                                );
-
-                                after.push_str(&self.backend.call_deref(
-                                    &format!(
-                                            "[{bp} - {}]",
-                                            stack
-                                                .find_relative_to_bp(StackEntryType::LetVal, name)
-                                                .unwrap()
-                                                * self.backend.word_len()
-                                        ),
-                                    &type_name,
-                                    &format!("for let val {name}"),
-                                    &self.module.clone(),
-                                    &mut self.statics,
-                                ));
-                            }
-                        }
-
-                        Self::insert_on_top(&af.join("\n"), &mut after);
-
-                        self.lambdas.append(&mut lambda_calls);
-                    }
-                    _ => {
-                        panic!("unsupported let expression {expr}");
-                    }
-                },
+                ASTTypedStatement::LetStatement(name, expr) => {
+                    let mut new_lambda_calls = self.add_let(
+                        &mut context,
+                        &stack,
+                        &mut after,
+                        &mut before,
+                        name,
+                        expr,
+                        None,
+                        None,
+                    );
+                    self.lambdas.append(&mut new_lambda_calls);
+                }
             }
         }
 
@@ -560,6 +503,103 @@ impl<'a> CodeGen<'a> {
         asm.push_str(&self.definitions);
 
         asm
+    }
+
+    fn add_let(
+        &mut self,
+        context: &mut TypedValContext,
+        stack: &StackVals,
+        mut after: &mut String,
+        mut before: &mut String,
+        name: &str,
+        expr: &ASTTypedExpression,
+        function_def: Option<&ASTTypedFunctionDef>,
+        lambda_space: Option<&LambdaSpace>,
+    ) -> Vec<LambdaCall> {
+        let wl = self.backend.word_len();
+        let bp = self.backend.stack_base_pointer();
+        let ws = self.backend.word_size();
+        let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
+
+        let (ast_typed_type, (bf, af, new_lambda_calls)) = match expr {
+            ASTTypedExpression::ASTFunctionCallExpression(call) => (
+                self.module
+                    .functions_by_name
+                    .get(&call.function_name.replace("::", "_"))
+                    .unwrap()
+                    .return_type
+                    .clone()
+                    .unwrap(),
+                self.call_function(
+                    call,
+                    context,
+                    function_def,
+                    "0".into(),
+                    lambda_space,
+                    0,
+                    false,
+                    stack,
+                ),
+            ),
+            ASTTypedExpression::Value(value_type, _index) => {
+                let value = self.backend.value_to_string(value_type);
+
+                CodeGen::add(
+                    before,
+                    &format!(
+                        "mov {ws} [{bp} + {}], {}",
+                        -(address_relative_to_bp as i32),
+                        value
+                    ),
+                    Some(""),
+                    true,
+                );
+                (
+                    get_type_of_typed_expression(&self.module, &context, expr, None).unwrap(),
+                    (String::new(), vec![], vec![]),
+                )
+            }
+
+            _ => panic!("Unsupported let"),
+        };
+        context.insert_let(name.into(), ast_typed_type.clone());
+
+        if !bf.is_empty() {
+            before.push_str(&bf);
+            self.backend
+                .store_function_result_in_stack(&mut before, -(address_relative_to_bp as i32));
+        }
+
+        if self.dereference {
+            if let Some(type_name) = CodeGen::get_reference_type_name(&ast_typed_type) {
+                self.backend.call_add_ref(
+                    before,
+                    "eax",
+                    &type_name,
+                    &format!("for let val {name}"),
+                    &self.module.clone(),
+                    &mut self.statics,
+                );
+
+                after.push_str(&self.backend.call_deref(
+                    &format!(
+                        "[{bp} - {}]",
+                        stack
+                            .find_relative_to_bp(StackEntryType::LetVal, name)
+                            .unwrap()
+                            * self.backend.word_len()
+                    ),
+                    &type_name,
+                    &format!("for let val {name}"),
+                    &self.module.clone(),
+                    &mut self.statics,
+                ));
+            }
+        }
+
+        Self::insert_on_top(&af.join("\n"), after);
+
+        new_lambda_calls
     }
 
     fn translate_body(&mut self, body: &str) -> String {
@@ -847,130 +887,37 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::StringLiteral(_) => {
                                     panic!("unsupported");
                                 }
-                                ASTTypedExpression::CharLiteral(_) => {
+                                /*                                ASTTypedExpression::CharLiteral(_) => {
                                     panic!("unsupported");
-                                }
+                                }*/
                                 ASTTypedExpression::Lambda(_) => {
                                     panic!("unsupported");
                                 }
-                                ASTTypedExpression::Value(value_type, _) => match value_type {
-                                    ValueType::Boolean(b) => {
-                                        if *b {
-                                            CodeGen::add(
-                                                &mut before,
-                                                &format!(
-                                                    "mov     {} eax, 1",
-                                                    self.backend.word_size()
-                                                ),
-                                                None,
-                                                true,
-                                            );
-                                        } else {
-                                            CodeGen::add(
-                                                &mut before,
-                                                &format!(
-                                                    "mov     {} eax, 0",
-                                                    self.backend.word_size()
-                                                ),
-                                                None,
-                                                true,
-                                            );
-                                        }
-                                    }
-                                    ValueType::Number(n) => {
-                                        CodeGen::add(
-                                            &mut before,
-                                            &format!(
-                                                "mov     {} eax, {n}",
-                                                self.backend.word_size()
-                                            ),
-                                            None,
-                                            true,
-                                        );
-                                    }
-                                    ValueType::Char(c) => {
-                                        CodeGen::add(
-                                            &mut before,
-                                            &format!(
-                                                "mov     {} eax, {}",
-                                                self.backend.word_size(),
-                                                *c as u32
-                                            ),
-                                            None,
-                                            true,
-                                        );
-                                    }
-                                },
+                                ASTTypedExpression::Value(value_type, _) => {
+                                    let v = self.backend.value_to_string(value_type);
+
+                                    CodeGen::add(
+                                        &mut before,
+                                        &format!("mov     {} eax, {}", self.backend.word_size(), v),
+                                        None,
+                                        true,
+                                    );
+                                }
                             }
                         }
-                        ASTTypedStatement::LetStatement(name, expr) => match expr {
-                            ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                                let ast_typed_type = self
-                                    .module
-                                    .functions_by_name
-                                    .get(&call.function_name.replace("::", "_"))
-                                    .unwrap()
-                                    .return_type
-                                    .clone()
-                                    .unwrap();
-                                context.insert_let(name.clone(), ast_typed_type.clone());
-                                let address_relative_to_bp =
-                                    stack.reserve(StackEntryType::LetVal, name) * wl;
-
-                                let (bf, af, mut lambda_calls_) = self.call_function(
-                                    call,
-                                    &context,
-                                    Some(function_def),
-                                    "0".into(),
-                                    lambda_space,
-                                    indent + 1,
-                                    false,
-                                    &stack,
-                                );
-
-                                before.push_str(&bf);
-
-                                self.backend.store_function_result_in_stack(
-                                    &mut before,
-                                    -(address_relative_to_bp as i32),
-                                );
-
-                                if self.dereference {
-                                    if let Some(type_name) =
-                                        CodeGen::get_reference_type_name(&ast_typed_type)
-                                    {
-                                        self.backend.call_add_ref(
-                                            &mut before,
-                                            "eax",
-                                            &type_name,
-                                            &format!("for let val {name}"),
-                                            &self.module.clone(),
-                                            &mut self.statics,
-                                        );
-                                        after.push_str(&self.backend.call_deref(
-                                            &format!(
-                                                "[{bp} - {}]",
-                                                stack.find_relative_to_bp(
-                                                    StackEntryType::LetVal,
-                                                    name,
-                                                ).unwrap() * self.backend.word_len()
-                                            ),
-                                            &type_name,
-                                            &format!("for let val {name}"),
-                                            &self.module.clone(),
-                                            &mut self.statics,
-                                        ));
-                                    }
-                                }
-
-                                Self::insert_on_top(&af.join("\n"), &mut after);
-
-                                lambda_calls.append(&mut lambda_calls_);
-                            }
-                            _ => {
-                                panic!("unsupported let expression {expr}");
-                            }
-                        },
+                        ASTTypedStatement::LetStatement(name, expr) => {
+                            let mut new_lambda_calls = self.add_let(
+                                &mut context,
+                                &stack,
+                                &mut after,
+                                &mut before,
+                                name,
+                                expr,
+                                Some(function_def),
+                                lambda_space,
+                            );
+                            lambda_calls.append(&mut new_lambda_calls);
+                        }
                     }
                 }
             }
@@ -1279,21 +1226,13 @@ impl<'a> CodeGen<'a> {
                         let label = self.statics.add_str(value);
                         call_parameters.add_string_literal(&param_name, label, None);
                     }
-                    ASTTypedExpression::CharLiteral(c) => {
+                    /*ASTTypedExpression::CharLiteral(c) => {
                         let label = self.statics.add_char(c);
                         call_parameters.add_string_literal(&param_name, label, None);
+                    }*/
+                    ASTTypedExpression::Value(value_type, _) => {
+                        call_parameters.add_value_type(&param_name, value_type)
                     }
-                    ASTTypedExpression::Value(value_type, _) => match value_type {
-                        ValueType::Boolean(b) => {
-                            if *b {
-                                call_parameters.add_i32(&param_name, 1, None);
-                            } else {
-                                call_parameters.add_i32(&param_name, 0, None);
-                            }
-                        }
-                        ValueType::Number(n) => call_parameters.add_i32(&param_name, *n, None),
-                        ValueType::Char(c) => call_parameters.add_char(&param_name, *c, None),
-                    },
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let mut added_to_stack = added_to_stack.clone();
                         added_to_stack.push_str(" + ");

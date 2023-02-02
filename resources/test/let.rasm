@@ -3,11 +3,20 @@ include "std.rasm"
 println(test(5));
 println(test2(5));
 
+let aNumber = 10;
+println(aNumber);
+
+let aChar = 'è';
+println(aChar);
+
+let aBool = true;
+println(aBool);
+
 fn test(n: i32) -> i32 {
-    let ten = it(10);
+    let ten = 10;
 
     test1(ten, { v ->
-        let five = it(5);
+        let five = 5;
 
         add(n, add(v, five));
     });

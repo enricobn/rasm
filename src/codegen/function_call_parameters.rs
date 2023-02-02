@@ -1,14 +1,16 @@
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedValKind};
 use crate::debug_i;
+use crate::parser::ValueType;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
     ASTTypedStatement, ASTTypedType,
 };
-use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 pub struct FunctionCallParameters<'a> {
     parameters: Vec<ASTTypedParameterDef>,
@@ -394,6 +396,11 @@ impl<'a> FunctionCallParameters<'a> {
         format!("$_to_remove_rom_stack{}", self.id)
     }
 
+    pub fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
+        let v = self.backend.value_to_string(value_type);
+        self.add_number(name, v, None);
+    }
+
     fn body_reads_from_context(
         &self,
         body: &ASTTypedFunctionBody,
@@ -430,7 +437,7 @@ impl<'a> FunctionCallParameters<'a> {
     ) -> bool {
         match expr {
             ASTTypedExpression::StringLiteral(_) => false,
-            ASTTypedExpression::CharLiteral(_) => false,
+            //ASTTypedExpression::CharLiteral(_) => false,
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if context.get(&call.function_name).is_some() {
                     true

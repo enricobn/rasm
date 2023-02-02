@@ -1,16 +1,18 @@
-use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::lexer::Lexer;
-use linked_hash_map::LinkedHashMap;
-use log::{debug, info};
 use std::collections::HashSet;
 use std::path::Path;
 
+use linked_hash_map::LinkedHashMap;
+use log::{debug, info};
+
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
+use crate::lexer::Lexer;
 use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
+use crate::parser::ast::ASTStatement::LetStatement;
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
     ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
@@ -398,11 +400,13 @@ impl Parser {
                 }
                 Some(ParserState::Val) => {
                     if let Some(ParserData::Val(expr, _index)) = self.last_parser_data() {
+                        let statement = ASTStatement::Expression(expr.clone());
+
                         if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
                             debug!("Found {:?} in function {}", expr, def.name);
                             let mut def = def.clone();
                             if let RASMBody(mut calls) = def.body {
-                                calls.push(ASTStatement::Expression(expr));
+                                calls.push(statement);
                                 def.body = RASMBody(calls);
                                 let l = self.parser_data.len();
                                 self.parser_data[l - 2] = ParserData::FunctionDef(def);
@@ -418,7 +422,7 @@ impl Parser {
                             let mut def = def.clone();
                             let mut calls = def.body;
 
-                            calls.push(ASTStatement::Expression(expr));
+                            calls.push(statement);
                             def.body = calls;
                             let l = self.parser_data.len();
                             self.parser_data[l - 2] = ParserData::LambdaDef(def);
@@ -451,15 +455,47 @@ impl Parser {
                 }
                 Some(ParserState::Let) => {
                     if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                        self.parser_data
-                            .push(ParserData::FunctionCall(ASTFunctionCall {
-                                original_function_name: function_name.clone(),
-                                function_name,
-                                parameters: Vec::new(),
-                                index: self.get_index(0).unwrap(),
-                            }));
+                        let call = ASTFunctionCall {
+                            original_function_name: function_name.clone(),
+                            function_name,
+                            parameters: Vec::new(),
+                            index: self.get_index(0).unwrap(),
+                        };
+                        self.parser_data.push(ParserData::FunctionCall(call));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
+                        continue;
+                    } else if let Some((expression, next_i)) = self.try_parse_val() {
+                        let statement = if let Some(ParserData::Let(name)) = self.last_parser_data()
+                        {
+                            LetStatement(name, expression)
+                        } else {
+                            self.panic("expected let");
+                        };
+
+                        if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
+                            let mut def = def.clone();
+                            if let RASMBody(mut calls) = def.body {
+                                calls.push(statement);
+                                def.body = RASMBody(calls);
+                                let l = self.parser_data.len();
+                                self.parser_data[l - 2] = ParserData::FunctionDef(def);
+                            }
+                        } else if let Some(ParserData::LambdaDef(def)) =
+                            self.before_last_parser_data()
+                        {
+                            let mut def = def.clone();
+                            let mut calls = def.body;
+                            calls.push(statement);
+                            def.body = calls;
+                            let l = self.parser_data.len();
+                            self.parser_data[l - 2] = ParserData::LambdaDef(def);
+                        } else {
+                            self.body.push(statement);
+                        }
+                        self.parser_data.pop();
+                        self.i += 2;
+                        self.state.pop();
                         continue;
                     }
                     self.panic("Error parsing let, unexpected token");
@@ -946,6 +982,27 @@ impl Parser {
                     self.get_i() + 2,
                 ));
             }
+        } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                self.get_token_kind_n(1)
+            {
+                return Some((
+                    ASTExpression::Value(
+                        ValueType::Number(n.parse().unwrap()),
+                        self.get_index(0).unwrap(),
+                    ),
+                    self.get_i() + 2,
+                ));
+            }
+        } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                self.get_token_kind_n(1)
+            {
+                return Some((
+                    ASTExpression::Value(ValueType::Char(*c), self.get_index(0).unwrap()),
+                    self.get_i() + 2,
+                ));
+            }
         } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
                 self.get_token_kind_n(1)
@@ -1035,8 +1092,9 @@ pub trait ParserTrait {
 
 #[cfg(test)]
 mod tests {
-    use linked_hash_map::LinkedHashMap;
     use std::path::Path;
+
+    use linked_hash_map::LinkedHashMap;
 
     use crate::lexer::Lexer;
     use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTStatement};

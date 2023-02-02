@@ -286,7 +286,12 @@ fn convert_body(
                         context.insert_let(name.clone(), ast_type);
                         Ok(new_statement)
                     }
-                    _ => Err("unsupported let value {expr}".into()),
+                    ASTExpression::Value(value_type, _index) => {
+                        let ast_type = get_value_type(value_type);
+                        context.insert_let(name.clone(), ast_type);
+                        Ok(new_statement)
+                    }
+                    _ => Err(format!("unsupported let value {expr}").into()),
                 },
             }
         })
@@ -424,6 +429,13 @@ fn convert_statement(
                         ))
                     }
                 }
+            } else if let ASTExpression::Value(value_type, index) = expr {
+                println!("added let in context: {name}");
+                context.insert_let(name.clone(), get_value_type(value_type));
+                new_body.push(ASTStatement::LetStatement(
+                    name.clone(),
+                    ASTExpression::Value(value_type.clone(), index.clone()),
+                ))
             } else {
                 panic!("unsupported {statement}")
             }
@@ -1175,11 +1187,7 @@ pub fn convert_call(
                 }
             }
             ASTExpression::Value(val_type, _index) => {
-                let ast_type = match val_type {
-                    ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
-                    ValueType::Number(_) => ASTType::Builtin(BuiltinTypeKind::I32),
-                    ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
-                };
+                let ast_type = get_value_type(val_type);
                 something_converted_in_loop = update(
                     &ast_type,
                     expr.clone(),
@@ -1392,6 +1400,15 @@ pub fn convert_call(
     dedent!();
 
     Ok(result)
+}
+
+fn get_value_type(val_type: &ValueType) -> ASTType {
+    let ast_type = match val_type {
+        ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
+        ValueType::Number(_) => ASTType::Builtin(BuiltinTypeKind::I32),
+        ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
+    };
+    ast_type
 }
 
 fn get_called_function(

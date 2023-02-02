@@ -116,15 +116,6 @@ impl Display for ASTTypedType {
                     ))
                 }
             },
-            //BuiltinTypedTypeKind::Parametric(name) => f.write_str(name),
-            /*
-            ASTType::Custom { name, param_types } => {
-                let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
-
-                f.write_str(&format!("{name}<{}>", pars.join(",")))
-            }
-
-             */
             ASTTypedType::Enum { name } => f.write_str(&name.to_string()),
             ASTTypedType::Struct { name } => f.write_str(&name.to_string()),
             ASTTypedType::Type { name } => f.write_str(&name.to_string()),
@@ -148,6 +139,12 @@ impl Display for ASTTypedParameterDef {
 pub struct ASTTypedStructPropertyDef {
     pub name: String,
     pub ast_type: ASTTypedType,
+}
+
+impl Display for ASTTypedStructPropertyDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}: {}", self.name, self.ast_type))
+    }
 }
 
 impl ASTTypedParameterDef {
@@ -176,19 +173,16 @@ impl Display for ASTTypedFunctionCall {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedExpression {
     StringLiteral(String),
-    CharLiteral(char),
     ASTFunctionCallExpression(ASTTypedFunctionCall),
     ValueRef(String, ASTIndex),
     Value(ValueType, ASTIndex),
     Lambda(ASTTypedLambdaDef),
-    //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 
 impl Display for ASTTypedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypedExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
-            ASTTypedExpression::CharLiteral(c) => f.write_str(&format!("'{c}'")),
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
@@ -282,6 +276,18 @@ impl Display for ASTTypedEnumVariantDef {
 pub struct ASTTypedStructDef {
     pub name: String,
     pub properties: Vec<ASTTypedStructPropertyDef>,
+}
+
+impl Display for ASTTypedStructDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars = self
+            .properties
+            .iter()
+            .map(|it| format!("{it}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        f.write_str(&format!("{}({pars})", self.name))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -642,13 +648,6 @@ pub fn convert_to_typed_module(
                     &cloned_typed_context,
                 ),
             );
-
-            /*if new_function_def.name == "printRefCount_0" {
-                let f = new_typed_context
-                    .find_function(&new_function_def.name)
-                    .unwrap();
-                panic!("{:?}", f.body);
-            }*/
         }
 
         if somethin_converted
@@ -692,16 +691,6 @@ pub fn convert_to_typed_module(
                 it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
             }
         });
-
-    /*let mut result = TextMacroEvaluator::new().translate(
-        self.backend,
-        statics,
-        function_def,
-        body,
-        Some(module),
-    );
-
-         */
 
     result.functions_by_name = functions_by_name;
 
@@ -773,6 +762,12 @@ fn verify_statement(
                         panic!("{call}")
                     };
                 context.insert_let(name.clone(), ast_typed_type.unwrap());
+            } else if let Some(ast_typed_type) =
+                get_type_of_typed_expression(module, context, e, None)
+            {
+                context.insert_let(name.clone(), ast_typed_type);
+            } else {
+                panic!("unsupported let")
             }
 
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
@@ -836,7 +831,7 @@ fn verify_function_call(
     }
 }
 
-fn get_type_of_typed_expression(
+pub fn get_type_of_typed_expression(
     module: &ASTTypedModule,
     context: &TypedValContext,
     expr: &ASTTypedExpression,
@@ -846,9 +841,6 @@ fn get_type_of_typed_expression(
     match expr {
         ASTTypedExpression::StringLiteral(_) => {
             Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
-        }
-        ASTTypedExpression::CharLiteral(_) => {
-            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char))
         }
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
             debug!("function call expression");
@@ -886,7 +878,7 @@ fn get_type_of_typed_expression(
             } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(name) {
                 Some(ast_type.clone())
             } else {
-                panic!("Unknown val {name}");
+                panic!("Unknown val {name}: {:?}", context);
             }
         }
         ASTTypedExpression::Value(val_type, _) => match val_type {
@@ -936,6 +928,12 @@ fn get_type_of_typed_expression(
                                 .unwrap();
                             context.insert_let(name.clone(), ast_typed_type);
                             verify_function_call(module, &context, call);
+                        } else if let Some(ast_typed_type) =
+                            get_type_of_typed_expression(module, &context, e, None)
+                        {
+                            context.insert_let(name.clone(), ast_typed_type);
+                        } else {
+                            panic!("unsupported let")
                         }
                     }
                 }
@@ -1158,44 +1156,10 @@ pub fn function_def(
                             panic!("{} -> {}", function_call.function_name, function_name);
                         }
                     }
-
-                    /*match convert_call(
-                        module,
-                        &val_context,
-                        &function_call,
-                        typed_context,
-                        &LinkedHashMap::new(),
-                        None,
-                        backend,
-                        &CallStack::new(),
-                    ) {
-                        Ok(Some(new_call)) => {
-                            println!("converted to {new_call}");
-                            if function_call.function_name != new_call.function_name {
-                                new_body = replace_native_call(
-                                    &new_body,
-                                    &function_call.function_name,
-                                    &new_call.function_name,
-                                );
-
-                                if body == &new_body {
-                                    panic!(
-                                        "{} -> {}",
-                                        function_call.function_name, new_call.function_name
-                                    );
-                                }
-                            }
-                        }
-                        Ok(None) => {}
-                        Err(e) => {
-                            panic!("Error converting body of {def} : {}", e.message);
-                        }
-                    }*/
                 });
 
             if body != &new_body {
                 typed_function_def.body = ASTTypedFunctionBody::ASMBody(new_body);
-                //typed_context.replace_body(&new_function_def);
             }
         }
     }
@@ -1418,11 +1382,10 @@ pub fn print_typed_module(module: &ASTTypedModule) {
     for enum_def in module.enums.iter() {
         println!("{enum_def}");
     }
-    /* TODO
+
     for struct_def in module.structs.iter() {
-    println!("{struct_def}");
+        println!("{struct_def}");
     }
-    */
 
     module.body.iter().for_each(|call| {
         println!("{call}");

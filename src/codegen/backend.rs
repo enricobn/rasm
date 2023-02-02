@@ -1,20 +1,23 @@
+use std::collections::HashSet;
+use std::panic::RefUnwindSafe;
+use std::path::Path;
+use std::process::{Command, Stdio};
+
+use log::{debug, info};
+
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacroEvaluator};
 use crate::codegen::{CodeGen, ValContext, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
+use crate::parser::ValueType;
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedType, DefaultFunctionCall,
 };
-use log::{debug, info};
-use std::collections::HashSet;
-use std::panic::RefUnwindSafe;
-use std::path::Path;
-use std::process::{Command, Stdio};
 
 pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -83,6 +86,8 @@ pub trait Backend: RefUnwindSafe {
     fn reserve_stack(&self, stack: &StackVals, out: &mut String);
 
     fn function_end(&self, out: &mut String, add_return: bool);
+
+    fn value_to_string(&self, value_type: &ValueType) -> String;
 }
 
 enum Linker {
@@ -118,6 +123,14 @@ impl BackendAsm386 {
             s.push_str(&format!(" {}", &arg.to_str().unwrap()));
         }
         info!("{s}");
+    }
+
+    /// little endian
+    fn array_to_u32_le(array: &[u8; 4]) -> u32 {
+        (array[0] as u32)
+            + ((array[1] as u32) << 8)
+            + ((array[2] as u32) << 16)
+            + ((array[3] as u32) << 24)
     }
 }
 
@@ -484,14 +497,30 @@ impl Backend for BackendAsm386 {
             CodeGen::add(out, "ret", None, true);
         }
     }
+
+    fn value_to_string(&self, value_type: &ValueType) -> String {
+        match value_type {
+            ValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
+            ValueType::Number(n) => n.to_string(),
+            ValueType::Char(c) => {
+                let mut b = [0; 4];
+                c.encode_utf8(&mut b);
+
+                let result = Self::array_to_u32_le(&b);
+
+                format!("{}", result)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::codegen::backend::{Backend, BackendAsm386};
     use crate::codegen::ValContext;
     use crate::type_check::typed_ast::DefaultFunctionCall;
-    use std::collections::HashSet;
 
     #[test]
     fn called_functions() {

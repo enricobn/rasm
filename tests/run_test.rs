@@ -202,7 +202,7 @@ fn test_chars() {
 
 #[test]
 fn test_let() {
-    test("let", vec![], "20\n20,10\n");
+    test("let", vec![], "20\n20,10\n10\nè\ntrue\n");
 }
 
 #[test]
@@ -234,7 +234,7 @@ fn test_function_overloading() {
 
 #[test]
 fn test_type_check_1() {
-    test("type_check_1", vec![], "a number\n");
+    test("type_check_1", vec![], "a string\n");
 }
 
 #[test]

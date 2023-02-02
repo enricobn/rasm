@@ -204,7 +204,7 @@ asm sysClose(descriptor: i32) /{
     pop     ebx
 }/
 
-asm cprint(c: char) /{
+asm print(c: char) /{
     push    edx
     push    ecx
     push    ebx
