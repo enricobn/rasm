@@ -400,38 +400,54 @@ impl Parser {
                 }
                 Some(ParserState::Val) => {
                     if let Some(ParserData::Val(expr, _index)) = self.last_parser_data() {
-                        let statement = ASTStatement::Expression(expr.clone());
+                        let (statement, parser_data, is_let) =
+                            if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
+                                (
+                                    ASTStatement::LetStatement(name.clone(), expr.clone()),
+                                    self.get_parser_data(2),
+                                    true,
+                                )
+                            } else {
+                                (
+                                    ASTStatement::Expression(expr.clone()),
+                                    self.before_last_parser_data(),
+                                    false,
+                                )
+                            };
 
-                        if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
+                        if parser_data.is_none() {
+                            self.body.push(statement);
+                        } else if let Some(ParserData::FunctionDef(def)) = parser_data {
                             debug!("Found {:?} in function {}", expr, def.name);
                             let mut def = def.clone();
                             if let RASMBody(mut calls) = def.body {
                                 calls.push(statement);
                                 def.body = RASMBody(calls);
                                 let l = self.parser_data.len();
-                                self.parser_data[l - 2] = ParserData::FunctionDef(def);
-                                self.parser_data.pop();
-                                self.state.pop();
-                                continue;
+                                self.parser_data[l - 2 - if is_let { 1 } else { 0 }] =
+                                    ParserData::FunctionDef(def);
                             } else {
                                 panic!("expected rasm body, found {:?}", def.body);
                             }
-                        } else if let Some(ParserData::LambdaDef(def)) =
-                            self.before_last_parser_data()
-                        {
+                        } else if let Some(ParserData::LambdaDef(def)) = parser_data {
                             let mut def = def.clone();
                             let mut calls = def.body;
 
                             calls.push(statement);
                             def.body = calls;
                             let l = self.parser_data.len();
-                            self.parser_data[l - 2] = ParserData::LambdaDef(def);
+                            self.parser_data[l - 2 - if is_let { 1 } else { 0 }] =
+                                ParserData::LambdaDef(def);
+                        } else {
+                            panic!("Function def, found {:?}", parser_data);
+                        }
+                        if is_let {
                             self.parser_data.pop();
                             self.state.pop();
-                            continue;
-                        } else {
-                            panic!("Function def, found {:?}", self.before_last_parser_data());
                         }
+                        self.parser_data.pop();
+                        self.state.pop();
+                        continue;
                     }
                     panic!("Expected val name, found {:?}", self.last_parser_data());
                 }
@@ -466,36 +482,12 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((expression, next_i)) = self.try_parse_val() {
-                        let statement = if let Some(ParserData::Let(name)) = self.last_parser_data()
-                        {
-                            LetStatement(name, expression)
-                        } else {
-                            self.panic("expected let");
-                        };
-
-                        if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
-                            let mut def = def.clone();
-                            if let RASMBody(mut calls) = def.body {
-                                calls.push(statement);
-                                def.body = RASMBody(calls);
-                                let l = self.parser_data.len();
-                                self.parser_data[l - 2] = ParserData::FunctionDef(def);
-                            }
-                        } else if let Some(ParserData::LambdaDef(def)) =
-                            self.before_last_parser_data()
-                        {
-                            let mut def = def.clone();
-                            let mut calls = def.body;
-                            calls.push(statement);
-                            def.body = calls;
-                            let l = self.parser_data.len();
-                            self.parser_data[l - 2] = ParserData::LambdaDef(def);
-                        } else {
-                            self.body.push(statement);
-                        }
-                        self.parser_data.pop();
-                        self.i += 2;
-                        self.state.pop();
+                        self.state.push(ParserState::Val);
+                        self.parser_data.push(ParserData::Val(
+                            expression,
+                            self.get_index(next_i - self.i).unwrap(),
+                        ));
+                        self.i = next_i;
                         continue;
                     }
                     self.panic("Error parsing let, unexpected token");
@@ -580,22 +572,6 @@ impl Parser {
                 );
                 return ProcessResult::Continue;
             } else if let TokenKind::AlphaNumeric(name) = &token.kind {
-                /*
-                if name == "true" {
-                    self.add_parameter_to_call_and_update_parser_data(
-                        call,
-                        ASTExpression::Value(ValueType::Boolean(true), self.get_index_from_token(&token)),
-                    );
-                    return ProcessResult::Continue;
-                } else if name == "false" {
-                    self.add_parameter_to_call_and_update_parser_data(
-                        call,
-                        ASTExpression::Value(ValueType::Boolean(false), self.get_index_from_token(&token)),
-                    );
-                    return ProcessResult::Continue;
-                } else
-
-                 */
                 if let Some((function_name, next_i)) = self.try_parse_function_call() {
                     self.parser_data
                         .push(ParserData::FunctionCall(ASTFunctionCall {
@@ -924,6 +900,15 @@ impl Parser {
         let i = self.parser_data.len();
         if i > 1 {
             self.parser_data.get(i - 2)
+        } else {
+            None
+        }
+    }
+
+    fn get_parser_data(&self, index: usize) -> Option<&ParserData> {
+        let len = self.parser_data.len();
+        if index < len {
+            self.parser_data.get(len - index - 1)
         } else {
             None
         }

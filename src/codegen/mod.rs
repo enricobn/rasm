@@ -15,7 +15,6 @@ use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
 use crate::parser::ast::{ASTModule, ASTParameterDef, ASTType};
-use crate::parser::ValueType;
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
@@ -773,9 +772,6 @@ impl<'a> CodeGen<'a> {
             None,
             false,
         );
-
-        let bp = self.backend.stack_base_pointer();
-        let wl = self.backend.word_len();
 
         self.backend.function_preamble(&mut self.definitions);
 
