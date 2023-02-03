@@ -6,9 +6,9 @@ println(add("Hello", " world"));
 println(add(1, 10));
 
 fn myToString(s: str) -> str {
-    it(s);
+    s;
 }
 
 fn myToString(n: i32) -> str {
-    it("a number");
+    "a number";
 }

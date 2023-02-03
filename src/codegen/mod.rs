@@ -880,12 +880,19 @@ impl<'a> CodeGen<'a> {
 
                                     Self::insert_on_top(&parameters.after().join("\n"), &mut after);
                                 }
-                                ASTTypedExpression::StringLiteral(_) => {
-                                    panic!("unsupported");
+                                ASTTypedExpression::StringLiteral(value) => {
+                                    let label = self.statics.add_str(value);
+
+                                    CodeGen::add(
+                                        &mut before,
+                                        &format!(
+                                            "mov     {} eax, [{label}]",
+                                            self.backend.word_size()
+                                        ),
+                                        None,
+                                        true,
+                                    );
                                 }
-                                /*                                ASTTypedExpression::CharLiteral(_) => {
-                                    panic!("unsupported");
-                                }*/
                                 ASTTypedExpression::Lambda(_) => {
                                     panic!("unsupported");
                                 }

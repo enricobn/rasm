@@ -997,6 +997,12 @@ impl Parser {
                     self.get_i() + 2,
                 ));
             }
+        } else if let Some(TokenKind::StringLiteral(s)) = self.get_token_kind() {
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                self.get_token_kind_n(1)
+            {
+                return Some((ASTExpression::StringLiteral(s.clone()), self.get_i() + 2));
+            }
         }
         None
     }

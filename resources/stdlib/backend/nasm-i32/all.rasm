@@ -71,11 +71,6 @@ asm sleep(sec: i32, nsec: i32) -> i32 /{
     pop ebx
 }/
 
-// TODO get rid of this, for now is used to return constants
-inline asm it<T>(v: T) -> T /{
-    mov     eax,$v
-}/
-
 asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi

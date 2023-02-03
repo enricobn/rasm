@@ -5,7 +5,7 @@ println(test1(atoi(argv(1))));
 fn test1(n: i32) -> i32 {
     // TODO I don't know why sometimes returning n works... I have not discovered when, but it's stable.
     //      It seems that the behaviour changes when something changes in the order of the processed functions
-    test({ -> it(n); });
+    test({ -> n; });
 }
 
 fn test(f: fn() -> i32) -> i32 {

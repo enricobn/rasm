@@ -37,7 +37,7 @@ fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
 }
 
 fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
-    List::match(l, { head,tail -> add(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> it(0); });
+    List::match(l, { head,tail -> add(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> 0; });
 }
 
 fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {

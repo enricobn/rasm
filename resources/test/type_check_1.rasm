@@ -5,6 +5,6 @@ println(doMap());
 fn doMap() -> List<str> {
     map(
         filter(range(0,1), { v -> eq(v, 0);}),
-        { v -> it("a string");}
+        { v -> "a string";}
     );
 }
