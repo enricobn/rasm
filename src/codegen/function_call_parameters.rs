@@ -71,7 +71,7 @@ impl<'a> FunctionCallParameters<'a> {
         }
     }
 
-    pub fn add_string_literal(&mut self, param_name: &str, label: String, comment: Option<&str>) {
+    pub fn add_label(&mut self, param_name: &str, label: String, comment: Option<&str>) {
         if self.inline {
             self.parameters_values
                 .insert(param_name.into(), format!("[{label}]"));
@@ -424,7 +424,7 @@ impl<'a> FunctionCallParameters<'a> {
             ASTTypedStatement::Expression(expr) => {
                 self.expression_reads_from_context(expr, context)
             }
-            ASTTypedStatement::LetStatement(_, expr) => {
+            ASTTypedStatement::LetStatement(_, expr, _is_const) => {
                 self.expression_reads_from_context(expr, context)
             }
         }

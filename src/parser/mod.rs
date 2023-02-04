@@ -12,7 +12,6 @@ use crate::lexer::Lexer;
 use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
-use crate::parser::ast::ASTStatement::LetStatement;
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
     ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
@@ -73,7 +72,7 @@ enum ParserData {
     FunctionDef(ASTFunctionDef),
     FunctionDefParameter(ASTParameterDef),
     LambdaDef(ASTLambdaDef),
-    Let(String),
+    Let(String, bool),
     Val(ASTExpression, ASTIndex),
     StructDef(ASTStructDef),
 }
@@ -269,8 +268,13 @@ impl Parser {
                         self.panic("Cannot parse external")
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
-                    } else if let Some((name, next_i)) = self.try_parse_let() {
-                        self.parser_data.push(ParserData::Let(name));
+                    } else if let Some((name, next_i)) = self.try_parse_let(false) {
+                        self.parser_data.push(ParserData::Let(name, false));
+                        self.state.push(ParserState::Let);
+                        self.i = next_i;
+                        continue;
+                    } else if let Some((name, next_i)) = self.try_parse_let(true) {
+                        self.parser_data.push(ParserData::Let(name, true));
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
@@ -286,6 +290,7 @@ impl Parser {
                             self.panic("Missing semicolon)")
                         }
                     }
+
                     self.panic("Unknown statement");
                 }
                 Some(ParserState::FunctionCall) => match self.process_function_call(token) {
@@ -353,8 +358,8 @@ impl Parser {
                         self.state.push(ParserState::Val);
                         self.i = next_i;
                         continue;
-                    } else if let Some((name, next_i)) = self.try_parse_let() {
-                        self.parser_data.push(ParserData::Let(name));
+                    } else if let Some((name, next_i)) = self.try_parse_let(false) {
+                        self.parser_data.push(ParserData::Let(name, false));
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
@@ -400,17 +405,25 @@ impl Parser {
                 }
                 Some(ParserState::Val) => {
                     if let Some(ParserData::Val(expr, _index)) = self.last_parser_data() {
-                        let (statement, parser_data, is_let) =
-                            if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
+                        let (statement, parser_data, is_let, is_const) =
+                            if let Some(ParserData::Let(name, is_const)) =
+                                self.before_last_parser_data()
+                            {
                                 (
-                                    ASTStatement::LetStatement(name.clone(), expr.clone()),
+                                    ASTStatement::LetStatement(
+                                        name.clone(),
+                                        expr.clone(),
+                                        *is_const,
+                                    ),
                                     self.get_parser_data(2),
                                     true,
+                                    *is_const,
                                 )
                             } else {
                                 (
                                     ASTStatement::Expression(expr.clone()),
                                     self.before_last_parser_data(),
+                                    false,
                                     false,
                                 )
                             };
@@ -418,6 +431,9 @@ impl Parser {
                         if parser_data.is_none() {
                             self.body.push(statement);
                         } else if let Some(ParserData::FunctionDef(def)) = parser_data {
+                            if is_const {
+                                panic!("const not allowed here");
+                            }
                             debug!("Found {:?} in function {}", expr, def.name);
                             let mut def = def.clone();
                             if let RASMBody(mut calls) = def.body {
@@ -430,6 +446,10 @@ impl Parser {
                                 panic!("expected rasm body, found {:?}", def.body);
                             }
                         } else if let Some(ParserData::LambdaDef(def)) = parser_data {
+                            if is_const {
+                                panic!("const not allowed here");
+                            }
+
                             let mut def = def.clone();
                             let mut calls = def.body;
 
@@ -606,18 +626,20 @@ impl Parser {
                 if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
                     self.get_token_kind_n(1)
                 {
-                    let statement =
-                        if let Some(ParserData::Let(name)) = self.before_last_parser_data() {
-                            let let_statement = ASTStatement::LetStatement(
-                                name.clone(),
-                                ASTFunctionCallExpression(call),
-                            );
-                            self.parser_data.pop();
-                            self.state.pop();
-                            let_statement
-                        } else {
-                            ASTStatement::Expression(ASTFunctionCallExpression(call))
-                        };
+                    let statement = if let Some(ParserData::Let(name, is_const)) =
+                        self.before_last_parser_data()
+                    {
+                        let let_statement = ASTStatement::LetStatement(
+                            name.clone(),
+                            ASTFunctionCallExpression(call),
+                            *is_const,
+                        );
+                        self.parser_data.pop();
+                        self.state.pop();
+                        let_statement
+                    } else {
+                        ASTStatement::Expression(ASTFunctionCallExpression(call))
+                    };
 
                     if let Some(ParserData::FunctionDef(def)) = self.before_last_parser_data() {
                         let mut def = def.clone();
@@ -1007,8 +1029,13 @@ impl Parser {
         None
     }
 
-    fn try_parse_let(&self) -> Option<(String, usize)> {
-        if let Some(TokenKind::KeyWord(KeywordKind::Let)) = self.get_token_kind() {
+    fn try_parse_let(&self, is_const: bool) -> Option<(String, usize)> {
+        let kind = if is_const {
+            KeywordKind::Const
+        } else {
+            KeywordKind::Let
+        };
+        if Some(&TokenKind::KeyWord(kind)) == self.get_token_kind() {
             if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
                 if let Some(TokenKind::Punctuation(PunctuationKind::Equal)) =
                     self.get_token_kind_n(2)

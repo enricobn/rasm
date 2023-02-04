@@ -202,7 +202,7 @@ fn test_chars() {
 
 #[test]
 fn test_let() {
-    test("let", vec![], "20\n20,10\n10\nè\ntrue\n");
+    test("let", vec![], "20\n20,10\n10\nè\ntrue\na string\n");
 }
 
 #[test]
@@ -240,6 +240,11 @@ fn test_type_check_1() {
 #[test]
 fn test_println() {
     test("println", vec![], "a string\n10\n");
+}
+
+#[test]
+fn test_const() {
+    test("const", vec![], "10\nè\ntrue\na string\n");
 }
 
 fn test(source: &str, args: Vec<&str>, expected_output: &str) {

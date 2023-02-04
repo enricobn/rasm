@@ -1,7 +1,9 @@
-use crate::parser::ValueType;
-use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+
+use linked_hash_map::LinkedHashMap;
+
+use crate::parser::ValueType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
@@ -233,14 +235,17 @@ impl Display for ASTExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTStatement {
     Expression(ASTExpression),
-    LetStatement(String, ASTExpression),
+    LetStatement(String, ASTExpression, bool),
 }
 
 impl Display for ASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTStatement::LetStatement(name, e) => f.write_str(&format!("let {name} = {e};\n")),
+            ASTStatement::LetStatement(name, e, is_const) => {
+                let keyword = if *is_const { "const" } else { "let" };
+                f.write_str(&format!("{keyword} {name} = {e};\n"))
+            }
         }
     }
 }

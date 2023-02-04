@@ -5,7 +5,20 @@ use crate::codegen::backend::Backend;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
-use crate::type_check::typed_ast::ASTTypedModule;
+use crate::parser::ast::ASTType;
+use crate::type_check::typed_ast::{ASTTypedModule, ASTTypedType};
+
+#[derive(Clone, Debug)]
+pub struct ConstEntry {
+    pub key: String,
+    pub ast_type: ASTType,
+}
+
+#[derive(Clone, Debug)]
+pub struct ConstTypedEntry {
+    pub key: String,
+    pub ast_typed_type: ASTTypedType,
+}
 
 #[derive(Clone, Debug)]
 pub struct Statics {
@@ -13,7 +26,8 @@ pub struct Statics {
     statics: LinkedHashMap<String, MemoryValue>,
     // string -> (label, value_label)
     strings_map: LinkedHashMap<String, (String, String)>,
-    chars_map: LinkedHashMap<char, (String, String)>,
+    const_map: LinkedHashMap<String, ConstEntry>,
+    const_typed_map: LinkedHashMap<String, ConstTypedEntry>,
 }
 
 impl Statics {
@@ -22,7 +36,8 @@ impl Statics {
             id: 0,
             statics: LinkedHashMap::new(),
             strings_map: LinkedHashMap::new(),
-            chars_map: LinkedHashMap::new(),
+            const_map: LinkedHashMap::new(),
+            const_typed_map: LinkedHashMap::new(),
         }
     }
 
@@ -40,19 +55,38 @@ impl Statics {
         }
     }
 
-    /*    pub fn add_char(&mut self, c: &char) -> String {
-        if let Some((label, _)) = self.chars_map.get(c) {
-            label.clone()
-        } else {
-            let value_label =
-                self.insert_prefix("_cv".into(), MemoryValue::StringValue(c.to_string()));
-            let label = self.insert_prefix("_c".into(), Mem(1, MemoryUnit::Words));
-
-            self.chars_map.insert(*c, (label.clone(), value_label));
-
-            label
+    pub fn add_const(&mut self, name: String, ast_type: ASTType) {
+        // TODO it's a trick: during type check passes consts are added again
+        if !self.const_map.contains_key(&name) {
+            let key =
+                self.insert_prefix("const".to_owned(), MemoryValue::Mem(1, MemoryUnit::Words));
+            self.const_map.insert(name, ConstEntry { key, ast_type });
         }
-    }*/
+    }
+
+    pub fn add_typed_const(&mut self, name: String, ast_typed_type: ASTTypedType) -> String {
+        if let Some(entry) = self.get_const(&name) {
+            let key = entry.key.clone();
+            self.const_typed_map.insert(
+                name,
+                ConstTypedEntry {
+                    key: key.clone(),
+                    ast_typed_type,
+                },
+            );
+            key
+        } else {
+            panic!("cannot find const {name}");
+        }
+    }
+
+    pub fn get_const(&self, name: &str) -> Option<&ConstEntry> {
+        self.const_map.get(name)
+    }
+
+    pub fn get_typed_const(&self, name: &str) -> Option<&ConstTypedEntry> {
+        self.const_typed_map.get(name)
+    }
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {
         assert!(self.statics.insert(key, value).is_none())
@@ -148,6 +182,14 @@ impl Statics {
 
     pub fn is_empty(&self) -> bool {
         self.statics.is_empty()
+    }
+
+    pub fn const_names(&self) -> Vec<&String> {
+        self.const_map.keys().collect::<Vec<_>>()
+    }
+
+    pub fn typed_const_names(&self) -> Vec<&String> {
+        self.const_typed_map.keys().collect::<Vec<_>>()
     }
 
     fn print_res(&mut self, backend: &dyn Backend, module: &ASTTypedModule) -> String {

@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use crate::codegen::statics::Statics;
 use crate::parser::ast::{
     ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTStatement, ASTStructDef, ASTType,
     ASTTypeDef,
@@ -15,7 +14,6 @@ pub struct EnhancedASTModule {
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
     pub native_body: String,
-    pub statics: Statics,
     pub requires: HashSet<String>,
     pub externals: HashSet<String>,
     pub types: Vec<ASTTypeDef>,
@@ -35,7 +33,6 @@ impl EnhancedASTModule {
             enums: module.enums.clone(),
             structs: module.structs.clone(),
             native_body: String::new(),
-            statics: Statics::new(),
             requires: module.requires.clone(),
             externals: module.externals.clone(),
             types: module.types.clone(),

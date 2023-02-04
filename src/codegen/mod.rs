@@ -336,7 +336,7 @@ impl<'a> CodeGen<'a> {
                         panic!("unsupported expression in body {e}");
                     }
                 },
-                ASTTypedStatement::LetStatement(name, expr) => {
+                ASTTypedStatement::LetStatement(name, expr, is_const) => {
                     let mut new_lambda_calls = self.add_let(
                         &mut context,
                         &stack,
@@ -346,6 +346,7 @@ impl<'a> CodeGen<'a> {
                         expr,
                         None,
                         None,
+                        *is_const,
                     );
                     self.lambdas.append(&mut new_lambda_calls);
                 }
@@ -514,6 +515,7 @@ impl<'a> CodeGen<'a> {
         expr: &ASTTypedExpression,
         function_def: Option<&ASTTypedFunctionDef>,
         lambda_space: Option<&LambdaSpace>,
+        is_const: bool,
     ) -> Vec<LambdaCall> {
         let wl = self.backend.word_len();
         let bp = self.backend.stack_base_pointer();
@@ -542,61 +544,151 @@ impl<'a> CodeGen<'a> {
             ),
             ASTTypedExpression::Value(value_type, _index) => {
                 let value = self.backend.value_to_string(value_type);
+                let typed_type =
+                    get_type_of_typed_expression(&self.module, &context, expr, None, &self.statics)
+                        .unwrap();
 
-                CodeGen::add(
-                    before,
-                    &format!(
-                        "mov {ws} [{bp} + {}], {}",
-                        -(address_relative_to_bp as i32),
-                        value
-                    ),
-                    Some(""),
-                    true,
-                );
-                (
-                    get_type_of_typed_expression(&self.module, &context, expr, None).unwrap(),
-                    (String::new(), vec![], vec![]),
-                )
+                if is_const {
+                    let key = self
+                        .statics
+                        .add_typed_const(name.to_owned(), typed_type.clone());
+
+                    CodeGen::add(
+                        &mut self.body,
+                        &format!("mov {ws} [{key}], {}", value),
+                        Some(""),
+                        true,
+                    );
+                } else {
+                    CodeGen::add(
+                        before,
+                        &format!(
+                            "mov {ws} [{bp} + {}], {}",
+                            -(address_relative_to_bp as i32),
+                            value
+                        ),
+                        Some(""),
+                        true,
+                    );
+                }
+                (typed_type, (String::new(), vec![], vec![]))
+            }
+            ASTTypedExpression::StringLiteral(value) => {
+                let label = self.statics.add_str(value);
+
+                let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
+
+                if is_const {
+                    let key = self
+                        .statics
+                        .add_typed_const(name.to_owned(), typed_type.clone());
+
+                    CodeGen::add(
+                        &mut self.body,
+                        "push ebx",
+                        Some(&format!("const {name} string value")),
+                        true,
+                    );
+
+                    CodeGen::add(
+                        &mut self.body,
+                        &format!("mov {ws} ebx, [{label}]"),
+                        Some(&format!("const {name} string value")),
+                        true,
+                    );
+
+                    CodeGen::add(
+                        &mut self.body,
+                        &format!("mov {ws} [{key}], ebx"),
+                        Some(&format!("const {name} string value")),
+                        true,
+                    );
+
+                    CodeGen::add(
+                        &mut self.body,
+                        "pop ebx",
+                        Some(&format!("const {name} string value")),
+                        true,
+                    );
+                } else {
+                    CodeGen::add(before, "push   ebx", None, true);
+
+                    CodeGen::add(before, &format!("mov {ws} ebx, [{label}]",), Some(""), true);
+
+                    CodeGen::add(
+                        before,
+                        &format!(
+                            "mov {ws} [{bp} + {}], ebx",
+                            -(address_relative_to_bp as i32),
+                        ),
+                        Some(""),
+                        true,
+                    );
+
+                    CodeGen::add(before, "pop   ebx", None, true);
+                }
+                (typed_type, (String::new(), vec![], vec![]))
             }
 
             _ => panic!("Unsupported let"),
         };
-        context.insert_let(name.into(), ast_typed_type.clone());
 
-        if !bf.is_empty() {
-            before.push_str(&bf);
-            self.backend
-                .store_function_result_in_stack(&mut before, -(address_relative_to_bp as i32));
-        }
-
-        if self.dereference {
-            if let Some(type_name) = CodeGen::get_reference_type_name(&ast_typed_type) {
-                self.backend.call_add_ref(
-                    before,
-                    "eax",
-                    &type_name,
-                    &format!("for let val {name}"),
-                    &self.module.clone(),
-                    &mut self.statics,
-                );
-
-                after.push_str(&self.backend.call_deref(
-                    &format!(
-                        "[{bp} - {}]",
-                        stack
-                            .find_relative_to_bp(StackEntryType::LetVal, name)
-                            .unwrap()
-                            * self.backend.word_len()
-                    ),
-                    &type_name,
-                    &format!("for let val {name}"),
-                    &self.module.clone(),
-                    &mut self.statics,
-                ));
+        if is_const {
+            if !bf.is_empty() {
+                todo!()
             }
-        }
 
-        Self::insert_on_top(&af.join("\n"), after);
+            if self.dereference {
+                if let Some(type_name) = CodeGen::get_reference_type_name(&ast_typed_type) {
+                    let entry = self.statics.get_typed_const(name).unwrap();
+
+                    self.backend.call_add_ref(
+                        &mut self.body,
+                        &format!("[{}]", entry.key),
+                        &type_name,
+                        &format!("for const {name}"),
+                        &self.module,
+                        &mut self.statics,
+                    );
+                }
+            }
+        } else {
+            context.insert_let(name.into(), ast_typed_type.clone());
+            if !bf.is_empty() {
+                before.push_str(&bf);
+                self.backend
+                    .store_function_result_in_stack(before, -(address_relative_to_bp as i32));
+            }
+
+            if self.dereference {
+                if let Some(type_name) = CodeGen::get_reference_type_name(&ast_typed_type) {
+                    self.backend.call_add_ref(
+                        before,
+                        "eax",
+                        &type_name,
+                        &format!("for let val {name}"),
+                        &self.module,
+                        &mut self.statics,
+                    );
+
+                    after.push_str(&self.backend.call_deref(
+                        &format!(
+                            "[{bp} - {}]",
+                            stack
+                                .find_relative_to_bp(StackEntryType::LetVal, name)
+                                .unwrap()
+                                * self.backend.word_len()
+                        ),
+                        &type_name,
+                        &format!("for let val {name}"),
+                        &self.module,
+                        &mut self.statics,
+                    ));
+                }
+            }
+
+            Self::insert_on_top(&af.join("\n"), after);
+        }
 
         new_lambda_calls
     }
@@ -908,7 +1000,7 @@ impl<'a> CodeGen<'a> {
                                 }
                             }
                         }
-                        ASTTypedStatement::LetStatement(name, expr) => {
+                        ASTTypedStatement::LetStatement(name, expr, is_const) => {
                             let mut new_lambda_calls = self.add_let(
                                 &mut context,
                                 &stack,
@@ -918,6 +1010,7 @@ impl<'a> CodeGen<'a> {
                                 expr,
                                 Some(function_def),
                                 lambda_space,
+                                *is_const,
                             );
                             lambda_calls.append(&mut new_lambda_calls);
                         }
@@ -1227,7 +1320,7 @@ impl<'a> CodeGen<'a> {
                 match expr {
                     ASTTypedExpression::StringLiteral(value) => {
                         let label = self.statics.add_str(value);
-                        call_parameters.add_string_literal(&param_name, label, None);
+                        call_parameters.add_label(&param_name, label, None);
                     }
                     /*ASTTypedExpression::CharLiteral(c) => {
                         let label = self.statics.add_char(c);
@@ -1557,6 +1650,12 @@ impl<'a> CodeGen<'a> {
                     )
                 }
             }
+        } else if let Some(entry) = self.statics.get_typed_const(val_name) {
+            call_parameters.add_label(
+                param_name,
+                entry.key.clone(),
+                Some(&format!("static {val_name}")),
+            )
         } else {
             panic!("Error adding val {}: {}", param_name, error_msg);
         }

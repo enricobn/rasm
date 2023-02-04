@@ -202,15 +202,16 @@ impl Display for ASTTypedExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedStatement {
     Expression(ASTTypedExpression),
-    LetStatement(String, ASTTypedExpression),
+    LetStatement(String, ASTTypedExpression, bool),
 }
 
 impl Display for ASTTypedStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypedStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTTypedStatement::LetStatement(name, e) => {
-                f.write_str(&format!("let {name} = {e};\n"))
+            ASTTypedStatement::LetStatement(name, e, is_const) => {
+                let keyword = if *is_const { "const" } else { "let" };
+                f.write_str(&format!("{keyword} {name} = {e};\n"))
             }
         }
     }
@@ -521,7 +522,7 @@ pub fn convert_to_typed_module(
 
     mandatory_functions
         .into_iter()
-        .for_each(|it| add_default_function(module, it, true, typed_context, backend));
+        .for_each(|it| add_default_function(module, it, true, typed_context, backend, statics));
 
     let default_functions = &mut vec![
         DefaultFunctionCall::new_1("malloc", BuiltinTypeKind::I32),
@@ -594,7 +595,7 @@ pub fn convert_to_typed_module(
     //default_functions.dedup_by(|a, b| a.name == b.name);
 
     for it in default_functions {
-        add_default_function(module, it.clone(), false, typed_context, backend)
+        add_default_function(module, it.clone(), false, typed_context, backend, statics)
     }
 
     let mut new_typed_context = typed_context.clone();
@@ -629,6 +630,7 @@ pub fn convert_to_typed_module(
                 &cloned_typed_context,
                 &resolved_param_types,
                 new_function_def,
+                statics,
             )
             .unwrap()
             {
@@ -646,6 +648,7 @@ pub fn convert_to_typed_module(
                     backend,
                     module,
                     &cloned_typed_context,
+                    statics,
                 ),
             );
         }
@@ -698,16 +701,16 @@ pub fn convert_to_typed_module(
         print_typed_module(&result);
     }
 
-    verify(&result);
+    verify(&result, statics);
 
     result
 }
 
-fn verify(module: &ASTTypedModule) {
+fn verify(module: &ASTTypedModule, statics: &mut Statics) {
     let mut context = TypedValContext::new(None);
 
     for statement in module.body.iter() {
-        verify_statement(module, &mut context, statement);
+        verify_statement(module, &mut context, statement, statics);
     }
 
     for function_def in module.functions_by_name.values() {
@@ -719,7 +722,7 @@ fn verify(module: &ASTTypedModule) {
 
         if let ASTTypedFunctionBody::RASMBody(expressions) = &function_def.body {
             for statement in expressions.iter() {
-                verify_statement(module, &mut context, statement)
+                verify_statement(module, &mut context, statement, statics)
             }
         }
     }
@@ -729,14 +732,15 @@ fn verify_statement(
     module: &ASTTypedModule,
     context: &mut TypedValContext,
     statement: &ASTTypedStatement,
+    statics: &mut Statics,
 ) {
     match statement {
         ASTTypedStatement::Expression(e) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                verify_function_call(module, context, call);
+                verify_function_call(module, context, call, statics);
             }
         }
-        ASTTypedStatement::LetStatement(name, e) => {
+        ASTTypedStatement::LetStatement(name, e, is_const) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                 let ast_typed_type =
                     if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
@@ -761,17 +765,26 @@ fn verify_statement(
                     } else {
                         panic!("{call}")
                     };
-                context.insert_let(name.clone(), ast_typed_type.unwrap());
+
+                if *is_const {
+                    statics.add_typed_const(name.to_owned(), ast_typed_type.unwrap());
+                } else {
+                    context.insert_let(name.clone(), ast_typed_type.unwrap());
+                }
             } else if let Some(ast_typed_type) =
-                get_type_of_typed_expression(module, context, e, None)
+                get_type_of_typed_expression(module, context, e, None, statics)
             {
-                context.insert_let(name.clone(), ast_typed_type);
+                if *is_const {
+                    statics.add_typed_const(name.to_owned(), ast_typed_type);
+                } else {
+                    context.insert_let(name.clone(), ast_typed_type);
+                }
             } else {
                 panic!("unsupported let")
             }
 
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                verify_function_call(module, context, call);
+                verify_function_call(module, context, call, statics);
             }
         }
     }
@@ -781,6 +794,7 @@ fn verify_function_call(
     module: &ASTTypedModule,
     context: &TypedValContext,
     call: &ASTTypedFunctionCall,
+    statics: &Statics,
 ) {
     debug!("call {call}");
 
@@ -823,7 +837,7 @@ fn verify_function_call(
         let par = parameters_types.get(i).unwrap().clone();
         debug!("par type {par}");
         assert_eq!(
-            get_type_of_typed_expression(module, context, expr, Some(&par)).unwrap(),
+            get_type_of_typed_expression(module, context, expr, Some(&par), statics).unwrap(),
             par,
             "expression {:?}",
             expr
@@ -836,6 +850,7 @@ pub fn get_type_of_typed_expression(
     context: &TypedValContext,
     expr: &ASTTypedExpression,
     ast_type: Option<&ASTTypedType>,
+    statics: &Statics,
 ) -> Option<ASTTypedType> {
     debug!("expression {expr} {:?}", ast_type);
     match expr {
@@ -877,8 +892,14 @@ pub fn get_type_of_typed_expression(
                 Some(par.ast_type.clone())
             } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(name) {
                 Some(ast_type.clone())
+            } else if let Some(entry) = statics.get_typed_const(name) {
+                Some(entry.ast_typed_type.clone())
             } else {
-                panic!("Unknown val {name}: {:?}", context);
+                panic!(
+                    "Unknown val {name} context: {:?} statics: {:?}",
+                    context,
+                    statics.typed_const_names()
+                );
             }
         }
         ASTTypedExpression::Value(val_type, _) => match val_type {
@@ -914,10 +935,10 @@ pub fn get_type_of_typed_expression(
                 match statement {
                     ASTTypedStatement::Expression(e) => {
                         if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                            verify_function_call(module, &context, call);
+                            verify_function_call(module, &context, call, statics);
                         }
                     }
-                    ASTTypedStatement::LetStatement(name, e) => {
+                    ASTTypedStatement::LetStatement(name, e, is_const) => {
                         if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                             let ast_typed_type = module
                                 .functions_by_name
@@ -926,12 +947,20 @@ pub fn get_type_of_typed_expression(
                                 .return_type
                                 .clone()
                                 .unwrap();
-                            context.insert_let(name.clone(), ast_typed_type);
-                            verify_function_call(module, &context, call);
+                            if *is_const {
+                                panic!("const not allowed here")
+                            } else {
+                                context.insert_let(name.clone(), ast_typed_type);
+                            }
+                            verify_function_call(module, &context, call, statics);
                         } else if let Some(ast_typed_type) =
-                            get_type_of_typed_expression(module, &context, e, None)
+                            get_type_of_typed_expression(module, &context, e, None, statics)
                         {
-                            context.insert_let(name.clone(), ast_typed_type);
+                            if *is_const {
+                                panic!("const not allowed here");
+                            } else {
+                                context.insert_let(name.clone(), ast_typed_type);
+                            }
                         } else {
                             panic!("unsupported let")
                         }
@@ -942,10 +971,10 @@ pub fn get_type_of_typed_expression(
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
                 match last {
                     ASTTypedStatement::Expression(e) => {
-                        get_type_of_typed_expression(module, &context, e, None)
+                        get_type_of_typed_expression(module, &context, e, None, statics)
                     }
-                    ASTTypedStatement::LetStatement(_, e) => {
-                        get_type_of_typed_expression(module, &context, e, None)
+                    ASTTypedStatement::LetStatement(_, e, _is_const) => {
+                        get_type_of_typed_expression(module, &context, e, None, statics)
                     }
                 }
             } else {
@@ -975,6 +1004,7 @@ fn add_default_function(
     mandatory: bool,
     typed_context: &RefCell<TypeConversionContext>,
     backend: &dyn Backend,
+    statics: &Statics,
 ) {
     let context = ValContext::new(None);
 
@@ -988,6 +1018,7 @@ fn add_default_function(
         None,
         backend,
         &CallStack::new(),
+        statics,
     ) {
         Err(e) => {
             panic!(
@@ -1031,6 +1062,7 @@ pub fn function_def(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
     typed_context: &RefCell<TypeConversionContext>,
+    statics: &Statics,
 ) -> ASTTypedFunctionDef {
     if !def.param_types.is_empty() {
         panic!("function def has generics: {def}");
@@ -1118,6 +1150,7 @@ pub fn function_def(
                         None,
                         backend,
                         &CallStack::new(),
+                        statics,
                     ) {
                         debug_i!("new_call {:?}", new_call);
                         new_call.function_name
@@ -1233,8 +1266,8 @@ fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
 fn statement(it: &ASTStatement) -> ASTTypedStatement {
     match it {
         ASTStatement::Expression(e) => ASTTypedStatement::Expression(expression(e)),
-        ASTStatement::LetStatement(name, e) => {
-            ASTTypedStatement::LetStatement(name.clone(), expression(e))
+        ASTStatement::LetStatement(name, e, is_const) => {
+            ASTTypedStatement::LetStatement(name.clone(), expression(e), *is_const)
         }
     }
 }

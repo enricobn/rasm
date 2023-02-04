@@ -1,0 +1,15 @@
+include "std.rasm"
+
+const aNumber = 10;
+const aChar = 'è';
+const aBool = true;
+const aString = "a string";
+
+test();
+
+fn test() {
+    println(aNumber);
+    println(aChar);
+    println(aBool);
+    println(aString);
+}

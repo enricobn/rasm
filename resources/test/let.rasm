@@ -12,6 +12,9 @@ println(aChar);
 let aBool = true;
 println(aBool);
 
+let aString = "a string";
+println(aString);
+
 fn test(n: i32) -> i32 {
     let ten = 10;
 

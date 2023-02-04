@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -139,6 +140,7 @@ pub enum BracketStatus {
 #[derive(Debug, PartialEq, Eq, EnumIter, Clone)]
 pub enum KeywordKind {
     Asm,
+    Const,
     Enum,
     Extern,
     False,
@@ -156,6 +158,7 @@ impl KeywordKind {
     pub fn name(&self) -> String {
         match self {
             KeywordKind::Asm => "asm".into(),
+            KeywordKind::Const => "const".into(),
             KeywordKind::Enum => "enum".into(),
             KeywordKind::Extern => "extern".into(),
             KeywordKind::False => "false".into(),
