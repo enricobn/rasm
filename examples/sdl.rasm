@@ -12,6 +12,7 @@ extern "SDL_FreeSurface"
 extern "SDL_GetError"
 extern "SDL_LoadBMP_RW"
 extern "SDL_Init"
+extern "SDL_PollEvent"
 extern "SDL_RenderClear"
 extern "SDL_RenderCopy"
 extern "SDL_RenderFillRect"
@@ -99,4 +100,63 @@ asm sdlSetRenderDrawColor(ren: i32, r: i32, g: i32, b: i32, a: i32) /{
 
 asm sdlRenderFillRect(ren: i32, rect: SDLRect) /{
     $ccall(SDL_RenderFillRect, $ren, $rect)
+}/
+
+/*
+SDL C types:
+
+typedef union{
+  Uint8 type;
+  SDL_ActiveEvent active;
+  SDL_KeyboardEvent key;
+  SDL_MouseMotionEvent motion;
+  SDL_MouseButtonEvent button;
+  SDL_JoyAxisEvent jaxis;
+  SDL_JoyBallEvent jball;
+  SDL_JoyHatEvent jhat;
+  SDL_JoyButtonEvent jbutton;
+  SDL_ResizeEvent resize;
+  SDL_ExposeEvent expose;
+  SDL_QuitEvent quit;
+  SDL_UserEvent user;
+  SDL_SysWMEvent syswm;
+} SDL_Event;
+
+typedef struct{
+  Uint8 type;
+  Uint8 state;
+  SDL_keysym keysym;
+} SDL_KeyboardEvent;
+
+typedef struct{
+  Uint8 scancode;
+  SDLKey sym;
+  SDLMod mod;
+  Uint16 unicode;
+} SDL_keysym;
+
+*/
+asm keyDown() -> i32 /{
+    $call(malloc, 56)
+    push  dword  [eax]
+    $ccall(SDL_PollEvent, [eax]);
+    cmp     eax, 0
+    jz      .noKey
+    pop     eax             ; here we have the address of the SDL_Event
+    push    ebx
+    mov     dword ebx, eax  ; here we have the address of the SDL_Event
+    mov     dword eax,[ebx] ; here we have the type
+    cmp     eax, 768        ; keyDown
+    jnz     .noKeyDown
+    mov     dword eax,[ebx + 16] ; here we have the key
+    pop     ebx
+    jmp     .end
+.noKey:
+    add     esp, 4
+    mov     dword eax, 0
+    jmp     .end
+.noKeyDown:
+    pop     ebx
+    mov     dword eax, 0
+.end:
 }/
