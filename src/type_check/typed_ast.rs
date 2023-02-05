@@ -769,7 +769,7 @@ fn verify_statement(
                 if *is_const {
                     statics.add_typed_const(name.to_owned(), ast_typed_type.unwrap());
                 } else {
-                    context.insert_let(name.clone(), ast_typed_type.unwrap());
+                    context.insert_let(name.clone(), ast_typed_type.unwrap(), None);
                 }
             } else if let Some(ast_typed_type) =
                 get_type_of_typed_expression(module, context, e, None, statics)
@@ -777,7 +777,7 @@ fn verify_statement(
                 if *is_const {
                     statics.add_typed_const(name.to_owned(), ast_typed_type);
                 } else {
-                    context.insert_let(name.clone(), ast_typed_type);
+                    context.insert_let(name.clone(), ast_typed_type, None);
                 }
             } else {
                 panic!("unsupported let")
@@ -950,7 +950,7 @@ pub fn get_type_of_typed_expression(
                             if *is_const {
                                 panic!("const not allowed here")
                             } else {
-                                context.insert_let(name.clone(), ast_typed_type);
+                                context.insert_let(name.clone(), ast_typed_type, None);
                             }
                             verify_function_call(module, &context, call, statics);
                         } else if let Some(ast_typed_type) =
@@ -959,7 +959,7 @@ pub fn get_type_of_typed_expression(
                             if *is_const {
                                 panic!("const not allowed here");
                             } else {
-                                context.insert_let(name.clone(), ast_typed_type);
+                                context.insert_let(name.clone(), ast_typed_type, None);
                             }
                         } else {
                             panic!("unsupported let")

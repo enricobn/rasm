@@ -13,6 +13,7 @@ pub struct StackEntry {
     desc: String,
 }
 
+#[derive(Debug)]
 pub struct StackVals {
     reserved_slots: RefCell<Vec<StackEntry>>,
 }

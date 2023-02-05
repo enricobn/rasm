@@ -23,9 +23,9 @@ use crate::transformations::typed_enum_functions_creator::typed_enum_functions_c
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::typed_ast::{
-    get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
-    BuiltinTypedTypeKind,
+    get_type_of_typed_expression, print_typed_module, ASTTypedExpression, ASTTypedFunctionBody,
+    ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
+    ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{convert, replace_native_call};
@@ -162,10 +162,15 @@ impl TypedValContext {
         &mut self,
         key: String,
         ast_typed_type: ASTTypedType,
+        index_relative_to_bp: Option<usize>,
     ) -> Option<TypedValKind> {
-        let result = self
-            .value_to_address
-            .insert(key, TypedValKind::LetRef(self.let_index, ast_typed_type));
+        let result = self.value_to_address.insert(
+            key,
+            TypedValKind::LetRef(
+                index_relative_to_bp.unwrap_or(self.let_index + 1),
+                ast_typed_type,
+            ),
+        );
         self.let_index += 1;
         result
     }
@@ -666,7 +671,11 @@ impl<'a> CodeGen<'a> {
                 }
             }
         } else {
-            context.insert_let(name.into(), ast_typed_type.clone());
+            context.insert_let(
+                name.into(),
+                ast_typed_type.clone(),
+                Some(address_relative_to_bp / self.backend.word_len()),
+            );
             if !bf.is_empty() {
                 before.push_str(&bf);
                 self.backend
@@ -1651,7 +1660,7 @@ impl<'a> CodeGen<'a> {
                 TypedValKind::LetRef(index, ast_typed_type) => {
                     let index_in_context = stack_vals
                         .find_relative_to_bp(StackEntryType::LetVal, val_name)
-                        .unwrap_or(*index + 1);
+                        .unwrap_or(*index);
 
                     call_parameters.add_let_val_ref(
                         param_name.into(),
