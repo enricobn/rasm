@@ -17,9 +17,21 @@ struct Brick {
     color: Color
 }
 
+enum XDirection {
+    Left,
+    Right
+}
+
+enum YDirection {
+    Up,
+    Down
+}
+
 struct Ball {
     x: i32,
     y: i32,
+    xDir: XDirection,
+    yDir: YDirection
 }
 
 struct World {
@@ -36,7 +48,7 @@ const BRICKHEIGHT = 10;
 sdlInit();
 
 let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), mul(y, BRICKHEIGHT) , Color::Yellow()); });
-let initialWorld = World(bricks, Ball(500, 500), 500);
+let initialWorld = World(bricks, Ball(500, 500, XDirection::Right(), YDirection::Up()), 500);
 
 runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n", { win ->
     runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
@@ -45,16 +57,7 @@ runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow
         singleLoop(ren, initialWorld, { event,world -> world;}, { ren, world -> });
 
         loop(ren, initialWorld,
-            { event, world ->
-                let newWorld = if(eq(event, 80), { -> moveBarLeft(world); }, { -> if(eq(event, 79), { -> moveBarRight(world); }, { -> world;});});
-
-                let ball = World::ball(newWorld);
-                let x = Ball::x(ball);
-                let y = Ball::y(ball);
-                let newBall = Ball(add(x, 1), add(y, 1));
-
-                World(World::bricks(newWorld), newBall, World::barPos(newWorld));
-            },
+            { event, world -> update(event, world);},
             { ren, world -> render(ren, world);}
         );
 
@@ -62,6 +65,35 @@ runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow
         sdlDestroyWindow(win);
     });
 });
+
+fn update(event: i32, world: World) -> World {
+    let newWorld = if(eq(event, 80), { -> moveBarLeft(world); }, { -> if(eq(event, 79), { -> moveBarRight(world); }, { -> world;});});
+
+    let ball = World::ball(newWorld);
+    let x = Ball::x(ball);
+    let y = Ball::y(ball);
+    let xDir = Ball::xDir(ball);
+    let yDir = Ball::yDir(ball);
+
+    let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
+    let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
+
+    let newXDir = if(or(greater(newX, WIDTH), less(newX, 5)), { -> flipx(xDir); }, { -> xDir;});
+    let newYDir = if(or(greater(newY, HEIGHT), less(newY, 5)), { -> flipy(yDir); }, { -> yDir;});
+
+    let newBall = Ball(newX, newY, newXDir, newYDir);
+
+    World(World::bricks(newWorld), newBall, World::barPos(newWorld));
+}
+
+fn flipx(xDir: XDirection) -> XDirection {
+    XDirection::match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
+}
+
+fn flipy(yDir: YDirection) -> YDirection {
+    YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
+}
+
 
 fn worldUpdate(world: World, bricksUpdate: fn(Vec<Brick>) -> Vec<Brick>, ballUpdate: fn(Ball) -> Ball, barPosUpdate: fn(i32) -> i32) -> World {
     let bricks = bricksUpdate(World::bricks(world));

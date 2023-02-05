@@ -58,7 +58,7 @@ impl StackVals {
             }
             if entry.entry_type == entry_type && entry.desc == desc {
                 if found {
-                    panic!();
+                    panic!("{desc}");
                 } else {
                     found = true;
                 }

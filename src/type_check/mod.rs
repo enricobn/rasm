@@ -1744,7 +1744,7 @@ fn get_called_function(
         debug_i!("found function def {fd}");
 
         if verify_function.is_none() && !only_from_module && !function_def_from_module {
-            if let Ok(Some((f, _))) = get_called_function(
+            if let Ok(Some((f, new_function_def_from_module))) = get_called_function(
                 module,
                 context,
                 call,
@@ -1757,7 +1757,9 @@ fn get_called_function(
                 statics,
             ) {
                 if f != fd {
-                    return Err("different function".into());
+                    // TODO it's really a guess...
+                    return Ok(Some((f, new_function_def_from_module)));
+                    //return Err(format!("different function {f} {fd}").into());
                 }
             } else {
                 // panic!("invalid function");
@@ -1776,7 +1778,7 @@ fn get_called_function(
             }
         }
 
-        Ok(Some((fd.clone(), function_def_from_module)))
+        Ok(Some((fd, function_def_from_module)))
     } else {
         debug_i!("cannot find function");
         Ok(None)
