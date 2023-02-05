@@ -582,9 +582,14 @@ impl<'a> FunctionCallParameters<'a> {
     ) -> String {
         let mut result = body.to_string();
 
-        let mut i = 0;
         let word_len = self.backend.word_len() as i32;
-        for par in self.parameters.iter() {
+
+        let mut parameters = self.parameters.iter().enumerate().collect::<Vec<_>>();
+        parameters.sort_by(|(_, a), (_, b)| a.name.cmp(&b.name).reverse());
+
+        for (index, par) in parameters.iter() {
+            let i = *index;
+
             if let Some(par_value) = self.parameters_values.get(&par.name) {
                 debug!(
                     "{}found parameter {}, value: {}",
@@ -632,7 +637,7 @@ impl<'a> FunctionCallParameters<'a> {
                     crate::codegen::STACK_VAL_SIZE_NAME
                 )
             } else {
-                format!("{}", (i + 2) * self.backend.word_len() as i32)
+                format!("{}", (i as i32 + 2) * self.backend.word_len() as i32)
             };
 
             let address = format!(
@@ -642,7 +647,6 @@ impl<'a> FunctionCallParameters<'a> {
             );
 
             result = result.replace(&format!("${}", par.name), &address);
-            i += 1;
         }
 
         result
