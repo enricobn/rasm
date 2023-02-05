@@ -15,6 +15,12 @@ inline asm add(n1: i32, n2: i32) -> i32 /{
     add     eax, $n2
 }/
 
+/** Subtracts two numbers **/
+inline asm sub(n1: i32, n2: i32) -> i32 /{
+    mov     eax, $n1
+    sub     eax, $n2
+}/
+
 /** Multiply two numbers, but we return only the low 32 bit (edx is saved) **/
 inline asm mul(n1: i32, n2: i32) -> i32 /{
     push    edx

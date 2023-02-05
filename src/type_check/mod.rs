@@ -283,16 +283,28 @@ fn convert_body(
                 ASTStatement::Expression(_) => Ok(new_statement),
                 ASTStatement::LetStatement(name, expr, is_const) => match expr {
                     ASTFunctionCallExpression(call) => {
-                        let ast_type = type_conversion_context
-                            .borrow()
-                            .find_function(&call.function_name)
-                            .unwrap()
-                            .return_type
-                            .clone()
-                            .unwrap();
+                        let ast_type = if let Some(kind) = context.get(&call.function_name) {
+                            match kind {
+                                ValKind::ParameterRef(_, def) => def.ast_type.clone(),
+                                ValKind::LetRef(_, ast_type) => ast_type.clone(),
+                            }
+                        } else {
+                            type_conversion_context
+                                .borrow()
+                                .find_function(&call.function_name)
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "cannot find function {}: {}",
+                                        &call.function_name, &call.index
+                                    )
+                                })
+                                .return_type
+                                .clone()
+                                .unwrap()
+                        };
 
                         if *is_const {
-                            context.insert_let(name.clone(), ast_type);
+                            panic!("const not allowed here");
                         } else {
                             context.insert_let(name.clone(), ast_type);
                         }

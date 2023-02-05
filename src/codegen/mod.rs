@@ -523,25 +523,38 @@ impl<'a> CodeGen<'a> {
         let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
 
         let (ast_typed_type, (bf, af, new_lambda_calls)) = match expr {
-            ASTTypedExpression::ASTFunctionCallExpression(call) => (
-                self.module
-                    .functions_by_name
-                    .get(&call.function_name.replace("::", "_"))
-                    .unwrap()
-                    .return_type
-                    .clone()
-                    .unwrap(),
-                self.call_function(
-                    call,
-                    context,
-                    function_def,
-                    "0".into(),
-                    lambda_space,
-                    0,
-                    false,
-                    stack,
-                ),
-            ),
+            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                if let Some(kind) = context.get(&call.function_name) {
+                    todo!();
+
+                    let typed_type = match kind {
+                        TypedValKind::ParameterRef(_, def) => def.ast_type.clone(),
+                        TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
+                    };
+
+                    (typed_type, (String::new(), vec![], vec![]))
+                } else {
+                    (
+                        self.module
+                            .functions_by_name
+                            .get(&call.function_name.replace("::", "_"))
+                            .unwrap()
+                            .return_type
+                            .clone()
+                            .unwrap(),
+                        self.call_function(
+                            call,
+                            context,
+                            function_def,
+                            "0".into(),
+                            lambda_space,
+                            0,
+                            false,
+                            stack,
+                        ),
+                    )
+                }
+            }
             ASTTypedExpression::Value(value_type, _index) => {
                 let value = self.backend.value_to_string(value_type);
                 let typed_type =
