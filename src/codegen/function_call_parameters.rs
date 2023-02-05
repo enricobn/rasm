@@ -584,12 +584,11 @@ impl<'a> FunctionCallParameters<'a> {
 
         let word_len = self.backend.word_len() as i32;
 
-        let mut parameters = self.parameters.iter().enumerate().collect::<Vec<_>>();
-        parameters.sort_by(|(_, a), (_, b)| a.name.cmp(&b.name).reverse());
+        let mut i = 0;
 
-        for (index, par) in parameters.iter() {
-            let i = *index;
+        let mut substitutions = Vec::new();
 
+        for par in self.parameters.iter() {
             if let Some(par_value) = self.parameters_values.get(&par.name) {
                 debug!(
                     "{}found parameter {}, value: {}",
@@ -601,7 +600,7 @@ impl<'a> FunctionCallParameters<'a> {
                     ";found parameter {}, value: {}\n",
                     par.name, par_value
                 ));
-                result = result.replace(&format!("${}", par.name), par_value);
+                substitutions.push((par.name.clone(), par_value.clone()));
                 continue;
             }
 
@@ -646,7 +645,14 @@ impl<'a> FunctionCallParameters<'a> {
                 relative_address
             );
 
-            result = result.replace(&format!("${}", par.name), &address);
+            substitutions.push((par.name.clone(), address));
+            i += 1;
+        }
+
+        substitutions.sort_by(|(a, _), (b, _)| a.cmp(b).reverse());
+
+        for (par_name, value) in substitutions {
+            result = result.replace(&format!("${}", par_name), &value);
         }
 
         result
