@@ -74,6 +74,7 @@ fn update(event: i32, world: World) -> World {
     let y = Ball::y(ball);
     let xDir = Ball::xDir(ball);
     let yDir = Ball::yDir(ball);
+    let bricks = World::bricks(newWorld);
 
     let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
     let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
@@ -83,7 +84,20 @@ fn update(event: i32, world: World) -> World {
 
     let newBall = Ball(newX, newY, newXDir, newYDir);
 
-    World(World::bricks(newWorld), newBall, World::barPos(newWorld));
+    World(collision(bricks, newX, newY), newBall, World::barPos(newWorld));
+}
+
+fn collision(bricks: Vec<Brick>, x: i32, y: i32) -> Vec<Brick> {
+
+    filter(bricks, { brick ->
+        let bx = Brick::x(brick);
+        let by = Brick::y(brick);
+
+        let xColl = and(greater(x, bx), less(x, add(bx, BRICKWIDTH)));
+        let yColl = and(greater(y, by), less(y, add(by, BRICKHEIGHT)));
+        not(and(xColl, yColl));
+    });
+
 }
 
 fn flipx(xDir: XDirection) -> XDirection {
