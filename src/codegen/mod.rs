@@ -647,8 +647,45 @@ impl<'a> CodeGen<'a> {
                 }
                 (typed_type, (String::new(), vec![], vec![]))
             }
+            ASTTypedExpression::ValueRef(name, _index) => {
+                if let Some(typedValKind) = context.get(name) {
+                    let (i, typed_type) = match typedValKind {
+                        TypedValKind::ParameterRef(i, def) => (i, def.ast_type.clone()),
+                        TypedValKind::LetRef(i, def) => (i, def.clone()),
+                    };
+                    CodeGen::add(before, "push   ebx", None, true);
 
-            _ => panic!("Unsupported let"),
+                    CodeGen::add(
+                        before,
+                        &format!(
+                            "mov ebx, [{} + {} + {}]",
+                            self.backend.stack_base_pointer(),
+                            self.backend.word_len(),
+                            (i + 1) * self.backend.word_len() as usize
+                        ),
+                        None,
+                        true,
+                    );
+
+                    CodeGen::add(
+                        before,
+                        &format!(
+                            "mov {ws} [{bp} + {}], ebx",
+                            -(address_relative_to_bp as i32),
+                        ),
+                        Some(""),
+                        true,
+                    );
+
+                    CodeGen::add(before, "pop   ebx", None, true);
+
+                    (typed_type, (String::new(), vec![], vec![]))
+                } else {
+                    panic!("Cannot find {name} in context");
+                }
+            }
+
+            _ => panic!("Unsupported let {:?}", expr),
         };
 
         if is_const {

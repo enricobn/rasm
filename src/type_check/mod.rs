@@ -321,7 +321,21 @@ fn convert_body(
                         }
                         Ok(new_statement)
                     }
-                    _ => Err(format!("unsupported let value {expr}").into()),
+                    ASTExpression::ValueRef(name, _index) => {
+                        if *is_const {
+                            panic!("const not allowed here");
+                        } else if let Some(kind) = context.get(name) {
+                            let ast_type = match kind {
+                                ValKind::ParameterRef(_, def) => def.ast_type.clone(),
+                                ValKind::LetRef(_, ast_type) => ast_type.clone(),
+                            };
+                            context.insert_let(name.clone(), ast_type);
+                            Ok(new_statement)
+                        } else {
+                            Err("Cannot find {name} in context".into())
+                        }
+                    }
+                    _ => Err(format!("unsupported let value {:?}", expr).into()),
                 },
             }
         })
