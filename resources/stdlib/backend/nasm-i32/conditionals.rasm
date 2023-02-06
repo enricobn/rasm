@@ -1,31 +1,43 @@
 inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+13
+    jz      $+16
     mov     eax, $ftrue     ; ftrue points to the lambda space
     push    eax             ; the address to the lambda space is the last argument of every lambda
     call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
-    jmp     $+11
+    jmp     $+16
+    nop
+    nop
+    nop
     mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
     push    eax
     call    [eax]           ; false value
     add     esp, 4
+    nop
+    nop
+    nop
 }/
 
 inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+13
+    jz      $+16
     mov     eax, $ftrue     ; ftrue points to the lambda space
     push    eax             ; the address to the lambda space is the last argument of every lambda
     call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
-    jmp     $+11
+    jmp     $+16
+    nop
+    nop
+    nop
     mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
     push    eax
     call    [eax]           ; false value
     add     esp, 4
+    nop
+    nop
+    nop
 }/
 
 /**
