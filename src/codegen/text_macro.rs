@@ -219,7 +219,8 @@ impl TextMacroEvaluator {
     }
 
     fn parse_typed_argument(p: &str, typed_type: Option<ASTTypedType>) -> (&str, Option<ASTType>) {
-        let (par_name, par_type) = if p.contains(':') {
+        // TODO the check of :: is a trick since function names could have ::, try to do it better
+        let (par_name, par_type) = if p.contains(':') && !p.contains("::") {
             let vec = p.split(':').collect::<Vec<_>>();
             let par_type_name = vec.get(1).unwrap().trim();
             let par_name = vec.first().unwrap().trim();
