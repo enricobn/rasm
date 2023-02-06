@@ -79,32 +79,75 @@ fn update(event: i32, world: World) -> World {
     let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
     let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
 
-    let newXDir = if(or(greater(newX, WIDTH), less(newX, 5)), { -> flipx(xDir); }, { -> xDir;});
-    let newYDir = if(or(greater(newY, HEIGHT), less(newY, 5)), { -> flipy(yDir); }, { -> yDir;});
+    let newXDir = if(or(greater(newX, WIDTH), less(newX, 5)), { -> flip(xDir); }, { -> xDir;});
+    let newYDir = if(or(greater(newY, HEIGHT), less(newY, 5)), { -> flip(yDir); }, { -> yDir;});
 
     let newBall = Ball(newX, newY, newXDir, newYDir);
 
-    World(collision(bricks, newX, newY), newBall, World::barPos(newWorld));
+    let collision = collision(bricks, newBall);
+
+    let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
+
+    let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
+
+    World(newBricks, newBall1, World::barPos(newWorld));
 }
 
-fn collision(bricks: Vec<Brick>, x: i32, y: i32) -> Vec<Brick> {
+fn eq(b1: Brick, b2: Brick) -> bool {
+    let b1x = Brick::x(b1);
+    let b1y = Brick::y(b1);
 
-    filter(bricks, { brick ->
+    let b2x = Brick::x(b2);
+    let b2y = Brick::y(b2);
+
+    and(eq(b1x, b2x), eq(b1y, b2y));
+}
+
+fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
+    let x = Ball::x(ball);
+    let y = Ball::y(ball);
+
+    first(filter(bricks, { brick ->
         let bx = Brick::x(brick);
         let by = Brick::y(brick);
 
         let xColl = and(greater(x, bx), less(x, add(bx, BRICKWIDTH)));
         let yColl = and(greater(y, by), less(y, add(by, BRICKHEIGHT)));
-        not(and(xColl, yColl));
-    });
+
+        and(xColl, yColl);
+    }));
 
 }
 
-fn flipx(xDir: XDirection) -> XDirection {
+fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
+    let ballX = Ball::x(ball);
+    let ballY = Ball::y(ball);
+    let xDir = Ball::xDir(ball);
+    let yDir = Ball::yDir(ball);
+
+    let brickX = Brick::x(brick);
+    let brickY = Brick::y(brick);
+
+    let xDiff1 = sub(ballX, brickX);
+    let xDiff2 = sub(add(brickX, BRICKWIDTH), ballX);
+    let yDiff1 = sub(ballY, brickY);
+    let yDiff2 = sub(add(brickY, BRICKHEIGHT), ballY);
+
+    let xDiff = min(xDiff1, xDiff2);
+    let yDiff = min(yDiff1, yDiff2);
+
+    if(less(xDiff, yDiff), { -> Ball(ballX, ballY, flip(xDir), yDir);}, { -> Ball(ballX, ballY, xDir, flip(yDir));});
+}
+
+fn min(a: i32, b: i32) -> i32 {
+    ifImmediate(less(a, b), a, b);
+}
+
+fn flip(xDir: XDirection) -> XDirection {
     XDirection::match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
 }
 
-fn flipy(yDir: YDirection) -> YDirection {
+fn flip(yDir: YDirection) -> YDirection {
     YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
 }
 
