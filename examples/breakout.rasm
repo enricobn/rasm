@@ -44,6 +44,8 @@ const WIDTH = 1024;
 const HEIGHT = 768;
 const BRICKWIDTH = 30;
 const BRICKHEIGHT = 10;
+const BARWIDTH = 50;
+const BARHEIGHT = 20;
 
 sdlInit();
 
@@ -75,6 +77,7 @@ fn update(event: i32, world: World) -> World {
     let xDir = Ball::xDir(ball);
     let yDir = Ball::yDir(ball);
     let bricks = World::bricks(newWorld);
+    let barPos = World::barPos(newWorld);
 
     let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
     let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
@@ -90,7 +93,9 @@ fn update(event: i32, world: World) -> World {
 
     let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
 
-    World(newBricks, newBall1, World::barPos(newWorld));
+    let newBall2 = if(collides(newX, newY, barPos), { -> Ball(newX, newY, flip(newXDir), newYDir);}, { -> newBall1; });
+
+    World(newBricks, newBall2, barPos);
 }
 
 fn eq(b1: Brick, b2: Brick) -> bool {
@@ -107,16 +112,27 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
     let x = Ball::x(ball);
     let y = Ball::y(ball);
 
-    first(filter(bricks, { brick ->
-        let bx = Brick::x(brick);
-        let by = Brick::y(brick);
+    first(filter(bricks, { brick -> collides(x, y, brick); }));
+}
 
-        let xColl = and(greater(x, bx), less(x, add(bx, BRICKWIDTH)));
-        let yColl = and(greater(y, by), less(y, add(by, BRICKHEIGHT)));
+fn collides(x: i32, y: i32, brick: Brick) -> bool {
+    let bx = Brick::x(brick);
+    let by = Brick::y(brick);
 
-        and(xColl, yColl);
-    }));
+    let xColl = and(greater(x, bx), less(x, add(bx, BRICKWIDTH)));
+    let yColl = and(greater(y, by), less(y, add(by, BRICKHEIGHT)));
 
+    and(xColl, yColl);
+}
+
+fn collides(x: i32, y: i32, barPos: i32) -> bool {
+    let bx = barPos;
+    let by = sub(HEIGHT, BARHEIGHT);
+
+    let xColl = and(greater(x, bx), less(x, add(bx, BARWIDTH)));
+    let yColl = and(greater(y, by), less(y, add(by, BARHEIGHT)));
+
+    and(xColl, yColl);
 }
 
 fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
@@ -151,7 +167,6 @@ fn flip(yDir: YDirection) -> YDirection {
     YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
 }
 
-
 fn worldUpdate(world: World, bricksUpdate: fn(Vec<Brick>) -> Vec<Brick>, ballUpdate: fn(Ball) -> Ball, barPosUpdate: fn(i32) -> i32) -> World {
     let bricks = bricksUpdate(World::bricks(world));
     let ball = ballUpdate(World::ball(world));
@@ -160,20 +175,22 @@ fn worldUpdate(world: World, bricksUpdate: fn(Vec<Brick>) -> Vec<Brick>, ballUpd
     World(bricks, ball, barPos);
 }
 
+// TODO I don't need the whole world!!!
 fn moveBarLeft(world: World) -> World {
     let bricks = World::bricks(world);
     let ball = World::ball(world);
     let barPos = World::barPos(world);
 
-    World(bricks, ball, sub(barPos, 5));
+    World(bricks, ball, sub(barPos, 10));
 }
 
+// TODO I don't need the whole world!!!
 fn moveBarRight(world: World) -> World {
     let bricks = World::bricks(world);
     let ball = World::ball(world);
     let barPos = World::barPos(world);
 
-    World(bricks, ball, add(barPos, 5));
+    World(bricks, ball, add(barPos, 10));
 }
 
 fn render(ren: i32, world: World) {
@@ -192,7 +209,7 @@ fn render(ren: i32, world: World) {
     sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
     let barPos = World::barPos(world);
 
-    sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BRICKHEIGHT), BRICKWIDTH, BRICKHEIGHT));
+    sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
 
     let ball = World::ball(world);
     let x = Ball::x(ball);
