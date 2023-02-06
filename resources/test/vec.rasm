@@ -33,3 +33,13 @@ println(zip(vecRange(0, 2), vecRange(0, 3), { n1, n2 -> add(n1, n2);}));
 println(listToVec(listOf(0, 1, 2)));
 
 println(foldLeft(vecRange(0, 5), 0, { prev, act -> add(prev, act);}));
+
+println(first(Vec()));
+
+let vecOfOpt = vecOf(Option::Some("Hello"));
+
+println(first(vecOfOpt));
+
+fn print<T>(o: Option<T>) {
+    Option::run(o, { value -> print("Some("); print(value); print(")");}, { -> print("Empty");});
+}

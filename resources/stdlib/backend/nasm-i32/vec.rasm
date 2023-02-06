@@ -409,6 +409,23 @@ asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     pop     ebx
 }/
 
+asm first<T>(vec: Vec<T>) -> Option<T> /{
+    push    ebx
+    mov     dword ebx, $vec
+    mov     dword ebx, [eax]
+    mov     dword eax, [ebx]
+    cmp     eax, 0
+    jz      .empty
+    mov     dword eax, [ebx + 4]
+    $addRef(T, eax)
+    $call(Option::Some, eax)
+    jmp     .end
+.empty:
+    mov     dword eax, [_enum_Option_None]
+.end:
+    pop     ebx
+}/
+
 fn VecReferences(vec: i32, generic: i32) -> i32 {
     vec;
 }
