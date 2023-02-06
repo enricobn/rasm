@@ -35,7 +35,7 @@ impl FunctionsContainer {
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
         if !function_def.param_types.is_empty() {
-            panic!("addin eneric function {function_def}");
+            panic!("adding generic function {function_def}");
         }
         // let original_name = &function_def.original_name;
         debug!("trying to add new function {function_def}");

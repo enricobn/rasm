@@ -23,9 +23,9 @@ use crate::transformations::typed_enum_functions_creator::typed_enum_functions_c
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::typed_ast::{
-    get_type_of_typed_expression, print_typed_module, ASTTypedExpression, ASTTypedFunctionBody,
-    ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
-    ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
+    BuiltinTypedTypeKind,
 };
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{convert, replace_native_call};
