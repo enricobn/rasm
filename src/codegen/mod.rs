@@ -14,7 +14,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
-use crate::parser::ast::{ASTModule, ASTParameterDef, ASTType};
+use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType};
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
@@ -29,6 +29,7 @@ use crate::type_check::typed_ast::{
 };
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{convert, replace_native_call};
+use crate::utils::OptionDisplay;
 
 pub mod backend;
 pub mod enhanced_module;
@@ -526,8 +527,7 @@ impl<'a> CodeGen<'a> {
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
         let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
-
-        let (ast_typed_type, (bf, af, new_lambda_calls)) = match expr {
+        let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
                     todo!();
@@ -537,7 +537,11 @@ impl<'a> CodeGen<'a> {
                         TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
                     };
 
-                    (typed_type, (String::new(), vec![], vec![]))
+                    (
+                        typed_type,
+                        (String::new(), vec![], vec![]),
+                        call.index.clone(),
+                    )
                 } else {
                     (
                         self.module
@@ -557,10 +561,11 @@ impl<'a> CodeGen<'a> {
                             false,
                             stack,
                         ),
+                        call.index.clone(),
                     )
                 }
             }
-            ASTTypedExpression::Value(value_type, _index) => {
+            ASTTypedExpression::Value(value_type, index) => {
                 let value = self.backend.value_to_string(value_type);
                 let typed_type =
                     get_type_of_typed_expression(&self.module, &context, expr, None, &self.statics)
@@ -589,7 +594,7 @@ impl<'a> CodeGen<'a> {
                         true,
                     );
                 }
-                (typed_type, (String::new(), vec![], vec![]))
+                (typed_type, (String::new(), vec![], vec![]), index.clone())
             }
             ASTTypedExpression::StringLiteral(value) => {
                 let label = self.statics.add_str(value);
@@ -645,25 +650,38 @@ impl<'a> CodeGen<'a> {
 
                     CodeGen::add(before, "pop   ebx", None, true);
                 }
-                (typed_type, (String::new(), vec![], vec![]))
+                (
+                    typed_type,
+                    (String::new(), vec![], vec![]),
+                    ASTIndex::none(),
+                )
             }
-            ASTTypedExpression::ValueRef(name, _index) => {
-                if let Some(typedValKind) = context.get(name) {
-                    let (i, typed_type) = match typedValKind {
-                        TypedValKind::ParameterRef(i, def) => (i, def.ast_type.clone()),
-                        TypedValKind::LetRef(i, def) => (i, def.clone()),
+            ASTTypedExpression::ValueRef(val_name, index) => {
+                if let Some(typed_val_kind) = context.get(val_name) {
+                    let (i, typed_type, descr) = match typed_val_kind {
+                        TypedValKind::ParameterRef(i, def) => (
+                            *i as i32 + 2,
+                            def.ast_type.clone(),
+                            format!("par {val_name}"),
+                        ),
+                        TypedValKind::LetRef(i, def) => {
+                            let relative_to_bp_found = stack
+                                .find_relative_to_bp(StackEntryType::LetVal, val_name)
+                                .unwrap();
+                            let index_in_context = -(relative_to_bp_found as i32);
+                            (index_in_context, def.clone(), format!("let {val_name}"))
+                        }
                     };
                     CodeGen::add(before, "push   ebx", None, true);
 
                     CodeGen::add(
                         before,
                         &format!(
-                            "mov ebx, [{} + {} + {}]",
+                            "mov ebx, [{} + {}]",
                             self.backend.stack_base_pointer(),
-                            self.backend.word_len(),
-                            (i + 1) * self.backend.word_len() as usize
+                            i * self.backend.word_len() as i32
                         ),
-                        None,
+                        Some(&format!("let reference to {descr}")),
                         true,
                     );
 
@@ -679,7 +697,7 @@ impl<'a> CodeGen<'a> {
 
                     CodeGen::add(before, "pop   ebx", None, true);
 
-                    (typed_type, (String::new(), vec![], vec![]))
+                    (typed_type, (String::new(), vec![], vec![]), index.clone())
                 } else {
                     panic!("Cannot find {name} in context");
                 }
@@ -701,7 +719,7 @@ impl<'a> CodeGen<'a> {
                         &mut self.body,
                         &format!("[{}]", entry.key),
                         &type_name,
-                        &format!("for const {name}"),
+                        &format!("for const {name} : {index}"),
                         &self.module,
                         &mut self.statics,
                     );
@@ -725,7 +743,7 @@ impl<'a> CodeGen<'a> {
                         before,
                         "eax",
                         &type_name,
-                        &format!("for let val {name}"),
+                        &format!("for let val {name} : {index}"),
                         &self.module,
                         &mut self.statics,
                     );
@@ -774,7 +792,7 @@ impl<'a> CodeGen<'a> {
             .iter()
             .for_each(|it| {
                 debug_i!("native call to {:?}, in main", it);
-                let function_call = it.to_call();
+                let function_call = it.to_call(Some(&self.module.enums));
 
                 let filter = it
                     .param_types
@@ -851,8 +869,8 @@ impl<'a> CodeGen<'a> {
     }
 
     fn print_memory_info(asm: &mut String) {
-        CodeGen::add(asm, "call   printAllocated", None, true);
-        CodeGen::add(asm, "call   printTableSlotsAllocated", None, true);
+        CodeGen::add(asm, "call   printAllocated_0", None, true);
+        CodeGen::add(asm, "call   printTableSlotsAllocated_0", None, true);
     }
 
     fn create_all_functions(&mut self) {
@@ -1000,16 +1018,15 @@ impl<'a> CodeGen<'a> {
 
                                     lambda_calls.append(&mut lambda_calls_);
                                 }
-                                ASTTypedExpression::ValueRef(val, _index) => {
+                                ASTTypedExpression::ValueRef(val, index) => {
                                     // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
-                                    let tmp_stack = StackVals::new();
 
                                     let mut parameters = FunctionCallParameters::new(
                                         self.backend.borrow(),
                                         Vec::new(),
                                         function_def.inline,
                                         true,
-                                        &tmp_stack,
+                                        &stack,
                                         self.dereference,
                                         self.id,
                                     );
@@ -1024,7 +1041,8 @@ impl<'a> CodeGen<'a> {
                                         val,
                                         val,
                                         "",
-                                        &tmp_stack,
+                                        &stack,
+                                        index,
                                     );
 
                                     before.push_str(&parameters.before());
@@ -1274,8 +1292,9 @@ impl<'a> CodeGen<'a> {
             }
         } else {
             panic!(
-                "Cannot find function {} in {:?}",
-                function_call.function_name, parent_def
+                "Cannot find function {} in {}",
+                function_call.function_name,
+                OptionDisplay(&parent_def.map(|it| &it.name))
             );
         };
 
@@ -1411,8 +1430,8 @@ impl<'a> CodeGen<'a> {
                         let mut statics = self.statics.clone();
 
                         call_parameters.add_function_call(
-                            self,
-                            Some(&param_name),
+                            &self.module,
+                            Some(&format!("{param_name} : {}", call.index)),
                             param_type.clone(),
                             &call.function_name,
                             &mut statics,
@@ -1422,7 +1441,7 @@ impl<'a> CodeGen<'a> {
 
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
-                    ASTTypedExpression::ValueRef(name, _index) => {
+                    ASTTypedExpression::ValueRef(name, index) => {
                         let error_msg = format!(
                             "Cannot find val {}, calling function {}",
                             name, function_call.function_name
@@ -1436,6 +1455,7 @@ impl<'a> CodeGen<'a> {
                             name,
                             &error_msg,
                             stack_vals,
+                            index,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -1549,7 +1569,10 @@ impl<'a> CodeGen<'a> {
                 CodeGen::add(
                     before,
                     "call [eax]",
-                    Some(&format!("Calling function {}", function_call.function_name)),
+                    Some(&format!(
+                        "Calling function {} : {}",
+                        function_call.function_name, function_call.index
+                    )),
                     true,
                 );
                 CodeGen::add(
@@ -1595,7 +1618,10 @@ impl<'a> CodeGen<'a> {
                 CodeGen::add(
                     before,
                     "call [eax]",
-                    Some(&format!("Calling function {}", function_call.function_name)),
+                    Some(&format!(
+                        "Calling function {} : {}",
+                        function_call.function_name, function_call.index
+                    )),
                     true,
                 );
                 CodeGen::add(
@@ -1618,7 +1644,10 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(
                 before,
                 &format!("call    {}", address_to_call),
-                Some(&format!("Calling function {}", function_call.function_name)),
+                Some(&format!(
+                    "Calling function {} : {}",
+                    function_call.function_name, function_call.index
+                )),
                 true,
             );
         }
@@ -1678,34 +1707,38 @@ impl<'a> CodeGen<'a> {
         val_name: &str,
         error_msg: &str,
         stack_vals: &StackVals,
+        ast_index: &ASTIndex,
     ) {
         if let Some(val_kind) = context.get(val_name) {
-            //println!("context {:?}\n stack_vals {:?}", context, stack_vals);
-
             match val_kind {
                 TypedValKind::ParameterRef(index, par) => {
                     call_parameters.add_parameter_ref(
+                        &self.module,
                         param_name.into(),
                         val_name,
                         &par.ast_type,
                         *index,
                         lambda_space_opt,
                         *indent,
+                        &mut self.statics,
+                        ast_index,
                     );
                 }
 
                 TypedValKind::LetRef(index, ast_typed_type) => {
-                    let index_in_context = stack_vals
-                        .find_relative_to_bp(StackEntryType::LetVal, val_name)
-                        .unwrap_or(*index);
+                    let index_in_context =
+                        stack_vals.find_relative_to_bp(StackEntryType::LetVal, val_name);
 
                     call_parameters.add_let_val_ref(
+                        &self.module,
                         param_name.into(),
                         val_name,
                         ast_typed_type,
                         index_in_context,
                         lambda_space_opt,
                         *indent,
+                        &mut self.statics,
+                        ast_index,
                     )
                 }
             }

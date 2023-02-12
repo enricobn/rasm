@@ -160,6 +160,7 @@ impl ASTTypedParameterDef {
 pub struct ASTTypedFunctionCall {
     pub function_name: String,
     pub parameters: Vec<ASTTypedExpression>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTTypedFunctionCall {
@@ -1008,7 +1009,7 @@ fn add_default_function(
 ) {
     let context = ValContext::new(None);
 
-    let call = function_call.to_call();
+    let call = function_call.to_call(None);
 
     match convert_call(
         module,
@@ -1121,7 +1122,7 @@ pub fn function_def(
                         typed_function_def.name,
                         &generic_types
                     );
-                    let function_call = it.to_call();
+                    let function_call = it.to_call(Some(&conv_context.enum_defs));
 
                     let call_parameters_types = it
                         .param_types
@@ -1168,11 +1169,11 @@ pub fn function_def(
                             {
                                 rf.name
                             } else {
-                                panic!("cannot find {}", it.to_call());
+                                panic!("cannot find {}", function_call);
                             }
                         } else {
                             module.debug_i();
-                            panic!("cannot find {} {:?}", it.to_call(), call_parameters_types);
+                            panic!("cannot find {} {:?}", function_call, call_parameters_types);
                         }
                     };
 
@@ -1326,6 +1327,7 @@ fn function_call(function_call: &ASTFunctionCall) -> ASTTypedFunctionCall {
     ASTTypedFunctionCall {
         function_name: function_call.function_name.clone(),
         parameters: function_call.parameters.iter().map(expression).collect(),
+        index: function_call.index.clone(),
     }
 }
 
@@ -1498,7 +1500,7 @@ impl DefaultFunctionCall {
         }
     }
 
-    pub fn to_call(&self) -> ASTFunctionCall {
+    pub fn to_call(&self, enums: Option<&Vec<ASTTypedEnumDef>>) -> ASTFunctionCall {
         ASTFunctionCall {
             function_name: self.name.clone(),
             original_function_name: self.name.clone(),
@@ -1551,6 +1553,29 @@ impl DefaultFunctionCall {
                             // TODO it's a trick to call vecflattencreate
                             // ASTExpression::Value(ValueType::Number(0), ASTIndex::none())
                             ASTExpression::ASTFunctionCallExpression(call)
+                        } else if let Some(e) = enums {
+                            let mut name = name.clone();
+                            name.push('_');
+                            if let Some(enum_def) = e.iter().find(|it| it.name.starts_with(&name)) {
+                                if let Some(v) =
+                                    enum_def.variants.iter().find(|it| it.parameters.is_empty())
+                                {
+                                    let call_to_empty = ASTFunctionCall {
+                                        function_name: format!("{}::{}", enum_def.name, v.name),
+                                        parameters: Vec::new(),
+                                        original_function_name: format!(
+                                            "{}::{}",
+                                            enum_def.name, v.name
+                                        ),
+                                        index: ASTIndex::none(),
+                                    };
+                                    ASTExpression::ASTFunctionCallExpression(call_to_empty)
+                                } else {
+                                    panic!("Cannot find a variant with no parameters for {name}");
+                                }
+                            } else {
+                                panic!("Cannot find an enum like {name}");
+                            }
                         } else {
                             panic!("unsupported type {name}")
                         }

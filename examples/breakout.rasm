@@ -37,7 +37,12 @@ struct Ball {
 struct World {
     bricks: Vec<Brick>,
     ball: Ball,
-    barPos: i32
+    bar: Bar
+}
+
+struct Bar {
+    x: i32,
+    velocity: i32,
 }
 
 const WIDTH = 1024;
@@ -50,7 +55,7 @@ const BARHEIGHT = 20;
 sdlInit();
 
 let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), mul(y, BRICKHEIGHT) , Color::Yellow()); });
-let initialWorld = World(bricks, Ball(500, 500, XDirection::Right(), YDirection::Up()), 500);
+let initialWorld = World(bricks, Ball(1000, 10, XDirection::Right(), YDirection::Up()), Bar(500, 0));
 
 runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n", { win ->
     runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
@@ -68,16 +73,39 @@ runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow
     });
 });
 
-fn update(event: i32, world: World) -> World {
-    let newWorld = if(eq(event, 80), { -> moveBarLeft(world); }, { -> if(eq(event, 79), { -> moveBarRight(world); }, { -> world;});});
+fn update(event: Option<KeyEvent>, world: World) -> World {
+    //printWorld("update world ",  world);
+    let bar = World::bar(world);
+    let barPos = Bar::x(bar);
+    //println("barPos ", barPos);
+    let velocity = Bar::velocity(bar);
+    //println("velocity ", velocity);
+    //println("newVelocity ", newVelocity);
 
-    let ball = World::ball(newWorld);
+    let ev = Option::match(event, { e ->
+        let key = KeyEvent::key(e);
+        let left = if(eq(key, 80), { -> -10; }, { -> 0;});
+        let right = if(eq(key, 79), { -> 10; }, { -> 0;});
+        add(left, right);
+    }, { -> 0;});
+
+    let newVelocity = ev;
+
+    //if(eq(event, 80), { -> sub(velocity, 1); }, { -> if(eq(event, 79), { -> add(velocity, 1); }, { -> velocity;});});
+
+    //Option::run(event, { keyEvent -> println(keyEvent);} { -> });
+
+    let newBarPos = add(barPos, newVelocity);
+    //println("newBarPos ", newBarPos);
+
+    let newBar = Bar(newBarPos, newVelocity);
+
+    let ball = World::ball(world);
     let x = Ball::x(ball);
     let y = Ball::y(ball);
     let xDir = Ball::xDir(ball);
     let yDir = Ball::yDir(ball);
-    let bricks = World::bricks(newWorld);
-    let barPos = World::barPos(newWorld);
+    let bricks = World::bricks(world);
 
     let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
     let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
@@ -93,9 +121,52 @@ fn update(event: i32, world: World) -> World {
 
     let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
 
-    let newBall2 = if(collides(newX, newY, barPos), { -> Ball(newX, newY, flip(newXDir), newYDir);}, { -> newBall1; });
+    let newBall2 = if(collides(newX, newY, newBarPos), { -> Ball(newX, newY, flip(newXDir), newYDir);}, { -> newBall1; });
 
-    World(newBricks, newBall2, barPos);
+    let newBarVelocity = Bar::velocity(newBar);
+    //println("newBarVelocity ", newBarVelocity);
+
+    let newBarPos2 = Bar::x(newBar);
+    //println("newBarPos2 ", newBarPos2);
+
+    //exitMain(0);
+
+    World(newBricks, newBall2, newBar);
+}
+
+fn println<T>(prefix: str, o: T) {
+    print(prefix);
+    println(o);
+}
+
+fn render(ren: i32, world: World) {
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
+
+    let bricks = World::bricks(world);
+
+    forEach(bricks, { brick ->
+        let x = Brick::x(brick);
+        let y = Brick::y(brick);
+        sdlRenderFillRect(ren, SDLRect(add(x, 1), add(y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
+    });
+
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+    let bar = World::bar(world);
+    let barPos = Bar::x(bar);
+    //println("barPos in renderer: ", barPos);
+
+    let velocity = Bar::velocity(bar);
+    //println("velocity in renderer: ", velocity);
+
+    sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
+
+    let ball = World::ball(world);
+    let x = Ball::x(ball);
+    let y = Ball::y(ball);
+
+    sdlRenderFillRect(ren, SDLRect(x, y, 5, 5));
 }
 
 fn eq(b1: Brick, b2: Brick) -> bool {
@@ -193,31 +264,6 @@ fn moveBarRight(world: World) -> World {
     World(bricks, ball, add(barPos, 10));
 }
 
-fn render(ren: i32, world: World) {
-    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
-    sdlRenderClear(ren);
-    sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
-
-    let bricks = World::bricks(world);
-
-    forEach(bricks, { brick ->
-        let x = Brick::x(brick);
-        let y = Brick::y(brick);
-        sdlRenderFillRect(ren, SDLRect(add(x, 1), add(y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
-    });
-
-    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
-    let barPos = World::barPos(world);
-
-    sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
-
-    let ball = World::ball(world);
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
-
-    sdlRenderFillRect(ren, SDLRect(x, y, 5, 5));
-}
-
 fn print(brick: Brick) {
     print("(");
     print(Brick::x(brick));
@@ -249,14 +295,16 @@ fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
     ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
 }
 
-fn singleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(i32, WORLD) -> WORLD, render: fn(CTX, WORLD) -> ()) -> WORLD {
-    let event = keyDown();
+fn singleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
+    let event = keyEvent();//Option::Some(KeyEvent(0, KeyState::Down()));
 
-    ifRun(eq(event, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
-    //ifRun(eq(event, 0), { -> }, { -> println(event);});
+    Option::run(event, { keyEvent ->
+        let key = KeyEvent::key(keyEvent);
+        ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
+    }, { -> });
 
-    with(update(event, world), { newWorld ->
-        render(ctx, newWorld);
+    with(updateFun(event, world), { newWorld ->
+        renderFun(ctx, newWorld);
         sdlRenderPresent(ctx);
         newWorld;
     });
@@ -270,10 +318,27 @@ fn singleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(i32, WORLD) -> WORLD
     */
 }
 
-asm loop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(i32, WORLD) -> WORLD, render: fn(CTX, WORLD) -> ()) /{
+asm printWorld(message: str, world: World) /{
+    $call(print, $message)
+    $call(println, $world:i32)
+}/
+
+asm loop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORLD) -> WORLD, render: fn(CTX, WORLD) -> ()) /{
     push    ebx
+    push    ecx
     mov     dword ebx, $world
 .loop:
+    ; $call(print, "world address ")
+    ; $call(println, ebx)
+    $call(printAllocated)
+    $call(printTableSlotsAllocated)
+    mov     dword ecx, [ebx]
+    ; $call(print, "bricks address ")
+    ; $call(println, [ecx])
+    ; $call(print, "ball address ")
+    ; $call(println, [ecx + 4])
+    ; $call(print, "bar address ")
+    ; $call(println, [ecx + 8])
     push        dword $render
     push        dword $update
     push        dword ebx
@@ -282,4 +347,6 @@ asm loop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(i32, WORLD) -> WORLD, ren
     add         esp, 4 * 4
     mov         dword   ebx, eax
     jmp     .loop
+    pop     ecx
+    pop     ebx
 }/

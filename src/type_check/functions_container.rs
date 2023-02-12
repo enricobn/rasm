@@ -83,11 +83,7 @@ impl FunctionsContainer {
             }
         }
 
-        panic!(
-            "cannot find function {} {:?}",
-            function_def,
-            self.functions_desc()
-        )
+        panic!("clone() {} {:?}", function_def, self.functions_desc())
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {

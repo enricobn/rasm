@@ -6,10 +6,11 @@ use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, LambdaSpace, MemoryValue, TypedValContext, TypedValKind};
 use crate::debug_i;
+use crate::parser::ast::ASTIndex;
 use crate::parser::ValueType;
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
-    ASTTypedStatement, ASTTypedType,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
 
 pub struct FunctionCallParameters<'a> {
@@ -145,7 +146,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_function_call(
         &mut self,
-        code_gen: &mut CodeGen,
+        module: &ASTTypedModule,
         comment: Option<&str>,
         param_type: ASTTypedType,
         descr: &str,
@@ -166,15 +167,18 @@ impl<'a> FunctionCallParameters<'a> {
             comment,
             true,
         );
+        if self.immediate {
+            panic!();
+        }
         if let Some(name) = CodeGen::get_reference_type_name(&param_type) {
-            self.add_code_for_reference_type(code_gen, &name, "eax", &descr, statics);
+            self.add_code_for_reference_type(module, &name, "eax", &descr, statics);
         }
         self.parameter_added_to_stack();
     }
 
     fn add_code_for_reference_type(
         &mut self,
-        code_gen: &mut CodeGen,
+        module: &ASTTypedModule,
         name: &str,
         source: &str,
         descr: &str,
@@ -182,20 +186,14 @@ impl<'a> FunctionCallParameters<'a> {
     ) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
-            self.backend.call_add_ref(
-                &mut self.before,
-                source,
-                name,
-                descr,
-                &code_gen.module.clone(),
-                statics,
-            );
+            self.backend
+                .call_add_ref(&mut self.before, source, name, descr, module, statics);
             let pos = self.push_to_scope_stack(source);
 
             self.after.insert(
                 0,
                 Self::pop_from_scope_stack_and_deref(
-                    code_gen,
+                    module,
                     self.backend,
                     name,
                     descr,
@@ -348,46 +346,79 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_parameter_ref(
         &mut self,
+        module: &ASTTypedModule,
         original_param_name: String,
         val_name: &str,
         ast_typed_type: &ASTTypedType,
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
+        statics: &mut Statics,
+        ast_index: &ASTIndex,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
+            self.add_val_from_lambda_space(
+                module,
+                &original_param_name,
+                lambda_space_index,
+                indent,
+                statics,
+                ast_typed_type,
+                ast_index,
+            );
         } else {
             self.add_val_from_parameter(
+                module,
                 original_param_name,
                 ast_typed_type,
                 index_in_context as i32 + 2,
                 indent,
+                statics,
+                ast_index,
             );
         }
     }
 
     pub fn add_let_val_ref(
         &mut self,
+        module: &ASTTypedModule,
         original_param_name: String,
         val_name: &str,
         ast_typed_type: &ASTTypedType,
-        index_in_context: usize,
+        index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
+        statics: &mut Statics,
+        ast_index: &ASTIndex,
     ) {
-        self.debug_and_before(&format!("adding val {val_name}"), indent);
+        self.debug_and_before(
+            &format!("adding let val {val_name} original_param_name {original_param_name}"),
+            indent,
+        );
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
+            self.add_val_from_lambda_space(
+                module,
+                &original_param_name,
+                lambda_space_index,
+                indent,
+                statics,
+                ast_typed_type,
+                ast_index,
+            );
         } else {
             self.add_val_from_parameter(
+                module,
                 original_param_name.clone(),
                 ast_typed_type,
-                -(index_in_context as i32),
+                -(index_in_context
+                    .unwrap_or_else(|| panic!("cannot find index for {val_name} : {ast_index}"))
+                    as i32),
                 indent,
+                statics,
+                ast_index,
             );
         }
     }
@@ -463,10 +494,13 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn add_val_from_parameter(
         &mut self,
+        module: &ASTTypedModule,
         original_param_name: String,
         ast_typed_type: &ASTTypedType,
         index_relative_to_bp: i32,
         indent: usize,
+        statics: &mut Statics,
+        ast_index: &ASTIndex,
     ) {
         self.debug_and_before(
             &format!("param {original_param_name}, index_relative_to_bp {index_relative_to_bp}"),
@@ -484,7 +518,9 @@ impl<'a> FunctionCallParameters<'a> {
         let src: String = format!("[{source}]");
 
         if self.inline {
-            self.parameters_values.insert(original_param_name, src);
+            self.parameters_values
+                .insert(original_param_name, src.clone());
+            // TODO add ref?
         } else {
             let type_size = self
                 .backend
@@ -515,6 +551,21 @@ impl<'a> FunctionCallParameters<'a> {
                     "ebx",
                     None,
                 );
+
+                /*
+                TODO it does not work for breakout example
+                if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type) {
+                    self.add_code_for_reference_type(
+                        module,
+                        &name,
+                        &src,
+                        &format!("HENRY par {original_param_name} : {ast_index}"),
+                        statics,
+                    );
+                }
+
+                 */
+
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
             }
             self.parameter_added_to_stack();
@@ -523,21 +574,24 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn add_val_from_lambda_space(
         &mut self,
+        module: &ASTTypedModule,
         original_param_name: &str,
         lambda_space_index: usize,
         indent: usize,
+        statics: &mut Statics,
+        ast_typed_type: &ASTTypedType,
+        ast_index: &ASTIndex,
     ) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
         let word_len = self.backend.word_len() as usize;
 
-        let src: String;
+        let src = format!("[edx + {}]", lambda_space_index * word_len);
 
         if self.inline {
             self.has_inline_lambda_param = true;
-            src = format!("[edx + {}]", lambda_space_index * word_len);
             self.parameters_values
-                .insert(original_param_name.into(), src);
+                .insert(original_param_name.into(), src.clone());
         } else {
             if self.immediate {
                 CodeGen::add(
@@ -568,6 +622,19 @@ impl<'a> FunctionCallParameters<'a> {
                     None,
                 );
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
+
+                /*
+                TODO it seems to work, but I don't know it it's needed
+                if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type) {
+                    self.add_code_for_reference_type(
+                        module,
+                        &name,
+                        &src,
+                        &format!("from lambda space {original_param_name} : {ast_index}"),
+                        statics,
+                    );
+                }
+                 */
             }
 
             self.parameter_added_to_stack();
@@ -722,22 +789,44 @@ impl<'a> FunctionCallParameters<'a> {
             .reserve(StackEntryType::RefToDereference, what)
             * self.backend.word_len();
         CodeGen::add(&mut self.before, "; scope push", None, true);
-        CodeGen::add(
-            &mut self.before,
-            &format!(
-                "mov     {} [{} - {}], {what}",
-                self.backend.word_size(),
-                self.backend.stack_base_pointer(),
-                pos
-            ),
-            None,
-            true,
-        );
+        if what.contains('[') {
+            CodeGen::add(&mut self.before, "push    ebx", None, true);
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov     {} ebx, {what}", self.backend.word_size(),),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut self.before,
+                &format!(
+                    "mov     {} [{} - {}], ebx",
+                    self.backend.word_size(),
+                    self.backend.stack_base_pointer(),
+                    pos
+                ),
+                None,
+                true,
+            );
+            CodeGen::add(&mut self.before, "pop    ebx", None, true);
+        } else {
+            CodeGen::add(
+                &mut self.before,
+                &format!(
+                    "mov     {} [{} - {}], {what}",
+                    self.backend.word_size(),
+                    self.backend.stack_base_pointer(),
+                    pos
+                ),
+                None,
+                true,
+            );
+        }
         pos
     }
 
     fn pop_from_scope_stack_and_deref(
-        code_gen: &mut CodeGen,
+        module: &ASTTypedModule,
         backend: &dyn Backend,
         type_name: &str,
         descr: &str,
@@ -750,7 +839,7 @@ impl<'a> FunctionCallParameters<'a> {
             &format!("[{} - {}]", backend.stack_base_pointer(), pos),
             type_name,
             descr,
-            &code_gen.module.clone(),
+            module,
             statics,
         ));
         result

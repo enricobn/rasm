@@ -1,3 +1,6 @@
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
@@ -5,8 +8,6 @@ use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
     ASTTypedStructDef, ASTTypedType,
 };
-use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 pub fn typed_struct_functions_creator(
     backend: &dyn Backend,
@@ -126,14 +127,12 @@ fn create_free_body(
         CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
         for (i, property) in struct_def.clone().properties.iter().enumerate() {
             if let Some(name) = CodeGen::get_reference_type_name(&property.ast_type) {
+                let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
                 if function_name == "deref" {
                     result.push_str(&backend.call_deref(
                         &format!("[ebx + {}]", i * wl),
                         &name,
-                        &format!(
-                            "dereferencing {}.{} : {}",
-                            struct_def.name, property.name, name
-                        ),
+                        descr,
                         module,
                         statics,
                     ));
@@ -143,7 +142,7 @@ fn create_free_body(
                         &mut result,
                         &format!("[ebx + {}]", i * wl),
                         &name,
-                        "",
+                        descr,
                         module,
                         statics,
                     );

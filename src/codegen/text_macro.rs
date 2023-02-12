@@ -547,24 +547,26 @@ impl TextMacroEval for AddRefMacro {
         module: Option<&ASTTypedModule>,
     ) -> String {
         if let Some(fd) = function_def {
+            if fd.name == "addRef_0" {
+                return String::new();
+            }
             if let Some(MacroParam::Plain(generic_type_name, _)) = parameters.get(0) {
                 if let Some(MacroParam::Plain(address, _)) = parameters.get(1) {
                     if let Some(ast_type) = fd.generic_types.get(generic_type_name) {
                         if let Some(type_name) = CodeGen::get_reference_type_name(ast_type) {
                             if let Some(ast_module) = module {
                                 let mut result = String::new();
+                                let descr = &format!("addref macro type {type_name}");
                                 if self.deref {
-                                    result.push_str(
-                                        &backend.call_deref(
-                                            address, &type_name, "", ast_module, statics,
-                                        ),
-                                    );
+                                    result.push_str(&backend.call_deref(
+                                        address, &type_name, descr, ast_module, statics,
+                                    ));
                                 } else {
                                     backend.call_add_ref(
                                         &mut result,
                                         address,
                                         &type_name,
-                                        "",
+                                        descr,
                                         ast_module,
                                         statics,
                                     );
@@ -575,6 +577,48 @@ impl TextMacroEval for AddRefMacro {
                             }
                         } else {
                             String::new()
+                        }
+                    } else if let Some(m) = module {
+                        let mut name = generic_type_name.clone();
+                        name.push('_');
+                        let descr = &format!("addref macro type {name}");
+                        if let Some(s) = m.structs.iter().find(|it| it.name.starts_with(&name)) {
+                            let mut result = String::new();
+                            if self.deref {
+                                result.push_str(
+                                    &backend.call_deref(address, &s.name, descr, m, statics),
+                                );
+                            } else {
+                                backend.call_add_ref(
+                                    &mut result,
+                                    address,
+                                    &s.name,
+                                    descr,
+                                    m,
+                                    statics,
+                                );
+                            }
+                            result
+                        } else if let Some(s) = m.enums.iter().find(|it| it.name.starts_with(&name))
+                        {
+                            let mut result = String::new();
+                            if self.deref {
+                                result.push_str(
+                                    &backend.call_deref(address, &s.name, descr, m, statics),
+                                );
+                            } else {
+                                backend.call_add_ref(
+                                    &mut result,
+                                    address,
+                                    &s.name,
+                                    descr,
+                                    m,
+                                    statics,
+                                );
+                            }
+                            result
+                        } else {
+                            panic!("cannot find struct nor enum {generic_type_name}");
                         }
                     } else {
                         panic!("Cannot find generic type {generic_type_name}")

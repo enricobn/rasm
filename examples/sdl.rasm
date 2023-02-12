@@ -102,6 +102,29 @@ asm sdlRenderFillRect(ren: i32, rect: SDLRect) /{
     $ccall(SDL_RenderFillRect, $ren, $rect)
 }/
 
+enum KeyState {
+    Down,
+    Up
+}
+
+fn print(state: KeyState) {
+    KeyState::run(state, { -> print("Down");}, { -> print("Up");});
+}
+
+struct KeyEvent {
+    key: i32,
+    state: KeyState
+}
+
+fn print(keyEvent: KeyEvent) {
+    let state = KeyEvent::state(keyEvent);
+    let key = KeyEvent::key(keyEvent);
+
+    print(state);
+    print(" ");
+    print(key);
+}
+
 /*
 SDL C types:
 
@@ -136,27 +159,32 @@ typedef struct{
 } SDL_keysym;
 
 */
-asm keyDown() -> i32 /{
+asm keyEvent() -> Option<KeyEvent> /{
+    push    ebx
+
     $call(malloc, 56)
-    push  dword  [eax]
+    mov  dword  ebx, [eax]
     $ccall(SDL_PollEvent, [eax]);
     cmp     eax, 0
     jz      .noKey
-    pop     eax             ; here we have the address of the SDL_Event
-    push    ebx
-    mov     dword ebx, eax  ; here we have the address of the SDL_Event
     mov     dword eax,[ebx] ; here we have the type
     cmp     eax, 768        ; keyDown
     jnz     .noKeyDown
-    mov     dword eax,[ebx + 16] ; here we have the key
-    pop     ebx
-    jmp     .end
-.noKey:
-    add     esp, 4
-    mov     dword eax, 0
+    $addRef(KeyState, [_enum_KeyState_Down]:KeyState)
+    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]:KeyState)
+    $addRef(KeyEvent, eax)
+    $call(Option::Some, eax)
     jmp     .end
 .noKeyDown:
-    pop     ebx
-    mov     dword eax, 0
+    cmp     eax, 769        ; keyUp
+    jnz     .noKey
+    $addRef(KeyState, [_enum_KeyState_Up]:KeyState)
+    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]:KeyState)
+    $addRef(KeyEvent, eax)
+    $call(Option::Some, eax)
+    jmp     .end
+.noKey:
+    mov     dword eax, [_enum_Option_None]
 .end:
+    pop     ebx
 }/

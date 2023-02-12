@@ -281,7 +281,7 @@ fn convert_body(
 
             match &new_statement {
                 ASTStatement::Expression(_) => Ok(new_statement),
-                ASTStatement::LetStatement(name, expr, is_const) => match expr {
+                ASTStatement::LetStatement(let_name, expr, is_const) => match expr {
                     ASTFunctionCallExpression(call) => {
                         let ast_type = if let Some(kind) = context.get(&call.function_name) {
                             match kind {
@@ -306,7 +306,7 @@ fn convert_body(
                         if *is_const {
                             panic!("const not allowed here");
                         } else {
-                            context.insert_let(name.clone(), ast_type);
+                            context.insert_let(let_name.clone(), ast_type);
                         }
 
                         Ok(new_statement)
@@ -317,7 +317,7 @@ fn convert_body(
                         if *is_const {
                             panic!("const not allowed here");
                         } else {
-                            context.insert_let(name.clone(), ast_type);
+                            context.insert_let(let_name.clone(), ast_type);
                         }
                         Ok(new_statement)
                     }
@@ -329,7 +329,7 @@ fn convert_body(
                                 ValKind::ParameterRef(_, def) => def.ast_type.clone(),
                                 ValKind::LetRef(_, ast_type) => ast_type.clone(),
                             };
-                            context.insert_let(name.clone(), ast_type);
+                            context.insert_let(let_name.clone(), ast_type);
                             Ok(new_statement)
                         } else {
                             Err("Cannot find {name} in context".into())

@@ -1,0 +1,24 @@
+include "std.rasm"
+
+let v = vecOf(10);
+
+ifRun(true, { ->
+    let c = vecOf(30);
+    ifRun(true, { -> println(v);}, { -> println("Empty");});
+}, { -> println("Empty");});
+
+println(v);
+
+main1(10);
+main();
+
+fn main() {
+    let a = 5;
+    let b = a;
+    println(b);
+}
+
+fn main1(a: i32) {
+    let b = a;
+    println(b);
+}

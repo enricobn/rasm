@@ -1,3 +1,6 @@
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
@@ -5,8 +8,6 @@ use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedType,
 };
-use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 pub fn typed_enum_functions_creator(
     backend: &dyn Backend,
@@ -128,11 +129,12 @@ fn create_free_body(
                 CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
                     if let Some(name) = CodeGen::get_reference_type_name(&par.ast_type) {
+                        let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
                         if function_name == "deref" {
                             result.push_str(&backend.call_deref(
                                 &format!("[ebx + {}]", (j + 1) * wl),
                                 &name,
-                                &format!("dereferencing {}.{} : {}", enum_def.name, par.name, name),
+                                descr,
                                 module,
                                 statics,
                             ));
@@ -142,7 +144,7 @@ fn create_free_body(
                                 &mut result,
                                 &format!("[ebx + {}]", (j + 1) * wl),
                                 &name,
-                                &format!("add reference {}.{} : {}", enum_def.name, par.name, name),
+                                descr,
                                 module,
                                 statics,
                             );

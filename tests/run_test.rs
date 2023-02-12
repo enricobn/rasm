@@ -206,6 +206,11 @@ fn test_let() {
 }
 
 #[test]
+fn test_let1() {
+    test("let1", vec![], "10,\n10,\n10\n5\n");
+}
+
+#[test]
 fn test_dereference() {
     test(
         "dereference",

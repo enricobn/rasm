@@ -1,3 +1,6 @@
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
@@ -5,8 +8,6 @@ use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
     ASTTypedTypeDef,
 };
-use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 pub fn typed_type_functions_creator(
     backend: &dyn Backend,
@@ -121,20 +122,12 @@ fn create_free_body(
     if type_has_references(type_def) {
         for (i, (generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate() {
             if let Some(name) = CodeGen::get_reference_type_name(generic_type_def) {
+                let descr = &format!("{}.{} : {}", type_def.name, generic_name, name);
                 let call_deref = if function_name == "deref" {
-                    backend.call_deref(
-                        "[ebx]",
-                        &name,
-                        &format!(
-                            "dereferencing {}.{} : {}",
-                            type_def.name, generic_name, name
-                        ),
-                        module,
-                        statics,
-                    )
+                    backend.call_deref("[ebx]", &name, descr, module, statics)
                 } else {
                     let mut s = String::new();
-                    backend.call_add_ref(&mut s, "[ebx]", &name, "", module, statics);
+                    backend.call_add_ref(&mut s, "[ebx]", &name, descr, module, statics);
                     s
                 };
 

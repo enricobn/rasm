@@ -357,6 +357,10 @@ impl Backend for BackendAsm386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
+        if descr.is_empty() {
+            panic!();
+        }
+
         let key = statics.add_str(descr);
 
         CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
@@ -487,6 +491,8 @@ impl Backend for BackendAsm386 {
                 Some("local vals (let)"),
                 true,
             );
+        } else {
+            CodeGen::add(out, "", Some("NO local vals"), true);
         }
     }
 

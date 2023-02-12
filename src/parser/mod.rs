@@ -23,6 +23,7 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
+use crate::utils::SliceDisplay;
 
 mod asm_def_parser;
 pub(crate) mod ast;
@@ -65,7 +66,7 @@ pub enum ValueType {
     Char(char),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, strum_macros::Display)]
 enum ParserData {
     EnumDef(ASTEnumDef),
     FunctionCall(ASTFunctionCall),
@@ -824,7 +825,7 @@ impl Parser {
         debug!("i {}", self.i);
         debug!("token {:?}", self.get_token());
         debug!("state {:?}", self.state);
-        debug!("data {:?}", self.parser_data);
+        debug!("data {}", SliceDisplay(&self.parser_data));
         //println!("body {:?}", self.body);
         //println!("functions {:?}", self.functions);
     }
