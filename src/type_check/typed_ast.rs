@@ -178,6 +178,7 @@ pub enum ASTTypedExpression {
     ValueRef(String, ASTIndex),
     Value(ValueType, ASTIndex),
     Lambda(ASTTypedLambdaDef),
+    Any(ASTTypedType),
 }
 
 impl Display for ASTTypedExpression {
@@ -196,6 +197,7 @@ impl Display for ASTTypedExpression {
                 ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
+            ASTTypedExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
         }
     }
 }
@@ -674,7 +676,10 @@ pub fn convert_to_typed_module(
     }
 
     let mut result = ASTTypedModule {
-        body: new_body.iter().map(statement).collect(),
+        body: new_body
+            .iter()
+            .map(|it| statement(&mut conv_context, it))
+            .collect(),
         structs: conv_context.struct_defs,
         enums: conv_context.enum_defs,
         functions_by_name: LinkedHashMap::new(),
@@ -996,6 +1001,7 @@ pub fn get_type_of_typed_expression(
                 return_type: real_return_type.map(Box::new),
             }))
         }
+        ASTTypedExpression::Any(ast_type) => Some(ast_type.clone()),
     }
 }
 
@@ -1078,7 +1084,7 @@ pub fn function_def(
 
     let mut typed_function_def = ASTTypedFunctionDef {
         name: def.name.clone(),
-        body: body(&def.body),
+        body: body(conv_context, &def.body),
         return_type: def.return_type.clone().map(|it| {
             typed_type(
                 conv_context,
@@ -1122,7 +1128,6 @@ pub fn function_def(
                         typed_function_def.name,
                         &generic_types
                     );
-                    let function_call = it.to_call(Some(&conv_context.enum_defs));
 
                     let call_parameters_types = it
                         .param_types
@@ -1135,59 +1140,61 @@ pub fn function_def(
                     let cloned_typed_context = typed_context.clone().into_inner();
 
                     let function_def_opt = cloned_typed_context.find_call(
-                        &function_call,
+                        &it.name,
+                        &it.name,
                         Some(call_parameters_types.clone()),
                         None,
                     );
 
                     let function_name = if let Some(functiond_def) = function_def_opt {
                         functiond_def.name.clone()
-                    //     TODO when SomethingConverted?
-                    } else if let Ok(Converted(new_call)) = convert_call(
-                        module,
-                        &ValContext::new(None),
-                        &function_call,
-                        typed_context,
-                        None,
-                        backend,
-                        &CallStack::new(),
-                        statics,
-                    ) {
-                        debug_i!("new_call {:?}", new_call);
-                        new_call.function_name
+                        //     TODO when SomethingConverted?
                     } else {
-                        let function_def_opt = module.find_call(
-                            &function_call,
-                            Some(call_parameters_types.clone()),
-                            None,
-                        );
+                        let function_call = it.to_call(Some(&conv_context.enum_defs));
 
-                        if let Some(functiond_def) = function_def_opt {
-                            if let Some(rf) = typed_context
-                                .borrow_mut()
-                                .try_add_new(&it.name, &functiond_def)
-                            {
-                                rf.name
-                            } else {
-                                panic!("cannot find {}", function_call);
-                            }
+                        if let Ok(Converted(new_call)) = convert_call(
+                            module,
+                            &ValContext::new(None),
+                            &function_call,
+                            typed_context,
+                            None,
+                            backend,
+                            &CallStack::new(),
+                            statics,
+                        ) {
+                            debug_i!("new_call {:?}", new_call);
+                            new_call.function_name
                         } else {
-                            module.debug_i();
-                            panic!("cannot find {} {:?}", function_call, call_parameters_types);
+                            let function_def_opt = module.find_call(
+                                &it.name,
+                                &it.name,
+                                Some(call_parameters_types.clone()),
+                                None,
+                            );
+
+                            if let Some(functiond_def) = function_def_opt {
+                                if let Some(rf) = typed_context
+                                    .borrow_mut()
+                                    .try_add_new(&it.name, functiond_def)
+                                {
+                                    rf.name
+                                } else {
+                                    panic!("cannot find {}", function_call);
+                                }
+                            } else {
+                                module.debug_i();
+                                panic!("cannot find {} {:?}", function_call, call_parameters_types);
+                            }
                         }
                     };
 
                     debug_i!("found function for native call {function_name} ");
 
-                    if function_call.function_name != function_name {
-                        new_body = replace_native_call(
-                            &new_body,
-                            &function_call.function_name,
-                            &function_name,
-                        );
+                    if it.name != function_name {
+                        new_body = replace_native_call(&new_body, &it.name, &function_name);
 
                         if body == &new_body {
-                            panic!("{} -> {}", function_call.function_name, function_name);
+                            panic!("{} -> {}", it.name, function_name);
                         }
                     }
                 });
@@ -1236,39 +1243,50 @@ fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
     }
 }
 
-fn expression(expression: &ASTExpression) -> ASTTypedExpression {
+fn expression(conv_context: &mut ConvContext, expression: &ASTExpression) -> ASTTypedExpression {
     match expression {
         ASTExpression::StringLiteral(s) => ASTTypedExpression::StringLiteral(s.to_string()),
         ASTExpression::ASTFunctionCallExpression(fc) => {
-            ASTTypedExpression::ASTFunctionCallExpression(function_call(fc))
+            ASTTypedExpression::ASTFunctionCallExpression(function_call(conv_context, fc))
         }
         ASTExpression::ValueRef(v, index) => ASTTypedExpression::ValueRef(v.clone(), index.clone()),
         ASTExpression::Value(val_type, index) => {
             ASTTypedExpression::Value(val_type.clone(), index.clone())
         }
-        ASTExpression::Lambda(l) => ASTTypedExpression::Lambda(lambda_def(l)),
+        ASTExpression::Lambda(l) => ASTTypedExpression::Lambda(lambda_def(conv_context, l)),
+        ASTExpression::Any(ast_type) => ASTTypedExpression::Any(typed_type(
+            conv_context,
+            ast_type,
+            &format!("Any({ast_type})"),
+        )),
     }
 }
 
-fn lambda_def(lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
+fn lambda_def(conv_context: &mut ConvContext, lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
     ASTTypedLambdaDef {
         parameter_names: lambda_def.parameter_names.clone(),
-        body: lambda_def.body.iter().map(statement).collect(),
+        body: lambda_def
+            .body
+            .iter()
+            .map(|it| statement(conv_context, it))
+            .collect(),
     }
 }
 
-fn body(body: &ASTFunctionBody) -> ASTTypedFunctionBody {
+fn body(conv_context: &mut ConvContext, body: &ASTFunctionBody) -> ASTTypedFunctionBody {
     match body {
-        RASMBody(body) => ASTTypedFunctionBody::RASMBody(body.iter().map(statement).collect()),
+        RASMBody(body) => ASTTypedFunctionBody::RASMBody(
+            body.iter().map(|it| statement(conv_context, it)).collect(),
+        ),
         ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
     }
 }
 
-fn statement(it: &ASTStatement) -> ASTTypedStatement {
+fn statement(conv_context: &mut ConvContext, it: &ASTStatement) -> ASTTypedStatement {
     match it {
-        ASTStatement::Expression(e) => ASTTypedStatement::Expression(expression(e)),
+        ASTStatement::Expression(e) => ASTTypedStatement::Expression(expression(conv_context, e)),
         ASTStatement::LetStatement(name, e, is_const) => {
-            ASTTypedStatement::LetStatement(name.clone(), expression(e), *is_const)
+            ASTTypedStatement::LetStatement(name.clone(), expression(conv_context, e), *is_const)
         }
     }
 }
@@ -1323,10 +1341,17 @@ fn enum_variant(
     }
 }
 
-fn function_call(function_call: &ASTFunctionCall) -> ASTTypedFunctionCall {
+fn function_call(
+    conv_context: &mut ConvContext,
+    function_call: &ASTFunctionCall,
+) -> ASTTypedFunctionCall {
     ASTTypedFunctionCall {
         function_name: function_call.function_name.clone(),
-        parameters: function_call.parameters.iter().map(expression).collect(),
+        parameters: function_call
+            .parameters
+            .iter()
+            .map(|it| expression(conv_context, it))
+            .collect(),
         index: function_call.index.clone(),
     }
 }
@@ -1525,61 +1550,7 @@ impl DefaultFunctionCall {
                     ASTType::Custom {
                         name,
                         param_types: _,
-                    } => {
-                        if name.starts_with("List") {
-                            let call_to_empty = ASTFunctionCall {
-                                function_name: "List::Empty".into(),
-                                parameters: Vec::new(),
-                                original_function_name: "List::Empty".into(),
-                                index: ASTIndex::none(),
-                            };
-                            ASTExpression::ASTFunctionCallExpression(call_to_empty)
-                        } else if name.starts_with("Vec") {
-                            let call_to_empty = ASTFunctionCall {
-                                function_name: "Vec".into(),
-                                parameters: Vec::new(),
-                                original_function_name: "Vec".into(),
-                                index: ASTIndex::none(),
-                            };
-
-                            let call = ASTFunctionCall {
-                                original_function_name: "vecOf".to_string(),
-                                function_name: "vecOf".to_string(),
-                                parameters: vec![ASTExpression::ASTFunctionCallExpression(
-                                    call_to_empty,
-                                )],
-                                index: ASTIndex::none(),
-                            };
-                            // TODO it's a trick to call vecflattencreate
-                            // ASTExpression::Value(ValueType::Number(0), ASTIndex::none())
-                            ASTExpression::ASTFunctionCallExpression(call)
-                        } else if let Some(e) = enums {
-                            let mut name = name.clone();
-                            name.push('_');
-                            if let Some(enum_def) = e.iter().find(|it| it.name.starts_with(&name)) {
-                                if let Some(v) =
-                                    enum_def.variants.iter().find(|it| it.parameters.is_empty())
-                                {
-                                    let call_to_empty = ASTFunctionCall {
-                                        function_name: format!("{}::{}", enum_def.name, v.name),
-                                        parameters: Vec::new(),
-                                        original_function_name: format!(
-                                            "{}::{}",
-                                            enum_def.name, v.name
-                                        ),
-                                        index: ASTIndex::none(),
-                                    };
-                                    ASTExpression::ASTFunctionCallExpression(call_to_empty)
-                                } else {
-                                    panic!("Cannot find a variant with no parameters for {name}");
-                                }
-                            } else {
-                                panic!("Cannot find an enum like {name}");
-                            }
-                        } else {
-                            panic!("unsupported type {name}")
-                        }
-                    }
+                    } => ASTExpression::Any(it.clone()),
                 })
                 .collect(),
             index: ASTIndex::none(),

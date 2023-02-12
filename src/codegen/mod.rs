@@ -792,8 +792,6 @@ impl<'a> CodeGen<'a> {
             .iter()
             .for_each(|it| {
                 debug_i!("native call to {:?}, in main", it);
-                let function_call = it.to_call(Some(&self.module.enums));
-
                 let filter = it
                     .param_types
                     .iter()
@@ -801,27 +799,20 @@ impl<'a> CodeGen<'a> {
                     .collect();
                 if let Some(new_function_def) =
                     self.type_conversion_context
-                        .find_call(&function_call, Some(filter), None)
+                        .find_call(&it.name, &it.name, Some(filter), None)
                 {
                     debug_i!("converted to {new_function_def}");
-                    if function_call.function_name != new_function_def.name {
-                        new_body = replace_native_call(
-                            &new_body,
-                            &function_call.function_name,
-                            &new_function_def.name,
-                        );
+                    if it.name != new_function_def.name {
+                        new_body = replace_native_call(&new_body, &it.name, &new_function_def.name);
 
-                        if body == &new_body {
-                            panic!(
-                                "{} -> {}",
-                                function_call.function_name, new_function_def.name
-                            );
+                        if body == new_body {
+                            panic!("{} -> {}", it.name, new_function_def.name);
                         }
                     }
                 } else {
                     // panic!("cannot find call {function_call}");
                     // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
-                    println!("cannot find call {function_call}");
+                    println!("cannot find call to {}", it.name);
                 }
 
                 /*                match convert_call(
@@ -1075,6 +1066,7 @@ impl<'a> CodeGen<'a> {
                                         true,
                                     );
                                 }
+                                ASTTypedExpression::Any(_) => panic!(),
                             }
                         }
                         ASTTypedStatement::LetStatement(name, expr, is_const) => {
@@ -1514,6 +1506,7 @@ impl<'a> CodeGen<'a> {
 
                         lambda_calls.push(lambda_call);
                     }
+                    ASTTypedExpression::Any(_) => panic!(),
                 }
             }
         }

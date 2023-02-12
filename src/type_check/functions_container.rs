@@ -106,22 +106,23 @@ impl FunctionsContainer {
 
     pub fn find_call(
         &self,
-        call: &ASTFunctionCall,
+        function_name: &str,
+        original_function_name: &str,
         parameter_types_filter: Option<Vec<Option<ASTType>>>,
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
     ) -> Option<&ASTFunctionDef> {
-        let name = call.function_name.clone().replace("::", "_");
-        if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
+        let name = function_name.clone().replace("::", "_");
+        if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
-                    "cannot find functions for call {call} filter {:?}",
+                    "cannot find functions for {function_name} filter {:?}",
                     parameter_types_filter
                 );
             } else {
                 let mut resolved_generic_types = LinkedHashMap::new();
                 let lambda = |it: &&ASTFunctionDef| {
-                    if filter_on_name && it.name == call.function_name {
+                    if filter_on_name && it.name == function_name {
                         return true;
                     }
                     let verify_params =
@@ -164,8 +165,8 @@ impl FunctionsContainer {
                         .collect::<Vec<String>>()
                         .join(",");
                     panic!(
-                        "Found more than one function for call {call}\nfilter {:?}\nfunctions {f_descs}\n: {}",
-                        parameter_types_filter, call.index
+                        "Found more than one function for {function_name}\nfilter {:?}\nfunctions {f_descs}",
+                        parameter_types_filter
                     );
                 } else {
                     matching_functions.first().cloned()
@@ -609,7 +610,8 @@ mod tests {
         };
 
         let result = sut.find_call(
-            &call,
+            &call.function_name,
+            &call.original_function_name,
             Some(vec![
                 Some(ASTType::Builtin(BuiltinTypeKind::I32)),
                 Some(ASTType::Parametric("T".into())),

@@ -370,13 +370,10 @@ impl<'a> FunctionCallParameters<'a> {
             );
         } else {
             self.add_val_from_parameter(
-                module,
                 original_param_name,
                 ast_typed_type,
                 index_in_context as i32 + 2,
                 indent,
-                statics,
-                ast_index,
             );
         }
     }
@@ -410,15 +407,12 @@ impl<'a> FunctionCallParameters<'a> {
             );
         } else {
             self.add_val_from_parameter(
-                module,
                 original_param_name.clone(),
                 ast_typed_type,
                 -(index_in_context
                     .unwrap_or_else(|| panic!("cannot find index for {val_name} : {ast_index}"))
                     as i32),
                 indent,
-                statics,
-                ast_index,
             );
         }
     }
@@ -484,6 +478,7 @@ impl<'a> FunctionCallParameters<'a> {
                 .body
                 .iter()
                 .any(|it| self.statement_reads_from_context(it, context)),
+            ASTTypedExpression::Any(_) => false,
         }
     }
 
@@ -494,13 +489,10 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn add_val_from_parameter(
         &mut self,
-        module: &ASTTypedModule,
         original_param_name: String,
         ast_typed_type: &ASTTypedType,
         index_relative_to_bp: i32,
         indent: usize,
-        statics: &mut Statics,
-        ast_index: &ASTIndex,
     ) {
         self.debug_and_before(
             &format!("param {original_param_name}, index_relative_to_bp {index_relative_to_bp}"),

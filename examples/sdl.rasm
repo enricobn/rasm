@@ -116,13 +116,13 @@ struct KeyEvent {
     state: KeyState
 }
 
-fn print(keyEvent: KeyEvent) {
-    let state = KeyEvent::state(keyEvent);
-    let key = KeyEvent::key(keyEvent);
-
-    print(state);
-    print(" ");
+fn print(event: KeyEvent) {
+    let key = KeyEvent::key(event);
+    let state = KeyEvent::state(event);
+    print("key=");
     print(key);
+    print(" state=");
+    print(state);
 }
 
 /*
@@ -166,22 +166,22 @@ asm keyEvent() -> Option<KeyEvent> /{
     mov  dword  ebx, [eax]
     $ccall(SDL_PollEvent, [eax]);
     cmp     eax, 0
-    jz      .noKey
+    je      .noKey
     mov     dword eax,[ebx] ; here we have the type
     cmp     eax, 768        ; keyDown
-    jnz     .noKeyDown
+    jne     .noKeyDown
     $addRef(KeyState, [_enum_KeyState_Down]:KeyState)
     $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]:KeyState)
     $addRef(KeyEvent, eax)
-    $call(Option::Some, eax)
+    $call(Option::Some, eax: KeyEvent)
     jmp     .end
 .noKeyDown:
     cmp     eax, 769        ; keyUp
-    jnz     .noKey
+    jne     .noKey
     $addRef(KeyState, [_enum_KeyState_Up]:KeyState)
     $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]:KeyState)
     $addRef(KeyEvent, eax)
-    $call(Option::Some, eax)
+    $call(Option::Some, eax: KeyEvent)
     jmp     .end
 .noKey:
     mov     dword eax, [_enum_Option_None]

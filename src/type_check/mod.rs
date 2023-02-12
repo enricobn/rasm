@@ -702,6 +702,7 @@ fn convert_expr_in_body(
         }
         ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(_) => None,
+        ASTExpression::Any(_) => None,
     };
 
     if result.is_some() {
@@ -847,6 +848,7 @@ fn convert_last_expr_in_body(
         }
         ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(_) => None,
+        ASTExpression::Any(_) => None,
     };
 
     dedent!();
@@ -1317,6 +1319,16 @@ pub fn convert_call(
                 let ast_type = get_value_type(val_type);
                 something_converted_in_loop = update(
                     &ast_type,
+                    expr.clone(),
+                    par,
+                    &mut resolved_generic_types,
+                    &mut converted_parameters,
+                    &mut converted_expressions,
+                )? || something_converted_in_loop;
+            }
+            ASTExpression::Any(ast_type) => {
+                something_converted_in_loop = update(
+                    ast_type,
                     expr.clone(),
                     par,
                     &mut resolved_generic_types,
@@ -2012,6 +2024,7 @@ fn get_type_of_expression(
             }
             // Some(ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: None, parameters: vec![]}))
         }
+        ASTExpression::Any(ast_type) => Ok(Some(ast_type.clone())),
     };
 
     debug_i!("result {:?}", result);

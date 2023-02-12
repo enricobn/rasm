@@ -209,7 +209,7 @@ pub enum ASTExpression {
     ValueRef(String, ASTIndex),
     Value(ValueType, ASTIndex),
     Lambda(ASTLambdaDef),
-    //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
+    Any(ASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 
 impl Display for ASTExpression {
@@ -228,6 +228,7 @@ impl Display for ASTExpression {
                 ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
+            ASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
         }
     }
 }
