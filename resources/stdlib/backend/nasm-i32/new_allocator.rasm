@@ -146,9 +146,11 @@ asm deref(address: i32, descr: str) -> i32 /{
 
     %ifdef LOG_DEBUG
     $call(print, "start deref ")
-    $call(println, $address)
+    $call(print, $address)
+    $call(print, "\n")
     $call(print, "  ")
-    $call(println, $descr)
+    $call(print, $descr)
+    $call(print, "\n")
     %endif
 
     %ifdef LOG_DEBUG
@@ -156,7 +158,8 @@ asm deref(address: i32, descr: str) -> i32 /{
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,eax
     $call(print, "  reusable size ")
-    $call(println, ebx)
+    $call(print, ebx: i32)
+    $call(print, "\n")
     %endif
 
     %ifdef LOG_DEBUG
@@ -180,7 +183,9 @@ asm deref(address: i32, descr: str) -> i32 /{
     sub     ebx,1
 
     %ifdef LOG_DEBUG
-    $call(printRefCount, ebx)
+    $call(print, "  ref count: ")
+    $call(print, ebx: i32)
+    $call(print, "\n")
     %endif
 
     mov     dword [eax + 12],ebx
@@ -189,7 +194,8 @@ asm deref(address: i32, descr: str) -> i32 /{
 
     %ifdef LOG_DEBUG
     $call(print, "  deallocated ")
-    $call(println, eax)
+    $call(print, eax)
+    $call(print, "\n")
     %endif
 
     mov     dword [eax + 4],0; allocated false
@@ -212,7 +218,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     $call(invalidAddress)
 .end:
     %ifdef LOG_DEBUG
-    $call(println, "end deref")
+    $call(print, "end deref\n")
     %endif
 
     pop     ebx
@@ -242,9 +248,11 @@ asm addRef(address: i32, descr: str) /{
 
     %ifdef LOG_DEBUG
     $call(print, "start addRef ")
-    $call(println, $address)
+    $call(print, $address)
+    $call(print, "\n")
     $call(print, "  ")
-    $call(println, $descr)
+    $call(print, $descr)
+    $call(print, "\n")
     %endif
 
     %ifdef LOG_DEBUG
@@ -253,7 +261,8 @@ asm addRef(address: i32, descr: str) /{
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,ecx
     $call(print, "  reusable size ")
-    $call(println, ebx)
+    $call(print, ebx)
+    $call(print, "\n")
     pop     ecx
     %endif
 
@@ -273,7 +282,9 @@ asm addRef(address: i32, descr: str) /{
     add     ebx,1
 
     %ifdef LOG_DEBUG
-    $call(printRefCount, ebx)
+    $call(print, "  ref count: ")
+    $call(print, ebx)
+    $call(print, "\n")
     %endif
 
     mov     dword [eax + 12],ebx
@@ -292,7 +303,7 @@ asm addRef(address: i32, descr: str) /{
     $call(invalidAddress)
 .end:
     %ifdef LOG_DEBUG
-    $call(println, "end addRef")
+    $call(print, "end addRef\n")
     %endif
 
     pop     ebx
@@ -355,7 +366,7 @@ fn printRefCount(count: i32) {
 }
 
 fn invalidAddress() {
-    println("invalid address");
+    print("invalid address \n");
     exitMain(1);
 }
 
@@ -381,7 +392,7 @@ asm printAllocated() /{
     jmp     .loop
 .end:
     $call(print, ecx)
-    call    printAllocatedString
+    $call(printAllocatedString)
 
     pop     edx
     pop     ecx
@@ -403,7 +414,7 @@ asm printTableSlotsAllocated() /{
     jmp     .loop
 .end:
     $call(print, eax)
-    call    printTableSlotsAllocatedString
+    $call(printTableSlotsAllocatedString)
 
     pop     ebx
     pop     eax
