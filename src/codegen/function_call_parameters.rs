@@ -545,7 +545,7 @@ impl<'a> FunctionCallParameters<'a> {
                 );
 
                 /*
-                TODO it does not work for breakout example
+                TODO it does not work for breakout example but probably it's not needed
                 if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type) {
                     self.add_code_for_reference_type(
                         module,
@@ -616,7 +616,7 @@ impl<'a> FunctionCallParameters<'a> {
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
 
                 /*
-                TODO it seems to work, but I don't know it it's needed
+                TODO it seems to work, but probably it's not needed
                 if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type) {
                     self.add_code_for_reference_type(
                         module,
