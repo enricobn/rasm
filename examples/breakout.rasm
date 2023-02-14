@@ -37,7 +37,8 @@ struct Ball {
 struct World {
     bricks: Vec<Brick>,
     ball: Ball,
-    bar: Bar
+    bar: Bar,
+    keys: Vec<i32>
 }
 
 struct Bar {
@@ -55,7 +56,7 @@ const BARHEIGHT = 20;
 sdlInit();
 
 let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), mul(y, BRICKHEIGHT) , Color::Yellow()); });
-let initialWorld = World(bricks, Ball(1000, 10, XDirection::Right(), YDirection::Up()), Bar(500, 0));
+let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down()), Bar(500, 0), Vec());
 
 runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n", { win ->
     runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
@@ -74,26 +75,32 @@ runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow
 });
 
 fn update(event: Option<KeyEvent>, world: World) -> World {
+    println(time());
     //printWorld("update world ",  world);
+    //printAddress("world ", world);
     let bar = World::bar(world);
+    //printAddress("bar ", bar);
     let barPos = Bar::x(bar);
     //println("barPos ", barPos);
     let velocity = Bar::velocity(bar);
     //println("velocity ", velocity);
     //println("newVelocity ", newVelocity);
+    let keys = World::keys(world);
 
-    let ev = Option::match(event, { e ->
-        let key = KeyEvent::key(e);
-        let left = if(eq(key, 80), { -> -10; }, { -> 0;});
-        let right = if(eq(key, 79), { -> 10; }, { -> 0;});
-        add(left, right);
-    }, { -> 0;});
+    let newKeys = Option::match(event, { e ->
+          //print("barPos in lambda ");
+          //println(barPos);
+          let key = KeyEvent::key(e);
+          let state = KeyEvent::state(e);
 
-    let newVelocity = ev;
+          KeyState::match(state, { -> vecOf(key);}, { -> filter(keys, { k -> not(eq(k, key));});});
 
-    //if(eq(event, 80), { -> sub(velocity, 1); }, { -> if(eq(event, 79), { -> add(velocity, 1); }, { -> velocity;});});
+      }, { -> keys;});
 
-    //Option::run(event, { keyEvent -> println(keyEvent);} { -> });
+    let left = mul(count(keys, { k -> eq(k, 80);}), sub(0, 1));
+    let right = count(keys, { k -> eq(k, 79);});
+
+    let newVelocity = add(left, right);
 
     let newBarPos = add(barPos, newVelocity);
     //println("newBarPos ", newBarPos);
@@ -119,25 +126,18 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
 
     let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
 
-    let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
+    let newBall1 = Option::match(collision, { brick -> println("brick coll"); ballAfterCollision(ball, brick); }, { -> newBall; });
 
-    let newBall2 = if(collides(newX, newY, newBarPos), { -> Ball(newX, newY, flip(newXDir), newYDir);}, { -> newBall1; });
+    let newBall2 = if(collides(newX, newY, newBarPos), { -> println("ball coll"); Ball(newX, newY, newXDir, flip(newYDir));}, { -> newBall1; });
 
-    let newBarVelocity = Bar::velocity(newBar);
-    //println("newBarVelocity ", newBarVelocity);
-
-    let newBarPos2 = Bar::x(newBar);
-    //println("newBarPos2 ", newBarPos2);
-
-    //exitMain(0);
-
-    World(newBricks, newBall2, newBar);
+    World(newBricks, newBall2, newBar, newKeys);
 }
 
-fn println<T>(prefix: str, o: T) {
-    print(prefix);
-    println(o);
-}
+asm printAddress<T>(message: str, o: T) /{
+    $call(print, $message)
+    $call(print, $o: i32)
+    $call(print, "\n")
+}/
 
 fn render(ren: i32, world: World) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
@@ -155,10 +155,6 @@ fn render(ren: i32, world: World) {
     sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
     let bar = World::bar(world);
     let barPos = Bar::x(bar);
-    //println("barPos in renderer: ", barPos);
-
-    let velocity = Bar::velocity(bar);
-    //println("velocity in renderer: ", velocity);
 
     sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
 
@@ -167,6 +163,11 @@ fn render(ren: i32, world: World) {
     let y = Ball::y(ball);
 
     sdlRenderFillRect(ren, SDLRect(x, y, 5, 5));
+}
+
+fn println<T>(prefix: str, o: T) {
+    print(prefix);
+    println(o);
 }
 
 fn eq(b1: Brick, b2: Brick) -> bool {
@@ -201,7 +202,7 @@ fn collides(x: i32, y: i32, barPos: i32) -> bool {
     let by = sub(HEIGHT, BARHEIGHT);
 
     let xColl = and(greater(x, bx), less(x, add(bx, BARWIDTH)));
-    let yColl = and(greater(y, by), less(y, add(by, BARHEIGHT)));
+    let yColl = greater(y, by);
 
     and(xColl, yColl);
 }
@@ -296,7 +297,7 @@ fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
 }
 
 fn singleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
-    let event = keyEvent();//Option::Some(KeyEvent(0, KeyState::Down()));
+    let event = keyEvent();
 
     Option::run(event, { keyEvent ->
         let key = KeyEvent::key(keyEvent);
@@ -311,7 +312,7 @@ fn singleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>,
 
     /*
     TODO is not supported yet
-    let newWorld = update(event, world);
+    let newWorld = updateFun(event, world);
     render(ctx, newWorld);
     sdlRenderPresent(ctx);
     newWorld;
@@ -328,23 +329,17 @@ asm loop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORLD) 
     push    ecx
     mov     dword ebx, $world
 .loop:
-    ; $call(print, "world address ")
-    ; $call(println, ebx)
     $call(printAllocated)
     $call(printTableSlotsAllocated)
     mov     dword ecx, [ebx]
-    ; $call(print, "bricks address ")
-    ; $call(println, [ecx])
-    ; $call(print, "ball address ")
-    ; $call(println, [ecx + 4])
-    ; $call(print, "bar address ")
-    ; $call(println, [ecx + 8])
+    $addRef(WORLD,ebx)
     push        dword $render
     push        dword $update
     push        dword ebx
     push        dword $ctx
     call        singleLoop_0
     add         esp, 4 * 4
+    $deref(WORLD,ebx)
     mov         dword   ebx, eax
     jmp     .loop
     pop     ecx

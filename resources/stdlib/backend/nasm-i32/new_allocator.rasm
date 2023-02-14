@@ -230,6 +230,7 @@ asm deref(address: i32, descr: str) -> i32 /{
  */
 asm freeMem(address: i32) /{
     push    ebx
+    push    eax
 
     mov     eax, $address
     mov     dword [eax + 4],0; allocated false
@@ -239,7 +240,8 @@ asm freeMem(address: i32) /{
     add     ebx,4
     mov     dword [_reusable_heap_table_next],ebx
 
-    pop ebx
+    pop     eax
+    pop     ebx
 }/
 
 asm addRef(address: i32, descr: str) /{

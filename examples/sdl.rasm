@@ -163,7 +163,8 @@ asm keyEvent() -> Option<KeyEvent> /{
     push    ebx
 
     $call(malloc, 56)
-    mov  dword  ebx, [eax]
+    push    eax
+    mov     dword  ebx, [eax]
     $ccall(SDL_PollEvent, [eax]);
     cmp     eax, 0
     je      .noKey
@@ -186,5 +187,7 @@ asm keyEvent() -> Option<KeyEvent> /{
 .noKey:
     mov     dword eax, [_enum_Option_None]
 .end:
+    pop     ebx
+    $call(freeMem, ebx)
     pop     ebx
 }/
