@@ -62,6 +62,7 @@ asm argv(i: i32) -> str /{
 }/
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
+// TODO use TimeVal
 asm sleep(sec: i32, nsec: i32) -> i32 /{
     push ebx
     push ecx
@@ -76,6 +77,35 @@ asm sleep(sec: i32, nsec: i32) -> i32 /{
     pop ecx
     pop ebx
 }/
+
+struct TimeVal {
+    sec: i32,
+    nano: i32
+}
+
+asm time() -> TimeVal /{
+    push    ecx
+    push    ebx
+    $call(TimeVal, 0, 0)
+    push    dword eax
+    mov     ebx, [eax]
+    $call(malloc, 8)
+    mov     dword ecx, [eax]  ; timezone
+    mov     eax, 78           ; call number = gettimeofday
+    int     0x80
+    pop     eax
+    pop     ebx
+    pop     ecx
+}/
+
+fn print(timeVal: TimeVal) {
+    let sec = TimeVal::sec(timeVal);
+    let nano = TimeVal::nano(timeVal);
+    print("sec=");
+    print(sec);
+    print(" nano=");
+    print(nano);
+}
 
 asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
