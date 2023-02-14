@@ -83,7 +83,7 @@ struct TimeVal {
     nano: i32
 }
 
-asm time() -> TimeVal /{
+asm now() -> TimeVal /{
     push    ecx
     push    ebx
     $call(TimeVal, 0, 0)
@@ -98,6 +98,15 @@ asm time() -> TimeVal /{
     pop     ebx
     pop     ecx
 }/
+
+fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
+    let secA = TimeVal::sec(actual);
+    let nanoA = TimeVal::nano(actual);
+    let secP = TimeVal::sec(previous);
+    let nanoP = TimeVal::nano(previous);
+
+    add(mul(1000000, sub(secA, secP)), sub(nanoA, nanoP));
+}
 
 fn print(timeVal: TimeVal) {
     let sec = TimeVal::sec(timeVal);
