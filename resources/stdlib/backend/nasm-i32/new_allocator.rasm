@@ -402,6 +402,34 @@ asm printAllocated() /{
     pop     eax
 }/
 
+/* probably there's a faster way to do this: a simple diff... */
+asm printTotalMemory() /{
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax,_heap_table
+    mov     dword ebx,0
+    mov     dword ecx,0
+.loop:
+    cmp     dword ebx,[_heap_table_size]
+    jge     .end
+    mov     dword edx,[eax + 4]; 1 == allocated
+    add     dword ecx,[eax + 8] ; size
+    add     eax, 5 * 4
+    add     ebx, 5 * 4
+    jmp     .loop
+.end:
+    $call(print, ecx)
+    $call(println, " bytes of total memory")
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+
 asm printTableSlotsAllocated() /{
     push    eax
     push    ebx
