@@ -22,14 +22,13 @@ pub mod utils;
 
 fn main() {
     Builder::from_default_env()
-        .format_timestamp_millis()
         .format(|buf, record| {
             writeln!(
                 buf,
-                "{} {}:{} [{}] - {}",
-                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S.%3f"),
-                record.file().unwrap_or("unknown"),
-                record.line().unwrap_or(0),
+                "{} [{}] - {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
+                //record.file().unwrap_or("unknown"),
+                //record.line().unwrap_or(0),
                 record.level(),
                 record.args()
             )
