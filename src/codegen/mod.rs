@@ -748,23 +748,22 @@ impl<'a> CodeGen<'a> {
                         &mut self.statics,
                     );
 
-                    after.push_str(&self.backend.call_deref(
-                        &format!(
-                            "[{bp} - {}]",
-                            stack
-                                .find_relative_to_bp(StackEntryType::LetVal, name)
-                                .unwrap()
-                                * self.backend.word_len()
-                        ),
+                    let deref_str = &self.backend.call_deref(
+                        &format!("[{bp} - {}]", address_relative_to_bp),
                         &type_name,
                         &format!("for let val {name}"),
                         &self.module,
                         &mut self.statics,
-                    ));
+                    );
+                    Self::insert_on_top(deref_str, after);
                 }
             }
 
-            Self::insert_on_top(&af.join("\n"), after);
+            let not_empty_after_lines = af
+                .into_iter()
+                .filter(|it| !it.is_empty())
+                .collect::<Vec<String>>();
+            Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
         }
 
         new_lambda_calls
