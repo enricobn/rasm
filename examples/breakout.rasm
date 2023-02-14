@@ -31,7 +31,8 @@ struct Ball {
     x: i32,
     y: i32,
     xDir: XDirection,
-    yDir: YDirection
+    yDir: YDirection,
+    lastUpdate: TimeVal
 }
 
 struct World {
@@ -51,12 +52,12 @@ const HEIGHT = 768;
 const BRICKWIDTH = 30;
 const BRICKHEIGHT = 10;
 const BARWIDTH = 50;
-const BARHEIGHT = 20;
+const BARHEIGHT = 10;
 
 sdlInit();
 
 let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), mul(y, BRICKHEIGHT) , Color::Yellow()); });
-let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down()), Bar(500, 0), Vec());
+let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), TimeVal(0, 0)), Bar(500, 0), Vec());
 
 runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n", { win ->
     runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
@@ -75,21 +76,16 @@ runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow
 });
 
 fn update(event: Option<KeyEvent>, world: World) -> World {
-    println(time());
-    //printWorld("update world ",  world);
-    //printAddress("world ", world);
+    // println(time());
+    // sleep(0, 1500);
+    let actualTime = now();
+
     let bar = World::bar(world);
-    //printAddress("bar ", bar);
     let barPos = Bar::x(bar);
-    //println("barPos ", barPos);
     let velocity = Bar::velocity(bar);
-    //println("velocity ", velocity);
-    //println("newVelocity ", newVelocity);
     let keys = World::keys(world);
 
     let newKeys = Option::match(event, { e ->
-          //print("barPos in lambda ");
-          //println(barPos);
           let key = KeyEvent::key(e);
           let state = KeyEvent::state(e);
 
@@ -103,34 +99,41 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
     let newVelocity = add(left, right);
 
     let newBarPos = add(barPos, newVelocity);
-    //println("newBarPos ", newBarPos);
 
     let newBar = Bar(newBarPos, newVelocity);
 
-    let ball = World::ball(world);
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
-    let xDir = Ball::xDir(ball);
-    let yDir = Ball::yDir(ball);
     let bricks = World::bricks(world);
+    let ball = World::ball(world);
+    let lastUpdate = Ball::lastUpdate(ball);
+    let elapsed = elapsedTime(actualTime, lastUpdate);
 
-    let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
-    let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
+    if(greater(elapsed, 2000), { ->
+        let x = Ball::x(ball);
+        let y = Ball::y(ball);
+        let xDir = Ball::xDir(ball);
+        let yDir = Ball::yDir(ball);
 
-    let newXDir = if(or(greater(newX, WIDTH), less(newX, 5)), { -> flip(xDir); }, { -> xDir;});
-    let newYDir = if(or(greater(newY, HEIGHT), less(newY, 5)), { -> flip(yDir); }, { -> yDir;});
+        let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
+        let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
 
-    let newBall = Ball(newX, newY, newXDir, newYDir);
+        let newXDir = if(or(greater(newX, WIDTH), less(newX, 5)), { -> flip(xDir); }, { -> xDir;});
+        let newYDir = if(or(greater(newY, HEIGHT), less(newY, 5)), { -> flip(yDir); }, { -> yDir;});
 
-    let collision = collision(bricks, newBall);
 
-    let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
+        let newBall = if(greater(elapsed, 2000), { -> Ball(newX, newY, newXDir, newYDir, actualTime);}, { -> ball;});
 
-    let newBall1 = Option::match(collision, { brick -> println("brick coll"); ballAfterCollision(ball, brick); }, { -> newBall; });
+        let collision = collision(bricks, newBall);
 
-    let newBall2 = if(collides(newX, newY, newBarPos), { -> println("ball coll"); Ball(newX, newY, newXDir, flip(newYDir));}, { -> newBall1; });
+        let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
 
-    World(newBricks, newBall2, newBar, newKeys);
+        let newBall1 = Option::match(collision, { brick -> println("brick coll"); ballAfterCollision(ball, brick); }, { -> newBall; });
+
+        let newBall2 = if(collides(newX, newY, newBarPos), { -> println("ball coll"); Ball(newX, newY, newXDir, flip(newYDir), actualTime);}, { -> newBall1; });
+
+        World(newBricks, newBall2, newBar, newKeys);
+    }, { ->
+        World(bricks, ball, newBar, newKeys);
+    });
 }
 
 asm printAddress<T>(message: str, o: T) /{
@@ -212,6 +215,7 @@ fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
     let ballY = Ball::y(ball);
     let xDir = Ball::xDir(ball);
     let yDir = Ball::yDir(ball);
+    let lastUpdate = Ball::lastUpdate(ball);
 
     let brickX = Brick::x(brick);
     let brickY = Brick::y(brick);
@@ -224,7 +228,7 @@ fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
     let xDiff = min(xDiff1, xDiff2);
     let yDiff = min(yDiff1, yDiff2);
 
-    if(less(xDiff, yDiff), { -> Ball(ballX, ballY, flip(xDir), yDir);}, { -> Ball(ballX, ballY, xDir, flip(yDir));});
+    if(less(xDiff, yDiff), { -> Ball(ballX, ballY, flip(xDir), yDir, lastUpdate);}, { -> Ball(ballX, ballY, xDir, flip(yDir), lastUpdate);});
 }
 
 fn min(a: i32, b: i32) -> i32 {
@@ -329,8 +333,9 @@ asm loop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORLD) 
     push    ecx
     mov     dword ebx, $world
 .loop:
-    $call(printAllocated)
-    $call(printTableSlotsAllocated)
+    ; $call(printTotalMemory)
+    ; $call(printAllocated)
+    ; $call(printTableSlotsAllocated)
     mov     dword ecx, [ebx]
     $addRef(WORLD,ebx)
     push        dword $render
