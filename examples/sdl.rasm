@@ -1,5 +1,6 @@
 requires "libc"
 requires "SDL2"
+requires "SDL2_ttf"
 
 extern "SDL_CreateRenderer"
 extern "SDL_CreateTextureFromSurface"
@@ -20,6 +21,9 @@ extern "SDL_RenderPresent"
 extern "SDL_RWFromFile"
 extern "SDL_SetRenderDrawColor"
 extern "SDL_Quit"
+extern "TTF_Init"
+extern "TTF_OpenFont"
+extern "TTF_RenderText_Solid"
 
 struct SDLRect {
     x: i32,
@@ -190,4 +194,109 @@ asm keyEvent() -> Option<KeyEvent> /{
     pop     ebx
     $call(freeMem, ebx)
     pop     ebx
+}/
+
+fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
+    let event = keyEvent();
+
+    Option::run(event, { keyEvent ->
+        let key = KeyEvent::key(keyEvent);
+        ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
+    }, { -> });
+
+    with(updateFun(event, world), { newWorld ->
+        renderFun(ctx, newWorld);
+        newWorld;
+    });
+
+    /*
+    TODO is not supported yet
+    let newWorld = updateFun(event, world);
+    render(ctx, newWorld);
+    sdlRenderPresent(ctx);
+    newWorld;
+    */
+}
+
+asm sdlLoop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORLD) -> WORLD, render: fn(CTX, WORLD) -> ()) /{
+    push    ebx
+    push    ecx
+    mov     dword ebx, $world
+.loop:
+    ; $call(printTotalMemory)
+    ; $call(printAllocated)
+    ; $call(printTableSlotsAllocated)
+    mov     dword ecx, [ebx]
+    $addRef(WORLD,ebx)
+    push        dword $render
+    push        dword $update
+    push        dword ebx
+    push        dword $ctx
+    call        sdlSingleLoop_0
+    add         esp, 4 * 4
+    $deref(WORLD,ebx)
+    mov         dword   ebx, eax
+    jmp     .loop
+    pop     ecx
+    pop     ebx
+}/
+
+asm sdlTTFInit() -> i32 /{
+    $ccall(TTF_Init)
+}/
+
+asm sdlOpenFont(file: str, size: i32) -> i32 /{
+    $ccall(TTF_OpenFont, $file, $size)
+}/
+
+asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) -> i32 /{
+    push    ebx
+    push    ecx
+
+    $call(malloc,5) ; why 5???
+    push    eax
+
+    mov     ecx, [eax]
+    mov     dword ebx, $r
+    mov     byte [ecx], bl
+    mov     dword ebx, $g
+    mov     byte [ecx + 1], bl
+    mov     dword ebx, $b
+    mov     byte [ecx + 2], bl
+    mov     dword ebx, $a
+    mov     byte [ecx + 3], bl
+
+    $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
+    pop     ecx
+    $call(freeMem, ecx)
+    pop     ecx
+    pop     ebx
+}/
+
+asm sdlRenderTextSolid2(font: i32, message: str, r: i32, g: i32, b: i32) -> i32 /{
+    push    ebx
+    push    ecx
+
+    $call(malloc, 4)
+    push    eax
+
+    mov     dword ebx, [eax]
+    mov     byte [ebx], 255
+    mov     byte [ebx + 1], 0
+    mov     byte [ebx + 2], 0
+    mov     byte [ebx + 3], 255
+    $ccall(TTF_RenderText_Solid, $font, $message, 255)
+
+    pop     ecx
+    $call(freeMem, ecx)
+
+    pop     ecx
+    pop     ebx
+}/
+
+asm sdlRenderText(ren: i32, message: i32, rect: SDLRect) /{
+    push    eax
+    mov     dword eax, $rect
+    $ccall(SDL_RenderCopy, $ren, $message, 0, [eax])
+    pop     eax
 }/
