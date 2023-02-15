@@ -1,4 +1,4 @@
-// time ./gameoflifesdl examples/f116.cells 100
+// time ./gameoflife_sdl examples/f116.cells 100
 // 12,762
 // 10,686 - used let statement
 // 10,227 - optimized lambda space creation
@@ -30,28 +30,27 @@ run(moveCells(start, 20), 80, 50, count);
 sdlQuit();
 
 fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
-    runOrError(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n", { win ->
-        runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
-            sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
-            sdlRenderClear(ren);
-            sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+    let win = sdlErrorIfNull(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n");
+    let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
-            let allCells = allCells(width, height);
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
 
-            printCells(ren,
-                foldLeft(range(0, count), start, { prev, act ->
-                    printCells(ren, prev, width, height);
-                    //sdlDelay(1000);
-                    next(prev, allCells);
-                  }), width, height);
+    let allCells = allCells(width, height);
 
-            sdlDestroyRenderer(ren);
-            sdlDestroyWindow(win);
-        });
-    });
+    printCells(ren,
+        foldLeft(range(0, count), start, { prev, act ->
+            printCells(ren, prev, width, height);
+            //sdlDelay(1000);
+            next(prev, allCells);
+          }), width, height);
+
+    sdlDestroyRenderer(ren);
+    sdlDestroyWindow(win);
 }
 
-fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
+fn printCells(ren: SDLRenderer, cells: List<Cell>, width: i32, height: i32) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
     sdlRenderClear(ren);
     sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
@@ -68,15 +67,4 @@ fn printCells(ren: i32, cells: List<Cell>, width: i32, height: i32) {
         });
     });
     sdlRenderPresent(ren);
-}
-
-asm failure(message: str) /{
-    $ccall(SDL_GetError)
-    $ccall(printf, $message, eax)
-    $ccall(SDL_Quit)
-    $ccall(exit, 1)
-}/
-
-fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
-    ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
 }

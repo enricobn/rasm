@@ -35,6 +35,7 @@ struct SDLRect {
 type SDLRenderer(false);
 type SDLWindow(false);
 type SDLSurface(false);
+type SDLTexture(false);
 
 /* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
 otherwise returns the value */
@@ -84,7 +85,7 @@ asm sdlLoadBMP(file: str) -> SDLSurface /{
     $ccall(SDL_LoadBMP_RW, eax, 1)
 }/
 
-asm sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> i32 /{
+asm sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
     $ccall(SDL_CreateTextureFromSurface, $ren, $surface)
 }/
 
@@ -96,7 +97,7 @@ asm sdlRenderClear(ren: SDLRenderer) /{
     $ccall(SDL_RenderClear, $ren)
 }/
 
-asm sdlRenderCopy(ren: SDLRenderer, tex: i32) /{
+asm sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
     $ccall(SDL_RenderCopy, $ren, $tex, 0, 0)
 }/
 
@@ -108,7 +109,7 @@ asm sdlDestroyRenderer(ren: SDLRenderer) /{
     $ccall(SDL_DestroyRenderer, $ren)
 }/
 
-asm sdlDestroyTexture(tex: i32) /{
+asm sdlDestroyTexture(tex: SDLTexture) /{
     $ccall(SDL_DestroyTexture, $tex)
 }/
 
@@ -307,7 +308,7 @@ asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) 
     pop     ebx
 }/
 
-asm sdlRenderText(ren: SDLRenderer, message: i32, rect: SDLRect) /{
+asm sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
     push    eax
     mov     dword eax, $rect
     $ccall(SDL_RenderCopy, $ren, $message, 0, [eax])
