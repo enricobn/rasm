@@ -54,7 +54,7 @@ struct Bar {
 
 const WIDTH = 1024;
 const HEIGHT = 768;
-const BRICKWIDTH = 30;
+const BRICKWIDTH = 34;
 const BRICKHEIGHT = 10;
 const BARWIDTH = 50;
 const BARHEIGHT = 10;
@@ -263,32 +263,6 @@ fn flip(xDir: XDirection) -> XDirection {
 
 fn flip(yDir: YDirection) -> YDirection {
     YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
-}
-
-fn worldUpdate(world: World, bricksUpdate: fn(Vec<Brick>) -> Vec<Brick>, ballUpdate: fn(Ball) -> Ball, barPosUpdate: fn(i32) -> i32) -> World {
-    let bricks = bricksUpdate(World::bricks(world));
-    let ball = ballUpdate(World::ball(world));
-    let barPos = barPosUpdate(World::barPos(world));
-
-    World(bricks, ball, barPos);
-}
-
-// TODO I don't need the whole world!!!
-fn moveBarLeft(world: World) -> World {
-    let bricks = World::bricks(world);
-    let ball = World::ball(world);
-    let barPos = World::barPos(world);
-
-    World(bricks, ball, sub(barPos, 10));
-}
-
-// TODO I don't need the whole world!!!
-fn moveBarRight(world: World) -> World {
-    let bricks = World::bricks(world);
-    let ball = World::ball(world);
-    let barPos = World::barPos(world);
-
-    World(bricks, ball, add(barPos, 10));
 }
 
 fn print(brick: Brick) {
