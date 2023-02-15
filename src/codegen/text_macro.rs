@@ -48,7 +48,7 @@ impl TextMacroEvaluator {
         statics: &mut Statics,
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
-        module: Option<&ASTTypedModule>,
+        module: &ASTTypedModule,
     ) -> String {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
@@ -282,7 +282,7 @@ impl TextMacroEvaluator {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        module: Option<&ASTTypedModule>,
+        module: &ASTTypedModule,
     ) -> String {
         let evaluator = self
             .evaluators
@@ -364,7 +364,7 @@ trait TextMacroEval {
         statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
-        module: Option<&ASTTypedModule>,
+        module: &ASTTypedModule,
     ) -> String;
 }
 
@@ -383,7 +383,7 @@ impl TextMacroEval for CallTextMacroEvaluator {
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
-        _module: Option<&ASTTypedModule>,
+        _module: &ASTTypedModule,
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name
@@ -445,7 +445,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
-        _module: Option<&ASTTypedModule>,
+        module: &ASTTypedModule,
     ) -> String {
         debug_i!("translate macro fun {:?}", _function_def);
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
@@ -490,7 +490,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                         MacroParam::Ref(s, t) => {
                             let is_ref =
                             if let Some(tt) = t {
-                                is_reference(tt)
+                                is_reference(tt, module)
                             } else {
                                 false
                             };
@@ -520,11 +520,22 @@ impl TextMacroEval for CCallTextMacroEvaluator {
     }
 }
 
-fn is_reference(ast_type: &ASTType) -> bool {
-    matches!(
-        ast_type,
-        ASTType::Builtin(BuiltinTypeKind::String) | ASTType::Custom { .. }
-    )
+fn is_reference(ast_type: &ASTType, module: &ASTTypedModule) -> bool {
+    if let ASTType::Builtin(BuiltinTypeKind::String) = ast_type {
+        true
+    } else if let ASTType::Custom {
+        name,
+        param_types: _,
+    } = ast_type
+    {
+        if let Some(t) = module.types.iter().find(|it| &it.name == name) {
+            t.is_ref
+        } else {
+            true
+        }
+    } else {
+        false
+    }
 }
 
 struct AddRefMacro {
@@ -544,7 +555,7 @@ impl TextMacroEval for AddRefMacro {
         statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
-        module: Option<&ASTTypedModule>,
+        module: &ASTTypedModule,
     ) -> String {
         if let Some(fd) = function_def {
             if fd.name == "addRef_0" {
@@ -553,58 +564,39 @@ impl TextMacroEval for AddRefMacro {
             if let Some(MacroParam::Plain(generic_type_name, _)) = parameters.get(0) {
                 if let Some(MacroParam::Plain(address, _)) = parameters.get(1) {
                     if let Some(ast_type) = fd.generic_types.get(generic_type_name) {
-                        if let Some(type_name) = CodeGen::get_reference_type_name(ast_type) {
-                            if let Some(ast_module) = module {
-                                let mut result = String::new();
-                                let descr = &format!("addref macro type {type_name}");
-                                if self.deref {
-                                    result.push_str(&backend.call_deref(
-                                        address, &type_name, descr, ast_module, statics,
-                                    ));
-                                } else {
-                                    backend.call_add_ref(
-                                        &mut result,
-                                        address,
-                                        &type_name,
-                                        descr,
-                                        ast_module,
-                                        statics,
-                                    );
-                                }
-                                result
-                            } else {
-                                String::new()
-                            }
-                        } else {
-                            String::new()
-                        }
-                    } else if let Some(m) = module {
-                        let mut name = generic_type_name.clone();
-                        name.push('_');
-                        let descr = &format!("addref macro type {name}");
-                        if let Some(s) = m.structs.iter().find(|it| it.name.starts_with(&name)) {
+                        if let Some(type_name) = CodeGen::get_reference_type_name(ast_type, module)
+                        {
                             let mut result = String::new();
+                            let descr = &format!("addref macro type {type_name}");
                             if self.deref {
                                 result.push_str(
-                                    &backend.call_deref(address, &s.name, descr, m, statics),
+                                    &backend
+                                        .call_deref(address, &type_name, descr, module, statics),
                                 );
                             } else {
                                 backend.call_add_ref(
                                     &mut result,
                                     address,
-                                    &s.name,
+                                    &type_name,
                                     descr,
-                                    m,
+                                    module,
                                     statics,
                                 );
                             }
                             result
-                        } else if let Some(s) = m.enums.iter().find(|it| it.name.starts_with(&name))
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        let mut name = generic_type_name.clone();
+                        name.push('_');
+                        let descr = &format!("addref macro type {name}");
+                        if let Some(s) = module.structs.iter().find(|it| it.name.starts_with(&name))
                         {
                             let mut result = String::new();
                             if self.deref {
                                 result.push_str(
-                                    &backend.call_deref(address, &s.name, descr, m, statics),
+                                    &backend.call_deref(address, &s.name, descr, module, statics),
                                 );
                             } else {
                                 backend.call_add_ref(
@@ -612,7 +604,26 @@ impl TextMacroEval for AddRefMacro {
                                     address,
                                     &s.name,
                                     descr,
-                                    m,
+                                    module,
+                                    statics,
+                                );
+                            }
+                            result
+                        } else if let Some(s) =
+                            module.enums.iter().find(|it| it.name.starts_with(&name))
+                        {
+                            let mut result = String::new();
+                            if self.deref {
+                                result.push_str(
+                                    &backend.call_deref(address, &s.name, descr, module, statics),
+                                );
+                            } else {
+                                backend.call_add_ref(
+                                    &mut result,
+                                    address,
+                                    &s.name,
+                                    descr,
+                                    module,
                                     statics,
                                 );
                             }
@@ -620,8 +631,6 @@ impl TextMacroEval for AddRefMacro {
                         } else {
                             panic!("cannot find struct nor enum {generic_type_name}");
                         }
-                    } else {
-                        panic!("Cannot find generic type {generic_type_name}")
                     }
                 } else {
                     panic!("Error getting the address")
@@ -648,8 +657,8 @@ mod tests {
     use crate::parser::ast::{ASTType, BuiltinTypeKind};
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::typed_ast::{
-        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
-        BuiltinTypedTypeKind,
+        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
+        ASTTypedType, BuiltinTypedTypeKind,
     };
 
     #[test]
@@ -665,8 +674,13 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result =
-            TextMacroEvaluator::new().eval_macro(&backend, &mut statics, &text_macro, None, None);
+        let result = TextMacroEvaluator::new().eval_macro(
+            &backend,
+            &mut statics,
+            &text_macro,
+            None,
+            &module(),
+        );
 
         assert_eq!(
             result,
@@ -684,7 +698,7 @@ mod tests {
             &mut statics,
             None,
             "a line\n$call(nprint,10)\nanother line\n",
-            None,
+            &module(),
         );
 
         assert_eq!(
@@ -703,7 +717,7 @@ mod tests {
             &mut statics,
             None,
             "a line\n$call(println, \"Hello, world\")\nanother line\n",
-            None,
+            &module(),
         );
 
         assert_eq!(
@@ -739,7 +753,7 @@ mod tests {
             &mut statics,
             Some(&function_def),
             "a line\n$call(println, $s)\nanother line\n",
-            None,
+            &module(),
         );
 
         assert_eq!(
@@ -770,7 +784,7 @@ mod tests {
             &mut statics,
             Some(&function_def),
             "a line\n$ccall(printf, $s)\nanother line\n",
-            None,
+            &module(),
         );
 
         assert_eq!(
@@ -789,7 +803,7 @@ mod tests {
             &mut statics,
             None,
             "mov     eax, 1          ; $call(any)",
-            None,
+            &module(),
         );
 
         assert_eq!(result, "mov     eax, 1          ; $call(any)");
@@ -833,7 +847,7 @@ mod tests {
             &mut statics,
             None,
             "$call(List_0_addRef,eax:List_0)",
-            None,
+            &module(),
         );
 
         assert_eq!(
@@ -861,5 +875,16 @@ mod tests {
 
     fn backend() -> BackendAsm386 {
         BackendAsm386::new(HashSet::new(), HashSet::new())
+    }
+
+    fn module() -> ASTTypedModule {
+        ASTTypedModule {
+            body: vec![],
+            functions_by_name: Default::default(),
+            enums: vec![],
+            structs: vec![],
+            native_body: "".to_string(),
+            types: vec![],
+        }
     }
 }

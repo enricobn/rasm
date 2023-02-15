@@ -68,21 +68,19 @@ let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWI
 let font = sdlOpenFont("examples/DejaVuSerif.ttf", 24);
 let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0), Vec(), Resources(font));
 
-runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n", { win ->
-    runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
+let win = sdlErrorIfNull(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
+let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
-        // TODO a trick to create the function, since for now I can't call it with a $call macro in asm...
-        sdlSingleLoop(ren, initialWorld, { event,world -> world;}, { ren, world -> });
+// TODO a trick to create the function, since for now I can't call it with a $call macro in asm...
+sdlSingleLoop(ren, initialWorld, { event,world -> world;}, { ren, world -> });
 
-        sdlLoop(ren, initialWorld,
-            { event, world -> update(event, world);},
-            { ren, world -> render(ren, world);}
-        );
+sdlLoop(ren, initialWorld,
+    { event, world -> update(event, world);},
+    { ren, world -> render(ren, world);}
+);
 
-        sdlDestroyRenderer(ren);
-        sdlDestroyWindow(win);
-    });
-});
+sdlDestroyRenderer(ren);
+sdlDestroyWindow(win);
 
 fn update(event: Option<KeyEvent>, world: World) -> World {
     // println(time());
@@ -150,7 +148,7 @@ asm printAddress<T>(message: str, o: T) /{
     $call(print, "\n")
 }/
 
-fn render(ren: i32, world: World) {
+fn render(ren: SDLRenderer, world: World) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 255);
     sdlRenderClear(ren);
     sdlSetRenderDrawColor(ren, 255, 0, 0, 255);
@@ -311,15 +309,4 @@ fn print(color: Color) {
         { -> print("Green"); },
         { -> print("Blue"); },
     );
-}
-
-asm failure(message: str) /{
-    $ccall(SDL_GetError)
-    $ccall(printf, $message, eax)
-    $ccall(SDL_Quit)
-    $ccall(exit, 1)
-}/
-
-fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
-    ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
 }

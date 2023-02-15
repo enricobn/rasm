@@ -367,9 +367,9 @@ impl Backend for BackendAsm386 {
 
         let has_references =
             if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-                struct_has_references(struct_def)
+                struct_has_references(struct_def, module)
             } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-                enum_has_references(enum_def)
+                enum_has_references(enum_def, module)
             } else if let Some(type_def) = module.types.iter().find(|it| it.name == type_name) {
                 type_has_references(type_def)
             } else {
@@ -421,9 +421,9 @@ impl Backend for BackendAsm386 {
         let has_references = if "str" == type_name {
             true
         } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-            struct_has_references(struct_def)
+            struct_has_references(struct_def, module)
         } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-            enum_has_references(enum_def)
+            enum_has_references(enum_def, module)
         } else if let Some(type_def) = module.types.iter().find(|it| it.name == type_name) {
             type_has_references(type_def)
         } else {

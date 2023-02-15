@@ -281,14 +281,13 @@ impl Parser {
                         continue;
                     } else if let TokenKind::KeyWord(KeywordKind::Type) = token.kind {
                         let (type_def, next_i) = self.parse_type_def();
-                        if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
-                            self.get_token_kind_n(next_i - self.i)
-                        {
+                        let token = self.get_token_kind_n(next_i - self.i);
+                        if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
                             self.types.push(type_def);
                             self.i = next_i + 1;
                             continue;
                         } else {
-                            self.panic("Missing semicolon)")
+                            self.panic(&format!("Missing semicolon, got {:?}", token))
                         }
                     }
 
@@ -1057,25 +1056,45 @@ impl Parser {
 
     fn parse_type_def(&self) -> (ASTTypeDef, usize) {
         if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
-            if let Some((type_parameters, next_n)) = TypeParamsParser::new(self).try_parse(2) {
-                (
-                    ASTTypeDef {
-                        type_parameters,
-                        name: name.clone(),
-                    },
-                    next_n,
-                )
+            let (type_parameters, next_i) =
+                if let Some((type_parameters, next_i)) = TypeParamsParser::new(self).try_parse(2) {
+                    (type_parameters, next_i)
+                } else {
+                    (Vec::new(), self.get_i() + 2)
+                };
+
+            let n = next_i - self.get_i();
+            if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
+                self.get_token_kind_n(n)
+            {
+                let is_ref = match self.get_token_kind_n(n + 1) {
+                    None => panic!("Unexpected end of stream"),
+                    Some(TokenKind::KeyWord(KeywordKind::False)) => false,
+                    Some(TokenKind::KeyWord(KeywordKind::True)) => true,
+                    Some(k) => panic!("Expected a boolean value but got {k}"),
+                };
+                if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) =
+                    self.get_token_kind_n(n + 2)
+                {
+                    return (
+                        ASTTypeDef {
+                            type_parameters,
+                            name: name.clone(),
+                            is_ref,
+                        },
+                        self.get_i() + n + 3,
+                    );
+                }
             } else {
-                (
-                    ASTTypeDef {
-                        type_parameters: Vec::new(),
-                        name: name.clone(),
-                    },
-                    2,
-                )
+                panic!(
+                    "Expected '(' but got '{:?}': {}",
+                    self.get_token_kind_n(n),
+                    self.get_index(n).unwrap()
+                );
             }
+            panic!("Error parsing type: {}", self.get_index(0).unwrap());
         } else {
-            self.panic("Error parsing include")
+            self.panic("Error parsing Type, expected identifier")
         }
     }
 }

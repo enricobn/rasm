@@ -119,7 +119,7 @@ fn create_free_body(
         true,
     );
 
-    if enum_has_references(enum_def) {
+    if enum_has_references(enum_def, module) {
         CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx,$address"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
@@ -128,7 +128,7 @@ fn create_free_body(
                 CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
                 CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
-                    if let Some(name) = CodeGen::get_reference_type_name(&par.ast_type) {
+                    if let Some(name) = CodeGen::get_reference_type_name(&par.ast_type, module) {
                         let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
                         if function_name == "deref" {
                             result.push_str(&backend.call_deref(
@@ -161,10 +161,10 @@ fn create_free_body(
     result
 }
 
-pub fn enum_has_references(enum_def: &ASTTypedEnumDef) -> bool {
+pub fn enum_has_references(enum_def: &ASTTypedEnumDef, module: &ASTTypedModule) -> bool {
     enum_def
         .variants
         .iter()
         .flat_map(|it| it.parameters.iter())
-        .any(|it| CodeGen::get_reference_type_name(&it.ast_type).is_some())
+        .any(|it| CodeGen::get_reference_type_name(&it.ast_type, module).is_some())
 }

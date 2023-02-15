@@ -299,6 +299,7 @@ pub struct ASTTypedTypeDef {
     pub original_name: String,
     pub name: String,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
+    pub is_ref: bool,
 }
 
 pub struct ConvContext<'a> {
@@ -453,7 +454,7 @@ impl<'a> ConvContext<'a> {
         self.structs.get(enum_type).cloned()
     }
 
-    pub fn add_type(&mut self, ast_type: &ASTType) -> ASTTypedType {
+    pub fn add_type(&mut self, ast_type: &ASTType, is_ref: bool) -> ASTTypedType {
         debug!("add_type {ast_type}");
         self.count += 1;
         if self.count > 100 {
@@ -493,6 +494,7 @@ impl<'a> ConvContext<'a> {
                     original_name: name.clone(),
                     name: new_name,
                     generic_types,
+                    is_ref,
                 });
 
                 self.types.insert(ast_type.clone(), type_typed_type.clone());
@@ -695,8 +697,7 @@ pub fn convert_to_typed_module(
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::ASMBody(body) => {
                 // TODO statics
-                let new_body =
-                    evaluator.translate(backend, statics, Some(it.1), body, Some(&result));
+                let new_body = evaluator.translate(backend, statics, Some(it.1), body, &result);
                 it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
             }
         });
@@ -1015,7 +1016,7 @@ fn add_default_function(
 ) {
     let context = ValContext::new(None);
 
-    let call = function_call.to_call(None);
+    let call = function_call.to_call();
 
     match convert_call(
         module,
@@ -1150,7 +1151,7 @@ pub fn function_def(
                         functiond_def.name.clone()
                         //     TODO when SomethingConverted?
                     } else {
-                        let function_call = it.to_call(Some(&conv_context.enum_defs));
+                        let function_call = it.to_call();
 
                         if let Ok(Converted(new_call)) = convert_call(
                             module,
@@ -1425,11 +1426,11 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                 } else {
                     conv_context.add_struct(ast_type)
                 }
-            } else if conv_context.module.types.iter().any(|it| &it.name == name) {
+            } else if let Some(t) = conv_context.module.types.iter().find(|it| &it.name == name) {
                 if let Some(e) = conv_context.get_type(ast_type) {
                     e
                 } else {
-                    conv_context.add_type(ast_type)
+                    conv_context.add_type(ast_type, t.is_ref)
                 }
             } else {
                 panic!("Cannot find custom type {name}");
@@ -1525,7 +1526,7 @@ impl DefaultFunctionCall {
         }
     }
 
-    pub fn to_call(&self, enums: Option<&Vec<ASTTypedEnumDef>>) -> ASTFunctionCall {
+    pub fn to_call(&self) -> ASTFunctionCall {
         ASTFunctionCall {
             function_name: self.name.clone(),
             original_function_name: self.name.clone(),

@@ -170,7 +170,7 @@ impl<'a> FunctionCallParameters<'a> {
         if self.immediate {
             panic!();
         }
-        if let Some(name) = CodeGen::get_reference_type_name(&param_type) {
+        if let Some(name) = CodeGen::get_reference_type_name(&param_type, module) {
             self.add_code_for_reference_type(module, &name, "eax", &descr, statics);
         }
         self.parameter_added_to_stack();
@@ -346,28 +346,17 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_parameter_ref(
         &mut self,
-        module: &ASTTypedModule,
         original_param_name: String,
         val_name: &str,
         ast_typed_type: &ASTTypedType,
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        statics: &mut Statics,
-        ast_index: &ASTIndex,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(
-                module,
-                &original_param_name,
-                lambda_space_index,
-                indent,
-                statics,
-                ast_typed_type,
-                ast_index,
-            );
+            self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
         } else {
             self.add_val_from_parameter(
                 original_param_name,
@@ -380,14 +369,12 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_let_val_ref(
         &mut self,
-        module: &ASTTypedModule,
         original_param_name: String,
         val_name: &str,
         ast_typed_type: &ASTTypedType,
         index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        statics: &mut Statics,
         ast_index: &ASTIndex,
     ) {
         self.debug_and_before(
@@ -396,15 +383,7 @@ impl<'a> FunctionCallParameters<'a> {
         );
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(
-                module,
-                &original_param_name,
-                lambda_space_index,
-                indent,
-                statics,
-                ast_typed_type,
-                ast_index,
-            );
+            self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
         } else {
             self.add_val_from_parameter(
                 original_param_name.clone(),
@@ -566,13 +545,9 @@ impl<'a> FunctionCallParameters<'a> {
 
     fn add_val_from_lambda_space(
         &mut self,
-        module: &ASTTypedModule,
         original_param_name: &str,
         lambda_space_index: usize,
         indent: usize,
-        statics: &mut Statics,
-        ast_typed_type: &ASTTypedType,
-        ast_index: &ASTIndex,
     ) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 

@@ -95,11 +95,13 @@ fn create_free_body(
     module: &ASTTypedModule,
     statics: &mut Statics,
 ) -> String {
+    if !type_def.is_ref {
+        return String::new();
+    }
     let ws = backend.word_size();
     let wl = backend.word_len();
 
     let mut result = String::new();
-
     let descr = format!("type {}", type_def.name);
     let key = statics.add_str(&descr);
 
@@ -121,7 +123,7 @@ fn create_free_body(
 
     if type_has_references(type_def) {
         for (i, (generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate() {
-            if let Some(name) = CodeGen::get_reference_type_name(generic_type_def) {
+            if let Some(name) = CodeGen::get_reference_type_name(generic_type_def, module) {
                 let descr = &format!("{}.{} : {}", type_def.name, generic_name, name);
                 let call_deref = if function_name == "deref" {
                     backend.call_deref("[ebx]", &name, descr, module, statics)
@@ -137,7 +139,6 @@ fn create_free_body(
             }
         }
     }
-
     result
 }
 
@@ -227,8 +228,5 @@ fn loop_vec(
 }
 
 pub fn type_has_references(type_def: &ASTTypedTypeDef) -> bool {
-    type_def
-        .generic_types
-        .values()
-        .any(|it| CodeGen::get_reference_type_name(it).is_some())
+    type_def.is_ref
 }

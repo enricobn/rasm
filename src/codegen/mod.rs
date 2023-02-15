@@ -515,8 +515,8 @@ impl<'a> CodeGen<'a> {
         &mut self,
         context: &mut TypedValContext,
         stack: &StackVals,
-        mut after: &mut String,
-        mut before: &mut String,
+        after: &mut String,
+        before: &mut String,
         name: &str,
         expr: &ASTTypedExpression,
         function_def: Option<&ASTTypedFunctionDef>,
@@ -712,7 +712,9 @@ impl<'a> CodeGen<'a> {
             }
 
             if self.dereference {
-                if let Some(type_name) = CodeGen::get_reference_type_name(&ast_typed_type) {
+                if let Some(type_name) =
+                    CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
+                {
                     let entry = self.statics.get_typed_const(name).unwrap();
 
                     self.backend.call_add_ref(
@@ -738,7 +740,9 @@ impl<'a> CodeGen<'a> {
             }
 
             if self.dereference {
-                if let Some(type_name) = CodeGen::get_reference_type_name(&ast_typed_type) {
+                if let Some(type_name) =
+                    CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
+                {
                     self.backend.call_add_ref(
                         before,
                         "eax",
@@ -854,7 +858,7 @@ impl<'a> CodeGen<'a> {
             &mut self.statics,
             None,
             &new_body,
-            Some(&self.module),
+            &self.module,
         )
     }
 
@@ -1705,15 +1709,12 @@ impl<'a> CodeGen<'a> {
             match val_kind {
                 TypedValKind::ParameterRef(index, par) => {
                     call_parameters.add_parameter_ref(
-                        &self.module,
                         param_name.into(),
                         val_name,
                         &par.ast_type,
                         *index,
                         lambda_space_opt,
                         *indent,
-                        &mut self.statics,
-                        ast_index,
                     );
                 }
 
@@ -1722,14 +1723,12 @@ impl<'a> CodeGen<'a> {
                         stack_vals.find_relative_to_bp(StackEntryType::LetVal, val_name);
 
                     call_parameters.add_let_val_ref(
-                        &self.module,
                         param_name.into(),
                         val_name,
                         ast_typed_type,
                         index_in_context,
                         lambda_space_opt,
                         *indent,
-                        &mut self.statics,
                         ast_index,
                     )
                 }
@@ -1774,12 +1773,25 @@ impl<'a> CodeGen<'a> {
         }
     }
 
-    pub fn get_reference_type_name(ast_type: &ASTTypedType) -> Option<String> {
+    pub fn get_reference_type_name(
+        ast_type: &ASTTypedType,
+        module: &ASTTypedModule,
+    ) -> Option<String> {
         match ast_type {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
             ASTTypedType::Enum { name } => Some(name.clone()),
             ASTTypedType::Struct { name } => Some(name.clone()),
-            ASTTypedType::Type { name } => Some(name.clone()),
+            ASTTypedType::Type { name } => {
+                if let Some(t) = module.types.iter().find(|it| &it.name == name) {
+                    if t.is_ref {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    panic!("Cannot find type {name}");
+                }
+            }
             _ => None,
         }
     }

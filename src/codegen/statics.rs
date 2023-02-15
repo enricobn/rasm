@@ -216,7 +216,7 @@ impl Statics {
         }
         CodeGen::add(&mut asm, "%endif", None, false);
 
-        TextMacroEvaluator::new().translate(backend, self, None, &asm, Some(module))
+        TextMacroEvaluator::new().translate(backend, self, None, &asm, module)
     }
 
     fn print_address(asm: &mut String, address: &str) {

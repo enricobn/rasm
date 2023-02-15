@@ -32,12 +32,39 @@ struct SDLRect {
     height: i32
 }
 
+type SDLRenderer(false);
+type SDLWindow(false);
+
+/* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
+otherwise returns the value */
+fn sdlErrorIfNull<T>(value: T, message: str) -> T {
+    if(isSDLNull(value), { -> sdlFailure(message); value; }, { -> value; });
+}
+
+asm isSDLNull<T>(value: T) -> bool /{
+    mov dword   eax, $value
+    cmp     eax,0
+    je .null
+    mov dword eax, 0
+    jmp .end
+.null:
+    mov dword eax, 1
+.end:
+}/
+
+asm sdlFailure(message: str) /{
+    $ccall(SDL_GetError)
+    $ccall(printf, $message, eax)
+    $ccall(SDL_Quit)
+    $ccall(exit, 1)
+}/
+
 asm sdlInit() /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
     $ccall(SDL_Init, 62001)
 }/
 
-asm sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> i32 /{
+asm sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> SDLWindow /{
     $ccall(SDL_CreateWindow, $title, $x, $y, $width, $height, 4)
 }/
 
@@ -45,7 +72,7 @@ asm sdlDelay(millis: i32) /{
     $ccall(SDL_Delay, $millis)
 }/
 
-asm sdlCreateRenderer(win: i32) -> i32 /{
+asm sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     ; SDL_RENDERER_ACCELERATED = 0x00000002
     ; SDL_RENDERER_PRESENTVSYNC = 0x00000004
     $ccall(SDL_CreateRenderer, $win, -1, 6)
@@ -56,7 +83,7 @@ asm sdlLoadBMP(file: str) -> i32 /{
     $ccall(SDL_LoadBMP_RW, eax, 1)
 }/
 
-asm sdlCreateTextureFromSurface(ren: i32, bmp: i32) -> i32 /{
+asm sdlCreateTextureFromSurface(ren: SDLRenderer, bmp: i32) -> i32 /{
     $ccall(SDL_CreateTextureFromSurface, $ren, $bmp)
 }/
 
@@ -64,19 +91,19 @@ asm sdlFreeSurface(bmp: i32) /{
     $ccall(SDL_FreeSurface, $bmp)
 }/
 
-asm sdlRenderClear(ren: i32) /{
+asm sdlRenderClear(ren: SDLRenderer) /{
     $ccall(SDL_RenderClear, $ren)
 }/
 
-asm sdlRenderCopy(ren: i32, tex: i32) /{
+asm sdlRenderCopy(ren: SDLRenderer, tex: i32) /{
     $ccall(SDL_RenderCopy, $ren, $tex, 0, 0)
 }/
 
-asm sdlRenderPresent(ren: i32) /{
+asm sdlRenderPresent(ren: SDLRenderer) /{
     $ccall(SDL_RenderPresent, $ren)
 }/
 
-asm sdlDestroyRenderer(ren: i32) /{
+asm sdlDestroyRenderer(ren: SDLRenderer) /{
     $ccall(SDL_DestroyRenderer, $ren)
 }/
 
@@ -84,7 +111,7 @@ asm sdlDestroyTexture(tex: i32) /{
     $ccall(SDL_DestroyTexture, $tex)
 }/
 
-asm sdlDestroyWindow(win: i32) /{
+asm sdlDestroyWindow(win: SDLWindow) /{
     $ccall(SDL_DestroyWindow, $win)
 }/
 
@@ -98,13 +125,15 @@ asm sdlQuit() /{
     $ccall(SDL_Quit)
 }/
 
-asm sdlSetRenderDrawColor(ren: i32, r: i32, g: i32, b: i32, a: i32) /{
+asm sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
     $ccall(SDL_SetRenderDrawColor, $ren, $r, $g, $b, $a)
 }/
 
-asm sdlRenderFillRect(ren: i32, rect: SDLRect) /{
+asm sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     $ccall(SDL_RenderFillRect, $ren, $rect)
 }/
+
+// Events
 
 enum KeyState {
     Down,
@@ -196,6 +225,8 @@ asm keyEvent() -> Option<KeyEvent> /{
     pop     ebx
 }/
 
+// LOOP
+
 fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
     let event = keyEvent();
 
@@ -240,6 +271,8 @@ asm sdlLoop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORL
     pop     ecx
     pop     ebx
 }/
+
+// Text
 
 asm sdlTTFInit() -> i32 /{
     $ccall(TTF_Init)
@@ -294,7 +327,7 @@ asm sdlRenderTextSolid2(font: i32, message: str, r: i32, g: i32, b: i32) -> i32 
     pop     ebx
 }/
 
-asm sdlRenderText(ren: i32, message: i32, rect: SDLRect) /{
+asm sdlRenderText(ren: SDLRenderer, message: i32, rect: SDLRect) /{
     push    eax
     mov     dword eax, $rect
     $ccall(SDL_RenderCopy, $ren, $message, 0, [eax])

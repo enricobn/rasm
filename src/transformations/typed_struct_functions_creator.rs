@@ -18,7 +18,7 @@ pub fn typed_struct_functions_creator(
     let native_body = module.native_body.clone();
 
     for struct_def in module.structs.iter() {
-        if struct_has_references(struct_def) {
+        if struct_has_references(struct_def, module) {
             create_free(
                 backend,
                 &mut functions_by_name,
@@ -121,12 +121,12 @@ fn create_free_body(
         true,
     );
 
-    if struct_has_references(struct_def) {
+    if struct_has_references(struct_def, module) {
         CodeGen::add(&mut result, &format!("push {ws} ebx"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, $address"), None, true);
         CodeGen::add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
         for (i, property) in struct_def.clone().properties.iter().enumerate() {
-            if let Some(name) = CodeGen::get_reference_type_name(&property.ast_type) {
+            if let Some(name) = CodeGen::get_reference_type_name(&property.ast_type, module) {
                 let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
                 if function_name == "deref" {
                     result.push_str(&backend.call_deref(
@@ -156,9 +156,9 @@ fn create_free_body(
     result
 }
 
-pub fn struct_has_references(stuct_def: &ASTTypedStructDef) -> bool {
+pub fn struct_has_references(stuct_def: &ASTTypedStructDef, module: &ASTTypedModule) -> bool {
     stuct_def
         .properties
         .iter()
-        .any(|it| CodeGen::get_reference_type_name(&it.ast_type).is_some())
+        .any(|it| CodeGen::get_reference_type_name(&it.ast_type, module).is_some())
 }

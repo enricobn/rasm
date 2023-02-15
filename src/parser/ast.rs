@@ -338,6 +338,7 @@ pub struct ASTStructDef {
 pub struct ASTTypeDef {
     pub name: String,
     pub type_parameters: Vec<String>,
+    pub is_ref: bool,
 }
 
 pub fn lambda(return_type: Option<Box<ASTType>>) -> ASTType {
