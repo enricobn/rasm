@@ -59,6 +59,7 @@ const BRICKHEIGHT = 10;
 const BARWIDTH = 50;
 const BARHEIGHT = 10;
 const HEADERHEIGHT = 25;
+const BALLSIZE = 5;
 
 sdlInit();
 sdlTTFInit();
@@ -124,8 +125,8 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
         let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
         let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
 
-        let newXDir = if(or(greater(newX, WIDTH), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
-        let newYDir = if(or(greater(newY, HEIGHT), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
+        let newXDir = if(or(greater(newX, sub(WIDTH, BALLSIZE)), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
+        let newYDir = if(or(greater(newY, sub(HEIGHT, BALLSIZE)), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
 
         let newBall = Ball(newX, newY, newXDir, newYDir, actualTime);
 
@@ -150,9 +151,9 @@ asm printAddress<T>(message: str, o: T) /{
 }/
 
 fn render(ren: i32, world: World) {
-    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 255);
     sdlRenderClear(ren);
-    sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
+    sdlSetRenderDrawColor(ren, 255, 0, 0, 255);
 
     let resources = World::resources(world);
     let font = Resources::font(resources);
@@ -165,7 +166,7 @@ fn render(ren: i32, world: World) {
         sdlRenderFillRect(ren, SDLRect(add(x, 1), add(y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
     });
 
-    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 255);
     let bar = World::bar(world);
     let barPos = Bar::x(bar);
 
@@ -175,7 +176,7 @@ fn render(ren: i32, world: World) {
     let x = Ball::x(ball);
     let y = Ball::y(ball);
 
-    sdlRenderFillRect(ren, SDLRect(x, y, 5, 5));
+    sdlRenderFillRect(ren, SDLRect(x, y, BALLSIZE, BALLSIZE));
 
     sdlSetRenderDrawColor(ren, 0, 0, 255, 0);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
@@ -187,12 +188,8 @@ fn render(ren: i32, world: World) {
 
     sdlRenderPresent(ren);
 
-    //println("sdlFreeSurface");
     sdlDestroyTexture(message);
     sdlFreeSurface(surfaceMessage);
-    //println("sdlDestroyTexture");
-    //println("after sdlDestroyTexture");
-    //sdlDelay(2000);
 }
 
 fn println<T>(prefix: str, o: T) {
@@ -221,8 +218,8 @@ fn collides(x: i32, y: i32, brick: Brick) -> bool {
     let bx = Brick::x(brick);
     let by = Brick::y(brick);
 
-    let xColl = and(greater(x, bx), less(x, add(bx, BRICKWIDTH)));
-    let yColl = and(greater(y, by), less(y, add(by, BRICKHEIGHT)));
+    let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BRICKWIDTH)));
+    let yColl = and(greater(add(y, BALLSIZE), by), less(y, add(by, BRICKHEIGHT)));
 
     and(xColl, yColl);
 }
@@ -231,8 +228,8 @@ fn collides(x: i32, y: i32, barPos: i32) -> bool {
     let bx = barPos;
     let by = sub(HEIGHT, BARHEIGHT);
 
-    let xColl = and(greater(x, bx), less(x, add(bx, BARWIDTH)));
-    let yColl = greater(y, by);
+    let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BARWIDTH)));
+    let yColl = greater(add(y, BALLSIZE), by);
 
     and(xColl, yColl);
 }
@@ -326,8 +323,3 @@ asm failure(message: str) /{
 fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
     ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
 }
-
-asm printWorld(message: str, world: World) /{
-    $call(print, $message)
-    $call(println, $world:i32)
-}/
