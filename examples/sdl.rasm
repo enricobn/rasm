@@ -34,6 +34,7 @@ struct SDLRect {
 
 type SDLRenderer(false);
 type SDLWindow(false);
+type SDLSurface(false);
 
 /* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
 otherwise returns the value */
@@ -78,17 +79,17 @@ asm sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     $ccall(SDL_CreateRenderer, $win, -1, 6)
 }/
 
-asm sdlLoadBMP(file: str) -> i32 /{
+asm sdlLoadBMP(file: str) -> SDLSurface /{
     $ccall(SDL_RWFromFile, $file, "rb")
     $ccall(SDL_LoadBMP_RW, eax, 1)
 }/
 
-asm sdlCreateTextureFromSurface(ren: SDLRenderer, bmp: i32) -> i32 /{
-    $ccall(SDL_CreateTextureFromSurface, $ren, $bmp)
+asm sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> i32 /{
+    $ccall(SDL_CreateTextureFromSurface, $ren, $surface)
 }/
 
-asm sdlFreeSurface(bmp: i32) /{
-    $ccall(SDL_FreeSurface, $bmp)
+asm sdlFreeSurface(surface: SDLSurface) /{
+    $ccall(SDL_FreeSurface, $surface)
 }/
 
 asm sdlRenderClear(ren: SDLRenderer) /{
@@ -282,7 +283,7 @@ asm sdlOpenFont(file: str, size: i32) -> i32 /{
     $ccall(TTF_OpenFont, $file, $size)
 }/
 
-asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) -> i32 /{
+asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
     push    ebx
     push    ecx
 
@@ -302,27 +303,6 @@ asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) 
     $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
     pop     ecx
     $call(freeMem, ecx)
-    pop     ecx
-    pop     ebx
-}/
-
-asm sdlRenderTextSolid2(font: i32, message: str, r: i32, g: i32, b: i32) -> i32 /{
-    push    ebx
-    push    ecx
-
-    $call(malloc, 4)
-    push    eax
-
-    mov     dword ebx, [eax]
-    mov     byte [ebx], 255
-    mov     byte [ebx + 1], 0
-    mov     byte [ebx + 2], 0
-    mov     byte [ebx + 3], 255
-    $ccall(TTF_RenderText_Solid, $font, $message, 255)
-
-    pop     ecx
-    $call(freeMem, ecx)
-
     pop     ecx
     pop     ebx
 }/
