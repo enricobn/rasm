@@ -640,7 +640,7 @@ fn convert_statement_in_body(
                 backend,
                 statics,
             )?
-            .unwrap();
+            .unwrap_or_else(|| panic!("cannot get type of expression {e}"));
 
             if *is_const {
                 panic!("const not allowed here");
