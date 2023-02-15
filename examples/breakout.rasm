@@ -35,11 +35,16 @@ struct Ball {
     lastUpdate: TimeVal
 }
 
+struct Resources {
+    font: i32
+}
+
 struct World {
     bricks: Vec<Brick>,
     ball: Ball,
     bar: Bar,
-    keys: Vec<i32>
+    keys: Vec<i32>,
+    resources: Resources
 }
 
 struct Bar {
@@ -53,19 +58,22 @@ const BRICKWIDTH = 30;
 const BRICKHEIGHT = 10;
 const BARWIDTH = 50;
 const BARHEIGHT = 10;
+const HEADERHEIGHT = 25;
 
 sdlInit();
+sdlTTFInit();
 
-let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), mul(y, BRICKHEIGHT) , Color::Yellow()); });
-let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), TimeVal(0, 0)), Bar(500, 0), Vec());
+let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , Color::Yellow()); });
+let font = sdlOpenFont("examples/DejaVuSerif.ttf", 24);
+let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0), Vec(), Resources(font));
 
 runOrError(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n", { win ->
     runOrError(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n", { ren ->
 
         // TODO a trick to create the function, since for now I can't call it with a $call macro in asm...
-        singleLoop(ren, initialWorld, { event,world -> world;}, { ren, world -> });
+        sdlSingleLoop(ren, initialWorld, { event,world -> world;}, { ren, world -> });
 
-        loop(ren, initialWorld,
+        sdlLoop(ren, initialWorld,
             { event, world -> update(event, world);},
             { ren, world -> render(ren, world);}
         );
@@ -84,13 +92,13 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
     let barPos = Bar::x(bar);
     let velocity = Bar::velocity(bar);
     let keys = World::keys(world);
+    let resources = World::resources(world);
 
     let newKeys = Option::match(event, { e ->
           let key = KeyEvent::key(e);
           let state = KeyEvent::state(e);
 
           KeyState::match(state, { -> vecOf(key);}, { -> filter(keys, { k -> not(eq(k, key));});});
-
       }, { -> keys;});
 
     let left = mul(count(keys, { k -> eq(k, 80);}), sub(0, 1));
@@ -116,23 +124,22 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
         let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
         let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
 
-        let newXDir = if(or(greater(newX, WIDTH), less(newX, 5)), { -> flip(xDir); }, { -> xDir;});
-        let newYDir = if(or(greater(newY, HEIGHT), less(newY, 5)), { -> flip(yDir); }, { -> yDir;});
+        let newXDir = if(or(greater(newX, WIDTH), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
+        let newYDir = if(or(greater(newY, HEIGHT), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
 
-
-        let newBall = if(greater(elapsed, 2000), { -> Ball(newX, newY, newXDir, newYDir, actualTime);}, { -> ball;});
+        let newBall = Ball(newX, newY, newXDir, newYDir, actualTime);
 
         let collision = collision(bricks, newBall);
 
         let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
 
-        let newBall1 = Option::match(collision, { brick -> println("brick coll"); ballAfterCollision(ball, brick); }, { -> newBall; });
+        let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
 
-        let newBall2 = if(collides(newX, newY, newBarPos), { -> println("ball coll"); Ball(newX, newY, newXDir, flip(newYDir), actualTime);}, { -> newBall1; });
+        let newBall2 = if(collides(newX, newY, newBarPos), { -> Ball(newX, newY, newXDir, flip(newYDir), actualTime);}, { -> newBall1; });
 
-        World(newBricks, newBall2, newBar, newKeys);
+        World(newBricks, newBall2, newBar, newKeys, resources);
     }, { ->
-        World(bricks, ball, newBar, newKeys);
+        World(bricks, ball, newBar, newKeys, resources);
     });
 }
 
@@ -146,6 +153,9 @@ fn render(ren: i32, world: World) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
     sdlRenderClear(ren);
     sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
+
+    let resources = World::resources(world);
+    let font = Resources::font(resources);
 
     let bricks = World::bricks(world);
 
@@ -166,6 +176,23 @@ fn render(ren: i32, world: World) {
     let y = Ball::y(ball);
 
     sdlRenderFillRect(ren, SDLRect(x, y, 5, 5));
+
+    sdlSetRenderDrawColor(ren, 0, 0, 255, 0);
+    sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
+
+    let surfaceMessage = sdlRenderTextSolid(font, "Score:", 0, 255, 0, 255);
+    let message = sdlCreateTextureFromSurface(ren, surfaceMessage);
+    let messageRect = SDLRect(2, 2, 100, 24);
+    sdlRenderText(ren, message, messageRect);
+
+    sdlRenderPresent(ren);
+
+    //println("sdlFreeSurface");
+    sdlDestroyTexture(message);
+    sdlFreeSurface(surfaceMessage);
+    //println("sdlDestroyTexture");
+    //println("after sdlDestroyTexture");
+    //sdlDelay(2000);
 }
 
 fn println<T>(prefix: str, o: T) {
@@ -300,53 +327,7 @@ fn runOrError(value: i32, message: str, f: fn(i32) -> ()) {
     ifRun(eq(value,0), { -> failure(message);}, { -> f(value); });
 }
 
-fn singleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
-    let event = keyEvent();
-
-    Option::run(event, { keyEvent ->
-        let key = KeyEvent::key(keyEvent);
-        ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
-    }, { -> });
-
-    with(updateFun(event, world), { newWorld ->
-        renderFun(ctx, newWorld);
-        sdlRenderPresent(ctx);
-        newWorld;
-    });
-
-    /*
-    TODO is not supported yet
-    let newWorld = updateFun(event, world);
-    render(ctx, newWorld);
-    sdlRenderPresent(ctx);
-    newWorld;
-    */
-}
-
 asm printWorld(message: str, world: World) /{
     $call(print, $message)
     $call(println, $world:i32)
-}/
-
-asm loop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORLD) -> WORLD, render: fn(CTX, WORLD) -> ()) /{
-    push    ebx
-    push    ecx
-    mov     dword ebx, $world
-.loop:
-    ; $call(printTotalMemory)
-    ; $call(printAllocated)
-    ; $call(printTableSlotsAllocated)
-    mov     dword ecx, [ebx]
-    $addRef(WORLD,ebx)
-    push        dword $render
-    push        dword $update
-    push        dword ebx
-    push        dword $ctx
-    call        singleLoop_0
-    add         esp, 4 * 4
-    $deref(WORLD,ebx)
-    mov         dword   ebx, eax
-    jmp     .loop
-    pop     ecx
-    pop     ebx
 }/
