@@ -1,8 +1,9 @@
+use linked_hash_map::LinkedHashMap;
+
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType, BuiltinTypeKind,
+    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
 };
-use linked_hash_map::LinkedHashMap;
 
 pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
     let mut result = module.clone();
@@ -15,6 +16,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         parameters: vec![ASTParameterDef {
             name: "s".into(),
             ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+            ast_index: ASTIndex::none(),
         }],
         body,
         inline: false,
@@ -34,6 +36,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         parameters: vec![ASTParameterDef {
             name: "s".into(),
             ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+            ast_index: ASTIndex::none(),
         }],
         body,
         inline: false,

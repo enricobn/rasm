@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::fmt::{Debug, Display, Formatter};
+
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use regex::Regex;
@@ -8,12 +11,26 @@ use crate::codegen::CodeGen;
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
-use crate::parser::ast::{ASTType, BuiltinTypeKind};
+use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedType, BuiltinTypedTypeKind,
+    ASTTypedEnumDef, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef,
+    BuiltinTypedTypeKind,
 };
+
+thread_local! {
+    static COUNT : RefCell<usize> = RefCell::new(0);
+}
+
+pub trait TypeDefProvider {
+    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef>;
+    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef>;
+    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
+    fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef>;
+    fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef>;
+    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
+}
 
 #[derive(Debug)]
 pub enum MacroParam {
@@ -22,10 +39,46 @@ pub enum MacroParam {
     Ref(String, Option<ASTType>),
 }
 
+impl Display for MacroParam {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MacroParam::Plain(name, type_o) => {
+                f.write_str(name)?;
+                if let Some(t) = type_o {
+                    f.write_str(&format!(": {t}"))?;
+                }
+            }
+            MacroParam::StringLiteral(s) => {
+                f.write_str(&format!("\"{s}\""))?;
+            }
+            MacroParam::Ref(name, type_o) => {
+                f.write_str(name)?;
+                if let Some(t) = type_o {
+                    f.write_str(&format!(": {t}"))?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct TextMacro {
     pub name: String,
     pub parameters: Vec<MacroParam>,
+}
+
+impl Display for TextMacro {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("${}(", self.name))?;
+        let parameters = self
+            .parameters
+            .iter()
+            .map(|it| format!("{it}"))
+            .collect::<Vec<String>>();
+        f.write_str(&parameters.join(", "))?;
+        f.write_str(")")
+    }
 }
 
 pub struct TextMacroEvaluator {
@@ -39,16 +92,19 @@ impl TextMacroEvaluator {
         evaluators.insert("ccall".into(), Box::new(CCallTextMacroEvaluator::new()));
         evaluators.insert("addRef".into(), Box::new(AddRefMacro::new(false)));
         evaluators.insert("deref".into(), Box::new(AddRefMacro::new(true)));
+        evaluators.insert("printRef".into(), Box::new(PrintRefMacro::new()));
         Self { evaluators }
     }
 
     pub fn translate(
-        &self,
+        &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
-        module: &ASTTypedModule,
+        dereference: bool,
+        pre_macro: bool,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
@@ -72,9 +128,17 @@ impl TextMacroEvaluator {
                     parameters: self.parse_params(parameters, function_def),
                 };
 
-                let s = self.eval_macro(backend, statics, &text_macro, function_def, module);
-
-                line_result = line_result.replace(whole, &s);
+                if let Some(s) = self.eval_macro(
+                    backend,
+                    statics,
+                    &text_macro,
+                    function_def,
+                    dereference,
+                    pre_macro,
+                    type_def_provider,
+                ) {
+                    line_result = line_result.replace(whole, &s);
+                }
             }
 
             result.push(line_result);
@@ -277,24 +341,32 @@ impl TextMacroEvaluator {
     }
 
     pub fn eval_macro(
-        &self,
+        &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        module: &ASTTypedModule,
-    ) -> String {
+        dereference: bool,
+        pre_macro: bool,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> Option<String> {
         let evaluator = self
             .evaluators
-            .get(&text_macro.name)
+            .get_mut(&text_macro.name)
             .unwrap_or_else(|| panic!("{} macro not found", &text_macro.name));
-        evaluator.eval_macro(
-            backend,
-            statics,
-            &text_macro.parameters,
-            function_def,
-            module,
-        )
+
+        if evaluator.is_pre_macro() == pre_macro {
+            Some(evaluator.eval_macro(
+                backend,
+                statics,
+                &text_macro.parameters,
+                function_def,
+                dereference,
+                type_def_provider,
+            ))
+        } else {
+            None
+        }
     }
 
     pub fn get_macros(
@@ -355,17 +427,25 @@ impl ParserTrait for TypeParserHelper {
     fn panic(&self, message: &str) {
         panic!("{message}")
     }
+
+    fn get_index(&self, n: usize) -> Option<ASTIndex> {
+        // TODO
+        Some(ASTIndex::none())
+    }
 }
 
 trait TextMacroEval {
     fn eval_macro(
-        &self,
+        &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
-        module: &ASTTypedModule,
+        dereference: bool,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> String;
+
+    fn is_pre_macro(&self) -> bool;
 }
 
 struct CallTextMacroEvaluator {}
@@ -378,12 +458,13 @@ impl CallTextMacroEvaluator {
 
 impl TextMacroEval for CallTextMacroEvaluator {
     fn eval_macro(
-        &self,
+        &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
-        _module: &ASTTypedModule,
+        dereference: bool,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name
@@ -428,6 +509,10 @@ impl TextMacroEval for CallTextMacroEvaluator {
 
         result
     }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
 }
 
 struct CCallTextMacroEvaluator {}
@@ -440,12 +525,13 @@ impl CCallTextMacroEvaluator {
 
 impl TextMacroEval for CCallTextMacroEvaluator {
     fn eval_macro(
-        &self,
+        &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
-        module: &ASTTypedModule,
+        dereference: bool,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         debug_i!("translate macro fun {:?}", _function_def);
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
@@ -490,7 +576,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                         MacroParam::Ref(s, t) => {
                             let is_ref =
                             if let Some(tt) = t {
-                                is_reference(tt, module)
+                                is_reference(tt, type_def_provider)
                             } else {
                                 false
                             };
@@ -518,9 +604,13 @@ impl TextMacroEval for CCallTextMacroEvaluator {
 
         result
     }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
 }
 
-fn is_reference(ast_type: &ASTType, module: &ASTTypedModule) -> bool {
+fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> bool {
     if let ASTType::Builtin(BuiltinTypeKind::String) = ast_type {
         true
     } else if let ASTType::Custom {
@@ -528,7 +618,7 @@ fn is_reference(ast_type: &ASTType, module: &ASTTypedModule) -> bool {
         param_types: _,
     } = ast_type
     {
-        if let Some(t) = module.types.iter().find(|it| &it.name == name) {
+        if let Some(t) = type_def_provider.get_type_def_by_name(name) {
             t.is_ref
         } else {
             true
@@ -550,13 +640,17 @@ impl AddRefMacro {
 
 impl TextMacroEval for AddRefMacro {
     fn eval_macro(
-        &self,
+        &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
-        module: &ASTTypedModule,
+        dereference: bool,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> String {
+        if !dereference {
+            return String::new();
+        }
         if let Some(fd) = function_def {
             if fd.name == "addRef_0" {
                 return String::new();
@@ -564,22 +658,26 @@ impl TextMacroEval for AddRefMacro {
             if let Some(MacroParam::Plain(generic_type_name, _)) = parameters.get(0) {
                 if let Some(MacroParam::Plain(address, _)) = parameters.get(1) {
                     if let Some(ast_type) = fd.generic_types.get(generic_type_name) {
-                        if let Some(type_name) = CodeGen::get_reference_type_name(ast_type, module)
+                        if let Some(type_name) =
+                            CodeGen::get_reference_type_name(ast_type, type_def_provider)
                         {
                             let mut result = String::new();
                             let descr = &format!("addref macro type {type_name}");
                             if self.deref {
-                                result.push_str(
-                                    &backend
-                                        .call_deref(address, &type_name, descr, module, statics),
-                                );
+                                result.push_str(&backend.call_deref(
+                                    address,
+                                    &type_name,
+                                    descr,
+                                    type_def_provider,
+                                    statics,
+                                ));
                             } else {
                                 backend.call_add_ref(
                                     &mut result,
                                     address,
                                     &type_name,
                                     descr,
-                                    module,
+                                    type_def_provider,
                                     statics,
                                 );
                             }
@@ -591,46 +689,55 @@ impl TextMacroEval for AddRefMacro {
                         let mut name = generic_type_name.clone();
                         name.push('_');
                         let descr = &format!("addref macro type {name}");
-                        if let Some(s) = module.structs.iter().find(|it| it.name.starts_with(&name))
+
+                        /*
+                        let found_structs =
+                            type_def_provider.get_struct_def_by_name(&name).is_some();
+
+                        if found_structs {
+                            panic!()
+                        }
+
+                        let found_enums = type_def_provider.get_enum_def_like_name(&name).is_some();
+
+                        if found_enums {
+                            panic!()
+                        }
+
+                         */
+
+                        let real_name = if let Some(s) =
+                            type_def_provider.get_struct_def_like_name(&name)
                         {
-                            let mut result = String::new();
-                            if self.deref {
-                                result.push_str(
-                                    &backend.call_deref(address, &s.name, descr, module, statics),
-                                );
-                            } else {
-                                backend.call_add_ref(
-                                    &mut result,
-                                    address,
-                                    &s.name,
-                                    descr,
-                                    module,
-                                    statics,
-                                );
-                            }
-                            result
-                        } else if let Some(s) =
-                            module.enums.iter().find(|it| it.name.starts_with(&name))
-                        {
-                            let mut result = String::new();
-                            if self.deref {
-                                result.push_str(
-                                    &backend.call_deref(address, &s.name, descr, module, statics),
-                                );
-                            } else {
-                                backend.call_add_ref(
-                                    &mut result,
-                                    address,
-                                    &s.name,
-                                    descr,
-                                    module,
-                                    statics,
-                                );
-                            }
-                            result
+                            s.name.clone()
+                        } else if let Some(s) = type_def_provider.get_enum_def_like_name(&name) {
+                            s.name.clone()
+                        } else if let Some(s) = type_def_provider.get_type_def_like_name(&name) {
+                            s.name.clone()
                         } else {
                             panic!("cannot find struct nor enum {generic_type_name}");
+                        };
+
+                        let mut result = String::new();
+                        if self.deref {
+                            result.push_str(&backend.call_deref(
+                                address,
+                                &real_name,
+                                descr,
+                                type_def_provider,
+                                statics,
+                            ));
+                        } else {
+                            backend.call_add_ref(
+                                &mut result,
+                                address,
+                                &real_name,
+                                descr,
+                                type_def_provider,
+                                statics,
+                            );
                         }
+                        result
                     }
                 } else {
                     panic!("Error getting the address")
@@ -642,6 +749,278 @@ impl TextMacroEval for AddRefMacro {
             String::new()
         }
     }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+}
+
+fn get_type(
+    orig_name: &str,
+    type_def_provider: &dyn TypeDefProvider,
+    function_def_opt: Option<&ASTTypedFunctionDef>,
+) -> ASTTypedType {
+    if let Some(f) = function_def_opt {
+        if let Some(t) = f.generic_types.get(orig_name) {
+            return t.clone();
+        }
+    }
+
+    /*
+    let mut name = orig_name.to_owned();
+    name.push('_');
+
+    let found_structs = conv_context
+        .structs
+        .iter()
+        .filter(|it| it.name.starts_with(&name))
+        .count();
+
+    if found_structs > 1 {
+        panic!()
+    }
+
+    let found_enums = module
+        .enums
+        .iter()
+        .filter(|it| it.name.starts_with(&name))
+        .count();
+
+    if found_enums > 1 {
+        panic!()
+    }
+
+    let found_types = module
+        .types
+        .iter()
+        .filter(|it| it.name.starts_with(&name))
+        .count();
+
+    if found_types > 1 {
+        panic!()
+    }
+
+     */
+
+    if let Some(s) = type_def_provider.get_struct_def_by_name(&orig_name) {
+        ASTTypedType::Struct {
+            name: s.name.clone(),
+        }
+    } else if let Some(s) = type_def_provider.get_enum_def_by_name(&orig_name) {
+        ASTTypedType::Enum {
+            name: s.name.clone(),
+        }
+    } else if let Some(s) = type_def_provider.get_type_def_by_name(&orig_name) {
+        ASTTypedType::Type {
+            name: s.name.clone(),
+        }
+    } else {
+        panic!("Cannot find struct, enum or type {orig_name}");
+    }
+}
+
+struct PrintRefMacro {}
+
+impl TextMacroEval for PrintRefMacro {
+    fn eval_macro(
+        &mut self,
+        backend: &dyn Backend,
+        statics: &mut Statics,
+        parameters: &[MacroParam],
+        function_def: Option<&ASTTypedFunctionDef>,
+        dereference: bool,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        let result = match parameters.get(0) {
+            None => panic!("cannot find parameter for printRef macro"),
+            Some(par) => match par {
+                MacroParam::Plain(name, ast_type) => {
+                    self.print_ref(name, ast_type, function_def, type_def_provider, 0, backend)
+                }
+                MacroParam::StringLiteral(_) => {
+                    panic!("String is nt a valid parameter for printRef macro ")
+                }
+                MacroParam::Ref(name, ast_type) => {
+                    self.print_ref(name, ast_type, function_def, type_def_provider, 0, backend)
+                }
+            },
+        };
+
+        result
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        true
+    }
+}
+
+impl PrintRefMacro {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn print_ref(
+        &mut self,
+        src: &str,
+        ast_type_o: &Option<ASTType>,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+        indent: usize,
+        backend: &dyn Backend,
+    ) -> String {
+        let mut result = String::new();
+
+        let ast_typed_type = match ast_type_o {
+            None => {
+                panic!("printRef macro: cannot find the type of the parameter, please specify it")
+            }
+            Some(ast_type) => match ast_type {
+                ASTType::Builtin(_) => panic!("printRef macro: unsupported type {ast_type}"),
+                ASTType::Parametric(generic_type_name) => match function_def {
+                    None => panic!(),
+                    Some(f) => match f.generic_types.get(generic_type_name) {
+                        None => {
+                            panic!("printRef macro: Cannot find generic type {generic_type_name}")
+                        }
+                        Some(ast_typed_type) => ast_typed_type.clone(),
+                    },
+                },
+                ASTType::Custom {
+                    name: custom_type_name,
+                    param_types: _,
+                } => get_type(custom_type_name, type_def_provider, function_def),
+            },
+        };
+
+        let (name, code) = match ast_typed_type {
+            ASTTypedType::Builtin(_) => panic!(),
+            ASTTypedType::Enum { name } => (
+                name.clone(),
+                self.print_ref_enum(&name, src, type_def_provider, indent + 1, backend),
+            ),
+            ASTTypedType::Struct { name } => (
+                name.clone(),
+                self.print_ref_struct(&name, src, type_def_provider, indent + 1, backend),
+            ),
+            ASTTypedType::Type { name } => (name, String::new()),
+        };
+        let ident_string = " ".repeat(indent * 2);
+        CodeGen::add(
+            &mut result,
+            &format!("$call(print, \"{ident_string}{name} \")"),
+            None,
+            true,
+        );
+        CodeGen::add(&mut result, &format!("$call(print,{src}:i32)"), None, true);
+        CodeGen::add(&mut result, "push    ebx", None, true);
+        CodeGen::add(&mut result, "$call(print, \" = \")", None, true);
+        CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        CodeGen::add(&mut result, "$call(println,[ebx + 12])", None, true);
+        CodeGen::add(&mut result, "pop    ebx", None, true);
+
+        result.push_str(&code);
+
+        result
+    }
+
+    fn print_ref_struct(
+        &mut self,
+        name: &str,
+        src: &str,
+        type_def_provider: &dyn TypeDefProvider,
+        indent: usize,
+        backend: &dyn Backend,
+    ) -> String {
+        let mut result = String::new();
+        CodeGen::add(&mut result, "push    ebx", None, true);
+        CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
+        if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
+            for (i, p) in s.properties.iter().enumerate() {
+                if let Some(name) = match &p.ast_type {
+                    ASTTypedType::Builtin(_) => None,
+                    ASTTypedType::Enum { name } => Some(name),
+                    ASTTypedType::Struct { name } => Some(name),
+                    ASTTypedType::Type { name } => Some(name),
+                } {
+                    let custom_type = ASTType::Custom {
+                        name: name.clone(),
+                        param_types: Vec::new(),
+                    };
+                    let par_result = self.print_ref(
+                        &format!("[ebx + {}]", i * backend.word_len()),
+                        &Some(custom_type),
+                        None,
+                        type_def_provider,
+                        indent + 1,
+                        backend,
+                    );
+                    result.push_str(&par_result);
+                }
+            }
+        } else {
+            panic!("Cannot find struct {name}");
+        }
+        CodeGen::add(&mut result, "pop    ebx", None, true);
+        result
+    }
+
+    fn print_ref_enum(
+        &mut self,
+        name: &str,
+        src: &str,
+        type_def_provider: &dyn TypeDefProvider,
+        indent: usize,
+        backend: &dyn Backend,
+    ) -> String {
+        COUNT.with(|count| {
+            *count.borrow_mut() += 1;
+
+            let end_label_name = &format!("._{name}_end_{}", count.borrow());
+            let ws = backend.word_size();
+            let wl = backend.word_len();
+
+            let mut result = String::new();
+            CodeGen::add(&mut result, "push    ebx", None, true);
+            CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+            CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
+            if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
+                for (i, variant) in s.variants.iter().enumerate() {
+                    let label_name = &format!("._{name}_variant_{}_{i}", count.borrow());
+                    if !variant.parameters.is_empty() {
+                        CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                        CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
+                        for (j, par) in variant.parameters.iter().enumerate() {
+                            if let Some(name) =
+                                CodeGen::get_reference_type_name(&par.ast_type, type_def_provider)
+                            {
+                                let custom_type = ASTType::Custom {
+                                    name: name.clone(),
+                                    param_types: Vec::new(),
+                                };
+                                let par_result = self.print_ref(
+                                    &format!("[ebx + {}]", (j + 1) * wl),
+                                    &Some(custom_type),
+                                    None,
+                                    type_def_provider,
+                                    indent + 1,
+                                    backend,
+                                );
+                                result.push_str(&par_result);
+                            }
+                        }
+                    }
+                    CodeGen::add(&mut result, &format!("jmp {end_label_name}"), None, false);
+                    CodeGen::add(&mut result, &format!("{label_name}:"), None, false);
+                }
+            } else {
+                panic!("Cannot find struct {name}");
+            }
+            CodeGen::add(&mut result, &format!("{end_label_name}:"), None, false);
+            CodeGen::add(&mut result, "pop    ebx", None, true);
+            result
+        })
+    }
 }
 
 #[cfg(test)]
@@ -652,14 +1031,51 @@ mod tests {
 
     use crate::codegen::backend::BackendAsm386;
     use crate::codegen::statics::Statics;
-    use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
+    use crate::codegen::text_macro::{
+        MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider, TypeParserHelper,
+    };
     use crate::codegen::MemoryValue;
-    use crate::parser::ast::{ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::typed_ast::{
-        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
-        ASTTypedType, BuiltinTypedTypeKind,
+        ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
+        ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
     };
+
+    #[derive(Debug)]
+    struct DummyTypeDefProvider {}
+
+    impl TypeDefProvider for DummyTypeDefProvider {
+        fn get_enum_def_by_name(&self, _name: &str) -> Option<&ASTTypedEnumDef> {
+            None
+        }
+
+        fn get_struct_def_by_name(&self, _name: &str) -> Option<&ASTTypedStructDef> {
+            None
+        }
+
+        fn get_type_def_by_name(&self, _name: &str) -> Option<&ASTTypedTypeDef> {
+            None
+        }
+
+        fn get_enum_def_like_name(&self, _name: &str) -> Option<&ASTTypedEnumDef> {
+            None
+        }
+
+        fn get_struct_def_like_name(&self, _name: &str) -> Option<&ASTTypedStructDef> {
+            None
+        }
+
+        fn get_type_def_like_name(&self, _name: &str) -> Option<&ASTTypedTypeDef> {
+            None
+        }
+    }
+
+    impl DummyTypeDefProvider {
+        fn new() -> Self {
+            Self {}
+        }
+    }
 
     #[test]
     fn call() {
@@ -679,12 +1095,14 @@ mod tests {
             &mut statics,
             &text_macro,
             None,
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(
             result,
-            "; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n"
+            Some("; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n".to_owned())
         );
     }
 
@@ -698,7 +1116,9 @@ mod tests {
             &mut statics,
             None,
             "a line\n$call(nprint,10)\nanother line\n",
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(
@@ -717,7 +1137,9 @@ mod tests {
             &mut statics,
             None,
             "a line\n$call(println, \"Hello, world\")\nanother line\n",
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(
@@ -741,6 +1163,7 @@ mod tests {
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
@@ -753,7 +1176,9 @@ mod tests {
             &mut statics,
             Some(&function_def),
             "a line\n$call(println, $s)\nanother line\n",
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(
@@ -772,6 +1197,7 @@ mod tests {
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
@@ -784,7 +1210,9 @@ mod tests {
             &mut statics,
             Some(&function_def),
             "a line\n$ccall(printf, $s)\nanother line\n",
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(
@@ -803,7 +1231,9 @@ mod tests {
             &mut statics,
             None,
             "mov     eax, 1          ; $call(any)",
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(result, "mov     eax, 1          ; $call(any)");
@@ -818,6 +1248,7 @@ mod tests {
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
@@ -847,7 +1278,9 @@ mod tests {
             &mut statics,
             None,
             "$call(List_0_addRef,eax:List_0)",
-            &module(),
+            true,
+            false,
+            &DummyTypeDefProvider::new(),
         );
 
         assert_eq!(
@@ -875,16 +1308,5 @@ mod tests {
 
     fn backend() -> BackendAsm386 {
         BackendAsm386::new(HashSet::new(), HashSet::new())
-    }
-
-    fn module() -> ASTTypedModule {
-        ASTTypedModule {
-            body: vec![],
-            functions_by_name: Default::default(),
-            enums: vec![],
-            structs: vec![],
-            native_body: "".to_string(),
-            types: vec![],
-        }
     }
 }

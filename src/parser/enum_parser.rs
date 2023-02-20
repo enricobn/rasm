@@ -1,3 +1,7 @@
+use std::fmt::{Display, Formatter};
+
+use linked_hash_map::LinkedHashMap;
+
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef};
 use crate::parser::matchers::param_types_matcher;
@@ -6,8 +10,6 @@ use crate::parser::tokens_matcher::{
 };
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
-use linked_hash_map::LinkedHashMap;
-use std::fmt::{Display, Formatter};
 
 pub struct EnumParser<'a> {
     parser: &'a dyn ParserTrait,
@@ -104,6 +106,7 @@ impl<'a> EnumParser<'a> {
                                 parameters.push(ASTParameterDef {
                                     name: parameters_s.get(i).unwrap().clone(),
                                     ast_type,
+                                    ast_index: parser.get_index(0).unwrap(),
                                 });
                             } else {
                                 self.parser.panic(&format!(
@@ -225,11 +228,12 @@ impl TokensMatcherTrait for ParameterMatcher {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::parser::ast::ASTType::Parametric;
-    use crate::parser::ast::{ASTEnumVariantDef, ASTParameterDef, ASTType};
+    use crate::parser::ast::{ASTEnumVariantDef, ASTIndex, ASTParameterDef, ASTType};
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
+
+    use super::*;
 
     #[test]
     fn empty_enum() {
@@ -255,6 +259,7 @@ mod tests {
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
                 ast_type: Parametric("T".into()),
+                ast_index: ASTIndex::none(),
             }],
         };
 
@@ -309,7 +314,11 @@ mod tests {
                 variants,
                 vec![ASTEnumVariantDef {
                     name: "Some".into(),
-                    parameters: vec![ASTParameterDef::new("value", Parametric("T".into()),)],
+                    parameters: vec![ASTParameterDef::new(
+                        "value",
+                        Parametric("T".into()),
+                        ASTIndex::none()
+                    )],
                 }]
             );
             assert_eq!(next_i, 7);
@@ -329,8 +338,8 @@ mod tests {
                 vec![ASTEnumVariantDef {
                     name: "Something".into(),
                     parameters: vec![
-                        ASTParameterDef::new("v", Parametric("T".into())),
-                        ASTParameterDef::new("v1", Parametric("T1".into())),
+                        ASTParameterDef::new("v", Parametric("T".into()), ASTIndex::none()),
+                        ASTParameterDef::new("v1", Parametric("T1".into()), ASTIndex::none()),
                     ],
                 }]
             );
@@ -350,13 +359,14 @@ mod tests {
                 vec![ASTEnumVariantDef {
                     name: "Full".into(),
                     parameters: vec![
-                        ASTParameterDef::new("head", Parametric("T".into())),
+                        ASTParameterDef::new("head", Parametric("T".into()), ASTIndex::none()),
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
                                 name: "List".into(),
                                 param_types: vec![Parametric("T".into())]
                             },
+                            ASTIndex::none()
                         ),
                     ],
                 }]
@@ -383,6 +393,7 @@ mod tests {
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
                 ast_type: Parametric("T".into()),
+                ast_index: ASTIndex::none(),
             }],
         };
 
@@ -424,6 +435,7 @@ mod tests {
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
                         ast_type: Parametric("T".into()),
+                        ast_index: ASTIndex::none(),
                     }],
                 };
 
@@ -460,6 +472,7 @@ mod tests {
                         ASTParameterDef {
                             name: "head".into(),
                             ast_type: Parametric("T".into()),
+                            ast_index: ASTIndex::none(),
                         },
                         ASTParameterDef {
                             name: "tail".into(),
@@ -467,6 +480,7 @@ mod tests {
                                 name: "List".into(),
                                 param_types: vec![Parametric("T".into())],
                             },
+                            ast_index: ASTIndex::none(),
                         },
                     ],
                 };
@@ -500,12 +514,20 @@ mod tests {
             if let Some((variants, next_i)) = parse_result {
                 let left = ASTEnumVariantDef {
                     name: "Left".into(),
-                    parameters: vec![ASTParameterDef::new("l", Parametric("L".into()))],
+                    parameters: vec![ASTParameterDef::new(
+                        "l",
+                        Parametric("L".into()),
+                        ASTIndex::none(),
+                    )],
                 };
 
                 let right = ASTEnumVariantDef {
                     name: "Right".into(),
-                    parameters: vec![ASTParameterDef::new("r", Parametric("R".into()))],
+                    parameters: vec![ASTParameterDef::new(
+                        "r",
+                        Parametric("R".into()),
+                        ASTIndex::none(),
+                    )],
                 };
 
                 assert_eq!(variants, vec![left, right]);

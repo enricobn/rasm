@@ -7,7 +7,7 @@ use log::{debug, info};
 
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{MacroParam, TextMacroEvaluator};
+use crate::codegen::text_macro::{MacroParam, TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::{CodeGen, ValContext, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
@@ -15,9 +15,7 @@ use crate::parser::ValueType;
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
-use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedType, DefaultFunctionCall,
-};
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType, DefaultFunctionCall};
 
 pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -66,7 +64,7 @@ pub trait Backend: RefUnwindSafe {
         source: &str,
         type_name: &str,
         descr: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     );
 
@@ -75,7 +73,7 @@ pub trait Backend: RefUnwindSafe {
         source: &str,
         type_name: &str,
         descr: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
 
@@ -350,7 +348,7 @@ impl Backend for BackendAsm386 {
         source: &str,
         type_name: &str,
         descr: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) {
         //println!("add ref {descr}");
@@ -366,12 +364,12 @@ impl Backend for BackendAsm386 {
         CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
         let has_references =
-            if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-                struct_has_references(struct_def, module)
-            } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-                enum_has_references(enum_def, module)
-            } else if let Some(type_def) = module.types.iter().find(|it| it.name == type_name) {
-                type_has_references(type_def)
+            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+                struct_has_references(&struct_def, type_def_provider)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                enum_has_references(&enum_def, type_def_provider)
+            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+                type_has_references(&type_def)
             } else {
                 true
             };
@@ -410,7 +408,7 @@ impl Backend for BackendAsm386 {
         source: &str,
         type_name: &str,
         descr: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let ws = self.word_size();
@@ -420,17 +418,14 @@ impl Backend for BackendAsm386 {
 
         let has_references = if "str" == type_name {
             true
-        } else if let Some(struct_def) = module.structs.iter().find(|it| it.name == type_name) {
-            struct_has_references(struct_def, module)
-        } else if let Some(enum_def) = module.enums.iter().find(|it| it.name == type_name) {
-            enum_has_references(enum_def, module)
-        } else if let Some(type_def) = module.types.iter().find(|it| it.name == type_name) {
-            type_has_references(type_def)
+        } else if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+            struct_has_references(&struct_def, type_def_provider)
+        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+            enum_has_references(&enum_def, type_def_provider)
+        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+            type_has_references(&type_def)
         } else {
-            panic!(
-                "cannot find type {descr} {type_name}: {:?}",
-                module.enums.iter().map(|it| &it.name).collect::<Vec<_>>()
-            );
+            panic!("cannot find type {descr} {type_name}");
         };
 
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);

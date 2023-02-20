@@ -428,7 +428,7 @@ impl<'a> FunctionCallParameters<'a> {
             ASTTypedStatement::Expression(expr) => {
                 self.expression_reads_from_context(expr, context)
             }
-            ASTTypedStatement::LetStatement(_, expr, _is_const) => {
+            ASTTypedStatement::LetStatement(_, expr, _is_const, _index) => {
                 self.expression_reads_from_context(expr, context)
             }
         }

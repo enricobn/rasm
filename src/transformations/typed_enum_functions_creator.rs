@@ -3,7 +3,9 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TypeDefProvider;
 use crate::codegen::CodeGen;
+use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedType,
@@ -75,6 +77,7 @@ fn create_free(
         parameters: vec![ASTTypedParameterDef {
             name: "address".into(),
             ast_type,
+            ast_index: ASTIndex::none(),
         }],
         body,
         inline: false,
@@ -126,7 +129,7 @@ fn create_free_body(
         for (i, variant) in enum_def.clone().variants.iter().enumerate() {
             if !variant.parameters.is_empty() {
                 CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                CodeGen::add(&mut result, &format!("jnz ._variant_{i}"), None, true);
+                CodeGen::add(&mut result, &format!("jne ._variant_{i}"), None, true);
                 for (j, par) in variant.parameters.iter().rev().enumerate() {
                     if let Some(name) = CodeGen::get_reference_type_name(&par.ast_type, module) {
                         let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
@@ -151,20 +154,24 @@ fn create_free_body(
                         }
                     }
                 }
+                CodeGen::add(&mut result, "jmp .end", None, true);
                 CodeGen::add(&mut result, &format!("._variant_{i}:"), None, false);
             }
         }
-
+        CodeGen::add(&mut result, ".end:", None, true);
         CodeGen::add(&mut result, "pop ebx", None, true);
     }
 
     result
 }
 
-pub fn enum_has_references(enum_def: &ASTTypedEnumDef, module: &ASTTypedModule) -> bool {
+pub fn enum_has_references(
+    enum_def: &ASTTypedEnumDef,
+    type_def_provider: &dyn TypeDefProvider,
+) -> bool {
     enum_def
         .variants
         .iter()
         .flat_map(|it| it.parameters.iter())
-        .any(|it| CodeGen::get_reference_type_name(&it.ast_type, module).is_some())
+        .any(|it| CodeGen::get_reference_type_name(&it.ast_type, type_def_provider).is_some())
 }

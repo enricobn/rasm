@@ -643,6 +643,7 @@ mod tests {
             parameters: vec![ASTParameterDef {
                 name: param_name.into(),
                 ast_type: ASTType::Builtin(param_kind),
+                ast_index: ASTIndex::none(),
             }],
             inline: false,
             resolved_generic_types: LinkedHashMap::new(),
@@ -660,10 +661,12 @@ mod tests {
                 ASTParameterDef {
                     name: param_name.into(),
                     ast_type: ASTType::Builtin(param_kind.clone()),
+                    ast_index: ASTIndex::none(),
                 },
                 ASTParameterDef {
                     name: format!("{}_1", param_name),
                     ast_type: ASTType::Builtin(param_kind.clone()),
+                    ast_index: ASTIndex::none(),
                 },
             ],
             inline: false,

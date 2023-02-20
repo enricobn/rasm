@@ -1,13 +1,14 @@
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, MemoryValue};
 use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTType,
-    BuiltinTypeKind,
+    ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef,
+    ASTType, BuiltinTypeKind,
 };
-use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
@@ -73,6 +74,7 @@ fn create_match_like_function(
             name: enum_def.name.clone(),
             param_types,
         },
+        ast_index: ASTIndex::none(),
     }];
     for variant in enum_def.variants.iter() {
         let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -86,6 +88,7 @@ fn create_match_like_function(
         parameters.push(ASTParameterDef {
             name: variant.name.clone(),
             ast_type,
+            ast_index: ASTIndex::none(),
         });
     }
     let mut param_types = enum_def.type_parameters.clone();

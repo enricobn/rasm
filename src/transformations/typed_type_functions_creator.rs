@@ -4,6 +4,7 @@ use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
+use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
     ASTTypedTypeDef,
@@ -75,6 +76,7 @@ fn create_free(
         parameters: vec![ASTTypedParameterDef {
             name: "address".into(),
             ast_type,
+            ast_index: ASTIndex::none(),
         }],
         body,
         inline: false,
@@ -166,7 +168,7 @@ fn loop_vec(
         None,
         true,
     );
-    // TODO REferences_0
+    // TODO References_0
     CodeGen::add(
         &mut result,
         &format!("call  {}References_0", type_def.original_name),

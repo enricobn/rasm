@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
+use std::slice::Iter;
 
 #[macro_use]
 pub mod debug_indent;
@@ -45,4 +46,16 @@ impl<'a, T: fmt::Display + 'a> fmt::Display for SliceDisplay<'a, T> {
         }
         Ok(())
     }
+}
+
+pub fn get_one<T, P>(iter: Iter<T>, predicate: P) -> Option<&T>
+where
+    P: FnMut(&&T) -> bool,
+{
+    let filter = iter.filter(predicate).collect::<Vec<_>>();
+    let len = filter.len();
+    if len == 0 || len > 1 {
+        return None;
+    }
+    filter.get(0).cloned()
 }

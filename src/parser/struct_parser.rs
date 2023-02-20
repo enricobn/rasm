@@ -37,7 +37,7 @@ impl<'a> StructParser<'a> {
     pub fn try_parse_struct(&self) -> Option<(ASTStructDef, usize)> {
         if let Some((name, type_parameters, next_i)) = self.try_parse() {
             if let Some((properties, next_i)) =
-                self.parse_properties(&type_parameters, next_i - self.parser.get_i())
+                self.parse_properties(&type_parameters, &name, next_i - self.parser.get_i())
             {
                 return Some((
                     ASTStructDef {
@@ -72,6 +72,7 @@ impl<'a> StructParser<'a> {
     pub fn parse_properties(
         &self,
         type_parameters: &[String],
+        name: &str,
         n: usize,
     ) -> Option<(Vec<ASTStructPropertyDef>, usize)> {
         if let Some(result) =
@@ -98,7 +99,10 @@ impl<'a> StructParser<'a> {
 
             Some((parameters, self.parser.get_i() + result.next_n()))
         } else {
-            panic!();
+            panic!(
+                "No properties for struct {name} : {}",
+                self.parser.get_index(n).unwrap()
+            );
         }
     }
 }

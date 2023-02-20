@@ -1,4 +1,8 @@
 asm printAddress<T>(message: str, address: T) /{
     $call(print, $message)
-    $call(println, $address)
+    $call(println, $address: i32)
+}/
+
+asm printRef<T>(o: T) /{
+    $printRef($o)
 }/

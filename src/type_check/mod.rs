@@ -64,14 +64,13 @@ pub fn convert(
     print_module: bool,
     mandatory_functions: Vec<DefaultFunctionCall>,
     statics: &mut Statics,
+    dereference: bool,
 ) -> (ASTTypedModule, TypeConversionContext) {
     crate::utils::debug_indent::INDENT.with(|indent| {
         *indent.borrow_mut() = 0;
     });
 
     let mut body = module.body.clone();
-
-    let mut context = ValContext::new(None);
 
     let type_conversion_context = RefCell::new(TypeConversionContext::new());
 
@@ -97,6 +96,7 @@ pub fn convert(
         let mut new_body = Vec::new();
 
         let resolved_param_types = LinkedHashMap::new();
+        let mut context = ValContext::new(None);
 
         for statement in body.iter() {
             debug_i!("converting statement {statement}");
@@ -170,6 +170,7 @@ pub fn convert(
         mandatory_functions,
         backend,
         statics,
+        dereference,
     );
 
     info!("Type check ended ({count} passes)");
@@ -281,7 +282,7 @@ fn convert_body(
 
             match &new_statement {
                 ASTStatement::Expression(_) => Ok(new_statement),
-                ASTStatement::LetStatement(let_name, expr, is_const) => match expr {
+                ASTStatement::LetStatement(let_name, expr, is_const, let_index) => match expr {
                     ASTFunctionCallExpression(call) => {
                         let ast_type = if let Some(kind) = context.get(&call.function_name) {
                             match kind {
@@ -306,7 +307,7 @@ fn convert_body(
                         if *is_const {
                             panic!("const not allowed here");
                         } else {
-                            context.insert_let(let_name.clone(), ast_type);
+                            //context.insert_let(let_name.clone(), ast_type, let_index.clone());
                         }
 
                         Ok(new_statement)
@@ -317,7 +318,7 @@ fn convert_body(
                         if *is_const {
                             panic!("const not allowed here");
                         } else {
-                            context.insert_let(let_name.clone(), ast_type);
+                            //context.insert_let(let_name.clone(), ast_type, let_index.clone());
                         }
                         Ok(new_statement)
                     }
@@ -329,7 +330,7 @@ fn convert_body(
                                 ValKind::ParameterRef(_, def) => def.ast_type.clone(),
                                 ValKind::LetRef(_, ast_type) => ast_type.clone(),
                             };
-                            context.insert_let(let_name.clone(), ast_type);
+                            //context.insert_let(let_name.clone(), ast_type, let_index.clone());
                             Ok(new_statement)
                         } else {
                             Err("Cannot find {name} in context".into())
@@ -412,7 +413,7 @@ fn convert_statement(
                 panic!("unsupported {statement}");
             }
         }
-        ASTStatement::LetStatement(name, expr, is_const) => {
+        ASTStatement::LetStatement(name, expr, is_const, let_index) => {
             if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
                 let converted_call = convert_call(
                     module,
@@ -441,7 +442,7 @@ fn convert_statement(
                         if *is_const {
                             statics.add_const(name.clone(), ast_type);
                         } else {
-                            context.insert_let(name.clone(), ast_type);
+                            context.insert_let(name.clone(), ast_type, let_index);
                         }
                         new_body.push(statement.clone())
                     }
@@ -458,9 +459,8 @@ fn convert_statement(
                         if *is_const {
                             statics.add_const(name.to_owned(), ast_type);
                         } else {
-                            context.insert_let(name.clone(), ast_type);
+                            context.insert_let(name.clone(), ast_type, let_index);
                         }
-
                         new_body.push(statement.clone())
                     }
                     Ok(Converted(new_call)) => {
@@ -482,13 +482,15 @@ fn convert_statement(
                         if *is_const {
                             statics.add_const(name.to_owned(), ast_type);
                         } else {
-                            context.insert_let(name.clone(), ast_type);
+                            context.insert_let(name.clone(), ast_type, let_index);
+                            // TODO index is not really it
                         }
 
                         new_body.push(ASTStatement::LetStatement(
                             name.clone(),
                             ASTFunctionCallExpression(new_call),
                             *is_const,
+                            let_index.clone(),
                         ))
                     }
                 }
@@ -496,23 +498,29 @@ fn convert_statement(
                 if *is_const {
                     statics.add_const(name.to_owned(), get_value_type(value_type));
                 } else {
-                    context.insert_let(name.clone(), get_value_type(value_type));
+                    context.insert_let(name.clone(), get_value_type(value_type), index);
                 }
                 new_body.push(ASTStatement::LetStatement(
                     name.clone(),
                     ASTExpression::Value(value_type.clone(), index.clone()),
                     *is_const,
+                    let_index.clone(),
                 ))
             } else if let ASTExpression::StringLiteral(value) = expr {
                 if *is_const {
                     statics.add_const(name.to_owned(), ASTType::Builtin(BuiltinTypeKind::String));
                 } else {
-                    context.insert_let(name.clone(), ASTType::Builtin(BuiltinTypeKind::String));
+                    context.insert_let(
+                        name.clone(),
+                        ASTType::Builtin(BuiltinTypeKind::String),
+                        let_index,
+                    );
                 }
                 new_body.push(ASTStatement::LetStatement(
                     name.clone(),
                     ASTExpression::StringLiteral(value.clone()),
                     *is_const,
+                    let_index.clone(),
                 ))
             } else {
                 panic!("unsupported {statement}")
@@ -618,7 +626,7 @@ fn convert_statement_in_body(
             statics,
         )
         .map(|ito| ito.map(ASTStatement::Expression)),
-        ASTStatement::LetStatement(name, e, is_const) => {
+        ASTStatement::LetStatement(name, e, is_const, let_index) => {
             let result = convert_expr_in_body(
                 module,
                 e,
@@ -628,7 +636,11 @@ fn convert_statement_in_body(
                 call_stack,
                 statics,
             )
-            .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const)));
+            .map(|ito| {
+                ito.map(|it| {
+                    ASTStatement::LetStatement(name.clone(), it, *is_const, let_index.clone())
+                })
+            });
 
             let ast_type = get_type_of_expression(
                 module,
@@ -645,7 +657,7 @@ fn convert_statement_in_body(
             if *is_const {
                 panic!("const not allowed here");
             } else {
-                context.insert_let(name.into(), ast_type);
+                context.insert_let(name.into(), ast_type, let_index);
             }
             result
         }
@@ -734,17 +746,11 @@ fn convert_last_statement_in_body(
             statics,
         )
         .map(|ito| ito.map(ASTStatement::Expression)),
-        ASTStatement::LetStatement(name, e, is_const) => convert_last_expr_in_body(
-            module,
-            e,
-            context,
-            typed_context,
-            return_type,
-            backend,
-            call_stack,
-            statics,
+        ASTStatement::LetStatement(name, e, is_const, let_index) => Err(format!(
+            "let statement cannot be the last expression : {}",
+            let_index
         )
-        .map(|ito| ito.map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const))),
+        .into()),
     }
 }
 
@@ -1017,8 +1023,12 @@ pub fn convert_call(
                                 Some(new_t)
                             } else if let Some(last) = effective_lambda.body.last() {
                                 for statement in effective_lambda.body.iter() {
-                                    if let ASTStatement::LetStatement(name, expr, is_const) =
-                                        statement
+                                    if let ASTStatement::LetStatement(
+                                        name,
+                                        expr,
+                                        is_const,
+                                        let_index,
+                                    ) = statement
                                     {
                                         let ast_type = get_type_of_expression(
                                             module,
@@ -1035,7 +1045,7 @@ pub fn convert_call(
                                         if *is_const {
                                             panic!("const not allowed here")
                                         } else {
-                                            context.insert_let(name.clone(), ast_type);
+                                            context.insert_let(name.clone(), ast_type, let_index);
                                         }
                                     }
                                 }
@@ -1400,6 +1410,7 @@ pub fn convert_call(
                 parameters.push(ASTParameterDef {
                     name: par.name.clone(),
                     ast_type: new_ref,
+                    ast_index: par.ast_index,
                 });
             } else {
                 remaining_generic_types.append(&mut get_generic_types(&par.ast_type));
@@ -1833,7 +1844,7 @@ fn get_type_of_statement(
             backend,
             statics,
         ),
-        ASTStatement::LetStatement(_, e, _is_const) => get_type_of_expression(
+        ASTStatement::LetStatement(_, e, _is_const, _let_index) => get_type_of_expression(
             module,
             context,
             e,
@@ -1920,7 +1931,7 @@ fn get_type_of_expression(
                     .iter()
                     .enumerate()
                     .map(|(i, statement)| match statement {
-                        ASTStatement::LetStatement(name, let_statement, is_const) => {
+                        ASTStatement::LetStatement(name, let_statement, is_const, let_index) => {
                             // let mut new_call_stack = call_stack.clone();
 
                             let skip = if let ASTFunctionCallExpression(inner_call) = let_statement
@@ -1951,7 +1962,11 @@ fn get_type_of_expression(
                                         // TODO I don't think it should happen
                                         panic!("const not allowed here")
                                     } else {
-                                        lamda_val_context.insert_let(name.clone(), let_return_type);
+                                        lamda_val_context.insert_let(
+                                            name.clone(),
+                                            let_return_type,
+                                            let_index,
+                                        );
                                     }
                                     Ok(())
                                 } else {
@@ -2005,7 +2020,7 @@ fn get_type_of_expression(
                 }
 
                 debug_i!("lamda return type: {:?}", lamda_return_type);
-                for par_name in &def.parameter_names {
+                for (par_name, _) in &def.parameter_names {
                     debug_i!("par {par_name}: {:?}", lamda_val_context.get(par_name));
                 }
                 Ok(Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -2013,7 +2028,7 @@ fn get_type_of_expression(
                     parameters: def
                         .parameter_names
                         .iter()
-                        .map(|it| match lamda_val_context.get(it).unwrap() {
+                        .map(|(it, _)| match lamda_val_context.get(it).unwrap() {
                             ValKind::ParameterRef(_, def) => def.ast_type.clone(),
                             ValKind::LetRef(_, def) => def.clone(),
                         })
@@ -2215,7 +2230,7 @@ fn get_context_from_lambda(
 ) -> Result<ValContext, TypeCheckError> {
     let mut context = ValContext::new(Some(context));
 
-    for (inner_i, name) in lambda.parameter_names.iter().enumerate() {
+    for (inner_i, (name, index)) in lambda.parameter_names.iter().enumerate() {
         match lambda_type {
             ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters,
@@ -2234,6 +2249,7 @@ fn get_context_from_lambda(
                     ASTParameterDef {
                         name: name.clone(),
                         ast_type: p,
+                        ast_index: index.clone(),
                     },
                 );
             }
@@ -2280,28 +2296,34 @@ fn convert_lambda(
 
     debug_i!("return type {:?}", return_type);
 
-    for (inner_i, name) in lambda.parameter_names.iter().enumerate() {
+    for (inner_i, (name, index)) in lambda.parameter_names.iter().enumerate() {
         let pp = parameters.get(inner_i).unwrap();
 
         if let Some(new_t) = substitute(pp, resolved_param_types) {
             // println!("something converted type {pp}, {new_t}");
             something_converted = true;
+            /*
+                       context.insert_par(
+                           name.clone(),
+                           ASTParameterDef {
+                               name: name.clone(),
+                               ast_type: new_t,
+                               ast_index: index.clone(),
+                           },
+                       );
 
-            context.insert_par(
-                name.clone(),
-                ASTParameterDef {
-                    name: name.clone(),
-                    ast_type: new_t,
-                },
-            );
-        } else {
-            context.insert_par(
-                name.clone(),
-                ASTParameterDef {
-                    name: name.clone(),
-                    ast_type: pp.clone(),
-                },
-            );
+
+                   } else {
+                       context.insert_par(
+                           name.clone(),
+                           ASTParameterDef {
+                               name: name.clone(),
+                               ast_type: pp.clone(),
+                               ast_index: index.clone(),
+                           },
+                       );
+
+            */
         }
     }
 
@@ -2466,6 +2488,7 @@ fn update(
         parameters.push(ASTParameterDef {
             name: par.name.clone(),
             ast_type: t,
+            ast_index: par.ast_index.clone(),
         });
         true
     } else {
@@ -2625,6 +2648,7 @@ mod tests {
             parameters: vec![ASTParameterDef {
                 name: "v".into(),
                 ast_type: ASTType::Parametric("T".into()),
+                ast_index: ASTIndex::none(),
             }],
             inline: false,
             return_type: None,
@@ -2651,6 +2675,7 @@ mod tests {
             false,
             Vec::new(),
             &mut Statics::new(),
+            true,
         );
 
         let par = if let Some(ASTStatement::Expression(ASTFunctionCallExpression(e))) =

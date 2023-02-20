@@ -1,9 +1,12 @@
+use std::fmt::{Debug, Display, Formatter};
+
+use linked_hash_map::LinkedHashMap;
+
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::lexer::tokens::{Token, TokenKind};
+use crate::parser::ast::ASTIndex;
 use crate::parser::tokens_group::TokensGroup;
 use crate::parser::ParserTrait;
-use linked_hash_map::LinkedHashMap;
-use std::fmt::{Debug, Display, Formatter};
 
 pub trait TokensMatcherTrait: Debug + Sync + Display {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
@@ -178,6 +181,11 @@ impl ParserTrait for TokensMatcherResult {
     fn panic(&self, message: &str) {
         panic!("{}", message);
     }
+
+    fn get_index(&self, n: usize) -> Option<ASTIndex> {
+        // TODO
+        Some(ASTIndex::none())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -267,10 +275,12 @@ impl Display for AlphanumericTokenMatcher {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use linked_hash_map::LinkedHashMap;
+
     use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind};
     use crate::parser::test_utils::get_parser;
-    use linked_hash_map::LinkedHashMap;
+
+    use super::*;
 
     #[test]
     fn test_result_values() {

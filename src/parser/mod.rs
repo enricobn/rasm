@@ -73,7 +73,7 @@ enum ParserData {
     FunctionDef(ASTFunctionDef),
     FunctionDefParameter(ASTParameterDef),
     LambdaDef(ASTLambdaDef),
-    Let(String, bool),
+    Let(String, bool, ASTIndex),
     Val(ASTExpression, ASTIndex),
     StructDef(ASTStructDef),
 }
@@ -270,12 +270,20 @@ impl Parser {
                     } else if let TokenKind::EndOfLine = token.kind {
                         break;
                     } else if let Some((name, next_i)) = self.try_parse_let(false) {
-                        self.parser_data.push(ParserData::Let(name, false));
+                        self.parser_data.push(ParserData::Let(
+                            name,
+                            false,
+                            self.get_index(0).unwrap(),
+                        ));
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
                     } else if let Some((name, next_i)) = self.try_parse_let(true) {
-                        self.parser_data.push(ParserData::Let(name, true));
+                        self.parser_data.push(ParserData::Let(
+                            name,
+                            true,
+                            self.get_index(0).unwrap(),
+                        ));
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
@@ -314,13 +322,18 @@ impl Parser {
                 Some(ParserState::FunctionDefParameter) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
                         if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
+                            let n = next_i - self.i;
                             self.i = next_i;
                             if let Some((ast_type, next_i)) =
                                 TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
                             {
                                 self.i = next_i;
                                 self.parser_data.push(ParserData::FunctionDefParameter(
-                                    ASTParameterDef { name, ast_type },
+                                    ASTParameterDef {
+                                        name,
+                                        ast_type,
+                                        ast_index: self.get_index_from_token(&token),
+                                    },
                                 ));
                                 self.state.pop();
                                 continue;
@@ -359,7 +372,11 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((name, next_i)) = self.try_parse_let(false) {
-                        self.parser_data.push(ParserData::Let(name, false));
+                        self.parser_data.push(ParserData::Let(
+                            name,
+                            false,
+                            self.get_index(0).unwrap(),
+                        ));
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
@@ -397,16 +414,16 @@ impl Parser {
                             self.i = next_i;
                             continue;
                         } else {
-                            panic!("Expected variants.")
+                            panic!("Expected variants : {}", self.get_index(0).unwrap())
                         }
                     } else {
-                        panic!("Expected enum data.")
+                        panic!("Expected enum data : {}", self.get_index(0).unwrap())
                     }
                 }
                 Some(ParserState::Val) => {
                     if let Some(ParserData::Val(expr, _index)) = self.last_parser_data() {
                         let (statement, parser_data, is_let, is_const) =
-                            if let Some(ParserData::Let(name, is_const)) =
+                            if let Some(ParserData::Let(name, is_const, let_index)) =
                                 self.before_last_parser_data()
                             {
                                 (
@@ -414,6 +431,7 @@ impl Parser {
                                         name.clone(),
                                         expr.clone(),
                                         *is_const,
+                                        let_index.clone(),
                                     ),
                                     self.get_parser_data(2),
                                     true,
@@ -473,8 +491,8 @@ impl Parser {
                 }
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
-                        if let Some((properties, next_i)) =
-                            StructParser::new(self).parse_properties(&def.type_parameters, 0)
+                        if let Some((properties, next_i)) = StructParser::new(self)
+                            .parse_properties(&def.type_parameters, &def.name, 0)
                         {
                             def.properties = properties;
                             self.structs.push(def);
@@ -532,14 +550,6 @@ impl Parser {
             externals: self.externals.clone(),
             types: self.types.clone(),
         }
-    }
-
-    fn get_index(&self, n: usize) -> Option<ASTIndex> {
-        self.get_token_n(n).map(|it| ASTIndex {
-            file_name: self.file_name.clone(),
-            row: it.row,
-            column: it.column,
-        })
     }
 
     fn get_index_from_token(&self, token: &Token) -> ASTIndex {
@@ -626,13 +636,14 @@ impl Parser {
                 if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
                     self.get_token_kind_n(1)
                 {
-                    let statement = if let Some(ParserData::Let(name, is_const)) =
+                    let statement = if let Some(ParserData::Let(name, is_const, let_index)) =
                         self.before_last_parser_data()
                     {
                         let let_statement = ASTStatement::LetStatement(
                             name.clone(),
                             ASTFunctionCallExpression(call),
                             *is_const,
+                            let_index.clone(),
                         );
                         self.parser_data.pop();
                         self.state.pop();
@@ -940,7 +951,7 @@ impl Parser {
         self.parser_data.last().cloned()
     }
 
-    fn parse_lambda_parameters(&self, out_n: usize) -> (Vec<String>, usize) {
+    fn parse_lambda_parameters(&self, out_n: usize) -> (Vec<(String, ASTIndex)>, usize) {
         let mut n = out_n;
         let mut parameter_names = Vec::new();
         loop {
@@ -958,7 +969,7 @@ impl Parser {
                     continue;
                 }
                 Some(TokenKind::AlphaNumeric(name)) => {
-                    parameter_names.push(name.to_string());
+                    parameter_names.push((name.to_string(), self.get_index(n).unwrap()));
                     n += 1;
                     continue;
                 }
@@ -1111,6 +1122,14 @@ impl ParserTrait for Parser {
     fn panic(&self, message: &str) {
         self.panic(message);
     }
+
+    fn get_index(&self, n: usize) -> Option<ASTIndex> {
+        self.get_token_n(n).map(|it| ASTIndex {
+            file_name: self.file_name.clone(),
+            row: it.row,
+            column: it.column,
+        })
+    }
 }
 
 pub trait ParserTrait {
@@ -1126,6 +1145,8 @@ pub trait ParserTrait {
     fn get_token(&self) -> Option<&Token> {
         self.get_token_n(0)
     }
+
+    fn get_index(&self, n: usize) -> Option<ASTIndex>;
 }
 
 #[cfg(test)]

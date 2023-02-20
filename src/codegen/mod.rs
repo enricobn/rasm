@@ -10,7 +10,7 @@ use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
+use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
@@ -99,18 +99,32 @@ impl ValContext {
     }
 
     pub fn insert_par(&mut self, key: String, par: ASTParameterDef) -> Option<ValKind> {
-        let result = self
-            .value_to_address
-            .insert(key, ValKind::ParameterRef(self.par_index, par));
+        let result = self.value_to_address.insert(
+            key.clone(),
+            ValKind::ParameterRef(self.par_index, par.clone()),
+        );
         self.par_index += 1;
+        if result.is_some() {
+            panic!("already added {key}: {}", par.ast_index);
+        }
+        debug_i!("added parameter {key} -> {par} to context");
         result
     }
 
-    pub fn insert_let(&mut self, key: String, ast_type: ASTType) -> Option<ValKind> {
+    pub fn insert_let(
+        &mut self,
+        key: String,
+        ast_type: ASTType,
+        ast_index: &ASTIndex,
+    ) -> Option<ValKind> {
         let result = self
             .value_to_address
-            .insert(key, ValKind::LetRef(self.let_index, ast_type));
+            .insert(key.clone(), ValKind::LetRef(self.let_index, ast_type));
         self.let_index += 1;
+        if result.is_some() {
+            panic!("already added {key}: {}", ast_index);
+        }
+        debug_i!("added let val {key} to context");
         result
     }
 
@@ -282,6 +296,7 @@ impl<'a> CodeGen<'a> {
             print_module,
             mandatory_functions,
             &mut statics,
+            dereference,
         );
         let module = typed_enum_functions_creator(backend, &module, &mut statics);
         let module = typed_struct_functions_creator(backend, &module, &mut statics);
@@ -342,7 +357,7 @@ impl<'a> CodeGen<'a> {
                         panic!("unsupported expression in body {e}");
                     }
                 },
-                ASTTypedStatement::LetStatement(name, expr, is_const) => {
+                ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                     let mut new_lambda_calls = self.add_let(
                         &mut context,
                         &stack,
@@ -733,6 +748,7 @@ impl<'a> CodeGen<'a> {
                 ast_typed_type.clone(),
                 Some(address_relative_to_bp / self.backend.word_len()),
             );
+
             if !bf.is_empty() {
                 before.push_str(&bf);
                 self.backend
@@ -745,7 +761,7 @@ impl<'a> CodeGen<'a> {
                 {
                     self.backend.call_add_ref(
                         before,
-                        "eax",
+                        &format!("[{bp} - {}]", address_relative_to_bp),
                         &type_name,
                         &format!("for let val {name} : {index}"),
                         &self.module,
@@ -786,7 +802,15 @@ impl<'a> CodeGen<'a> {
             );
         }*/
 
-        let mut new_body = body.to_string();
+        let mut new_body = TextMacroEvaluator::new().translate(
+            self.backend,
+            &mut self.statics,
+            None,
+            body,
+            self.dereference,
+            true,
+            &self.module,
+        );
 
         self.type_conversion_context.debug_i();
 
@@ -858,6 +882,8 @@ impl<'a> CodeGen<'a> {
             &mut self.statics,
             None,
             &new_body,
+            self.dereference,
+            false,
             &self.module,
         )
     }
@@ -1072,7 +1098,7 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::Any(_) => panic!(),
                             }
                         }
-                        ASTTypedStatement::LetStatement(name, expr, is_const) => {
+                        ASTTypedStatement::LetStatement(name, expr, is_const, let_index_) => {
                             let mut new_lambda_calls = self.add_let(
                                 &mut context,
                                 &stack,
@@ -1234,6 +1260,7 @@ impl<'a> CodeGen<'a> {
                         ASTTypedParameterDef {
                             name,
                             ast_type: it.clone(),
+                            ast_index: ASTIndex::none(), // TODO I don't know...
                         }
                     })
                     .collect();
@@ -1495,9 +1522,11 @@ impl<'a> CodeGen<'a> {
 
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {
+                            let (p_name, p_index) = lambda_def.parameter_names.get(i).unwrap();
                             def.parameters.push(ASTTypedParameterDef {
-                                name: lambda_def.parameter_names.get(i).unwrap().clone(),
+                                name: p_name.clone(),
                                 ast_type: parameters_types.get(i).unwrap().clone(),
+                                ast_index: p_index.clone(),
                             });
                             // TODO check if the parameter name collides with some context var
                         }
@@ -1775,14 +1804,14 @@ impl<'a> CodeGen<'a> {
 
     pub fn get_reference_type_name(
         ast_type: &ASTTypedType,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> Option<String> {
         match ast_type {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
             ASTTypedType::Enum { name } => Some(name.clone()),
             ASTTypedType::Struct { name } => Some(name.clone()),
             ASTTypedType::Type { name } => {
-                if let Some(t) = module.types.iter().find(|it| &it.name == name) {
+                if let Some(t) = type_def_provider.get_type_def_by_name(name) {
                     if t.is_ref {
                         Some(name.clone())
                     } else {

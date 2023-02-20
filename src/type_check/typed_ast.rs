@@ -7,7 +7,7 @@ use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
+use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::{TypedValContext, TypedValKind, ValContext};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
@@ -20,6 +20,7 @@ use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
     convert_call, convert_function_def, replace_native_call, substitute, TypeConversionContext,
 };
+use crate::utils::get_one;
 use crate::{debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,13 +46,18 @@ impl Display for ASTTypedFunctionDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedLambdaDef {
-    pub parameter_names: Vec<String>,
+    pub parameter_names: Vec<(String, ASTIndex)>,
     pub body: Vec<ASTTypedStatement>,
 }
 
 impl Display for ASTTypedLambdaDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let pars = self.parameter_names.join(",");
+        let pars = self
+            .parameter_names
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<String>>()
+            .join(",");
         let body = self
             .body
             .iter()
@@ -127,6 +133,7 @@ impl Display for ASTTypedType {
 pub struct ASTTypedParameterDef {
     pub name: String,
     pub ast_type: ASTTypedType,
+    pub ast_index: ASTIndex,
 }
 
 impl Display for ASTTypedParameterDef {
@@ -148,10 +155,11 @@ impl Display for ASTTypedStructPropertyDef {
 }
 
 impl ASTTypedParameterDef {
-    pub fn new(name: &str, ast_type: ASTTypedType) -> ASTTypedParameterDef {
+    pub fn new(name: &str, ast_type: ASTTypedType, ast_index: ASTIndex) -> ASTTypedParameterDef {
         Self {
             name: name.into(),
             ast_type,
+            ast_index,
         }
     }
 }
@@ -205,14 +213,14 @@ impl Display for ASTTypedExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedStatement {
     Expression(ASTTypedExpression),
-    LetStatement(String, ASTTypedExpression, bool),
+    LetStatement(String, ASTTypedExpression, bool, ASTIndex),
 }
 
 impl Display for ASTTypedStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypedStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTTypedStatement::LetStatement(name, e, is_const) => {
+            ASTTypedStatement::LetStatement(name, e, is_const, _index) => {
                 let keyword = if *is_const { "const" } else { "let" };
                 f.write_str(&format!("{keyword} {name} = {e};\n"))
             }
@@ -220,7 +228,7 @@ impl Display for ASTTypedStatement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ASTTypedModule {
     pub body: Vec<ASTTypedStatement>,
     pub functions_by_name: LinkedHashMap<String, ASTTypedFunctionDef>,
@@ -229,6 +237,34 @@ pub struct ASTTypedModule {
     pub native_body: String,
     pub types: Vec<ASTTypedTypeDef>,
 }
+
+impl TypeDefProvider for ASTTypedModule {
+    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
+        self.enums.iter().find(|it| it.name == name)
+    }
+
+    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
+        self.structs.iter().find(|it| it.name == name)
+    }
+
+    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
+        self.types.iter().find(|it| it.name == name)
+    }
+
+    fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
+        get_one(self.enums.iter(), |it| it.name.starts_with(name))
+    }
+
+    fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
+        get_one(self.structs.iter(), |it| it.name.starts_with(name))
+    }
+
+    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
+        get_one(self.types.iter(), |it| it.name == name)
+    }
+}
+
+impl ASTTypedModule {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedEnumDef {
@@ -290,7 +326,7 @@ impl Display for ASTTypedStructDef {
             .map(|it| format!("{it}"))
             .collect::<Vec<_>>()
             .join(",");
-        f.write_str(&format!("{}({pars})", self.name))
+        f.write_str(&format!("struct {}({pars})", self.name))
     }
 }
 
@@ -302,6 +338,18 @@ pub struct ASTTypedTypeDef {
     pub is_ref: bool,
 }
 
+impl Display for ASTTypedTypeDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let gen_types = self
+            .generic_types
+            .values()
+            .map(|it| format!("{it}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        f.write_str(&format!("type {}<{gen_types}>", self.name))
+    }
+}
+
 pub struct ConvContext<'a> {
     module: &'a EnhancedASTModule,
     enums: LinkedHashMap<ASTType, ASTTypedType>,
@@ -311,6 +359,32 @@ pub struct ConvContext<'a> {
     struct_defs: Vec<ASTTypedStructDef>,
     type_defs: Vec<ASTTypedTypeDef>,
     count: usize,
+}
+
+impl<'a> TypeDefProvider for ConvContext<'a> {
+    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
+        self.enum_defs.iter().find(|it| it.name == name)
+    }
+
+    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
+        self.struct_defs.iter().find(|it| it.name == name)
+    }
+
+    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
+        self.type_defs.iter().find(|it| it.name == name)
+    }
+
+    fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
+        get_one(self.enum_defs.iter(), |it| it.name.starts_with(name))
+    }
+
+    fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
+        get_one(self.struct_defs.iter(), |it| it.name.starts_with(name))
+    }
+
+    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
+        get_one(self.type_defs.iter(), |it| it.name == name)
+    }
 }
 
 impl<'a> ConvContext<'a> {
@@ -522,6 +596,7 @@ pub fn convert_to_typed_module(
     mandatory_functions: Vec<DefaultFunctionCall>,
     backend: &dyn Backend,
     statics: &mut Statics,
+    dereference: bool,
 ) -> ASTTypedModule {
     let mut conv_context = ConvContext::new(module);
 
@@ -654,6 +729,7 @@ pub fn convert_to_typed_module(
                     module,
                     &cloned_typed_context,
                     statics,
+                    dereference,
                 ),
             );
         }
@@ -689,15 +765,32 @@ pub fn convert_to_typed_module(
         types: conv_context.type_defs,
     };
 
-    let evaluator = TextMacroEvaluator::new();
+    let mut evaluator = TextMacroEvaluator::new();
 
     functions_by_name
         .iter_mut()
         .for_each(|it| match &it.1.body {
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::ASMBody(body) => {
-                // TODO statics
-                let new_body = evaluator.translate(backend, statics, Some(it.1), body, &result);
+                let new_body = evaluator.translate(
+                    backend,
+                    statics,
+                    Some(it.1),
+                    body,
+                    dereference,
+                    true,
+                    &result,
+                );
+
+                let new_body = evaluator.translate(
+                    backend,
+                    statics,
+                    Some(it.1),
+                    &new_body,
+                    dereference,
+                    false,
+                    &result,
+                );
                 it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
             }
         });
@@ -747,7 +840,7 @@ fn verify_statement(
                 verify_function_call(module, context, call, statics);
             }
         }
-        ASTTypedStatement::LetStatement(name, e, is_const) => {
+        ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                 let ast_typed_type =
                     if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
@@ -930,10 +1023,11 @@ pub fn get_type_of_typed_expression(
                 },
             };
 
-            for (i, name) in lambda_def.parameter_names.iter().enumerate() {
+            for (i, (name, index)) in lambda_def.parameter_names.iter().enumerate() {
                 let parameter_def = ASTTypedParameterDef {
                     name: name.clone(),
                     ast_type: parameters.get(i).unwrap().clone(),
+                    ast_index: index.clone(),
                 };
                 context.insert_par(name.clone(), i, parameter_def);
             }
@@ -945,7 +1039,7 @@ pub fn get_type_of_typed_expression(
                             verify_function_call(module, &context, call, statics);
                         }
                     }
-                    ASTTypedStatement::LetStatement(name, e, is_const) => {
+                    ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
                         if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                             let ast_typed_type = module
                                 .functions_by_name
@@ -980,7 +1074,7 @@ pub fn get_type_of_typed_expression(
                     ASTTypedStatement::Expression(e) => {
                         get_type_of_typed_expression(module, &context, e, None, statics)
                     }
-                    ASTTypedStatement::LetStatement(_, e, _is_const) => {
+                    ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
                         get_type_of_typed_expression(module, &context, e, None, statics)
                     }
                 }
@@ -1070,7 +1164,8 @@ pub fn function_def(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
     typed_context: &RefCell<TypeConversionContext>,
-    statics: &Statics,
+    statics: &mut Statics,
+    dereference: bool,
 ) -> ASTTypedFunctionDef {
     if !def.param_types.is_empty() {
         panic!("function def has generics: {def}");
@@ -1113,14 +1208,25 @@ pub fn function_def(
                     ASTParameterDef {
                         name: par.name.clone(),
                         ast_type: type_to_untyped_type(&par.ast_type),
+                        ast_index: par.ast_index.clone(),
                     },
                 );
             }
 
-            let mut new_body = body.clone();
+            let mut evaluator = TextMacroEvaluator::new();
+
+            let mut new_body = evaluator.translate(
+                backend,
+                statics,
+                Some(&typed_function_def),
+                body,
+                dereference,
+                true,
+                conv_context,
+            );
 
             backend
-                .called_functions(Some(&typed_function_def), body, &val_context)
+                .called_functions(Some(&typed_function_def), &new_body, &val_context)
                 .iter()
                 .for_each(|it| {
                     debug_i!(
@@ -1286,8 +1392,13 @@ fn body(conv_context: &mut ConvContext, body: &ASTFunctionBody) -> ASTTypedFunct
 fn statement(conv_context: &mut ConvContext, it: &ASTStatement) -> ASTTypedStatement {
     match it {
         ASTStatement::Expression(e) => ASTTypedStatement::Expression(expression(conv_context, e)),
-        ASTStatement::LetStatement(name, e, is_const) => {
-            ASTTypedStatement::LetStatement(name.clone(), expression(conv_context, e), *is_const)
+        ASTStatement::LetStatement(name, e, is_const, let_index) => {
+            ASTTypedStatement::LetStatement(
+                name.clone(),
+                expression(conv_context, e),
+                *is_const,
+                let_index.clone(),
+            )
         }
     }
 }
@@ -1315,6 +1426,7 @@ fn enum_variant(
                     ASTTypedParameterDef {
                         name: it.name.clone(),
                         ast_type: enum_typed_type.clone(),
+                        ast_index: it.ast_index.clone(),
                     }
                 } else if let Some(new_type) = substitute(&it.ast_type, generic_to_type) {
                     debug!("new_type {new_type}");
@@ -1323,11 +1435,13 @@ fn enum_variant(
                         ASTTypedParameterDef {
                             name: it.name.clone(),
                             ast_type: enum_typed_type.clone(),
+                            ast_index: it.ast_index.clone(),
                         }
                     } else {
                         ASTTypedParameterDef {
                             name: it.name.clone(),
                             ast_type: typed_type(conv_context, &new_type, ""),
+                            ast_index: it.ast_index.clone(),
                         }
                     }
                 } else {
@@ -1369,6 +1483,7 @@ fn parameter_def(
             &parameter_def.ast_type,
             &format!("{message}: parameter {}", parameter_def.name),
         ),
+        ast_index: parameter_def.ast_index.clone(),
     }
 }
 
@@ -1446,6 +1561,10 @@ pub fn print_typed_module(module: &ASTTypedModule) {
 
     for struct_def in module.structs.iter() {
         println!("{struct_def}");
+    }
+
+    for type_def in module.types.iter() {
+        println!("{type_def}");
     }
 
     module.body.iter().for_each(|call| {

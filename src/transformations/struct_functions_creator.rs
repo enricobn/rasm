@@ -1,10 +1,12 @@
+use linked_hash_map::LinkedHashMap;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::CodeGen;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTParameterDef, ASTStructDef, ASTStructPropertyDef, ASTType,
+    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTStructDef, ASTStructPropertyDef,
+    ASTType,
 };
-use linked_hash_map::LinkedHashMap;
 
 pub fn struct_functions_creator(
     backend: &dyn Backend,
@@ -33,6 +35,7 @@ pub fn struct_functions_creator(
             .map(|it| ASTParameterDef {
                 name: it.name.clone(),
                 ast_type: it.ast_type.clone(),
+                ast_index: ASTIndex::none(),
             })
             .collect();
 
@@ -148,6 +151,7 @@ fn create_function_for_struct_property(
                 name: struct_def.name.clone(),
                 param_types,
             },
+            ast_index: ASTIndex::none(),
         }],
         return_type: Some(property_def.ast_type.clone()),
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),

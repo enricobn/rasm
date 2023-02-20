@@ -3,7 +3,9 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TypeDefProvider;
 use crate::codegen::CodeGen;
+use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
     ASTTypedStructDef, ASTTypedType,
@@ -77,6 +79,7 @@ fn create_free(
         parameters: vec![ASTTypedParameterDef {
             name: "address".into(),
             ast_type,
+            ast_index: ASTIndex::none(),
         }],
         body,
         inline: false,
@@ -156,9 +159,12 @@ fn create_free_body(
     result
 }
 
-pub fn struct_has_references(stuct_def: &ASTTypedStructDef, module: &ASTTypedModule) -> bool {
+pub fn struct_has_references(
+    stuct_def: &ASTTypedStructDef,
+    type_def_provider: &dyn TypeDefProvider,
+) -> bool {
     stuct_def
         .properties
         .iter()
-        .any(|it| CodeGen::get_reference_type_name(&it.ast_type, module).is_some())
+        .any(|it| CodeGen::get_reference_type_name(&it.ast_type, type_def_provider).is_some())
 }
