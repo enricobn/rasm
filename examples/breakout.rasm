@@ -43,8 +43,31 @@ struct World {
     bricks: Vec<Brick>,
     ball: Ball,
     bar: Bar,
+}
+
+struct State {
+    resources: Resources,
     keys: Vec<i32>,
-    resources: Resources
+    stage: Stage
+}
+
+enum Stage {
+    Menu(menuState: MenuState),
+    Game(gameState: GameState)
+}
+
+struct MenuState {
+    todo: i32
+}
+
+enum GameStage {
+    RunBall,
+    Run
+}
+
+struct GameState {
+    stage: GameStage,
+    world: World
 }
 
 struct Bar {
@@ -66,23 +89,59 @@ sdlTTFInit();
 
 let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , Color::Yellow()); });
 let font = sdlOpenFont("examples/DejaVuSerif.ttf", 24);
-let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0), Vec(), Resources(font));
+
+let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0));
+let initialState = State(Resources(font), Vec(), Stage::Game(GameState(GameStage::Run(), initialWorld)));
 
 let win = sdlErrorIfNull(sdlCreateWindow("Bricks", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
-// TODO a trick to create the function, since for now I can't call it with a $call macro in asm...
-sdlSingleLoop(ren, initialWorld, { event,world -> world;}, { ren, world -> });
+// TODO a trick to create a reference the function, since for now I can't call it with a $call macro in asm...
+let firstState = sdlSingleLoop(ren, initialState, { event,state -> state;}, { sdlRen, state -> });
 
-sdlLoop(ren, initialWorld,
-    { event, world -> update(event, world);},
-    { ren, world -> render(ren, world);}
+sdlLoop(ren, firstState,
+    { event, state -> update(event, state);},
+    { sdlRen, state -> render(sdlRen, state);}
 );
 
 sdlDestroyRenderer(ren);
 sdlDestroyWindow(win);
 
-fn update(event: Option<KeyEvent>, world: World) -> World {
+fn update(event: Option<KeyEvent>, state: State) -> State {
+    let resources = State::resources(state);
+    let keys = State::keys(state);
+    let stage = State::stage(state);
+
+    let newKeys = Option::match(event, { e ->
+          let key = KeyEvent::key(e);
+          let keyState = KeyEvent::state(e);
+
+          KeyState::match(keyState, { ->
+            vecOf(key);
+          }, { ->
+            filter(keys, { k -> not(eq(k, key));});
+          });
+      }, { -> keys; });
+
+    Stage::match(stage, { menuState -> state;}, { gameState ->
+        // println("gameState ");
+        // printRef(gameState);
+        let newGameState = update(resources, newKeys, gameState);
+        State(resources, newKeys, Stage::Game(newGameState));
+    });
+}
+
+fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameState {
+    let stage = GameState::stage(gameState);
+    let world = GameState::world(gameState);
+
+    GameStage::match(stage, { -> gameState;}, { ->
+        let newWorld = update(resources, keys, world);
+        GameState(stage, newWorld);
+    });
+}
+
+fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     // println(time());
     // sleep(0, 1500);
     let actualTime = now();
@@ -90,15 +149,6 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
     let bar = World::bar(world);
     let barPos = Bar::x(bar);
     let velocity = Bar::velocity(bar);
-    let keys = World::keys(world);
-    let resources = World::resources(world);
-
-    let newKeys = Option::match(event, { e ->
-          let key = KeyEvent::key(e);
-          let state = KeyEvent::state(e);
-
-          KeyState::match(state, { -> vecOf(key);}, { -> filter(keys, { k -> not(eq(k, key));});});
-      }, { -> keys;});
 
     let left = mul(count(keys, { k -> eq(k, 80);}), sub(0, 1));
     let right = count(keys, { k -> eq(k, 79);});
@@ -114,7 +164,8 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
     let lastUpdate = Ball::lastUpdate(ball);
     let elapsed = elapsedTime(actualTime, lastUpdate);
 
-    if(greater(elapsed, 2000), { ->
+    // if(greater(elapsed, 2000), { ->
+    if(true, { ->
         let x = Ball::x(ball);
         let y = Ball::y(ball);
         let xDir = Ball::xDir(ball);
@@ -136,9 +187,9 @@ fn update(event: Option<KeyEvent>, world: World) -> World {
 
         let newBall2 = if(collides(newX, newY, newBarPos), { -> Ball(newX, newY, newXDir, flip(newYDir), actualTime);}, { -> newBall1; });
 
-        World(newBricks, newBall2, newBar, newKeys, resources);
+        World(newBricks, newBall2, newBar);
     }, { ->
-        World(bricks, ball, newBar, newKeys, resources);
+        World(bricks, ball, newBar);
     });
 }
 
@@ -148,12 +199,28 @@ asm printAddress<T>(message: str, o: T) /{
     $call(print, "\n")
 }/
 
-fn render(ren: SDLRenderer, world: World) {
+fn render(ren: SDLRenderer, state: State) {
+    let resources = State::resources(state);
+    let keys = State::keys(state);
+    let stage = State::stage(state);
+
+    Stage::run(stage, { menuState -> }, { gameState -> render(ren, resources, gameState);});
+}
+
+fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
+    let stage = GameState::stage(gameState);
+    let world = GameState::world(gameState);
+
+    GameStage::run(stage, { -> }, { ->
+        render(ren, resources, world);
+    });
+}
+
+fn render(ren: SDLRenderer, resources: Resources, world: World) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 255);
     sdlRenderClear(ren);
     sdlSetRenderDrawColor(ren, 255, 0, 0, 255);
 
-    let resources = World::resources(world);
     let font = Resources::font(resources);
 
     let bricks = World::bricks(world);
