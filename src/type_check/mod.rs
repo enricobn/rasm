@@ -209,7 +209,7 @@ fn convert_function_def(
                 statics,
             )? {
                 let mut new_function_def = function_def.clone();
-                new_function_def.body = ASTFunctionBody::RASMBody(new_body.clone());
+                new_function_def.body = ASTFunctionBody::RASMBody(new_body);
 
                 new_function_def.resolved_generic_types = resolved_param_types.clone();
 
