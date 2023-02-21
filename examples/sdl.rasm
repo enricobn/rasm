@@ -206,7 +206,7 @@ asm keyEvent() -> Option<KeyEvent> /{
     mov     dword eax,[ebx] ; here we have the type
     cmp     eax, 768        ; keyDown
     jne     .noKeyDown
-    $addRef(KeyState, [_enum_KeyState_Down]:KeyState)
+    $addRef(KeyState, [_enum_KeyState_Down])
     $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]:KeyState)
     $addRef(KeyEvent, eax)
     $call(Option::Some, eax: KeyEvent)
@@ -214,7 +214,7 @@ asm keyEvent() -> Option<KeyEvent> /{
 .noKeyDown:
     cmp     eax, 769        ; keyUp
     jne     .noKey
-    $addRef(KeyState, [_enum_KeyState_Up]:KeyState)
+    $addRef(KeyState, [_enum_KeyState_Up])
     $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]:KeyState)
     $addRef(KeyEvent, eax)
     $call(Option::Some, eax: KeyEvent)
@@ -230,6 +230,8 @@ asm keyEvent() -> Option<KeyEvent> /{
 // LOOP
 
 fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
+    // println("State in sdlSingleLoop");
+    // printRef(world);
     let event = keyEvent();
 
     Option::run(event, { keyEvent ->
@@ -251,25 +253,43 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
     */
 }
 
-asm sdlLoop<CTX,WORLD>(ctx: CTX, world: WORLD, update: fn(Option<KeyEvent>, WORLD) -> WORLD, render: fn(CTX, WORLD) -> ()) /{
+asm sdlLoop<CTX,STATE>(ctx: CTX, state: State, update: fn(Option<KeyEvent>, STATE) -> STATE, render: fn(CTX, STATE) -> ()) /{
     push    ebx
     push    ecx
-    mov     dword ebx, $world
+    push    edx
+
+    mov     dword edx, $state
+    mov     dword ebx, $state
 .loop:
     ; $call(printTotalMemory)
     ; $call(printAllocated)
     ; $call(printTableSlotsAllocated)
     mov     dword ecx, [ebx]
-    $addRef(WORLD,ebx)
-    push        dword $render
-    push        dword $update
-    push        dword ebx
-    push        dword $ctx
-    call        sdlSingleLoop_0
-    add         esp, 4 * 4
-    $deref(WORLD,ebx)
-    mov         dword   ebx, eax
+    push    dword $render
+    push    dword $update
+    push    dword ebx
+    push    dword $ctx
+    call    sdlSingleLoop_0
+    add     esp, 4 * 4
+    cmp     dword ebx,eax
+    jne     .doRef
+    $call(println, "state is the same")
+    jmp     .skipRef
+.doRef:
+    $addRef(STATE,eax)
+    ;$call(println, "New state ")
+    ;$printRef(eax:STATE)
+    cmp     ebx,$state
+    je      .skipRef
+    ;$call(println, "Old state ")
+    ;$printRef(ebx:STATE)
+    $deref(STATE,ebx)
+.skipRef:
+    mov     dword edx, ebx
+    mov     dword ebx, eax
     jmp     .loop
+
+    pop     edx
     pop     ecx
     pop     ebx
 }/
