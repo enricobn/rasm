@@ -124,8 +124,6 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
       }, { -> keys; });
 
     Stage::match(stage, { menuState -> state;}, { gameState ->
-        // println("gameState ");
-        // printRef(gameState);
         let newGameState = update(resources, newKeys, gameState);
         State(resources, newKeys, Stage::Game(newGameState));
     });
@@ -164,8 +162,8 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     let lastUpdate = Ball::lastUpdate(ball);
     let elapsed = elapsedTime(actualTime, lastUpdate);
 
-    // if(greater(elapsed, 2000), { ->
-    if(true, { ->
+    // TODO I don't like it, it's not smooth, we need floating points!
+    if(greater(elapsed, 2000), { ->
         let x = Ball::x(ball);
         let y = Ball::y(ball);
         let xDir = Ball::xDir(ball);
@@ -192,12 +190,6 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
         World(bricks, ball, newBar);
     });
 }
-
-asm printAddress<T>(message: str, o: T) /{
-    $call(print, $message)
-    $call(print, $o: i32)
-    $call(print, "\n")
-}/
 
 fn render(ren: SDLRenderer, state: State) {
     let resources = State::resources(state);
