@@ -226,7 +226,7 @@ fn enum_parametric_variant_constructor_body(
     // I put the variant number in the first location
     CodeGen::add(
         &mut body,
-        &format!("mov   [eax], word {}", variant_num),
+        &format!("mov {}  [eax], {}", word_size, variant_num),
         None,
         true,
     );
@@ -281,7 +281,7 @@ fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         CodeGen::add(
             &mut body,
-            &format!("cmp [eax], word {}", variant_num),
+            &format!("cmp {} [eax], {}", word_size, variant_num),
             None,
             true,
         );
@@ -295,7 +295,7 @@ fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
         for (i, param) in variant.parameters.iter().enumerate() {
             CodeGen::add(
                 &mut body,
-                &format!("push dword [eax + {}]", (i + 1) * word_len as usize),
+                &format!("push {} [eax + {}]", word_size, (i + 1) * word_len as usize),
                 Some(&format!("param {}", param.name)),
                 true,
             );
