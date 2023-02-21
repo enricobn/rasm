@@ -1,5 +1,6 @@
 include "compiler.rasm"
 include "conditionals.rasm"
+include "debug.rasm"
 include "io.rasm"
 include "list.rasm"
 include "new_allocator.rasm"
