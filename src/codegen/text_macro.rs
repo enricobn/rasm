@@ -892,17 +892,19 @@ impl PrintRefMacro {
             },
         };
 
-        let (name, code) = match ast_typed_type {
+        let (name, code, new_line) = match ast_typed_type {
             ASTTypedType::Builtin(_) => panic!(),
             ASTTypedType::Enum { name } => (
                 name.clone(),
                 self.print_ref_enum(&name, src, type_def_provider, indent + 1, backend),
+                false,
             ),
             ASTTypedType::Struct { name } => (
                 name.clone(),
                 self.print_ref_struct(&name, src, type_def_provider, indent + 1, backend),
+                true,
             ),
-            ASTTypedType::Type { name } => (name, String::new()),
+            ASTTypedType::Type { name } => (name, String::new(), true),
         };
         let ident_string = " ".repeat(indent * 2);
         CodeGen::add(
@@ -913,9 +915,13 @@ impl PrintRefMacro {
         );
         CodeGen::add(&mut result, &format!("$call(print,{src}:i32)"), None, true);
         CodeGen::add(&mut result, "push    ebx", None, true);
-        CodeGen::add(&mut result, "$call(print, \" = \")", None, true);
+        CodeGen::add(&mut result, "$call(print, \" refcount \")", None, true);
         CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        CodeGen::add(&mut result, "$call(println,[ebx + 12])", None, true);
+        if new_line {
+            CodeGen::add(&mut result, "$call(println,[ebx + 12])", None, true);
+        } else {
+            CodeGen::add(&mut result, "$call(print,[ebx + 12])", None, true);
+        }
         CodeGen::add(&mut result, "pop    ebx", None, true);
 
         result.push_str(&code);
@@ -984,30 +990,36 @@ impl PrintRefMacro {
             CodeGen::add(&mut result, "push    ebx", None, true);
             CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
             CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
+            CodeGen::add(&mut result, "$call(print, \" value \")", None, true);
             if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
                 for (i, variant) in s.variants.iter().enumerate() {
                     let label_name = &format!("._{name}_variant_{}_{i}", count.borrow());
-                    if !variant.parameters.is_empty() {
-                        CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                        CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
-                        for (j, par) in variant.parameters.iter().enumerate() {
-                            if let Some(name) =
-                                CodeGen::get_reference_type_name(&par.ast_type, type_def_provider)
-                            {
-                                let custom_type = ASTType::Custom {
-                                    name: name.clone(),
-                                    param_types: Vec::new(),
-                                };
-                                let par_result = self.print_ref(
-                                    &format!("[ebx + {}]", (j + 1) * wl),
-                                    &Some(custom_type),
-                                    None,
-                                    type_def_provider,
-                                    indent + 1,
-                                    backend,
-                                );
-                                result.push_str(&par_result);
-                            }
+                    CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                    CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
+                    CodeGen::add(
+                        &mut result,
+                        &format!("$call(println, \"{}\")", variant.name),
+                        None,
+                        true,
+                    );
+
+                    for (j, par) in variant.parameters.iter().enumerate() {
+                        if let Some(name) =
+                            CodeGen::get_reference_type_name(&par.ast_type, type_def_provider)
+                        {
+                            let custom_type = ASTType::Custom {
+                                name: name.clone(),
+                                param_types: Vec::new(),
+                            };
+                            let par_result = self.print_ref(
+                                &format!("[ebx + {}]", (j + 1) * wl),
+                                &Some(custom_type),
+                                None,
+                                type_def_provider,
+                                indent + 1,
+                                backend,
+                            );
+                            result.push_str(&par_result);
                         }
                     }
                     CodeGen::add(&mut result, &format!("jmp {end_label_name}"), None, false);
@@ -1016,6 +1028,9 @@ impl PrintRefMacro {
             } else {
                 panic!("Cannot find struct {name}");
             }
+            CodeGen::add(&mut result, "$call(print, \"unknown \")", None, false);
+            CodeGen::add(&mut result, "$call(println, [ebx])", None, false);
+            CodeGen::add(&mut result, "$call(exitMain, 1)", None, false);
             CodeGen::add(&mut result, &format!("{end_label_name}:"), None, false);
             CodeGen::add(&mut result, "pop    ebx", None, true);
             result
