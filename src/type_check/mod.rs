@@ -10,7 +10,7 @@ use strum_macros::Display;
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacro;
+use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::codegen::{ValContext, ValKind};
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
@@ -356,7 +356,31 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
         .iter()
         .enumerate()
         .filter(|(i, p)| *i > 0)
-        .map(|(_, it)| format!("{it}"))
+        .map(|(_, it)| match it {
+            MacroParam::Plain(value, ast_type) => match ast_type {
+                None => value.to_string(),
+                // TODO duplicated code
+                Some(t) => {
+                    if matches!(t, ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) {
+                        value.to_string()
+                    } else {
+                        format!("{it}")
+                    }
+                }
+            },
+            MacroParam::StringLiteral(_) => format!("{it}"),
+            MacroParam::Ref(value, ast_type) => match ast_type {
+                None => value.to_string(),
+                // TODO duplicated code
+                Some(t) => {
+                    if matches!(t, ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) {
+                        value.to_string()
+                    } else {
+                        format!("{it}")
+                    }
+                }
+            },
+        })
         .collect::<Vec<_>>()
         .join(",");
 

@@ -263,12 +263,7 @@ asm sdlLoop<CTX,STATE>(ctx: CTX, state: State, update: fn(Option<KeyEvent>, STAT
     ; $call(printAllocated)
     ; $call(printTableSlotsAllocated)
     mov     dword ecx, [ebx]
-    push    dword $render
-    push    dword $update
-    push    dword ebx
-    push    dword $ctx
-    call    sdlSingleLoop_0
-    add     esp, 4 * 4
+    $call(sdlSingleLoop,$ctx:CTX,ebx:STATE,$update,$render)
     cmp     dword ebx,eax
     jne     .doRef
     $call(println, "state is the same")

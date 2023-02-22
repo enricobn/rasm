@@ -52,6 +52,7 @@ pub trait Backend: RefUnwindSafe {
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
         context: &ValContext,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> Vec<(TextMacro, DefaultFunctionCall)>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
@@ -272,35 +273,77 @@ impl Backend for BackendAsm386 {
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
         context: &ValContext,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> Vec<(TextMacro, DefaultFunctionCall)> {
         let mut result = Vec::new();
 
         // TODO I don't like to create it
         let evaluator = TextMacroEvaluator::new();
 
-        for (m, i) in evaluator.get_macros(self, function_def, body) {
+        for (m, i) in evaluator.get_macros(self, function_def, body, type_def_provider) {
             if m.name == "call" {
                 debug_i!("found call macro {:?}", m);
                 let types = m
                     .parameters
                     .iter()
                     .skip(1)
-                    .map(|it| match it {
-                        MacroParam::Plain(_, opt_type) => match opt_type {
-                            None => ASTType::Builtin(BuiltinTypeKind::I32),
-                            Some(ast_type) => ast_type.clone(),
-                        },
-                        MacroParam::StringLiteral(_) => ASTType::Builtin(BuiltinTypeKind::String),
-                        MacroParam::Ref(name, None) => {
-                            debug_i!("found ref {name}");
-                            match context.get(name.strip_prefix('$').unwrap()).unwrap() {
-                                ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                                ValKind::LetRef(_, ast_type) => ast_type.clone(),
+                    .map(|it| {
+                        let ast_type = match it {
+                            MacroParam::Plain(_, opt_type) => match opt_type {
+                                None => ASTType::Builtin(BuiltinTypeKind::I32),
+                                Some(ast_type) => ast_type.clone(),
+                            },
+                            MacroParam::StringLiteral(_) => {
+                                ASTType::Builtin(BuiltinTypeKind::String)
                             }
-                        }
-                        MacroParam::Ref(name, Some(ast_type)) => {
-                            debug_i!("found ref {name} : {ast_type}");
-                            ast_type.clone()
+                            MacroParam::Ref(name, None) => {
+                                debug_i!("found ref {name}");
+                                match context.get(name.strip_prefix('$').unwrap()).unwrap() {
+                                    ValKind::ParameterRef(_, par) => par.ast_type.clone(),
+                                    ValKind::LetRef(_, ast_type) => ast_type.clone(),
+                                }
+                            }
+                            MacroParam::Ref(name, Some(ast_type)) => {
+                                debug_i!("found ref {name} : {ast_type}");
+                                ast_type.clone()
+                            }
+                        };
+
+                        match &ast_type {
+                            ASTType::Parametric(name) => {
+                                if let Some(f) = function_def {
+                                    let t = type_def_provider
+                                        .get_type_from_typed_type(
+                                            f.generic_types.get(name).unwrap(),
+                                        )
+                                        .unwrap();
+                                    println!("Function specified, found type {:?} for {name}", t);
+                                    t
+                                } else {
+                                    println!("Function not specified, cannot find type {name}");
+                                    ast_type.clone()
+                                }
+                            }
+                            ASTType::Custom { name, param_types } => {
+                                let result = if let Some(f) = function_def {
+                                    if let Some(t) = f.generic_types.get(name) {
+                                        type_def_provider.get_type_from_typed_type(t).unwrap()
+                                    } else {
+                                        if let Some(t) =
+                                            type_def_provider.get_type_from_typed_type_name(name)
+                                        {
+                                            t
+                                        } else {
+                                            ast_type.clone()
+                                        }
+                                    }
+                                } else {
+                                    ast_type.clone()
+                                };
+
+                                result
+                            }
+                            _ => ast_type,
                         }
                     })
                     .collect();
@@ -419,11 +462,11 @@ impl Backend for BackendAsm386 {
         let has_references = if "str" == type_name {
             true
         } else if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-            struct_has_references(&struct_def, type_def_provider)
+            struct_has_references(struct_def, type_def_provider)
         } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-            enum_has_references(&enum_def, type_def_provider)
+            enum_has_references(enum_def, type_def_provider)
         } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-            type_has_references(&type_def)
+            type_has_references(type_def)
         } else {
             panic!("cannot find type {descr} {type_name}");
         };
@@ -522,17 +565,23 @@ mod tests {
 
     use crate::codegen::backend::{Backend, BackendAsm386};
     use crate::codegen::ValContext;
+    use crate::utils::tests::DummyTypeDefProvider;
 
     #[test]
     fn called_functions() {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
         assert_eq!(
-            sut.called_functions(None, "$call(something)", &ValContext::new(None))
-                .get(0)
-                .unwrap()
-                .1
-                .name,
+            sut.called_functions(
+                None,
+                "$call(something)",
+                &ValContext::new(None),
+                &DummyTypeDefProvider::new()
+            )
+            .get(0)
+            .unwrap()
+            .1
+            .name,
             "something".to_string()
         );
     }
@@ -545,7 +594,8 @@ mod tests {
             .called_functions(
                 None,
                 "mov    eax, 1; $call(something)",
-                &ValContext::new(None)
+                &ValContext::new(None),
+                &DummyTypeDefProvider::new()
             )
             .is_empty());
     }
@@ -558,7 +608,12 @@ mod tests {
         let sut = BackendAsm386::new(Default::default(), externals);
 
         assert!(sut
-            .called_functions(None, "call something", &ValContext::new(None))
+            .called_functions(
+                None,
+                "call something",
+                &ValContext::new(None),
+                &DummyTypeDefProvider::new()
+            )
             .is_empty());
     }
 }

@@ -817,7 +817,7 @@ impl<'a> CodeGen<'a> {
         let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
         self.backend
-            .called_functions(None, &new_body, &val_context)
+            .called_functions(None, &new_body, &val_context, &self.module)
             .iter()
             .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);

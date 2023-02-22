@@ -20,7 +20,7 @@ use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
     convert_call, convert_function_def, get_new_native_call, substitute, TypeConversionContext,
 };
-use crate::utils::get_one;
+use crate::utils::find_one;
 use crate::{debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -252,15 +252,35 @@ impl TypeDefProvider for ASTTypedModule {
     }
 
     fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
-        get_one(self.enums.iter(), |it| it.name.starts_with(name))
+        find_one(self.enums.iter(), |it| it.name.starts_with(name))
     }
 
     fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
-        get_one(self.structs.iter(), |it| it.name.starts_with(name))
+        find_one(self.structs.iter(), |it| it.name.starts_with(name))
     }
 
     fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        get_one(self.types.iter(), |it| it.name == name)
+        find_one(self.types.iter(), |it| it.name == name)
+    }
+
+    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+        todo!()
+    }
+
+    fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
+        find_one(self.types.iter(), |it| match &it.ast_type {
+            ASTType::Builtin(_) => false,
+            ASTType::Parametric(_) => false,
+            ASTType::Custom {
+                name,
+                param_types: _,
+            } => name == type_to_find,
+        })
+        .cloned()
+    }
+
+    fn name(&self) -> String {
+        "ASTTypedModule".to_owned()
     }
 }
 
@@ -270,6 +290,8 @@ impl ASTTypedModule {}
 pub struct ASTTypedEnumDef {
     pub name: String,
     pub variants: Vec<ASTTypedEnumVariantDef>,
+    pub ast_type: ASTType,
+    pub ast_typed_type: ASTTypedType,
 }
 
 impl Display for ASTTypedEnumDef {
@@ -316,6 +338,8 @@ impl Display for ASTTypedEnumVariantDef {
 pub struct ASTTypedStructDef {
     pub name: String,
     pub properties: Vec<ASTTypedStructPropertyDef>,
+    pub ast_type: ASTType,
+    pub ast_typed_type: ASTTypedType,
 }
 
 impl Display for ASTTypedStructDef {
@@ -336,6 +360,8 @@ pub struct ASTTypedTypeDef {
     pub name: String,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
     pub is_ref: bool,
+    pub ast_type: ASTType,
+    pub ast_typed_type: ASTTypedType,
 }
 
 impl Display for ASTTypedTypeDef {
@@ -375,15 +401,55 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
     }
 
     fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
-        get_one(self.enum_defs.iter(), |it| it.name.starts_with(name))
+        find_one(self.enum_defs.iter(), |it| it.name.starts_with(name))
     }
 
     fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
-        get_one(self.struct_defs.iter(), |it| it.name.starts_with(name))
+        find_one(self.struct_defs.iter(), |it| it.name.starts_with(name))
     }
 
     fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        get_one(self.type_defs.iter(), |it| it.name.starts_with(name))
+        find_one(self.type_defs.iter(), |it| it.name.starts_with(name))
+    }
+
+    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+        if let Some((ast_type, _ast_typed_type)) = self
+            .enums
+            .iter()
+            .find(|(_ast_type, ast_typed_type)| ast_typed_type == &typed_type_to_find)
+        {
+            Some(ast_type.clone())
+        } else if let Some((ast_type, _ast_typed_type)) = self
+            .structs
+            .iter()
+            .find(|(_ast_type, ast_typed_type)| ast_typed_type == &typed_type_to_find)
+        {
+            Some(ast_type.clone())
+        } else if let Some((ast_type, _ast_typed_type)) = self
+            .types
+            .iter()
+            .find(|(_ast_type, ast_typed_type)| ast_typed_type == &typed_type_to_find)
+        {
+            Some(ast_type.clone())
+        } else {
+            None
+        }
+    }
+
+    fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
+        find_one(self.type_defs.iter(), |it| match &it.ast_type {
+            ASTType::Builtin(_) => false,
+            ASTType::Parametric(_) => false,
+            ASTType::Custom {
+                name,
+                param_types: _,
+            } => name == type_to_find,
+        })
+        .cloned()
+    }
+
+    fn name(&self) -> String {
+        "ConvContext".to_owned()
     }
 }
 
@@ -449,6 +515,8 @@ impl<'a> ConvContext<'a> {
                     self.enum_defs.push(ASTTypedEnumDef {
                         name: new_name,
                         variants,
+                        ast_type: enum_type.clone(),
+                        ast_typed_type: enum_typed_type.clone(),
                     });
 
                     self.enums
@@ -511,6 +579,8 @@ impl<'a> ConvContext<'a> {
                 self.struct_defs.push(ASTTypedStructDef {
                     name: new_name,
                     properties,
+                    ast_type: struct_type.clone(),
+                    ast_typed_type: struct_typed_type.clone(),
                 });
 
                 self.structs
@@ -569,6 +639,8 @@ impl<'a> ConvContext<'a> {
                     name: new_name,
                     generic_types,
                     is_ref,
+                    ast_type: ast_type.clone(),
+                    ast_typed_type: type_typed_type.clone(),
                 });
 
                 self.types.insert(ast_type.clone(), type_typed_type.clone());
@@ -1228,7 +1300,12 @@ pub fn function_def(
             let mut lines = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
             backend
-                .called_functions(Some(&typed_function_def), &new_body, &val_context)
+                .called_functions(
+                    Some(&typed_function_def),
+                    &new_body,
+                    &val_context,
+                    conv_context,
+                )
                 .iter()
                 .for_each(|(m, it)| {
                     debug_i!(
@@ -1315,7 +1392,7 @@ pub fn function_def(
     typed_function_def
 }
 
-fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
+pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
     match t {
         ASTTypedType::Builtin(kind) => match kind {
             BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
@@ -1548,6 +1625,14 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                     conv_context.add_type(ast_type, t.is_ref)
                 }
             } else {
+                println!(
+                    "{:?}",
+                    conv_context
+                        .types
+                        .iter()
+                        .map(|it| format!("{:?}", it))
+                        .collect::<Vec<_>>()
+                );
                 panic!("Cannot find custom type {name}");
             }
         }
@@ -1670,7 +1755,10 @@ impl DefaultFunctionCall {
                         BuiltinTypeKind::Char => {
                             ASTExpression::Value(ValueType::Char('a'), ASTIndex::none())
                         }
-                        BuiltinTypeKind::Lambda { .. } => panic!(),
+                        BuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        } => ASTExpression::Any(it.clone()),
                     },
                     ASTType::Parametric(_) => panic!(),
                     ASTType::Custom {

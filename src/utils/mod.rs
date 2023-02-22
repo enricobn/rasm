@@ -48,7 +48,7 @@ impl<'a, T: fmt::Display + 'a> fmt::Display for SliceDisplay<'a, T> {
     }
 }
 
-pub fn get_one<T, P>(iter: Iter<T>, predicate: P) -> Option<&T>
+pub fn find_one<T, P>(iter: Iter<T>, predicate: P) -> Option<&T>
 where
     P: FnMut(&&T) -> bool,
 {
@@ -58,4 +58,60 @@ where
         return None;
     }
     filter.get(0).cloned()
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::codegen::text_macro::TypeDefProvider;
+    use crate::parser::ast::ASTType;
+    use crate::type_check::typed_ast::{
+        ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef,
+    };
+
+    #[derive(Debug)]
+    pub struct DummyTypeDefProvider {}
+
+    impl TypeDefProvider for DummyTypeDefProvider {
+        fn get_enum_def_by_name(&self, _name: &str) -> Option<&ASTTypedEnumDef> {
+            None
+        }
+
+        fn get_struct_def_by_name(&self, _name: &str) -> Option<&ASTTypedStructDef> {
+            None
+        }
+
+        fn get_type_def_by_name(&self, _name: &str) -> Option<&ASTTypedTypeDef> {
+            None
+        }
+
+        fn get_enum_def_like_name(&self, _name: &str) -> Option<&ASTTypedEnumDef> {
+            None
+        }
+
+        fn get_struct_def_like_name(&self, _name: &str) -> Option<&ASTTypedStructDef> {
+            None
+        }
+
+        fn get_type_def_like_name(&self, _name: &str) -> Option<&ASTTypedTypeDef> {
+            None
+        }
+
+        fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+            None
+        }
+
+        fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
+            None
+        }
+
+        fn name(&self) -> String {
+            "DummyTypeDefProvider".to_owned()
+        }
+    }
+
+    impl DummyTypeDefProvider {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
 }

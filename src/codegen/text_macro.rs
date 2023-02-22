@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -30,6 +31,23 @@ pub trait TypeDefProvider {
     fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef>;
     fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef>;
     fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
+    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType>;
+
+    fn get_type_from_typed_type_name(&self, typed_type_to_find: &str) -> Option<ASTType> {
+        if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
+            Some(t.ast_type.clone())
+        } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {
+            Some(t.ast_type.clone())
+        } else if let Some(t) = self.get_type_def_by_name(typed_type_to_find) {
+            Some(t.ast_type.clone())
+        } else {
+            None
+        }
+    }
+
+    fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef>;
+
+    fn name(&self) -> String;
 }
 
 #[derive(Debug, Clone)]
@@ -125,7 +143,7 @@ impl TextMacroEvaluator {
 
                 let text_macro = TextMacro {
                     name: name.into(),
-                    parameters: self.parse_params(parameters, function_def),
+                    parameters: self.parse_params(parameters, function_def, type_def_provider),
                 };
 
                 if let Some(s) = self.eval_macro(
@@ -153,7 +171,12 @@ impl TextMacroEvaluator {
         new_body
     }
 
-    fn parse_params(&self, s: &str, function_def: Option<&ASTTypedFunctionDef>) -> Vec<MacroParam> {
+    fn parse_params(
+        &self,
+        s: &str,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> Vec<MacroParam> {
         let mut result = Vec::new();
 
         enum State {
@@ -169,7 +192,7 @@ impl TextMacroEvaluator {
             match state {
                 State::Standard => {
                     if c == ',' {
-                        let param = self.get_param(&actual_param, function_def);
+                        let param = self.get_param(&actual_param, function_def, type_def_provider);
 
                         result.push(param);
 
@@ -204,7 +227,7 @@ impl TextMacroEvaluator {
         match state {
             State::None => {}
             State::Standard => {
-                let param = self.get_param(&actual_param, function_def);
+                let param = self.get_param(&actual_param, function_def, type_def_provider);
                 result.push(param);
             }
             State::StringLiteral => {
@@ -219,6 +242,7 @@ impl TextMacroEvaluator {
         &self,
         actual_param: &str,
         function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> MacroParam {
         let p = actual_param.trim();
 
@@ -229,7 +253,8 @@ impl TextMacroEvaluator {
                     let par_type = function_def
                         .and_then(|it| it.parameters.iter().find(|par| par.name == name))
                         .map(|it| it.ast_type.clone());
-                    let (par_name, par_type) = Self::parse_typed_argument(name, par_type);
+                    let (par_name, par_type) =
+                        self.parse_typed_argument(name, par_type, type_def_provider);
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         panic!("Cannot find parameter {par_name}");
                     } else {
@@ -238,7 +263,7 @@ impl TextMacroEvaluator {
                 }
             }
         } else {
-            let (par_name, par_type) = Self::parse_typed_argument(p, None);
+            let (par_name, par_type) = self.parse_typed_argument(p, None, type_def_provider);
 
             MacroParam::Plain(par_name.into(), par_type)
         }
@@ -282,7 +307,12 @@ impl TextMacroEvaluator {
          */
     }
 
-    fn parse_typed_argument(p: &str, typed_type: Option<ASTTypedType>) -> (&str, Option<ASTType>) {
+    fn parse_typed_argument(
+        &self,
+        p: &str,
+        typed_type: Option<ASTTypedType>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> (String, Option<ASTType>) {
         // TODO the check of :: is a trick since function names could have ::, try to do it better
         let (par_name, par_type) = if p.contains(':') && !p.contains("::") {
             let vec = p.split(':').collect::<Vec<_>>();
@@ -307,37 +337,47 @@ impl TextMacroEvaluator {
                 }
             }
         } else if let Some(t) = typed_type {
-            let ast_type = match t {
-                ASTTypedType::Builtin(kind) => match kind {
-                    BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
-                    BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
-                    BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
-                    BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
-                    BuiltinTypedTypeKind::Lambda { .. } => {
-                        ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters: vec![],
-                            return_type: None,
-                        })
-                    }
-                },
-                ASTTypedType::Enum { name } => ASTType::Custom {
-                    name,
-                    param_types: vec![],
-                },
-                ASTTypedType::Struct { name } => ASTType::Custom {
-                    name,
-                    param_types: vec![],
-                },
-                ASTTypedType::Type { name } => ASTType::Custom {
-                    name,
-                    param_types: vec![],
-                },
-            };
+            let ast_type = Self::typed_type_to_type(&t, type_def_provider);
             (p, Some(ast_type))
         } else {
             (p, None)
         };
-        (par_name, par_type)
+        (par_name.into(), par_type)
+    }
+
+    fn typed_type_to_type(
+        typed_type: &ASTTypedType,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> ASTType {
+        match typed_type {
+            ASTTypedType::Builtin(kind) => match kind {
+                BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
+                BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
+                BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
+                BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
+                BuiltinTypedTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters: parameters
+                        .iter()
+                        .map(|it| Self::typed_type_to_type(it, type_def_provider))
+                        .collect::<Vec<_>>(),
+                    return_type: return_type.clone().map(|it| {
+                        Box::new(Self::typed_type_to_type(it.borrow(), type_def_provider))
+                    }),
+                }),
+            },
+            ASTTypedType::Enum { name } => type_def_provider
+                .get_type_from_typed_type_name(name)
+                .unwrap(),
+            ASTTypedType::Struct { name } => type_def_provider
+                .get_type_from_typed_type_name(name)
+                .unwrap(),
+            ASTTypedType::Type { name } => type_def_provider
+                .get_type_from_typed_type_name(name)
+                .unwrap(),
+        }
     }
 
     pub fn eval_macro(
@@ -374,6 +414,7 @@ impl TextMacroEvaluator {
         backend: &dyn Backend,
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> Vec<(TextMacro, usize)> {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
@@ -391,7 +432,7 @@ impl TextMacroEvaluator {
 
                 let text_macro = TextMacro {
                     name: name.into(),
-                    parameters: self.parse_params(parameters, function_def),
+                    parameters: self.parse_params(parameters, function_def, type_def_provider),
                 };
 
                 result.push((text_macro, i));
@@ -618,7 +659,7 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
         param_types: _,
     } = ast_type
     {
-        if let Some(t) = type_def_provider.get_type_def_by_name(name) {
+        if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
             t.is_ref
         } else {
             true
@@ -1046,51 +1087,15 @@ mod tests {
 
     use crate::codegen::backend::BackendAsm386;
     use crate::codegen::statics::Statics;
-    use crate::codegen::text_macro::{
-        MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider, TypeParserHelper,
-    };
+    use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
     use crate::codegen::MemoryValue;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::typed_ast::{
-        ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
-        ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
+        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
+        BuiltinTypedTypeKind,
     };
-
-    #[derive(Debug)]
-    struct DummyTypeDefProvider {}
-
-    impl TypeDefProvider for DummyTypeDefProvider {
-        fn get_enum_def_by_name(&self, _name: &str) -> Option<&ASTTypedEnumDef> {
-            None
-        }
-
-        fn get_struct_def_by_name(&self, _name: &str) -> Option<&ASTTypedStructDef> {
-            None
-        }
-
-        fn get_type_def_by_name(&self, _name: &str) -> Option<&ASTTypedTypeDef> {
-            None
-        }
-
-        fn get_enum_def_like_name(&self, _name: &str) -> Option<&ASTTypedEnumDef> {
-            None
-        }
-
-        fn get_struct_def_like_name(&self, _name: &str) -> Option<&ASTTypedStructDef> {
-            None
-        }
-
-        fn get_type_def_like_name(&self, _name: &str) -> Option<&ASTTypedTypeDef> {
-            None
-        }
-    }
-
-    impl DummyTypeDefProvider {
-        fn new() -> Self {
-            Self {}
-        }
-    }
+    use crate::utils::tests::DummyTypeDefProvider;
 
     #[test]
     fn call() {
@@ -1271,8 +1276,12 @@ mod tests {
             inline: false,
         };
 
-        let macros =
-            TextMacroEvaluator::new().get_macros(&backend, Some(&function_def), "$call(slen, $s)");
+        let macros = TextMacroEvaluator::new().get_macros(
+            &backend,
+            Some(&function_def),
+            "$call(slen, $s)",
+            &DummyTypeDefProvider::new(),
+        );
 
         let (m, i) = macros.get(0).unwrap();
         let param = m.parameters.get(1).unwrap();
