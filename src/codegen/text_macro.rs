@@ -32,7 +32,7 @@ pub trait TypeDefProvider {
     fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MacroParam {
     Plain(String, Option<ASTType>),
     StringLiteral(String),
@@ -62,7 +62,7 @@ impl Display for MacroParam {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextMacro {
     pub name: String,
     pub parameters: Vec<MacroParam>,
@@ -374,14 +374,14 @@ impl TextMacroEvaluator {
         backend: &dyn Backend,
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
-    ) -> Vec<TextMacro> {
+    ) -> Vec<(TextMacro, usize)> {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
         let mut result = Vec::new();
 
         let lines = body.lines();
 
-        for s in lines {
+        for (i, s) in lines.enumerate() {
             let stripped_comments = backend.remove_comments_from_line(s.to_string());
             let matches = re.captures_iter(&stripped_comments);
 
@@ -394,7 +394,7 @@ impl TextMacroEvaluator {
                     parameters: self.parse_params(parameters, function_def),
                 };
 
-                result.push(text_macro)
+                result.push((text_macro, i));
             }
         }
 
@@ -802,15 +802,15 @@ fn get_type(
 
      */
 
-    if let Some(s) = type_def_provider.get_struct_def_by_name(&orig_name) {
+    if let Some(s) = type_def_provider.get_struct_def_like_name(orig_name) {
         ASTTypedType::Struct {
             name: s.name.clone(),
         }
-    } else if let Some(s) = type_def_provider.get_enum_def_by_name(&orig_name) {
+    } else if let Some(s) = type_def_provider.get_enum_def_like_name(orig_name) {
         ASTTypedType::Enum {
             name: s.name.clone(),
         }
-    } else if let Some(s) = type_def_provider.get_type_def_by_name(&orig_name) {
+    } else if let Some(s) = type_def_provider.get_type_def_like_name(orig_name) {
         ASTTypedType::Type {
             name: s.name.clone(),
         }
@@ -872,7 +872,7 @@ impl PrintRefMacro {
 
         let ast_typed_type = match ast_type_o {
             None => {
-                panic!("printRef macro: cannot find the type of the parameter, please specify it")
+                panic!("printRef macro: cannot find the type of the parameter {src}, please specify it")
             }
             Some(ast_type) => match ast_type {
                 ASTType::Builtin(_) => panic!("printRef macro: unsupported type {ast_type}"),
@@ -1274,7 +1274,8 @@ mod tests {
         let macros =
             TextMacroEvaluator::new().get_macros(&backend, Some(&function_def), "$call(slen, $s)");
 
-        let param = macros.get(0).unwrap().parameters.get(1).unwrap();
+        let (m, i) = macros.get(0).unwrap();
+        let param = m.parameters.get(1).unwrap();
         match param {
             MacroParam::Plain(_, _) => panic!("plain"),
             MacroParam::StringLiteral(_) => panic!("string literal"),

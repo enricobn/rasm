@@ -28,7 +28,7 @@ use crate::type_check::typed_ast::{
     BuiltinTypedTypeKind,
 };
 use crate::type_check::typed_context::TypeConversionContext;
-use crate::type_check::{convert, replace_native_call};
+use crate::type_check::{convert, get_new_native_call};
 use crate::utils::OptionDisplay;
 
 pub mod backend;
@@ -802,7 +802,7 @@ impl<'a> CodeGen<'a> {
             );
         }*/
 
-        let mut new_body = TextMacroEvaluator::new().translate(
+        let new_body = TextMacroEvaluator::new().translate(
             self.backend,
             &mut self.statics,
             None,
@@ -814,10 +814,12 @@ impl<'a> CodeGen<'a> {
 
         self.type_conversion_context.debug_i();
 
+        let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+
         self.backend
-            .called_functions(None, body, &val_context)
+            .called_functions(None, &new_body, &val_context)
             .iter()
-            .for_each(|it| {
+            .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);
                 let filter = it
                     .param_types
@@ -830,11 +832,7 @@ impl<'a> CodeGen<'a> {
                 {
                     debug_i!("converted to {new_function_def}");
                     if it.name != new_function_def.name {
-                        new_body = replace_native_call(&new_body, &it.name, &new_function_def.name);
-
-                        if body == new_body {
-                            panic!("{} -> {}", it.name, new_function_def.name);
-                        }
+                        lines[it.i] = get_new_native_call(m, &new_function_def.name);
                     }
                 } else {
                     // panic!("cannot find call {function_call}");
@@ -881,7 +879,7 @@ impl<'a> CodeGen<'a> {
             self.backend,
             &mut self.statics,
             None,
-            &new_body,
+            &lines.join("\n"),
             self.dereference,
             false,
             &self.module,

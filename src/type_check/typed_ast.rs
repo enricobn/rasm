@@ -18,7 +18,7 @@ use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
-    convert_call, convert_function_def, replace_native_call, substitute, TypeConversionContext,
+    convert_call, convert_function_def, get_new_native_call, substitute, TypeConversionContext,
 };
 use crate::utils::get_one;
 use crate::{debug_i, dedent, indent};
@@ -383,7 +383,7 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
     }
 
     fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        get_one(self.type_defs.iter(), |it| it.name == name)
+        get_one(self.type_defs.iter(), |it| it.name.starts_with(name))
     }
 }
 
@@ -1225,10 +1225,12 @@ pub fn function_def(
                 conv_context,
             );
 
+            let mut lines = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+
             backend
                 .called_functions(Some(&typed_function_def), &new_body, &val_context)
                 .iter()
-                .for_each(|it| {
+                .for_each(|(m, it)| {
                     debug_i!(
                         "native call to {:?}, in {}, generic types {:?}",
                         it,
@@ -1298,13 +1300,11 @@ pub fn function_def(
                     debug_i!("found function for native call {function_name} ");
 
                     if it.name != function_name {
-                        new_body = replace_native_call(&new_body, &it.name, &function_name);
-
-                        if body == &new_body {
-                            panic!("{} -> {}", it.name, function_name);
-                        }
+                        lines[it.i] = get_new_native_call(m, &function_name);
                     }
                 });
+
+            new_body = lines.join("\n");
 
             if body != &new_body {
                 typed_function_def.body = ASTTypedFunctionBody::ASMBody(new_body);
@@ -1598,13 +1598,15 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
 pub struct DefaultFunctionCall {
     pub name: String,
     pub param_types: Vec<ASTType>,
+    pub i: usize,
 }
 
 impl DefaultFunctionCall {
-    pub fn new(name: &str, param_types: Vec<ASTType>) -> Self {
+    pub fn new(name: &str, param_types: Vec<ASTType>, i: usize) -> Self {
         Self {
             name: name.into(),
             param_types,
+            i,
         }
     }
 
@@ -1612,6 +1614,7 @@ impl DefaultFunctionCall {
         Self {
             name: name.into(),
             param_types: vec![],
+            i: 0,
         }
     }
 
@@ -1619,6 +1622,7 @@ impl DefaultFunctionCall {
         Self {
             name: name.into(),
             param_types: vec![ASTType::Builtin(kind)],
+            i: 0,
         }
     }
 
@@ -1626,6 +1630,7 @@ impl DefaultFunctionCall {
         Self {
             name: name.into(),
             param_types: vec![ASTType::Builtin(kind1), ASTType::Builtin(kind2)],
+            i: 0,
         }
     }
 
@@ -1642,6 +1647,7 @@ impl DefaultFunctionCall {
                 ASTType::Builtin(kind2),
                 ASTType::Builtin(kind3),
             ],
+            i: 0,
         }
     }
 

@@ -7,7 +7,7 @@ use log::{debug, info};
 
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{MacroParam, TextMacroEvaluator, TypeDefProvider};
+use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::{CodeGen, ValContext, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
@@ -52,7 +52,7 @@ pub trait Backend: RefUnwindSafe {
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
         context: &ValContext,
-    ) -> Vec<DefaultFunctionCall>;
+    ) -> Vec<(TextMacro, DefaultFunctionCall)>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
 
@@ -272,13 +272,13 @@ impl Backend for BackendAsm386 {
         function_def: Option<&ASTTypedFunctionDef>,
         body: &str,
         context: &ValContext,
-    ) -> Vec<DefaultFunctionCall> {
+    ) -> Vec<(TextMacro, DefaultFunctionCall)> {
         let mut result = Vec::new();
 
         // TODO I don't like to create it
         let evaluator = TextMacroEvaluator::new();
 
-        for m in evaluator.get_macros(self, function_def, body) {
+        for (m, i) in evaluator.get_macros(self, function_def, body) {
             if m.name == "call" {
                 debug_i!("found call macro {:?}", m);
                 let types = m
@@ -312,7 +312,7 @@ impl Backend for BackendAsm386 {
                         panic!("Error getting the function name");
                     };
 
-                result.push(DefaultFunctionCall::new(function_name, types));
+                result.push((m.clone(), DefaultFunctionCall::new(function_name, types, i)));
             }
         }
         result
@@ -365,11 +365,11 @@ impl Backend for BackendAsm386 {
 
         let has_references =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                struct_has_references(&struct_def, type_def_provider)
+                struct_has_references(struct_def, type_def_provider)
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                enum_has_references(&enum_def, type_def_provider)
+                enum_has_references(enum_def, type_def_provider)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                type_has_references(&type_def)
+                type_has_references(type_def)
             } else {
                 true
             };
@@ -447,6 +447,7 @@ impl Backend for BackendAsm386 {
             CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
+        result.push('\n');
         result
     }
 
@@ -467,7 +468,7 @@ impl Backend for BackendAsm386 {
                     "add   {sp}, {}",
                     stack.len_of_local_vals() * self.word_len()
                 ),
-                Some("local vals (let)"),
+                Some("restore stack local vals (let)"),
                 true,
             );
             stack.remove_all();
@@ -483,7 +484,7 @@ impl Backend for BackendAsm386 {
                     "sub   {sp}, {}",
                     stack.len_of_local_vals() * self.word_len()
                 ),
-                Some("local vals (let)"),
+                Some("reserve stack local vals (let)"),
                 true,
             );
         } else {
@@ -493,7 +494,7 @@ impl Backend for BackendAsm386 {
 
     fn function_end(&self, out: &mut String, add_return: bool) {
         let bp = self.stack_base_pointer();
-        CodeGen::add(out, &format!("pop     {}", bp), None, true);
+        CodeGen::add(out, &format!("\npop     {}", bp), None, true);
         if add_return {
             CodeGen::add(out, "ret", None, true);
         }
@@ -521,7 +522,6 @@ mod tests {
 
     use crate::codegen::backend::{Backend, BackendAsm386};
     use crate::codegen::ValContext;
-    use crate::type_check::typed_ast::DefaultFunctionCall;
 
     #[test]
     fn called_functions() {
@@ -531,6 +531,7 @@ mod tests {
             sut.called_functions(None, "$call(something)", &ValContext::new(None))
                 .get(0)
                 .unwrap()
+                .1
                 .name,
             "something".to_string()
         );
@@ -540,14 +541,13 @@ mod tests {
     fn called_functions_in_comment() {
         let sut = BackendAsm386::new(Default::default(), Default::default());
 
-        assert_eq!(
-            sut.called_functions(
+        assert!(sut
+            .called_functions(
                 None,
                 "mov    eax, 1; $call(something)",
                 &ValContext::new(None)
-            ),
-            Vec::<DefaultFunctionCall>::new()
-        );
+            )
+            .is_empty());
     }
 
     #[test]
@@ -557,9 +557,8 @@ mod tests {
 
         let sut = BackendAsm386::new(Default::default(), externals);
 
-        assert_eq!(
-            sut.called_functions(None, "call something", &ValContext::new(None)),
-            Vec::<DefaultFunctionCall>::new()
-        );
+        assert!(sut
+            .called_functions(None, "call something", &ValContext::new(None))
+            .is_empty());
     }
 }
