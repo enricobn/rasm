@@ -203,12 +203,11 @@ asm keyEvent() -> Option<KeyEvent> /{
     $ccall(SDL_PollEvent, [eax]);
     cmp     eax, 0
     je      .noKey
-    mov     dword eax,[ebx] ; here we have the type
+    mov     dword eax,[ebx] ; here we have the event type
     cmp     eax, 768        ; keyDown
     jne     .noKeyDown
     $addRef(KeyState, [_enum_KeyState_Down])
     $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]:KeyState)
-    $addRef(KeyEvent, eax)
     $call(Option::Some, eax: KeyEvent)
     jmp     .end
 .noKeyDown:
@@ -216,7 +215,6 @@ asm keyEvent() -> Option<KeyEvent> /{
     jne     .noKey
     $addRef(KeyState, [_enum_KeyState_Up])
     $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]:KeyState)
-    $addRef(KeyEvent, eax)
     $call(Option::Some, eax: KeyEvent)
     jmp     .end
 .noKey:
