@@ -2,7 +2,7 @@
 // 0,281s
 
 include "std.rasm"
-include "../../examples/gameoflife_vec_common.rasm"
+include "gameoflife_vec_common.rasm"
 
 let file = argv(1);
 let start = readCellFile(file);

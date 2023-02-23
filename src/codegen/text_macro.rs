@@ -504,8 +504,8 @@ impl TextMacroEval for CallTextMacroEvaluator {
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
-        dereference: bool,
-        type_def_provider: &dyn TypeDefProvider,
+        _dereference: bool,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
             function_name

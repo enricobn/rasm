@@ -1,0 +1,34 @@
+include "std.rasm"
+include "sdl.rasm"
+
+let win = sdlCreateWindow("Bricks", 100, 100, 800, 600);
+let ren = sdlCreateRenderer(win);
+
+sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+sdlRenderClear(ren);
+sdlRenderPresent(ren);
+
+m();
+
+sdlDestroyRenderer(ren);
+sdlDestroyWindow(win);
+
+fn m() {
+    //println(now());
+    sleep(0, 10000);
+    let event = keyEvent();
+
+    Option::run(event, { e ->
+        printAllocated();
+        printTableSlotsAllocated();
+    }, { -> });
+
+    Option::run(event, { e ->
+        let key = KeyEvent::key(e);
+        ifRun(eq(key, 41), { ->
+        }, { ->
+            println(e);
+            m();
+        });
+    }, { -> m();});
+}

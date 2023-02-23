@@ -324,7 +324,10 @@ impl Backend for BackendAsm386 {
                                     ast_type.clone()
                                 }
                             }
-                            ASTType::Custom { name, param_types } => {
+                            ASTType::Custom {
+                                name,
+                                param_types: _,
+                            } => {
                                 let result = if let Some(f) = function_def {
                                     if let Some(t) = f.generic_types.get(name) {
                                         type_def_provider.get_type_from_typed_type(t).unwrap()

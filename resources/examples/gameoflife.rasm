@@ -2,7 +2,7 @@
 // run with: ./gameoflife examples/simple.cells 130
 
 include "std.rasm"
-include "../../examples/gameoflife_common.rasm"
+include "gameoflife_common.rasm"
 
 let file = argv(1);
 let start = readCellFile(file);

@@ -6,7 +6,7 @@ use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
 use crate::parser::ast::ASTType;
-use crate::type_check::typed_ast::{ASTTypedModule, ASTTypedType};
+use crate::type_check::typed_ast::ASTTypedType;
 
 #[derive(Clone, Debug)]
 pub struct ConstEntry {
@@ -195,7 +195,6 @@ impl Statics {
     fn print_res(
         &mut self,
         backend: &dyn Backend,
-        module: &ASTTypedModule,
         dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {

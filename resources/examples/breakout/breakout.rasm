@@ -1,5 +1,5 @@
 include "std.rasm"
-include "sdl.rasm"
+include "../sdl.rasm"
 
 extern "printf"
 
@@ -88,7 +88,7 @@ sdlInit();
 sdlTTFInit();
 
 let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , Color::Yellow()); });
-let font = sdlOpenFont("examples/DejaVuSerif.ttf", 24);
+let font = sdlOpenFont("resources/examples/breakout/DejaVuSerif.ttf", 24);
 
 let initialWorld = World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0));
 let initialState = State(Resources(font), Vec(), Stage::Game(GameState(GameStage::Run(), initialWorld)));

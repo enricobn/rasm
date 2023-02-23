@@ -1103,7 +1103,7 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::Any(_) => panic!(),
                             }
                         }
-                        ASTTypedStatement::LetStatement(name, expr, is_const, let_index_) => {
+                        ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                             let mut new_lambda_calls = self.add_let(
                                 &mut context,
                                 &stack,
@@ -1752,7 +1752,7 @@ impl<'a> CodeGen<'a> {
                     );
                 }
 
-                TypedValKind::LetRef(index, ast_typed_type) => {
+                TypedValKind::LetRef(_index, ast_typed_type) => {
                     let index_in_context =
                         stack_vals.find_relative_to_bp(StackEntryType::LetVal, val_name);
 
