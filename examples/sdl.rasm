@@ -237,18 +237,9 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
         ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
     }, { -> });
 
-    with(updateFun(event, world), { newWorld ->
-        renderFun(ctx, newWorld);
-        newWorld;
-    });
-
-    /*
-    TODO is not supported yet
     let newWorld = updateFun(event, world);
-    render(ctx, newWorld);
-    sdlRenderPresent(ctx);
+    renderFun(ctx, newWorld);
     newWorld;
-    */
 }
 
 asm sdlLoop<CTX,STATE>(ctx: CTX, state: State, update: fn(Option<KeyEvent>, STATE) -> STATE, render: fn(CTX, STATE) -> ()) /{

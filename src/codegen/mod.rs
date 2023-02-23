@@ -545,8 +545,6 @@ impl<'a> CodeGen<'a> {
         let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
-                    todo!();
-
                     let typed_type = match kind {
                         TypedValKind::ParameterRef(_, def) => def.ast_type.clone(),
                         TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
@@ -554,7 +552,16 @@ impl<'a> CodeGen<'a> {
 
                     (
                         typed_type,
-                        (String::new(), vec![], vec![]),
+                        self.call_function(
+                            call,
+                            context,
+                            function_def,
+                            "0".into(),
+                            lambda_space,
+                            0,
+                            false,
+                            stack,
+                        ),
                         call.index.clone(),
                     )
                 } else {
