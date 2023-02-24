@@ -730,7 +730,18 @@ impl<'a> CodeGen<'a> {
 
         if is_const {
             if !bf.is_empty() {
-                todo!()
+                self.body.push_str(&bf);
+
+                let key = self
+                    .statics
+                    .add_typed_const(name.to_owned(), ast_typed_type.clone());
+
+                CodeGen::add(
+                    &mut self.body,
+                    &format!("mov {ws} [{key}], eax"),
+                    Some(""),
+                    true,
+                );
             }
 
             if self.dereference {

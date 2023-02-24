@@ -34,10 +34,18 @@ struct SDLRect {
     height: i32
 }
 
+struct SDLColor {
+    r: i32,
+    g: i32,
+    b: i32,
+    a: i32
+}
+
 type SDLRenderer(false);
 type SDLWindow(false);
 type SDLSurface(false);
 type SDLTexture(false);
+type SDLFont(false);
 
 /* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
 otherwise returns the value */
@@ -128,6 +136,10 @@ asm sdlGetError() -> str /{
 asm sdlQuit() /{
     $ccall(SDL_Quit)
 }/
+
+fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
+    sdlSetRenderDrawColor(ren, SDLColor::r(color), SDLColor::g(color), SDLColor::b(color), SDLColor::a(color));
+}
 
 asm sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
     $ccall(SDL_SetRenderDrawColor, $ren, $r, $g, $b, $a)
@@ -286,11 +298,11 @@ asm sdlTTFInit() -> i32 /{
     $ccall(TTF_Init)
 }/
 
-asm sdlOpenFont(file: str, size: i32) -> i32 /{
+asm sdlOpenFont(file: str, size: i32) -> SDLFont /{
     $ccall(TTF_OpenFont, $file, $size)
 }/
 
-asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
+asm sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
     push    ebx
     push    ecx
 
@@ -310,6 +322,36 @@ asm sdlRenderTextSolid(font: i32, message: str, r: i32, g: i32, b: i32, a: i32) 
     $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
     pop     ecx
     $call(freeMem, ecx)
+    pop     ecx
+    pop     ebx
+}/
+
+asm sdlRenderTextSolid(font: SDLFont, message: str, color: SDLColor) -> SDLSurface /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword edx, $color
+    mov     dword edx, [edx]
+
+    $call(malloc,5) ; why 5???
+    push    eax
+
+    mov     ecx, [eax]
+    mov     dword ebx, [edx]
+    mov     byte [ecx], bl
+    mov     dword ebx, [edx + 4]
+    mov     byte [ecx + 1], bl
+    mov     dword ebx, [edx + 8]
+    mov     byte [ecx + 2], bl
+    mov     dword ebx, [edx + 12]
+    mov     byte [ecx + 3], bl
+
+    $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
+    pop     ecx
+    $call(freeMem, ecx)
+
+    pop     edx
     pop     ecx
     pop     ebx
 }/

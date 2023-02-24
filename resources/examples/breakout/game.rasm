@@ -129,9 +129,9 @@ fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 }
 
 fn render(ren: SDLRenderer, resources: Resources, world: World) {
-    sdlSetRenderDrawColor(ren, 0, 0, 0, 255);
+    sdlSetRenderDrawColor(ren, BLACK);
     sdlRenderClear(ren);
-    sdlSetRenderDrawColor(ren, 255, 0, 0, 255);
+    sdlSetRenderDrawColor(ren, RED);
 
     let font = Resources::font(resources);
 
@@ -143,7 +143,7 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
         sdlRenderFillRect(ren, SDLRect(add(x, 1), add(y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
     });
 
-    sdlSetRenderDrawColor(ren, 255, 255, 255, 255);
+    sdlSetRenderDrawColor(ren, WHITE);
     let bar = World::bar(world);
     let barPos = Bar::x(bar);
 
@@ -155,10 +155,10 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
 
     sdlRenderFillRect(ren, SDLRect(x, y, BALLSIZE, BALLSIZE));
 
-    sdlSetRenderDrawColor(ren, 0, 0, 255, 0);
+    sdlSetRenderDrawColor(ren, BLUE);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
-    let surfaceMessage = sdlRenderTextSolid(font, "Score:", 0, 255, 0, 255);
+    let surfaceMessage = sdlRenderTextSolid(font, "Score:", GREEN);
     let message = sdlCreateTextureFromSurface(ren, surfaceMessage);
     let messageRect = SDLRect(2, 2, 100, 24);
     sdlRenderText(ren, message, messageRect);

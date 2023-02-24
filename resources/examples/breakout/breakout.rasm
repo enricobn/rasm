@@ -5,7 +5,7 @@ include "game.rasm"
 include "menu.rasm"
 
 struct Resources {
-    font: i32
+    font: SDLFont
 }
 
 struct State {
@@ -27,6 +27,11 @@ const BARWIDTH = 50;
 const BARHEIGHT = 10;
 const HEADERHEIGHT = 25;
 const BALLSIZE = 5;
+const BLACK = SDLColor(0, 0, 0, 255);
+const RED = SDLColor(255, 0, 0, 255);
+const GREEN = SDLColor(0, 255, 0, 255);
+const BLUE = SDLColor(0, 0, 255, 255);
+const WHITE = SDLColor(255, 255, 255, 255);
 
 sdlInit();
 sdlTTFInit();
