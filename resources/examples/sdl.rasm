@@ -2,6 +2,8 @@ requires "libc"
 requires "SDL2"
 requires "SDL2_ttf"
 
+extern "printf"
+
 extern "SDL_CreateRenderer"
 extern "SDL_CreateTextureFromSurface"
 extern "SDL_CreateWindow"

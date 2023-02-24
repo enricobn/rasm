@@ -1,0 +1,170 @@
+struct GameState {
+    stage: GameStage,
+    world: World
+}
+
+struct World {
+    bricks: Vec<Brick>,
+    ball: Ball,
+    bar: Bar,
+}
+
+enum GameStage {
+    RunBall,
+    Run
+}
+
+enum Color {
+    White,
+    Yellow,
+    Red,
+    Green,
+    Blue
+}
+
+struct Brick {
+    x: i32,
+    y: i32,
+    color: Color
+}
+
+enum XDirection {
+    Left,
+    Right
+}
+
+enum YDirection {
+    Up,
+    Down
+}
+
+struct Ball {
+    x: i32,
+    y: i32,
+    xDir: XDirection,
+    yDir: YDirection,
+    lastUpdate: TimeVal
+}
+
+struct Bar {
+    x: i32,
+    velocity: i32,
+}
+
+fn initialWorld() -> World {
+    let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , Color::Yellow()); });
+
+    World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0));
+}
+
+fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameState {
+    let stage = GameState::stage(gameState);
+    let world = GameState::world(gameState);
+
+    GameStage::match(stage, { -> gameState;}, { ->
+        let newWorld = update(resources, keys, world);
+        GameState(stage, newWorld);
+    });
+}
+
+fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
+    // println(time());
+    // sleep(0, 1500);
+    let actualTime = now();
+
+    let bar = World::bar(world);
+    let barPos = Bar::x(bar);
+    let velocity = Bar::velocity(bar);
+
+    let left = mul(count(keys, { k -> eq(k, 80);}), sub(0, 1));
+    let right = count(keys, { k -> eq(k, 79);});
+
+    let newVelocity = add(left, right);
+
+    let newBarPos = add(barPos, newVelocity);
+
+    let newBar = Bar(newBarPos, newVelocity);
+
+    let bricks = World::bricks(world);
+    let ball = World::ball(world);
+    let lastUpdate = Ball::lastUpdate(ball);
+    let elapsed = elapsedTime(actualTime, lastUpdate);
+
+    // TODO I don't like it, it's not smooth, we need floating points!
+    if(greater(elapsed, 2000), { ->
+        let x = Ball::x(ball);
+        let y = Ball::y(ball);
+        let xDir = Ball::xDir(ball);
+        let yDir = Ball::yDir(ball);
+
+        let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
+        let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
+
+        let newXDir = if(or(greater(newX, sub(WIDTH, BALLSIZE)), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
+        let newYDir = if(or(greater(newY, sub(HEIGHT, BALLSIZE)), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
+
+        let newBall = Ball(newX, newY, newXDir, newYDir, actualTime);
+
+        let collision = collision(bricks, newBall);
+
+        let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
+
+        let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
+
+        let newBall2 = if(collides(newX, newY, newBarPos), { -> Ball(newX, newY, newXDir, flip(newYDir), actualTime);}, { -> newBall1; });
+
+        World(newBricks, newBall2, newBar);
+    }, { ->
+        World(bricks, ball, newBar);
+    });
+}
+
+fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
+    let stage = GameState::stage(gameState);
+    let world = GameState::world(gameState);
+
+    GameStage::run(stage, { -> }, { ->
+        render(ren, resources, world);
+    });
+}
+
+fn render(ren: SDLRenderer, resources: Resources, world: World) {
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 255);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 0, 0, 255);
+
+    let font = Resources::font(resources);
+
+    let bricks = World::bricks(world);
+
+    forEach(bricks, { brick ->
+        let x = Brick::x(brick);
+        let y = Brick::y(brick);
+        sdlRenderFillRect(ren, SDLRect(add(x, 1), add(y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
+    });
+
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 255);
+    let bar = World::bar(world);
+    let barPos = Bar::x(bar);
+
+    sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
+
+    let ball = World::ball(world);
+    let x = Ball::x(ball);
+    let y = Ball::y(ball);
+
+    sdlRenderFillRect(ren, SDLRect(x, y, BALLSIZE, BALLSIZE));
+
+    sdlSetRenderDrawColor(ren, 0, 0, 255, 0);
+    sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
+
+    let surfaceMessage = sdlRenderTextSolid(font, "Score:", 0, 255, 0, 255);
+    let message = sdlCreateTextureFromSurface(ren, surfaceMessage);
+    let messageRect = SDLRect(2, 2, 100, 24);
+    sdlRenderText(ren, message, messageRect);
+
+    sdlRenderPresent(ren);
+
+    sdlDestroyTexture(message);
+    sdlFreeSurface(surfaceMessage);
+}
