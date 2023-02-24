@@ -14,18 +14,10 @@ enum GameStage {
     Run
 }
 
-enum Color {
-    White,
-    Yellow,
-    Red,
-    Green,
-    Blue
-}
-
 struct Brick {
     x: i32,
     y: i32,
-    color: Color
+    color: SDLColor
 }
 
 enum XDirection {
@@ -52,7 +44,7 @@ struct Bar {
 }
 
 fn initialWorld() -> World {
-    let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , Color::Yellow()); });
+    let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , RED); });
 
     World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0));
 }
@@ -131,7 +123,6 @@ fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 fn render(ren: SDLRenderer, resources: Resources, world: World) {
     sdlSetRenderDrawColor(ren, BLACK);
     sdlRenderClear(ren);
-    sdlSetRenderDrawColor(ren, RED);
 
     let font = Resources::font(resources);
 
@@ -140,6 +131,10 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     forEach(bricks, { brick ->
         let x = Brick::x(brick);
         let y = Brick::y(brick);
+        let color = Brick::color(brick);
+
+        sdlSetRenderDrawColor(ren, color);
+
         sdlRenderFillRect(ren, SDLRect(add(x, 1), add(y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
     });
 
