@@ -1,12 +1,14 @@
 struct GameState {
     stage: GameStage,
-    world: World
+    world: World,
 }
 
 struct World {
     bricks: Vec<Brick>,
     ball: Ball,
     bar: Bar,
+    score: i32,
+    lives: i32
 }
 
 enum GameStage {
@@ -43,10 +45,14 @@ struct Bar {
     velocity: i32,
 }
 
+fn initialGameState() -> GameState {
+    GameState(GameStage::Run(), initialWorld());
+}
+
 fn initialWorld() -> World {
     let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , RED); });
 
-    World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0));
+    World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0), 100, 3);
 }
 
 fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Stage {
@@ -65,6 +71,8 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     // println(time());
     // sleep(0, 1500);
     let actualTime = now();
+    let score = World::score(world);
+    let lives = World::lives(world);
 
     let bar = World::bar(world);
     let barPos = Bar::x(bar);
@@ -101,15 +109,17 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
 
         let collision = collision(bricks, newBall);
 
+        let newScore = Option::match(collision, { b -> add(score, 10);}, { -> score;});
+
         let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
 
         let newBall1 = Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
 
         let newBall2 = if(collides(newX, newY, newBarPos), { -> Ball(newX, newY, newXDir, flip(newYDir), actualTime);}, { -> newBall1; });
 
-        World(newBricks, newBall2, newBar);
+        World(newBricks, newBall2, newBar, newScore, lives);
     }, { ->
-        World(bricks, ball, newBar);
+        World(bricks, ball, newBar, score, lives);
     });
 }
 
@@ -129,6 +139,7 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     let font = Resources::font(resources);
 
     let bricks = World::bricks(world);
+    let score = World::score(world);
 
     forEach(bricks, { brick ->
         let x = Brick::x(brick);
@@ -155,7 +166,7 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     sdlSetRenderDrawColor(ren, BLUE);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
-    let surfaceMessage = sdlRenderTextSolid(font, "Score:", GREEN);
+    let surfaceMessage = sdlRenderTextSolid(font, add("Score: ", toString(score)), GREEN);
     let message = sdlCreateTextureFromSurface(ren, surfaceMessage);
     let messageRect = SDLRect(2, 2, 100, 24);
     sdlRenderText(ren, message, messageRect);

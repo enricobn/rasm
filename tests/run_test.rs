@@ -186,7 +186,7 @@ fn test_str() {
     run_test(
         "str",
         Vec::new(),
-        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n",
+        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n9999\n",
     );
 }
 

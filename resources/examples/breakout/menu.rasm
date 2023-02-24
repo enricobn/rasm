@@ -7,7 +7,7 @@ fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
     if(eq(length(keys),0), { ->
         Stage::Menu(menuState);
     }, { ->
-        Stage::Game(GameState(GameStage::Run(), initialWorld()));
+        Stage::Game(initialGameState());
     });
 
 }
