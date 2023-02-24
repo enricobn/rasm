@@ -363,7 +363,7 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     pop     ebx
 }/
 
-asm vecLength<T>(vec: Vec<T>) -> i32 /{
+asm length<T>(vec: Vec<T>) -> i32 /{
       mov     dword eax, $vec
       mov     dword eax, [eax]
       mov     dword eax, [eax]

@@ -49,14 +49,16 @@ fn initialWorld() -> World {
     World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0));
 }
 
-fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameState {
+fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Stage {
     let stage = GameState::stage(gameState);
     let world = GameState::world(gameState);
 
-    GameStage::match(stage, { -> gameState;}, { ->
+    let newGameState = GameStage::match(stage, { -> gameState;}, { ->
         let newWorld = update(resources, keys, world);
         GameState(stage, newWorld);
     });
+
+    Stage::Game(newGameState);
 }
 
 fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {

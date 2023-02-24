@@ -38,7 +38,7 @@ sdlTTFInit();
 
 let font = sdlOpenFont("resources/examples/breakout/DejaVuSerif.ttf", 24);
 
-let initialState = State(Resources(font), Vec(), Stage::Game(GameState(GameStage::Run(), initialWorld())));
+let initialState = State(Resources(font), Vec(), Stage::Menu(MenuState(0)));
 
 let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
@@ -67,9 +67,12 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
           });
       }, { -> keys; });
 
-    Stage::match(stage, { menuState -> state;}, { gameState ->
-        let newGameState = update(resources, newKeys, gameState);
-        State(resources, newKeys, Stage::Game(newGameState));
+    Stage::match(stage, { menuState ->
+        let newStage = update(resources, newKeys, menuState);
+        State(resources, newKeys, newStage);
+    }, { gameState ->
+        let newStage = update(resources, newKeys, gameState);
+        State(resources, newKeys, newStage);
     });
 }
 
@@ -78,7 +81,7 @@ fn render(ren: SDLRenderer, state: State) {
     let keys = State::keys(state);
     let stage = State::stage(state);
 
-    Stage::run(stage, { menuState -> }, { gameState -> render(ren, resources, gameState);});
+    Stage::run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
 }
 
 fn println<T>(prefix: str, o: T) {
