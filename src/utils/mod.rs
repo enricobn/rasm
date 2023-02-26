@@ -100,6 +100,14 @@ pub mod tests {
             None
         }
 
+        fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
+            None
+        }
+
+        fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
+            None
+        }
+
         fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
             None
         }

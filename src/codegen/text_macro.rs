@@ -45,6 +45,9 @@ pub trait TypeDefProvider {
         }
     }
 
+    fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType>;
+    fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType>;
+
     fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef>;
 
     fn name(&self) -> String;
@@ -52,26 +55,32 @@ pub trait TypeDefProvider {
 
 #[derive(Debug, Clone)]
 pub enum MacroParam {
-    Plain(String, Option<ASTType>),
+    Plain(String, Option<ASTType>, Option<ASTTypedType>),
     StringLiteral(String),
-    Ref(String, Option<ASTType>),
+    Ref(String, Option<ASTType>, Option<ASTTypedType>),
 }
 
 impl Display for MacroParam {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            MacroParam::Plain(name, type_o) => {
+            MacroParam::Plain(name, type_o, typed_type_o) => {
                 f.write_str(name)?;
                 if let Some(t) = type_o {
+                    f.write_str(&format!(": {t}"))?;
+                }
+                if let Some(t) = typed_type_o {
                     f.write_str(&format!(": {t}"))?;
                 }
             }
             MacroParam::StringLiteral(s) => {
                 f.write_str(&format!("\"{s}\""))?;
             }
-            MacroParam::Ref(name, type_o) => {
+            MacroParam::Ref(name, type_o, typed_type_o) => {
                 f.write_str(name)?;
                 if let Some(t) = type_o {
+                    f.write_str(&format!(": {t}"))?;
+                }
+                if let Some(t) = typed_type_o {
                     f.write_str(&format!(": {t}"))?;
                 }
             }
@@ -250,61 +259,100 @@ impl TextMacroEvaluator {
             match function_def {
                 None => panic!("Cannot resolve reference without a function {p}"),
                 Some(f) => {
-                    let par_type = function_def
+                    let par_typed_type = function_def
                         .and_then(|it| it.parameters.iter().find(|par| par.name == name))
                         .map(|it| it.ast_type.clone());
-                    let (par_name, par_type) =
-                        self.parse_typed_argument(name, par_type, type_def_provider);
+                    let (par_name, par_type, par_typed_type) =
+                        self.parse_typed_argument(name, par_typed_type, type_def_provider);
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         panic!("Cannot find parameter {par_name}");
                     } else {
-                        MacroParam::Ref(format!("${par_name}"), par_type)
+                        MacroParam::Ref(format!("${par_name}"), par_type, par_typed_type)
                     }
                 }
             }
         } else {
-            let (par_name, par_type) = self.parse_typed_argument(p, None, type_def_provider);
+            let (par_name, par_type, par_typed_type) =
+                self.parse_typed_argument(p, None, type_def_provider);
 
-            MacroParam::Plain(par_name.into(), par_type)
+            if let Some(ast_type) = &par_type {
+                MacroParam::Plain(
+                    par_name,
+                    par_type.clone(),
+                    par_typed_type.or_else(|| {
+                        Self::resolve_type(
+                            ast_type,
+                            function_def.unwrap_or_else(|| {
+                                panic!("ref unspecified function for {actual_param}")
+                            }),
+                            type_def_provider,
+                        )
+                    }),
+                )
+            } else {
+                MacroParam::Plain(par_name, par_type.clone(), par_typed_type)
+            }
         }
+    }
 
-        /*
-        let is_ref = if let Some(par_def) = p.strip_prefix('$') {
-            let (par_name, par_type) = if par_def.contains(":") {
-                let vec = par_def.split(":").collect::<Vec<_>>();
-                let par_type_name = vec.get(1).unwrap().trim();
+    fn resolve_type(
+        ast_type: &ASTType,
+        function_def: &ASTTypedFunctionDef,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> Option<ASTTypedType> {
+        if let ASTType::Custom { name, param_types } = ast_type {
+            if let Some(typed_type) = function_def.generic_types.get(name) {
+                Some(typed_type.clone())
+            } else if param_types.is_empty() {
+                let result = type_def_provider.get_ast_typed_type_from_type_name(name);
+                println!(
+                    "trying to find type for not generic type {name} : {:?}",
+                    result
+                );
+                result
+            } else {
+                let resolved_types = param_types
+                    .iter()
+                    .map(|it| {
+                        if let Some(typed_type) =
+                            Self::resolve_type(it, function_def, type_def_provider)
+                        {
+                            match typed_type {
+                                ASTTypedType::Builtin(kind) => match kind {
+                                    BuiltinTypedTypeKind::String => {
+                                        ASTType::Builtin(BuiltinTypeKind::String)
+                                    }
+                                    BuiltinTypedTypeKind::I32 => {
+                                        ASTType::Builtin(BuiltinTypeKind::I32)
+                                    }
+                                    BuiltinTypedTypeKind::Bool => {
+                                        ASTType::Builtin(BuiltinTypeKind::Bool)
+                                    }
+                                    BuiltinTypedTypeKind::Char => {
+                                        ASTType::Builtin(BuiltinTypeKind::Char)
+                                    }
+                                    BuiltinTypedTypeKind::Lambda { .. } => {
+                                        panic!()
+                                    }
+                                },
+                                _ => type_def_provider
+                                    .get_type_from_typed_type(&typed_type)
+                                    .unwrap(),
+                            }
+                        } else {
+                            it.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
-                if par_type_name == "i32" {
-                    (vec.get(0).unwrap().trim(), Some(ASTType::Builtin(BuiltinTypeKind::I32)))
-                } else if par_type_name == "str" {
-                    (vec.get(0).unwrap().trim(), Some(ASTType::Builtin(BuiltinTypeKind::String)))
-                } else {
-                    panic!("Unsupported type {par_type_name}");
-                }
-            } else {
-                (par_def, None)
-            };
-            if let Some(par) = function_def
-                .map(|it| it.parameters.clone())
-                .unwrap_or_default()
-                .iter()
-                .find(|it| it.name == *par_name)
-            {
-                CodeGen::get_reference_type_name(&par.ast_type).is_some()
-            } else {
-                false
+                type_def_provider.get_ast_typed_type_from_ast_type(&ASTType::Custom {
+                    name: name.clone(),
+                    param_types: resolved_types,
+                })
             }
         } else {
-            false
-        };
-
-        if is_ref {
-            MacroParam::Ref(p.into())
-        } else {
-            MacroParam::Plain(p.into(), par)
+            None
         }
-
-         */
     }
 
     fn parse_typed_argument(
@@ -312,9 +360,9 @@ impl TextMacroEvaluator {
         p: &str,
         typed_type: Option<ASTTypedType>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> (String, Option<ASTType>) {
+    ) -> (String, Option<ASTType>, Option<ASTTypedType>) {
         // TODO the check of :: is a trick since function names could have ::, try to do it better
-        let (par_name, par_type) = if p.contains(':') && !p.contains("::") {
+        let (par_name, par_type, par_typed_type) = if p.contains(':') && !p.contains("::") {
             let vec = p.split(':').collect::<Vec<_>>();
             let par_type_name = vec.get(1).unwrap().trim();
             let par_name = vec.first().unwrap().trim();
@@ -322,9 +370,17 @@ impl TextMacroEvaluator {
             // println!("found param type {par_type_name}");
 
             if par_type_name == "i32" {
-                (par_name, Some(ASTType::Builtin(BuiltinTypeKind::I32)))
+                (
+                    par_name,
+                    Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+                )
             } else if par_type_name == "str" {
-                (par_name, Some(ASTType::Builtin(BuiltinTypeKind::String)))
+                (
+                    par_name,
+                    Some(ASTType::Builtin(BuiltinTypeKind::String)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
+                )
             } else {
                 let parser = TypeParserHelper::new(par_type_name);
                 // Parser::new(lexer, None);
@@ -332,17 +388,25 @@ impl TextMacroEvaluator {
                 let type_parser = TypeParser::new(&parser);
 
                 match type_parser.try_parse_ast_type(0, &[]) {
-                    None => panic!("Unsupported type {par_type_name}"),
-                    Some((ast_type, _)) => (par_name, Some(ast_type)),
+                    None => {
+                        panic!("Unsupported type {par_type_name}")
+                    }
+                    Some((ast_type, _)) => (
+                        par_name,
+                        Some(ast_type),
+                        type_def_provider
+                            .get_typed_type_def_from_type_name(par_type_name)
+                            .map(|it| it.ast_typed_type),
+                    ),
                 }
             }
-        } else if let Some(t) = typed_type {
-            let ast_type = Self::typed_type_to_type(&t, type_def_provider);
-            (p, Some(ast_type))
+        } else if let Some(t) = &typed_type {
+            let ast_type = Self::typed_type_to_type(t, type_def_provider);
+            (p, Some(ast_type), typed_type.clone())
         } else {
-            (p, None)
+            (p, None, typed_type)
         };
-        (par_name.into(), par_type)
+        (par_name.into(), par_type, par_typed_type)
     }
 
     fn typed_type_to_type(
@@ -507,7 +571,8 @@ impl TextMacroEval for CallTextMacroEvaluator {
         _dereference: bool,
         _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
-        let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
+        let function_name = if let Some(MacroParam::Plain(function_name, _, _)) = parameters.get(0)
+        {
             function_name
         } else {
             panic!("Error getting the function name");
@@ -523,14 +588,14 @@ impl TextMacroEval for CallTextMacroEvaluator {
                 .skip(1)
                 .rev()
                 .map(|it| match it {
-                    MacroParam::Plain(s, _) => {
+                    MacroParam::Plain(s, _, _) => {
                         format!("    push dword {s}")
                     }
                     MacroParam::StringLiteral(s) => {
                         let key = statics.add_str(s);
                         format!("    push dword [{key}]")
                     }
-                    MacroParam::Ref(s, _) => {
+                    MacroParam::Ref(s, _, _) => {
                         format!("    push dword {s}")
                     }
                 })
@@ -575,7 +640,8 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         debug_i!("translate macro fun {:?}", _function_def);
-        let function_name = if let Some(MacroParam::Plain(function_name, _)) = parameters.get(0) {
+        let function_name = if let Some(MacroParam::Plain(function_name, _, _)) = parameters.get(0)
+        {
             function_name
         } else {
             panic!("Error getting the function name");
@@ -607,14 +673,14 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                 .map(|(index, it)| {
                     let i = index - 1;
                     match it {
-                        MacroParam::Plain(s, _) => {
+                        MacroParam::Plain(s, _, _) => {
                             format!("    mov {ws} ecx, {s}\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
                         }
                         MacroParam::StringLiteral(s) => {
                             let key = statics.add_str(s);
                             format!("    mov {ws} ecx, [{key}]\n    mov {ws} ecx,[ecx]\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
                         }
-                        MacroParam::Ref(s, t) => {
+                        MacroParam::Ref(s, t, _) => {
                             let is_ref =
                             if let Some(tt) = t {
                                 is_reference(tt, type_def_provider)
@@ -669,6 +735,34 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
     }
 }
 
+fn get_type(
+    orig_name: &str,
+    type_def_provider: &dyn TypeDefProvider,
+    function_def_opt: Option<&ASTTypedFunctionDef>,
+) -> ASTTypedType {
+    if let Some(f) = function_def_opt {
+        if let Some(t) = f.generic_types.get(orig_name) {
+            return t.clone();
+        }
+    }
+
+    if let Some(s) = type_def_provider.get_struct_def_like_name(orig_name) {
+        ASTTypedType::Struct {
+            name: s.name.clone(),
+        }
+    } else if let Some(s) = type_def_provider.get_enum_def_like_name(orig_name) {
+        ASTTypedType::Enum {
+            name: s.name.clone(),
+        }
+    } else if let Some(s) = type_def_provider.get_type_def_like_name(orig_name) {
+        ASTTypedType::Type {
+            name: s.name.clone(),
+        }
+    } else {
+        panic!("Cannot find struct, enum or type {orig_name}");
+    }
+}
+
 struct AddRefMacro {
     deref: bool,
 }
@@ -676,6 +770,12 @@ struct AddRefMacro {
 impl AddRefMacro {
     fn new(deref: bool) -> Self {
         Self { deref }
+    }
+
+    fn function_name(function_def: Option<&ASTTypedFunctionDef>) -> String {
+        function_def
+            .map(|it| it.name.clone())
+            .unwrap_or_else(|| "unknown function".to_owned())
     }
 }
 
@@ -696,95 +796,44 @@ impl TextMacroEval for AddRefMacro {
             if fd.name == "addRef_0" {
                 return String::new();
             }
-            if let Some(MacroParam::Plain(generic_type_name, _)) = parameters.get(0) {
-                if let Some(MacroParam::Plain(address, _)) = parameters.get(1) {
-                    if let Some(ast_type) = fd.generic_types.get(generic_type_name) {
-                        if let Some(type_name) =
-                            CodeGen::get_reference_type_name(ast_type, type_def_provider)
-                        {
-                            let mut result = String::new();
-                            let descr = &format!("addref macro type {type_name}");
-                            if self.deref {
-                                result.push_str(&backend.call_deref(
-                                    address,
-                                    &type_name,
-                                    descr,
-                                    type_def_provider,
-                                    statics,
-                                ));
-                            } else {
-                                backend.call_add_ref(
-                                    &mut result,
-                                    address,
-                                    &type_name,
-                                    descr,
-                                    type_def_provider,
-                                    statics,
-                                );
-                            }
-                            result
-                        } else {
-                            String::new()
-                        }
-                    } else {
-                        let mut name = generic_type_name.clone();
-                        name.push('_');
-                        let descr = &format!("addref macro type {name}");
+            if let Some(MacroParam::Plain(address, ast_type, Some(ast_typed_type))) =
+                parameters.get(0)
+            {
+                let type_name = match ast_typed_type {
+                    ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str",
+                    ASTTypedType::Struct { name } => name,
+                    ASTTypedType::Enum { name } => name,
+                    ASTTypedType::Type { name } => name,
+                    _ => return String::new(),
+                };
 
-                        /*
-                        let found_structs =
-                            type_def_provider.get_struct_def_by_name(&name).is_some();
-
-                        if found_structs {
-                            panic!()
-                        }
-
-                        let found_enums = type_def_provider.get_enum_def_like_name(&name).is_some();
-
-                        if found_enums {
-                            panic!()
-                        }
-
-                         */
-
-                        let real_name = if let Some(s) =
-                            type_def_provider.get_struct_def_like_name(&name)
-                        {
-                            s.name.clone()
-                        } else if let Some(s) = type_def_provider.get_enum_def_like_name(&name) {
-                            s.name.clone()
-                        } else if let Some(s) = type_def_provider.get_type_def_like_name(&name) {
-                            s.name.clone()
-                        } else {
-                            panic!("cannot find struct nor enum {generic_type_name}");
-                        };
-
-                        let mut result = String::new();
-                        if self.deref {
-                            result.push_str(&backend.call_deref(
-                                address,
-                                &real_name,
-                                descr,
-                                type_def_provider,
-                                statics,
-                            ));
-                        } else {
-                            backend.call_add_ref(
-                                &mut result,
-                                address,
-                                &real_name,
-                                descr,
-                                type_def_provider,
-                                statics,
-                            );
-                        }
-                        result
-                    }
+                let mut result = String::new();
+                let descr = &format!("addref macro type {type_name}");
+                if self.deref {
+                    result.push_str(&backend.call_deref(
+                        address,
+                        &type_name,
+                        descr,
+                        type_def_provider,
+                        statics,
+                    ));
                 } else {
-                    panic!("Error getting the address")
+                    backend.call_add_ref(
+                        &mut result,
+                        address,
+                        &type_name,
+                        descr,
+                        type_def_provider,
+                        statics,
+                    );
                 }
+                result
             } else {
-                panic!("Error getting the generic type name")
+                panic!(
+                    "Error: addRef/deref macro, a type must be specified in {} but got {:?}",
+                    Self::function_name(function_def),
+                    parameters.get(0)
+                )
             }
         } else {
             String::new()
@@ -793,70 +842,6 @@ impl TextMacroEval for AddRefMacro {
 
     fn is_pre_macro(&self) -> bool {
         false
-    }
-}
-
-fn get_type(
-    orig_name: &str,
-    type_def_provider: &dyn TypeDefProvider,
-    function_def_opt: Option<&ASTTypedFunctionDef>,
-) -> ASTTypedType {
-    if let Some(f) = function_def_opt {
-        if let Some(t) = f.generic_types.get(orig_name) {
-            return t.clone();
-        }
-    }
-
-    /*
-    let mut name = orig_name.to_owned();
-    name.push('_');
-
-    let found_structs = conv_context
-        .structs
-        .iter()
-        .filter(|it| it.name.starts_with(&name))
-        .count();
-
-    if found_structs > 1 {
-        panic!()
-    }
-
-    let found_enums = module
-        .enums
-        .iter()
-        .filter(|it| it.name.starts_with(&name))
-        .count();
-
-    if found_enums > 1 {
-        panic!()
-    }
-
-    let found_types = module
-        .types
-        .iter()
-        .filter(|it| it.name.starts_with(&name))
-        .count();
-
-    if found_types > 1 {
-        panic!()
-    }
-
-     */
-
-    if let Some(s) = type_def_provider.get_struct_def_like_name(orig_name) {
-        ASTTypedType::Struct {
-            name: s.name.clone(),
-        }
-    } else if let Some(s) = type_def_provider.get_enum_def_like_name(orig_name) {
-        ASTTypedType::Enum {
-            name: s.name.clone(),
-        }
-    } else if let Some(s) = type_def_provider.get_type_def_like_name(orig_name) {
-        ASTTypedType::Type {
-            name: s.name.clone(),
-        }
-    } else {
-        panic!("Cannot find struct, enum or type {orig_name}");
     }
 }
 
@@ -875,13 +860,13 @@ impl TextMacroEval for PrintRefMacro {
         let result = match parameters.get(0) {
             None => panic!("cannot find parameter for printRef macro"),
             Some(par) => match par {
-                MacroParam::Plain(name, ast_type) => {
+                MacroParam::Plain(name, ast_type, _) => {
                     self.print_ref(name, ast_type, function_def, type_def_provider, 0, backend)
                 }
                 MacroParam::StringLiteral(_) => {
                     panic!("String is nt a valid parameter for printRef macro ")
                 }
-                MacroParam::Ref(name, ast_type) => {
+                MacroParam::Ref(name, ast_type, _) => {
                     self.print_ref(name, ast_type, function_def, type_def_provider, 0, backend)
                 }
             },
@@ -1102,7 +1087,7 @@ mod tests {
         let text_macro = TextMacro {
             name: "call".into(),
             parameters: vec![
-                MacroParam::Plain("println".into(), None),
+                MacroParam::Plain("println".into(), None, None),
                 MacroParam::StringLiteral("Hello world".into()),
             ],
         };
@@ -1286,9 +1271,9 @@ mod tests {
         let (m, i) = macros.get(0).unwrap();
         let param = m.parameters.get(1).unwrap();
         match param {
-            MacroParam::Plain(_, _) => panic!("plain"),
+            MacroParam::Plain(_, _, _) => panic!("plain"),
             MacroParam::StringLiteral(_) => panic!("string literal"),
-            MacroParam::Ref(r, _) => assert_eq!(r, "$s"),
+            MacroParam::Ref(r, _, _) => assert_eq!(r, "$s"),
         }
     }
 

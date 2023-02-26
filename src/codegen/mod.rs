@@ -1469,9 +1469,8 @@ impl<'a> CodeGen<'a> {
 
                         call_parameters.add_function_call(
                             &self.module,
-                            Some(&format!("{param_name} : {}", call.index)),
+                            &format!("{param_name} = {} : {}", &call.function_name, call.index),
                             param_type.clone(),
-                            &call.function_name,
                             &mut statics,
                         );
 

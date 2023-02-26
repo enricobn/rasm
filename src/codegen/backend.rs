@@ -289,21 +289,21 @@ impl Backend for BackendAsm386 {
                     .skip(1)
                     .map(|it| {
                         let ast_type = match it {
-                            MacroParam::Plain(_, opt_type) => match opt_type {
+                            MacroParam::Plain(_, opt_type, _) => match opt_type {
                                 None => ASTType::Builtin(BuiltinTypeKind::I32),
                                 Some(ast_type) => ast_type.clone(),
                             },
                             MacroParam::StringLiteral(_) => {
                                 ASTType::Builtin(BuiltinTypeKind::String)
                             }
-                            MacroParam::Ref(name, None) => {
+                            MacroParam::Ref(name, None, _) => {
                                 debug_i!("found ref {name}");
                                 match context.get(name.strip_prefix('$').unwrap()).unwrap() {
                                     ValKind::ParameterRef(_, par) => par.ast_type.clone(),
                                     ValKind::LetRef(_, ast_type) => ast_type.clone(),
                                 }
                             }
-                            MacroParam::Ref(name, Some(ast_type)) => {
+                            MacroParam::Ref(name, Some(ast_type), _) => {
                                 debug_i!("found ref {name} : {ast_type}");
                                 ast_type.clone()
                             }
@@ -352,7 +352,7 @@ impl Backend for BackendAsm386 {
                     .collect();
 
                 let function_name =
-                    if let Some(MacroParam::Plain(function_name, _)) = m.parameters.get(0) {
+                    if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
                         function_name
                     } else {
                         panic!("Error getting the function name");
@@ -409,15 +409,15 @@ impl Backend for BackendAsm386 {
 
         CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
-        let has_references =
+        let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                struct_has_references(struct_def, type_def_provider)
+                (struct_has_references(struct_def, type_def_provider), false)
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                enum_has_references(enum_def, type_def_provider)
+                (enum_has_references(enum_def, type_def_provider), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                type_has_references(type_def)
+                (type_has_references(type_def), true)
             } else {
-                true
+                (true, false)
             };
 
         if has_references {
@@ -432,9 +432,15 @@ impl Backend for BackendAsm386 {
             } else {
                 format!("call     {type_name}_addRef")
             };
+            if is_type {
+                CodeGen::add(out, &format!("push     {ws} [{key}]"), None, true);
+            }
             CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
             CodeGen::add(out, &call, None, true);
             CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+            if is_type {
+                CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+            }
         } else {
             /*            CodeGen::add(
                 out,
@@ -462,17 +468,19 @@ impl Backend for BackendAsm386 {
 
         let mut result = String::new();
 
-        let has_references = if "str" == type_name {
-            true
+        let (has_references, is_type) = if "str" == type_name {
+            (true, false)
         } else if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-            struct_has_references(struct_def, type_def_provider)
+            (struct_has_references(struct_def, type_def_provider), false)
         } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-            enum_has_references(enum_def, type_def_provider)
+            (enum_has_references(enum_def, type_def_provider), false)
         } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-            type_has_references(type_def)
+            (type_has_references(type_def), true)
         } else {
             panic!("cannot find type {descr} {type_name}");
         };
+
+        let key = statics.add_str(descr);
 
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
         if has_references {
@@ -481,12 +489,16 @@ impl Backend for BackendAsm386 {
             } else {
                 format!("call     {type_name}_deref")
             };
+            if is_type {
+                CodeGen::add(&mut result, &format!("push     {ws} [{key}]"), None, true);
+            }
             CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
             CodeGen::add(&mut result, &call, None, true);
             CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+            if is_type {
+                CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+            }
         } else {
-            let key = statics.add_str(descr);
-
             CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
             CodeGen::add(&mut result, "call     deref_0", None, true);

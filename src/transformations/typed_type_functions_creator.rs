@@ -7,7 +7,7 @@ use crate::codegen::CodeGen;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
-    ASTTypedTypeDef,
+    ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
 pub fn typed_type_functions_creator(
@@ -73,11 +73,18 @@ fn create_free(
 
     let function_def = ASTTypedFunctionDef {
         name: fun_name.clone(),
-        parameters: vec![ASTTypedParameterDef {
-            name: "address".into(),
-            ast_type,
-            ast_index: ASTIndex::none(),
-        }],
+        parameters: vec![
+            ASTTypedParameterDef {
+                name: "address".into(),
+                ast_type,
+                ast_index: ASTIndex::none(),
+            },
+            ASTTypedParameterDef {
+                name: "descr".into(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
+            },
+        ],
         body,
         inline: false,
         return_type: None,
@@ -108,7 +115,7 @@ fn create_free_body(
     let key = statics.add_str(&descr);
 
     CodeGen::add(&mut result, "", Some(&descr), true);
-    CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
+    CodeGen::add(&mut result, &format!("push  {ws} $descr"), None, true);
     CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
     CodeGen::add(
         &mut result,
@@ -126,7 +133,7 @@ fn create_free_body(
     if type_has_references(type_def) {
         for (i, (generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate() {
             if let Some(name) = CodeGen::get_reference_type_name(generic_type_def, module) {
-                let descr = &format!("{}.{} : {}", type_def.name, generic_name, name);
+                let descr = "$descr";
                 let call_deref = if function_name == "deref" {
                     backend.call_deref("[ebx]", &name, descr, module, statics)
                 } else {

@@ -147,16 +147,13 @@ impl<'a> FunctionCallParameters<'a> {
     pub fn add_function_call(
         &mut self,
         module: &ASTTypedModule,
-        comment: Option<&str>,
+        comment: &str,
         param_type: ASTTypedType,
-        descr: &str,
         statics: &mut Statics,
     ) {
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
-
-        let descr = format!("add_function_call {descr}");
 
         CodeGen::add(
             &mut self.before,
@@ -164,14 +161,14 @@ impl<'a> FunctionCallParameters<'a> {
                 "mov {ws} [{sp} + {}], eax",
                 self.parameters_added * wl as usize
             ),
-            comment,
+            Some(comment),
             true,
         );
         if self.immediate {
             panic!();
         }
         if let Some(name) = CodeGen::get_reference_type_name(&param_type, module) {
-            self.add_code_for_reference_type(module, &name, "eax", &descr, statics);
+            self.add_code_for_reference_type(module, &name, "eax", comment, statics);
         }
         self.parameter_added_to_stack();
     }

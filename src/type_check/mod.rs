@@ -357,7 +357,7 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
         .enumerate()
         .filter(|(i, p)| *i > 0)
         .map(|(_, it)| match it {
-            MacroParam::Plain(value, ast_type) => match ast_type {
+            MacroParam::Plain(value, ast_type, _) => match ast_type {
                 None => value.to_string(),
                 // TODO duplicated code
                 Some(t) => {
@@ -369,7 +369,7 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
                 }
             },
             MacroParam::StringLiteral(_) => format!("{it}"),
-            MacroParam::Ref(value, ast_type) => match ast_type {
+            MacroParam::Ref(value, ast_type, _) => match ast_type {
                 None => value.to_string(),
                 // TODO duplicated code
                 Some(t) => {
