@@ -1,5 +1,5 @@
-// run with: ./gameoflife examples/f116.cells 200
-// run with: ./gameoflife examples/simple.cells 130
+// run with: ./gameoflife resources/examples/f116.cells 200
+// run with: ./gameoflife resources/examples/simple.cells 130
 
 include "std.rasm"
 include "gameoflife_common.rasm"

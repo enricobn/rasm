@@ -1,4 +1,4 @@
-// run with: ./gameoflife_vec examples/simple.cells 130
+// run with: ./gameoflife_vec resources/examples/simple.cells 130
 // 0,281s
 
 include "std.rasm"

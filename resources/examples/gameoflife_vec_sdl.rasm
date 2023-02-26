@@ -1,4 +1,4 @@
-// time ./gameoflife_vec_sdl examples/f116.cells 100
+// time ./gameoflife_vec_sdl resources/examples/f116.cells 100
 // real    0m1,821s
 // 561239 bytes allocated
 // 53009 table slots allocated
