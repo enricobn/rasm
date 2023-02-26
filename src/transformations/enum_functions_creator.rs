@@ -60,7 +60,7 @@ fn create_match_like_function(
     return_type: Option<ASTType>,
     extra_generic: Option<String>,
 ) {
-    let body = enum_match_body(backend, enum_def);
+    let body = enum_match_body(name, backend, enum_def);
 
     let function_body = ASTFunctionBody::ASMBody(body);
     let param_types = enum_def
@@ -144,6 +144,10 @@ fn create_constructors(
                 None,
                 true,
             );
+
+            // we add a ref to it because it should not be reused
+            CodeGen::add(native_body, "$call(addRef, eax, \"\")", None, true);
+
             /*
             CodeGen::add(
                 native_body,
@@ -257,11 +261,22 @@ fn enum_parametric_variant_constructor_body(
     body
 }
 
-fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
+fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
     let word_len = backend.word_len();
     let sp = backend.stack_pointer();
     let word_size = backend.word_size();
     let mut body = String::new();
+
+    // for debug
+    /*
+    CodeGen::add(
+        &mut body,
+        &format!("$call(println,\"executing {}::{}\")", enum_def.name, name),
+        None,
+        true,
+    );
+
+     */
 
     CodeGen::add(&mut body, "push ebx", None, true);
     CodeGen::add(
@@ -292,6 +307,20 @@ fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
             true,
         );
 
+        // for debug
+        /*
+        CodeGen::add(
+            &mut body,
+            &format!(
+                "$call(println,\"  executing {}::{}\")",
+                enum_def.name, variant.name
+            ),
+            None,
+            true,
+        );
+
+         */
+
         for (i, param) in variant.parameters.iter().enumerate() {
             CodeGen::add(
                 &mut body,
@@ -319,6 +348,16 @@ fn enum_match_body(backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
         CodeGen::add(&mut body, "jmp .end", None, true);
         CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, false);
     }
+    CodeGen::add(
+        &mut body,
+        &format!(
+            "$call(print,\"{}::{}, invalid value \")",
+            enum_def.name, name
+        ),
+        None,
+        false,
+    );
+    CodeGen::add(&mut body, "$call(println,[eax])", None, false);
     CodeGen::add(&mut body, ".end:", None, false);
     CodeGen::add(&mut body, "pop ebx", None, true);
 
