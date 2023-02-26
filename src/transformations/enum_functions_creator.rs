@@ -146,7 +146,13 @@ fn create_constructors(
             );
 
             // we add a ref to it because it should not be reused
-            CodeGen::add(native_body, "$call(addRef, eax, \"\")", None, true);
+            let descr_label = statics.add_str("");
+            CodeGen::add(
+                native_body,
+                &format!("$call(addRef, eax, [{descr_label}]:str)"),
+                None,
+                true,
+            );
 
             /*
             CodeGen::add(
