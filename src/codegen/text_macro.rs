@@ -304,12 +304,7 @@ impl TextMacroEvaluator {
             if let Some(typed_type) = function_def.generic_types.get(name) {
                 Some(typed_type.clone())
             } else if param_types.is_empty() {
-                let result = type_def_provider.get_ast_typed_type_from_type_name(name);
-                println!(
-                    "trying to find type for not generic type {name} : {:?}",
-                    result
-                );
-                result
+                type_def_provider.get_ast_typed_type_from_type_name(name)
             } else {
                 let resolved_types = param_types
                     .iter()
