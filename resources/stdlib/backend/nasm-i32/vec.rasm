@@ -86,6 +86,8 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     add     ecx, ecx
     add     ecx, ecx
     $call(malloc, ecx)
+    ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
+    $call(addRef, eax, "for map")
     pop     ecx
     push    eax
     mov     dword eax, [eax]
@@ -94,16 +96,14 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     add     edx, 4          ; address of first value to write
     add     ebx, 4          ; address of first value to read
 .loop:
-    ; $call(print, " - ")
-    ; $call(println, ecx)
     cmp     dword ecx, 0
     jz      .end
     push    dword [ebx]
     push    dword $f
     mov     dword eax, $f
     call    [eax]
-    $addRef(T1, eax)
-    ; TODO I have to dereference it at the end
+    $addRef(eax:T1)
+    ; TODO do I need to dereference it?
     add     esp, 8
     mov     dword [edx], eax
     add     ebx, 4
@@ -112,6 +112,7 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     jmp .loop
 .end:
     pop     eax
+    $call(deref, eax, "for map")
     pop     edx
     pop     ecx
     pop     ebx
@@ -194,6 +195,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     ; add the space for the size
     add     ebx, 4
     $call(malloc, ebx)
+    $addRef(eax:Vec<T>)
     pop     ebx
 
     push    eax
@@ -219,6 +221,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     jmp     .loop
 .end:
     pop     eax
+    $deref(eax:Vec<T>)
     sub     dword edx, [eax]
     ; divide ebx by 4, we get the len
     shr     edx, 2
@@ -385,7 +388,7 @@ asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     jz      .end
     push    dword [ecx]
     push    eax
-    $addRef(T1, eax)
+    $addRef(eax: T1)
     ; TODO I must dereference it
     push    dword $accum
     mov     dword edx, $accum
@@ -408,7 +411,7 @@ asm first<T>(vec: Vec<T>) -> Option<T> /{
     cmp     eax, 0
     jz      .empty
     mov     dword eax, [ebx + 4]
-    $addRef(T, eax)
+    $addRef(eax: T)
     $call(Option::Some, eax)
     jmp     .end
 .empty:
