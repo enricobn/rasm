@@ -52,7 +52,7 @@ fn initialGameState() -> GameState {
 fn initialWorld() -> World {
     let bricks = zip(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , RED); });
 
-    World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0), 100, 3);
+    World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now()), Bar(500, 0), 0, 3);
 }
 
 fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Stage {
