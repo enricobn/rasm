@@ -212,7 +212,9 @@ asm keyEvent() -> Option<KeyEvent> /{
     push    ebx
 
     $call(malloc, 56)
+    $call(addRef, eax, "temp mem for sdl keyEvent")
     push    eax
+
     mov     dword  ebx, [eax]
     $ccall(SDL_PollEvent, [eax]);
     cmp     eax, 0
@@ -220,22 +222,29 @@ asm keyEvent() -> Option<KeyEvent> /{
     mov     dword eax,[ebx] ; here we have the event type
     cmp     eax, 768        ; keyDown
     jne     .noKeyDown
-    $addRef(KeyState, [_enum_KeyState_Down])
-    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]:KeyState)
+    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]: KeyState)
+    $addRef(eax:KeyEvent)
+    push    eax
     $call(Option::Some, eax: KeyEvent)
+    pop     ebx
+    $deref(ebx:KeyEvent)
     jmp     .end
 .noKeyDown:
     cmp     eax, 769        ; keyUp
     jne     .noKey
-    $addRef(KeyState, [_enum_KeyState_Up])
-    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]:KeyState)
+    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]: KeyState)
+    $addRef(eax:KeyEvent)
+    push    eax
     $call(Option::Some, eax: KeyEvent)
+    pop     ebx
+    $deref(ebx:KeyEvent)
     jmp     .end
 .noKey:
     mov     dword eax, [_enum_Option_None]
 .end:
     pop     ebx
     $call(freeMem, ebx)
+
     pop     ebx
 }/
 
@@ -274,14 +283,14 @@ asm sdlLoop<CTX,STATE>(ctx: CTX, state: State, update: fn(Option<KeyEvent>, STAT
     $call(println, "state is the same")
     jmp     .skipRef
 .doRef:
-    $addRef(STATE,eax)
+    $addRef(eax: STATE)
     ;$call(println, "New state ")
     ;$printRef(eax:STATE)
     cmp     ebx,$state
     je      .skipRef
     ;$call(println, "Old state ")
-    ;$printRef(ebx:STATE)
-    $deref(STATE,ebx)
+    ; $printRef(ebx:STATE)
+    $deref(ebx: STATE)
 .skipRef:
     mov     dword edx, ebx
     mov     dword ebx, eax
