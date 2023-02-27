@@ -262,6 +262,7 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
 
     let newWorld = updateFun(event, world);
     renderFun(ctx, newWorld);
+
     newWorld;
 }
 
@@ -371,3 +372,32 @@ asm sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
     $ccall(SDL_RenderCopy, $ren, $message, 0, [eax])
     pop     eax
 }/
+
+struct SDLText {
+    surface: SDLSurface,
+    texture: SDLTexture
+}
+
+fn createSDLText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
+    let surface = sdlRenderTextSolid(font, text, color);
+    let texture = sdlCreateTextureFromSurface(ren, surface);
+
+    SDLText(surface, texture);
+}
+
+fn render(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
+    sdlRenderText(ren, SDLText::texture(text), rect);
+}
+
+fn release(text: SDLText) {
+    release(SDLText::texture(text));
+    release(SDLText::surface(text));
+}
+
+fn release(texture: SDLTexture) {
+    sdlDestroyTexture(texture);
+}
+
+fn release(surface: SDLSurface) {
+    sdlFreeSurface(surface);
+}

@@ -133,11 +133,7 @@ fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 }
 
 fn render(ren: SDLRenderer, resources: Resources, world: World) {
-    sdlSetRenderDrawColor(ren, BLACK);
-    sdlRenderClear(ren);
-
     let font = Resources::font(resources);
-
     let bricks = World::bricks(world);
     let score = World::score(world);
 
@@ -166,13 +162,7 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     sdlSetRenderDrawColor(ren, BLUE);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
-    let surfaceMessage = sdlRenderTextSolid(font, add("Score: ", toString(score)), GREEN);
-    let message = sdlCreateTextureFromSurface(ren, surfaceMessage);
-    let messageRect = SDLRect(2, 2, 100, 24);
-    sdlRenderText(ren, message, messageRect);
-
-    sdlRenderPresent(ren);
-
-    sdlDestroyTexture(message);
-    sdlFreeSurface(surfaceMessage);
+    let scoreText = createSDLText(ren, font, add("Score: ", toString(score)), GREEN);
+    render(ren, scoreText, SDLRect(2, 2, 100, 24));
+    release(scoreText);
 }

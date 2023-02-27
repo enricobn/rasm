@@ -77,11 +77,16 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
 }
 
 fn render(ren: SDLRenderer, state: State) {
+    sdlSetRenderDrawColor(ren, BLACK);
+    sdlRenderClear(ren);
+
     let resources = State::resources(state);
     let keys = State::keys(state);
     let stage = State::stage(state);
 
     Stage::run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
+
+    sdlRenderPresent(ren);
 }
 
 fn println<T>(prefix: str, o: T) {
