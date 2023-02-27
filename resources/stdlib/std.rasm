@@ -62,3 +62,11 @@ enum Option<T> {
   Some(value : T),
   None
 }
+
+fn min(a: i32, b: i32) -> i32 {
+    ifImmediate(less(a, b), a, b);
+}
+
+fn max(a: i32, b: i32) -> i32 {
+    ifImmediate(greater(a, b), a, b);
+}
