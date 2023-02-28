@@ -1797,14 +1797,27 @@ fn get_called_function(
             None
         }
     } else {
-        panic!(
-            "Cannot find one single function for {call} but {:?}: {}",
-            candidate_functions
-                .iter()
-                .map(|it| format!("{it}"))
-                .collect::<Vec<_>>(),
-            call.index
-        );
+        let all_not_parametric = candidate_functions
+            .iter()
+            .filter(|it| {
+                it.parameters
+                    .iter()
+                    .all(|p| !matches!(p.ast_type, ASTType::Parametric(_)))
+            })
+            .collect::<Vec<_>>();
+
+        if all_not_parametric.len() == 1 {
+            all_not_parametric.first().copied().cloned()
+        } else {
+            panic!(
+                "Cannot find one single function for {call} but {:?}: {}",
+                candidate_functions
+                    .iter()
+                    .map(|it| format!("{it}"))
+                    .collect::<Vec<_>>(),
+                call.index
+            );
+        }
     };
 
     dedent!();

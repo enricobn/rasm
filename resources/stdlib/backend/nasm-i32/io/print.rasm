@@ -1,8 +1,22 @@
+asm STDOut() -> File /{
+    mov dword eax, 1
+}/
+
+/** prints a number to the standard output */
+fn print(n: i32) {
+    print(STDOut(), n);
+}
+
+fn println<T>(file: File, v: T) {
+    print(file, v);
+    println(file);
+}
+
 /**
- * Prints the number to standard output.
+ * Prints the number to the File specified.
  * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
  **/
-asm print(n: i32) /{
+asm print(file: File, n: i32) /{
     push    esi
     push    eax
     push    ebx
@@ -37,7 +51,7 @@ asm print(n: i32) /{
 
     mov    edx,ecx ; the length
     mov    ecx,esi ; the pointer to the first digit (not necessarily the start of the provided buffer)
-    mov    ebx, 1  ; stdout
+    mov    ebx, $file
     mov    eax, 4  ; write
     int    80h
 
@@ -51,15 +65,22 @@ asm print(n: i32) /{
 /**
  * Prints a new line to standard output.
  */
-asm println() /{
+fn println() {
+    println(STDOut());
+}
+
+/**
+ * Prints a new line to file.
+ */
+asm println(file: File) /{
     push    edx
     push    ecx
     push    ebx
     push    eax
 
     mov     dword ecx, _NEW_LINE
-    mov     ebx, 1
-    mov     eax, 4
+    mov     ebx, $file
+    mov     eax, 4 ; write
     mov     edx, 1
     int     80h
 
@@ -72,7 +93,14 @@ asm println() /{
 /**
  * Prints the string to the standard output.
  **/
-asm print(s: str) /{
+fn print(s: str) {
+    print(STDOut(), s);
+}
+
+/**
+ * Prints the string to the file.
+ **/
+asm print(file: File, s: str) /{
     push    edx
     push    ecx
     push    ebx
@@ -85,7 +113,7 @@ asm print(s: str) /{
     pop     eax
 
     mov     dword ecx, [eax]
-    mov     ebx, 1
+    mov     ebx, $file
     mov     eax, 4
     int     80h
 
@@ -111,97 +139,6 @@ asm printESC() /{
     pop     ecx
     pop     ebx
     pop     eax
-}/
-
-asm readFile(path: str) -> str /{
-    push    ebx
-    push    ecx
-    push    edx
-
-    ; 0 -> read-only mode
-    $call(sysOpen, $path, 0)
-    mov     ebx,eax           ; the file descriptor
-
-    $call(fileSize, ebx)
-    mov     edx, eax
-    add     edx, 1  ; we allocate one more byte for 0 at the end of the string
-
-    $call(malloc, edx, " for readFile")
-    push    eax
-
-    sub     edx,1   ; we subtract one for 0 at the end of the string
-
-    $call(sysRead, ebx:i32, eax:str, edx:i32)
-
-    $call(sysClose, ebx)
-
-    pop     eax
-    add     dword edx, [eax]
-    mov     byte    [edx],0     ;
-
-    pop     edx
-    pop     ecx
-    pop     ebx
-}/
-
-asm fileSize(descriptor: i32) -> i32 /{
-    push    ebx
-    push    ecx
-
-    $call(malloc, 1024, " for fileSize")
-    ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
-    $call(freeMem, eax)
-
-    mov     dword ecx,[eax]
-
-    mov     eax, 108          ; fstat syscall
-    mov     ebx, $descriptor
-    int     80h
-    mov     dword eax, [ecx + 20]  ; +20 -> size
-
-    pop     ecx
-    pop     ebx
-}/
-
-asm sysOpen(path: str, mode: i32) -> i32 /{
-    push    ebx
-    push    ecx
-
-    mov     eax,  5           ; open syscall
-    mov     dword ebx,$path   ;
-    mov     dword ebx,[ebx]   ; the file name
-    mov     ecx,  $mode
-    int     80h
-
-    pop     ecx
-    pop     ebx
-}/
-
-asm sysRead(descriptor: i32, buffer: str, size: i32) /{
-    push    ebx
-    push    ecx
-    push    edx
-
-    mov     eax,  3         ; read syscall
-    mov     dword ebx, $descriptor
-    mov     dword ecx, $buffer
-    mov     dword ecx, [ecx]
-    mov     edx,  $size      ; bufsize
-    int     80h
-
-    pop     edx
-    pop     ecx
-    pop     ebx
-}/
-
-asm sysClose(descriptor: i32) /{
-    push    ebx
-
-    mov     eax, 6         ; close syscall
-    mov     dword ebx, $descriptor
-    int     80h
-
-    pop     ebx
 }/
 
 asm print(c: char) /{

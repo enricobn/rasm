@@ -1448,7 +1448,10 @@ pub fn function_def(
                                 }
                             } else {
                                 module.debug_i();
-                                panic!("cannot find {} {:?}", function_call, call_parameters_types);
+                                panic!(
+                                    "cannot find {} {:?}: {}",
+                                    function_call, call_parameters_types, function_call.index
+                                );
                             }
                         }
                     };

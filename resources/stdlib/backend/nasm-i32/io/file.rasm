@@ -1,0 +1,197 @@
+type File(false);
+
+enum FilePermission {
+    Read,
+    Write,
+    Execute
+}
+
+struct FileMode {
+    user: Vec<FilePermission>,
+    group: Vec<FilePermission>,
+    others: Vec<FilePermission>
+}
+
+fn fileMode(f: FileMode) -> i32 {
+    let user = FileMode::user(f);
+    let group = FileMode::group(f);
+    let others = FileMode::others(f);
+
+    add(add(mul(64, filePermissions(user)), mul(8, filePermissions(group))), filePermissions(others));
+}
+
+fn filePermission(p: FilePermission) -> i32 {
+    FilePermission::match(p, { -> 4;}, { -> 2;}, { -> 1;});
+}
+
+fn filePermissions(p: Vec<FilePermission>) -> i32 {
+    foldLeft(p, 0, { prev, act ->
+        let perm = filePermission(act);
+        add(prev, perm);
+    });
+}
+
+enum FileFlag {
+    ReadOnly,
+    WriteOnly,
+    ReadWrite,
+    Create,
+    Truncate,
+    Append
+}
+
+fn fileFlag(flag: FileFlag) -> i32 {
+    FileFlag::match(flag,
+        { -> 0;},       //  ReadOnly
+        { -> 1;},       //  WriteOnly,
+        { -> 2;},       //  ReadWrite,
+        { -> 64;},      //  Create,
+        { -> 512;},     //  Truncate,
+        { -> 1024;},    //  Append
+    );
+}
+
+fn fileFlags(flags: Vec<FileFlag>) -> i32 {
+    foldLeft(flags, 0, { prev, act ->
+        let flagValue = fileFlag(act);
+        add(prev, flagValue);
+    });
+}
+
+fn createFile(path: str) -> File {
+    sysOpen(path, fileFlags(vecOf(FileFlag::Create(), FileFlag::Truncate(), FileFlag::WriteOnly())),
+        fileMode(FileMode(
+            vecOf(FilePermission::Read(), FilePermission::Write()),
+            vecOf(FilePermission::Read(), FilePermission::Write()),
+            vecOf(FilePermission::Read(), FilePermission::Write())
+        ))
+    );
+}
+
+asm readFile(path: str) -> str /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    ; 0 -> read-only mode
+    $call(sysOpen, $path, 0)
+    mov     ebx,eax           ; the file descriptor
+
+    $call(fileSize, ebx: File)
+    mov     edx, eax
+    add     edx, 1  ; we allocate one more byte for 0 at the end of the string
+
+    $call(malloc, edx, " for readFile")
+    push    eax
+
+    sub     edx,1   ; we subtract one for 0 at the end of the string
+
+    $call(sysRead, ebx: File, eax:str, edx:i32)
+
+    $call(sysClose, ebx: File)
+
+    pop     eax
+    add     dword edx, [eax]
+    mov     byte    [edx],0     ;
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm fileSize(descriptor: File) -> i32 /{
+    push    ebx
+    push    ecx
+
+    $call(malloc, 1024, " for fileSize")
+    ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
+    $call(freeMem, eax)
+
+    mov     dword ecx,[eax]
+
+    mov     eax, 108          ; fstat syscall
+    mov     ebx, $descriptor
+    int     80h
+    mov     dword eax, [ecx + 20]  ; +20 -> size
+
+    pop     ecx
+    pop     ebx
+}/
+
+/*
+  O_RDONLY equ 0
+  O_WRONLY equ 1
+  O_RDWR   equ 2
+
+  O_CREAT  equ 100o     ;64   create file if file doesnt exists
+  O_TRUNC  equ 1000o    ;512  truncate file
+  O_APPEND equ 2000o    ;1024 append to file
+
+  mov  ecx, O_CREAT | O_TRUNC | O_WRONLY
+
+  mode is the permission bits if open() creates the file
+  mov  edx, 0777o                       ; 511 red/write/execute access
+  mov  edx, 0666o                       ; 438 red/write access
+*/
+asm sysOpen(path: str, flags: i32, mode: i32) -> File /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     eax,  5           ; open syscall
+    mov     dword ebx,$path   ;
+    mov     dword ebx,[ebx]   ; the file name
+    mov     ecx, $flags
+    mov     edx, $mode
+    int     80h
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+fn sysOpen(path: str, flags: i32) -> File {
+    sysOpen(path, flags, 0);
+}
+
+asm sysRead(descriptor: File, buffer: str, size: i32) /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     eax,  3         ; read syscall
+    mov     dword ebx, $descriptor
+    mov     dword ecx, $buffer
+    mov     dword ecx, [ecx]
+    mov     edx,  $size      ; bufsize
+    int     80h
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm sysClose(descriptor: File) /{
+    push    ebx
+
+    mov     eax, 6         ; close syscall
+    mov     dword ebx, $descriptor
+    int     80h
+
+    pop     ebx
+}/
+
+asm sysUnlink(path: str) /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     eax,  10           ; open syscall
+    mov     dword ebx,$path   ;
+    mov     dword ebx,[ebx]   ; the file name
+    int     80h
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/

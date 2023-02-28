@@ -1,0 +1,12 @@
+include "std.rasm"
+
+let file = createFile("file_for_write.txt");
+
+println(file, "Hello world");
+println(file, 1000);
+
+sysClose(file);
+
+print(readFile("file_for_write.txt"));
+
+sysUnlink("file_for_write.txt");

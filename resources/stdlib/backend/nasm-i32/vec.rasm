@@ -12,6 +12,24 @@ asm vecOf<T>(value: T) -> Vec<T> /{
     pop     eax
 }/
 
+asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
+    $call(malloc, 16, " for vecOf")
+    push    eax
+
+    mov     dword eax, [eax]
+    mov     dword [eax], 3
+    push    ebx
+    mov     dword ebx, $v1
+    mov     dword [eax + 4], ebx
+    mov     dword ebx, $v2
+    mov     dword [eax + 8], ebx
+    mov     dword ebx, $v3
+    mov     dword [eax + 12], ebx
+    pop     ebx
+
+    pop     eax
+}/
+
 asm forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     push    ebx
     push    ecx

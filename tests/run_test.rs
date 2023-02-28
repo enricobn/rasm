@@ -258,6 +258,11 @@ fn test_const() {
 }
 
 #[test]
+fn test_write_file() {
+    run_test("write_file", vec![], "Hello world\n1000\n");
+}
+
+#[test]
 fn test_gameoflife_sdl_compile() {
     compile_example("resources/examples/gameoflife_sdl.rasm");
 }
