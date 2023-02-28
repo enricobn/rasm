@@ -1,11 +1,13 @@
-asm malloc(size: i32) -> i32 /{
+asm malloc(size: i32, descr: str) -> i32 /{
     push    ebx
     push    ecx
     push    edx
 
     %ifdef LOG_DEBUG
     $call(print, "start malloc ")
-    $call(println, $size)
+    $call(print, $size)
+    $call(print, ", ")
+    $call(println, $descr)
     %endif
 
     mov     dword ecx, _reusable_heap_table

@@ -550,6 +550,21 @@ impl<'a> CodeGen<'a> {
                         TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
                     };
 
+                    let typed_type: ASTTypedType =
+                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                            parameters: _,
+                            return_type,
+                        }) = &typed_type
+                        {
+                            if let Some(rt) = return_type {
+                                rt.deref().clone()
+                            } else {
+                                panic!("Expected a return type from lambda but got None");
+                            }
+                        } else {
+                            panic!("Expected lambda but got {typed_type}");
+                        };
+
                     (
                         typed_type,
                         self.call_function(
@@ -1774,6 +1789,8 @@ impl<'a> CodeGen<'a> {
                         lambda_space_opt,
                         *indent,
                         ast_index,
+                        &self.module,
+                        &mut self.statics,
                     )
                 }
             }

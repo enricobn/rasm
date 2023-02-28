@@ -1,5 +1,5 @@
 asm vecOf<T>(value: T) -> Vec<T> /{
-    $call(malloc, 8)
+    $call(malloc, 8, " for vecOf")
     push    eax
 
     mov     dword eax, [eax]
@@ -50,7 +50,7 @@ asm vecRange(start: i32, end: i32) -> Vec<i32> /{
     inc     ebx                 ; + 1 for the size
     add     ebx, ebx
     add     ebx, ebx
-    $call(malloc, ebx)
+    $call(malloc, ebx, " for vecRange")
     pop     ebx
     push    eax
     mov     dword ecx, [eax]
@@ -85,7 +85,7 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     inc     ecx                 ; + 1 for the size
     add     ecx, ecx
     add     ecx, ecx
-    $call(malloc, ecx)
+    $call(malloc, ecx, " for vec map)
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     $call(addRef, eax, "for map")
     pop     ecx
@@ -194,7 +194,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     shl     ebx, 2
     ; add the space for the size
     add     ebx, 4
-    $call(malloc, ebx)
+    $call(malloc, ebx, " for vec filter")
     $addRef(eax:Vec<T>)
     pop     ebx
 
@@ -234,7 +234,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
 }/
 
 asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
-    $call(malloc, 12)
+    $call(malloc, 12, " for vecOf 2")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 2
@@ -250,7 +250,7 @@ asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
 }/
 
 asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
-    $call(malloc, 36)
+    $call(malloc, 36, " for vecOf 8")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 8
@@ -355,7 +355,7 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     push    edx
     inc     edx
     shl     edx,2
-    $call(malloc, edx)
+    $call(malloc, edx, " for vecFlattenCreate")
     pop     edx
     push    eax
     mov     dword eax, [eax]
@@ -425,7 +425,7 @@ fn VecReferences(vec: i32, generic: i32) -> i32 {
 }
 
 asm Vec<T>() -> Vec<T> /{
-    $call(malloc, 4)
+    $call(malloc, 4, " for Vec")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 0

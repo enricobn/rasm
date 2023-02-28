@@ -81,7 +81,6 @@ fn render(ren: SDLRenderer, state: State) {
     sdlRenderClear(ren);
 
     let resources = State::resources(state);
-    let keys = State::keys(state);
     let stage = State::stage(state);
 
     Stage::run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});

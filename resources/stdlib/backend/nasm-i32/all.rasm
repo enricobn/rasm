@@ -71,7 +71,7 @@ asm now() -> TimeVal /{
     $call(TimeVal, 0, 0)
     push    dword eax
     mov     ebx, [eax]
-    $call(malloc, 8)
+    $call(malloc, 8, " for TimeVal")
     $call(freeMem, eax)
     mov     dword ecx, [eax]  ; timezone
     mov     eax, 78           ; call number = gettimeofday
@@ -135,7 +135,7 @@ asm toString(n: i32) -> str /{
     push    ecx
     push    edx
 
-    $call(malloc, 20)
+    $call(malloc, 20, " temp for toString(i32)")
     push eax
 
     $call(addRef, eax, "")
@@ -161,7 +161,7 @@ asm toString(n: i32) -> str /{
     jnz .next_digit     ; Repeat until eax==0
 
     inc    ecx          ; The length + 1, I think the 0 at the end...
-    $call(malloc, ecx)
+    $call(malloc, ecx, " for toString(i32)")
 
     $call(memcopy, esi, [eax], ecx)
 

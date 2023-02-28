@@ -72,7 +72,11 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     CodeGen::add(&mut body, "push ebx", None, true);
     CodeGen::add(
         &mut body,
-        &format!("$call(malloc, {})", struct_def.properties.len() * wl),
+        &format!(
+            "$call(malloc, {}, \" for {}\")",
+            struct_def.properties.len() * wl,
+            struct_def.name
+        ),
         None,
         true,
     );

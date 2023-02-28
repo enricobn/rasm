@@ -756,7 +756,7 @@ pub fn convert_to_typed_module(
         .for_each(|it| add_default_function(module, it, true, typed_context, backend, statics));
 
     let default_functions = &mut vec![
-        DefaultFunctionCall::new_1("malloc", BuiltinTypeKind::I32),
+        DefaultFunctionCall::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
         DefaultFunctionCall::new_1("exitMain", BuiltinTypeKind::I32),
         DefaultFunctionCall::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
         DefaultFunctionCall::new_3(

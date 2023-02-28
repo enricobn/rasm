@@ -11,7 +11,7 @@ asm print(n: i32) /{
 
     ; TODO I cannot allocate memory here, because when we use print inside malloc for debug we enter in an infinite loop
     ;      but I don't like it because it is not thread safe
-    ; $call(malloc, 20)
+    ; $call(malloc, 20, " temp for print(i32)")
     ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
     ; $call(freeMem, eax)
     ; mov     dword esi,[eax]
@@ -126,7 +126,7 @@ asm readFile(path: str) -> str /{
     mov     edx, eax
     add     edx, 1  ; we allocate one more byte for 0 at the end of the string
 
-    $call(malloc, edx)
+    $call(malloc, edx, " for readFile")
     push    eax
 
     sub     edx,1   ; we subtract one for 0 at the end of the string
@@ -148,7 +148,7 @@ asm fileSize(descriptor: i32) -> i32 /{
     push    ebx
     push    ecx
 
-    $call(malloc, 1024)
+    $call(malloc, 1024, " for fileSize")
     ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
     $call(freeMem, eax)
 

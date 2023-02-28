@@ -373,6 +373,8 @@ impl<'a> FunctionCallParameters<'a> {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         ast_index: &ASTIndex,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
     ) {
         self.debug_and_before(
             &format!("adding let val {val_name} original_param_name {original_param_name}"),
@@ -381,6 +383,20 @@ impl<'a> FunctionCallParameters<'a> {
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
             self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
+            /*
+            if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type, module) {
+                let src = format!("[edx + {}]", lambda_space_index * self.backend.word_len());
+
+                self.add_code_for_reference_type(
+                    module,
+                    &name,
+                    &src,
+                    &format!("from lambda space {val_name} : {ast_index}"),
+                    statics,
+                );
+            }
+
+             */
         } else {
             self.add_val_from_parameter(
                 original_param_name.clone(),
@@ -390,6 +406,24 @@ impl<'a> FunctionCallParameters<'a> {
                     as i32),
                 indent,
             );
+            /*
+            if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type, module) {
+                let source = &format!(
+                    "[{}+{}]",
+                    self.backend.stack_base_pointer(),
+                    -(index_in_context.unwrap() as i32 * self.backend.word_len() as i32)
+                );
+
+                self.add_code_for_reference_type(
+                    module,
+                    &name,
+                    &source,
+                    &format!("HENRY par {original_param_name} : {ast_index}"),
+                    statics,
+                );
+            }
+
+             */
         }
     }
 

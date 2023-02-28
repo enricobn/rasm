@@ -126,6 +126,7 @@ fn create_constructors(
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
+        let descr_label = statics.add_str(&format!(" for {}::{}", enum_def.name, variant.name));
 
         let ast_type = ASTType::Custom {
             name: enum_def.name.clone(),
@@ -140,16 +141,17 @@ fn create_constructors(
 
             CodeGen::add(
                 native_body,
-                &format!("$call(malloc, {})", backend.word_len()),
+                &format!(
+                    "$call(malloc, {}, [{descr_label}]: str)",
+                    backend.word_len()
+                ),
                 None,
                 true,
             );
 
-            // we add a ref to it because it should not be reused
-            let descr_label = statics.add_str("");
             CodeGen::add(
                 native_body,
-                &format!("$call(addRef, eax, [{descr_label}]:str)"),
+                &format!("$call(addRef, eax, [{descr_label}]: str)"),
                 None,
                 true,
             );
@@ -185,7 +187,7 @@ fn create_constructors(
 
             format!("    mov    eax, [{}]\n", label)
         } else {
-            enum_parametric_variant_constructor_body(backend, &variant_num, &variant)
+            enum_parametric_variant_constructor_body(backend, &variant_num, &variant, &descr_label)
         };
         let body = ASTFunctionBody::ASMBody(body_str);
 
@@ -216,6 +218,7 @@ fn enum_parametric_variant_constructor_body(
     backend: &dyn Backend,
     variant_num: &usize,
     variant: &&ASTEnumVariantDef,
+    descr_label: &str,
 ) -> String {
     let word_size = backend.word_size();
     let word_len = backend.word_len();
@@ -224,7 +227,7 @@ fn enum_parametric_variant_constructor_body(
     CodeGen::add(
         &mut body,
         &format!(
-            "$call(malloc, {})",
+            "$call(malloc, {}, [{descr_label}]: str)",
             (variant.parameters.len() + 1) * word_len as usize
         ),
         None,
