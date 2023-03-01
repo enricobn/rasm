@@ -39,7 +39,3 @@ println(first(Vec()));
 let vecOfOpt = vecOf(Option::Some("Hello"));
 
 println(first(vecOfOpt));
-
-fn print<T>(o: Option<T>) {
-    Option::run(o, { value -> print("Some("); print(value); print(")");}, { -> print("Empty");});
-}

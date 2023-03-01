@@ -11,3 +11,6 @@ println(listEnumerate(listOf("A", "B")), { it ->
     print("-");
     print(EnumerateEntry::value(it));
 });
+
+println(get(listOf(10, 20), 1));
+println(get(listOf(10, 20), 2));

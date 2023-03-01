@@ -148,3 +148,31 @@ fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> Lis
         map(l2, { v2 -> zipFunction(v1, v2); });
     });
 }
+
+fn first<T>(list: List<T>) -> Option<T> {
+    List::match(list, { head, tail -> Option::Some(head);}, { -> Option::None();});
+}
+
+fn get<T>(list: List<T>, i: i32) -> Option<T> {
+    List::match(list, { head, tail ->
+        if(eq(i, 0), { -> Option::Some(head);}, { -> get(tail, sub(i, 1));});
+    }, { -> Option::None();});
+}
+
+fn map2<T,T1>(list: List<T>, fun: fn(T,T) -> T1) -> Option<T1> {
+    List::match(list, { head1, tail1 ->
+        List::match(tail1, { head2, tail2 ->
+             Option::Some(fun(head1, head2));
+        }, { -> Option::None();});
+    }, { -> Option::None();});
+}
+
+fn map3<T,T1>(list: List<T>, fun: fn(T,T,T) -> T1) -> Option<T1> {
+    List::match(list, { head1, tail1 ->
+        List::match(tail1, { head2, tail2 ->
+            List::match(tail2, { head3, tail3 ->
+                Option::Some(fun(head1, head2, head3));
+            }, { -> Option::None();});
+        }, { -> Option::None();});
+    }, { -> Option::None();});
+}

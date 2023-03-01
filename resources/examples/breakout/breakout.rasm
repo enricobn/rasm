@@ -8,10 +8,16 @@ struct Resources {
     font: SDLFont
 }
 
+struct HighScore {
+    score: i32,
+    time: TimeVal
+}
+
 struct State {
     resources: Resources,
     keys: Vec<i32>,
-    stage: Stage
+    stage: Stage,
+    highScores: Vec<HighScore>
 }
 
 enum Stage {
@@ -38,7 +44,7 @@ sdlTTFInit();
 
 let font = sdlOpenFont("resources/examples/breakout/DejaVuSerif.ttf", 24);
 
-let initialState = State(Resources(font), Vec(), Stage::Menu(MenuState(0)));
+let initialState = State(Resources(font), Vec(), Stage::Menu(MenuState(0)), loadHighScores());
 
 let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
@@ -55,6 +61,7 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
     let resources = State::resources(state);
     let keys = State::keys(state);
     let stage = State::stage(state);
+    let highScores = State::highScores(state);
 
     let newKeys = Option::match(event, { e ->
           let key = KeyEvent::key(e);
@@ -69,10 +76,10 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
 
     Stage::match(stage, { menuState ->
         let newStage = update(resources, newKeys, menuState);
-        State(resources, newKeys, newStage);
+        State(resources, newKeys, newStage, highScores);
     }, { gameState ->
         let newStage = update(resources, newKeys, gameState);
-        State(resources, newKeys, newStage);
+        State(resources, newKeys, newStage, highScores);
     });
 }
 
@@ -88,7 +95,75 @@ fn render(ren: SDLRenderer, state: State) {
     sdlRenderPresent(ren);
 }
 
-fn println<T>(prefix: str, o: T) {
-    print(prefix);
-    println(o);
+fn loadHighScores() -> Vec<HighScore> {
+    let result = if(fileExists("scores.txt"), { ->
+        let scores = readFile("scores.txt");
+        let lines = lines(scores);
+        listToVec(fmap(lines, { line ->
+            let splitted = splitToList(line, ",");
+            let result = map3(splitted, { score, sec, nano -> HighScore(atoi(score), TimeVal(atoi(sec), atoi(nano)));});
+            toList(result);
+        }));
+    }, { -> Vec();});
+
+    forEach(result, { highScore ->
+        let score = HighScore::score(highScore);
+        let time = HighScore::time(highScore);
+        print(score);
+        print(", ");
+        println(time);
+    });
+
+    result;
+}
+
+fn writeHighScores(highScores: Vec<HighScore>) {
+    let file = createFile("scores.txt");
+
+    forEach(highScores, { it ->
+        let score = HighScore::score(it);
+        let time = HighScore::time(it);
+        let sec = TimeVal::sec(time);
+        let nano = TimeVal::nano(time);
+
+        print(file, score);
+        print(file, ",");
+        print(file, sec);
+        print(file, ",");
+        println(file, nano);
+
+    });
+
+    sysClose(file);
+}
+
+fn print(highScore: HighScore) {
+    let score = HighScore::score(highScore);
+    let time = HighScore::time(highScore);
+    print(score);
+    print(", ");
+    println(time);
+}
+
+fn splitToList(s: str, separator: str) -> List<str> {
+    let chars = listEnumerate(chars(s));
+
+    let separatorIndex = findChar(chars, separator);
+
+    Option::match(separatorIndex, { index ->
+        let item = substr(s, 0, index);
+        let remainder = substr(s, add(index, 1), sub(sub(slen(s), index), 1));
+        Option::match(item, { f ->
+            Option::match(remainder, { r -> listAppend(listOf(f), splitToList(r, separator));}, { -> listOf(f);});
+        }, { -> List::Empty();});
+    }, { -> listOf(s);});
+}
+
+fn findChar(chars: List<EnumerateEntry<str>>, c: str) -> Option<i32> {
+    let o = first(filter(chars, { it ->
+        let currentChar = EnumerateEntry::value(it);
+        seq(currentChar, c);
+    }));
+
+    Option::match(o, { entry -> Option::Some(EnumerateEntry::index(entry));}, { -> Option::None();});
 }

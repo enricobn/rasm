@@ -1,0 +1,12 @@
+enum Option<T> {
+  Some(value : T),
+  None
+}
+
+fn toList<T>(o: Option<T>) -> List<T> {
+    Option::match(o, { v -> listOf(v);}, { -> List::Empty();});
+}
+
+fn print<T>(o: Option<T>) {
+    Option::run(o, { v -> print("Some("); print(v); print(")");}, { -> print("None");});
+}

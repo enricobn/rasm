@@ -75,7 +75,11 @@ fn test_lambda_params() {
 
 #[test]
 fn test_list() {
-    run_test("list", vec!["5"], "0,1,2,3,4\n4,3,2,1,0\n4\n0-A,1-B\n");
+    run_test(
+        "list",
+        vec!["5"],
+        "0,1,2,3,4\n4,3,2,1,0\n4\n0-A,1-B\nSome(20)\nNone\n",
+    );
 }
 
 #[test]
@@ -229,7 +233,7 @@ fn test_vec() {
     run_test(
         "vec",
         vec![],
-        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,1,2,3,\n0,1,2,\n10\nEmpty\nSome(Some(Hello))\n",
+        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,1,2,3,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n",
     );
 }
 

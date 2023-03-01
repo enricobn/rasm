@@ -2507,7 +2507,7 @@ fn update(
 
     let generic_types_from_effective_type =
         resolve_generic_types_from_effective_type(&par.ast_type, result_type)
-            .map_err(|e| format!("{}\nin update par {par} result_type {result_type}", e))?;
+            .map_err(|e| format!("{} in update par {par} result_type {result_type}", e))?;
 
     let len_before = resolved_param_types.len();
 

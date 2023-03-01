@@ -187,10 +187,6 @@ asm seq(s1: str, s2: str) -> bool /{
     pop   ebx
 }/
 
-/** TODO it should be a bool
- *  a  == b
- *  false = 0 true = 1
- **/
 inline asm ceq(a: char, b: char) -> bool /{
     mov     eax,$a
     cmp     eax,$b

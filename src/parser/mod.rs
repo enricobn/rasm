@@ -23,7 +23,7 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
-use crate::utils::SliceDisplay;
+use crate::utils::{OptionDisplay, SliceDisplay};
 
 mod asm_def_parser;
 pub(crate) mod ast;
@@ -706,7 +706,11 @@ impl Parser {
                 return ProcessResult::Continue;
             }
         }
-        ProcessResult::Panic("processing function call".into())
+        ProcessResult::Panic(format!(
+            "unexpected kind: {} or last data {} processing function call",
+            token.kind,
+            OptionDisplay(&self.last_parser_data())
+        ))
     }
 
     fn process_function_def(&mut self, token: Token) -> ProcessResult {

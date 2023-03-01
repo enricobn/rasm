@@ -1,13 +1,17 @@
 include "backend/nasm-i32/all.rasm"
 include "list.rasm"
+include "math.rasm"
+include "option.rasm"
 include "vec.rasm"
 
-/**
- * Prints the number to standard output adding a line feed to the end.
- **/
 fn println<T>(v: T) {
     print(v);
     println();
+}
+
+fn println<T>(prefix: str, o: T) {
+    print(prefix);
+    println(o);
 }
 
 // TODO do it in asm
@@ -55,18 +59,4 @@ fn with4<T1,T2,T3,T4,O>(v1: T1, v2: T2, v3: T3, v4: T4, f: fn(T1, T2, T3, T4) ->
 
 fn runWith<T>(v: T, f: fn(T) -> ()) {
     f(v);
-}
-
-/*  OPTION */
-enum Option<T> {
-  Some(value : T),
-  None
-}
-
-fn min(a: i32, b: i32) -> i32 {
-    ifImmediate(less(a, b), a, b);
-}
-
-fn max(a: i32, b: i32) -> i32 {
-    ifImmediate(greater(a, b), a, b);
 }

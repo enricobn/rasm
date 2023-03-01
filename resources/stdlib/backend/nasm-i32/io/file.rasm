@@ -68,14 +68,37 @@ fn createFile(path: str) -> File {
     );
 }
 
-asm readFile(path: str) -> str /{
+fn createFile(path: str, flags: Vec<FileFlag>) -> File {
+    sysOpen(path, fileFlags(flags),
+        fileMode(FileMode(
+            vecOf(FilePermission::Read(), FilePermission::Write()),
+            vecOf(FilePermission::Read(), FilePermission::Write()),
+            vecOf(FilePermission::Read(), FilePermission::Write())
+        ))
+    );
+}
+
+asm fileExists(path: str) -> bool /{
+    $call(sysOpen, $path, 0, 0)
+    cmp     dword eax, 0
+    jb      .error
+    mov     dword eax, 0
+.error:
+    mov     dword eax, 1
+.end:
+}/
+
+fn readFile(path: str) -> str {
+    let file = sysOpen(path, 0);
+    readFile(file);
+}
+
+asm readFile(file: File) -> str /{
     push    ebx
     push    ecx
     push    edx
 
-    ; 0 -> read-only mode
-    $call(sysOpen, $path, 0)
-    mov     ebx,eax           ; the file descriptor
+    mov     ebx,$file           ; the file descriptor
 
     $call(fileSize, ebx: File)
     mov     edx, eax
