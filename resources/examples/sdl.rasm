@@ -266,7 +266,7 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
     newWorld;
 }
 
-asm sdlLoop<CTX,STATE>(ctx: CTX, state: State, update: fn(Option<KeyEvent>, STATE) -> STATE, render: fn(CTX, STATE) -> ()) /{
+asm sdlLoop<CTX,STATE>(ctx: CTX, state: STATE, update: fn(Option<KeyEvent>, STATE) -> STATE, render: fn(CTX, STATE) -> ()) /{
     push    ebx
     push    ecx
     push    edx

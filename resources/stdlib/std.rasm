@@ -4,6 +4,11 @@ include "math.rasm"
 include "option.rasm"
 include "vec.rasm"
 
+struct Pair<A,B> {
+    first: A,
+    second: B
+}
+
 fn println<T>(v: T) {
     print(v);
     println();
