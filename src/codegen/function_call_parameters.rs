@@ -254,6 +254,20 @@ impl<'a> FunctionCallParameters<'a> {
                 comment,
                 true,
             );
+            CodeGen::add(
+                &mut self.before,
+                &format!("push  {} eax", self.backend.word_size()),
+                comment,
+                true,
+            );
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov   {} eax, [{sbp}+8]", ws),
+                None,
+                true,
+            );
+        } else {
+            println!("empty context");
         }
 
         let mut i = 1;
@@ -267,6 +281,7 @@ impl<'a> FunctionCallParameters<'a> {
             };
 
             if !already_in_parent {
+                println!("from context");
                 let relative_address = match kind {
                     TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
                     TypedValKind::LetRef(_, _) => {
@@ -283,24 +298,14 @@ impl<'a> FunctionCallParameters<'a> {
                     Some(&format!("context parameter {}", name)),
                 );
             } else if let Some(pls) = parent_lambda_space {
+                println!("from parent");
                 if let Some(parent_index) = pls.get_index(name) {
-                    CodeGen::add(&mut self.before, "push   eax", None, true);
-
-                    CodeGen::add(
-                        &mut self.before,
-                        &format!("mov   {} eax, [{sbp}+8]", ws),
-                        None,
-                        true,
-                    );
-
                     self.indirect_mov(
                         &format!("eax + {}", (parent_index) * wl),
                         &format!("ecx + {}", (i) * wl),
                         "ebx",
-                        Some(&format!("context parameter {}", name)),
+                        Some(&format!("context parameter from parent {}", name)),
                     );
-
-                    CodeGen::add(&mut self.before, "pop   eax", None, true);
                 } else {
                     panic!()
                 }
@@ -313,7 +318,8 @@ impl<'a> FunctionCallParameters<'a> {
         });
 
         if !context.is_empty() {
-            CodeGen::add(&mut self.before, "pop  ebx", comment, true);
+            CodeGen::add(&mut self.before, "pop   eax", None, true);
+            CodeGen::add(&mut self.before, "pop   ebx", comment, true);
         }
 
         CodeGen::add(
