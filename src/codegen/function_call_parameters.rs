@@ -209,37 +209,23 @@ impl<'a> FunctionCallParameters<'a> {
         statics: &mut Statics,
         module: &ASTTypedModule,
     ) -> LambdaSpace {
+        let sbp = self.backend.stack_base_pointer();
+        let sp = self.backend.stack_pointer();
+        let wl = self.backend.word_len() as usize;
+        let ws = self.backend.word_size();
+        let ptrs = self.backend.pointer_size();
+
+        let mut references = self.body_references_to_context(&def.body, context);
+        references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
+        references.dedup_by(|(name1, _), (name2, _)| name1 == name2);
+
+        let mut context = TypedValContext::new(None);
+        for (key, kind) in references {
+            context.insert(key, kind);
+        }
+
         let mut lambda_space = LambdaSpace::new(context.clone());
 
-        let stack_base_pointer = self.backend.stack_base_pointer();
-        let stack_pointer = self.backend.stack_pointer();
-        let word_len = self.backend.word_len() as usize;
-        let word_size = self.backend.word_size();
-        let pointer_size = self.backend.pointer_size();
-
-        /*
-        if !self.body_reads_from_context(&def.body, context) {
-            let key = format!("_ls_{}", def.name);
-
-            statics.insert(key.clone(), MemoryValue::RefToLabel(def.name.clone()));
-
-            debug_i!("lambda does not read from context: {def}");
-
-            let to_remove_from_stack = self.to_remove_from_stack();
-            CodeGen::add(
-                &mut self.before,
-                &format!(
-                    "mov {} [{} + {}], {key}",
-                    word_size,
-                    stack_pointer,
-                    (to_remove_from_stack) * word_len as usize
-                ),
-                comment,
-                true,
-            );
-        } else {
-
-         */
         CodeGen::add(
             &mut self.before,
             &format!("push  {} ecx", self.backend.word_size()),
@@ -249,8 +235,6 @@ impl<'a> FunctionCallParameters<'a> {
 
         let num_of_values_in_context = context.iter().count();
 
-        //self.lambda_slots_to_deallocate += num_of_values_in_context + 1;
-
         Self::allocate_lambda_space(
             self.backend,
             &mut self.before,
@@ -259,36 +243,7 @@ impl<'a> FunctionCallParameters<'a> {
             statics,
         );
 
-        /*
-        let address_relative_to_bp =
-            stack_vals.reserve(StackEntryType::Other, "lambda space") * word_len;
-        CodeGen::add(
-            &mut self.before,
-            &format!(
-                "mov   {} [{} - {}], ecx",
-                word_size,
-                self.backend.stack_base_pointer(),
-                address_relative_to_bp
-            ),
-            Some("saving lambda space"),
-            true,
-        );
-
-         */
-
         self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
-
-        /*
-        self.backend.call_add_ref(
-            &mut self.before,
-            "ecx",
-            "_fn",
-            "lambda space",
-            module,
-            statics,
-        );
-
-         */
 
         CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
 
@@ -310,6 +265,7 @@ impl<'a> FunctionCallParameters<'a> {
             } else {
                 false
             };
+
             if !already_in_parent {
                 let relative_address = match kind {
                     TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
@@ -321,15 +277,35 @@ impl<'a> FunctionCallParameters<'a> {
                     }
                 };
                 self.indirect_mov(
-                    &format!(
-                        "{}+{}",
-                        stack_base_pointer,
-                        relative_address * word_len as i32
-                    ),
-                    &format!("ecx + {}", i * word_len),
+                    &format!("{}+{}", sbp, relative_address * wl as i32),
+                    &format!("ecx + {}", i * wl),
                     "ebx",
                     Some(&format!("context parameter {}", name)),
                 );
+            } else if let Some(pls) = parent_lambda_space {
+                if let Some(parent_index) = pls.get_index(name) {
+                    CodeGen::add(&mut self.before, "push   eax", None, true);
+
+                    CodeGen::add(
+                        &mut self.before,
+                        &format!("mov   {} eax, [{sbp}+8]", ws),
+                        None,
+                        true,
+                    );
+
+                    self.indirect_mov(
+                        &format!("eax + {}", (parent_index) * wl),
+                        &format!("ecx + {}", (i) * wl),
+                        "ebx",
+                        Some(&format!("context parameter {}", name)),
+                    );
+
+                    CodeGen::add(&mut self.before, "pop   eax", None, true);
+                } else {
+                    panic!()
+                }
+            } else {
+                panic!()
             }
 
             lambda_space.add_context_parameter(name.clone(), i);
@@ -340,19 +316,9 @@ impl<'a> FunctionCallParameters<'a> {
             CodeGen::add(&mut self.before, "pop  ebx", comment, true);
         }
 
-        // I copy the lambda space of the parent
-        if let Some(parent_lambda) = parent_lambda_space {
-            self.mem_copy_words(
-                &format!("[{}+8]", stack_base_pointer),
-                "ecx",
-                parent_lambda.parameters_indexes.len() + 1,
-                None,
-            );
-        }
-
         CodeGen::add(
             &mut self.before,
-            &format!("mov {} [ecx], {}", pointer_size, def.name),
+            &format!("mov {} [ecx], {}", ptrs, def.name),
             None,
             true,
         );
@@ -362,16 +328,15 @@ impl<'a> FunctionCallParameters<'a> {
             &mut self.before,
             &format!(
                 "mov {} [{} + {}], ecx",
-                word_size,
-                stack_pointer,
-                (to_remove_from_stack + 1) * word_len as usize
+                ws,
+                sp,
+                (to_remove_from_stack + 1) * wl as usize
             ),
             comment,
             true,
         );
 
         CodeGen::add(&mut self.before, "pop  ecx", comment, true);
-        //}
 
         self.parameter_added_to_stack();
 
@@ -471,6 +436,85 @@ impl<'a> FunctionCallParameters<'a> {
     pub fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
         let v = self.backend.value_to_string(value_type);
         self.add_number(name, v, None);
+    }
+
+    fn body_references_to_context(
+        &self,
+        body: &ASTTypedFunctionBody,
+        context: &TypedValContext,
+    ) -> Vec<(String, TypedValKind)> {
+        if let ASTTypedFunctionBody::RASMBody(statements) = body {
+            statements
+                .iter()
+                .flat_map(|it| {
+                    self.statement_references_to_context(it, context)
+                        .into_iter()
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn statement_references_to_context(
+        &self,
+        statement: &ASTTypedStatement,
+        context: &TypedValContext,
+    ) -> Vec<(String, TypedValKind)> {
+        match statement {
+            ASTTypedStatement::Expression(expr) => {
+                self.expression_references_to_context(expr, context)
+            }
+            ASTTypedStatement::LetStatement(_, expr, _is_const, _index) => {
+                self.expression_references_to_context(expr, context)
+            }
+        }
+    }
+
+    fn expression_references_to_context(
+        &self,
+        expr: &ASTTypedExpression,
+        context: &TypedValContext,
+    ) -> Vec<(String, TypedValKind)> {
+        match expr {
+            ASTTypedExpression::StringLiteral(_) => Vec::new(),
+            //ASTTypedExpression::CharLiteral(_) => false,
+            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                let mut result = Vec::new();
+                if let Some(v) = context.get(&call.function_name) {
+                    result.append(&mut vec![(call.function_name.clone(), v.clone())]);
+                }
+                result.append(
+                    &mut call
+                        .parameters
+                        .iter()
+                        .flat_map(|it| {
+                            self.expression_references_to_context(it, context)
+                                .into_iter()
+                        })
+                        .collect(),
+                );
+
+                result
+            }
+            ASTTypedExpression::ValueRef(name, _) => {
+                if let Some(v) = context.get(name) {
+                    vec![(name.clone(), v.clone())]
+                } else {
+                    Vec::new()
+                }
+            }
+            ASTTypedExpression::Value(_, _) => Vec::new(),
+            ASTTypedExpression::Lambda(lambda_def) => lambda_def
+                .body
+                .iter()
+                .flat_map(|it| {
+                    self.statement_references_to_context(it, context)
+                        .into_iter()
+                })
+                .collect(),
+            ASTTypedExpression::Any(_) => Vec::new(),
+        }
     }
 
     fn body_reads_from_context(

@@ -190,6 +190,10 @@ impl TypedValContext {
         result
     }
 
+    pub fn insert(&mut self, key: String, kind: TypedValKind) {
+        self.value_to_address.insert(key, kind);
+    }
+
     pub fn get(&self, key: &str) -> Option<&TypedValKind> {
         self.value_to_address.get(key)
     }
@@ -1511,7 +1515,7 @@ impl<'a> CodeGen<'a> {
                         let mut def = ASTTypedFunctionDef {
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: format!("lambda{}", self.id),
-                            parameters: Vec::new(), // TODO I don't remember why it does not have any parameter, but it seems to work...
+                            parameters: Vec::new(), // parametrs are calculated later
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                             inline: false,
@@ -1539,7 +1543,11 @@ impl<'a> CodeGen<'a> {
                                 ast_type: parameters_types.get(i).unwrap().clone(),
                                 ast_index: p_index.clone(),
                             });
-                            // TODO check if the parameter name collides with some context var
+                            if context.get(p_name).is_some() {
+                                panic!(
+                                    "parameter {p_name} already used in this context: {p_index}"
+                                );
+                            }
                         }
 
                         let lambda_call = LambdaCall {
