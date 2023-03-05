@@ -1,12 +1,16 @@
 asm lines(s: str) -> List<str> /{
+    sub  esp, 4 ; I save local space to store temporary address of list to dereference : [ebp -4]
+    sub  esp, 4 ; I save local space to store a count of strings to dereference : [ebp -8]
     push ebx
     push ecx
     push edx
 
+    mov  dword [ebp -8],0
+
     mov ebx, 0 ; pos of start of line
     mov edx, 0 ; actual pos
-    $call(newStrList)
-
+    mov eax, [_enum_List_Empty]
+    mov     dword [ebp -4], eax
 .loop:
     mov dword ecx, $s
     mov dword ecx, [ecx]
@@ -30,11 +34,16 @@ asm lines(s: str) -> List<str> /{
     add     eax, 4
     ; then we get the pointer to the allocation table of the string, that is what we need
     mov     dword eax,[eax]
-    ; we must add a reference count otherwise is cleaned up by allocator
-    mov     dword [eax + 12], 1     ; count
     mov     ebx, eax
     pop     eax
-    $call(addStrToList, eax: List<str>, ebx: str)
+
+    mov     dword [ebp -4], eax
+    $addRef(eax: List<str>, "for lines")
+    $addRef(ebx: str, "for lines")
+    $call(listAddRight, eax: List<str>, ebx: str)
+    inc dword [ebp -8]
+    push    dword ebx
+    $deref([ebp -4]: List<str>, "for lines")
     inc edx
     mov ebx, edx
     jmp .loop
@@ -53,25 +62,31 @@ asm lines(s: str) -> List<str> /{
     add     eax, 4
     ; then we get the pointer to the allocation table of the string, that is what we need
     mov     dword eax,[eax]
-    ; we must add a reference count otherwise is cleaned up bu allocator
-    mov     dword [eax + 12], 1     ; count
     mov     ebx, eax
     pop     eax
-    $call(addStrToList, eax: List<str>, ebx: str)
 
+    mov     dword [ebp -4], eax
+    $addRef(eax: List<str>, "for lines")
+    $addRef(ebx: str, "for lines")
+    $call(listAddRight, eax: List<str>, ebx: str)
+    inc dword [ebp -8]
+    push    dword ebx
+    $deref([ebp -4]: List<str>, "for lines")
 .end:
+    mov dword ecx,[ebp -8]
+.loopDereferencingStrings:
+    test    ecx,ecx
+    jz      .endDereferencingStrings
+    pop     ebx
+    $deref(ebx: str, "for lines")
+    dec     ecx
+    jmp     .loopDereferencingStrings
+.endDereferencingStrings:
     pop edx
     pop ecx
     pop ebx
+    add  esp, 8
 }/
-
-fn addStrToList(l: List<str>, s: str) -> List<str> {
-    listAddRight(l, s);
-}
-
-fn newStrList() -> List<str> {
-    List::Empty();
-}
 
 asm chars(s: str) -> List<str> /{
     push ebx
@@ -82,7 +97,7 @@ asm chars(s: str) -> List<str> /{
     mov dword ebx, [ebx]
     mov ecx,0
 
-    $call(newStrList)
+    mov eax, [_enum_List_Empty]
 
 .loop:
     cmp     byte [ebx], 0
@@ -98,11 +113,11 @@ asm chars(s: str) -> List<str> /{
     add     eax, 4
     ; then we get the pointer to the allocation table of the string, that is what we need
     mov     dword eax,[eax]
-    ; we must add a reference count otherwise is cleaned up bu allocator
-    mov     dword [eax + 12], 1     ; count
     mov     edx, eax
     pop     eax
-    $call(addStrToList, eax: List<str>, edx: str)
+    $addRef(eax: List<str>, "for chars")
+    $addRef(edx: str, "for chars")
+    $call(listAddRight, eax: List<str>, edx: str)
     inc ebx
     inc ecx
     jmp .loop

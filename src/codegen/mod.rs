@@ -825,16 +825,6 @@ impl<'a> CodeGen<'a> {
     fn translate_body(&mut self, body: &str) -> String {
         let val_context = ValContext::new(None);
 
-        /*        for par in typed_function_def.parameters.iter() {
-            val_context.insert_par(
-                par.name.clone(),
-                ASTParameterDef {
-                    name: par.name.clone(),
-                    ast_type: type_to_untyped_type(&par.ast_type),
-                },
-            );
-        }*/
-
         let new_body = TextMacroEvaluator::new().translate(
             self.backend,
             &mut self.statics,
@@ -872,40 +862,6 @@ impl<'a> CodeGen<'a> {
                     // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
                     println!("cannot find call to {}", it.name);
                 }
-
-                /*                match convert_call(
-                                    &module,
-                                    &val_context,
-                                    &function_call,
-                                    &mut typed_context,
-                                    &LinkedHashMap::new(),
-                                    None,
-                                    backend,
-                                    &CallStack::new(),
-                                ) {
-                                    Ok(Some(new_call)) => {
-                                        println!("converted to {new_call}");
-                                        if function_call.function_name != new_call.function_name {
-                                            new_body = replace_native_call(
-                                                &new_body,
-                                                &function_call.function_name,
-                                                &new_call.function_name,
-                                            );
-
-                                            if body == &new_body {
-                                                panic!(
-                                                    "{} -> {}",
-                                                    function_call.function_name, new_call.function_name
-                                                );
-                                            }
-                                        }
-                                    }
-                                    Ok(None) => {}
-                                    Err(e) => {
-                                        panic!("Error converting body of main : {}", e.message);
-                                    }
-                                }
-                */
             });
 
         TextMacroEvaluator::new().translate(
@@ -994,6 +950,9 @@ impl<'a> CodeGen<'a> {
         );
 
         self.backend.function_preamble(&mut self.definitions);
+        if function_def.return_type.is_none() {
+            CodeGen::add(&mut self.definitions, "push   eax", None, true);
+        }
 
         let mut before = String::new();
 
@@ -1014,6 +973,15 @@ impl<'a> CodeGen<'a> {
                 Some("The address to the lambda space for inline lambda param"),
                 true,
             );
+            /*
+            CodeGen::add(
+                &mut self.definitions,
+                "mov   dword edx, [edx]",
+                Some("lambda space address"),
+                true,
+            );
+
+             */
         }
 
         let mut context = TypedValContext::new(Some(parent_context));
@@ -1041,6 +1009,13 @@ impl<'a> CodeGen<'a> {
 
         if is_lambda {
             stack.reserve(StackEntryType::Other, "push edx for lambda space");
+        }
+
+        if function_def.return_type.is_none() {
+            stack.reserve(
+                StackEntryType::Other,
+                "push eax for no return type functions",
+            );
         }
 
         let mut after = String::new();
@@ -1184,6 +1159,11 @@ impl<'a> CodeGen<'a> {
                 true,
             );
         }
+
+        if function_def.return_type.is_none() {
+            CodeGen::add(&mut self.definitions, "\npop   eax", None, true);
+        }
+
         self.backend.function_end(&mut self.definitions, true);
 
         lambda_calls
@@ -1548,6 +1528,7 @@ impl<'a> CodeGen<'a> {
                             context,
                             None,
                             &mut self.statics,
+                            &self.module,
                         );
 
                         // I add the parameters of the lambda itself
@@ -1840,6 +1821,7 @@ impl<'a> CodeGen<'a> {
     ) -> Option<String> {
         match ast_type {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
             ASTTypedType::Enum { name } => Some(name.clone()),
             ASTTypedType::Struct { name } => Some(name.clone()),
             ASTTypedType::Type { name } => {

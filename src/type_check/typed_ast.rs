@@ -509,10 +509,14 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
     }
 
     fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
-        self.type_defs
-            .iter()
-            .find(|it| &it.ast_type == ast_type)
-            .map(|it| it.ast_typed_type.clone())
+        if let Some(e) = find_one(self.enum_defs.iter(), |it| &it.ast_type == ast_type) {
+            Some(e.clone().ast_typed_type)
+        } else if let Some(s) = find_one(self.struct_defs.iter(), |it| &it.ast_type == ast_type) {
+            Some(s.clone().ast_typed_type)
+        } else {
+            find_one(self.type_defs.iter(), |it| &it.ast_type == ast_type)
+                .map(|t| t.clone().ast_typed_type)
+        }
     }
 
     fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {

@@ -215,8 +215,9 @@ asm deref(address: i32, descr: str) -> i32 /{
 
     jmp     .end
 .negative_count:
-    $call(negativeCount)
-    jmp     .end
+    $call(print, "Negative allocation count: ");
+    $call(println, $descr)
+    $call(exitMain, 1);
 .invalid_address:
     $call(invalidAddress)
 .end:
@@ -461,11 +462,6 @@ fn printAllocatedString() {
     println(" bytes allocated");
 }
 
-fn negativeCount() {
-    println("Negative allocation count");
-    exitMain(1);
-}
-
 fn derefAddressNotFound() {
     println("Deref: address not found");
     exitMain(1);
@@ -521,7 +517,7 @@ asm memContains(startAddress: i32, len: i32, what: i32) /{
         mov     dword ecx,[eax]
         cmp     dword ecx,$what
         jne     .not_equals
-        $call(println, "Found already used value")
+        $call(println, "Address is still in use")
         $call(exitMain, 1)
     .not_equals:
         add     eax, 1

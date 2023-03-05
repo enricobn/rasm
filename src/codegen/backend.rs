@@ -416,6 +416,8 @@ impl Backend for BackendAsm386 {
                 (enum_has_references(enum_def, type_def_provider), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_has_references(type_def), true)
+            } else if "_fn" == type_name {
+                (false, false)
             } else {
                 (true, false)
             };
@@ -476,6 +478,8 @@ impl Backend for BackendAsm386 {
             (enum_has_references(enum_def, type_def_provider), false)
         } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
             (type_has_references(type_def), true)
+        } else if "_fn" == type_name {
+            (false, false)
         } else {
             panic!("cannot find type {descr} {type_name}");
         };

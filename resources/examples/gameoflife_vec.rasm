@@ -1,5 +1,9 @@
-// run with: ./gameoflife_vec resources/examples/simple.cells 130
-// 0,281s
+// run with: time ./gameoflife_vec resources/examples/simple.cells 130
+// 113382 bytes allocated
+// 10542 table slots allocated
+//
+// real    0m0,226s
+
 
 include "std.rasm"
 include "gameoflife_vec_common.rasm"

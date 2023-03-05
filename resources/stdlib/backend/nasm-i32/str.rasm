@@ -89,7 +89,7 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
 
     cmp     ebx, eax
     jle     .ok
-    $call(noneStr)
+    mov     dword eax, [_enum_Option_None]
     jmp     .end
 .ok:
     add     ecx, 1
@@ -102,19 +102,11 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
 
     $call(memcopy, ebx, ecx, $len)
 
-    $call(someStr, eax: str)
+    $call(Option::Some, eax: str)
 .end:
     pop ecx
     pop ebx
 }/
-
-fn someStr(s: str) -> Option<str> {
-    Option::Some(s);
-}
-
-fn noneStr() -> Option<str> {
-    Option::None();
-}
 
 /*
  *  returns the offset (in bytes, not chars) of the next char

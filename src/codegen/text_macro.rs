@@ -753,6 +753,8 @@ fn get_type(
         ASTTypedType::Type {
             name: s.name.clone(),
         }
+    } else if orig_name == "str" {
+        ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
     } else {
         panic!("Cannot find struct, enum or type {orig_name}");
     }
@@ -791,45 +793,50 @@ impl TextMacroEval for AddRefMacro {
             if fd.name == "addRef_0" {
                 return String::new();
             }
-            if let Some(MacroParam::Plain(address, ast_type, Some(ast_typed_type))) =
-                parameters.get(0)
-            {
-                let type_name = match ast_typed_type {
-                    ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str",
-                    ASTTypedType::Struct { name } => name,
-                    ASTTypedType::Enum { name } => name,
-                    ASTTypedType::Type { name } => name,
-                    _ => return String::new(),
-                };
 
-                let mut result = String::new();
-                let descr = &format!("addref macro type {type_name}");
-                if self.deref {
-                    result.push_str(&backend.call_deref(
-                        address,
-                        &type_name,
-                        descr,
-                        type_def_provider,
-                        statics,
-                    ));
-                } else {
-                    backend.call_add_ref(
-                        &mut result,
-                        address,
-                        &type_name,
-                        descr,
-                        type_def_provider,
-                        statics,
-                    );
+            let (address, ast_typed_type) = match parameters.get(0) {
+                Some(MacroParam::Plain(address, ast_type, Some(ast_typed_type))) => {
+                    (address, ast_typed_type)
                 }
-                result
-            } else {
-                panic!(
+                Some(MacroParam::Ref(address, ast_type, Some(ast_typed_type))) => {
+                    (address, ast_typed_type)
+                }
+                _ => panic!(
                     "Error: addRef/deref macro, a type must be specified in {} but got {:?}",
                     Self::function_name(function_def),
                     parameters.get(0)
-                )
+                ),
+            };
+
+            let type_name = match ast_typed_type {
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str",
+                ASTTypedType::Struct { name } => name,
+                ASTTypedType::Enum { name } => name,
+                ASTTypedType::Type { name } => name,
+                _ => return String::new(),
+            };
+
+            let mut result = String::new();
+            let descr = &format!("addref macro type {type_name}");
+            if self.deref {
+                result.push_str(&backend.call_deref(
+                    address,
+                    &type_name,
+                    descr,
+                    type_def_provider,
+                    statics,
+                ));
+            } else {
+                backend.call_add_ref(
+                    &mut result,
+                    address,
+                    &type_name,
+                    descr,
+                    type_def_provider,
+                    statics,
+                );
             }
+            result
         } else {
             String::new()
         }
@@ -889,32 +896,50 @@ impl PrintRefMacro {
         indent: usize,
         backend: &dyn Backend,
     ) -> String {
-        let mut result = String::new();
+        if indent > 20 {
+            return String::new();
+        }
 
-        let ast_typed_type = match ast_type_o {
-            None => {
-                panic!("printRef macro: cannot find the type of the parameter {src}, please specify it")
-            }
-            Some(ast_type) => match ast_type {
-                ASTType::Builtin(_) => panic!("printRef macro: unsupported type {ast_type}"),
-                ASTType::Parametric(generic_type_name) => match function_def {
-                    None => panic!(),
-                    Some(f) => match f.generic_types.get(generic_type_name) {
-                        None => {
-                            panic!("printRef macro: Cannot find generic type {generic_type_name}")
+        let ast_typed_type = if let Some(ast_type) = ast_type_o {
+            println!("ast_type {ast_type}");
+            if let Some(ast_typed_type) =
+                type_def_provider.get_ast_typed_type_from_ast_type(ast_type)
+            {
+                ast_typed_type
+            } else {
+                match ast_type_o {
+                    None => {
+                        panic!("printRef macro: cannot find the type of the parameter {src}, please specify it")
+                    }
+                    Some(ast_type) => match ast_type {
+                        ASTType::Builtin(BuiltinTypeKind::String) => {
+                            ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                         }
-                        Some(ast_typed_type) => ast_typed_type.clone(),
+                        ASTType::Parametric(generic_type_name) => match function_def {
+                            None => panic!(),
+                            Some(f) => match f.generic_types.get(generic_type_name) {
+                                None => {
+                                    panic!("printRef macro: Cannot find generic type {generic_type_name}")
+                                }
+                                Some(ast_typed_type) => ast_typed_type.clone(),
+                            },
+                        },
+                        ASTType::Custom {
+                            name: custom_type_name,
+                            param_types: _,
+                        } => get_type(custom_type_name, type_def_provider, function_def),
+                        _ => panic!("printRef macro: unsupported type {ast_type}"),
                     },
-                },
-                ASTType::Custom {
-                    name: custom_type_name,
-                    param_types: _,
-                } => get_type(custom_type_name, type_def_provider, function_def),
-            },
+                }
+            }
+        } else {
+            panic!();
         };
 
         let (name, code, new_line) = match ast_typed_type {
-            ASTTypedType::Builtin(_) => panic!(),
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => {
+                ("str".to_owned(), String::new(), true)
+            }
             ASTTypedType::Enum { name } => (
                 name.clone(),
                 self.print_ref_enum(&name, src, type_def_provider, indent + 1, backend),
@@ -926,7 +951,11 @@ impl PrintRefMacro {
                 true,
             ),
             ASTTypedType::Type { name } => (name, String::new(), true),
+            _ => panic!("unsupported type {ast_typed_type}"),
         };
+
+        let mut result = String::new();
+
         let ident_string = " ".repeat(indent * 2);
         CodeGen::add(
             &mut result,
@@ -936,8 +965,15 @@ impl PrintRefMacro {
         );
         CodeGen::add(&mut result, &format!("$call(print,{src}:i32)"), None, true);
         CodeGen::add(&mut result, "push    ebx", None, true);
+        CodeGen::add(
+            &mut result,
+            &format!("push    {} {src}", backend.word_size()),
+            None,
+            true,
+        );
+        CodeGen::add(&mut result, "pop    ebx", None, true);
         CodeGen::add(&mut result, "$call(print, \" refcount \")", None, true);
-        CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        //CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
         if new_line {
             CodeGen::add(&mut result, "$call(println,[ebx + 12])", None, true);
         } else {
@@ -964,19 +1000,18 @@ impl PrintRefMacro {
         CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
         if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
             for (i, p) in s.properties.iter().enumerate() {
-                if let Some(name) = match &p.ast_type {
-                    ASTTypedType::Builtin(_) => None,
-                    ASTTypedType::Enum { name } => Some(name),
-                    ASTTypedType::Struct { name } => Some(name),
-                    ASTTypedType::Type { name } => Some(name),
-                } {
-                    let custom_type = ASTType::Custom {
-                        name: name.clone(),
-                        param_types: Vec::new(),
-                    };
+                let ast_type_o = if matches!(
+                    p.ast_type,
+                    ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
+                ) {
+                    Some(ASTType::Builtin(BuiltinTypeKind::String))
+                } else {
+                    type_def_provider.get_type_from_typed_type(&p.ast_type)
+                };
+                if ast_type_o.is_some() {
                     let par_result = self.print_ref(
                         &format!("[ebx + {}]", i * backend.word_len()),
-                        &Some(custom_type),
+                        &ast_type_o,
                         None,
                         type_def_provider,
                         indent + 1,
@@ -1014,7 +1049,8 @@ impl PrintRefMacro {
             CodeGen::add(&mut result, "$call(print, \" value \")", None, true);
             if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
                 for (i, variant) in s.variants.iter().enumerate() {
-                    let label_name = &format!("._{name}_variant_{}_{i}", count.borrow());
+                    *count.borrow_mut() += 1;
+                    let label_name = &format!("._{name}_{}_{}", variant.name, count.borrow());
                     CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
                     CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
                     CodeGen::add(
@@ -1025,16 +1061,21 @@ impl PrintRefMacro {
                     );
 
                     for (j, par) in variant.parameters.iter().enumerate() {
-                        if let Some(name) =
-                            CodeGen::get_reference_type_name(&par.ast_type, type_def_provider)
+                        if CodeGen::get_reference_type_name(&par.ast_type, type_def_provider)
+                            .is_some()
                         {
-                            let custom_type = ASTType::Custom {
-                                name: name.clone(),
-                                param_types: Vec::new(),
+                            let ast_type = if matches!(
+                                &par.ast_type,
+                                ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
+                            ) {
+                                Some(ASTType::Builtin(BuiltinTypeKind::String))
+                            } else {
+                                type_def_provider.get_type_from_typed_type(&par.ast_type)
                             };
+
                             let par_result = self.print_ref(
-                                &format!("[ebx + {}]", (j + 1) * wl),
-                                &Some(custom_type),
+                                &format!("[ebx + {}]", (variant.parameters.len() - j) * wl),
+                                &ast_type,
                                 None,
                                 type_def_provider,
                                 indent + 1,
@@ -1047,7 +1088,7 @@ impl PrintRefMacro {
                     CodeGen::add(&mut result, &format!("{label_name}:"), None, false);
                 }
             } else {
-                panic!("Cannot find struct {name}");
+                panic!("Cannot find enum {name}");
             }
             CodeGen::add(&mut result, "$call(print, \"unknown \")", None, false);
             CodeGen::add(&mut result, "$call(println, [ebx])", None, false);

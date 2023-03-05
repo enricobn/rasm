@@ -1,14 +1,9 @@
-// time ./gameoflife_sdl examples/f116.cells 100
-// 12,762
-// 10,686 - used let statement
-// 10,227 - optimized lambda space creation
-// 10,180 - optimized memcopy
-// 11,948 - dereference has been reset
-// 11,899 - optimization: references in stack vs scope stack
-// 11,019 - optimized listAnyMatch
-// 10,330 - inlined struct property getter
-//  9,989 - optimized lambdas that do not read from context
-// 10,594 - fixed some bugs "edx" related
+// run with: time ./gameoflife_sdl resources/examples/f116.cells 100
+
+// 481236 bytes allocated
+// 142305 table slots allocated
+//
+// real    0m21,321s
 
 include "std.rasm"
 include "sdl.rasm"
@@ -24,8 +19,6 @@ let start = readCellFile(file);
 let count = atoi(argv(2));
 
 run(moveCells(start, 20), 80, 50, count);
-//run(moveCells(start, 10), 30, 30, count);
-
 
 sdlQuit();
 
