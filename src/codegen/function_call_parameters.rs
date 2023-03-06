@@ -236,60 +236,14 @@ impl<'a> FunctionCallParameters<'a> {
         );
 
         if context.is_empty() {
-            let label_allocation = statics.insert_prefix(
-                "contextless_lambda_allocation",
-                MemoryValue::Mem(5, MemoryUnit::Words),
-            );
+            let label_allocation =
+                statics.insert_static_allocation(MemoryValue::Mem(1, MemoryUnit::Words));
             CodeGen::add(
                 &mut self.before,
-                &format!("mov  {} ecx, {label_allocation}", self.backend.word_size()),
-                comment,
-                true,
-            );
-
-            let label_memory = statics.insert_prefix(
-                "contextless_lambda_space",
-                MemoryValue::Mem(1, MemoryUnit::Words),
-            );
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov  {} [ecx], {label_memory}", self.backend.word_size()),
-                comment,
-                true,
-            );
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov  {} [ecx + 4], 1", self.backend.word_size()),
-                comment,
-                true,
-            );
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov  {} [ecx + 8], 4", self.backend.word_size()),
-                comment,
-                true,
-            );
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov  {} [ecx + 12], 1", self.backend.word_size()),
-                comment,
-                true,
-            );
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov  {} [ecx + 16], 0", self.backend.word_size()),
-                comment,
-                true,
-            );
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov  {} ecx, {label_memory}", self.backend.word_size()),
+                &format!(
+                    "mov  {} ecx, [{label_allocation}]",
+                    self.backend.word_size()
+                ),
                 comment,
                 true,
             );
@@ -338,7 +292,6 @@ impl<'a> FunctionCallParameters<'a> {
                 };
 
                 if !already_in_parent {
-                    println!("from context");
                     let relative_address = match kind {
                         TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
                         TypedValKind::LetRef(_, _) => {
@@ -355,7 +308,6 @@ impl<'a> FunctionCallParameters<'a> {
                         Some(&format!("context parameter {}", name)),
                     );
                 } else if let Some(pls) = parent_lambda_space {
-                    println!("from parent");
                     if let Some(parent_index) = pls.get_index(name) {
                         self.indirect_mov(
                             &format!("eax + {}", (parent_index) * wl),

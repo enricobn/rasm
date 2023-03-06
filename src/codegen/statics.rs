@@ -28,6 +28,7 @@ pub struct Statics {
     strings_map: LinkedHashMap<String, (String, String)>,
     const_map: LinkedHashMap<String, ConstEntry>,
     const_typed_map: LinkedHashMap<String, ConstTypedEntry>,
+    static_allocation: Vec<(String, String)>,
 }
 
 impl Statics {
@@ -38,6 +39,7 @@ impl Statics {
             strings_map: LinkedHashMap::new(),
             const_map: LinkedHashMap::new(),
             const_typed_map: LinkedHashMap::new(),
+            static_allocation: Vec::new(),
         }
     }
 
@@ -100,6 +102,17 @@ impl Statics {
         assert!(self.statics.insert(label.clone(), value).is_none());
 
         label
+    }
+
+    pub fn insert_static_allocation(&mut self, value: MemoryValue) -> String {
+        let label_allocation = self.insert_prefix("static_allocation", Mem(5, MemoryUnit::Words));
+
+        let label_memory = self.insert_prefix("static_memory", value);
+
+        self.static_allocation
+            .push((label_allocation.to_owned(), label_memory.to_owned()));
+
+        label_allocation
     }
 
     pub fn generate_code(&mut self, backend: &dyn Backend) -> (String, String, String) {
@@ -172,6 +185,64 @@ impl Statics {
 
             CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
+
+        if !self.static_allocation.is_empty() {
+            CodeGen::add(
+                &mut code,
+                &format!("push  {} ecx", backend.word_size()),
+                None,
+                true,
+            );
+        }
+
+        for (label_allocation, label_memory) in self.static_allocation.iter() {
+            CodeGen::add(
+                &mut code,
+                &format!("mov  {} ecx, {label_allocation}", backend.word_size()),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("mov  {} [ecx], {label_memory}", backend.word_size()),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("mov  {} [ecx + 4], 1", backend.word_size()),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("mov  {} [ecx + 8], 4", backend.word_size()),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("mov  {} [ecx + 12], 1", backend.word_size()),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("mov  {} [ecx + 16], 0", backend.word_size()),
+                None,
+                true,
+            );
+        }
+
+        if !self.static_allocation.is_empty() {
+            CodeGen::add(&mut code, "pop  ecx", None, true);
+        }
+
         (data, bss, code)
     }
 
