@@ -4,6 +4,9 @@
 // 142297 table slots allocated
 //
 // real    0m21,904s
+//
+// real    0m27,068s
+
 
 include "std.rasm"
 include "gameoflife_common.rasm"

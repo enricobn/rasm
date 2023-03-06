@@ -58,8 +58,7 @@ impl Statics {
     pub fn add_const(&mut self, name: String, ast_type: ASTType) {
         // TODO it's a trick: during type check passes consts are added again
         if !self.const_map.contains_key(&name) {
-            let key =
-                self.insert_prefix("const".to_owned(), MemoryValue::Mem(1, MemoryUnit::Words));
+            let key = self.insert_prefix("const", MemoryValue::Mem(1, MemoryUnit::Words));
             self.const_map.insert(name, ConstEntry { key, ast_type });
         }
     }
@@ -93,7 +92,7 @@ impl Statics {
         //assert!(self.statics.insert(key.clone(), value.clone()).is_none(), "{key} {:?}", value)
     }
 
-    pub fn insert_prefix(&mut self, prefix: String, value: MemoryValue) -> String {
+    pub fn insert_prefix(&mut self, prefix: &str, value: MemoryValue) -> String {
         let label = format!("{prefix}_{}", self.id);
 
         self.id += 1;

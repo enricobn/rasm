@@ -4,7 +4,9 @@ use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
-use crate::codegen::{CodeGen, LambdaSpace, TypedValContext, TypedValKind};
+use crate::codegen::{
+    CodeGen, LambdaSpace, MemoryUnit, MemoryValue, TypedValContext, TypedValKind,
+};
 use crate::parser::ast::ASTIndex;
 use crate::parser::ValueType;
 use crate::type_check::typed_ast::{
@@ -233,21 +235,79 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
 
-        let num_of_values_in_context = context.iter().count();
+        if context.is_empty() {
+            let label_allocation = statics.insert_prefix(
+                "contextless_lambda_allocation",
+                MemoryValue::Mem(5, MemoryUnit::Words),
+            );
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} ecx, {label_allocation}", self.backend.word_size()),
+                comment,
+                true,
+            );
 
-        Self::allocate_lambda_space(
-            self.backend,
-            &mut self.before,
-            "ecx",
-            num_of_values_in_context + 1,
-            statics,
-        );
+            let label_memory = statics.insert_prefix(
+                "contextless_lambda_space",
+                MemoryValue::Mem(1, MemoryUnit::Words),
+            );
 
-        self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} [ecx], {label_memory}", self.backend.word_size()),
+                comment,
+                true,
+            );
 
-        CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} [ecx + 4], 1", self.backend.word_size()),
+                comment,
+                true,
+            );
 
-        if !context.is_empty() {
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} [ecx + 8], 4", self.backend.word_size()),
+                comment,
+                true,
+            );
+
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} [ecx + 12], 1", self.backend.word_size()),
+                comment,
+                true,
+            );
+
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} [ecx + 16], 0", self.backend.word_size()),
+                comment,
+                true,
+            );
+
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} ecx, {label_memory}", self.backend.word_size()),
+                comment,
+                true,
+            );
+        } else {
+            let num_of_values_in_context = context.iter().count();
+
+            Self::allocate_lambda_space(
+                self.backend,
+                &mut self.before,
+                "ecx",
+                num_of_values_in_context + 1,
+                statics,
+            );
+
+            self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
+
+            CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
+
             CodeGen::add(
                 &mut self.before,
                 &format!("push  {} ebx", self.backend.word_size()),
@@ -266,58 +326,54 @@ impl<'a> FunctionCallParameters<'a> {
                 None,
                 true,
             );
-        } else {
-            println!("empty context");
-        }
 
-        let mut i = 1;
+            let mut i = 1;
 
-        context.iter().for_each(|(name, kind)| {
-            // we do not create val that are overridden by parent memcopy
-            let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
-                parent_lambda.context.get(name).is_some()
-            } else {
-                false
-            };
-
-            if !already_in_parent {
-                println!("from context");
-                let relative_address = match kind {
-                    TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
-                    TypedValKind::LetRef(_, _) => {
-                        -(self
-                            .stack_vals
-                            .find_relative_to_bp(StackEntryType::LetVal, name)
-                            .unwrap() as i32)
-                    }
+            context.iter().for_each(|(name, kind)| {
+                // we do not create val that are overridden by parent memcopy
+                let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
+                    parent_lambda.context.get(name).is_some()
+                } else {
+                    false
                 };
-                self.indirect_mov(
-                    &format!("{}+{}", sbp, relative_address * wl as i32),
-                    &format!("ecx + {}", i * wl),
-                    "ebx",
-                    Some(&format!("context parameter {}", name)),
-                );
-            } else if let Some(pls) = parent_lambda_space {
-                println!("from parent");
-                if let Some(parent_index) = pls.get_index(name) {
+
+                if !already_in_parent {
+                    println!("from context");
+                    let relative_address = match kind {
+                        TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
+                        TypedValKind::LetRef(_, _) => {
+                            -(self
+                                .stack_vals
+                                .find_relative_to_bp(StackEntryType::LetVal, name)
+                                .unwrap() as i32)
+                        }
+                    };
                     self.indirect_mov(
-                        &format!("eax + {}", (parent_index) * wl),
-                        &format!("ecx + {}", (i) * wl),
+                        &format!("{}+{}", sbp, relative_address * wl as i32),
+                        &format!("ecx + {}", i * wl),
                         "ebx",
-                        Some(&format!("context parameter from parent {}", name)),
+                        Some(&format!("context parameter {}", name)),
                     );
+                } else if let Some(pls) = parent_lambda_space {
+                    println!("from parent");
+                    if let Some(parent_index) = pls.get_index(name) {
+                        self.indirect_mov(
+                            &format!("eax + {}", (parent_index) * wl),
+                            &format!("ecx + {}", (i) * wl),
+                            "ebx",
+                            Some(&format!("context parameter from parent {}", name)),
+                        );
+                    } else {
+                        panic!()
+                    }
                 } else {
                     panic!()
                 }
-            } else {
-                panic!()
-            }
 
-            lambda_space.add_context_parameter(name.clone(), i);
-            i += 1;
-        });
+                lambda_space.add_context_parameter(name.clone(), i);
+                i += 1;
+            });
 
-        if !context.is_empty() {
             CodeGen::add(&mut self.before, "pop   eax", None, true);
             CodeGen::add(&mut self.before, "pop   ebx", comment, true);
         }
@@ -328,6 +384,7 @@ impl<'a> FunctionCallParameters<'a> {
             None,
             true,
         );
+
         // + 1 due to push ecx
         let to_remove_from_stack = self.to_remove_from_stack();
         CodeGen::add(
