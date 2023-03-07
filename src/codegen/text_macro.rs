@@ -862,15 +862,27 @@ impl TextMacroEval for PrintRefMacro {
         let result = match parameters.get(0) {
             None => panic!("cannot find parameter for printRef macro"),
             Some(par) => match par {
-                MacroParam::Plain(name, ast_type, _) => {
-                    self.print_ref(name, ast_type, function_def, type_def_provider, 0, backend)
-                }
+                MacroParam::Plain(name, ast_type, ast_typed_type) => self.print_ref(
+                    name,
+                    ast_type,
+                    ast_typed_type,
+                    function_def,
+                    type_def_provider,
+                    0,
+                    backend,
+                ),
                 MacroParam::StringLiteral(_) => {
                     panic!("String is nt a valid parameter for printRef macro ")
                 }
-                MacroParam::Ref(name, ast_type, _) => {
-                    self.print_ref(name, ast_type, function_def, type_def_provider, 0, backend)
-                }
+                MacroParam::Ref(name, ast_type, ast_typed_type) => self.print_ref(
+                    name,
+                    ast_type,
+                    ast_typed_type,
+                    function_def,
+                    type_def_provider,
+                    0,
+                    backend,
+                ),
             },
         };
 
@@ -891,6 +903,7 @@ impl PrintRefMacro {
         &mut self,
         src: &str,
         ast_type_o: &Option<ASTType>,
+        ast_typed_type_o: &Option<ASTTypedType>,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
@@ -900,8 +913,9 @@ impl PrintRefMacro {
             return String::new();
         }
 
-        let ast_typed_type = if let Some(ast_type) = ast_type_o {
-            println!("ast_type {ast_type}");
+        let ast_typed_type = if let Some(ast_typed_type) = ast_typed_type_o {
+            ast_typed_type.clone()
+        } else if let Some(ast_type) = ast_type_o {
             if let Some(ast_typed_type) =
                 type_def_provider.get_ast_typed_type_from_ast_type(ast_type)
             {
@@ -950,7 +964,11 @@ impl PrintRefMacro {
                 self.print_ref_struct(&name, src, type_def_provider, indent + 1, backend),
                 true,
             ),
-            ASTTypedType::Type { name } => (name, String::new(), true),
+            ASTTypedType::Type { name } => (
+                name.clone(),
+                self.print_ref_type(&name, src, type_def_provider, indent + 1, backend),
+                true,
+            ),
             _ => panic!("unsupported type {ast_typed_type}"),
         };
 
@@ -1012,6 +1030,7 @@ impl PrintRefMacro {
                     let par_result = self.print_ref(
                         &format!("[ebx + {}]", i * backend.word_len()),
                         &ast_type_o,
+                        &None,
                         None,
                         type_def_provider,
                         indent + 1,
@@ -1035,68 +1054,197 @@ impl PrintRefMacro {
         indent: usize,
         backend: &dyn Backend,
     ) -> String {
-        COUNT.with(|count| {
+        let count = COUNT.with(|count| {
             *count.borrow_mut() += 1;
+            *count.borrow()
+        });
 
-            let end_label_name = &format!("._{name}_end_{}", count.borrow());
-            let ws = backend.word_size();
-            let wl = backend.word_len();
+        let end_label_name = &format!("._{name}_end_{}", count);
+        let ws = backend.word_size();
+        let wl = backend.word_len();
+
+        let mut result = String::new();
+        CodeGen::add(&mut result, "push    ebx", None, true);
+        CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
+        CodeGen::add(&mut result, "$call(print, \" value \")", None, true);
+        if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
+            for (i, variant) in s.variants.iter().enumerate() {
+                let count = COUNT.with(|count| {
+                    *count.borrow_mut() += 1;
+                    *count.borrow()
+                });
+                let label_name = &format!("._{name}_{}_{}", variant.name, count);
+                CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
+                CodeGen::add(
+                    &mut result,
+                    &format!("$call(println, \"{}\")", variant.name),
+                    None,
+                    true,
+                );
+
+                for (j, par) in variant.parameters.iter().enumerate() {
+                    if CodeGen::get_reference_type_name(&par.ast_type, type_def_provider).is_some()
+                    {
+                        let ast_type = if matches!(
+                            &par.ast_type,
+                            ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
+                        ) {
+                            Some(ASTType::Builtin(BuiltinTypeKind::String))
+                        } else {
+                            type_def_provider.get_type_from_typed_type(&par.ast_type)
+                        };
+
+                        let par_result = self.print_ref(
+                            &format!("[ebx + {}]", (variant.parameters.len() - j) * wl),
+                            &ast_type,
+                            &None,
+                            None,
+                            type_def_provider,
+                            indent + 1,
+                            backend,
+                        );
+                        result.push_str(&par_result);
+                    }
+                }
+                CodeGen::add(&mut result, &format!("jmp {end_label_name}"), None, false);
+                CodeGen::add(&mut result, &format!("{label_name}:"), None, false);
+            }
+        } else {
+            panic!("Cannot find enum {name}");
+        }
+        CodeGen::add(&mut result, "$call(print, \"unknown \")", None, false);
+        CodeGen::add(&mut result, "$call(println, [ebx])", None, false);
+        CodeGen::add(&mut result, "$call(exitMain, 1)", None, false);
+        CodeGen::add(&mut result, &format!("{end_label_name}:"), None, false);
+        CodeGen::add(&mut result, "pop    ebx", None, true);
+        result
+    }
+
+    fn print_ref_type(
+        &mut self,
+        name: &str,
+        src: &str,
+        type_def_provider: &dyn TypeDefProvider,
+        indent: usize,
+        backend: &dyn Backend,
+    ) -> String {
+        if let Some(s) = type_def_provider.get_type_def_by_name(name) {
+            let count = COUNT.with(|count| {
+                *count.borrow_mut() += 1;
+                *count.borrow()
+            });
 
             let mut result = String::new();
-            CodeGen::add(&mut result, "push    ebx", None, true);
-            CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-            CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
-            CodeGen::add(&mut result, "$call(print, \" value \")", None, true);
-            if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
-                for (i, variant) in s.variants.iter().enumerate() {
-                    *count.borrow_mut() += 1;
-                    let label_name = &format!("._{name}_{}_{}", variant.name, count.borrow());
-                    CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                    CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
-                    CodeGen::add(
-                        &mut result,
-                        &format!("$call(println, \"{}\")", variant.name),
-                        None,
-                        true,
-                    );
 
-                    for (j, par) in variant.parameters.iter().enumerate() {
-                        if CodeGen::get_reference_type_name(&par.ast_type, type_def_provider)
-                            .is_some()
-                        {
-                            let ast_type = if matches!(
-                                &par.ast_type,
-                                ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
-                            ) {
-                                Some(ASTType::Builtin(BuiltinTypeKind::String))
-                            } else {
-                                type_def_provider.get_type_from_typed_type(&par.ast_type)
-                            };
+            CodeGen::add(
+                &mut result,
+                &format!("push  {} eax", backend.word_size()),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut result,
+                &format!("push  {} ebx", backend.word_size()),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut result,
+                &format!("push  {} ecx", backend.word_size()),
+                None,
+                true,
+            );
+            for (i, (generic_name, ast_typed_type)) in s.generic_types.iter().enumerate() {
+                CodeGen::add(
+                    &mut result,
+                    &format!("$call({}References, {src}:i32,{i})", s.original_name),
+                    None,
+                    true,
+                );
 
-                            let par_result = self.print_ref(
-                                &format!("[ebx + {}]", (variant.parameters.len() - j) * wl),
-                                &ast_type,
-                                None,
-                                type_def_provider,
-                                indent + 1,
-                                backend,
-                            );
-                            result.push_str(&par_result);
-                        }
-                    }
-                    CodeGen::add(&mut result, &format!("jmp {end_label_name}"), None, false);
-                    CodeGen::add(&mut result, &format!("{label_name}:"), None, false);
-                }
-            } else {
-                panic!("Cannot find enum {name}");
+                CodeGen::add(
+                    &mut result,
+                    &format!("mov   {} eax,[eax]", backend.word_size()),
+                    None,
+                    true,
+                );
+
+                // count
+                CodeGen::add(
+                    &mut result,
+                    &format!("mov   {} ebx,[eax]", backend.word_size()),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!("add {} eax,{}", backend.word_size(), backend.word_len()),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!(".loop_{name}_{generic_name}_{count}:"),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!("test {} ebx,ebx", backend.word_size()),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!("jz .end_{name}_{generic_name}_{count}"),
+                    None,
+                    true,
+                );
+                let inner_result = self.print_ref(
+                    "[eax]",
+                    &None,
+                    &Some(ast_typed_type.clone()),
+                    None,
+                    type_def_provider,
+                    indent + 1,
+                    backend,
+                );
+                result.push_str(&inner_result);
+                CodeGen::add(
+                    &mut result,
+                    &format!("dec {} ebx", backend.word_size()),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!("add {} eax,{}", backend.word_size(), backend.word_len()),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!("jmp .loop_{name}_{generic_name}_{count}"),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut result,
+                    &format!(".end_{name}_{generic_name}_{count}:"),
+                    None,
+                    true,
+                );
             }
-            CodeGen::add(&mut result, "$call(print, \"unknown \")", None, false);
-            CodeGen::add(&mut result, "$call(println, [ebx])", None, false);
-            CodeGen::add(&mut result, "$call(exitMain, 1)", None, false);
-            CodeGen::add(&mut result, &format!("{end_label_name}:"), None, false);
-            CodeGen::add(&mut result, "pop    ebx", None, true);
+            CodeGen::add(&mut result, "pop  ecx", None, true);
+            CodeGen::add(&mut result, "pop  ebx", None, true);
+            CodeGen::add(&mut result, "pop  eax", None, true);
+
             result
-        })
+        } else {
+            panic!("Cannot find type {name}");
+        }
     }
 }
 
