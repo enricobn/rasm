@@ -213,7 +213,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     ; add the space for the size
     add     ebx, 4
     $call(malloc, ebx, " for vec filter")
-    $addRef(eax:Vec<T>)
+    $call(addRef, eax, "for vec filter")
     pop     ebx
 
     push    eax
@@ -239,7 +239,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     jmp     .loop
 .end:
     pop     eax
-    $deref(eax:Vec<T>)
+    $call(deref, eax, "for vec filter")
     sub     dword edx, [eax]
     ; divide ebx by 4, we get the len
     shr     edx, 2
