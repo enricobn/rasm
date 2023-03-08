@@ -114,7 +114,7 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     push    ecx
     push    edx
 
-    ; I can't print here
+    ; we can't print here
     ; mov     dword eax,[_heap_table_next]; the pointer to the heap table
     ; mov     dword edx,[_heap_table_size]
     ; add     edx,_heap_table
