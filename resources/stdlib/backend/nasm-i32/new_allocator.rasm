@@ -50,10 +50,10 @@ asm malloc(size: i32, descr: str) -> i32 /{
     $call(println, "  allocation ")
     %endif
 
-    mov     dword eax,_heap_table_next; the pointer to the heap table
+    mov     dword eax,[_heap_table_next]; the pointer to the heap table
     mov     dword edx,[_heap_table_size]
-    add     edx,_heap_table
-    cmp     eax,edx
+    add     dword edx,_heap_table
+    cmp     dword eax,edx
     jb     .loop_ok
     $call(println, "Out of heap space")
     $call(exitMain, 1)
@@ -114,13 +114,14 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     push    ecx
     push    edx
 
-    mov     dword eax,_heap_table_next; the pointer to the heap table
-    mov     dword edx,[_heap_table_size]
-    add     edx,_heap_table
-    cmp     eax,edx
-    jb     .ok
-    $call(println, "Out of heap space")
-    $call(exitMain, 1)
+    ; I can't print here
+    ; mov     dword eax,[_heap_table_next]; the pointer to the heap table
+    ; mov     dword edx,[_heap_table_size]
+    ; add     edx,_heap_table
+    ; cmp     eax,edx
+    ; jb     .ok
+    ; $call(println, "Out of heap space")
+    ; $call(exitMain, 1)
 
 .ok:
     mov     dword eax,[_heap_table_next]
@@ -388,7 +389,7 @@ asm printAllocated() /{
 .loop:
     cmp     dword ebx,[_heap_table_size]
     jge     .end
-    mov     dword edx,[eax + 4]; 1 == allocated
+    mov     dword edx,[eax + 4] ; 1 == allocated
     cmp     dword edx,0
     jz      .not_allocated
     add     dword ecx,[eax + 8] ; size

@@ -457,24 +457,50 @@ impl<'a> CodeGen<'a> {
             CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
         }
 
-        CodeGen::add(&mut asm, "mov     eax, _heap_buffer", None, true);
-        CodeGen::add(&mut asm, "mov     [_heap], eax", None, true);
-
-        CodeGen::add(&mut asm, "mov     eax, _heap_table", None, true);
-        CodeGen::add(&mut asm, "mov     [_heap_table_next],eax", None, true);
-
+        let ws = self.backend.word_size();
         CodeGen::add(
             &mut asm,
-            "mov     eax, _lambda_space_stack_buffer",
+            &format!("mov     {ws} eax, _heap_buffer"),
             None,
             true,
         );
-        CodeGen::add(&mut asm, "mov     [_lambda_space_stack], eax", None, true);
+        CodeGen::add(&mut asm, &format!("mov     {ws} [_heap], eax"), None, true);
 
-        CodeGen::add(&mut asm, "mov     eax, _reusable_heap_table", None, true);
         CodeGen::add(
             &mut asm,
-            "mov     [_reusable_heap_table_next],eax",
+            &format!("mov     {ws} eax, _heap_table"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            &mut asm,
+            &format!("mov     {ws} [_heap_table_next],eax"),
+            None,
+            true,
+        );
+
+        CodeGen::add(
+            &mut asm,
+            &format!("mov     {ws} eax, _lambda_space_stack_buffer"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            &mut asm,
+            &format!("mov     {ws} [_lambda_space_stack], eax"),
+            None,
+            true,
+        );
+
+        CodeGen::add(
+            &mut asm,
+            &format!("mov    {ws} eax, _reusable_heap_table"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            &mut asm,
+            &format!("mov    {ws} [_reusable_heap_table_next],eax"),
             None,
             true,
         );
