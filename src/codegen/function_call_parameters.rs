@@ -235,6 +235,11 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
 
+        /*
+           If the context is empty, we optimize, using a static allocation.
+           We cannot use it when there are values in the context, because the same lambda can be used recursively,
+           so the values of the previous recursion are overridden.
+        */
         if context.is_empty() {
             let label_allocation =
                 statics.insert_static_allocation(MemoryValue::Mem(1, MemoryUnit::Words));
@@ -855,25 +860,8 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     pub fn after(&self) -> Vec<String> {
-        let mut s = String::new();
-        /*
-        if self.lambda_slots_to_deallocate > 0 {
-            CodeGen::add(
-                &mut s,
-                &format!("push     {} ebx", self.backend.word_size()),
-                None,
-                true,
-            );
-            Self::deallocate_lambda_space(
-                self.backend,
-                &mut s,
-                "ebx",
-                self.lambda_slots_to_deallocate,
-            );
-            CodeGen::add(&mut s, "pop    ebx", None, true);
-        }
+        let s = String::new();
 
-         */
         let mut result = vec![s];
         let mut after = self.after.clone();
         result.append(&mut after);
@@ -976,39 +964,6 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
     }
-
-    /*
-    fn deallocate_lambda_space(
-        backend: &dyn Backend,
-        out: &mut String,
-        tmp_register: &str,
-        slots: usize,
-    ) {
-        CodeGen::add(out, "; lambda space deallocation", None, true);
-        CodeGen::add(
-            out,
-            &format!("mov     {tmp_register},[_lambda_space_stack]"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!(
-                "sub     {tmp_register},{}",
-                slots * backend.word_len() as usize
-            ),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!("mov     dword [_lambda_space_stack],{tmp_register}"),
-            None,
-            true,
-        );
-    }
-
-     */
 
     pub fn push(&mut self, s: &str) {
         self.before.push_str(s);

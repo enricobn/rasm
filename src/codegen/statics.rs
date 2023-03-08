@@ -110,7 +110,7 @@ impl Statics {
         let label_memory = self.insert_prefix("static_memory", value);
 
         self.static_allocation
-            .push((label_allocation.to_owned(), label_memory.to_owned()));
+            .push((label_allocation.to_owned(), label_memory));
 
         label_allocation
     }
@@ -210,6 +210,7 @@ impl Statics {
                 true,
             );
 
+            // allocated flag
             CodeGen::add(
                 &mut code,
                 &format!("mov  {} [ecx + 4], 1", backend.word_size()),
@@ -217,6 +218,7 @@ impl Statics {
                 true,
             );
 
+            // size
             CodeGen::add(
                 &mut code,
                 &format!("mov  {} [ecx + 8], 4", backend.word_size()),
@@ -224,6 +226,7 @@ impl Statics {
                 true,
             );
 
+            // count
             CodeGen::add(
                 &mut code,
                 &format!("mov  {} [ecx + 12], 1", backend.word_size()),
@@ -231,6 +234,7 @@ impl Statics {
                 true,
             );
 
+            // reusable table
             CodeGen::add(
                 &mut code,
                 &format!("mov  {} [ecx + 16], 0", backend.word_size()),
