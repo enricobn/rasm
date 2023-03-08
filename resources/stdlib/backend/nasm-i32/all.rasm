@@ -103,27 +103,12 @@ asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi
     push    edi
+
     mov     esi, $source
     mov     edi, $dest
     mov     ecx, $len
+    rep     movsb
 
-; first we copy word by word
-.loop4:
-    cmp     ecx, 4
-    jb      .loop1
-    movsd
-    sub     ecx,4
-    jmp     .loop4
-
-.loop1:
-    add     ecx,1
-; then byte by byte
-.loop:
-    sub     ecx,1
-    jz      .end
-    movsb
-    jmp     .loop
-.end:
     pop     edi
     pop     esi
     pop     ecx
