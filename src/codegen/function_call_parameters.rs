@@ -237,11 +237,11 @@ impl<'a> FunctionCallParameters<'a> {
 
         /*
            If the context is empty, we optimize, using a static allocation.
-           We cannot use it when there are values in the context, because the same lambda can be used recursively,
+           We cannot use "as is" when there are values in the context, because the same lambda can be used recursively,
            so the values of the previous recursion are overridden.
         */
         if context.is_empty() {
-            let label_allocation =
+            let (label_allocation, _) =
                 statics.insert_static_allocation(MemoryValue::Mem(1, MemoryUnit::Words));
             CodeGen::add(
                 &mut self.before,
@@ -255,17 +255,43 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             let num_of_values_in_context = context.iter().count();
 
-            Self::allocate_lambda_space(
-                self.backend,
-                &mut self.before,
-                "ecx",
-                num_of_values_in_context + 1,
-                statics,
-            );
+            // TODO we should try to understand if we can optimize using a static lambda context and reusing
+            //  the values, it should not be done if the lambda is returned or put in a "container", but
+            //  how can we do it?
+            let optimize = false;
 
-            self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
+            let mut label_memory = String::new();
 
-            CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
+            if optimize {
+                let (label_allocation, lm) = statics.insert_static_allocation(MemoryValue::Mem(
+                    num_of_values_in_context + 1,
+                    MemoryUnit::Words,
+                ));
+
+                label_memory = lm;
+
+                CodeGen::add(
+                    &mut self.before,
+                    &format!(
+                        "mov  {} ecx, [{label_allocation}]",
+                        self.backend.word_size()
+                    ),
+                    comment,
+                    true,
+                );
+            } else {
+                Self::allocate_lambda_space(
+                    self.backend,
+                    &mut self.before,
+                    "ecx",
+                    num_of_values_in_context + 1,
+                    statics,
+                );
+
+                self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
+
+                CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
+            }
 
             CodeGen::add(
                 &mut self.before,
@@ -288,8 +314,46 @@ impl<'a> FunctionCallParameters<'a> {
 
             let mut i = 1;
 
+            let mut after = String::new();
+
+            if optimize {
+                CodeGen::add(&mut after, "push ebx", None, true);
+                println!("create lambda {}", def.name);
+            }
+
             context.iter().for_each(|(name, kind)| {
-                // we do not create val that are overridden by parent memcopy
+                if optimize {
+                    let offset_to_stack = self.stack_vals.reserve(
+                        StackEntryType::LocalVal,
+                        &format!("reference to parameter {name}"),
+                    );
+
+                    println!("  offset_to_stack {offset_to_stack}");
+
+                    // we save the previous value in the stack
+                    Self::indirect_mov(
+                        self.backend,
+                        &mut self.before,
+                        &format!("{label_memory} + {}", i * wl),
+                        &format!("{} - {}", sbp, offset_to_stack * wl),
+                        "ebx",
+                        Some(&format!("saving context parameter {} in the stack", name)),
+                    );
+
+                    // then we restore it
+                    Self::indirect_mov(
+                        self.backend,
+                        &mut after,
+                        &format!("{} - {}", sbp, offset_to_stack * wl),
+                        &format!("{label_memory} + {}", i * wl),
+                        "ebx",
+                        Some(&format!(
+                            "reload the parameter {} from the stack to the lambda context",
+                            name
+                        )),
+                    );
+                }
+
                 let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
                     parent_lambda.context.get(name).is_some()
                 } else {
@@ -306,7 +370,9 @@ impl<'a> FunctionCallParameters<'a> {
                                 .unwrap() as i32)
                         }
                     };
-                    self.indirect_mov(
+                    Self::indirect_mov(
+                        self.backend,
+                        &mut self.before,
                         &format!("{}+{}", sbp, relative_address * wl as i32),
                         &format!("ecx + {}", i * wl),
                         "ebx",
@@ -314,7 +380,9 @@ impl<'a> FunctionCallParameters<'a> {
                     );
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
-                        self.indirect_mov(
+                        Self::indirect_mov(
+                            self.backend,
+                            &mut self.before,
                             &format!("eax + {}", (parent_index) * wl),
                             &format!("ecx + {}", (i) * wl),
                             "ebx",
@@ -330,6 +398,14 @@ impl<'a> FunctionCallParameters<'a> {
                 lambda_space.add_context_parameter(name.clone(), i);
                 i += 1;
             });
+
+            if optimize {
+                CodeGen::add(&mut after, "pop ebx", None, true);
+            }
+
+            if !after.is_empty() {
+                self.after.push(after);
+            }
 
             CodeGen::add(&mut self.before, "pop   eax", None, true);
             CodeGen::add(&mut self.before, "pop   ebx", comment, true);
@@ -644,12 +720,15 @@ impl<'a> FunctionCallParameters<'a> {
                     None,
                     true,
                 );
-                self.indirect_mov(
+                let to_remove_from_stack = self.to_remove_from_stack();
+                Self::indirect_mov(
+                    self.backend,
+                    &mut self.before,
                     source,
                     &format!(
                         "{} + {}",
                         self.backend.stack_pointer(),
-                        (self.to_remove_from_stack() + 1) * self.backend.word_len() as usize
+                        (to_remove_from_stack + 1) * self.backend.word_len() as usize
                     ),
                     "ebx",
                     None,
@@ -710,12 +789,15 @@ impl<'a> FunctionCallParameters<'a> {
                     None,
                     true,
                 );
-                self.indirect_mov(
+                let to_remove_from_stack = self.to_remove_from_stack();
+                Self::indirect_mov(
+                    self.backend,
+                    &mut self.before,
                     &format!("edx + {}", lambda_space_index * word_len),
                     &format!(
                         "{} + {}",
                         self.backend.stack_pointer(),
-                        (self.to_remove_from_stack() + 1) * self.backend.word_len() as usize
+                        (to_remove_from_stack + 1) * self.backend.word_len() as usize
                     ),
                     "ebx",
                     None,
@@ -869,10 +951,7 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn push_to_scope_stack(&mut self, what: &str) -> usize {
-        let pos = self
-            .stack_vals
-            .reserve(StackEntryType::RefToDereference, what)
-            * self.backend.word_len();
+        let pos = self.stack_vals.reserve(StackEntryType::LocalVal, what) * self.backend.word_len();
         CodeGen::add(&mut self.before, "; scope push", None, true);
         if what.contains('[') {
             CodeGen::add(&mut self.before, "push    ebx", None, true);
@@ -1015,17 +1094,18 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn indirect_mov(
-        &mut self,
+        backend: &dyn Backend,
+        out: &mut String,
         source: &str,
         dest: &str,
         temporary_register: &str,
         comment: Option<&str>,
     ) {
         CodeGen::add(
-            &mut self.before,
+            out,
             &format!(
                 "mov  {} {}, [{}]",
-                self.backend.word_size(),
+                backend.word_size(),
                 temporary_register,
                 source
             ),
@@ -1033,10 +1113,10 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
         CodeGen::add(
-            &mut self.before,
+            out,
             &format!(
                 "mov  {} [{}], {}",
-                self.backend.word_size(),
+                backend.word_size(),
                 dest,
                 temporary_register
             ),

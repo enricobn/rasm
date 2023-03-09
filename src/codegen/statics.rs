@@ -104,15 +104,15 @@ impl Statics {
         label
     }
 
-    pub fn insert_static_allocation(&mut self, value: MemoryValue) -> String {
+    pub fn insert_static_allocation(&mut self, value: MemoryValue) -> (String, String) {
         let label_allocation = self.insert_prefix("static_allocation", Mem(5, MemoryUnit::Words));
 
         let label_memory = self.insert_prefix("static_memory", value);
 
         self.static_allocation
-            .push((label_allocation.to_owned(), label_memory));
+            .push((label_allocation.to_owned(), label_memory.clone()));
 
-        label_allocation
+        (label_allocation, label_memory)
     }
 
     pub fn generate_code(&mut self, backend: &dyn Backend) -> (String, String, String) {

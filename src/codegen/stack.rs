@@ -3,7 +3,7 @@ use std::cell::RefCell;
 #[derive(Debug, PartialEq, Eq)]
 pub enum StackEntryType {
     LetVal,
-    RefToDereference,
+    LocalVal,
     Other,
 }
 
@@ -83,7 +83,7 @@ mod tests {
         let stack = StackVals::new();
         assert_eq!(1, stack.reserve(StackEntryType::LetVal, "val1"));
         assert_eq!(2, stack.reserve(StackEntryType::LetVal, "val2"));
-        assert_eq!(3, stack.reserve(StackEntryType::RefToDereference, "ref1"));
+        assert_eq!(3, stack.reserve(StackEntryType::LocalVal, "ref1"));
         assert_eq!(4, stack.reserve(StackEntryType::LetVal, "val3"));
 
         assert_eq!(
@@ -96,7 +96,7 @@ mod tests {
         );
         assert_eq!(
             Some(3),
-            stack.find_relative_to_bp(StackEntryType::RefToDereference, "ref1")
+            stack.find_relative_to_bp(StackEntryType::LocalVal, "ref1")
         );
         assert_eq!(
             Some(4),
