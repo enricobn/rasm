@@ -1,8 +1,10 @@
 // time ./gameoflife_vec_sdl resources/examples/f116.cells 100
-// 982880 bytes allocated
-// 88602 table slots allocated
 //
-// real    0m2,121s
+// 984428 bytes allocated
+// 88473 table slots allocated
+//
+// real    0m1,819s
+
 
 include "std.rasm"
 include "sdl.rasm"

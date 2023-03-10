@@ -1,11 +1,10 @@
 // run with: time ./gameoflife resources/examples/f116.cells 100
-
+//
 // 481228 bytes allocated
-// 142297 table slots allocated
+// 138093 table slots allocated
 //
-// real    0m21,904s
-//
-// real    0m27,068s
+// real    0m24,496s
+
 
 
 include "std.rasm"

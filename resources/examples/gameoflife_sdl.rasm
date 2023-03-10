@@ -1,9 +1,10 @@
 // run with: time ./gameoflife_sdl resources/examples/f116.cells 100
-
-// 481236 bytes allocated
-// 142305 table slots allocated
 //
-// real    0m21,321s
+// 481236 bytes allocated
+// 138099 table slots allocated
+//
+// real    0m21,196s
+
 
 include "std.rasm"
 include "sdl.rasm"

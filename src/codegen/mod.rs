@@ -1616,23 +1616,30 @@ impl<'a> CodeGen<'a> {
             if let Some(address) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
+                println!("function from lambda");
                 CodeGen::add(before, "mov eax, edx", None, true);
                 // we add the address to the "lambda space" as the last parameter of the lambda
                 CodeGen::add(
                     before,
                     &format!("add eax, {}", address * self.backend.word_len() as usize),
-                    Some("address to the \"lambda space\""),
+                    Some("address to the allocation table of the \"lambda space\""),
                     true,
                 );
                 CodeGen::add(
                     before,
-                    &format!("push {} [eax]", self.backend.pointer_size()),
+                    "mov eax, [eax]",
                     Some("address to the \"lambda space\""),
                     true,
                 );
                 CodeGen::add(
                     before,
                     "mov eax, [eax]",
+                    Some("address to the \"lambda space\""),
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    &format!("push {} eax", self.backend.pointer_size()),
                     Some("address to the \"lambda space\""),
                     true,
                 );
@@ -1658,6 +1665,7 @@ impl<'a> CodeGen<'a> {
             } else if let Some(TypedValKind::ParameterRef(index, _)) =
                 context.get(&function_call.function_name)
             {
+                println!("function parameter");
                 CodeGen::add(
                     before,
                     "",
@@ -1675,6 +1683,12 @@ impl<'a> CodeGen<'a> {
                         self.backend.word_len(),
                         (index + 1) * self.backend.word_len() as usize
                     ),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    before,
+                    &format!("mov {} eax, [eax]", self.backend.word_size(),),
                     None,
                     true,
                 );

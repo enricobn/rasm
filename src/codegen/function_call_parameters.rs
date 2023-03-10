@@ -241,14 +241,21 @@ impl<'a> FunctionCallParameters<'a> {
            so the values of the previous recursion are overridden.
         */
         if context.is_empty() {
-            let (label_allocation, _) =
+            let (label_allocation, label_memory) =
                 statics.insert_static_allocation(MemoryValue::Mem(1, MemoryUnit::Words));
+
+            // we save the allocation table address of the lambda space in the stack
             CodeGen::add(
                 &mut self.before,
-                &format!(
-                    "mov  {} ecx, [{label_allocation}]",
-                    self.backend.word_size()
-                ),
+                &format!("push  {} {label_allocation}", self.backend.word_size()),
+                comment,
+                true,
+            );
+
+            // we put in ecx the address of the lambda space
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov  {} ecx, {label_memory}", self.backend.word_size()),
                 comment,
                 true,
             );
@@ -268,14 +275,20 @@ impl<'a> FunctionCallParameters<'a> {
                     MemoryUnit::Words,
                 ));
 
-                label_memory = lm;
-
+                // we save the allocation table address of the lambda space in the stack
                 CodeGen::add(
                     &mut self.before,
-                    &format!(
-                        "mov  {} ecx, [{label_allocation}]",
-                        self.backend.word_size()
-                    ),
+                    &format!("push  {} {label_allocation}", self.backend.word_size()),
+                    comment,
+                    true,
+                );
+
+                label_memory = lm;
+
+                // we put in ecx the address of the lambda space
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("mov  {} ecx, {label_memory}", self.backend.word_size()),
                     comment,
                     true,
                 );
@@ -288,8 +301,17 @@ impl<'a> FunctionCallParameters<'a> {
                     statics,
                 );
 
+                // we save the allocation table address of the lambda space in the stack
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("push  {} ecx", self.backend.word_size()),
+                    comment,
+                    true,
+                );
+
                 self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
 
+                // we put in ecx the address of the lambda space
                 CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
             }
 
@@ -417,6 +439,9 @@ impl<'a> FunctionCallParameters<'a> {
             None,
             true,
         );
+
+        // the allocation table address of the lambda space
+        CodeGen::add(&mut self.before, "pop   ecx", None, true);
 
         // + 1 due to push ecx
         let to_remove_from_stack = self.to_remove_from_stack();
@@ -769,16 +794,12 @@ impl<'a> FunctionCallParameters<'a> {
         if self.inline {
             self.has_inline_lambda_param = true;
             self.parameters_values
-                .insert(original_param_name.into(), src.clone());
+                .insert(original_param_name.into(), src);
         } else {
             if self.immediate {
                 CodeGen::add(
                     &mut self.before,
-                    &format!(
-                        "mov   {} eax,[edx + {}]",
-                        self.backend.pointer_size(),
-                        lambda_space_index * word_len
-                    ),
+                    &format!("mov   {} eax,{src}", self.backend.pointer_size(),),
                     None,
                     true,
                 );

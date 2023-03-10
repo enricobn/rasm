@@ -39,11 +39,12 @@ asm forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     mov     dword ecx, [ebx]    ; count
     add     ebx, 4  ; address of first value
     mov     edx, $f         ; points to the lambda space
+    mov     dword edx,[edx]
 .loop:
     cmp     dword ecx, 0
     jz      .end
     push    dword [ebx]
-    push    edx             ; the address to the lambda space is the last argument of every lambda
+    push    dword edx       ; the address to the lambda space is the last argument of every lambda
     call    [edx]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 8
     add     ebx, 4
@@ -117,12 +118,13 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     cmp     dword ecx, 0
     jz      .end
     push    dword [ebx]
-    push    dword $f
     mov     dword eax, $f
+    mov     dword eax,[eax]
+    push    dword eax
     call    [eax]
+    add     esp, 8
     $addRef(eax:T1)
     ; TODO do I need to dereference it?
-    add     esp, 8
     mov     dword [edx], eax
     add     ebx, 4
     add     edx, 4
@@ -149,8 +151,9 @@ asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     cmp     dword ecx, 0
     jz      .false
     push    dword [ebx]
-    push    dword $f
     mov     dword eax, $f
+    mov     dword eax,[eax]
+    push    dword eax
     call    [eax]
     add     esp, 8
     cmp     dword eax, 0
@@ -179,8 +182,9 @@ asm count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
     cmp     dword ecx, 0
     jz      .end
     push    dword [ebx]
-    push    dword $f
     mov     dword eax, $f
+    mov     dword eax,[eax]
+    push    dword eax
     call    [eax]
     add     esp, 8
     cmp     dword eax, 0
@@ -224,8 +228,9 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     cmp     ebx, 0
     jz      .end
     push    dword [ecx]
-    push    dword $filter
     mov     dword eax, $filter
+    mov     dword eax,[eax]
+    push    dword eax
     call    [eax]
     add     esp, 8
     cmp     dword eax, 0
@@ -408,8 +413,9 @@ asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     push    eax
     $addRef(eax: T1)
     ; TODO I must dereference it
-    push    dword $accum
     mov     dword edx, $accum
+    mov     dword edx,[edx]
+    push    dword edx
     call    [edx]
     add     esp, 12
     add     ecx, 4

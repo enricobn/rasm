@@ -340,6 +340,12 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
         }
 
         CodeGen::add(&mut body, &format!("mov ebx,${}", variant.name), None, true);
+        CodeGen::add(
+            &mut body,
+            &format!("mov {} ebx,[ebx]", word_size),
+            None,
+            true,
+        );
         CodeGen::add(&mut body, "push ebx", None, true);
         CodeGen::add(&mut body, "call [ebx]", None, true);
 

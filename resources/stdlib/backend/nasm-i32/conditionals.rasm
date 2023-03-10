@@ -1,16 +1,18 @@
 inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+16
+    jz      $+18
     mov     eax, $ftrue     ; ftrue points to the lambda space
+    mov     dword eax,[eax]
     push    eax             ; the address to the lambda space is the last argument of every lambda
     call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
-    jmp     $+16
+    jmp     $+18
     nop
     nop
     nop
     mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
+    mov     dword eax,[eax]
     push    eax
     call    [eax]           ; false value
     add     esp, 4
@@ -22,16 +24,18 @@ inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
 inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+16
+    jz      $+18
     mov     eax, $ftrue     ; ftrue points to the lambda space
+    mov     dword eax,[eax]
     push    eax             ; the address to the lambda space is the last argument of every lambda
     call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
-    jmp     $+16
+    jmp     $+18
     nop
     nop
     nop
     mov     eax, $ffalse    ; ffalse points to the lambda space, we do the same as above
+    mov     dword eax,[eax]
     push    eax
     call    [eax]           ; false value
     add     esp, 4
@@ -74,14 +78,15 @@ inline asm ifImmediateThen<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     cmp     eax, 0
     jz      $+10
     mov     eax, $vtrue
-    jmp     $+14
+    jmp     $+16
     nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
     nop
     nop
     mov     eax, $ffalse
+    mov     dword eax,[eax]
     push    eax
     call    [eax]
-    add     esp, 4
+    add     dword esp, 4
 }/
 
 /** TODO it should be a bool
