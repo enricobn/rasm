@@ -1,0 +1,12 @@
+include "std.rasm"
+
+println(map(range(1,10), getAdd()));
+println(map(range(1,10), getSub()));
+
+fn getAdd() -> fn(i32) -> i32 {
+    { n -> add(n, 1);};
+}
+
+fn getSub() -> fn(i32) -> i32 {
+    { n -> sub(n, 1);};
+}

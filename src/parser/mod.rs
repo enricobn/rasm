@@ -5,6 +5,7 @@ use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::debug_i;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
@@ -13,8 +14,8 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
+    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
+    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::param_types_matcher;
@@ -89,6 +90,7 @@ enum ParserState {
     Let,
     Val,
     StructDef,
+    LambdaExpression,
 }
 
 impl Parser {
@@ -380,6 +382,30 @@ impl Parser {
                         self.state.push(ParserState::Let);
                         self.i = next_i;
                         continue;
+                    } else if Some(&TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))
+                        == self.get_token_kind()
+                    {
+                        let (parameter_names, next_i) = self.parse_lambda_parameters(1);
+                        self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
+                            parameter_names,
+                            body: Vec::new(),
+                        }));
+                        let fake_function_def = ASTFunctionDef {
+                            original_name: String::new(),
+                            name: String::new(),
+                            parameters: Vec::new(),
+                            body: RASMBody(Vec::new()),
+                            return_type: None,
+                            inline: false,
+                            param_types: Vec::new(),
+                            resolved_generic_types: LinkedHashMap::new(),
+                        };
+                        self.parser_data
+                            .push(ParserData::FunctionDef(fake_function_def));
+                        self.state.push(ParserState::LambdaExpression);
+                        self.state.push(ParserState::FunctionBody);
+                        self.i = next_i;
+                        continue;
                     }
                     self.panic("Error parsing function body.");
                 }
@@ -529,6 +555,66 @@ impl Parser {
                         continue;
                     }
                     self.panic("Error parsing let, unexpected token");
+                }
+                Some(ParserState::LambdaExpression) => {
+                    if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                        self.get_token_kind()
+                    {
+                        debug_i!("End of lambda expression");
+
+                        self.state.pop();
+
+                        if let Some(ParserData::FunctionDef(fake_function_def)) =
+                            self.parser_data.pop()
+                        {
+                            if let Some(ParserData::LambdaDef(mut lambda_def)) =
+                                self.parser_data.pop()
+                            {
+                                if let RASMBody(statements) = fake_function_def.body {
+                                    lambda_def.body = statements;
+
+                                    if let Some(ParserData::FunctionDef(def)) =
+                                        self.last_parser_data()
+                                    {
+                                        println!("Adding lambda expression to function {def}");
+                                        //                                        if let Some((ast_type, next_i)) = TypeParser::new(self)
+                                        //                                            .try_parse_ast_type(0, &def.param_types)
+                                        //                                        {
+                                        if let ASTFunctionBody::RASMBody(statements) = &def.body {
+                                            let mut statements = statements.clone();
+                                            statements.push(ASTStatement::Expression(
+                                                ASTExpression::Lambda(lambda_def),
+                                            ));
+
+                                            let mut def = def.clone();
+                                            def.body = ASTFunctionBody::RASMBody(statements);
+                                            let l = self.parser_data.len();
+                                            self.parser_data[l - 1] = ParserData::FunctionDef(def);
+
+                                            self.i += 1;
+                                            continue;
+                                        } else {
+                                            self.panic("Expecting function rasm body");
+                                        }
+                                        // }
+                                    } else {
+                                        self.panic("Expecting function def");
+                                    }
+                                } else {
+                                    self.panic("Expecting fake function rasm body");
+                                }
+                            } else {
+                                self.panic("Expecting lambda def");
+                            }
+                        } else {
+                            self.panic("Expecting fake function def");
+                        }
+                    } else {
+                        self.panic(&format!(
+                            "End of lambda expression, expected semicolon, but got {}",
+                            OptionDisplay(&self.get_token_kind())
+                        ));
+                    }
                 }
             }
 

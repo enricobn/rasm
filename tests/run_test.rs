@@ -267,6 +267,17 @@ fn test_write_file() {
 }
 
 #[test]
+fn test_lambda_as_return_value() {
+    run_test(
+        "lambda_as_return_value",
+        vec![],
+        "2,3,4,5,6,7,8,9,10\n0,1,2,3,4,5,6,7,8\n",
+    );
+}
+
+// Compile tests
+
+#[test]
 fn test_gameoflife_sdl_compile() {
     compile_example("resources/examples/gameoflife_sdl.rasm");
 }

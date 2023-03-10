@@ -204,7 +204,7 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_lambda(
         &mut self,
-        def: &mut ASTTypedFunctionDef,
+        def: &ASTTypedFunctionDef,
         parent_lambda_space: Option<&LambdaSpace>,
         context: &TypedValContext,
         comment: Option<&str>,
@@ -440,22 +440,27 @@ impl<'a> FunctionCallParameters<'a> {
             true,
         );
 
-        // the allocation table address of the lambda space
-        CodeGen::add(&mut self.before, "pop   ecx", None, true);
+        if self.immediate {
+            // the allocation table address of the lambda space
+            CodeGen::add(&mut self.before, "pop   eax", None, true);
+        } else {
+            // the allocation table address of the lambda space
+            CodeGen::add(&mut self.before, "pop   ecx", None, true);
 
-        // + 1 due to push ecx
-        let to_remove_from_stack = self.to_remove_from_stack();
-        CodeGen::add(
-            &mut self.before,
-            &format!(
-                "mov {} [{} + {}], ecx",
-                ws,
-                sp,
-                (to_remove_from_stack + 1) * wl as usize
-            ),
-            comment,
-            true,
-        );
+            // + 1 due to push ecx
+            let to_remove_from_stack = self.to_remove_from_stack();
+            CodeGen::add(
+                &mut self.before,
+                &format!(
+                    "mov {} [{} + {}], ecx",
+                    ws,
+                    sp,
+                    (to_remove_from_stack + 1) * wl as usize
+                ),
+                comment,
+                true,
+            );
+        }
 
         CodeGen::add(&mut self.before, "pop  ecx", comment, true);
 

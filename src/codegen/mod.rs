@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::iter::zip;
 use std::ops::Deref;
 
 use linked_hash_map::{Iter, LinkedHashMap};
@@ -1118,8 +1119,83 @@ impl<'a> CodeGen<'a> {
                                         true,
                                     );
                                 }
-                                ASTTypedExpression::Lambda(_) => {
-                                    panic!("unsupported");
+                                ASTTypedExpression::Lambda(lambda_def) => {
+                                    if let Some(ASTTypedType::Builtin(
+                                        BuiltinTypedTypeKind::Lambda {
+                                            parameters,
+                                            return_type,
+                                        },
+                                    )) = &function_def.return_type
+                                    {
+                                        let rt = if let Some(rt) = return_type {
+                                            rt.deref().clone()
+                                        } else {
+                                            panic!(
+                                                "Expected a return type from lambda but got None"
+                                            );
+                                        };
+
+                                        let lambda_parameters = zip(
+                                            lambda_def.parameter_names.iter(),
+                                            parameters.iter(),
+                                        )
+                                        .map(|((name, index), typed_type)| ASTTypedParameterDef {
+                                            name: name.clone(),
+                                            ast_type: typed_type.clone(),
+                                            ast_index: index.clone(),
+                                        })
+                                        .collect::<Vec<_>>();
+
+                                        let def = ASTTypedFunctionDef {
+                                            //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
+                                            name: format!("lambda{}", self.id),
+                                            parameters: lambda_parameters, // parametrs are calculated later
+                                            return_type: Some(rt),
+                                            body: ASTTypedFunctionBody::RASMBody(
+                                                lambda_def.clone().body,
+                                            ),
+                                            inline: false,
+                                            generic_types: LinkedHashMap::new(),
+                                        };
+
+                                        println!("lambda def {def}");
+
+                                        self.id += 1;
+
+                                        let mut parameters = FunctionCallParameters::new(
+                                            self.backend.borrow(),
+                                            Vec::new(),
+                                            function_def.inline,
+                                            true,
+                                            &stack,
+                                            self.dereference,
+                                            self.id,
+                                        );
+
+                                        self.id += 1;
+
+                                        let new_new_lambda_space = parameters.add_lambda(
+                                            &def,
+                                            lambda_space,
+                                            &context,
+                                            None,
+                                            &mut self.statics,
+                                            &self.module,
+                                        );
+
+                                        before.push_str(&parameters.before());
+
+                                        Self::insert_on_top(
+                                            &parameters.after().join("\n"),
+                                            &mut after,
+                                        );
+                                        lambda_calls.push(LambdaCall {
+                                            def,
+                                            space: new_new_lambda_space,
+                                        });
+                                    } else {
+                                        panic!("Expected lambda return type");
+                                    }
                                 }
                                 ASTTypedExpression::Value(value_type, _) => {
                                     let v = self.backend.value_to_string(value_type);
@@ -1616,7 +1692,6 @@ impl<'a> CodeGen<'a> {
             if let Some(address) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                println!("function from lambda");
                 CodeGen::add(before, "mov eax, edx", None, true);
                 // we add the address to the "lambda space" as the last parameter of the lambda
                 CodeGen::add(
@@ -1665,7 +1740,6 @@ impl<'a> CodeGen<'a> {
             } else if let Some(TypedValKind::ParameterRef(index, _)) =
                 context.get(&function_call.function_name)
             {
-                println!("function parameter");
                 CodeGen::add(
                     before,
                     "",

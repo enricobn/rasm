@@ -38,8 +38,8 @@ pub struct TypeCheckError {
 
 impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let bt = Backtrace::new();
-        println!("{:?}", bt);
+        // let bt = Backtrace::new();
+        // println!("{:?}", bt);
         f.write_str(&format!("TypeCheckError({})", &self.message))
     }
 }
@@ -884,7 +884,24 @@ fn convert_last_expr_in_body(
             None
         }
         ASTExpression::Value(_, _index) => None,
-        ASTExpression::Lambda(_) => None,
+        ASTExpression::Lambda(lambda_def) => {
+            let resolved_generic_types = LinkedHashMap::new();
+            let rt = return_type.unwrap();
+            let context =
+                get_context_from_lambda(context, lambda_def, &rt, &resolved_generic_types)?;
+            convert_lambda(
+                module,
+                &rt,
+                lambda_def,
+                &context,
+                typed_context,
+                &resolved_generic_types,
+                backend,
+                call_stack,
+                statics,
+            )?
+            .map(ASTExpression::Lambda)
+        }
         ASTExpression::Any(_) => None,
     };
 
@@ -1137,6 +1154,14 @@ pub fn convert_call(
                     println!("{}", par.ast_type);
                     println!("{:?}", new_return_type);
                     */
+
+                    /*
+                    effective_lambda
+                        .body
+                        .iter()
+                        .for_each(|it| println!("  {it}"));
+
+                     */
 
                     something_converted_in_loop = update(
                         &ASTType::Builtin(BuiltinTypeKind::Lambda {
