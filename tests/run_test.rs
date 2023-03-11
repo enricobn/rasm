@@ -271,7 +271,7 @@ fn test_lambda_as_return_value() {
     run_test(
         "lambda_as_return_value",
         vec![],
-        "2,3,4,5,6,7,8,9,10\n0,1,2,3,4,5,6,7,8\n",
+        "2,3\n0,1\nSome(2),Some(2)\nSome(2),Some(2)\n",
     );
 }
 

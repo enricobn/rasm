@@ -576,11 +576,10 @@ impl Parser {
                                     if let Some(ParserData::FunctionDef(def)) =
                                         self.last_parser_data()
                                     {
-                                        println!("Adding lambda expression to function {def}");
                                         //                                        if let Some((ast_type, next_i)) = TypeParser::new(self)
                                         //                                            .try_parse_ast_type(0, &def.param_types)
                                         //                                        {
-                                        if let ASTFunctionBody::RASMBody(statements) = &def.body {
+                                        if let RASMBody(statements) = &def.body {
                                             let mut statements = statements.clone();
                                             statements.push(ASTStatement::Expression(
                                                 ASTExpression::Lambda(lambda_def),

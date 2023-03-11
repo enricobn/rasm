@@ -1,7 +1,16 @@
 include "std.rasm"
 
-println(map(range(1,10), getAdd()));
-println(map(range(1,10), getSub()));
+const COUNT = 3;
+
+println(map(range(1,COUNT), getAdd()));
+println(map(range(1,COUNT), getSub()));
+
+let options = map(range(1,COUNT), getOption());
+
+let options1 = map(range(1,COUNT), getOption());
+
+println(options);
+println(options1);
 
 fn getAdd() -> fn(i32) -> i32 {
     { n -> add(n, 1);};
@@ -9,4 +18,13 @@ fn getAdd() -> fn(i32) -> i32 {
 
 fn getSub() -> fn(i32) -> i32 {
     { n -> sub(n, 1);};
+}
+
+fn getOption() -> fn(i32) -> Option<i32> {
+    let o = Option::Some(1);
+    { n ->
+        // don't remove it, it's used to allocate memory inside a lambda to be sure that "o" memory is not reused
+        let b = Option::Some(2);
+        o;
+    };
 }

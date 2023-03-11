@@ -1158,8 +1158,6 @@ impl<'a> CodeGen<'a> {
                                             generic_types: LinkedHashMap::new(),
                                         };
 
-                                        println!("lambda def {def}");
-
                                         self.id += 1;
 
                                         let mut parameters = FunctionCallParameters::new(
