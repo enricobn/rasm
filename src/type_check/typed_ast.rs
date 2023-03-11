@@ -1017,6 +1017,18 @@ fn verify_statement(
                         } else {
                             panic!()
                         }
+                    } else if let Some(TypedValKind::LetRef(_, ast_type)) =
+                        context.get(&call.function_name)
+                    {
+                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                            parameters: _,
+                            return_type,
+                        }) = &ast_type
+                        {
+                            return_type.clone().map(|it| *it)
+                        } else {
+                            panic!()
+                        }
                     } else {
                         panic!("{call}")
                     };
@@ -1051,7 +1063,7 @@ fn verify_function_call(
     call: &ASTTypedFunctionCall,
     statics: &Statics,
 ) {
-    debug!("call {call}");
+    debug!("verify_function_call {call}");
 
     let parameters_types =
         if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
@@ -1081,9 +1093,20 @@ fn verify_function_call(
             } else {
                 panic!();
             }
+        } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(&call.function_name) {
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters,
+                return_type: _,
+            }) = &ast_type
+            {
+                parameters.to_vec()
+            } else {
+                panic!();
+            }
         } else {
             panic!(
-                "cannot find function for call {call} functions: {:?}",
+                "cannot find function for call {call} : {} functions: {:?}",
+                call.index,
                 module.functions_by_name.keys().collect::<Vec<_>>()
             );
         };
@@ -1107,7 +1130,7 @@ pub fn get_type_of_typed_expression(
     ast_type: Option<&ASTTypedType>,
     statics: &Statics,
 ) -> Option<ASTTypedType> {
-    debug!("expression {expr} {:?}", ast_type);
+    debug!("get_type_of_typed_expression {expr} {:?}", ast_type);
     match expr {
         ASTTypedExpression::StringLiteral(_) => {
             Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))

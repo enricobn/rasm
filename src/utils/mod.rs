@@ -30,6 +30,20 @@ impl<'a, T: fmt::Display + 'a> fmt::Display for OptionDisplay<'a, T> {
     }
 }
 
+pub struct OptionOptionDisplay<'a, T: 'a>(pub &'a Option<Option<T>>);
+
+impl<'a, T: fmt::Display + 'a> fmt::Display for OptionOptionDisplay<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.0 {
+            Some(v) => {
+                let inner = OptionDisplay(v);
+                write!(f, "Some({inner})")
+            }
+            None => write!(f, "None"),
+        }
+    }
+}
+
 // from https://stackoverflow.com/questions/33759072/why-doesnt-vect-implement-the-display-trait
 pub struct SliceDisplay<'a, T: 'a>(pub &'a [T]);
 

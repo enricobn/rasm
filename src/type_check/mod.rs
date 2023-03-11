@@ -23,7 +23,7 @@ use crate::type_check::call_stack::CallStack;
 use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule, DefaultFunctionCall};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
-use crate::utils::{format_option, format_option_option};
+use crate::utils::{format_option, format_option_option, OptionOptionDisplay};
 use crate::{debug_i, dedent, indent};
 
 pub mod call_stack;
@@ -38,8 +38,8 @@ pub struct TypeCheckError {
 
 impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // let bt = Backtrace::new();
-        // println!("{:?}", bt);
+        let bt = Backtrace::new();
+        println!("{:?}", bt);
         f.write_str(&format!("TypeCheckError({})", &self.message))
     }
 }
@@ -181,7 +181,7 @@ fn convert_function_def(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
     type_conversion_context: &RefCell<TypeConversionContext>,
-    resolved_param_types: &LinkedHashMap<String, ASTType>,
+    resolved_generic_types: &LinkedHashMap<String, ASTType>,
     function_def: &ASTFunctionDef,
     statics: &Statics,
 ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
@@ -207,11 +207,12 @@ fn convert_function_def(
                 &call_stack,
                 return_type,
                 statics,
+                resolved_generic_types,
             )? {
                 let mut new_function_def = function_def.clone();
                 new_function_def.body = ASTFunctionBody::RASMBody(new_body);
 
-                new_function_def.resolved_generic_types = resolved_param_types.clone();
+                new_function_def.resolved_generic_types = resolved_generic_types.clone();
 
                 type_conversion_context
                     .borrow_mut()
@@ -235,6 +236,7 @@ fn convert_body(
     call_stack: &CallStack,
     return_type: Option<ASTType>,
     statics: &Statics,
+    resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<Vec<ASTStatement>>, TypeCheckError> {
     debug_i!("converting body return type {:?}", return_type);
     indent!();
@@ -255,6 +257,7 @@ fn convert_body(
                     backend,
                     call_stack,
                     statics,
+                    resolved_generic_types,
                 )
             } else {
                 convert_statement_in_body(
@@ -421,7 +424,7 @@ fn convert_statement(
 
                 match converted_call {
                     Err(e) => {
-                        panic!("{e} expression: {:?}", expr);
+                        panic!("{e} expression: {}", expr);
                     }
                     Ok(NothingToConvert) => new_body.push(statement.clone()),
                     Ok(SomethingConverted) => {
@@ -764,6 +767,7 @@ fn convert_last_statement_in_body(
     backend: &dyn Backend,
     call_stack: &CallStack,
     statics: &Statics,
+    resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
     match statement {
         ASTStatement::Expression(e) => convert_last_expr_in_body(
@@ -775,6 +779,7 @@ fn convert_last_statement_in_body(
             backend,
             call_stack,
             statics,
+            resolved_generic_types,
         )
         .map(|ito| ito.map(ASTStatement::Expression)),
         ASTStatement::LetStatement(name, e, is_const, let_index) => Err(format!(
@@ -794,10 +799,12 @@ fn convert_last_expr_in_body(
     backend: &dyn Backend,
     call_stack: &CallStack,
     statics: &Statics,
+    resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
     debug_i!(
-        "converting last expr in body {expr} return_type {:?}",
-        return_type
+        "converting last expr in body {expr} return_type {:?} resolved_generic_types {:?}",
+        return_type,
+        resolved_generic_types
     );
     // println!(
     //     "converting last expr in body {expr} return_type {:?}",
@@ -814,9 +821,22 @@ fn convert_last_expr_in_body(
                 let expected_return_type = if get_generic_types(ast_type).is_empty() {
                     Some(return_type)
                 } else {
-                    None
+                    // TODO I don't know it it's necessary
+                    if let Some(new_ast_type) = substitute(ast_type, resolved_generic_types) {
+                        if get_generic_types(&new_ast_type).is_empty() {
+                            Some(Some(new_ast_type))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 };
 
+                debug_i!(
+                    "resolved expected return type {}",
+                    OptionOptionDisplay(&expected_return_type)
+                );
                 let result = match convert_call(
                     module,
                     context,
@@ -838,7 +858,7 @@ fn convert_last_expr_in_body(
                     Converted(new_call) => {
                         debug_i!("converted call {new_call}");
                         if &new_call == call {
-                            debug_i!("ut where equal");
+                            debug_i!("but where equal");
                             // TODO why???
                             None
                         } else {
@@ -852,9 +872,9 @@ fn convert_last_expr_in_body(
 
                     if let ASTFunctionCallExpression(new_call) = new_expr {
                         if new_call == call {
-                            debug_i!("ut where equal");
+                            debug_i!("but where equal");
                             // TODO why???
-                            // return Ok(None);
+                            return Ok(None);
                         }
                     }
                 } else {
@@ -1952,6 +1972,16 @@ fn get_type_of_expression(
                 } else {
                     Err("Expected a lambda".into())
                 }
+            } else if let Some(ValKind::LetRef(_i, ast_type)) = context.get(&call.function_name) {
+                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    return_type,
+                    parameters: _,
+                }) = &ast_type
+                {
+                    Ok(return_type.clone().map(|it| it.as_ref().clone()))
+                } else {
+                    Err("Expected a lambda".into())
+                }
             } else {
                 get_type_of_call(
                     module,
@@ -2132,6 +2162,16 @@ fn get_type_of_call(
             return_type,
             parameters: _,
         }) = &par.ast_type
+        {
+            Ok(return_type.clone().map(|it| it.as_ref().clone()))
+        } else {
+            Err("Expected a lambda".into())
+        }
+    } else if let Some(ValKind::LetRef(_i, ast_type)) = context.get(&call.function_name) {
+        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            return_type,
+            parameters: _,
+        }) = ast_type
         {
             Ok(return_type.clone().map(|it| it.as_ref().clone()))
         } else {
@@ -2337,14 +2377,14 @@ fn convert_lambda(
     lambda: &ASTLambdaDef,
     context: &ValContext,
     typed_context: &RefCell<TypeConversionContext>,
-    resolved_param_types: &LinkedHashMap<String, ASTType>,
+    resolved_generic_types: &LinkedHashMap<String, ASTType>,
     backend: &dyn Backend,
     call_stack: &CallStack,
     statics: &Statics,
 ) -> Result<Option<ASTLambdaDef>, TypeCheckError> {
     debug_i!(
         "converting lambda_type {lambda_type}, lambda {lambda}, resolved_param_types {:?}",
-        resolved_param_types
+        resolved_generic_types
     );
     indent!();
 
@@ -2368,7 +2408,7 @@ fn convert_lambda(
     for (inner_i, (name, index)) in lambda.parameter_names.iter().enumerate() {
         let pp = parameters.get(inner_i).unwrap();
 
-        if let Some(new_t) = substitute(pp, resolved_param_types) {
+        if let Some(new_t) = substitute(pp, resolved_generic_types) {
             // println!("something converted type {pp}, {new_t}");
             something_converted = true;
             /*
@@ -2397,7 +2437,7 @@ fn convert_lambda(
     }
 
     let rt = return_type.clone().and_then(|it| {
-        substitute(it.as_ref(), resolved_param_types)
+        substitute(it.as_ref(), resolved_generic_types)
             .or_else(|| return_type.clone().map(|rt| rt.as_ref().clone()))
     });
 
@@ -2410,6 +2450,7 @@ fn convert_lambda(
         call_stack,
         rt,
         statics,
+        resolved_generic_types,
     )? {
         debug_i!("lambda type something converted");
         Some(ASTLambdaDef {

@@ -1356,13 +1356,25 @@ impl<'a> CodeGen<'a> {
                 stack_vals,
                 &mut after,
             )
-        } else if let Some(TypedValKind::ParameterRef(index, par)) =
-            context.get(&function_call.function_name)
-        {
+        } else if let Some(kind) = context.get(&function_call.function_name) {
+            let (index, ast_type) = match kind {
+                TypedValKind::ParameterRef(index, par) => (*index as i32 + 2, par.ast_type.clone()),
+                TypedValKind::LetRef(index, ast_type) => {
+                    // TODO I think it's not really needed because every index I put here, it works...
+                    let index_relative_to_bp = match stack_vals
+                        .find_relative_to_bp(StackEntryType::LetVal, &function_call.function_name)
+                    {
+                        None => *index as i32 + 2,
+                        Some(index_in_stack) => -(index_in_stack as i32),
+                    };
+                    (index_relative_to_bp, ast_type.clone())
+                }
+            };
+
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 return_type: _,
                 parameters,
-            }) = &par.ast_type
+            }) = &ast_type
             {
                 let wl = self.backend.word_len() as usize;
                 let bp = self.backend.stack_base_pointer();
@@ -1417,7 +1429,7 @@ impl<'a> CodeGen<'a> {
                     parameters_defs,
                     false,
                     None,
-                    format!("[{}+{}+{}]", bp, wl, (index + 1) * wl),
+                    format!("[{}+{}]", bp, index * wl as i32),
                     lambda_space,
                     indent,
                     true,
@@ -1735,9 +1747,21 @@ impl<'a> CodeGen<'a> {
                     None,
                     true,
                 );
-            } else if let Some(TypedValKind::ParameterRef(index, _)) =
-                context.get(&function_call.function_name)
-            {
+            } else if let Some(kind) = context.get(&function_call.function_name) {
+                let index = match kind {
+                    TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
+                    TypedValKind::LetRef(_, _) => {
+                        let relative_to_bp_found = stack_vals
+                            .find_relative_to_bp(
+                                StackEntryType::LetVal,
+                                &function_call.function_name,
+                            )
+                            .unwrap();
+                        let index_in_context = -(relative_to_bp_found as i32);
+                        index_in_context
+                    }
+                };
+
                 CodeGen::add(
                     before,
                     "",
@@ -1750,10 +1774,9 @@ impl<'a> CodeGen<'a> {
                 CodeGen::add(
                     before,
                     &format!(
-                        "mov eax, [{} + {} + {}]",
+                        "mov eax, [{} + {}]",
                         self.backend.stack_base_pointer(),
-                        self.backend.word_len(),
-                        (index + 1) * self.backend.word_len() as usize
+                        index * self.backend.word_len() as i32
                     ),
                     None,
                     true,
