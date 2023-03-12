@@ -2035,10 +2035,11 @@ fn get_type_of_expression(
 
                             let skip = if let ASTFunctionCallExpression(inner_call) = let_statement
                             {
-                                debug_i!("addin inner call {inner_call}");
+                                debug_i!("adding inner call {inner_call}");
                                 // new_call_stack = call_stack.add(inner_call.clone());
                                 if call_stack.exists(inner_call) {
-                                    panic!("loop");
+                                    //panic!("loop");
+                                    false
                                 } else {
                                     false
                                 }
