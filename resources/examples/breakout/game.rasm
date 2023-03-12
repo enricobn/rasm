@@ -55,10 +55,14 @@ fn initialWorld() -> World {
 
     let now = now();
 
-    World(bricks, Ball(500, 200, XDirection::Right(), YDirection::Down(), now), Bar(500, 0, now), 0, 3);
+    World(bricks, initialBall(now), Bar(500, 0, now), 0, 3);
 }
 
-fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Stage {
+fn initialBall(now: TimeVal) -> Ball {
+    Ball(500, 200, XDirection::Right(), YDirection::Down(), now);
+}
+
+fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
     let stage = GameState::stage(gameState);
     let world = GameState::world(gameState);
 
@@ -67,7 +71,11 @@ fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Stage {
         GameState(stage, newWorld);
     });
 
-    Stage::Game(newGameState);
+    let newWorld = GameState::world(newGameState);
+    let lives = World::lives(newWorld);
+    let score = World::score(newWorld);
+
+    if(eq(lives, 0) { -> GameResult::End(score);} { -> GameResult::Play(newGameState);});
 }
 
 fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
@@ -95,18 +103,31 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
         let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
         let barPos = Bar::x(newBar);
 
-        let newBall2 = if(collides(newBall, barPos), { ->
+        if(collides(newBall, barPos), { ->
             let x = Ball::x(ball);
             let y = Ball::y(ball);
             let xDir = Ball::xDir(ball);
             let yDir = Ball::yDir(ball);
 
-            updateBall(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
+            let newBall2 = updateBall(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
+            World(newBricks, newBall2, newBar, newScore, lives);
         }, { ->
-            Option::match(collision, { brick -> ballAfterCollision(ball, brick); }, { -> newBall; });
+            let y = Ball::y(ball);
+
+            Option::match(collision, { brick ->
+                let newBall2 = ballAfterCollision(ball, brick);
+                 World(newBricks, newBall2, newBar, newScore, lives);
+            },
+            { ->
+                if(greater(y, sub(HEIGHT, BALLSIZE)), { ->
+                    World(newBricks, initialBall(actualTime), newBar, newScore, sub(lives, 1));
+                }, { ->
+                    World(newBricks, newBall, newBar, newScore, lives);
+                });
+            });
         });
 
-        World(newBricks, newBall2, newBar, newScore, lives);
+
     }, { -> World(bricks, ball, newBar, score, lives);});
 
 }
@@ -227,6 +248,7 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     let font = Resources::font(resources);
     let bricks = World::bricks(world);
     let score = World::score(world);
+    let lives = World::lives(world);
 
     forEach(bricks, { brick ->
         let x = Brick::x(brick);
@@ -256,4 +278,8 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     let scoreText = createSDLText(ren, font, add("Score: ", toString(score)), GREEN);
     render(ren, scoreText, SDLRect(2, 2, 100, 24));
     release(scoreText);
+
+    let livesText = createSDLText(ren, font, add("Lives: ", toString(lives)), GREEN);
+    render(ren, livesText, SDLRect(200, 2, 100, 24));
+    release(livesText);
 }

@@ -4,6 +4,11 @@ include "../sdl.rasm"
 include "game.rasm"
 include "menu.rasm"
 
+enum GameResult {
+    Play(state: GameState),
+    End(score: i32)
+}
+
 struct Resources {
     font: SDLFont
 }
@@ -78,8 +83,11 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
         let newStage = update(resources, newKeys, menuState);
         State(resources, newKeys, newStage, highScores);
     }, { gameState ->
-        let newStage = update(resources, newKeys, gameState);
-        State(resources, newKeys, newStage, highScores);
+        let gameResult = update(resources, newKeys, gameState);
+        GameResult::match(gameResult, { newGameState ->
+            State(resources, newKeys, Stage::Game(newGameState), highScores);
+        }, { score -> State(resources, newKeys, Stage::Menu(MenuState(0)), highScores);});
+
     });
 }
 
