@@ -17,11 +17,11 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
     render(ren, title, SDLRect(380, 200, 200, 24));
     release(title);
 
-    let highScores = sort(MenuState::highScores(menuState), { h1, h2 ->
+    let highScores = take(sort(MenuState::highScores(menuState), { h1, h2 ->
         let s1 = HighScore::score(h1);
         let s2 = HighScore::score(h2);
-        cmp(s1, s2);
-    });
+        cmp(s2, s1);
+    }), 10);
 
     forEach(enumerate(highScores), { enumerateEntry ->
         let index = EnumerateEntry::index(enumerateEntry);
