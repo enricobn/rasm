@@ -590,10 +590,13 @@ impl<'a> CodeGen<'a> {
                             if let Some(rt) = return_type {
                                 rt.deref().clone()
                             } else {
-                                panic!("Expected a return type from lambda but got None");
+                                panic!(
+                                    "Expected a return type from lambda but got None: {}",
+                                    call.index
+                                );
                             }
                         } else {
-                            panic!("Expected lambda but got {typed_type}");
+                            panic!("Expected lambda but got {typed_type}: {}", call.index);
                         };
 
                     (

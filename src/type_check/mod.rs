@@ -2346,7 +2346,9 @@ fn get_context_from_lambda(
                 parameters,
                 return_type: _, // I cannot convert the return type at this stage
             }) => {
-                let pp = parameters.get(inner_i).unwrap();
+                let pp = parameters
+                    .get(inner_i)
+                    .expect(&format!("cannot find parameter {inner_i}: {}", index));
 
                 let p = if let Some(ct) = substitute(pp, resolved_param_types) {
                     ct

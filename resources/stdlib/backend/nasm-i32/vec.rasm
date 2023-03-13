@@ -430,7 +430,7 @@ asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 asm first<T>(vec: Vec<T>) -> Option<T> /{
     push    ebx
     mov     dword ebx, $vec
-    mov     dword ebx, [eax]
+    mov     dword ebx, [ebx]
     mov     dword eax, [ebx]
     cmp     eax, 0
     jz      .empty
@@ -549,6 +549,58 @@ asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> 
 
     pop     edi
     pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    $call(length, $vec1)
+    mov     dword ebx, eax
+    $call(length, $vec2)
+    add     dword eax, ebx
+    push    eax                 ; the size of the new vec
+
+    inc     eax                 ; + 1 for the size
+    add     eax, eax
+    add     eax, eax
+    $call(malloc, eax, " for vec add)
+    ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
+    $call(addRef, eax, "for vec add")
+    pop     ecx                 ; the size of the new vec
+
+    push    eax
+
+    mov     dword eax, [eax]
+
+    mov     dword ebx, $vec1
+    mov     dword ebx, [ebx]
+    mov     dword edx, ebx
+    mov     dword edx, [edx]
+    inc     edx
+    add     edx, edx
+    add     edx, edx
+    $call(memcopy, ebx, eax, edx)
+    add     dword eax,edx
+
+    mov     dword ebx, $vec2
+    mov     dword ebx, [ebx]    ; in ebx we have the address of the memory
+    mov     dword edx, ebx      ;
+    mov     dword edx, [edx]    ; the size of the vec
+    add     dword ebx, 4        ; we skip the size
+    add     edx, edx
+    add     edx, edx
+    $call(memcopy, ebx, eax, edx)
+
+    pop     eax
+    $call(deref, eax, "for add")
+    mov     dword ebx, [eax]
+    mov     dword [ebx], ecx
+
     pop     edx
     pop     ecx
     pop     ebx

@@ -248,6 +248,15 @@ fn test_vec_combine() {
 }
 
 #[test]
+fn test_vec1() {
+    run_test(
+        "vec1",
+        vec![],
+        "1,2,3,4,\nfalse\nfalse\ntrue\n1,2,3,\n1,2,3,\n1,2,3,\n1,2,3,\n1,2,3,\n1,2,3,\n1,2,3,\n",
+    );
+}
+
+#[test]
 fn test_function_overloading() {
     run_test(
         "function_overloading",
@@ -293,6 +302,11 @@ fn test_lambda_in_struct() {
 #[test]
 fn test_lambda_in_enum() {
     run_test("lambda_in_enum", vec![], "One 11\nTwo 9\n");
+}
+
+#[test]
+fn test_root() {
+    run_test("root", vec![], "Less\nEqual\nGreater\n");
 }
 
 // Compile tests

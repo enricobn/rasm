@@ -27,3 +27,47 @@ fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
     zip(vecRange(0, length(vec)), vec, { index, value -> EnumerateEntry(index, value);});
 }
 
+// TODO it's really slow!!!
+fn sort<T>(vec: Vec<T>) -> Vec<T> {
+    ifImmediateThen(less(length(vec), 2), vec, { ->
+        let firstOfVec = first(vec);
+        Option::match(firstOfVec, { f ->
+            let l = filter(vec, { v -> Compare::match(cmp(v, f), { -> true;}, { -> false;}, { -> false;});});
+            let e = filter(vec, { v -> Compare::match(cmp(v, f), { -> false;}, { -> true;}, { -> false;});});
+            let g = filter(vec, { v -> Compare::match(cmp(v, f), { -> false;}, { -> false;}, { -> true;});});
+            let result = add(sort(l), add(sort(e), sort(g)));
+            ifImmediateThen(eq(result, vec), vec, { -> sort(result);});
+        }, { -> Vec();});
+    });
+}
+
+// TODO it's really slow!!!
+fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
+    ifImmediateThen(less(length(vec), 2), vec, { ->
+        let firstOfVec = first(vec);
+        Option::match(firstOfVec, { f ->
+            let l = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> true;}, { -> false;}, { -> false;});});
+            let e = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> false;}, { -> true;}, { -> false;});});
+            let g = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> false;}, { -> false;}, { -> true;});});
+            let result = add(sort(l, cmpFunction), add(sort(e, cmpFunction), sort(g, cmpFunction)));
+            ifImmediateThen(eq(result, vec, cmpFunction), vec, { -> sort(result, cmpFunction);});
+        }, { -> Vec();});
+    });
+}
+
+fn eq<T>(vec1: Vec<T>, vec2: Vec<T>) -> bool {
+    ifImmediateThen(not(eq(length(vec1), length(vec2))), false, { ->
+        let booleans = zip(vec1, vec2, { v1, v2 -> eq(v1, v2);});
+        eq(count(booleans, { v -> not(v);}), 0);
+    });
+}
+
+fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
+    ifImmediateThen(not(eq(length(vec1), length(vec2))), false, { ->
+        let booleans = zip(vec1, vec2, { v1, v2 ->
+            Compare::match(cmpFunction(v1, v2), { -> false;}, { -> true;}, { -> false;});
+        });
+        eq(count(booleans, { v -> not(v);}), 0);
+    });
+}
+
