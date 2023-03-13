@@ -88,6 +88,11 @@ fn test_list_map() {
 }
 
 #[test]
+fn test_list_combine() {
+    run_test("list_combine", Vec::new(), "6,6\n6,5,7,6\n");
+}
+
+#[test]
 fn test_recurse() {
     run_test("recurse", Vec::new(), "5\n4\n3\n2\n1\n0\n");
 }
@@ -233,8 +238,13 @@ fn test_vec() {
     run_test(
         "vec",
         vec![],
-        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,1,2,3,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n",
+        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n1,2,\n",
     );
+}
+
+#[test]
+fn test_vec_combine() {
+    run_test("vec_combine", vec![], "6,6,\n0,1,2,1,2,3,\n");
 }
 
 #[test]

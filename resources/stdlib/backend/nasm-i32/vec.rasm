@@ -139,7 +139,7 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 }/
 
 /** false = 0 true = any other value **/
-asm vecAnyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+asm anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     push    ebx
     push    ecx
 
@@ -444,6 +444,42 @@ asm first<T>(vec: Vec<T>) -> Option<T> /{
     pop     ebx
 }/
 
+asm push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]    ; the address of the allocated memory
+    mov     dword ecx, [ebx]    ; size
+    inc     ecx               ; for the new element, now in ecx we have the new size
+
+    mov     edx,ecx
+    inc     edx               ; to store the size itself
+    ; naive * 4
+    add     edx, edx
+    add     edx, edx
+    ; now in edx we have the size, in bytes of the memory needed for the new vec
+    $call(malloc, edx, " for vec push)
+    push    eax
+    ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
+    ; $call(addRef, eax, "for map")
+    sub     edx,4               ; the total size in bytes of the memory of old vec
+    mov     dword eax, [eax]
+    $call(memcopy, ebx, eax, edx)
+
+    mov      dword [eax], ecx ; the size
+    add     dword eax,edx
+    mov     dword edx,$o
+    mov     dword [eax],edx
+    pop     eax
+    ;$call(deref, eax, "for map")
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
 fn VecReferences(vec: i32, generic: i32) -> i32 {
     vec;
 }
@@ -454,4 +490,66 @@ asm Vec<T>() -> Vec<T> /{
     mov     dword eax, [eax]
     mov     dword [eax], 0
     pop     eax
+}/
+
+asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+    $call(length, $vec1)
+    mov     dword ebx, eax
+    $call(length, $vec2)
+    $call(min, ebx, eax)
+    push    eax                 ; the size of the new vec
+
+    inc     eax                 ; + 1 for the size
+    add     eax, eax
+    add     eax, eax
+    $call(malloc, eax, " for vec zip)
+    ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
+    $call(addRef, eax, "for vec zip")
+    pop     ecx                 ; the size of the new vec
+
+    push    eax
+
+    mov     dword esi, [eax]
+    mov     dword [esi], esi
+    mov     dword [esi],ecx
+    add     esi, 4          ; address of first value to write
+    mov     dword ebx, $vec1
+    mov     dword ebx, [ebx]
+    add     ebx, 4          ; address of first value to read from vec1
+    mov     dword edx, $vec2
+    mov     dword edx, [edx]
+    add     edx, 4          ; address of first value to read from vec2
+.loop:
+    cmp     dword ecx, 0
+    jz      .end
+    push    dword [edx]
+    push    dword [ebx]
+    mov     dword eax, $zipFunction
+    mov     dword eax,[eax]
+    push    dword eax
+    call    [eax]
+    add     esp, 12
+    $addRef(eax:T)
+    ; TODO do I need to dereference it?
+    mov     dword [esi], eax
+    add     esi, 4
+    add     ebx, 4
+    add     edx, 4
+    dec     ecx
+    jmp .loop
+.end:
+    pop     eax
+    $call(deref, eax, "for map")
+
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
 }/

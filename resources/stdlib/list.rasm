@@ -144,8 +144,14 @@ struct EnumerateEntry<T> {
 }
 
 fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
+    List::match(l1, { head1,tail1 ->
+        List::match(l2, { head2,tail2 -> List::Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, { -> List::Empty();});
+        }, { -> List::Empty();});
+}
+
+fn cartesianProduct<T1,T2,T>(l1: List<T1>, l2: List<T2>, combineFunction: fn(T1, T2) -> T) -> List<T> {
     fmap(l1, { v1 ->
-        map(l2, { v2 -> zipFunction(v1, v2); });
+        map(l2, { v2 -> combineFunction(v1, v2); });
     });
 }
 

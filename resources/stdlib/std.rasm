@@ -14,6 +14,11 @@ fn println<T>(v: T) {
     println();
 }
 
+fn print<T>(prefix: str, o: T) {
+    print(prefix);
+    print(o);
+}
+
 fn println<T>(prefix: str, o: T) {
     print(prefix);
     println(o);

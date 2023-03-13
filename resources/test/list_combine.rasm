@@ -1,0 +1,5 @@
+include "std.rasm"
+
+println(zip(listOf(1, 2), listOf(5, 4), { v1, v2 -> add(v1, v2);}));
+
+println(cartesianProduct(listOf(1, 2), listOf(5, 4), { v1, v2 -> add(v1, v2);}));

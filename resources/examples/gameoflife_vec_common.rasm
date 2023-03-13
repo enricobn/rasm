@@ -9,7 +9,7 @@ struct FullCell {
 }
 
 fn allCells(width: i32, height: i32) -> Vec<FullCell> {
-    zip(vecRange(0, height), vecRange(0, width), { y, x ->
+    cartesianProduct(vecRange(0, height), vecRange(0, width), { y, x ->
         let cell = Cell(x, y);
 
         FullCell(cell, adjacents(cell));
@@ -58,7 +58,7 @@ fn isAlive(cells: Vec<Cell>, cell: Cell) -> bool {
     let x = Cell::x(cell);
     let y = Cell::y(cell);
 
-    vecAnyMatch(cells, { it ->
+    anyMatch(cells, { it ->
         and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
     });
 }

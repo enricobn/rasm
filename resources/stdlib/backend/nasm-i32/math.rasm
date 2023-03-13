@@ -14,6 +14,6 @@ inline asm sub(n1: i32, n2: i32) -> i32 /{
 inline asm mul(n1: i32, n2: i32) -> i32 /{
     push    edx
     mov     eax, $n1
-    mul     dword $n2
+    imul    dword eax,$n2
     pop     edx
 }/

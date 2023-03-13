@@ -9,7 +9,7 @@ struct FullCell {
 }
 
 fn allCells(width: i32, height: i32) -> List<FullCell> {
-    zip(range(0, height), range(0, width), { y, x ->
+    cartesianProduct(range(0, height), range(0, width), { y, x ->
         let cell = Cell(x, y);
 
         FullCell(cell, adjacents(cell));

@@ -49,7 +49,9 @@ sdlTTFInit();
 
 let font = sdlOpenFont("resources/examples/breakout/DejaVuSerif.ttf", 24);
 
-let initialState = State(Resources(font), Vec(), Stage::Menu(MenuState(0)), loadHighScores());
+let highScores = loadHighScores();
+
+let initialState = State(Resources(font), Vec(), Stage::Menu(MenuState(highScores)), highScores);
 
 let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
@@ -86,9 +88,16 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
         let gameResult = update(resources, newKeys, gameState);
         GameResult::match(gameResult, { newGameState ->
             State(resources, newKeys, Stage::Game(newGameState), highScores);
-        }, { score -> State(resources, newKeys, Stage::Menu(MenuState(0)), highScores);});
+        }, { score ->
+            let newHighScores = addScore(highScores, score);
+            State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
+        });
 
     });
+}
+
+fn addScore(highScores: Vec<HighScore>, score: i32) -> Vec<HighScore> {
+    push(highScores, HighScore(score, now()));
 }
 
 fn render(ren: SDLRenderer, state: State) {
@@ -117,7 +126,7 @@ fn loadHighScores() -> Vec<HighScore> {
     forEach(result, { highScore ->
         let score = HighScore::score(highScore);
         let time = HighScore::time(highScore);
-        print(score);
+        print("high score ", score);
         print(", ");
         println(time);
     });
