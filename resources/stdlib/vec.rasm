@@ -27,7 +27,7 @@ fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
     zip(vecRange(0, length(vec)), vec, { index, value -> EnumerateEntry(index, value);});
 }
 
-// TODO it's really slow!!!
+// TODO optimize
 fn sort<T>(vec: Vec<T>) -> Vec<T> {
     ifImmediateThen(less(length(vec), 2), vec, { ->
         let firstOfVec = first(vec);
@@ -35,13 +35,12 @@ fn sort<T>(vec: Vec<T>) -> Vec<T> {
             let l = filter(vec, { v -> Compare::match(cmp(v, f), { -> true;}, { -> false;}, { -> false;});});
             let e = filter(vec, { v -> Compare::match(cmp(v, f), { -> false;}, { -> true;}, { -> false;});});
             let g = filter(vec, { v -> Compare::match(cmp(v, f), { -> false;}, { -> false;}, { -> true;});});
-            let result = add(sort(l), add(sort(e), sort(g)));
-            ifImmediateThen(eq(result, vec), vec, { -> sort(result);});
+            add(sort(l), add(e, sort(g)));
         }, { -> Vec();});
     });
 }
 
-// TODO it's really slow!!!
+// TODO optimize
 fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
     ifImmediateThen(less(length(vec), 2), vec, { ->
         let firstOfVec = first(vec);
@@ -49,8 +48,7 @@ fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
             let l = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> true;}, { -> false;}, { -> false;});});
             let e = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> false;}, { -> true;}, { -> false;});});
             let g = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> false;}, { -> false;}, { -> true;});});
-            let result = add(sort(l, cmpFunction), add(sort(e, cmpFunction), sort(g, cmpFunction)));
-            ifImmediateThen(eq(result, vec, cmpFunction), vec, { -> sort(result, cmpFunction);});
+            add(sort(l, cmpFunction), add(e, sort(g, cmpFunction)));
         }, { -> Vec();});
     });
 }
