@@ -28,7 +28,7 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
         let highScore = EnumerateEntry::value(enumerateEntry);
         let score = HighScore::score(highScore);
 
-        let sScore = toString(score);
+        let sScore = padLeft(toString(score), 10);
         let scoreText = createSDLText(ren, font, sScore, BLUE);
         let y = add(300, mul(20, index));
         render(ren, scoreText, SDLRect(380, y, mul(slen(sScore), 24), 24));

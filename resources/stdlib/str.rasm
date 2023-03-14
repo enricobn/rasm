@@ -1,0 +1,4 @@
+fn padLeft(s: str, len: i32) -> str {
+    let l = slen(s);
+    ifImmediateThen(not(less(l, len)), s, { -> padLeft(add(" ", s), len);});
+}

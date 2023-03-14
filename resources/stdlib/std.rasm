@@ -2,6 +2,7 @@ include "backend/nasm-i32/all.rasm"
 include "list.rasm"
 include "math.rasm"
 include "option.rasm"
+include "str.rasm"
 include "vec.rasm"
 
 struct Pair<A,B> {
