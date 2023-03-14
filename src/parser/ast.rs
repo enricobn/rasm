@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
@@ -199,8 +200,11 @@ impl ASTIndex {
 
 impl Display for ASTIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let result = env::current_dir().unwrap();
+        let c_dir = result.to_str().unwrap();
         f.write_str(&format!(
-            "{}:{}:{}",
+            "file:///{}/{}:{}:{}",
+            c_dir,
             &self.file_name.clone().unwrap_or_else(|| "".into()),
             self.row,
             self.column
