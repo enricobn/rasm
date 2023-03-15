@@ -1463,7 +1463,12 @@ pub fn convert_call(
         false,
         statics,
     )?
-    .unwrap();
+    .unwrap_or_else(|| {
+        panic!(
+            "cannot find function {}: {}",
+            call.original_function_name, call.index
+        )
+    });
 
     if function_def.name != call.function_name {
         debug_i!("something converted: new function name");
