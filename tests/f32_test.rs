@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use log::{debug, log_enabled, Level};
 
-const N: u32 = 4;
+const N: u32 = 3;
 
 #[cfg(test)]
 #[test]
@@ -10,8 +10,9 @@ fn test_f32() {
     let _ = env_logger::builder().is_test(true).try_init();
     //let mut rng = rand::thread_rng();
 
-    print_n(-7.375);
+    //print_n(-7.375);
     print_n(-7.4);
+    /*
     print_n(-1.375);
     print_n(-1.3754321);
     print_n(-0.375);
@@ -20,6 +21,8 @@ fn test_f32() {
     print_n(f32::INFINITY);
     print_n(f32::NEG_INFINITY);
     print_n(f32::NAN);
+
+     */
 }
 
 fn print_n(n: f32) {
@@ -60,7 +63,7 @@ fn print_n(n: f32) {
             if log_enabled!(Level::Debug) {
                 debug!("  infinity");
             } else {
-                println!("infinity");
+                println!("inf");
             }
         } else if log_enabled!(Level::Debug) {
             debug!("  NaN");
@@ -122,27 +125,35 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
     and_for_decimal_numbers -= 1;
     let mut decimal_numbers = aligned_mantissa & and_for_decimal_numbers;
 
-    let mut actual_count = min(decimal_numbers_count, 12);
     if decimal_numbers_count > 12 {
         decimal_numbers >>= decimal_numbers_count - 12;
     }
+
+    print_decimal_numbers(decimal_numbers, min(decimal_numbers_count, 12))
+}
+
+fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
+    debug!("  print_decimal_numbers({decimal_numbers}, {decimal_numbers_count})");
     let mut actual_number = 0u32;
     let mut actual_divider = 0;
-    let mut five_multiplier = 1;
+    let mut actual_five_multiplier = 1;
+    let mut actual_decimal_numbers_count = decimal_numbers_count;
+    let mut actual_decimal_number = decimal_numbers;
 
     loop {
-        if actual_count == 0 {
+        debug!("  actual_number {actual_number} actual_divider {actual_divider} actual_five_multiplier {actual_five_multiplier} actual_decimal_numbers_count {actual_decimal_numbers_count} actual_decimal_number {actual_decimal_number}");
+        if actual_decimal_numbers_count == 0 {
             break;
         }
 
-        let mut loop_count = actual_count;
-        let mut decimal_numbers_to_print = decimal_numbers;
+        let mut loop_count = actual_decimal_numbers_count;
+        let mut decimal_numbers_to_print = actual_decimal_number;
 
-        if actual_count > N {
-            decimal_numbers_to_print = decimal_numbers >> (actual_count - N);
+        if actual_decimal_numbers_count > N {
+            decimal_numbers_to_print = actual_decimal_number >> (actual_decimal_numbers_count - N);
             loop_count = N;
         }
-        let decimals = get_decimals(decimal_numbers_to_print, loop_count, five_multiplier);
+        let decimals = get_decimals(decimal_numbers_to_print, loop_count, actual_five_multiplier);
         let mut actual_decimals = decimals;
         for _ in 0..actual_divider {
             actual_decimals /= 10;
@@ -157,9 +168,10 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
         debug!("  reminder {}", reminder);
 
         actual_number += actual_decimals;
-        let mut decimal_numbers_and = 1 << loop_count;
+        let mut decimal_numbers_and = 1 << actual_decimal_numbers_count;
         decimal_numbers_and -= 1;
-        decimal_numbers &= decimal_numbers_and;
+        actual_decimal_number = decimal_numbers & decimal_numbers_and;
+        debug!("  actual_decimal_number {actual_decimal_number}");
 
         if actual_divider >= N {
             for _ in 0..(actual_divider - N) {
@@ -171,9 +183,9 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
             debug!("  actual_divider {}", actual_divider);
         }
 
-        actual_count -= loop_count;
+        actual_decimal_numbers_count -= loop_count;
         actual_divider += loop_count;
-        five_multiplier += loop_count;
+        actual_five_multiplier += loop_count;
         /*}else {
             let mut decimals = get_decimals(decimal_numbers, actual_count, five_multiplier);
             for i in 0..actual_divider {
