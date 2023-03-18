@@ -1,24 +1,33 @@
 use std::cmp::min;
 
-const N: u32 = 3;
+use log::{debug, log_enabled, Level};
+
+const N: u32 = 4;
 
 #[cfg(test)]
 #[test]
 fn test_f32() {
+    let _ = env_logger::builder().is_test(true).try_init();
     //let mut rng = rand::thread_rng();
 
     print_n(-7.375);
     print_n(-7.4);
-    print_n(-0.375);
     print_n(-1.375);
     print_n(-1.3754321);
+    print_n(-0.375);
+    print_n(-0.4);
+    print_n(-0.3754321);
     print_n(f32::INFINITY);
     print_n(f32::NEG_INFINITY);
     print_n(f32::NAN);
 }
 
 fn print_n(n: f32) {
-    println!("{}", n);
+    debug!("{}", n);
+    if !log_enabled!(Level::Debug) {
+        let expected = format!("expected {n}");
+        print!("{:width$}got ", expected, width = 25);
+    }
     let to_bits = n.to_bits();
 
     /*
@@ -33,9 +42,12 @@ fn print_n(n: f32) {
     let sign = to_bits & 0x80000000;
 
     if sign != 0 {
-        println!("  sign -");
+        debug!("  sign -");
+        if !log_enabled!(Level::Debug) {
+            print!("-");
+        }
     } else {
-        println!("  sign +");
+        debug!("  sign +");
     }
 
     let mantissa = to_bits & 0x7FFFFF;
@@ -45,9 +57,15 @@ fn print_n(n: f32) {
 
     if exponent == 255 {
         if mantissa == 0 {
-            println!("  infinity");
+            if log_enabled!(Level::Debug) {
+                debug!("  infinity");
+            } else {
+                println!("infinity");
+            }
+        } else if log_enabled!(Level::Debug) {
+            debug!("  NaN");
         } else {
-            println!("  NaN");
+            println!("NaN");
         }
     } else if exponent == 0 {
         print_denorm(real_mantissa);
@@ -61,9 +79,9 @@ fn print_n(n: f32) {
 }
 
 fn print_denorm(real_mantissa: u32) {
-    println!("  print_denorm({real_mantissa})");
+    debug!("  print_denorm({real_mantissa})");
     let count = count_bytes(real_mantissa);
-    println!("  count_bytes {count}");
+    debug!("  count_bytes {count}");
     let aligned_mantissa = right_align(real_mantissa);
     //println!("decimal_numbers_count {decimal_numbers_count}");
 
@@ -71,9 +89,9 @@ fn print_denorm(real_mantissa: u32) {
 }
 
 fn print_positive_exponent(real_mantissa: u32, exponent: u32) {
-    println!("  print_positive_exponent({real_mantissa}, {exponent})");
+    debug!("  print_positive_exponent({real_mantissa}, {exponent})");
     let count = count_bytes(real_mantissa);
-    println!("  count_bytes {count}");
+    debug!("  count_bytes {count}");
     let aligned_mantissa = right_align(real_mantissa);
     //println!("decimal_numbers_count {decimal_numbers_count}");
 
@@ -81,9 +99,9 @@ fn print_positive_exponent(real_mantissa: u32, exponent: u32) {
 }
 
 fn print_negative_exponent(real_mantissa: u32, exponent: u32) {
-    println!("  print_negative_exponent({real_mantissa}, {exponent})");
+    debug!("  print_negative_exponent({real_mantissa}, {exponent})");
     let count = count_bytes(real_mantissa);
-    println!("  count_bytes {count}");
+    debug!("  count_bytes {count}");
     let aligned_mantissa = right_align(real_mantissa);
     //println!("decimal_numbers_count {decimal_numbers_count}");
 
@@ -91,9 +109,13 @@ fn print_negative_exponent(real_mantissa: u32, exponent: u32) {
 }
 
 fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
-    println!("  print_aligned({aligned_mantissa}, {decimal_numbers_count})");
+    debug!("  print_aligned({aligned_mantissa}, {decimal_numbers_count})");
     let int_number = aligned_mantissa >> decimal_numbers_count;
-    println!("  int {int_number}");
+    if log_enabled!(Level::Debug) {
+        debug!("  int {int_number}");
+    } else {
+        print!("{int_number}");
+    }
 
     let mut and_for_decimal_numbers: u32 = 1;
     and_for_decimal_numbers <<= decimal_numbers_count;
@@ -132,7 +154,7 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
         }
 
         let mut reminder = decimals - int_decimals;
-        println!("  reminder {}", reminder);
+        debug!("  reminder {}", reminder);
 
         actual_number += actual_decimals;
         let mut decimal_numbers_and = 1 << loop_count;
@@ -143,10 +165,10 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
             for _ in 0..(actual_divider - N) {
                 reminder /= 10;
             }
-            println!("  weighted reminder {}", reminder);
+            debug!("  weighted reminder {}", reminder);
             //decimal_numbers += reminder;
         } else {
-            println!("  actual_divider {}", actual_divider);
+            debug!("  actual_divider {}", actual_divider);
         }
 
         actual_count -= loop_count;
@@ -162,7 +184,11 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
         }
          */
     }
-    println!("  dec {actual_number}");
+    if log_enabled!(Level::Debug) {
+        debug!("  dec {actual_number}");
+    } else {
+        println!(".{actual_number}");
+    }
 }
 
 fn print_decimals(n: u32, count: u32) {
@@ -190,7 +216,7 @@ fn print_decimals(n: u32, count: u32) {
 }
 
 fn get_decimals(n: u32, count: u32, five_multiplier: u32) -> u32 {
-    print!("  get_decimals({n}, {count}, {five_multiplier})");
+    debug!("  get_decimals({n}, {count}, {five_multiplier})");
     let mut result = 0u32;
     let mut actual_count = count;
 
@@ -208,7 +234,7 @@ fn get_decimals(n: u32, count: u32, five_multiplier: u32) -> u32 {
         current_five_multiplier += 1;
         actual_count -= 1;
     }
-    println!(" = {result}");
+    debug!("    = {result}");
     result
 }
 
