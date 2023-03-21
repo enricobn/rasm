@@ -41,6 +41,7 @@ fn print_n(n: f32) {
     println!("{bits}\nsign {sign_s}\nexponent {exponent_s}\nmantissa {mantissa_s}");
 
      */
+    let mut result = String::new();
 
     let sign = to_bits & 0x80000000;
 
@@ -49,6 +50,7 @@ fn print_n(n: f32) {
         if !log_enabled!(Level::Debug) {
             print!("-");
         }
+        result.push('-');
     } else {
         debug!("  sign +");
     }
@@ -58,60 +60,45 @@ fn print_n(n: f32) {
     let mut exponent = to_bits & 0x7F800000;
     exponent >>= 23;
 
-    if exponent == 255 {
+    result += &if exponent == 255 {
         if mantissa == 0 {
             if log_enabled!(Level::Debug) {
                 debug!("  infinity");
             } else {
                 println!("inf");
             }
-        } else if log_enabled!(Level::Debug) {
-            debug!("  NaN");
+            "inf".to_owned()
         } else {
-            println!("NaN");
+            if log_enabled!(Level::Debug) {
+                debug!("  NaN");
+            } else {
+                println!("NaN");
+            }
+            "NaN".to_owned()
         }
-    } else if exponent == 0 {
-        print_denorm(real_mantissa);
-    } else if exponent < 127 {
-        let biased_exponent = 127 - exponent;
-        print_negative_exponent(real_mantissa, biased_exponent);
-    } else if exponent >= 127 {
-        let biased_exponent = exponent - 127;
-        print_positive_exponent(real_mantissa, biased_exponent);
+    } else {
+        let count = count_bytes(real_mantissa);
+        let aligned_mantissa = right_align(real_mantissa);
+
+        if exponent == 0 {
+            print_aligned(aligned_mantissa, count)
+        } else if exponent < 127 {
+            let biased_exponent = 127 - exponent;
+            print_aligned(aligned_mantissa, count + biased_exponent - 1)
+        } else {
+            let biased_exponent = exponent - 127;
+            print_aligned(aligned_mantissa, count - biased_exponent - 1)
+        }
+    };
+
+    if n.is_nan() {
+        assert!(result.parse::<f32>().unwrap().is_nan())
+    } else {
+        assert_eq!(n, result.parse::<f32>().unwrap());
     }
 }
 
-fn print_denorm(real_mantissa: u32) {
-    debug!("  print_denorm({real_mantissa})");
-    let count = count_bytes(real_mantissa);
-    debug!("  count_bytes {count}");
-    let aligned_mantissa = right_align(real_mantissa);
-    //println!("decimal_numbers_count {decimal_numbers_count}");
-
-    print_aligned(aligned_mantissa, count);
-}
-
-fn print_positive_exponent(real_mantissa: u32, exponent: u32) {
-    debug!("  print_positive_exponent({real_mantissa}, {exponent})");
-    let count = count_bytes(real_mantissa);
-    debug!("  count_bytes {count}");
-    let aligned_mantissa = right_align(real_mantissa);
-    //println!("decimal_numbers_count {decimal_numbers_count}");
-
-    print_aligned(aligned_mantissa, count - exponent - 1);
-}
-
-fn print_negative_exponent(real_mantissa: u32, exponent: u32) {
-    debug!("  print_negative_exponent({real_mantissa}, {exponent})");
-    let count = count_bytes(real_mantissa);
-    debug!("  count_bytes {count}");
-    let aligned_mantissa = right_align(real_mantissa);
-    //println!("decimal_numbers_count {decimal_numbers_count}");
-
-    print_aligned(aligned_mantissa, count + exponent - 1);
-}
-
-fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
+fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) -> String {
     debug!("  print_aligned({aligned_mantissa}, {decimal_numbers_count})");
     let int_number = aligned_mantissa >> decimal_numbers_count;
     if log_enabled!(Level::Debug) {
@@ -125,97 +112,12 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
     and_for_decimal_numbers -= 1;
     let decimal_numbers = aligned_mantissa & and_for_decimal_numbers;
 
-    /*
-    if decimal_numbers_count > MAX_DECIMAL_DIGITS {
-        decimal_numbers >>= decimal_numbers_count - MAX_DECIMAL_DIGITS;
-        //print_decimal_numbers(decimal_numbers, min(decimal_numbers_count, 12))
-        print_decimals(decimal_numbers, MAX_DECIMAL_DIGITS);
-    } else {
+    let decimals = print_decimals(decimal_numbers, decimal_numbers_count);
 
-     */
-
-    //print_decimal_numbers(decimal_numbers, decimal_numbers_count)
-    print_decimals(decimal_numbers, decimal_numbers_count);
-    //}
+    format!("{int_number}{decimals}")
 }
 
-fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
-    debug!("  print_decimal_numbers({decimal_numbers}, {decimal_numbers_count})");
-    let mut actual_number = 0u32;
-    let mut actual_divider = 0;
-    let mut actual_five_multiplier = 1;
-    let mut actual_decimal_numbers_count = decimal_numbers_count;
-    let mut actual_decimal_number = decimal_numbers;
-    let mut actual_reminder = 0;
-
-    loop {
-        debug!("  actual_number {actual_number} actual_divider {actual_divider} actual_five_multiplier {actual_five_multiplier} actual_decimal_numbers_count {actual_decimal_numbers_count} actual_decimal_number {actual_decimal_number}");
-        if actual_decimal_numbers_count == 0 {
-            break;
-        }
-
-        let mut loop_count = actual_decimal_numbers_count;
-        let mut decimal_numbers_to_print = actual_decimal_number;
-
-        if actual_decimal_numbers_count > N {
-            decimal_numbers_to_print = actual_decimal_number >> (actual_decimal_numbers_count - N);
-            loop_count = N;
-        }
-        let decimals = get_decimals(decimal_numbers_to_print, loop_count, actual_five_multiplier)
-            + actual_reminder;
-        let mut actual_decimals = decimals;
-        for _ in 0..actual_divider {
-            actual_decimals /= 10;
-        }
-
-        let mut int_decimals = actual_decimals;
-        for _ in 0..actual_divider {
-            int_decimals *= 10;
-        }
-
-        actual_reminder = decimals - int_decimals;
-        debug!("  reminder {}", actual_reminder);
-
-        actual_number += actual_decimals;
-        let mut decimal_numbers_and = 1 << actual_decimal_numbers_count;
-        decimal_numbers_and -= 1;
-        actual_decimal_number = decimal_numbers & decimal_numbers_and;
-
-        debug!("  actual_decimal_number {actual_decimal_number}");
-
-        /*
-        if actual_divider >= N {
-            for _ in 0..(actual_divider - N) {
-                reminder /= 10;
-            }
-            debug!("  weighted reminder {}", reminder);
-        } else {
-            debug!("  actual_divider {}", actual_divider);
-        }
-
-         */
-
-        actual_decimal_numbers_count -= loop_count;
-        actual_divider += loop_count;
-        actual_five_multiplier += loop_count;
-        /*}else {
-            let mut decimals = get_decimals(decimal_numbers, actual_count, five_multiplier);
-            for i in 0..actual_divider {
-                decimals = decimals / 10;
-            }
-            actual_number += decimals;
-            break;
-        }
-         */
-    }
-    if log_enabled!(Level::Debug) {
-        debug!("  dec {actual_number}");
-    } else {
-        println!(".{actual_number}");
-    }
-}
-
-fn print_decimals(n: u32, count: u32) {
+fn print_decimals(n: u32, count: u32) -> String {
     debug!("  print_decimals({n}, {count})");
 
     let mut result = 0u32;
@@ -230,6 +132,9 @@ fn print_decimals(n: u32, count: u32) {
             break;
         }
 
+        // when we reach the 10th binary number, we cannot continue multiplying by 10 the result
+        // because we overflow, so we use another approach, we divide by 10 the 5 multiplier
+
         if inner_count == 10 {
             debug!("  temp_result {temp_result}");
             result = temp_result;
@@ -241,6 +146,7 @@ fn print_decimals(n: u32, count: u32) {
         } else {
             temp_result *= 10;
         }
+
         if get_nth_bit(n, actual_count) {
             temp_result += five_multiplier;
         }
@@ -252,53 +158,14 @@ fn print_decimals(n: u32, count: u32) {
 
     debug!("  result {result} temp_result {temp_result}");
 
-    if count >= 10 {
-        result += temp_result; // / 10u32.pow(count - 10);
-    } else {
-        result = temp_result
-    }
+    result += temp_result;
 
     if log_enabled!(Level::Debug) {
         debug!("  dec {result}");
     } else {
         println!(".{result}");
     }
-}
-
-fn get_decimals(n: u32, count: u32, five_multiplier: u32) -> u32 {
-    debug!("  get_decimals({n}, {count}, {five_multiplier})");
-    let mut result = 0u32;
-    let mut actual_count = count;
-
-    let mut current_five_multiplier = five_multiplier;
-
-    loop {
-        if actual_count == 0 {
-            break;
-        }
-        if get_nth_bit(n, actual_count) {
-            let mut multiplier = ten_exp_n_minus_one(actual_count);
-            multiplier *= u32::pow(5, current_five_multiplier);
-            result += multiplier;
-        }
-        current_five_multiplier += 1;
-        actual_count -= 1;
-    }
-    debug!("    = {result}");
-    result
-}
-
-fn ten_exp_n_minus_one(n: u32) -> u32 {
-    let mut result = 1;
-    let mut actual_n = n;
-    loop {
-        actual_n -= 1;
-        if actual_n == 0 {
-            break;
-        }
-        result *= 10;
-    }
-    result
+    format!(".{result}")
 }
 
 fn get_nth_bit(n: u32, pos: u32) -> bool {
