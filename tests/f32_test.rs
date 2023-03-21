@@ -3,6 +3,7 @@ use std::cmp::min;
 use log::{debug, log_enabled, Level};
 
 const N: u32 = 3;
+const MAX_DECIMAL_DIGITS: u32 = 23;
 
 #[cfg(test)]
 #[test]
@@ -10,19 +11,18 @@ fn test_f32() {
     let _ = env_logger::builder().is_test(true).try_init();
     //let mut rng = rand::thread_rng();
 
-    //print_n(-7.375);
+    print_n(-7.375);
     print_n(-7.4);
-    /*
     print_n(-1.375);
+
     print_n(-1.3754321);
+    print_n(-1.1234567);
     print_n(-0.375);
     print_n(-0.4);
     print_n(-0.3754321);
     print_n(f32::INFINITY);
     print_n(f32::NEG_INFINITY);
     print_n(f32::NAN);
-
-     */
 }
 
 fn print_n(n: f32) {
@@ -123,13 +123,20 @@ fn print_aligned(aligned_mantissa: u32, decimal_numbers_count: u32) {
     let mut and_for_decimal_numbers: u32 = 1;
     and_for_decimal_numbers <<= decimal_numbers_count;
     and_for_decimal_numbers -= 1;
-    let mut decimal_numbers = aligned_mantissa & and_for_decimal_numbers;
+    let decimal_numbers = aligned_mantissa & and_for_decimal_numbers;
 
-    if decimal_numbers_count > 12 {
-        decimal_numbers >>= decimal_numbers_count - 12;
-    }
+    /*
+    if decimal_numbers_count > MAX_DECIMAL_DIGITS {
+        decimal_numbers >>= decimal_numbers_count - MAX_DECIMAL_DIGITS;
+        //print_decimal_numbers(decimal_numbers, min(decimal_numbers_count, 12))
+        print_decimals(decimal_numbers, MAX_DECIMAL_DIGITS);
+    } else {
 
-    print_decimal_numbers(decimal_numbers, min(decimal_numbers_count, 12))
+     */
+
+    //print_decimal_numbers(decimal_numbers, decimal_numbers_count)
+    print_decimals(decimal_numbers, decimal_numbers_count);
+    //}
 }
 
 fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
@@ -139,6 +146,7 @@ fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
     let mut actual_five_multiplier = 1;
     let mut actual_decimal_numbers_count = decimal_numbers_count;
     let mut actual_decimal_number = decimal_numbers;
+    let mut actual_reminder = 0;
 
     loop {
         debug!("  actual_number {actual_number} actual_divider {actual_divider} actual_five_multiplier {actual_five_multiplier} actual_decimal_numbers_count {actual_decimal_numbers_count} actual_decimal_number {actual_decimal_number}");
@@ -153,7 +161,8 @@ fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
             decimal_numbers_to_print = actual_decimal_number >> (actual_decimal_numbers_count - N);
             loop_count = N;
         }
-        let decimals = get_decimals(decimal_numbers_to_print, loop_count, actual_five_multiplier);
+        let decimals = get_decimals(decimal_numbers_to_print, loop_count, actual_five_multiplier)
+            + actual_reminder;
         let mut actual_decimals = decimals;
         for _ in 0..actual_divider {
             actual_decimals /= 10;
@@ -164,24 +173,27 @@ fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
             int_decimals *= 10;
         }
 
-        let mut reminder = decimals - int_decimals;
-        debug!("  reminder {}", reminder);
+        actual_reminder = decimals - int_decimals;
+        debug!("  reminder {}", actual_reminder);
 
         actual_number += actual_decimals;
         let mut decimal_numbers_and = 1 << actual_decimal_numbers_count;
         decimal_numbers_and -= 1;
         actual_decimal_number = decimal_numbers & decimal_numbers_and;
+
         debug!("  actual_decimal_number {actual_decimal_number}");
 
+        /*
         if actual_divider >= N {
             for _ in 0..(actual_divider - N) {
                 reminder /= 10;
             }
             debug!("  weighted reminder {}", reminder);
-            //decimal_numbers += reminder;
         } else {
             debug!("  actual_divider {}", actual_divider);
         }
+
+         */
 
         actual_decimal_numbers_count -= loop_count;
         actual_divider += loop_count;
@@ -204,27 +216,53 @@ fn print_decimal_numbers(decimal_numbers: u32, decimal_numbers_count: u32) {
 }
 
 fn print_decimals(n: u32, count: u32) {
-    println!("  print_decimals({n}, {count})");
-    //print!(".");
+    debug!("  print_decimals({n}, {count})");
 
     let mut result = 0u32;
     let mut five_multiplier = 5u32;
     let mut actual_count = count;
+    let mut temp_result = 0u32;
+    let mut inner_count = 0;
 
     loop {
+        debug!("  temp_result {temp_result} five_multiplier {five_multiplier}");
         if actual_count == 0 {
             break;
         }
-        if get_nth_bit(n, actual_count) {
-            let ten_multiplier = ten_exp_n_minus_one(actual_count);
-            let multiplier = five_multiplier * ten_multiplier;
-            println!("  multiplier {multiplier}");
-            result += multiplier;
+
+        if inner_count == 10 {
+            debug!("  temp_result {temp_result}");
+            result = temp_result;
+            temp_result = 0;
         }
+
+        if inner_count >= 10 {
+            five_multiplier /= 10;
+        } else {
+            temp_result *= 10;
+        }
+        if get_nth_bit(n, actual_count) {
+            temp_result += five_multiplier;
+        }
+
         five_multiplier *= 5;
         actual_count -= 1;
+        inner_count += 1;
     }
-    println!("  dec {result}");
+
+    debug!("  result {result} temp_result {temp_result}");
+
+    if count >= 10 {
+        result += temp_result; // / 10u32.pow(count - 10);
+    } else {
+        result = temp_result
+    }
+
+    if log_enabled!(Level::Debug) {
+        debug!("  dec {result}");
+    } else {
+        println!(".{result}");
+    }
 }
 
 fn get_decimals(n: u32, count: u32, five_multiplier: u32) -> u32 {
