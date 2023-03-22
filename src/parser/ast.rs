@@ -75,10 +75,11 @@ pub enum ASTFunctionBody {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltinTypeKind {
-    String,
-    I32,
     Bool,
     Char,
+    I32,
+    F32,
+    String,
     Lambda {
         parameters: Vec<ASTType>,
         return_type: Option<Box<ASTType>>,
@@ -103,6 +104,7 @@ impl Display for ASTType {
                 BuiltinTypeKind::I32 => f.write_str("i32"),
                 BuiltinTypeKind::Bool => f.write_str("bool"),
                 BuiltinTypeKind::Char => f.write_str("char"),
+                BuiltinTypeKind::F32 => f.write_str("f32"),
                 BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -235,7 +237,8 @@ impl Display for ASTExpression {
             ASTExpression::ValueRef(name, _index) => f.write_str(name),
             ASTExpression::Value(val_type, _) => match val_type {
                 ValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ValueType::Number(n) => f.write_str(&format!("{n}")),
+                ValueType::I32(n) => f.write_str(&format!("{n}")),
+                ValueType::F32(n) => f.write_str(&format!("{n}")),
                 ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),

@@ -51,6 +51,8 @@ impl<'a> TypeParser<'a> {
                     Some((Builtin(BuiltinTypeKind::Bool), next_i))
                 } else if type_name == "char" {
                     Some((Builtin(BuiltinTypeKind::Char), next_i))
+                } else if type_name == "f32" {
+                    Some((Builtin(BuiltinTypeKind::F32), next_i))
                 } else if context_param_types.contains(type_name) {
                     Some((Parametric(type_name.into()), next_i))
                 } else {
@@ -201,9 +203,10 @@ impl<'a> TypeParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::parser::ast::lambda_unit;
     use crate::parser::test_utils::get_parser;
+
+    use super::*;
 
     #[test]
     fn test_i32() {

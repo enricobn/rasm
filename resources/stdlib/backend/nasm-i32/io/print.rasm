@@ -62,6 +62,375 @@ asm print(file: File, n: i32) /{
     pop    esi
 }/
 
+/** prints a number to the standard output */
+fn print(n: f32) {
+    print(STDOut(), n);
+}
+
+/**
+ * Prints the number to the File specified.
+ * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
+ **/
+asm print(file: File, n: f32) /{
+    ; $call(println, "print ", $n: i32)
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword edx, $n
+    and     dword edx, 0x80000000
+    jz      .mantissa
+    $call(print, "-")
+.mantissa:
+    ; mantissa
+    mov     dword edx, $n
+    and     dword edx, 0x7FFFFF
+    or      dword edx,0x800000
+    $call(countBytes, edx)
+    mov     dword ecx,24
+    sub     dword ecx,eax
+    shr     dword edx,cl
+
+    mov     dword ebx, $n
+    and     dword ebx, 0x7F800000
+    shr     dword ebx, 23
+    ;$call(println, "exponent ", ebx)
+    cmp     dword ebx, 255
+    jne     .defined
+.undefined:
+    $call(print, "undefined")
+    jmp     .end
+.defined:
+    cmp     dword ebx, 0
+    je      .denorm
+    add     eax,127
+    sub     eax,ebx
+    dec     eax
+    $call(printAligned, edx, eax)
+    jmp      .end
+.denorm:
+    $call(printAligned, edx, eax)
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+
+asm printAligned(alignedMantissa: i32, decimalNumbersCount: i32) /{
+    ; $call(print, "printAligned(")
+    ; $call(print, $alignedMantissa)
+    ; $call(print, ",")
+    ; $call(print, $decimalNumbersCount)
+    ; $call(println, ")")
+    push    eax
+    push    ecx
+
+    mov     dword ecx, $decimalNumbersCount
+    mov     dword eax, $alignedMantissa
+    shr     dword eax, cl
+    $call(print, eax)
+
+    mov     dword eax, 1
+    shl     dword eax, cl
+    dec     eax
+    and     eax, $alignedMantissa
+    $call(printDecimals, eax, $decimalNumbersCount)
+
+    pop     ecx
+    pop     eax
+}/
+
+asm printDecimals(n: i32, count: i32) /{
+    ; local val for result
+    sub     esp,4
+
+    ; $call(print, "printDecimals(")
+    ; $call(print, $n)
+    ; $call(print, ",")
+    ; $call(print, $count)
+    ; $call(println, ")")
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword eax,5             ; five_multiplier
+    mov     dword ebx,0             ; temp_result
+    mov     dword ecx,0             ; inner_count
+    mov     dword edx,$count        ; actual_count
+
+    mov    dword [ebp -4],0         ; result
+
+.loop:
+    ; $call(print, "  temp result ", ebx)
+    ; $call(println, " five multiplier ", eax)
+    cmp     dword edx,0
+    jz      .end
+
+    cmp     dword ecx, 10
+    jne     .continue
+    mov     dword [ebp -4], ebx
+    mov     dword ebx,0
+.continue:
+    cmp     dword ecx,10
+    jb      .continue2
+    push    edx
+    push    ecx
+    mov     dword ecx,10
+    xor     edx,edx
+    div     ecx
+    pop     ecx
+    pop     edx
+    jmp     .continue3
+.continue2:
+    push    edx
+    imul    dword ebx,10
+    pop     edx
+.continue3:
+    push    eax
+    $call(getNthBit, $n, edx)
+    cmp     dword eax,0
+    je      .continue4
+    pop     eax
+    add     dword ebx,eax
+    jmp     .continue5
+.continue4:
+    pop     eax
+.continue5:
+    push    edx
+    imul    dword eax,5
+    pop     edx
+    dec     edx
+    inc     ecx
+    jmp     .loop
+.end:
+    mov     dword eax,[ebp -4]                     ; result
+    add     dword eax, ebx
+    $call(print, ".")
+    $call(print, eax)
+
+    pop    edx
+    pop    ecx
+    pop    ebx
+    pop    eax
+
+    add    dword esp,4
+}/
+
+/*
+asm printPositiveExponent(mantissa: i32, exponent: i32) /{
+    push    eax
+    push    ecx
+    push    edx
+
+    $call(countBytes, $mantissa)
+    ; in eax I have the "length" of the mantissa
+    ;$call(print, " countBytes ")
+    ;$call(print, eax)
+    mov     dword ecx,24
+    sub     dword ecx,eax
+    mov     dword edx,$mantissa
+    shr     dword edx,cl
+
+    ;$call(print, " mantissa right aligned ")
+    ;$call(print, edx)
+
+    mov     dword ecx,eax
+    sub     ecx,$exponent
+    dec     dword ecx
+    ;$call(print, " fp-numbers ")
+    ;$call(print, ecx)
+
+    push    edx
+    shr     dword edx, cl
+    ;$call(print, " int=")
+    $call(print, edx)
+    mov     dword eax, 1
+
+    shl     dword eax, cl
+    dec     dword eax
+    ;$call(print, " fp-numbers and ")
+    ;$call(print, eax)
+    ;$call(print, " ")
+
+    pop     edx
+    and     dword   edx,eax
+    ;$call(print, " fp-number ")
+    ;$call(print, edx)
+    ;$call(print, " ")
+
+    cmp     dword ecx,10
+    jb      .end
+    sub     dword ecx,10
+    shr     dword edx,cl
+    mov     dword ecx,10
+.end:
+    $call(printDecimals, edx, ecx)
+    pop     edx
+    pop     ecx
+    pop     eax
+}/
+
+asm printDecimals(n: i32, count: i32) /{
+    $call(print, "printDecimals(", $n)
+    $call(print, ", ", $count)
+    $call(println, ")")
+
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword edx,0
+    mov     dword ecx,5
+    mov     dword ebx,$count
+
+.loop:
+    cmp     dword ebx,0
+    jz      .end
+    $call(getNthBit, $n, ebx)
+    cmp     dword eax,0
+    jz      .continue
+    ;$call(print, "\ntenExpNMinusOne ", ebx)
+    $call(tenExpNMinusOne, ebx)
+    ;$call(print, " ", eax)
+    ;$call(print, " * ", ecx)
+    push    edx
+    imul    eax,ecx
+    ;$call(println, " = ", eax)
+    pop     edx
+    add     dword edx,eax
+.continue:
+    push    edx
+    ;$call(println, eax)
+    imul    ecx,5
+    pop     edx
+    dec     ebx
+    jmp     .loop
+.end:
+    $call(print, edx)
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+}/
+*/
+
+// false = 0 true = any other value
+// false if not valid
+asm getNthBit(value: i32, n: i32) -> bool /{
+    push ecx
+
+    mov     dword eax,1
+    mov     dword ecx,$n
+    dec     ecx
+    shl     eax,cl
+    and     dword eax,$value
+    cmp     dword eax,0
+    jz      .false
+    mov     dword eax,1
+    jmp     .end
+.false:
+    mov     dword eax,0
+.end:
+    pop     ecx
+}/
+
+asm tenExpNMinusOne(n: i32) -> i32 /{
+    push    ebx
+    push    edx
+
+    mov     dword eax,1
+    mov     dword ebx,$n
+.loop:
+    dec     ebx
+    cmp     dword ebx,0
+    je      .end
+    imul    eax,10
+    jmp     .loop
+.end:
+    pop     edx
+    pop     ebx
+}/
+
+asm printNegativeExponent(mantissa: i32, exponent: i32) /{
+    $call(print, " exponent ")
+    $call(print, $exponent)
+    push    eax
+    push    ecx
+    push    edx
+
+    $call(countBytes, $mantissa)
+    ; in eax I have the "length" of the mantissa
+    ;$call(print, " countBytes ")
+    ;$call(print, eax)
+    mov     dword ecx,24
+    sub     dword ecx,eax
+    mov     dword edx,$mantissa
+    shr     dword edx,cl
+
+    $call(print, " mantissa right aligned ")
+    $call(print, edx)
+
+    ;mov     dword ecx,eax
+    ;sub     ecx,$exponent
+    ;dec     dword ecx
+    ;$call(print, " fp-numbers ")
+    ;$call(print, ecx)
+
+    ;push    edx
+    ;shr     dword edx, cl
+    ;$call(print, " int=")
+    ;$call(print, edx)
+    $call(print, "0")
+    ;mov     dword eax, 1
+
+    ;shl     dword eax, cl
+    ;dec     dword eax
+    ;$call(print, " fp-numbers and ")
+    ;$call(print, eax)
+    ;$call(print, " ")
+
+    ;pop     edx
+    ;and     dword   edx,eax
+    ;$call(print, " fp-number ")
+    ;$call(print, edx)
+    ;$call(print, " ")
+
+    $call(print, " ecx ", ecx)
+    add     dword ecx,$exponent
+    $call(print, " ecx ", ecx)
+    cmp     dword ecx,10
+    jb      .end
+    sub     dword ecx,10
+    shr     dword edx,cl
+    mov     dword ecx,10
+.end:
+    $call(print, " edx ", edx)
+    $call(printDecimals, edx, 5)
+    pop     edx
+    pop     ecx
+    pop     eax
+}/
+
+asm countBytes(n: i32) -> i32 /{
+    push    ebx
+    mov     dword eax,0
+    mov     dword ebx,$n
+    shl     ebx,8
+.loop:
+    cmp     dword ebx,0
+    jz      .end
+    shl     ebx,1
+    inc     eax
+    jmp     .loop
+.end:
+    pop     ebx
+}/
+
 /**
  * Prints a new line to standard output.
  */

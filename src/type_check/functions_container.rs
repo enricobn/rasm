@@ -112,7 +112,7 @@ impl FunctionsContainer {
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
     ) -> Option<&ASTFunctionDef> {
-        let name = function_name.clone().replace("::", "_");
+        let name = function_name.replace("::", "_");
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -586,7 +586,7 @@ mod tests {
             function_name: "add".into(),
             parameters: vec![
                 ASTExpression::Value(
-                    ValueType::Number(10),
+                    ValueType::I32(10),
                     ASTIndex {
                         file_name: None,
                         row: 0,
@@ -594,7 +594,7 @@ mod tests {
                     },
                 ),
                 ASTExpression::Value(
-                    ValueType::Number(20),
+                    ValueType::I32(20),
                     ASTIndex {
                         file_name: None,
                         row: 0,

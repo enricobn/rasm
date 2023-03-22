@@ -309,6 +309,11 @@ fn test_root() {
     run_test("root", vec![], "Less\nEqual\nGreater\n");
 }
 
+#[test]
+fn test_f32() {
+    run_test("f32", vec![], "-7.375\n-7.4000000950\n-1.375\n-1.3754321334\n-1.1234567161\n-0.375\n-0.4000000056\n-0.3754321036\n");
+}
+
 // Compile tests
 
 #[test]

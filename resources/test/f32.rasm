@@ -1,0 +1,10 @@
+include "std.rasm"
+
+println(-7.375);
+println(-7.4);
+println(-1.375);
+println(-1.3754321);
+println(-1.1234567);
+println(-0.375);
+println(-0.4);
+println(-0.3754321);

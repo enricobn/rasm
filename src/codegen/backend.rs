@@ -565,7 +565,10 @@ impl Backend for BackendAsm386 {
     fn value_to_string(&self, value_type: &ValueType) -> String {
         match value_type {
             ValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
-            ValueType::Number(n) => n.to_string(),
+            ValueType::I32(n) => n.to_string(),
+            ValueType::F32(n) => {
+                format!("0x{:x}", n.to_bits())
+            }
             ValueType::Char(c) => {
                 let mut b = [0; 4];
                 c.encode_utf8(&mut b);

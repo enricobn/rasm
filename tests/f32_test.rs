@@ -1,9 +1,4 @@
-use std::cmp::min;
-
 use log::{debug, log_enabled, Level};
-
-const N: u32 = 3;
-const MAX_DECIMAL_DIGITS: u32 = 23;
 
 #[cfg(test)]
 #[test]
@@ -82,12 +77,8 @@ fn print_n(n: f32) {
 
         if exponent == 0 {
             print_aligned(aligned_mantissa, count)
-        } else if exponent < 127 {
-            let biased_exponent = 127 - exponent;
-            print_aligned(aligned_mantissa, count + biased_exponent - 1)
         } else {
-            let biased_exponent = exponent - 127;
-            print_aligned(aligned_mantissa, count - biased_exponent - 1)
+            print_aligned(aligned_mantissa, count + 127 - exponent - 1)
         }
     };
 

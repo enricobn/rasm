@@ -81,6 +81,7 @@ pub enum BuiltinTypedTypeKind {
     I32,
     Bool,
     Char,
+    F32,
     Lambda {
         parameters: Vec<ASTTypedType>,
         return_type: Option<Box<ASTTypedType>>,
@@ -103,6 +104,7 @@ impl Display for ASTTypedType {
                 BuiltinTypedTypeKind::I32 => f.write_str("i32"),
                 BuiltinTypedTypeKind::Bool => f.write_str("bool"),
                 BuiltinTypedTypeKind::Char => f.write_str("char"),
+                BuiltinTypedTypeKind::F32 => f.write_str("f32"),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -201,7 +203,8 @@ impl Display for ASTTypedExpression {
             ASTTypedExpression::ValueRef(name, _index) => f.write_str(name),
             ASTTypedExpression::Value(val_type, _) => match val_type {
                 ValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ValueType::Number(n) => f.write_str(&format!("{n}")),
+                ValueType::I32(n) => f.write_str(&format!("{n}")),
+                ValueType::F32(n) => f.write_str(&format!("{n}")),
                 ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
@@ -1182,8 +1185,9 @@ pub fn get_type_of_typed_expression(
         }
         ASTTypedExpression::Value(val_type, _) => match val_type {
             ValueType::Boolean(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
-            ValueType::Number(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+            ValueType::I32(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
             ValueType::Char(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
+            ValueType::F32(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
         },
         ASTTypedExpression::Lambda(lambda_def) => {
             let mut context = TypedValContext::new(Some(context));
@@ -1508,6 +1512,7 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
             BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
             BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
             BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
+            BuiltinTypedTypeKind::F32 => ASTType::Builtin(BuiltinTypeKind::F32),
             BuiltinTypedTypeKind::Lambda {
                 parameters,
                 return_type,
@@ -1680,6 +1685,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
             BuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
             BuiltinTypeKind::Bool => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
             BuiltinTypeKind::Char => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            BuiltinTypeKind::F32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
             BuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
@@ -1856,13 +1862,16 @@ impl DefaultFunctionCall {
                     ASTType::Builtin(kind) => match kind {
                         BuiltinTypeKind::String => ASTExpression::StringLiteral("".into()),
                         BuiltinTypeKind::I32 => {
-                            ASTExpression::Value(ValueType::Number(0), ASTIndex::none())
+                            ASTExpression::Value(ValueType::I32(0), ASTIndex::none())
                         }
                         BuiltinTypeKind::Bool => {
                             ASTExpression::Value(ValueType::Boolean(true), ASTIndex::none())
                         }
                         BuiltinTypeKind::Char => {
                             ASTExpression::Value(ValueType::Char('a'), ASTIndex::none())
+                        }
+                        BuiltinTypeKind::F32 => {
+                            ASTExpression::Value(ValueType::F32(1.0), ASTIndex::none())
                         }
                         BuiltinTypeKind::Lambda {
                             parameters,

@@ -60,11 +60,12 @@ pub struct Parser {
     types: Vec<ASTTypeDef>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ValueType {
     Boolean(bool),
-    Number(i32),
+    I32(i32),
     Char(char),
+    F32(f32),
 }
 
 #[derive(Clone, Debug, strum_macros::Display)]
@@ -660,13 +661,31 @@ impl Parser {
                 );
                 return ProcessResult::Continue;
             } else if let TokenKind::Number(value) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(
-                    call,
-                    ASTExpression::Value(
-                        ValueType::Number(value.parse().unwrap()),
-                        self.get_index_from_token(&token),
-                    ),
-                );
+                if value.contains('.') {
+                    self.add_parameter_to_call_and_update_parser_data(
+                        call,
+                        ASTExpression::Value(
+                            ValueType::F32(
+                                value.parse().unwrap_or_else(|_| {
+                                    panic!("Cannot parse float number {value}")
+                                }),
+                            ),
+                            self.get_index_from_token(&token),
+                        ),
+                    );
+                } else {
+                    self.add_parameter_to_call_and_update_parser_data(
+                        call,
+                        ASTExpression::Value(
+                            ValueType::I32(
+                                value.parse().unwrap_or_else(|_| {
+                                    panic!("Cannot parse integer number {value}")
+                                }),
+                            ),
+                            self.get_index_from_token(&token),
+                        ),
+                    );
+                }
                 return ProcessResult::Continue;
             } else if let TokenKind::KeyWord(KeywordKind::True) = &token.kind {
                 self.add_parameter_to_call_and_update_parser_data(
@@ -1095,7 +1114,7 @@ impl Parser {
             {
                 return Some((
                     ASTExpression::Value(
-                        ValueType::Number(n.parse().unwrap()),
+                        ValueType::I32(n.parse().unwrap()),
                         self.get_index(0).unwrap(),
                     ),
                     self.get_i() + 2,
@@ -1301,12 +1320,12 @@ mod tests {
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
             assert_eq!("add", call.function_name);
             assert_eq!(2, call.parameters.len());
-            if let Some(ASTExpression::Value(ValueType::Number(n), _)) = call.parameters.get(0) {
+            if let Some(ASTExpression::Value(ValueType::I32(n), _)) = call.parameters.get(0) {
                 assert_eq!(10, *n);
             } else {
                 panic!();
             }
-            if let Some(ASTExpression::Value(ValueType::Number(n), _)) = call.parameters.get(1) {
+            if let Some(ASTExpression::Value(ValueType::I32(n), _)) = call.parameters.get(1) {
                 assert_eq!(20, *n);
             } else {
                 panic!();

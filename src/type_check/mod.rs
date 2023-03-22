@@ -387,13 +387,11 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
         .collect::<Vec<_>>()
         .join(",");
 
-    let result = if p.is_empty() {
+    if p.is_empty() {
         format!("$call({to_function})")
     } else {
         format!("$call({to_function},{p})")
-    };
-
-    result
+    }
 }
 
 fn convert_statement(
@@ -601,6 +599,9 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
                 vec![]
             }
             BuiltinTypeKind::Char => {
+                vec![]
+            }
+            BuiltinTypeKind::F32 => {
                 vec![]
             }
             BuiltinTypeKind::Lambda {
@@ -1637,8 +1638,9 @@ pub fn convert_call(
 fn get_value_type(val_type: &ValueType) -> ASTType {
     let ast_type = match val_type {
         ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
-        ValueType::Number(_) => ASTType::Builtin(BuiltinTypeKind::I32),
+        ValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
         ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
+        ValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
     };
     ast_type
 }
@@ -2018,8 +2020,9 @@ fn get_type_of_expression(
         }
         ASTExpression::Value(val_type, _) => Ok(match val_type {
             ValueType::Boolean(_) => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
-            ValueType::Number(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+            ValueType::I32(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
             ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
+            ValueType::F32(_) => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
         }),
         ASTExpression::Lambda(def) => {
             if let Some(lamda_type) = lambda {
@@ -2258,6 +2261,7 @@ fn resolve_generic_types_from_effective_type(
             BuiltinTypeKind::I32 => {}
             BuiltinTypeKind::Bool => {}
             BuiltinTypeKind::Char => {}
+            BuiltinTypeKind::F32 => {}
             BuiltinTypeKind::Lambda {
                 parameters: p_parameters,
                 return_type: p_return_type,
@@ -2739,7 +2743,7 @@ mod tests {
         init();
 
         let parameter = ASTExpression::Value(
-            ValueType::Number(10),
+            ValueType::I32(10),
             ASTIndex {
                 file_name: None,
                 row: 0,

@@ -24,3 +24,6 @@ https://en.wikibooks.org/wiki/X86_Assembly/X86_Architecture
 
 X86 calling conventions
 https://en.wikipedia.org/wiki/X86_calling_conventions
+
+floating point
+https://courses.cs.washington.edu/courses/cse351/21su/sections/03/cse351_sec3_soln.pdf

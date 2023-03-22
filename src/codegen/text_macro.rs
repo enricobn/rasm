@@ -326,6 +326,9 @@ impl TextMacroEvaluator {
                                     BuiltinTypedTypeKind::Char => {
                                         ASTType::Builtin(BuiltinTypeKind::Char)
                                     }
+                                    BuiltinTypedTypeKind::F32 => {
+                                        ASTType::Builtin(BuiltinTypeKind::F32)
+                                    }
                                     BuiltinTypedTypeKind::Lambda { .. } => {
                                         panic!()
                                     }
@@ -376,6 +379,12 @@ impl TextMacroEvaluator {
                     Some(ASTType::Builtin(BuiltinTypeKind::String)),
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
                 )
+            } else if par_type_name == "f32" {
+                (
+                    par_name,
+                    Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
+                )
             } else {
                 let parser = TypeParserHelper::new(par_type_name);
                 // Parser::new(lexer, None);
@@ -414,6 +423,7 @@ impl TextMacroEvaluator {
                 BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
                 BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
                 BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
+                BuiltinTypedTypeKind::F32 => ASTType::Builtin(BuiltinTypeKind::F32),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
