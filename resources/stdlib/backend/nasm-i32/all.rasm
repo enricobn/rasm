@@ -1,6 +1,7 @@
 include "compiler.rasm"
 include "conditionals.rasm"
 include "debug.rasm"
+include "f32.rasm"
 include "io/all.rasm"
 include "list.rasm"
 include "math.rasm"

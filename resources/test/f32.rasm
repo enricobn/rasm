@@ -8,3 +8,17 @@ println(-1.1234567);
 println(-0.375);
 println(-0.4);
 println(-0.3754321);
+
+println(0.0);
+println(10.0);
+println(20.1);
+println(20.001);
+println(-0.0);
+println(-10.0);
+println(-20.1);
+println(-20.001);
+
+println(tof32(10));
+println(tof32(123456));
+println(tof32(-10));
+println(tof32(-123456));

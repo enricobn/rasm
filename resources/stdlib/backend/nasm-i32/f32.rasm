@@ -1,0 +1,45 @@
+asm tof32(n: i32) -> f32 /{
+    push    ebx
+    push    ecx
+
+    ; $call(print, "tof32(", $n)
+    ; $call(println, ")")
+    mov     dword ebx,$n
+    mov     dword eax,$n
+    and     dword eax,0x80000000
+    jz      .positive
+    xor     dword ebx,0xFFFFFFFF
+    add     dword ebx,1
+.positive:
+    $call(countBits, ebx)
+    ; $call(println, " countBits ", eax)
+    mov     dword ecx,24
+    sub     dword ecx,eax
+    add     dword eax,126
+    shl     eax,23
+    shl     dword ebx,cl
+    and     dword ebx,0x7FFFFF
+    or      dword eax,ebx
+    ; $call(println, " = ", eax)
+    ; sign
+    mov     dword ebx,$n
+    and     dword ebx,0x80000000
+    or      dword eax,ebx
+
+    pop     ecx
+    pop     ebx
+}/
+
+asm countBits(n: i32) -> i32 /{
+    push    ebx
+    mov     dword eax,0
+    mov     dword ebx,$n
+.loop:
+    cmp     dword ebx,0
+    jz      .end
+    shr     ebx,1
+    inc     eax
+    jmp     .loop
+.end:
+    pop     ebx
+}/
