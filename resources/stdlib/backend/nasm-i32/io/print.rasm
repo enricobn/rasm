@@ -153,7 +153,7 @@ asm printAligned(alignedMantissa: i32, intNumbersCount: i32) /{
 
 asm printDecimals(n: i32, count: i32) /{
     ; local val for result
-    sub     esp,4
+    sub     dword esp,4
 
     ; $call(print, "printDecimals(")
     ; $call(print, $n)

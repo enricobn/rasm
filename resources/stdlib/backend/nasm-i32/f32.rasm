@@ -108,3 +108,215 @@ asm getAligned(alignedMantissa: i32, intNumbersCount: i32) -> i32 /{
 
     pop     ecx
 }/
+
+// from https://stackoverflow.com/questions/42181811/how-to-add-two-numbers-integer-and-a-float-in-nasm
+asm mul(f1: f32, f2: f32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$f2
+    mov     dword [ebp - 4],eax
+
+    fmul    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm div(f1: f32, f2: f32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$f2
+    mov     dword [ebp - 4],eax
+
+    fdiv    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm add(f1: f32, f2: f32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$f2
+    mov     dword [ebp - 4],eax
+
+    fadd    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm sub(f1: f32, f2: f32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$f2
+    mov     dword [ebp - 4],eax
+
+    fsub    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm add(f1: f32, n2: i32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$n2
+    mov     dword [ebp - 4],eax
+    fild    dword [ebp - 4]
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+
+    fadd    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm sub(f1: f32, n2: i32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$n2
+    mov     dword [ebp - 4],eax
+
+    fisub   dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm sub(n1: i32, f2: f32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$n1
+    mov     dword [ebp - 4],eax
+    fild    dword [ebp - 4]
+    mov     dword eax,$f2
+    mov     dword [ebp - 4],eax
+
+    fsub   dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+// false = 0 true = any other value
+asm greater(f1: f32, f2: f32) -> bool /{
+    $call(cmp, $f1, $f2)
+    cmp     dword eax,0
+    je      .true
+    mov     dword eax,0
+    jmp     .end
+.true:
+    mov     dword eax,1
+.end:
+}/
+
+asm greater(f1: f32, n2: i32) -> bool /{
+    $call(cmp, $f1, $n2)
+    cmp     dword eax,0
+    je      .true
+    mov     dword eax,0
+    jmp     .end
+.true:
+    mov     dword eax,1
+.end:
+}/
+
+asm less(f1: f32, f2: f32) -> bool /{
+    $call(cmp, $f1, $f2)
+    cmp     dword eax,0x100
+    je      .true
+    mov     dword eax,0
+    jmp     .end
+.true:
+    mov     dword eax,1
+.end:
+}/
+
+asm less(f1: f32, n2: i32) -> bool /{
+    $call(cmp, $f1, $n2)
+    cmp     dword eax,0x100
+    je      .true
+    mov     dword eax,0
+    jmp     .end
+.true:
+    mov     dword eax,1
+.end:
+}/
+
+asm cmp(f1: f32, f2: f32) -> i32 /{
+    sub     esp,4
+
+    finit
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$f2
+    mov     dword [ebp - 4],eax
+
+    fcom    dword [ebp - 4]
+    fstsw   [ebp - 4]
+    mov     dword eax,[ebp - 4]
+    and     dword eax,0x4500    ; c0 bit 8 (0 based), c2 bit 10, c3 bit 14
+
+    finit
+
+    add     esp,4
+}/
+
+asm cmp(f1: f32, n2: i32) -> i32 /{
+    sub     esp,4
+
+    finit
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$n2
+    mov     dword [ebp - 4],eax
+
+    ficom    dword [ebp - 4]
+    fstsw   [ebp - 4]
+    mov     dword eax,[ebp - 4]
+    and     dword eax,0x4500    ; c0 bit 8 (0 based), c2 bit 10, c3 bit 14
+
+    finit
+
+    add     esp,4
+}/
+
+// false = 0 true = any other value
+asm min(f1: f32, f2: f32) -> f32 /{
+    $call(greater, $f1: f32, $f2: f32)
+    cmp     dword eax,0
+    jz      .false
+    mov     dword eax,$f2
+    jmp     .end
+.false:
+    mov     dword eax,$f1
+.end:
+}/

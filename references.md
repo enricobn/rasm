@@ -27,3 +27,9 @@ https://en.wikipedia.org/wiki/X86_calling_conventions
 
 floating point
 https://courses.cs.washington.edu/courses/cse351/21su/sections/03/cse351_sec3_soln.pdf
+
+SIMPLY FPU
+http://www.website.masmforum.com/tutorials/fptute/
+
+x86 and amd64 instruction reference
+https://www.felixcloutier.com/x86/

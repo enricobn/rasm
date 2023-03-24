@@ -10,3 +10,7 @@ fn toList<T>(o: Option<T>) -> List<T> {
 fn print<T>(o: Option<T>) {
     Option::run(o, { v -> print("Some("); print(v); print(")");}, { -> print("None");});
 }
+
+fn getOrElse<T>(o: Option<T>, default: T) -> T {
+    Option::match(o, { v -> v;}, { -> default;});
+}

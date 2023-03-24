@@ -33,15 +33,15 @@ enum YDirection {
 }
 
 struct Ball {
-    x: i32,
-    y: i32,
+    x: f32,
+    y: f32,
     xDir: XDirection,
     yDir: YDirection,
     lastUpdate: TimeVal
 }
 
 struct Bar {
-    x: i32,
+    x: f32,
     velocity: i32,
     lastUpdate: TimeVal
 }
@@ -55,11 +55,11 @@ fn initialWorld() -> World {
 
     let now = now();
 
-    World(bricks, initialBall(now), Bar(500, 0, now), 0, 3);
+    World(bricks, initialBall(now), Bar(500.0, 0, now), 0, 3);
 }
 
 fn initialBall(now: TimeVal) -> Ball {
-    Ball(500, 200, XDirection::Right(), YDirection::Down(), now);
+    Ball(500.0, 200.0, XDirection::Right(), YDirection::Down(), now);
 }
 
 fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
@@ -141,7 +141,7 @@ fn updateBar(world: World, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
         let barPos = Bar::x(bar);
         let velocity = Bar::velocity(bar);
 
-        let left = mul(count(keys, { k -> eq(k, 80);}), sub(0, 1));
+        let left = negate(count(keys, { k -> eq(k, 80);}));
         let right = count(keys, { k -> eq(k, 79);});
 
         let newVelocity = add(left, right);
@@ -184,7 +184,7 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
     first(filter(bricks, { brick -> collides(x, y, brick); }));
 }
 
-fn collides(x: i32, y: i32, brick: Brick) -> bool {
+fn collides(x: f32, y: f32, brick: Brick) -> bool {
     let bx = Brick::x(brick);
     let by = Brick::y(brick);
 
@@ -194,7 +194,7 @@ fn collides(x: i32, y: i32, brick: Brick) -> bool {
     and(xColl, yColl);
 }
 
-fn collides(ball: Ball, barPos: i32) -> bool {
+fn collides(ball: Ball, barPos: f32) -> bool {
     let x = Ball::x(ball);
     let y = Ball::y(ball);
     let bx = barPos;
@@ -264,13 +264,13 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     let bar = World::bar(world);
     let barPos = Bar::x(bar);
 
-    sdlRenderFillRect(ren, SDLRect(barPos, sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
+    sdlRenderFillRect(ren, SDLRect(toi32(barPos, 0), sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
 
     let ball = World::ball(world);
     let x = Ball::x(ball);
     let y = Ball::y(ball);
 
-    sdlRenderFillRect(ren, SDLRect(x, y, BALLSIZE, BALLSIZE));
+    sdlRenderFillRect(ren, SDLRect(toi32(x, 0), toi32(y, 0), BALLSIZE, BALLSIZE));
 
     sdlSetRenderDrawColor(ren, BLUE);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
@@ -282,4 +282,8 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     let livesText = createSDLText(ren, font, add("Lives: ", toString(lives)), GREEN);
     render(ren, livesText, SDLRect(200, 2, 100, 24));
     release(livesText);
+}
+
+fn toi32(f: f32, default: i32) -> i32 {
+    getOrElse(toi32(f), default);
 }
