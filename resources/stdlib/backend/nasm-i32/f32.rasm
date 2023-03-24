@@ -142,6 +142,38 @@ asm div(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
+asm div(f1: f32, n2: i32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$f1
+    mov     dword [ebp - 4],eax
+    fld     dword [ebp - 4]
+    mov     dword eax,$n2
+    mov     dword [ebp - 4],eax
+
+    fidiv    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
+asm divf(n1: i32, n2: i32) -> f32 /{
+    sub     esp,4
+
+    mov     dword eax,$n1
+    mov     dword [ebp - 4],eax
+    fild    dword [ebp - 4]
+    mov     dword eax,$n2
+    mov     dword [ebp - 4],eax
+
+    fidiv    dword [ebp - 4]
+    fstp    dword [ebp - 4]
+    mov     dword eax,[ebp - 4]
+
+    add     esp,4
+}/
+
 asm add(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 

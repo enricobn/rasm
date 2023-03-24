@@ -89,47 +89,38 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
 
     let bricks = World::bricks(world);
     let ball = World::ball(world);
-    let lastUpdate = Ball::lastUpdate(ball);
-    let elapsed = elapsedTime(actualTime, lastUpdate);
+    let newBall = updateBall(ball, actualTime);
 
-    // TODO I don't like it, it's not smooth, we need floating points!
-    if(greater(elapsed, 2000), { ->
-        let newBall = updateBall(ball, actualTime);
+    let collision = collision(bricks, newBall);
 
-        let collision = collision(bricks, newBall);
+    let newScore = Option::match(collision, { b -> add(score, 10);}, { -> score;});
 
-        let newScore = Option::match(collision, { b -> add(score, 10);}, { -> score;});
+    let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
+    let barPos = Bar::x(newBar);
 
-        let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
-        let barPos = Bar::x(newBar);
+    if(collides(newBall, barPos), { ->
+        let x = Ball::x(ball);
+        let y = Ball::y(ball);
+        let xDir = Ball::xDir(ball);
+        let yDir = Ball::yDir(ball);
 
-        if(collides(newBall, barPos), { ->
-            let x = Ball::x(ball);
-            let y = Ball::y(ball);
-            let xDir = Ball::xDir(ball);
-            let yDir = Ball::yDir(ball);
+        let newBall2 = updateBall(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
+        World(newBricks, newBall2, newBar, newScore, lives);
+    }, { ->
+        let y = Ball::y(ball);
 
-            let newBall2 = updateBall(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
-            World(newBricks, newBall2, newBar, newScore, lives);
-        }, { ->
-            let y = Ball::y(ball);
-
-            Option::match(collision, { brick ->
-                let newBall2 = ballAfterCollision(ball, brick);
-                 World(newBricks, newBall2, newBar, newScore, lives);
-            },
-            { ->
-                if(greater(y, sub(HEIGHT, BALLSIZE)), { ->
-                    World(newBricks, initialBall(actualTime), newBar, newScore, sub(lives, 1));
-                }, { ->
-                    World(newBricks, newBall, newBar, newScore, lives);
-                });
+        Option::match(collision, { brick ->
+            let newBall2 = ballAfterCollision(ball, brick);
+             World(newBricks, newBall2, newBar, newScore, lives);
+        },
+        { ->
+            if(greater(y, sub(HEIGHT, BALLSIZE)), { ->
+                World(newBricks, initialBall(actualTime), newBar, newScore, sub(lives, 1));
+            }, { ->
+                World(newBricks, newBall, newBar, newScore, lives);
             });
         });
-
-
-    }, { -> World(bricks, ball, newBar, score, lives);});
-
+    });
 }
 
 fn updateBar(world: World, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
@@ -158,8 +149,13 @@ fn updateBall(ball: Ball, actualTime: TimeVal) -> Ball {
     let xDir = Ball::xDir(ball);
     let yDir = Ball::yDir(ball);
 
-    let newX = XDirection::match(xDir, { -> sub(x, 1);} , { -> add(x,1);});
-    let newY = YDirection::match(yDir, { -> sub(y, 1);} , { -> add(y,1);});
+    let lastUpdate = Ball::lastUpdate(ball);
+    let elapsed = elapsedTime(actualTime, lastUpdate);
+
+    let diff = divf(elapsed, 3000);
+
+    let newX = XDirection::match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
+    let newY = YDirection::match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
 
     let newXDir = if(or(greater(newX, sub(WIDTH, BALLSIZE)), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
     let newYDir = if(or(greater(newY, sub(HEIGHT, BALLSIZE)), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
