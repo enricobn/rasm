@@ -23,13 +23,25 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
         cmp(s2, s1);
     }), 10);
 
+    let last = first(sort(MenuState::highScores(menuState), { h1, h2 ->
+         let t1 = HighScore::time(h1);
+         let t2 = HighScore::time(h2);
+         cmp(t2, t1);
+     }));
+
     forEach(enumerate(highScores), { enumerateEntry ->
         let index = EnumerateEntry::index(enumerateEntry);
         let highScore = EnumerateEntry::value(enumerateEntry);
         let score = HighScore::score(highScore);
+        let time = HighScore::time(highScore);
+
+        let color = Option::match(last, { h ->
+            let lastTime = HighScore::time(h);
+            ifImmediate(eq(lastTime, time), YELLOW, BLUE);
+        }, { -> BLUE;});
 
         let sScore = padLeft(toString(score), 10);
-        let scoreText = createSDLText(ren, font, sScore, BLUE);
+        let scoreText = createSDLText(ren, font, sScore, color);
         let y = add(300, mul(20, index));
         render(ren, scoreText, SDLRect(380, y, mul(slen(sScore), 24), 24));
         release(scoreText);

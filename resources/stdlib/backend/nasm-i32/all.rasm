@@ -100,6 +100,33 @@ fn print(timeVal: TimeVal) {
     print(nano);
 }
 
+fn cmp(t1: TimeVal, t2: TimeVal) -> Compare {
+    let sec1 = TimeVal::sec(t1);
+    let nano1 = TimeVal::nano(t1);
+
+    let sec2 = TimeVal::sec(t2);
+    let nano2 = TimeVal::nano(t2);
+
+    let cmpSec = cmp(sec1, sec2);
+
+    // less, equal, greater
+    Compare::match(cmpSec,
+        { -> cmpSec; },
+        { -> cmp(nano1, nano2); },
+        { -> cmpSec;}
+    );
+}
+
+fn eq(t1: TimeVal, t2: TimeVal) -> bool {
+    let sec1 = TimeVal::sec(t1);
+    let nano1 = TimeVal::nano(t1);
+
+    let sec2 = TimeVal::sec(t2);
+    let nano2 = TimeVal::nano(t2);
+
+    and(eq(sec1, sec2), eq(nano1, nano2));
+}
+
 asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi

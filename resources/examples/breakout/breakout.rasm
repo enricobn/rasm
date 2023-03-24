@@ -43,6 +43,7 @@ const WHITE = SDLColor(255, 255, 255, 255);
 const RED = SDLColor(255, 0, 0, 255);
 const GREEN = SDLColor(0, 255, 0, 255);
 const BLUE = SDLColor(0, 0, 255, 255);
+const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
 sdlTTFInit();
@@ -90,6 +91,7 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
             State(resources, newKeys, Stage::Game(newGameState), highScores);
         }, { score ->
             let newHighScores = addScore(highScores, score);
+            writeHighScores(newHighScores);
             State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
         });
 
