@@ -42,7 +42,7 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
 
         let sScore = padLeft(toString(score), 10);
         let scoreText = createSDLText(ren, font, sScore, color);
-        let y = add(300, mul(20, index));
+        let y = add(300, mul(index, 30));
         render(ren, scoreText, SDLRect(380, y, mul(slen(sScore), 24), 24));
         release(scoreText);
     });

@@ -115,7 +115,7 @@ fn render(ren: SDLRenderer, state: State) {
 }
 
 fn loadHighScores() -> Vec<HighScore> {
-    let result = if(fileExists("scores.txt"), { ->
+    if(fileExists("scores.txt"), { ->
         let scores = readFile("scores.txt");
         let lines = lines(scores);
         listToVec(fmap(lines, { line ->
@@ -124,16 +124,16 @@ fn loadHighScores() -> Vec<HighScore> {
             toList(result);
         }));
     }, { -> Vec();});
+}
 
-    forEach(result, { highScore ->
+fn printHighScores(highScores: Vec<HighScore>) {
+    forEach(highScores, { highScore ->
         let score = HighScore::score(highScore);
         let time = HighScore::time(highScore);
         print("high score ", score);
         print(", ");
         println(time);
     });
-
-    result;
 }
 
 fn writeHighScores(highScores: Vec<HighScore>) {
