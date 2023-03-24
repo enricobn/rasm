@@ -33,7 +33,14 @@ asm print(file: File, n: i32) /{
 
     add     esi,19
 
-    mov     eax,$n ; integer value to convert
+    mov     dword eax,$n ; integer value to convert
+    mov     dword ecx,$n
+    and     dword ecx,0x80000000
+    jz      .positive
+    xor     dword eax,0xFFFFFFFF
+    inc     dword eax
+    $call(print, "-")
+.positive:
     mov     byte [esi],0    ; String terminator
 
     mov ebx,10
@@ -69,8 +76,7 @@ fn print(n: f32) {
 
 /**
  * Prints the number to the File specified.
- * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
- **/
+  **/
 asm print(file: File, n: f32) /{
     ; $call(println, "print ", $n: i32)
     push    eax

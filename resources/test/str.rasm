@@ -19,3 +19,4 @@ println(seq("Hello", "Hella"));
 println(toString(9999));
 
 println(padLeft("Hello", 10));
+println(-10);

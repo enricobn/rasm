@@ -15,7 +15,9 @@ use crate::parser::ValueType;
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType, DefaultFunctionCall};
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+};
 
 pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -130,6 +132,23 @@ impl BackendAsm386 {
             + ((array[1] as u32) << 8)
             + ((array[2] as u32) << 16)
             + ((array[3] as u32) << 24)
+    }
+
+    fn get_type_from_typed_type(
+        ast_typed_type: &ASTTypedType,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> Option<ASTType> {
+        match ast_typed_type {
+            ASTTypedType::Builtin(kind) => match kind {
+                BuiltinTypedTypeKind::String => Some(ASTType::Builtin(BuiltinTypeKind::String)),
+                BuiltinTypedTypeKind::I32 => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+                BuiltinTypedTypeKind::Bool => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
+                BuiltinTypedTypeKind::Char => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
+                BuiltinTypedTypeKind::F32 => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                BuiltinTypedTypeKind::Lambda { .. } => todo!(),
+            },
+            _ => type_def_provider.get_type_from_typed_type(ast_typed_type),
+        }
     }
 }
 
@@ -330,7 +349,8 @@ impl Backend for BackendAsm386 {
                             } => {
                                 let result = if let Some(f) = function_def {
                                     if let Some(t) = f.generic_types.get(name) {
-                                        type_def_provider.get_type_from_typed_type(t).unwrap()
+                                        Self::get_type_from_typed_type(t, type_def_provider)
+                                            .expect(&format!("name {name} t {t}"))
                                     } else {
                                         if let Some(t) =
                                             type_def_provider.get_type_from_typed_type_name(name)

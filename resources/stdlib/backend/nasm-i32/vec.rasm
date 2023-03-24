@@ -436,7 +436,7 @@ asm first<T>(vec: Vec<T>) -> Option<T> /{
     jz      .empty
     mov     dword eax, [ebx + 4]
     $addRef(eax: T)
-    $call(Option::Some, eax)
+    $call(Option::Some, eax:T)
     jmp     .end
 .empty:
     mov     dword eax, [_enum_Option_None]

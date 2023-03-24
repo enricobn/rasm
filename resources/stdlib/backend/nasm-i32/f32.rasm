@@ -43,3 +43,68 @@ asm countBits(n: i32) -> i32 /{
 .end:
     pop     ebx
 }/
+
+asm toi32(n: f32) -> Option<i32> /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    ; mantissa
+    mov     dword edx, $n
+    and     dword edx, 0x7FFFFF
+
+    mov     dword ebx, $n
+    and     dword ebx, 0x7F800000
+    shr     dword ebx, 23
+    ;$call(println, "exponent ", ebx)
+    cmp     dword ebx, 255
+    jne     .defined
+.undefined:
+    mov     dword eax,[_enum_Option_None]
+    jmp     .end
+.defined:
+    cmp     dword ebx, 0
+    je      .denorm
+    or      dword edx,0x800000
+    cmp     dword ebx, 127
+    jb      .below
+    sub     ebx,126
+    $call(getAligned, edx, ebx)
+    jmp      .some
+.below:
+    mov     dword ecx,126
+    sub     dword ecx,ebx
+    shr     edx,cl
+    $call(getAligned, edx, 0)
+    jmp     .some
+.denorm:
+    $call(getAligned, edx, 1)
+.some:
+    mov     dword edx, $n
+    and     dword edx, 0x80000000
+    jz      .positive
+    $call(negate, eax)
+.positive:
+    $call(Option::Some, eax)
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm negate(n: i32) -> i32 /{
+    mov     dword eax,$n
+    xor     dword eax,0xFFFFFFFF
+    inc     dword eax
+}/
+
+asm getAligned(alignedMantissa: i32, intNumbersCount: i32) -> i32 /{
+    push    ecx
+
+    mov     dword ecx, 24
+    sub     dword ecx, $intNumbersCount
+    mov     dword eax, $alignedMantissa
+    shr     dword eax, cl
+
+    pop     ecx
+}/

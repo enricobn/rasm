@@ -22,3 +22,6 @@ println(tof32(10));
 println(tof32(123456));
 println(tof32(-10));
 println(tof32(-123456));
+
+println(toi32(10.1234));
+println(toi32(-10.1234));
