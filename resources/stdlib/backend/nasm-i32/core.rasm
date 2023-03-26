@@ -1,3 +1,52 @@
+extern "exit"
+
+asm exitMain(status: i32) /{
+    %ifdef LIBC
+    push    dword $status
+    call    exit
+    %else
+    mov     ebx, $status    ; Arg one: the status
+    mov     eax, 1          ; Syscall number: 1
+    int     0x80
+    %endif
+}/
+
+asm argc() -> i32 /{
+    mov     eax,[_rasm_args]
+}/
+
+// TODO unsafe use Option
+asm argv(i: i32) -> str /{
+    push edx ; since the mul function stores the result even in edx
+    push ebx
+    push ecx
+    mov ebx, _rasm_args
+    mov ecx,4           ; i add 4*i to the base address (_rasm_args)
+    mov eax,$i
+    inc eax             ; we skip the length (argc)
+    mul ecx
+    add ebx,eax
+    mov eax,[ebx]
+    pop ecx
+    pop ebx
+    pop edx
+}/
+
+asm memcopy(source: i32, dest: i32, len: i32) /{
+    push    ecx
+    push    esi
+    push    edi
+
+    mov     esi, $source
+    mov     edi, $dest
+    mov     ecx, $len
+    rep     movsb
+
+    pop     edi
+    pop     esi
+    pop     ecx
+}/
+
 asm malloc(size: i32, descr: str) -> i32 /{
     push    ebx
     push    ecx
@@ -470,62 +519,62 @@ fn derefAddressNotFound() {
 
 /* checks if the address is used somewhere in memory, in that case it exits */
 asm checkAddress(address: i32) /{
-        push    eax
-        push    ebx
-        push    ecx
-        push    edx
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
 
-        $call(println, "  checkAddress")
+    $call(println, "  checkAddress")
 
-        mov     dword eax,_heap_table
-        mov     dword ebx,0
-        mov     dword ecx,0
-    .loop:
-        cmp     dword ebx,[_heap_table_size]
-        jge     .end
-        mov     dword edx,[eax + 4]; 1 == allocated
-        cmp     dword edx,0
-        jz      .not_allocated
-        $call(memContains, [eax], [eax +8], $address)
-    .not_allocated:
-        add     eax, 5 * 4
-        add     ebx, 5 * 4
-        jmp     .loop
-    .end:
-        pop     edx
-        pop     ecx
-        pop     ebx
-        pop     eax
+    mov     dword eax,_heap_table
+    mov     dword ebx,0
+    mov     dword ecx,0
+.loop:
+    cmp     dword ebx,[_heap_table_size]
+    jge     .end
+    mov     dword edx,[eax + 4]; 1 == allocated
+    cmp     dword edx,0
+    jz      .not_allocated
+    $call(memContains, [eax], [eax +8], $address)
+.not_allocated:
+    add     eax, 5 * 4
+    add     ebx, 5 * 4
+    jmp     .loop
+.end:
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
 }/
 
 asm memContains(startAddress: i32, len: i32, what: i32) /{
-        push    eax
-        push    ebx
-        push    ecx
-        ; $call(print, "    memContains(")
-        ; $call(print, $startAddress)
-        ; $call(print, ", ")
-        ; $call(print, $len)
-        ; $call(print, ", ")
-        ; $call(print, $what)
-        ; $call(println, ")")
+    push    eax
+    push    ebx
+    push    ecx
+    ; $call(print, "    memContains(")
+    ; $call(print, $startAddress)
+    ; $call(print, ", ")
+    ; $call(print, $len)
+    ; $call(print, ", ")
+    ; $call(print, $what)
+    ; $call(println, ")")
 
-        mov     dword eax,$startAddress
-        mov     dword ebx,$len
-    .loop:
-        cmp     dword ebx,0
-        jbe     .end
-        mov     dword ecx,[eax]
-        cmp     dword ecx,$what
-        jne     .not_equals
-        $call(println, "Address is still in use")
-        $call(exitMain, 1)
-    .not_equals:
-        add     eax, 1
-        sub     ebx, 1
-        jmp     .loop
-    .end:
-        pop     ecx
-        pop     ebx
-        pop     eax
+    mov     dword eax,$startAddress
+    mov     dword ebx,$len
+.loop:
+    cmp     dword ebx,0
+    jbe     .end
+    mov     dword ecx,[eax]
+    cmp     dword ecx,$what
+    jne     .not_equals
+    $call(println, "Address is still in use")
+    $call(exitMain, 1)
+.not_equals:
+    add     eax, 1
+    sub     ebx, 1
+    jmp     .loop
+.end:
+    pop     ecx
+    pop     ebx
+    pop     eax
 }/

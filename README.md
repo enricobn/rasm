@@ -43,3 +43,8 @@ Only executables produced with libc support can be run with valgrind.
 
 `sudo apt-get install libc6-dbg:i386`
 
+## profiling
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph resources/examples/breakout/breakout.rasm
+
+

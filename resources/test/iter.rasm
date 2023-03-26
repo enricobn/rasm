@@ -1,0 +1,31 @@
+include "std.rasm"
+
+struct Range {
+    index: i32,
+    start: i32,
+    end: i32
+}
+
+println(collect(Range(0, 0, 1)));
+
+fn collect<T,T1>(l: T) -> Vec<T1> {
+    let a = actual(l);
+    Option::match(a, { v -> vecOf(v);}, { -> Vec();});
+}
+
+fn next(range: Range) -> Option<Range> {
+    let index = Range::index(range);
+    let start = Range::start(range);
+    let end = Range::index(end);
+
+    ifImmediate(less(index, end), Option::None(), Option::Some(Range(add(index, 1), start, end)));
+}
+
+fn actual(range: Range) -> Option<i32> {
+    let index = Range::index(range);
+    let start = Range::start(range);
+    let end = Range::index(end);
+
+    ifImmediate(less(index, end), Option::None(), Option::Some(index));
+}
+

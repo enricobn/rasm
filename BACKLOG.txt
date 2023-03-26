@@ -3,6 +3,7 @@ Doing
 
 Next
 -----
+- private functions
 - optimize
   - can a recursive function's lambda space be reused?
 - Vec
@@ -10,10 +11,8 @@ Next
   - vecFilter shrink (add a shrink function that shrinks allocated memory)
 - allocator
   - check for size >= allocated and use shrink
-  - try to pack two consecutive free "slots"
+  - try to pack consecutive free "slots"
 - move all asm code to backend
-- sdl examples
-  - how to reference external structs?
 - TextMacro:
     - is it possible to use TextMacro in standard functions? (but for what?)
     - is it possible to inline the functions called with TextMacro?
@@ -29,7 +28,6 @@ Next
 - delete asm, object and executable file before compile
 - I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
-- support for char
 - optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:
@@ -37,7 +35,7 @@ Next
     - I can create only one lambda space, then I can pass, the address to the real function and the address to the lambda space, to the lambda,
       or a single pointer to a "structure" where the first word is the pointer to the function and the second the pointer to the lambda space
 - rename asm to native
-- user should not define native functions
+- user should not define native functions?
 - some functions from the std library should not be called (tag with internal?), for example malloc, memcopy
 - optimize fibonacci
     - backend for 32 and 64 bit
@@ -50,6 +48,7 @@ Next
   - to print the syntax tree
   - to print memory allocation
   - to debug asm
+  - to run the program
 - rename lambda to closure?
 - line errors in codegen
 - threads

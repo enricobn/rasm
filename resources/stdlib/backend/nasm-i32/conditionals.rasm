@@ -109,7 +109,7 @@ inline asm less(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
-    jb     $+7  ; Jump if Below or Equal unsigned comparison
+    jl     $+7
     mov     eax,0 ; false
 }/
 

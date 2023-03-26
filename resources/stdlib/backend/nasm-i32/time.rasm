@@ -1,0 +1,75 @@
+struct TimeVal {
+    sec: i32,
+    nano: i32
+}
+
+asm now() -> TimeVal /{
+    push    ecx
+    push    ebx
+    $call(TimeVal, 0, 0)
+    push    dword eax
+    mov     ebx, [eax]
+    $call(malloc, 8, " for TimeVal")
+    $call(freeMem, eax)
+    mov     dword ecx, [eax]  ; timezone
+    mov     eax, 78           ; call number = gettimeofday
+    int     0x80
+    pop     eax
+    pop     ebx
+    pop     ecx
+}/
+
+fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
+    let secA = TimeVal::sec(actual);
+    let nanoA = TimeVal::nano(actual);
+    let secP = TimeVal::sec(previous);
+    let nanoP = TimeVal::nano(previous);
+
+    add(mul(1000000, sub(secA, secP)), sub(nanoA, nanoP));
+}
+
+fn print(timeVal: TimeVal) {
+    let sec = TimeVal::sec(timeVal);
+    let nano = TimeVal::nano(timeVal);
+    print("sec=");
+    print(sec);
+    print(" nano=");
+    print(nano);
+}
+
+fn less(t1: TimeVal, t2: TimeVal) -> bool {
+    let sec1 = TimeVal::sec(t1);
+    let nano1 = TimeVal::nano(t1);
+
+    let sec2 = TimeVal::sec(t2);
+    let nano2 = TimeVal::nano(t2);
+
+    ifImmediate(less(sec1, sec2), true, ifImmediate(eq(sec1, sec2), less(nano1, nano2), false));
+}
+
+fn eq(t1: TimeVal, t2: TimeVal) -> bool {
+    let sec1 = TimeVal::sec(t1);
+    let nano1 = TimeVal::nano(t1);
+
+    let sec2 = TimeVal::sec(t2);
+    let nano2 = TimeVal::nano(t2);
+
+    and(eq(sec1, sec2), eq(nano1, nano2));
+}
+
+// from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
+// TODO use TimeVal
+asm sleep(sec: i32, nsec: i32) -> i32 /{
+    push ebx
+    push ecx
+    mov dword eax,$sec
+    mov dword [tv_sec], eax
+    mov dword eax,$nsec
+    mov dword [tv_usec], eax
+    mov eax, 162
+    mov ebx, timeval
+    mov ecx, 0
+    int 0x80
+    pop ecx
+    pop ebx
+}/

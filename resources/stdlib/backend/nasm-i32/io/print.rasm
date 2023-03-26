@@ -2,9 +2,15 @@ asm STDOut() -> File /{
     mov dword eax, 1
 }/
 
-/** prints a number to the standard output */
-fn print(n: i32) {
-    print(STDOut(), n);
+/**
+ * Prints a new line to standard output.
+ */
+fn println() {
+    println(STDOut());
+}
+
+fn print<T>(v: T) {
+    print(STDOut(), v);
 }
 
 fn println<T>(file: File, v: T) {
@@ -69,11 +75,6 @@ asm print(file: File, n: i32) /{
     pop    esi
 }/
 
-/** prints a number to the standard output */
-fn print(n: f32) {
-    print(STDOut(), n);
-}
-
 /**
  * Prints the number to the File specified.
   **/
@@ -87,7 +88,7 @@ asm print(file: File, n: f32) /{
     mov     dword edx, $n
     and     dword edx, 0x80000000
     jz      .mantissa
-    $call(print, "-")
+    $call(print, $file, "-")
 .mantissa:
     ; mantissa
     mov     dword edx, $n
@@ -109,16 +110,16 @@ asm print(file: File, n: f32) /{
     cmp     dword ebx, 127
     jb      .below
     sub     ebx,126
-    $call(printAligned, edx, ebx)
+    $call(printAligned, $file, edx, ebx)
     jmp      .end
 .below:
     mov     dword ecx,126
     sub     dword ecx,ebx
     shr     edx,cl
-    $call(printAligned, edx, 0)
+    $call(printAligned, $file, edx, 0)
     jmp     .end
 .denorm:
-    $call(printAligned, edx, 1)
+    $call(printAligned, $file, edx, 1)
 .end:
     pop     edx
     pop     ecx
@@ -126,7 +127,7 @@ asm print(file: File, n: f32) /{
     pop     eax
 }/
 
-asm printAligned(alignedMantissa: i32, intNumbersCount: i32) /{
+asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) /{
     ; $call(print, "printAligned(")
     ; $call(print, $alignedMantissa)
     ; $call(print, ",")
@@ -139,19 +140,19 @@ asm printAligned(alignedMantissa: i32, intNumbersCount: i32) /{
     sub     dword ecx, $intNumbersCount
     mov     dword eax, $alignedMantissa
     shr     dword eax, cl
-    $call(print, eax)
+    $call(print, $file, eax)
 
     mov     dword eax, 1
     shl     dword eax, cl
     dec     eax
     and     eax, $alignedMantissa
-    $call(printDecimals, eax, ecx)
+    $call(printDecimals, $file, eax, ecx)
 
     pop     ecx
     pop     eax
 }/
 
-asm printDecimals(n: i32, count: i32) /{
+asm printDecimals(file: File, n: i32, count: i32) /{
     ; local val for result
     sub     dword esp,4
 
@@ -216,8 +217,8 @@ asm printDecimals(n: i32, count: i32) /{
 .end:
     mov     dword eax,[ebp -4]                     ; result
     add     dword eax, ebx
-    $call(print, ".")
-    $call(printPadLeft, eax, '0': char, 9)
+    $call(print, $file, ".")
+    $call(printPadLeft, $file, eax, '0': char, 9)
 
     pop    edx
     pop    ecx
@@ -227,7 +228,7 @@ asm printDecimals(n: i32, count: i32) /{
     add    dword esp,4
 }/
 
-asm printPadLeft(n: i32, ch: char, count: i32) /{
+asm printPadLeft(file: File, n: i32, ch: char, count: i32) /{
     push    eax
     push    ebx
 
@@ -238,11 +239,11 @@ asm printPadLeft(n: i32, ch: char, count: i32) /{
 .loop:
     cmp     dword ebx, 0
     jz      .end
-    $call(print, $ch)
+    $call(print, $file, $ch)
     dec     dword ebx
     jmp     .loop
 .end:
-    $call(print, $n)
+    $call(print, $file, $n)
 
     pop     ebx
     pop     eax
@@ -269,13 +270,6 @@ asm getNthBit(value: i32, n: i32) -> bool /{
 }/
 
 /**
- * Prints a new line to standard output.
- */
-fn println() {
-    println(STDOut());
-}
-
-/**
  * Prints a new line to file.
  */
 asm println(file: File) /{
@@ -295,13 +289,6 @@ asm println(file: File) /{
     pop     ecx
     pop     edx
 }/
-
-/**
- * Prints the string to the standard output.
- **/
-fn print(s: str) {
-    print(STDOut(), s);
-}
 
 /**
  * Prints the string to the file.
@@ -347,7 +334,7 @@ asm printESC() /{
     pop     eax
 }/
 
-asm print(c: char) /{
+asm print(file: File, c: char) /{
     push    edx
     push    ecx
     push    ebx
@@ -370,7 +357,7 @@ asm print(c: char) /{
     push    dword $c
     mov     dword ecx,esp
 
-    mov     ebx, 1
+    mov     ebx, $file
     mov     eax, 4
     int     80h
 

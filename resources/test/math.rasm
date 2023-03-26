@@ -1,0 +1,17 @@
+include "std.rasm"
+
+println(less(80, 100));             // true
+println(less(80, -100));            // false
+println(less(-80, -100));           // false
+println(less(-100, -80));           // true
+
+println(greater(80, 100));          // false
+println(greater(80, -100));         // true
+println(greater(-80, -100));        // true
+println(greater(-100, -80));        // false
+
+println(div(0, 2));
+println(div(0, 2));
+println(div(-10, 2));
+println(div(10, -2));
+

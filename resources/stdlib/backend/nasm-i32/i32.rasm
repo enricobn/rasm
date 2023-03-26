@@ -1,0 +1,79 @@
+/** Adds two numbers **/
+inline asm add(n1: i32, n2: i32) -> i32 /{
+    mov     eax, $n1
+    add     eax, $n2
+}/
+
+/** Subtracts two numbers **/
+inline asm sub(n1: i32, n2: i32) -> i32 /{
+    mov     eax, $n1
+    sub     eax, $n2
+}/
+
+/** Multiply two numbers, but we return only the low 32 bit (edx is saved) **/
+inline asm mul(n1: i32, n2: i32) -> i32 /{
+    push    edx
+    mov     dword eax,$n1
+    imul    dword eax,$n2
+    pop     edx
+}/
+
+/** Divide two numbers, but we return only the low 32 bit (edx is saved) **/
+asm div(n1: i32, n2: i32) -> i32 /{
+    push    ebx
+    push    edx
+
+    xor     edx, edx
+    mov     dword eax, $n1
+    cdq
+    mov     dword ebx, $n2
+    idiv    dword ebx
+
+    pop     edx
+    pop     ebx
+}/
+
+asm toString(n: i32) -> str /{
+    push    esi
+    push    ebx
+    push    ecx
+    push    edx
+
+    $call(malloc, 20, " temp for toString(i32)")
+    push eax
+
+    $call(addRef, eax, "")
+
+    mov     dword esi,[eax]
+
+    add     esi,19
+
+    mov     eax,$n ; integer value to convert
+    mov     byte [esi],0    ; String terminator
+
+    mov ebx,10
+    xor ecx,ecx         ; initialize length
+.next_digit:
+    xor edx,edx         ; Clear edx prior to dividing edx:eax by ebx
+    div ebx             ; eax /= 10
+    add dl,'0'          ; Convert the remainder to ASCII
+    dec esi             ; store characters in reverse order
+    inc ecx             ; length
+
+    mov [esi],dl
+    test eax,eax
+    jnz .next_digit     ; Repeat until eax==0
+
+    inc    ecx          ; The length + 1, I think the 0 at the end...
+    $call(malloc, ecx, " for toString(i32)")
+
+    $call(memcopy, esi, [eax], ecx)
+
+    pop     edx
+    $call(freeMem, edx)
+
+    pop    edx
+    pop    ecx
+    pop    ebx
+    pop    esi
+}/
