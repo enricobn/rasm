@@ -1,0 +1,17 @@
+enum XDirection {
+    Left,
+    Right
+}
+
+enum YDirection {
+    Up,
+    Down
+}
+
+fn flip(xDir: XDirection) -> XDirection {
+    XDirection::match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
+}
+
+fn flip(yDir: YDirection) -> YDirection {
+    YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
+}

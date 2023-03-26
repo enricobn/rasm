@@ -16,36 +16,6 @@ enum GameStage {
     Run
 }
 
-struct Brick {
-    x: i32,
-    y: i32,
-    color: SDLColor
-}
-
-enum XDirection {
-    Left,
-    Right
-}
-
-enum YDirection {
-    Up,
-    Down
-}
-
-struct Ball {
-    x: f32,
-    y: f32,
-    xDir: XDirection,
-    yDir: YDirection,
-    lastUpdate: TimeVal
-}
-
-struct Bar {
-    x: f32,
-    velocity: i32,
-    lastUpdate: TimeVal
-}
-
 fn initialGameState() -> GameState {
     GameState(GameStage::Run(), initialWorld());
 }
@@ -56,10 +26,6 @@ fn initialWorld() -> World {
     let now = now();
 
     World(bricks, initialBall(now), Bar(500.0, 0, now), 0, 3);
-}
-
-fn initialBall(now: TimeVal) -> Ball {
-    Ball(500.0, 200.0, XDirection::Right(), YDirection::Down(), now);
 }
 
 fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
@@ -85,11 +51,11 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     let score = World::score(world);
     let lives = World::lives(world);
 
-    let newBar = updateBar(world, actualTime, keys);
+    let newBar = update(World::bar(world), actualTime, keys);
 
     let bricks = World::bricks(world);
     let ball = World::ball(world);
-    let newBall = updateBall(ball, actualTime);
+    let newBall = update(ball, actualTime);
 
     let collision = collision(bricks, newBall);
 
@@ -104,7 +70,7 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
         let xDir = Ball::xDir(ball);
         let yDir = Ball::yDir(ball);
 
-        let newBall2 = updateBall(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
+        let newBall2 = update(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
         World(newBricks, newBall2, newBar, newScore, lives);
     }, { ->
         let y = Ball::y(ball);
@@ -123,122 +89,8 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     });
 }
 
-fn updateBar(world: World, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
-    let bar = World::bar(world);
-    let barLastUpdate = Bar::lastUpdate(bar);
-    let elapsed = elapsedTime(actualTime, barLastUpdate);
-
-    let barPos = Bar::x(bar);
-    let velocity = Bar::velocity(bar);
-
-    let left = negate(count(keys, { k -> eq(k, 80);}));
-    let right = count(keys, { k -> eq(k, 79);});
-
-    let leftOrRight = add(left, right);
-
-    let newVelocity = if(eq(leftOrRight, 0) { ->
-        toi32(div(tof32(velocity), 1.03), 0);
-    }, { ->
-        add(velocity, mul(leftOrRight, 30));
-    });
-
-    let realVelocity = between(newVelocity, -1000, 1000);
-
-    let seconds = div(tof32(elapsed), 1000000);
-
-    let diff = mul(seconds, newVelocity);
-
-    let newBarPos = add(barPos, diff);
-
-    Bar(newBarPos, realVelocity, actualTime);
-}
-
-fn updateBall(ball: Ball, actualTime: TimeVal) -> Ball {
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
-    let xDir = Ball::xDir(ball);
-    let yDir = Ball::yDir(ball);
-
-    let lastUpdate = Ball::lastUpdate(ball);
-    let elapsed = elapsedTime(actualTime, lastUpdate);
-
-    let diff = divf(elapsed, 3000);
-
-    let newX = XDirection::match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
-    let newY = YDirection::match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
-
-    let newXDir = if(or(greater(newX, sub(WIDTH, BALLSIZE)), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
-    let newYDir = if(or(greater(newY, sub(HEIGHT, BALLSIZE)), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
-
-    Ball(newX, newY, newXDir, newYDir, actualTime);
-}
-
-fn eq(b1: Brick, b2: Brick) -> bool {
-    let b1x = Brick::x(b1);
-    let b1y = Brick::y(b1);
-
-    let b2x = Brick::x(b2);
-    let b2y = Brick::y(b2);
-
-    and(eq(b1x, b2x), eq(b1y, b2y));
-}
-
 fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
-
-    first(filter(bricks, { brick -> collides(x, y, brick); }));
-}
-
-fn collides(x: f32, y: f32, brick: Brick) -> bool {
-    let bx = Brick::x(brick);
-    let by = Brick::y(brick);
-
-    let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BRICKWIDTH)));
-    let yColl = and(greater(add(y, BALLSIZE), by), less(y, add(by, BRICKHEIGHT)));
-
-    and(xColl, yColl);
-}
-
-fn collides(ball: Ball, barPos: f32) -> bool {
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
-    let bx = barPos;
-    let by = sub(HEIGHT, BARHEIGHT);
-
-    let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BARWIDTH)));
-    let yColl = greater(add(y, BALLSIZE), by);
-
-    and(xColl, yColl);
-}
-
-fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
-    let ballX = Ball::x(ball);
-    let ballY = Ball::y(ball);
-    let xDir = Ball::xDir(ball);
-    let yDir = Ball::yDir(ball);
-    let lastUpdate = Ball::lastUpdate(ball);
-
-    let brickX = Brick::x(brick);
-    let brickY = Brick::y(brick);
-
-    let xDiff1 = sub(ballX, brickX);
-    let xDiff2 = sub(add(brickX, BRICKWIDTH), ballX);
-    let yDiff1 = sub(ballY, brickY);
-    let yDiff2 = sub(add(brickY, BRICKHEIGHT), ballY);
-
-    let xDiff = min(xDiff1, xDiff2);
-    let yDiff = min(yDiff1, yDiff2);
-
-    if(less(xDiff, yDiff), { -> Ball(ballX, ballY, flip(xDir), yDir, lastUpdate);}, { -> Ball(ballX, ballY, xDir, flip(yDir), lastUpdate);});
-}
-
-fn flip(xDir: XDirection) -> XDirection {
-    XDirection::match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
-}
-
-fn flip(yDir: YDirection) -> YDirection {
-    YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
+    first(filter(bricks, { brick -> collides(ball, brick); }));
 }
 
 fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {

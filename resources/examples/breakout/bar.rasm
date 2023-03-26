@@ -1,0 +1,34 @@
+struct Bar {
+    x: f32,
+    velocity: i32,
+    lastUpdate: TimeVal
+}
+
+fn update(bar: Bar, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
+    let barLastUpdate = Bar::lastUpdate(bar);
+    let elapsed = elapsedTime(actualTime, barLastUpdate);
+
+    let barPos = Bar::x(bar);
+    let velocity = Bar::velocity(bar);
+
+    let left = negate(count(keys, { k -> eq(k, 80);}));
+    let right = count(keys, { k -> eq(k, 79);});
+
+    let leftOrRight = add(left, right);
+
+    let newVelocity = if(eq(leftOrRight, 0) { ->
+        toi32(div(tof32(velocity), 1.03), 0);
+    }, { ->
+        add(velocity, mul(leftOrRight, 30));
+    });
+
+    let realVelocity = between(newVelocity, -1000, 1000);
+
+    let seconds = div(tof32(elapsed), 1000000);
+
+    let diff = mul(seconds, newVelocity);
+
+    let newBarPos = add(barPos, diff);
+
+    Bar(newBarPos, realVelocity, actualTime);
+}
