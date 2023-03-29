@@ -1,10 +1,13 @@
-[package]
-name = "rasm"
+[workspace]
+members = ["core", "rasm"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
-[dependencies]
+[workspace.dependencies]
+rasm-core = { path = "./core" }
 backtrace = "0.3"
 chrono = "0.4"
 debug-cell = "0.1"
@@ -12,12 +15,11 @@ env_logger = "0.9"
 linked-hash-map = "0.5"
 log = "0.4"
 pad = "0.1"
+rand = "0.8"
 regex = "1.6"
 strum = "0.23"
 strum_macros = "0.23"
 tempdir = "0.3"
-
-[dev-dependencies]
-rand = "0.8.5"
 test_bin = "0.4"
 test-log = "0.2"
+

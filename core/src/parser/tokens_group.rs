@@ -1,7 +1,9 @@
+use std::fmt::{Debug, Display, Formatter};
+
+use linked_hash_map::LinkedHashMap;
+
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
 use crate::parser::ParserTrait;
-use linked_hash_map::LinkedHashMap;
-use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug)]
 pub struct TokensGroup {
@@ -179,8 +181,9 @@ impl TokensMatcherTrait for TokensGroup {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::parser::tokens_matcher::AlphanumericTokenMatcher;
+
+    use super::*;
 
     #[test]
     fn test() {

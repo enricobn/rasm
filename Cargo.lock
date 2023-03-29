@@ -436,6 +436,20 @@ dependencies = [
 name = "rasm"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "env_logger",
+ "log",
+ "rand 0.8.5",
+ "rasm-core",
+ "tempdir",
+ "test-log",
+ "test_bin",
+]
+
+[[package]]
+name = "rasm-core"
+version = "0.1.0"
+dependencies = [
  "backtrace",
  "chrono",
  "debug-cell",
@@ -443,13 +457,10 @@ dependencies = [
  "linked-hash-map",
  "log",
  "pad",
- "rand 0.8.5",
  "regex",
  "strum",
  "strum_macros",
  "tempdir",
- "test-log",
- "test_bin",
 ]
 
 [[package]]

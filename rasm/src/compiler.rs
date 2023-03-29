@@ -4,20 +4,25 @@ use std::path::Path;
 
 use log::info;
 
-use crate::codegen::backend::Backend;
-use crate::codegen::backend::BackendAsm386;
-use crate::codegen::CodeGen;
-use crate::lexer::Lexer;
-use crate::parser::Parser;
+use rasm_core::codegen::backend::Backend;
+use rasm_core::codegen::backend::BackendAsm386;
+use rasm_core::codegen::CodeGen;
+use rasm_core::lexer::Lexer;
+use rasm_core::parser::Parser;
 
 pub struct Compiler {
     src: String,
     out: String,
+    std_lib_path: String,
 }
 
 impl Compiler {
-    pub fn compile(src: String, out: String) {
-        let compiler = Compiler { src, out };
+    pub fn compile(src: String, out: String, std_lib_path: String) {
+        let compiler = Compiler {
+            src,
+            out,
+            std_lib_path,
+        };
         compiler._compile()
     }
 
@@ -27,7 +32,7 @@ impl Compiler {
             Ok(lexer) => {
                 info!("Lexer ended");
                 let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
-                let module = parser.parse(file_path);
+                let module = parser.parse(file_path, Path::new(&self.std_lib_path));
 
                 info!("Parser ended");
 

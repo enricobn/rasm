@@ -10,15 +10,7 @@ use log::info;
 
 use crate::compiler::Compiler;
 
-pub(crate) mod codegen;
 pub mod compiler;
-pub(crate) mod lexer;
-pub(crate) mod parser;
-//pub mod type_check;
-pub mod transformations;
-pub mod type_check;
-#[macro_use]
-pub mod utils;
 
 fn main() {
     Builder::from_default_env()
@@ -52,5 +44,9 @@ fn main() {
         args.get(2).unwrap().clone().add(".asm")
     };
 
-    Compiler::compile(src.to_string(), out);
+    Compiler::compile(
+        src.to_string(),
+        out,
+        env::var("RASM_STDLIB").unwrap_or("stdlib".to_owned()),
+    );
 }

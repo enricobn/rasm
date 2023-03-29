@@ -86,7 +86,9 @@ macro_rules! debug_i {
                 debug ! ("{}{}", s, & format ! ( $( $ a), * ));
             });
         }
-        $crate::utils::debug_indent::write_to_log(& format ! ( $( $ a), * ));
+        if log::log_enabled!(log::Level::Debug) {
+            $crate::utils::debug_indent::write_to_log(& format ! ( $( $ a), * ));
+        }
     };
 }
 
@@ -100,7 +102,9 @@ macro_rules! indent {
                 });
             }
         }
-        $crate::utils::debug_indent::indent_to_log();
+        if log::log_enabled!(log::Level::Debug) {
+            $crate::utils::debug_indent::indent_to_log();
+        }
     };
 }
 
@@ -114,6 +118,8 @@ macro_rules! dedent {
                 });
             }
         }
-        $crate::utils::debug_indent::dedent_to_log();
+        if log::log_enabled!(log::Level::Debug) {
+            $crate::utils::debug_indent::dedent_to_log();
+        }
     };
 }

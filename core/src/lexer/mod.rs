@@ -1,12 +1,14 @@
-pub(crate) mod tokens;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+
+use log::debug;
 
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use log::debug;
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
+
+pub(crate) mod tokens;
 
 #[derive(Debug, PartialEq)]
 enum LexStatus {

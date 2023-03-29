@@ -48,8 +48,9 @@ impl<'a> TypeParamsParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::parser::test_utils::get_parser;
+
+    use super::*;
 
     #[test]
     fn test() {

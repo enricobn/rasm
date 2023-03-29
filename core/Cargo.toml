@@ -1,0 +1,19 @@
+[package]
+name = "rasm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+backtrace.workspace = true
+chrono.workspace = true
+debug-cell.workspace = true
+env_logger.workspace = true
+linked-hash-map.workspace = true
+log.workspace = true
+pad.workspace = true
+regex.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
+tempdir.workspace = true
+

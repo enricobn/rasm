@@ -1,0 +1,18 @@
+[package]
+name = "rasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+env_logger.workspace = true
+chrono.workspace = true
+log.workspace = true
+# local deps
+rasm-core.workspace = true
+
+[dev-dependencies]
+rand.workspace = true
+tempdir.workspace = true
+test_bin.workspace = true
+test-log.workspace = true

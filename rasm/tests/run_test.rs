@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use log::info;
 use tempdir::TempDir;
 
 #[cfg(test)]
@@ -368,6 +369,7 @@ fn compile(dir: &TempDir, source: &str) -> String {
     let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
 
     let status = test_bin::get_test_bin("rasm")
+        .env("RASM_STDLIB", "../stdlib")
         .arg(source)
         .arg(&dest)
         .stderr(Stdio::inherit())
@@ -379,10 +381,10 @@ fn compile(dir: &TempDir, source: &str) -> String {
     dest
 }
 
-fn execute(exucutable: &str, args: Vec<&str>, expected_output: Option<&str>) {
-    let failure_message = format!("failed to execute {}", exucutable);
+fn execute(executable: &str, args: Vec<&str>, expected_output: Option<&str>) {
+    let failure_message = format!("failed to execute {}", executable);
 
-    let output = Command::new(exucutable)
+    let output = Command::new(executable)
         .args(args)
         .stderr(Stdio::inherit())
         .output()

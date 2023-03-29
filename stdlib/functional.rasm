@@ -1,0 +1,30 @@
+type Monad<M> {
+
+    fn map<T,T1>(o: M<T>, f: fn(T) -> T1) -> M<T1>;
+
+    fn flatten<T>(o: M<M<T>>) -> M<T>;
+
+}
+
+impl Monad for List {
+
+    fn map<T,T1>(o: List<T>, f: fn(T) -> T1) -> List<T1> {
+        mapo, f);
+    }
+
+    fn flatten<T>(o: List<List<T>>) -> List<T> {
+        flatten(o);
+    }
+
+}
+
+fn fMap[M]<T,T1>(o: M<T>, f: fn(T) -> M<T1>, mapf: fn(M<T>, fn(T) -> T1) -> M<T1>, flatten: fn(M<M<T1>>) -> M<T1>) -> M<T1> {
+    flatten(mapf(o, f));
+}
+
+fn fMap[MI,MO]<TI,TO>(in: MI<TI>, f: fn(TI) -> MO<TO>) -> MO<TO> {
+    flatten(map(o, f));
+}
+
+//Example
+println(fMap(range(0,2), { n -> listOf(n, 5);}, { o,f -> mapo, f);}, { o -> flatten(o);}));

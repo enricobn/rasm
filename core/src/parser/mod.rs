@@ -121,14 +121,12 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, path: &Path) -> ASTModule {
+    pub fn parse(&mut self, path: &Path, std_path: &Path) -> ASTModule {
         self.body = Vec::new();
         self.functions = Vec::new();
         self.i = 0;
         self.parser_data = Vec::new();
         self.state = Vec::new();
-
-        let std_path = Path::new("resources/stdlib");
 
         let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
 
@@ -210,7 +208,7 @@ impl Parser {
                                     lexer,
                                     resource_path.to_str().map(|it| it.to_string()),
                                 );
-                                let mut module = parser.parse(resource_path);
+                                let mut module = parser.parse(resource_path, std_path);
                                 if !module.body.is_empty() {
                                     self.panic(&format!(
                                         "Cannot include a module with a body: {:?}.",
@@ -1259,38 +1257,32 @@ pub trait ParserTrait {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
     use std::path::Path;
 
     use linked_hash_map::LinkedHashMap;
 
     use crate::lexer::Lexer;
-    use crate::parser::ast::{ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTStatement};
+    use crate::parser::ast::{
+        ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTStatement,
+    };
     use crate::parser::{Parser, ValueType};
 
     #[test]
     fn test() {
-        let path = Path::new("resources/test/helloworld.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        parser.parse(path);
+        parse("resources/test/helloworld.rasm");
     }
 
     #[test]
     fn test2() {
-        let path = Path::new("resources/test/test2.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        let module = parser.parse(path);
+        let module = parse("resources/test/test2.rasm");
 
         assert_eq!(1, module.body.len());
     }
 
     #[test]
     fn test8() {
-        let path = Path::new("resources/test/test8.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        let module = parser.parse(path);
+        let module = parse("resources/test/test8.rasm");
 
         assert!(!module.functions.is_empty());
         assert_eq!(2, module.functions.get(0).unwrap().parameters.len());
@@ -1298,10 +1290,7 @@ mod tests {
 
     #[test]
     fn test9() {
-        let path = Path::new("resources/test/test9.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        let module = parser.parse(path);
+        let module = parse("resources/test/test9.rasm");
 
         let par =
             if let Some(ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(e))) =
@@ -1337,18 +1326,12 @@ mod tests {
 
     #[test]
     fn test10() {
-        let path = Path::new("resources/test/test10.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        parser.parse(path);
+        parse("resources/test/test10.rasm");
     }
 
     #[test]
     fn test11() {
-        let path = Path::new("resources/test/test11.rasm");
-        let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
-        parser.parse(path);
+        parse("resources/test/test11.rasm");
     }
 
     #[test]
@@ -1357,7 +1340,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let module = parser.parse(Path::new("."));
+        let module = parser.parse(Path::new("."), Path::new(&stdlib_path()));
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1371,5 +1354,19 @@ mod tests {
         };
 
         assert_eq!(module.functions, vec![function_def]);
+    }
+
+    fn parse(source: &str) -> ASTModule {
+        println!("Current dir {:?}", env::current_dir().unwrap());
+
+        let path = Path::new(source);
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
+        let module = parser.parse(path, Path::new(&stdlib_path()));
+        module
+    }
+
+    fn stdlib_path() -> String {
+        env::var("RASM_STDLIB").unwrap_or("../stdlib".to_owned())
     }
 }
