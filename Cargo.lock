@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "rasm"
-version = "0.1.0"
+version = "0.1.0-alpha.0"
 dependencies = [
  "chrono",
  "env_logger",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-core"
-version = "0.1.0"
+version = "0.1.0-alpha.0"
 dependencies = [
  "backtrace",
  "chrono",
