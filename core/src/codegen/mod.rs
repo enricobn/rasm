@@ -735,7 +735,7 @@ impl<'a> CodeGen<'a> {
                             def.ast_type.clone(),
                             format!("par {val_name}"),
                         ),
-                        TypedValKind::LetRef(i, def) => {
+                        TypedValKind::LetRef(_i, def) => {
                             let relative_to_bp_found = stack
                                 .find_relative_to_bp(StackEntryType::LetVal, val_name)
                                 .unwrap();

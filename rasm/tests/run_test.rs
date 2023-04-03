@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use log::info;
 use tempdir::TempDir;
 
 #[cfg(test)]

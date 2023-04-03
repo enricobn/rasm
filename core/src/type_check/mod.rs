@@ -483,7 +483,7 @@ fn convert_statement(
                         let ast_type = type_conversion_context
                             .borrow()
                             .find_function(&call.function_name)
-                            .unwrap_or_else(|| panic!("{}", &call.function_name))
+                            .unwrap_or_else(|| panic!("{} : {}", &call.function_name, &call.index))
                             .return_type
                             .clone()
                             .unwrap();

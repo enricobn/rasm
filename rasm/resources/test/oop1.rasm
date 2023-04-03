@@ -1,0 +1,74 @@
+include "std.rasm"
+
+struct ToString {
+    toString: fn() -> str
+}
+
+struct Shape {
+    move: fn(i32,i32) -> Shape,
+    print: fn() -> ()
+}
+
+struct Circle {
+    x: i32,
+    y: i32,
+    radius: i32
+}
+
+struct Rect {
+    x: i32,
+    y: i32,
+}
+
+let v = vecOf(circleShape(Circle(1, 1, 2)), rectShape(Rect(10, 20)));
+
+println(v);
+
+println(map(v, { shape -> move(shape, 10, 10);}));
+
+fn rectShape(rect: Rect) -> Shape {
+    Shape({ dx, dy ->
+        let x = Rect::x(rect);
+        let y = Rect::y(rect);
+
+        let result = Rect(add(x, dx), add(y, dy));
+
+        rectShape(result);
+    }, { ->
+         let x = Rect::x(rect);
+         let y = Rect::y(rect);
+         print("Rect(", x);
+         print(",", y);
+         print(")");
+    });
+}
+
+fn circleShape(circle: Circle) -> Shape {
+    Shape({ dx, dy ->
+        let x = Circle::x(circle);
+        let y = Circle::y(circle);
+        let radius = Circle::radius(circle);
+
+        let result = Circle(add(x, dx), add(y, dy), radius);
+
+        circleShape(result);
+    }, { ->
+          let x = Circle::x(circle);
+          let y = Circle::y(circle);
+          let radius = Circle::radius(circle);
+          print("Circle(", x);
+          print(",", y);
+          print(",", radius);
+          print(")");
+         });
+}
+
+fn move(shape: Shape, dx: i32, dy: i32) -> Shape {
+    let f = Shape::move(shape);
+    f(dx, dy);
+}
+
+fn print(shape: Shape) {
+    let f = Shape::print(shape);
+    f();
+}

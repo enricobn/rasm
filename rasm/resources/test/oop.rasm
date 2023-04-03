@@ -1,0 +1,52 @@
+include "std.rasm"
+
+struct Display<T> {
+    private val: T,
+    display: fn(T) -> ()
+}
+
+struct Circle {
+    x: i32,
+    y: i32,
+    radius: i32
+}
+
+struct Rect {
+    x: i32,
+    y: i32,
+}
+
+let v = vecOf(displayableCircle(Circle(1, 1, 2)), displayableRect(Rect(10, 20)));
+
+forEach(v, { d -> display(d);});
+
+display(circle(Circle(1, 1, 2)));
+display(rect(Rect(10, 20)));
+
+fn displayableRect(rect: Rect) -> Display<Rect> {
+    Display(rect, { r ->
+        let x = Rect::x(rect);
+        let y = Rect::y(rect);
+
+        print(x);
+        print(",", y);
+    });
+}
+
+fn displayableCircle(circle: Circle) -> Display<Circle> {
+    Display(circle, { c ->
+        let x = Circle::x(c);
+        let y = Circle::y(c);
+        let radius = Circle::radius(c);
+
+        print(x);
+        print(",", y);
+        print(",", radius);
+    });
+}
+
+fn display<T>(d: Display<T>) {
+    let f = Display::display(d);
+    let val = Display::val(d);
+    f(val);
+}

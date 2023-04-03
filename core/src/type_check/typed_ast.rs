@@ -656,6 +656,9 @@ impl<'a> ConvContext<'a> {
                     name: new_name.clone(),
                 };
 
+                self.structs
+                    .insert(struct_type.clone(), struct_typed_type.clone());
+
                 let properties = struct_def
                     .properties
                     .iter()
@@ -668,9 +671,6 @@ impl<'a> ConvContext<'a> {
                     ast_type: struct_type.clone(),
                     ast_typed_type: struct_typed_type.clone(),
                 });
-
-                self.structs
-                    .insert(struct_type.clone(), struct_typed_type.clone());
 
                 struct_typed_type
             }

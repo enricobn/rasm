@@ -10,19 +10,24 @@ struct Model {
     y: i32
 }
 
-let l = Loop({ time, model ->
-        if(greater(time, 5), { -> NoneModel();}, { ->
-            let x = Model::x(model);
-            let y = Model::y(model);
-            Option::Some(Model(add(x, 1), add(y, 1)));
-        });
-    }, { model ->
-            let x = Model::x(model);
-            let y = Model::y(model);
-            print(x);
-            print(",");
-            println(y);
-    });
+let l = Loop(
+    { time, model ->
+        if(greater(time, 5),
+            { -> NoneModel();},
+            { ->
+                let x = Model::x(model);
+                let y = Model::y(model);
+                Option::Some(Model(add(x, 1), add(y, 1)));
+            });
+    },
+    { model ->
+        let x = Model::x(model);
+        let y = Model::y(model);
+        print(x);
+        print(",");
+        println(y);
+    }
+);
 
 loop(0, Model(0, 0), l);
 
