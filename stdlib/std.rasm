@@ -26,8 +26,8 @@ fn println<T>(prefix: str, o: T) {
 }
 
 // TODO do it in asm
-fn print(b: bool) {
-    ifRun(b, { -> print("true");}, { -> print("false");});
+fn print(file: File, b: bool) {
+    ifRun(b, { -> print(file, "true");}, { -> print(file, "false");});
 }
 
 // https://man7.org/linux/man-pages/man4/console_codes.4.html
