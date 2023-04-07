@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+clap.workspace = true
 env_logger.workspace = true
 chrono.workspace = true
 log.workspace = true

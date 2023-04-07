@@ -318,47 +318,47 @@ fn test_f32() {
 
 #[test]
 fn test_gameoflife_sdl_compile() {
-    compile_example("resources/examples/gameoflife_sdl.rasm");
+    compile_example("resources/examples/gameoflife_sdl.rasm", true);
 }
 
 #[test]
 fn test_gameoflife_vec_compile() {
-    compile_example("resources/examples/gameoflife_vec.rasm");
+    compile_example("resources/examples/gameoflife_vec.rasm", true);
 }
 
 #[test]
 fn test_gameoflife_vec_sdl_compile() {
-    compile_example("resources/examples/gameoflife_vec_sdl.rasm");
+    compile_example("resources/examples/gameoflife_vec_sdl.rasm", true);
 }
 
 #[test]
 fn test_breakout() {
-    compile_example("resources/examples/breakout/breakout.rasm");
+    compile_example("resources/examples/breakout/breakout.rasm", true);
 }
 
 #[test]
 fn test_showimage() {
-    compile_example("resources/examples/showimage.rasm");
+    compile_example("resources/examples/showimage.rasm", true);
 }
 
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
-    let executable = compile(&dir, &format!("resources/test/{}.rasm", test_name));
+    let executable = compile(&dir, &format!("resources/test/{}.rasm", test_name), false);
     execute(&executable, args, Some(expected_output));
 }
 
 fn run(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     let dir = TempDir::new("rasm_int_test").unwrap();
-    let executable = compile(&dir, source);
+    let executable = compile(&dir, source, false);
     execute(&executable, args, expected_output);
 }
 
-fn compile_example(source: &str) {
+fn compile_example(source: &str, only_compile: bool) {
     let dir = TempDir::new("rasm_int_test").unwrap();
-    compile(&dir, source);
+    compile(&dir, source, only_compile);
 }
 
-fn compile(dir: &TempDir, source: &str) -> String {
+fn compile(dir: &TempDir, source: &str, only_compile: bool) -> String {
     let source_without_extension = Path::new(source).with_extension("");
     let file_name = source_without_extension
         .file_name()
@@ -367,10 +367,15 @@ fn compile(dir: &TempDir, source: &str) -> String {
         .unwrap();
     let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
 
+    let mut args = vec![source, &dest];
+
+    if only_compile {
+        args.push("--compile");
+    }
+
     let status = test_bin::get_test_bin("rasm")
         .env("RASM_STDLIB", "../stdlib")
-        .arg(source)
-        .arg(&dest)
+        .args(args)
         .stderr(Stdio::inherit())
         .status()
         .expect("failed to start rasm");

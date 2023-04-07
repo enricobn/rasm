@@ -17,16 +17,16 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(src: String, out: String, std_lib_path: String) {
+    pub fn compile(src: String, out: String, std_lib_path: String, only_compile: bool) {
         let compiler = Compiler {
             src,
             out,
             std_lib_path,
         };
-        compiler._compile()
+        compiler._compile(only_compile)
     }
 
-    fn _compile(&self) {
+    fn _compile(&self, only_compile: bool) {
         let file_path = Path::new(&self.src);
         match Lexer::from_file(file_path) {
             Ok(lexer) => {
@@ -60,7 +60,11 @@ impl Compiler {
                     .write_all(asm.as_bytes())
                     .unwrap();
 
-                backend.compile_and_link(self.out.to_string());
+                if only_compile {
+                    backend.compile(&self.out.to_string());
+                } else {
+                    backend.compile_and_link(&self.out.to_string());
+                }
 
                 info!("Compilation and linking ended");
             }

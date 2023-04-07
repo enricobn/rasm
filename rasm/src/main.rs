@@ -5,6 +5,7 @@ use std::io::Write;
 use std::ops::Add;
 use std::path::Path;
 
+use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
 
@@ -27,26 +28,47 @@ fn main() {
         })
         .init();
 
+    let matches = Command::new("RASM lang")
+        .version("0.1.0-alpha.0")
+        .arg(
+            Arg::new("SRC")
+                .help("Sets the input file to use")
+                .required(true)
+                .index(1),
+        )
+        .arg(
+            Arg::new("OUTPUT")
+                .help("Sets the output file to use")
+                .required(false)
+                .index(2),
+        )
+        .arg(
+            Arg::new("compile")
+                .long("compile")
+                .action(ArgAction::SetTrue)
+                .required(false),
+        )
+        .get_matches();
+
     let path = env::current_dir();
 
     info!("Current dir: {:?}", path);
 
-    let args: Vec<String> = env::args().collect();
-    info!("Arguments: {:?}", args);
-
-    let src = args.get(1).unwrap();
-    let out = if args.len() < 3 {
+    let src = matches.get_one::<String>("SRC").unwrap();
+    let out = if let Some(o) = matches.get_one::<String>("OUTPUT") {
+        o.clone()
+    } else {
         let without_extension = Path::new(src).with_extension("");
         let file_name = without_extension.file_name().unwrap();
         let file_name_str = file_name.to_str().unwrap();
-        String::new().add(file_name_str).add(".asm")
-    } else {
-        args.get(2).unwrap().clone().add(".asm")
-    };
+        String::new().add(file_name_str)
+    }
+    .add(".asm");
 
     Compiler::compile(
         src.to_string(),
         out,
         env::var("RASM_STDLIB").unwrap_or("stdlib".to_owned()),
+        matches.get_flag("compile"),
     );
 }

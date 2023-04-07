@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Output, Stdio};
 
 use log::{debug, info};
 
@@ -32,7 +32,11 @@ pub trait Backend: RefUnwindSafe {
 
     fn stack_pointer(&self) -> String;
 
-    fn compile_and_link(&self, source_file: String);
+    fn compile_and_link(&self, source_file: &str);
+
+    fn compile(&self, source_file: &str) -> Output;
+
+    fn link(&self, path: &Path) -> Output;
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
@@ -177,7 +181,22 @@ impl Backend for BackendAsm386 {
         "esp".to_string()
     }
 
-    fn compile_and_link(&self, source_file: String) {
+    fn compile_and_link(&self, source_file: &str) {
+        info!("source file : '{}'", source_file);
+        let nasm_output = self.compile(&source_file);
+        if nasm_output.status.success() {
+            let path = Path::new(&source_file);
+            let linker_output = self.link(path);
+
+            if !linker_output.status.success() {
+                panic!("Error running linker")
+            }
+        } else {
+            panic!("Error running nasm")
+        }
+    }
+
+    fn compile(&self, source_file: &str) -> Output {
         info!("source file : '{}'", source_file);
         let path = Path::new(&source_file);
         let mut nasm_command = Command::new("nasm");
@@ -187,61 +206,56 @@ impl Backend for BackendAsm386 {
             .arg("-g")
             .arg("-F")
             .arg("dwarf")
-            .arg(source_file.clone());
+            .arg(source_file);
         BackendAsm386::log_command(&nasm_command);
-        let nasm_output = nasm_command
+        nasm_command
             .stderr(Stdio::inherit())
             .output()
-            .expect("failed to execute nasm");
-        if nasm_output.status.success() {
-            let linker_output = match self.linker {
-                Linker::Ld => {
-                    let mut ld_command = Command::new("ld");
-                    ld_command
-                        .arg("-m")
-                        .arg("elf_i386")
-                        .arg(path.with_extension("o"))
-                        .arg("-lc")
-                        .arg("-I")
-                        .arg("/lib32/ld-linux.so.2")
-                        .arg("-o")
-                        .arg(path.with_extension(""));
-                    BackendAsm386::log_command(&ld_command);
-                    ld_command
-                        .stderr(Stdio::inherit())
-                        .output()
-                        .expect("failed to execute ld")
-                }
-                Linker::Gcc => {
-                    let libraries = self
-                        .requires
-                        .iter()
-                        .filter(|it| *it != "libc")
-                        .map(|it| format!("-l{it}"))
-                        .collect::<Vec<String>>();
+            .expect("failed to execute nasm")
+    }
 
-                    let mut gcc_command = Command::new("gcc");
-                    gcc_command
-                        .arg("-m32")
-                        .arg("-gdwarf")
-                        //.arg("-static")
-                        .arg("-o")
-                        .arg(path.with_extension(""))
-                        .arg(path.with_extension("o"))
-                        .args(libraries);
-                    BackendAsm386::log_command(&gcc_command);
-                    gcc_command
-                        .stderr(Stdio::inherit())
-                        .output()
-                        .expect("failed to execute gcc")
-                }
-            };
-
-            if !linker_output.status.success() {
-                panic!("Error running linker")
+    fn link(&self, path: &Path) -> Output {
+        match self.linker {
+            Linker::Ld => {
+                let mut ld_command = Command::new("ld");
+                ld_command
+                    .arg("-m")
+                    .arg("elf_i386")
+                    .arg(path.with_extension("o"))
+                    .arg("-lc")
+                    .arg("-I")
+                    .arg("/lib32/ld-linux.so.2")
+                    .arg("-o")
+                    .arg(path.with_extension(""));
+                BackendAsm386::log_command(&ld_command);
+                ld_command
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .expect("failed to execute ld")
             }
-        } else {
-            panic!("Error running nasm")
+            Linker::Gcc => {
+                let libraries = self
+                    .requires
+                    .iter()
+                    .filter(|it| *it != "libc")
+                    .map(|it| format!("-l{it}"))
+                    .collect::<Vec<String>>();
+
+                let mut gcc_command = Command::new("gcc");
+                gcc_command
+                    .arg("-m32")
+                    .arg("-gdwarf")
+                    //.arg("-static")
+                    .arg("-o")
+                    .arg(path.with_extension(""))
+                    .arg(path.with_extension("o"))
+                    .args(libraries);
+                BackendAsm386::log_command(&gcc_command);
+                gcc_command
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .expect("failed to execute gcc")
+            }
         }
     }
 
