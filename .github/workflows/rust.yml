@@ -22,5 +22,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib libc++-dev nasm
+          sudo apt-get install libsdl2-dev:i386
+          sudo apt-get install libsdl2-ttf-dev:i386
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --release --verbose
