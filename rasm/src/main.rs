@@ -44,6 +44,7 @@ fn main() {
         )
         .arg(
             Arg::new("compile")
+                .help("produces .asm and .o files")
                 .long("compile")
                 .action(ArgAction::SetTrue)
                 .required(false),
