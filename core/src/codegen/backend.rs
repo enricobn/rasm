@@ -343,7 +343,7 @@ impl Backend for BackendAsm386 {
                         };
 
                         match &ast_type {
-                            ASTType::Parametric(name) => {
+                            ASTType::Generic(name) => {
                                 if let Some(f) = function_def {
                                     let t = type_def_provider
                                         .get_type_from_typed_type(

@@ -120,7 +120,7 @@ mod tests {
             parameters: Vec::new(),
             return_type: None,
             inline: false,
-            param_types: Vec::new(),
+            generic_types: Vec::new(),
             resolved_generic_types: LinkedHashMap::new(),
             original_name: name.into(),
         }

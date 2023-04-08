@@ -95,7 +95,7 @@ pub fn convert(
 
         let mut new_body = Vec::new();
 
-        let resolved_param_types = LinkedHashMap::new();
+        let resolved_generic_types = LinkedHashMap::new();
         let mut context = ValContext::new(None);
 
         for statement in body.iter() {
@@ -133,7 +133,7 @@ pub fn convert(
                 backend,
                 module,
                 &type_conversion_context,
-                &resolved_param_types,
+                &resolved_generic_types,
                 function_def,
                 statics,
             )
@@ -618,7 +618,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
                 par_types
             }
         },
-        ASTType::Parametric(p) => {
+        ASTType::Generic(p) => {
             vec![p.into()]
         }
         ASTType::Custom {
@@ -628,7 +628,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
             let mut result: Vec<String> = pt
                 .iter()
                 .flat_map(|it| match it.clone() {
-                    ASTType::Parametric(name) => {
+                    ASTType::Generic(name) => {
                         vec![name]
                     }
                     _ => get_generic_types(it),
@@ -1540,7 +1540,7 @@ pub fn convert_call(
     if !something_converted {
         debug_i!("nothing converted for {call}");
 
-        if function_def.param_types.is_empty() {
+        if function_def.generic_types.is_empty() {
             debug_i!(
                 "TODO check for not parameterized function {}",
                 call.function_name
@@ -1598,7 +1598,7 @@ pub fn convert_call(
         parameters,
         return_type: new_return_type,
         body: function_def.body.clone(),
-        param_types: remaining_generic_types,
+        generic_types: remaining_generic_types,
         inline: function_def.inline,
         resolved_generic_types: resolved_generic_types.clone(),
     };
@@ -1854,7 +1854,7 @@ fn get_called_function(
             .filter(|it| {
                 it.parameters
                     .iter()
-                    .all(|p| !matches!(p.ast_type, ASTType::Parametric(_)))
+                    .all(|p| !matches!(p.ast_type, ASTType::Generic(_)))
             })
             .collect::<Vec<_>>();
 
@@ -2286,7 +2286,7 @@ fn resolve_generic_types_from_effective_type(
                             result.extend(inner_result.into_iter());
                         } else {
                             dedent!();
-                            if let ASTType::Parametric(p) = p_t.as_ref() {
+                            if let ASTType::Generic(p) = p_t.as_ref() {
                                 return Err(format!("Found parametric type {p} that is (). For now we cannot handle it").into());
                             }
                             return Err("Expected some type but got None".into());
@@ -2299,7 +2299,7 @@ fn resolve_generic_types_from_effective_type(
                 }
             },
         },
-        ASTType::Parametric(p) => {
+        ASTType::Generic(p) => {
             debug_i!("resolved generic type {p} to {effective_type}");
             result.insert(p.clone(), effective_type.clone());
         }
@@ -2324,7 +2324,7 @@ fn resolve_generic_types_from_effective_type(
                     result.extend(inner_result.into_iter());
                 }
             }
-            ASTType::Parametric(_) => {}
+            ASTType::Generic(_) => {}
             _ => {
                 dedent!();
                 return Err(format!(
@@ -2522,7 +2522,7 @@ fn substitute(
             }
             _ => None,
         },
-        ASTType::Parametric(p) => {
+        ASTType::Generic(p) => {
             if resolved_param_types.contains_key(p) {
                 resolved_param_types.get(p).cloned()
             } else {
@@ -2729,7 +2729,7 @@ mod tests {
     }
 
     fn parametric(name: &str) -> ASTType {
-        ASTType::Parametric(name.into())
+        ASTType::Generic(name.into())
     }
 
     fn i32() -> ASTType {
@@ -2767,12 +2767,12 @@ mod tests {
             body: ASTFunctionBody::RASMBody(Vec::new()),
             parameters: vec![ASTParameterDef {
                 name: "v".into(),
-                ast_type: ASTType::Parametric("T".into()),
+                ast_type: ASTType::Generic("T".into()),
                 ast_index: ASTIndex::none(),
             }],
             inline: false,
             return_type: None,
-            param_types: vec!["T".into()],
+            generic_types: vec!["T".into()],
             resolved_generic_types: LinkedHashMap::new(),
             original_name: "consume".into(),
         };

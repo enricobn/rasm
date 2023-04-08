@@ -71,13 +71,12 @@ impl<'a> StructParser<'a> {
 
     pub fn parse_properties(
         &self,
-        type_parameters: &[String],
+        generic_types: &[String],
         name: &str,
         n: usize,
     ) -> Option<(Vec<ASTStructPropertyDef>, usize)> {
-        if let Some(result) =
-            Self::properties_matcher("properties", Quantifier::One, type_parameters)
-                .match_tokens(self.parser, n)
+        if let Some(result) = Self::properties_matcher("properties", Quantifier::One, generic_types)
+            .match_tokens(self.parser, n)
         {
             let parameters_s = result.group_values("parameter");
             let type_result = result.group_results("parameter_type");
@@ -88,7 +87,7 @@ impl<'a> StructParser<'a> {
                 let parser = *type_result.get(i).unwrap();
                 let type_parser = TypeParser::new(parser);
                 let name = parameters_s.get(i).unwrap().clone();
-                if let Some((ast_type, _)) = type_parser.try_parse_ast_type(0, type_parameters) {
+                if let Some((ast_type, _)) = type_parser.try_parse_ast_type(0, generic_types) {
                     parameters.push(ASTStructPropertyDef { name, ast_type });
                 } else {
                     self.parser
@@ -109,7 +108,7 @@ impl<'a> StructParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::ASTType::{Builtin, Parametric};
+    use crate::parser::ast::ASTType::{Builtin, Generic};
     use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind};
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
@@ -162,7 +161,7 @@ mod tests {
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
-            ast_type: Parametric("T".into()),
+            ast_type: Generic("T".into()),
         };
 
         assert_eq!(

@@ -18,7 +18,7 @@ pub fn struct_functions_creator(
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Parametric(it.into()))
+            .map(|it| ASTType::Generic(it.into()))
             .collect();
 
         let ast_type = ASTType::Custom {
@@ -55,7 +55,7 @@ pub fn struct_functions_creator(
             body,
             inline: false,
             return_type,
-            param_types: struct_def.type_parameters.clone(),
+            generic_types: struct_def.type_parameters.clone(),
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: LinkedHashMap::new(),
         };
@@ -142,7 +142,7 @@ fn create_function_for_struct_property(
     let param_types = struct_def
         .type_parameters
         .iter()
-        .map(|it| ASTType::Parametric(it.into()))
+        .map(|it| ASTType::Generic(it.into()))
         .collect();
 
     let name = struct_def.name.clone() + "_" + &property_def.name;
@@ -159,7 +159,7 @@ fn create_function_for_struct_property(
         }],
         return_type: Some(property_def.ast_type.clone()),
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
-        param_types: struct_def.type_parameters.clone(),
+        generic_types: struct_def.type_parameters.clone(),
         inline: true,
         resolved_generic_types: LinkedHashMap::new(),
     }

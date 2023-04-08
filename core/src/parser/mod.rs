@@ -156,7 +156,8 @@ impl Parser {
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
                         continue;
-                    } else if let Some((name, param_types, next_i)) = self.try_parse_function_def()
+                    } else if let Some((name, generic_types, next_i)) =
+                        self.try_parse_function_def()
                     {
                         self.parser_data
                             .push(ParserData::FunctionDef(ASTFunctionDef {
@@ -166,7 +167,7 @@ impl Parser {
                                 body: RASMBody(Vec::new()),
                                 return_type: None,
                                 inline: false,
-                                param_types,
+                                generic_types,
                                 resolved_generic_types: LinkedHashMap::new(),
                             }));
                         self.state.push(ParserState::FunctionDef);
@@ -184,7 +185,7 @@ impl Parser {
                                 body: ASMBody("".into()),
                                 return_type: None,
                                 inline,
-                                param_types,
+                                generic_types: param_types,
                                 resolved_generic_types: LinkedHashMap::new(),
                             }));
                         self.state.push(ParserState::FunctionDef);
@@ -326,7 +327,7 @@ impl Parser {
                             let n = next_i - self.i;
                             self.i = next_i;
                             if let Some((ast_type, next_i)) =
-                                TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
+                                TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
                             {
                                 self.i = next_i;
                                 self.parser_data.push(ParserData::FunctionDefParameter(
@@ -396,7 +397,7 @@ impl Parser {
                             body: RASMBody(Vec::new()),
                             return_type: None,
                             inline: false,
-                            param_types: Vec::new(),
+                            generic_types: Vec::new(),
                             resolved_generic_types: LinkedHashMap::new(),
                         };
                         self.parser_data
@@ -411,7 +412,7 @@ impl Parser {
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
                         if let Some((ast_type, next_i)) =
-                            TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
+                            TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
                         {
                             self.i = next_i;
 
@@ -828,7 +829,7 @@ impl Parser {
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
                 if let Some((ref ast_type, next_i)) =
-                    TypeParser::new(self).try_parse_ast_type(0, &def.param_types)
+                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
                 {
                     self.i = next_i;
                     def.return_type = Some(ast_type.clone());
@@ -1348,7 +1349,7 @@ mod tests {
             parameters: Vec::new(),
             return_type: None,
             inline: false,
-            param_types: vec!["T".into(), "T1".into()],
+            generic_types: vec!["T".into(), "T1".into()],
             resolved_generic_types: LinkedHashMap::new(),
             original_name: "p".into(),
         };

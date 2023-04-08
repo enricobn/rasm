@@ -155,16 +155,16 @@ impl<'a> EnumParser<'a> {
         matcher
     }
 
-    pub fn parameter_matcher(context_param_types: &[String]) -> ParameterMatcher {
+    pub fn parameter_matcher(context_generic_types: &[String]) -> ParameterMatcher {
         ParameterMatcher {
-            context_param_types: context_param_types.into(),
+            context_generic_types: context_generic_types.into(),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct ParameterMatcher {
-    context_param_types: Vec<String>,
+    context_generic_types: Vec<String>,
 }
 
 impl Display for ParameterMatcher {
@@ -182,7 +182,7 @@ impl TokensMatcherTrait for ParameterMatcher {
                 let type_parser = TypeParser::new(parser);
                 // I don't care of type since who evaluates this resul gets only the tokens
                 if let Some((_ast_type, next_i)) =
-                    type_parser.try_parse_ast_type(n + 2, &self.context_param_types)
+                    type_parser.try_parse_ast_type(n + 2, &self.context_generic_types)
                 {
                     let next_n = next_i - parser.get_i();
 
@@ -228,7 +228,7 @@ impl TokensMatcherTrait for ParameterMatcher {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::ASTType::Parametric;
+    use crate::parser::ast::ASTType::Generic;
     use crate::parser::ast::{ASTEnumVariantDef, ASTIndex, ASTParameterDef, ASTType};
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
@@ -258,7 +258,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Parametric("T".into()),
+                ast_type: Generic("T".into()),
                 ast_index: ASTIndex::none(),
             }],
         };
@@ -316,7 +316,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef::new(
                         "value",
-                        Parametric("T".into()),
+                        Generic("T".into()),
                         ASTIndex::none()
                     )],
                 }]
@@ -338,8 +338,8 @@ mod tests {
                 vec![ASTEnumVariantDef {
                     name: "Something".into(),
                     parameters: vec![
-                        ASTParameterDef::new("v", Parametric("T".into()), ASTIndex::none()),
-                        ASTParameterDef::new("v1", Parametric("T1".into()), ASTIndex::none()),
+                        ASTParameterDef::new("v", Generic("T".into()), ASTIndex::none()),
+                        ASTParameterDef::new("v1", Generic("T1".into()), ASTIndex::none()),
                     ],
                 }]
             );
@@ -359,12 +359,12 @@ mod tests {
                 vec![ASTEnumVariantDef {
                     name: "Full".into(),
                     parameters: vec![
-                        ASTParameterDef::new("head", Parametric("T".into()), ASTIndex::none()),
+                        ASTParameterDef::new("head", Generic("T".into()), ASTIndex::none()),
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Parametric("T".into())]
+                                param_types: vec![Generic("T".into())]
                             },
                             ASTIndex::none()
                         ),
@@ -392,7 +392,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Parametric("T".into()),
+                ast_type: Generic("T".into()),
                 ast_index: ASTIndex::none(),
             }],
         };
@@ -434,7 +434,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        ast_type: Parametric("T".into()),
+                        ast_type: Generic("T".into()),
                         ast_index: ASTIndex::none(),
                     }],
                 };
@@ -471,14 +471,14 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: Parametric("T".into()),
+                            ast_type: Generic("T".into()),
                             ast_index: ASTIndex::none(),
                         },
                         ASTParameterDef {
                             name: "tail".into(),
                             ast_type: ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Parametric("T".into())],
+                                param_types: vec![Generic("T".into())],
                             },
                             ast_index: ASTIndex::none(),
                         },
@@ -516,7 +516,7 @@ mod tests {
                     name: "Left".into(),
                     parameters: vec![ASTParameterDef::new(
                         "l",
-                        Parametric("L".into()),
+                        Generic("L".into()),
                         ASTIndex::none(),
                     )],
                 };
@@ -525,7 +525,7 @@ mod tests {
                     name: "Right".into(),
                     parameters: vec![ASTParameterDef::new(
                         "r",
-                        Parametric("R".into()),
+                        Generic("R".into()),
                         ASTIndex::none(),
                     )],
                 };

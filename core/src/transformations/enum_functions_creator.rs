@@ -23,7 +23,7 @@ pub fn enum_functions_creator(
         let param_types: Vec<ASTType> = enum_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Parametric(it.into()))
+            .map(|it| ASTType::Generic(it.into()))
             .collect();
 
         create_constructors(
@@ -40,7 +40,7 @@ pub fn enum_functions_creator(
             &mut result,
             &enum_def,
             "match",
-            Some(ASTType::Parametric("_T".into())),
+            Some(ASTType::Generic("_T".into())),
             Some("_T".into()),
         );
 
@@ -66,7 +66,7 @@ fn create_match_like_function(
     let param_types = enum_def
         .type_parameters
         .iter()
-        .map(|it| ASTType::Parametric(it.into()))
+        .map(|it| ASTType::Generic(it.into()))
         .collect();
     let mut parameters = vec![ASTParameterDef {
         name: "value".into(),
@@ -106,7 +106,7 @@ fn create_match_like_function(
         body: function_body,
         inline: false,
         return_type,
-        param_types,
+        generic_types: param_types,
         // TODO calculate, even if I don't know if it's useful
         resolved_generic_types: LinkedHashMap::new(),
     };
@@ -200,7 +200,7 @@ fn create_constructors(
             // TODO we cannot inline parametric variant constructor, but I don't know why
             inline: variant.parameters.is_empty(),
             return_type,
-            param_types: enum_def.type_parameters.clone(),
+            generic_types: enum_def.type_parameters.clone(),
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: LinkedHashMap::new(),
         };

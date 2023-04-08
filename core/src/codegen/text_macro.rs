@@ -939,7 +939,7 @@ impl PrintRefMacro {
                         ASTType::Builtin(BuiltinTypeKind::String) => {
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                         }
-                        ASTType::Parametric(generic_type_name) => match function_def {
+                        ASTType::Generic(generic_type_name) => match function_def {
                             None => panic!(),
                             Some(f) => match f.generic_types.get(generic_type_name) {
                                 None => {

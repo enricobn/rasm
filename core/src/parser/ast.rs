@@ -14,16 +14,16 @@ pub struct ASTFunctionDef {
     pub return_type: Option<ASTType>,
     pub body: ASTFunctionBody,
     pub inline: bool,
-    pub param_types: Vec<String>,
+    pub generic_types: Vec<String>,
     pub resolved_generic_types: LinkedHashMap<String, ASTType>,
 }
 
 impl Display for ASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let pt = if self.param_types.is_empty() {
+        let pt = if self.generic_types.is_empty() {
             "".into()
         } else {
-            format!("<{}>", self.param_types.join(","))
+            format!("<{}>", self.generic_types.join(","))
         };
 
         let rt = if let Some(rt) = &self.return_type {
@@ -89,7 +89,7 @@ pub enum BuiltinTypeKind {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
-    Parametric(String),
+    Generic(String),
     Custom {
         name: String,
         param_types: Vec<ASTType>,
@@ -124,7 +124,7 @@ impl Display for ASTType {
                     ))
                 }
             },
-            ASTType::Parametric(name) => f.write_str(name),
+            ASTType::Generic(name) => f.write_str(name),
             ASTType::Custom { name, param_types } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 

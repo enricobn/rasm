@@ -338,7 +338,7 @@ impl TypeDefProvider for ASTTypedModule {
     fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
         find_one(self.types.iter(), |it| match &it.ast_type {
             ASTType::Builtin(_) => false,
-            ASTType::Parametric(_) => false,
+            ASTType::Generic(_) => false,
             ASTType::Custom {
                 name,
                 param_types: _,
@@ -525,7 +525,7 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
     fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
         find_one(self.type_defs.iter(), |it| match &it.ast_type {
             ASTType::Builtin(_) => false,
-            ASTType::Parametric(_) => false,
+            ASTType::Generic(_) => false,
             ASTType::Custom {
                 name,
                 param_types: _,
@@ -1349,7 +1349,7 @@ pub fn function_def(
     statics: &mut Statics,
     dereference: bool,
 ) -> ASTTypedFunctionDef {
-    if !def.param_types.is_empty() {
+    if !def.generic_types.is_empty() {
         panic!("function def has generics: {def}");
     }
 
@@ -1709,7 +1709,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                 }),
             }),
         },
-        ASTType::Parametric(p) => {
+        ASTType::Generic(p) => {
             panic!("Unresolved parametric type '{p}': {message}");
         }
         ASTType::Custom {
@@ -1878,7 +1878,7 @@ impl DefaultFunctionCall {
                             return_type,
                         } => ASTExpression::Any(it.clone()),
                     },
-                    ASTType::Parametric(_) => panic!(),
+                    ASTType::Generic(_) => panic!(),
                     ASTType::Custom {
                         name,
                         param_types: _,

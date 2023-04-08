@@ -21,7 +21,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         body,
         inline: false,
         return_type: None,
-        param_types: Vec::new(),
+        generic_types: Vec::new(),
         resolved_generic_types: LinkedHashMap::new(),
     };
 
@@ -41,7 +41,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         body,
         inline: false,
         return_type: None,
-        param_types: Vec::new(),
+        generic_types: Vec::new(),
         resolved_generic_types: LinkedHashMap::new(),
     };
 

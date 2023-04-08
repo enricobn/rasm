@@ -34,7 +34,7 @@ impl FunctionsContainer {
         original_name: &str,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
-        if !function_def.param_types.is_empty() {
+        if !function_def.generic_types.is_empty() {
             panic!("adding generic function {function_def}");
         }
         // let original_name = &function_def.original_name;
@@ -366,14 +366,14 @@ impl FunctionsContainer {
                         },
                         _ => match parameter_type {
                             ASTType::Builtin(_) => filter_type == parameter_type,
-                            ASTType::Parametric(_) => true,
+                            ASTType::Generic(_) => true,
                             ASTType::Custom { .. } => false,
                         },
                     },
-                    ASTType::Parametric(filter_generic_type) => {
+                    ASTType::Generic(filter_generic_type) => {
                         let already_resolved_o = resolved_generic_types.get(filter_generic_type);
                         match parameter_type {
-                            ASTType::Parametric(_parameter_generic_type) => {
+                            ASTType::Generic(_parameter_generic_type) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Parametric : the context
                                 true
@@ -397,7 +397,7 @@ impl FunctionsContainer {
                     } => {
                         match parameter_type {
                             ASTType::Builtin(_) => false,
-                            ASTType::Parametric(_) => true, // TODO
+                            ASTType::Generic(_) => true, // TODO
                             ASTType::Custom {
                                 param_types,
                                 name: type_name,
@@ -614,7 +614,7 @@ mod tests {
             &call.original_function_name,
             Some(vec![
                 Some(ASTType::Builtin(BuiltinTypeKind::I32)),
-                Some(ASTType::Parametric("T".into())),
+                Some(ASTType::Generic("T".into())),
             ]),
             None,
             false,
@@ -639,7 +639,7 @@ mod tests {
         ASTFunctionDef {
             name: name.into(),
             body: ASMBody("".into()),
-            param_types: vec![],
+            generic_types: vec![],
             parameters: vec![ASTParameterDef {
                 name: param_name.into(),
                 ast_type: ASTType::Builtin(param_kind),
@@ -656,7 +656,7 @@ mod tests {
         ASTFunctionDef {
             name: "add".into(),
             body: ASMBody("".into()),
-            param_types: vec![],
+            generic_types: vec![],
             parameters: vec![
                 ASTParameterDef {
                     name: param_name.into(),
