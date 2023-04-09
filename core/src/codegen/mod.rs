@@ -59,7 +59,6 @@ pub struct CodeGen<'a> {
     lambda_space_size: usize,
     debug_asm: bool,
     dereference: bool,
-    enhanced_module: EnhancedASTModule,
     type_conversion_context: TypeConversionContext,
 }
 
@@ -260,6 +259,8 @@ impl<'a> CodeGen<'a> {
         print_module: bool,
     ) -> Self {
         let mut statics = Statics::new();
+        let mut enhanced_module = EnhancedASTModule::new(module);
+
         let mut result = Self {
             module: ASTTypedModule {
                 body: Vec::new(),
@@ -282,19 +283,18 @@ impl<'a> CodeGen<'a> {
             lambda_space_size,
             debug_asm,
             dereference,
-            enhanced_module: EnhancedASTModule::new(module),
             type_conversion_context: TypeConversionContext::new(),
         };
 
-        enum_functions_creator(backend, &mut result.enhanced_module, &mut statics);
-        struct_functions_creator(backend, &mut result.enhanced_module);
-        str_functions_creator(&mut result.enhanced_module);
+        enum_functions_creator(backend, &mut enhanced_module, &mut statics);
+        struct_functions_creator(backend, &mut enhanced_module);
+        str_functions_creator(&mut enhanced_module);
 
-        let mandatory_functions = type_mandatory_functions(&result.enhanced_module);
+        let mandatory_functions = type_mandatory_functions(&enhanced_module);
 
-        let (module, type_conversion_context) = convert(
+        let (typed_module, type_conversion_context) = convert(
             backend,
-            &result.enhanced_module,
+            &enhanced_module,
             debug_asm,
             print_memory_info,
             print_module,
@@ -302,11 +302,11 @@ impl<'a> CodeGen<'a> {
             &mut statics,
             dereference,
         );
-        let module = typed_enum_functions_creator(backend, &module, &mut statics);
-        let module = typed_struct_functions_creator(backend, &module, &mut statics);
-        let module = typed_type_functions_creator(backend, &module, &mut statics);
+        let typed_module = typed_enum_functions_creator(backend, &typed_module, &mut statics);
+        let typed_module = typed_struct_functions_creator(backend, &typed_module, &mut statics);
+        let typed_module = typed_type_functions_creator(backend, &typed_module, &mut statics);
 
-        result.module = module;
+        result.module = typed_module;
         result.statics = statics;
         result.type_conversion_context = type_conversion_context;
 
