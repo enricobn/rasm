@@ -261,31 +261,6 @@ impl<'a> CodeGen<'a> {
         let mut statics = Statics::new();
         let mut enhanced_module = EnhancedASTModule::new(module);
 
-        let mut result = Self {
-            module: ASTTypedModule {
-                body: Vec::new(),
-                native_body: String::new(),
-                functions_by_name: LinkedHashMap::new(),
-                structs: Vec::new(),
-                enums: Vec::new(),
-                types: Vec::new(),
-            },
-            body: String::new(),
-            statics: statics.clone(),
-            id: 0,
-            definitions: String::new(),
-            lambdas: Vec::new(),
-            functions: LinkedHashMap::new(),
-            backend,
-            heap_size,
-            heap_table_slots,
-            print_memory_info,
-            lambda_space_size,
-            debug_asm,
-            dereference,
-            type_conversion_context: TypeConversionContext::new(),
-        };
-
         enum_functions_creator(backend, &mut enhanced_module, &mut statics);
         struct_functions_creator(backend, &mut enhanced_module);
         str_functions_creator(&mut enhanced_module);
@@ -306,11 +281,23 @@ impl<'a> CodeGen<'a> {
         let typed_module = typed_struct_functions_creator(backend, &typed_module, &mut statics);
         let typed_module = typed_type_functions_creator(backend, &typed_module, &mut statics);
 
-        result.module = typed_module;
-        result.statics = statics;
-        result.type_conversion_context = type_conversion_context;
-
-        result
+        Self {
+            module: typed_module,
+            body: String::new(),
+            statics,
+            id: 0,
+            definitions: String::new(),
+            lambdas: Vec::new(),
+            functions: LinkedHashMap::new(),
+            backend,
+            heap_size,
+            heap_table_slots,
+            print_memory_info,
+            lambda_space_size,
+            debug_asm,
+            dereference,
+            type_conversion_context,
+        }
     }
 
     pub fn asm(&mut self) -> String {
