@@ -267,7 +267,7 @@ impl<'a> CodeGen<'a> {
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
 
-        let (typed_module, type_conversion_context) = convert(
+        let (mut typed_module, type_conversion_context) = convert(
             backend,
             &enhanced_module,
             debug_asm,
@@ -277,9 +277,9 @@ impl<'a> CodeGen<'a> {
             &mut statics,
             dereference,
         );
-        let typed_module = typed_enum_functions_creator(backend, &typed_module, &mut statics);
-        let typed_module = typed_struct_functions_creator(backend, &typed_module, &mut statics);
-        let typed_module = typed_type_functions_creator(backend, &typed_module, &mut statics);
+        typed_enum_functions_creator(backend, &mut typed_module, &mut statics);
+        typed_struct_functions_creator(backend, &mut typed_module, &mut statics);
+        typed_type_functions_creator(backend, &mut typed_module, &mut statics);
 
         Self {
             module: typed_module,

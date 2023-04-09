@@ -13,47 +13,21 @@ use crate::type_check::typed_ast::{
 
 pub fn typed_enum_functions_creator(
     backend: &dyn Backend,
-    module: &ASTTypedModule,
+    module: &mut ASTTypedModule,
     statics: &mut Statics,
-) -> ASTTypedModule {
-    let mut functions_by_name = module.functions_by_name.clone();
-    let native_body = module.native_body.clone();
-
-    for enum_def in module.enums.iter() {
-        create_free(
-            backend,
-            &mut functions_by_name,
-            enum_def,
-            "deref",
-            "deref",
-            module,
-            statics,
-        );
-        create_free(
-            backend,
-            &mut functions_by_name,
-            enum_def,
-            "addRef",
-            "addRef",
-            module,
-            statics,
-        );
+) {
+    for enum_def in module.enums.clone().iter() {
+        create_free(backend, enum_def, "deref", "deref", module, statics);
+        create_free(backend, enum_def, "addRef", "addRef", module, statics);
     }
-
-    let mut result = module.clone();
-    result.functions_by_name = functions_by_name;
-    result.native_body = native_body;
-
-    result
 }
 
 fn create_free(
     backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     enum_def: &ASTTypedEnumDef,
     asm_function_name: &str,
     function_name: &str,
-    module: &ASTTypedModule,
+    module: &mut ASTTypedModule,
     statics: &mut Statics,
 ) {
     let ast_type = ASTTypedType::Enum {
@@ -87,7 +61,7 @@ fn create_free(
 
     debug!("created function {function_def}");
 
-    functions_by_name.insert(fun_name, function_def);
+    module.functions_by_name.insert(fun_name, function_def);
 }
 
 fn create_free_body(

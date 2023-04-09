@@ -13,49 +13,23 @@ use crate::type_check::typed_ast::{
 
 pub fn typed_struct_functions_creator(
     backend: &dyn Backend,
-    module: &ASTTypedModule,
+    module: &mut ASTTypedModule,
     statics: &mut Statics,
-) -> ASTTypedModule {
-    let mut functions_by_name = module.functions_by_name.clone();
-    let native_body = module.native_body.clone();
-
-    for struct_def in module.structs.iter() {
+) {
+    for struct_def in module.structs.clone().iter() {
         if struct_has_references(struct_def, module) {
-            create_free(
-                backend,
-                &mut functions_by_name,
-                struct_def,
-                "deref",
-                "deref",
-                module,
-                statics,
-            );
-            create_free(
-                backend,
-                &mut functions_by_name,
-                struct_def,
-                "addRef",
-                "addRef",
-                module,
-                statics,
-            );
+            create_free(backend, struct_def, "deref", "deref", module, statics);
+            create_free(backend, struct_def, "addRef", "addRef", module, statics);
         }
     }
-
-    let mut result = module.clone();
-    result.functions_by_name = functions_by_name;
-    result.native_body = native_body;
-
-    result
 }
 
 fn create_free(
     backend: &dyn Backend,
-    functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
     struct_def: &ASTTypedStructDef,
     asm_function_name: &str,
     function_name: &str,
-    module: &ASTTypedModule,
+    module: &mut ASTTypedModule,
     statics: &mut Statics,
 ) {
     let ast_type = ASTTypedType::Struct {
@@ -89,7 +63,7 @@ fn create_free(
 
     debug!("created function {function_def}");
 
-    functions_by_name.insert(fun_name, function_def);
+    module.functions_by_name.insert(fun_name, function_def);
 }
 
 fn create_free_body(
