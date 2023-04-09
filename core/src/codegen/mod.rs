@@ -282,7 +282,7 @@ impl<'a> CodeGen<'a> {
             lambda_space_size,
             debug_asm,
             dereference,
-            enhanced_module: EnhancedASTModule::new(&module),
+            enhanced_module: EnhancedASTModule::new(module),
             type_conversion_context: TypeConversionContext::new(),
         };
 

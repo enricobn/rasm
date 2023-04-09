@@ -2644,6 +2644,7 @@ mod tests {
         ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
     };
     use crate::parser::ValueType;
+    use crate::type_check::typed_ast::{ASTTypedExpression, ASTTypedStatement};
     use crate::type_check::{convert, resolve_generic_types_from_effective_type, TypeCheckError};
 
     fn init() {
@@ -2789,7 +2790,7 @@ mod tests {
 
         let (new_module, _) = convert(
             &BackendAsm386::new(HashSet::new(), HashSet::new()),
-            &EnhancedASTModule::new(&module),
+            &EnhancedASTModule::new(module),
             false,
             false,
             false,
@@ -2798,8 +2799,9 @@ mod tests {
             true,
         );
 
-        let par = if let Some(ASTStatement::Expression(ASTFunctionCallExpression(e))) =
-            module.body.get(0)
+        let par = if let Some(ASTTypedStatement::Expression(
+            ASTTypedExpression::ASTFunctionCallExpression(e),
+        )) = new_module.body.get(0)
         {
             Some(e)
         } else {

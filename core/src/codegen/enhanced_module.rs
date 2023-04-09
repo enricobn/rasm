@@ -20,22 +20,22 @@ pub struct EnhancedASTModule {
 }
 
 impl EnhancedASTModule {
-    pub fn new(module: &ASTModule) -> Self {
+    pub fn new(module: ASTModule) -> Self {
         let mut container = FunctionsContainer::new();
 
-        module.functions.iter().for_each(|it| {
-            container.add_function(it.original_name.clone(), it.clone());
+        module.functions.into_iter().for_each(|it| {
+            container.add_function(it.original_name.clone(), it);
         });
 
         Self {
-            body: module.body.clone(),
+            body: module.body,
             functions_by_name: container,
-            enums: module.enums.clone(),
-            structs: module.structs.clone(),
+            enums: module.enums,
+            structs: module.structs,
             native_body: String::new(),
-            requires: module.requires.clone(),
-            externals: module.externals.clone(),
-            types: module.types.clone(),
+            requires: module.requires,
+            externals: module.externals,
+            types: module.types,
         }
     }
 
