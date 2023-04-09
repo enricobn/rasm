@@ -5,9 +5,7 @@ use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
 };
 
-pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
-    let mut result = module.clone();
-
+pub fn str_functions_creator(module: &mut EnhancedASTModule) {
     let body = ASTFunctionBody::ASMBody("$call(deref, $s:i32, \"String\")".into());
     let name: String = "str_deref".into();
     let function_def = ASTFunctionDef {
@@ -25,7 +23,7 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         resolved_generic_types: LinkedHashMap::new(),
     };
 
-    result.add_function(function_def.name.clone(), function_def);
+    module.add_function(function_def.name.clone(), function_def);
 
     let body = ASTFunctionBody::ASMBody("$call(addRef, $s:i32, \"String\")".into());
     let name: String = "str_addRef".into();
@@ -45,7 +43,5 @@ pub fn str_functions_creator(module: &EnhancedASTModule) -> EnhancedASTModule {
         resolved_generic_types: LinkedHashMap::new(),
     };
 
-    result.add_function(function_def.name.clone(), function_def);
-
-    result
+    module.add_function(function_def.name.clone(), function_def);
 }

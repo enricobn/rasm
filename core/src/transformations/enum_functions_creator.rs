@@ -12,14 +12,12 @@ use crate::parser::ast::{
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
-    module: &EnhancedASTModule,
+    module: &mut EnhancedASTModule,
     statics: &mut Statics,
-) -> EnhancedASTModule {
-    let mut result = module.clone();
-
+) {
     let mut native_body = module.native_body.clone();
 
-    for enum_def in module.enums.iter() {
+    for enum_def in module.enums.clone().iter() {
         let param_types: Vec<ASTType> = enum_def
             .type_parameters
             .iter()
@@ -28,7 +26,7 @@ pub fn enum_functions_creator(
 
         create_constructors(
             backend,
-            &mut result,
+            module,
             &mut native_body,
             enum_def,
             &param_types,
@@ -37,19 +35,17 @@ pub fn enum_functions_creator(
 
         create_match_like_function(
             backend,
-            &mut result,
+            module,
             &enum_def,
             "match",
             Some(ASTType::Generic("_T".into())),
             Some("_T".into()),
         );
 
-        create_match_like_function(backend, &mut result, &enum_def, "run", None, None);
+        create_match_like_function(backend, module, &enum_def, "run", None, None);
     }
 
-    result.native_body = native_body;
-
-    result
+    module.native_body = native_body;
 }
 
 fn create_match_like_function(

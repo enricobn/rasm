@@ -8,13 +8,8 @@ use crate::parser::ast::{
     ASTType,
 };
 
-pub fn struct_functions_creator(
-    backend: &dyn Backend,
-    module: &EnhancedASTModule,
-) -> EnhancedASTModule {
-    let mut result = module.clone();
-
-    for struct_def in &module.structs {
+pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTModule) {
+    for struct_def in &module.structs.clone() {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
             .iter()
@@ -42,7 +37,7 @@ pub fn struct_functions_creator(
         for (i, property_def) in struct_def.properties.iter().enumerate() {
             let property_function =
                 create_function_for_struct_property(backend, struct_def, property_def, i);
-            result.add_function(
+            module.add_function(
                 struct_def.name.clone() + "::" + &property_def.name.clone(),
                 property_function,
             );
@@ -59,10 +54,8 @@ pub fn struct_functions_creator(
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: LinkedHashMap::new(),
         };
-        result.add_function(struct_def.name.clone(), function_def);
+        module.add_function(struct_def.name.clone(), function_def);
     }
-
-    result
 }
 
 fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> String {

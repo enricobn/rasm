@@ -286,16 +286,15 @@ impl<'a> CodeGen<'a> {
             type_conversion_context: TypeConversionContext::new(),
         };
 
-        let module = enum_functions_creator(backend, &result.enhanced_module, &mut statics);
-        let module = struct_functions_creator(backend, &module);
-        let module = str_functions_creator(&module);
-        result.enhanced_module = module.clone();
+        enum_functions_creator(backend, &mut result.enhanced_module, &mut statics);
+        struct_functions_creator(backend, &mut result.enhanced_module);
+        str_functions_creator(&mut result.enhanced_module);
 
-        let mandatory_functions = type_mandatory_functions(&module);
+        let mandatory_functions = type_mandatory_functions(&result.enhanced_module);
 
         let (module, type_conversion_context) = convert(
             backend,
-            &module,
+            &result.enhanced_module,
             debug_asm,
             print_memory_info,
             print_module,
