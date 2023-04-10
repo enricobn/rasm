@@ -7,7 +7,7 @@ use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKi
 use crate::utils::{format_option, format_option_option};
 use crate::{debug_i, dedent, indent};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FunctionsContainer {
     functions_by_name: LinkedHashMap<String, Vec<ASTFunctionDef>>,
 }

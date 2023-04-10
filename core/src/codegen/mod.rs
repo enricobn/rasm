@@ -23,13 +23,13 @@ use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
+use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
-    get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
-    BuiltinTypedTypeKind,
+    convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
+    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use crate::type_check::typed_context::TypeConversionContext;
-use crate::type_check::{convert, get_new_native_call};
 use crate::utils::OptionDisplay;
 
 pub mod backend;
@@ -258,6 +258,10 @@ impl<'a> CodeGen<'a> {
         dereference: bool,
         print_module: bool,
     ) -> Self {
+        crate::utils::debug_indent::INDENT.with(|indent| {
+            *indent.borrow_mut() = 0;
+        });
+
         let mut statics = Statics::new();
         let mut enhanced_module = EnhancedASTModule::new(module);
 
@@ -267,13 +271,13 @@ impl<'a> CodeGen<'a> {
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
 
-        let (mut typed_module, type_conversion_context) = convert(
-            backend,
+        let (mut typed_module, type_conversion_context) = convert_to_typed_module(
             &enhanced_module,
             debug_asm,
             print_memory_info,
             print_module,
             mandatory_functions,
+            backend,
             &mut statics,
             dereference,
         );

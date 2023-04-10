@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
 use std::path::Path;
-use std::process::{Command, ExitStatus, Output, Stdio};
+use std::process::{Command, Output, Stdio};
 
 use log::{debug, info};
 

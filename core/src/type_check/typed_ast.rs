@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
-use log::debug;
+use log::{debug, info};
 
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -18,7 +18,8 @@ use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
-    convert_call, convert_function_def, get_new_native_call, substitute, TypeConversionContext,
+    convert_call, convert_function_def, convert_statement, get_new_native_call, substitute,
+    TypeConversionContext,
 };
 use crate::utils::find_one;
 use crate::{debug_i, dedent, indent};
@@ -746,8 +747,6 @@ impl<'a> ConvContext<'a> {
 
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
-    new_body: Vec<ASTStatement>,
-    typed_context: &RefCell<TypeConversionContext>,
     debug_asm: bool,
     print_allocation: bool,
     printl_module: bool,
@@ -755,12 +754,14 @@ pub fn convert_to_typed_module(
     backend: &dyn Backend,
     statics: &mut Statics,
     dereference: bool,
-) -> ASTTypedModule {
+) -> (ASTTypedModule, TypeConversionContext) {
     let mut conv_context = ConvContext::new(module);
+    let type_conversion_context = TypeConversionContext::new();
+    let mut new_typed_context = RefCell::new(type_conversion_context);
 
-    mandatory_functions
-        .into_iter()
-        .for_each(|it| add_default_function(module, it, true, typed_context, backend, statics));
+    mandatory_functions.into_iter().for_each(|it| {
+        add_default_function(module, it, true, &new_typed_context, backend, statics)
+    });
 
     let default_functions = &mut vec![
         DefaultFunctionCall::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
@@ -773,9 +774,6 @@ pub fn convert_to_typed_module(
             BuiltinTypeKind::I32,
         ),
         DefaultFunctionCall::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        //DefaultFunctionCall::new_0("negativeCount"),
-        //DefaultFunctionCall::new_0("invalidAddress"),
-        //DefaultFunctionCall::new_1("removeFromReused", BuiltinTypeKind::I32),
         DefaultFunctionCall::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
         DefaultFunctionCall::new_2(
             "createCmdLineArguments",
@@ -784,13 +782,6 @@ pub fn convert_to_typed_module(
         ),
         DefaultFunctionCall::new_1("str_addRef", BuiltinTypeKind::String),
         DefaultFunctionCall::new_1("str_deref", BuiltinTypeKind::String),
-        //"str_addRef",
-        //"str_deref",
-        //"sysOpen",
-        //"sysRead",
-        //"sysClose",
-        //"fileSize",
-        //"freeMem",
     ];
 
     if print_allocation {
@@ -799,51 +790,31 @@ pub fn convert_to_typed_module(
             DefaultFunctionCall::new_0("printTableSlotsAllocated"),
             DefaultFunctionCall::new_0("printAllocatedString"),
             DefaultFunctionCall::new_0("printTableSlotsAllocatedString"),
-            //"nprint",
         ])
-    }
-
-    if debug_asm {
-        /*
-        TODO
-        default_functions.append(&mut vec![
-            "startMalloc",
-            "nprintln",
-            "newAddress",
-            "newAddressOk",
-            "notAllocated",
-            "allocate",
-            "printTab",
-            "startAddRef",
-            "endAddRef",
-            "deallocated",
-            "startDeref",
-            "endDeref",
-            "reused",
-            "endMalloc",
-            "nprint",
-            "printRefCount",
-            "printReplacedReused",
-            "addReused",
-        ])
-         */
     }
 
     default_functions.sort_by(|a, b| a.name.cmp(&b.name));
     //default_functions.dedup_by(|a, b| a.name == b.name);
 
     for it in default_functions {
-        add_default_function(module, it.clone(), false, typed_context, backend, statics)
+        add_default_function(
+            module,
+            it.clone(),
+            false,
+            &new_typed_context,
+            backend,
+            statics,
+        )
     }
 
-    let mut new_typed_context = typed_context.clone();
-
     let mut functions_by_name = LinkedHashMap::new();
+
+    let mut body = module.body.clone();
 
     let mut count = 0;
 
     loop {
-        debug_i!("typed context loop {count}");
+        info!("type check loop {count}");
 
         if count > 100 {
             panic!()
@@ -851,22 +822,51 @@ pub fn convert_to_typed_module(
 
         indent!();
 
+        let mut somethin_converted = false;
+
+        let mut new_body = Vec::new();
+
+        let mut context = ValContext::new(None);
+
+        for statement in body.iter() {
+            debug_i!("converting statement {statement}");
+            indent!();
+            let statement_converted = convert_statement(
+                module,
+                &mut context,
+                &new_typed_context,
+                &mut new_body,
+                statement,
+                backend,
+                &CallStack::new(),
+                statics,
+            );
+
+            if statement_converted {
+                debug_i!("statement converted");
+            } else {
+                debug_i!("statement NOT converted");
+            }
+            somethin_converted |= statement_converted;
+            dedent!();
+        }
+
+        body = new_body.clone();
+
         new_typed_context.borrow().debug_i();
 
         let cloned_typed_context = new_typed_context.clone();
 
         functions_by_name.clear();
 
-        let mut somethin_converted = false;
-
         for new_function_def in new_typed_context.borrow().functions().into_iter() {
             debug_i!("converting function {new_function_def}");
-            let resolved_param_types = LinkedHashMap::new();
+            let resolved_generic_types = LinkedHashMap::new();
             let converted_function = if let Some(function_converted) = convert_function_def(
                 backend,
                 module,
                 &cloned_typed_context,
-                &resolved_param_types,
+                &resolved_generic_types,
                 new_function_def,
                 statics,
             )
@@ -912,7 +912,7 @@ pub fn convert_to_typed_module(
     }
 
     let mut result = ASTTypedModule {
-        body: new_body
+        body: body
             .iter()
             .map(|it| statement(&mut conv_context, it))
             .collect(),
@@ -959,9 +959,13 @@ pub fn convert_to_typed_module(
         print_typed_module(&result);
     }
 
+    info!("verify");
+
     verify(&result, statics);
 
-    result
+    info!("verify end");
+
+    (result, new_typed_context.into_inner())
 }
 
 fn verify(module: &ASTTypedModule, statics: &mut Statics) {

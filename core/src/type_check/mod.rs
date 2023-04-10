@@ -56,127 +56,6 @@ impl From<String> for TypeCheckError {
     }
 }
 
-pub fn convert(
-    backend: &dyn Backend,
-    module: &EnhancedASTModule,
-    debug_asm: bool,
-    print_allocation: bool,
-    print_module: bool,
-    mandatory_functions: Vec<DefaultFunctionCall>,
-    statics: &mut Statics,
-    dereference: bool,
-) -> (ASTTypedModule, TypeConversionContext) {
-    crate::utils::debug_indent::INDENT.with(|indent| {
-        *indent.borrow_mut() = 0;
-    });
-
-    let mut body = module.body.clone();
-
-    let type_conversion_context = RefCell::new(TypeConversionContext::new());
-
-    let mut something_to_convert = true;
-
-    let mut count = 0;
-
-    while something_to_convert {
-        count += 1;
-
-        if count > 100 {
-            panic!();
-        }
-
-        debug_i!("convert loop {count}");
-        debug_i!("------------------------");
-        info!("type check pass {}", count);
-
-        indent!();
-
-        something_to_convert = false;
-
-        let mut new_body = Vec::new();
-
-        let resolved_generic_types = LinkedHashMap::new();
-        let mut context = ValContext::new(None);
-
-        for statement in body.iter() {
-            debug_i!("converting statement {statement}");
-            indent!();
-            let statement_converted = convert_statement(
-                module,
-                &mut context,
-                &type_conversion_context,
-                &mut new_body,
-                statement,
-                backend,
-                &CallStack::new(),
-                statics,
-            );
-
-            if statement_converted {
-                debug_i!("statement converted");
-            } else {
-                debug_i!("statement NOT converted");
-            }
-            something_to_convert |= statement_converted;
-            dedent!();
-        }
-
-        body = new_body.clone();
-
-        let cloned_type_conversion_context = type_conversion_context.clone().into_inner();
-
-        for function_def in cloned_type_conversion_context.functions() {
-            debug_i!("converting function {}", function_def);
-            indent!();
-
-            let function_converted = convert_function_def(
-                backend,
-                module,
-                &type_conversion_context,
-                &resolved_generic_types,
-                function_def,
-                statics,
-            )
-            .unwrap();
-
-            if function_converted.is_some() {
-                debug_i!("function converted {}\n", function_def);
-            } else {
-                debug_i!("function NOT converted {}\n", function_def);
-            }
-
-            something_to_convert |= function_converted.is_some();
-
-            dedent!();
-        }
-
-        dedent!();
-
-        /*
-        if len_before != type_conversion_context.len() && !something_to_convert {
-            panic!();
-        }
-
-         */
-    }
-
-    let typed_module = convert_to_typed_module(
-        module,
-        body,
-        &type_conversion_context,
-        debug_asm,
-        print_allocation,
-        print_module,
-        mandatory_functions,
-        backend,
-        statics,
-        dereference,
-    );
-
-    info!("Type check ended ({count} passes)");
-    (typed_module, type_conversion_context.into_inner())
-}
-
 fn convert_function_def(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
@@ -241,7 +120,7 @@ fn convert_body(
     debug_i!("converting body return type {:?}", return_type);
     indent!();
     let mut something_to_convert = false;
-    let new_ody = body
+    let new_body = body
         .iter()
         .enumerate()
         .map(|(index, it)| {
@@ -347,7 +226,7 @@ fn convert_body(
 
     dedent!();
     if something_to_convert {
-        Ok(Some(new_ody))
+        Ok(Some(new_body))
     } else {
         Ok(None)
     }
@@ -2644,8 +2523,10 @@ mod tests {
         ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
     };
     use crate::parser::ValueType;
-    use crate::type_check::typed_ast::{ASTTypedExpression, ASTTypedStatement};
-    use crate::type_check::{convert, resolve_generic_types_from_effective_type, TypeCheckError};
+    use crate::type_check::typed_ast::{
+        convert_to_typed_module, ASTTypedExpression, ASTTypedStatement,
+    };
+    use crate::type_check::{resolve_generic_types_from_effective_type, TypeCheckError};
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -2788,13 +2669,13 @@ mod tests {
             types: Vec::new(),
         };
 
-        let (new_module, _) = convert(
-            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+        let (new_module, _) = convert_to_typed_module(
             &EnhancedASTModule::new(module),
             false,
             false,
             false,
             Vec::new(),
+            &BackendAsm386::new(HashSet::new(), HashSet::new()),
             &mut Statics::new(),
             true,
         );

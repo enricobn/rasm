@@ -1,7 +1,7 @@
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType};
 use crate::type_check::functions_container::FunctionsContainer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypeConversionContext {
     functions_by_name: FunctionsContainer,
 }
