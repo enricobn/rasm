@@ -901,7 +901,7 @@ pub fn convert_to_typed_module(
                 cloned_typed_context.borrow().len()
             );
 
-            new_typed_context = cloned_typed_context.clone();
+            new_typed_context = cloned_typed_context;
             count += 1;
             dedent!();
             continue;
@@ -1437,17 +1437,20 @@ pub fn function_def(
                         })
                         .collect::<Vec<Option<ASTType>>>();
 
-                    let cloned_typed_context = typed_context.clone().into_inner();
+                    let function_def_name_opt = {
+                        typed_context
+                            .borrow()
+                            .find_call(
+                                &it.name,
+                                &it.name,
+                                Some(call_parameters_types.clone()),
+                                None,
+                            )
+                            .map(|it| it.name.clone())
+                    };
 
-                    let function_def_opt = cloned_typed_context.find_call(
-                        &it.name,
-                        &it.name,
-                        Some(call_parameters_types.clone()),
-                        None,
-                    );
-
-                    let function_name = if let Some(functiond_def) = function_def_opt {
-                        functiond_def.name.clone()
+                    let function_name = if let Some(function_name) = function_def_name_opt {
+                        function_name
                         //     TODO when SomethingConverted?
                     } else {
                         let function_call = it.to_call();
