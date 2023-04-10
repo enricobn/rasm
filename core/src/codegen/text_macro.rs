@@ -805,10 +805,10 @@ impl TextMacroEval for AddRefMacro {
             }
 
             let (address, ast_typed_type) = match parameters.get(0) {
-                Some(MacroParam::Plain(address, ast_type, Some(ast_typed_type))) => {
+                Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
                     (address, ast_typed_type)
                 }
-                Some(MacroParam::Ref(address, ast_type, Some(ast_typed_type))) => {
+                Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
                     (address, ast_typed_type)
                 }
                 _ => panic!(

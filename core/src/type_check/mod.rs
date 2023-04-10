@@ -4,7 +4,7 @@ use std::panic;
 
 use backtrace::Backtrace;
 use linked_hash_map::LinkedHashMap;
-use log::{debug, info};
+use log::debug;
 use strum_macros::Display;
 
 use crate::codegen::backend::Backend;
@@ -20,7 +20,7 @@ use crate::parser::ast::{
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
-use crate::type_check::typed_ast::{convert_to_typed_module, ASTTypedModule, DefaultFunctionCall};
+use crate::type_check::typed_ast::{ASTTypedModule, DefaultFunctionCall};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
 use crate::utils::{format_option, format_option_option, OptionOptionDisplay};
@@ -162,6 +162,9 @@ fn convert_body(
                 }
             };
 
+            Ok(new_statement)
+
+            /*
             match &new_statement {
                 ASTStatement::Expression(_) => Ok(new_statement),
                 ASTStatement::LetStatement(let_name, expr, is_const, let_index) => match expr {
@@ -221,6 +224,8 @@ fn convert_body(
                     _ => Err(format!("unsupported let value {:?}", expr).into()),
                 },
             }
+
+                 */
         })
         .collect::<Result<Vec<ASTStatement>, TypeCheckError>>()?;
 

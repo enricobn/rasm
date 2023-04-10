@@ -198,7 +198,6 @@ impl Backend for BackendAsm386 {
 
     fn compile(&self, source_file: &str) -> Output {
         info!("source file : '{}'", source_file);
-        let path = Path::new(&source_file);
         let mut nasm_command = Command::new("nasm");
         nasm_command
             .arg("-f")
