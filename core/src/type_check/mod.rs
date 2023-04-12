@@ -20,10 +20,10 @@ use crate::parser::ast::{
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
-use crate::type_check::typed_ast::{ASTTypedModule, DefaultFunctionCall};
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
-use crate::utils::{format_option, format_option_option, OptionOptionDisplay};
+use crate::utils::format_option;
+use crate::utils::{OptionDisplay, OptionOptionDisplay};
 use crate::{debug_i, dedent, indent};
 
 pub mod call_stack;
@@ -691,80 +691,27 @@ fn convert_last_expr_in_body(
         return_type,
         resolved_generic_types
     );
-    // println!(
-    //     "converting last expr in body {expr} return_type {:?}",
-    //     return_type
-    // );
 
     indent!();
 
     let result = match expr {
         ASTFunctionCallExpression(call) => {
-            //extract_generic_types_from_effective_type()
-
             if let Some(ast_type) = &return_type {
-                let expected_return_type = if get_generic_types(ast_type).is_empty() {
-                    Some(return_type)
-                } else {
-                    // TODO I don't know it it's necessary
-                    if let Some(new_ast_type) = substitute(ast_type, resolved_generic_types) {
-                        if get_generic_types(&new_ast_type).is_empty() {
-                            Some(Some(new_ast_type))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                };
-
-                debug_i!(
-                    "resolved expected return type {}",
-                    OptionOptionDisplay(&expected_return_type)
-                );
                 let result = match convert_call(
                     module,
                     context,
                     call,
                     typed_context,
-                    expected_return_type,
+                    Some(return_type),
                     backend,
                     call_stack,
                     statics,
                 )? {
-                    NothingToConvert => {
-                        debug_i!("NOT converted call");
-                        None
-                    }
-                    SomethingConverted => {
-                        debug_i!("Something converted call");
-                        Some(expr.clone())
-                    }
-                    Converted(new_call) => {
-                        debug_i!("converted call {new_call}");
-                        if &new_call == call {
-                            debug_i!("but where equal");
-                            // TODO why???
-                            None
-                        } else {
-                            Some(ASTFunctionCallExpression(new_call))
-                        }
-                    }
+                    NothingToConvert => None,
+                    SomethingConverted => Some(expr.clone()),
+                    Converted(new_call) => Some(ASTFunctionCallExpression(new_call)),
                 };
 
-                if let Some(new_expr) = &result {
-                    debug_i!("converted expr {new_expr}");
-
-                    if let ASTFunctionCallExpression(new_call) = new_expr {
-                        if new_call == call {
-                            debug_i!("but where equal");
-                            // TODO why???
-                            return Ok(None);
-                        }
-                    }
-                } else {
-                    debug_i!("NOT converted call");
-                }
                 dedent!();
                 return Ok(result);
             }
@@ -772,22 +719,8 @@ fn convert_last_expr_in_body(
             None
         }
         ASTExpression::StringLiteral(_) => None,
-        ASTExpression::ValueRef(_, _index) => {
-            /*
-            if let Some(kind) = context.get(p) {
-                match kind {
-                    VarKind::ParameterRef(i, par) => {
+        ASTExpression::ValueRef(_, _index) => None,
 
-                      todo!()
-                    }
-                }
-            } else {
-                todo!()
-            }
-
-             */
-            None
-        }
         ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(lambda_def) => {
             let resolved_generic_types = LinkedHashMap::new();
@@ -1547,12 +1480,12 @@ fn get_called_function(
         }
         debug_i!(
             "verifying function {f} for {call} return type {}",
-            format_option_option(expected_return_type)
+            OptionOptionDisplay(expected_return_type)
         );
     } else {
         debug_i!(
             "trying to find function for {call} return type {}",
-            format_option_option(expected_return_type)
+            OptionOptionDisplay(expected_return_type)
         );
     }
     indent!();
