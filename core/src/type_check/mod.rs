@@ -23,7 +23,7 @@ use crate::type_check::call_stack::CallStack;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
 use crate::utils::format_option;
-use crate::utils::{OptionDisplay, OptionOptionDisplay};
+use crate::utils::OptionOptionDisplay;
 use crate::{debug_i, dedent, indent};
 
 pub mod call_stack;
@@ -110,7 +110,7 @@ fn convert_body(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
     type_conversion_context: &RefCell<TypeConversionContext>,
-    context: &mut ValContext,
+    context: &ValContext,
     body: &Vec<ASTStatement>,
     call_stack: &CallStack,
     return_type: Option<ASTType>,
@@ -119,6 +119,7 @@ fn convert_body(
 ) -> Result<Option<Vec<ASTStatement>>, TypeCheckError> {
     debug_i!("converting body return type {:?}", return_type);
     indent!();
+    let mut context = context.clone();
     let mut something_to_convert = false;
     let new_body = body
         .iter()
@@ -130,7 +131,7 @@ fn convert_body(
                 convert_last_statement_in_body(
                     module,
                     it,
-                    context,
+                    &context,
                     type_conversion_context,
                     return_type.clone(),
                     backend,
@@ -142,7 +143,7 @@ fn convert_body(
                 convert_statement_in_body(
                     module,
                     it,
-                    context,
+                    &mut context,
                     type_conversion_context,
                     backend,
                     call_stack,
@@ -161,71 +162,7 @@ fn convert_body(
                     it.clone()
                 }
             };
-
             Ok(new_statement)
-
-            /*
-            match &new_statement {
-                ASTStatement::Expression(_) => Ok(new_statement),
-                ASTStatement::LetStatement(let_name, expr, is_const, let_index) => match expr {
-                    ASTFunctionCallExpression(call) => {
-                        let ast_type = if let Some(kind) = context.get(&call.function_name) {
-                            match kind {
-                                ValKind::ParameterRef(_, def) => def.ast_type.clone(),
-                                ValKind::LetRef(_, ast_type) => ast_type.clone(),
-                            }
-                        } else {
-                            type_conversion_context
-                                .borrow()
-                                .find_function(&call.function_name)
-                                .unwrap_or_else(|| {
-                                    panic!(
-                                        "cannot find function {}: {}",
-                                        &call.function_name, &call.index
-                                    )
-                                })
-                                .return_type
-                                .clone()
-                                .unwrap()
-                        };
-
-                        if *is_const {
-                            panic!("const not allowed here");
-                        } else {
-                            //context.insert_let(let_name.clone(), ast_type, let_index.clone());
-                        }
-
-                        Ok(new_statement)
-                    }
-                    ASTExpression::Value(value_type, _index) => {
-                        let ast_type = get_value_type(value_type);
-
-                        if *is_const {
-                            panic!("const not allowed here");
-                        } else {
-                            //context.insert_let(let_name.clone(), ast_type, let_index.clone());
-                        }
-                        Ok(new_statement)
-                    }
-                    ASTExpression::ValueRef(name, _index) => {
-                        if *is_const {
-                            panic!("const not allowed here");
-                        } else if let Some(kind) = context.get(name) {
-                            let ast_type = match kind {
-                                ValKind::ParameterRef(_, def) => def.ast_type.clone(),
-                                ValKind::LetRef(_, ast_type) => ast_type.clone(),
-                            };
-                            //context.insert_let(let_name.clone(), ast_type, let_index.clone());
-                            Ok(new_statement)
-                        } else {
-                            Err("Cannot find {name} in context".into())
-                        }
-                    }
-                    _ => Err(format!("unsupported let value {:?}", expr).into()),
-                },
-            }
-
-                 */
         })
         .collect::<Result<Vec<ASTStatement>, TypeCheckError>>()?;
 
@@ -2217,11 +2154,7 @@ fn convert_lambda(
     );
     indent!();
 
-    let mut something_converted = false;
-
-    let mut context = ValContext::new(Some(context));
-
-    let (parameters, return_type) = match &lambda_type {
+    let (_parameters, return_type) = match &lambda_type {
         ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters,
             return_type, // I cannot convert the return type at this stage
@@ -2234,37 +2167,6 @@ fn convert_lambda(
 
     debug_i!("return type {:?}", return_type);
 
-    for (inner_i, (name, index)) in lambda.parameter_names.iter().enumerate() {
-        let pp = parameters.get(inner_i).unwrap();
-
-        if let Some(new_t) = substitute(pp, resolved_generic_types) {
-            // println!("something converted type {pp}, {new_t}");
-            something_converted = true;
-            /*
-                       context.insert_par(
-                           name.clone(),
-                           ASTParameterDef {
-                               name: name.clone(),
-                               ast_type: new_t,
-                               ast_index: index.clone(),
-                           },
-                       );
-
-
-                   } else {
-                       context.insert_par(
-                           name.clone(),
-                           ASTParameterDef {
-                               name: name.clone(),
-                               ast_type: pp.clone(),
-                               ast_index: index.clone(),
-                           },
-                       );
-
-            */
-        }
-    }
-
     let rt = return_type.clone().and_then(|it| {
         substitute(it.as_ref(), resolved_generic_types)
             .or_else(|| return_type.clone().map(|rt| rt.as_ref().clone()))
@@ -2274,7 +2176,7 @@ fn convert_lambda(
         backend,
         module,
         typed_context,
-        &mut context,
+        context,
         &lambda.body,
         call_stack,
         rt,
