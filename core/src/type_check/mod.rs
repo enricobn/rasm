@@ -1656,39 +1656,15 @@ fn get_type_of_expression(
 
     let result: Result<Option<ASTType>, TypeCheckError> = match expr {
         ASTExpression::StringLiteral(_) => Ok(Some(ASTType::Builtin(BuiltinTypeKind::String))),
-        ASTFunctionCallExpression(call) => {
-            if let Some(ValKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
-                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    return_type,
-                    parameters: _,
-                }) = &par.ast_type
-                {
-                    Ok(return_type.clone().map(|it| it.as_ref().clone()))
-                } else {
-                    Err("Expected a lambda".into())
-                }
-            } else if let Some(ValKind::LetRef(_i, ast_type)) = context.get(&call.function_name) {
-                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    return_type,
-                    parameters: _,
-                }) = &ast_type
-                {
-                    Ok(return_type.clone().map(|it| it.as_ref().clone()))
-                } else {
-                    Err("Expected a lambda".into())
-                }
-            } else {
-                get_type_of_call(
-                    module,
-                    context,
-                    call,
-                    typed_context,
-                    call_stack,
-                    backend,
-                    statics,
-                )
-            }
-        }
+        ASTFunctionCallExpression(call) => get_type_of_call(
+            module,
+            context,
+            call,
+            typed_context,
+            call_stack,
+            backend,
+            statics,
+        ),
         ASTExpression::ValueRef(v, index) => {
             if let Some(value) = context.get(v) {
                 match value {
