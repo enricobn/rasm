@@ -740,30 +740,22 @@ pub fn convert_call(
 
     let mut resolved_generic_types = function_def.resolved_generic_types.clone();
 
-    let expected_return_type = if let Some(rt) = expected_return_type {
-        if let Some(ret) = rt {
-            if get_generic_types(&ret).is_empty() {
-                let generic_types_from_effective_type = resolve_generic_types_from_effective_type(
-                    &function_def.return_type.unwrap(),
-                    &ret,
-                )?;
+    let expected_return_type = if let Some(Some(ret)) = expected_return_type {
+        if get_generic_types(&ret).is_empty() {
+            let generic_types_from_effective_type = resolve_generic_types_from_effective_type(
+                &function_def.return_type.unwrap(),
+                &ret,
+            )?;
 
-                resolved_generic_types.extend(generic_types_from_effective_type);
+            resolved_generic_types.extend(generic_types_from_effective_type);
 
-                Some(Some(ret))
-            } else {
-                None
-            }
+            Some(Some(ret))
         } else {
             None
         }
     } else {
         None
     };
-
-    // println!("convert_call {call}\nfunction {function_def}");
-
-    //let mut resolved_param_types = HashMap::new();
 
     let mut converted_expressions = Vec::new();
     let mut converted_parameters = Vec::new();
@@ -772,24 +764,7 @@ pub fn convert_call(
     let mut something_converted_in_loop = false;
     let call_parameters = &call.parameters;
     let function_parameters = &function_def.parameters;
-    /*    let mut count = 0;
 
-    while something_converted_in_loop {
-        debug_i!(
-            "converting call {} expected return type: {:?}",
-            call,
-            expected_return_type
-        );
-        debug_i!("convert call loop {count}");
-        indent!();
-        if count > 100 {
-            panic!("Count exceeded converting {call}: {}", call.index);
-        }
-
-        something_converted_in_loop = false;
-
-        converted_expressions.clear();
-        converted_parameters.clear();*/
     for (i, expr) in call_parameters.iter().enumerate() {
         let par = function_parameters.get(i).unwrap_or_else(|| {
             panic!(
@@ -921,23 +896,6 @@ pub fn convert_call(
                             }
                         })
                         .collect();
-
-                    /*
-                    sprintln!("lambda {lambda}");
-                    println!("effective_lambda {effective_lambda}");
-                    println!("{}", lambda == &effective_lambda);
-                    println!("{}", par.ast_type);
-                    println!("{:?}", new_return_type);
-                    */
-
-                    /*
-                    effective_lambda
-                        .body
-                        .iter()
-                        .for_each(|it| println!("  {it}"));
-
-                     */
-
                     something_converted_in_loop = update(
                         &ASTType::Builtin(BuiltinTypeKind::Lambda {
                             return_type: new_return_type.map(Box::new),
@@ -1180,30 +1138,6 @@ pub fn convert_call(
         }
 
         something_converted |= something_converted_in_loop;
-
-        /*        }
-        call_expressions = converted_expressions.clone();
-        function_parameters = converted_parameters.clone();
-        something_converted |= something_converted_in_loop;
-        count += 1;
-
-        if count > 10 {
-            debug_i!(
-                "converted parameters {:?}",
-                converted_parameters
-                    .iter()
-                    .map(|it| format!("{it}"))
-                    .collect::<Vec<_>>()
-            );
-            debug_i!(
-                "converted expressions {:?}",
-                converted_expressions
-                    .iter()
-                    .map(|it| format!("{it}"))
-                    .collect::<Vec<_>>()
-            );
-        }
-        dedent!();*/
     }
 
     let (function_def, function_def_from_module) = get_called_function(
