@@ -719,24 +719,24 @@ pub fn convert_call(
 
     let call_stack = call_stack.add(call.clone());
 
-    let (function_def, _) = if let Some((function_def, function_def_from_module)) =
-        get_called_function(
-            module,
-            context,
-            call,
-            typed_context,
-            &expected_return_type,
-            &call_stack,
-            backend,
-            None,
-            false,
-            statics,
-        )? {
-        (function_def, function_def_from_module)
-    } else {
-        // TODO in this case it should be CannotFindCall, but for now we don't have it, but probably it happens only in corner cases where it does not matter
-        return Ok(NothingToConvert);
-    };
+    let (function_def, _) = get_called_function(
+        module,
+        context,
+        call,
+        typed_context,
+        &expected_return_type,
+        &call_stack,
+        backend,
+        None,
+        false,
+        statics,
+    )?
+    .unwrap_or_else(|| {
+        panic!(
+            "Cannot find function {}: {}",
+            call.function_name, call.index
+        )
+    });
 
     let mut resolved_generic_types = function_def.resolved_generic_types.clone();
 
