@@ -919,14 +919,15 @@ impl Parser {
     }
 
     fn error_msg(&self, message: &str) -> String {
-        let option = self.tokens.get(self.i);
+        let token_option = self.tokens.get(self.i);
 
-        if let Some(token) = option {
-            //self.debug(message);
-            format!(
-                "{} {:?}:{},{}",
-                message, self.file_name, token.row, token.column
-            )
+        if let Some(token) = token_option {
+            let index = ASTIndex {
+                file_name: self.file_name.clone(),
+                row: token.row,
+                column: token.column,
+            };
+            format!("{}: {}", message, index)
         } else {
             format!("{} {:?} : in end of file", message, self.file_name)
         }
