@@ -23,6 +23,7 @@ use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
+use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
@@ -871,7 +872,7 @@ impl<'a> CodeGen<'a> {
                 let filter = it
                     .param_types
                     .iter()
-                    .map(|ast_type| Some(ast_type.clone()))
+                    .map(|ast_type| Exact(ast_type.clone()))
                     .collect();
                 if let Some(new_function_def) = self
                     .type_conversion_context

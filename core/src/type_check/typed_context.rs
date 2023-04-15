@@ -1,5 +1,5 @@
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType};
-use crate::type_check::functions_container::FunctionsContainer;
+use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeConversionContext {
@@ -46,7 +46,7 @@ impl TypeConversionContext {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: Vec<Option<ASTType>>,
+        parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
     ) -> Option<&ASTFunctionDef> {
         self.functions_by_name.find_call(
@@ -61,7 +61,7 @@ impl TypeConversionContext {
     pub fn find_call_vec(
         &self,
         call: &ASTFunctionCall,
-        parameter_types_filter: Vec<Option<ASTType>>,
+        parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
     ) -> Vec<ASTFunctionDef> {
         self.functions_by_name

@@ -4,7 +4,7 @@ use std::panic;
 
 use backtrace::Backtrace;
 use linked_hash_map::LinkedHashMap;
-use log::debug;
+use log::{debug, log_enabled, Level};
 use strum_macros::Display;
 
 use crate::codegen::backend::Backend;
@@ -21,10 +21,11 @@ use crate::parser::ast::{ASTStatement, MyToString};
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::FunctionsContainer;
+use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
 use crate::utils::OptionOptionDisplay;
-use crate::utils::{format_option, SliceDisplay};
+use crate::utils::SliceDisplay;
 use crate::{debug_i, dedent, indent};
 
 pub mod call_stack;
@@ -509,7 +510,7 @@ fn convert_statement_in_body(
                 backend,
                 statics,
             )?
-            .unwrap_or_else(|| panic!("cannot get type of expression {e}"));
+            .unwrap_or_else(|| panic!("cannot get type of expression {e}: {let_index}"));
 
             if *is_const {
                 panic!("const not allowed here");
@@ -553,22 +554,7 @@ fn convert_expr_in_body(
             }
         }
         ASTExpression::StringLiteral(_) => None,
-        ASTExpression::ValueRef(_, _) => {
-            /*
-            if let Some(kind) = context.get(p) {
-                match kind {
-                    VarKind::ParameterRef(i, par) => {
-
-                      todo!()
-                    }
-                }
-            } else {
-                todo!()
-            }
-
-             */
-            None
-        }
+        ASTExpression::ValueRef(_, _) => None,
         ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(_) => None,
         ASTExpression::Any(_) => None,
@@ -605,8 +591,8 @@ fn convert_last_statement_in_body(
             resolved_generic_types,
         )
         .map(|ito| ito.map(ASTStatement::Expression)),
-        ASTStatement::LetStatement(name, e, is_const, let_index) => Err(format!(
-            "let statement cannot be the last expression : {}",
+        ASTStatement::LetStatement(_name, _e, _is_const, let_index) => Err(format!(
+            "let/const statement cannot be the last expression : {}",
             let_index
         )
         .into()),
@@ -1371,28 +1357,37 @@ fn get_called_function(
         .enumerate()
         .map(|(index, it)| {
             let lambda = if let Some(f) = verify_function {
-                if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) =
-                    f.parameters.get(index).map(|it| &it.ast_type)
-                {
-                    f.parameters.get(index).map(|it| &it.ast_type)
+                let par = f.parameters.get(index).unwrap();
+                if let ASTType::Builtin(BuiltinTypeKind::Lambda { .. }) = par.ast_type {
+                    Some(par.ast_type.clone())
                 } else {
                     None
                 }
             } else {
                 None
             };
-            get_type_of_expression(
+            match get_type_of_expression(
                 module,
                 context,
                 it,
                 typed_context,
-                lambda,
+                lambda.as_ref(),
                 call_stack,
                 backend,
                 statics,
-            )
+            ) {
+                Ok(Some(ast_type)) => Ok(TypeFilter::Exact(ast_type)),
+                Ok(None) => {
+                    if matches!(it, ASTExpression::Lambda(_)) {
+                        Ok(TypeFilter::Lambda)
+                    } else {
+                        Ok(TypeFilter::Any)
+                    }
+                }
+                Err(e) => Err(e),
+            }
         })
-        .collect::<Result<Vec<Option<ASTType>>, TypeCheckError>>()?;
+        .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
     let mut candidate_functions = if only_from_module {
         Vec::new()
@@ -1428,15 +1423,15 @@ fn get_called_function(
 
     let function_def = if candidate_functions.len() == 1 {
         candidate_functions.get(0).cloned()
-    } else if call_parameters_types.iter().any(|it| it.is_none()) {
+    } else if call_parameters_types
+        .iter()
+        .any(|it| matches!(it, TypeFilter::Any))
+    {
         let mut found_function_def = None;
         for f_def in candidate_functions {
             debug_i!(
                 "Trying to find the right function {f_def} filter {:?}",
                 call_parameters_types
-                    .iter()
-                    .map(format_option)
-                    .collect::<Vec<_>>()
             );
             let new_call_parameters_types = call_parameters_types
                 .iter()
@@ -1444,7 +1439,7 @@ fn get_called_function(
                 .map(|(i, filter)| {
                     debug_i!("filter {i} {:?}", filter);
                     match filter {
-                        None => {
+                        TypeFilter::Any | TypeFilter::Lambda => {
                             let par = f_def.parameters.get(i).unwrap();
                             let expr = call.parameters.get(i).unwrap();
                             debug_i!("found None filter for {par}");
@@ -1454,7 +1449,7 @@ fn get_called_function(
                                     return_type: _,
                                 }) => match expr {
                                     ASTExpression::Lambda(_lambda_def) => {
-                                        let option = get_type_of_expression(
+                                        if let Some(la) = get_type_of_expression(
                                             module,
                                             context,
                                             expr,
@@ -1463,16 +1458,18 @@ fn get_called_function(
                                             call_stack,
                                             backend,
                                             statics,
-                                        );
-                                        debug_i!("type of lamda expr: {:?}", option);
-                                        option
+                                        )? {
+                                            Ok(TypeFilter::Exact(la))
+                                        } else {
+                                            Ok(TypeFilter::Lambda)
+                                        }
                                     }
-                                    _ => Err("Expected lamda".into()),
+                                    _ => Err("Expected lambda".into()),
                                 },
-                                _ => Ok(None),
+                                _ => Ok(TypeFilter::Any),
                             }
                         }
-                        Some(f) => Ok(Some(f.clone())),
+                        TypeFilter::Exact(f) => Ok(TypeFilter::Exact(f.clone())),
                     }
                 })
                 .collect::<Result<Vec<_>, TypeCheckError>>()?;
@@ -1700,119 +1697,126 @@ fn get_type_of_expression(
             ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
             ValueType::F32(_) => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
         }),
+        ASTExpression::Any(ast_type) => Ok(Some(ast_type.clone())),
         ASTExpression::Lambda(def) => {
-            if let Some(lamda_type) = lambda {
-                let mut lamda_val_context =
-                    get_context_from_lambda(context, def, lamda_type, &LinkedHashMap::new())
-                        .unwrap();
-                let mut lamda_return_type = None;
-
-                let len = def.body.len();
-
-                let result = def
-                    .body
-                    .iter()
-                    .enumerate()
-                    .map(|(i, statement)| match statement {
-                        ASTStatement::LetStatement(name, let_statement, is_const, let_index) => {
-                            // let mut new_call_stack = call_stack.clone();
-
-                            let skip = if let ASTFunctionCallExpression(inner_call) = let_statement
-                            {
-                                debug_i!("adding inner call {inner_call}");
-                                // new_call_stack = call_stack.add(inner_call.clone());
-                                if call_stack.exists(inner_call) {
-                                    //panic!("loop");
-                                    false
-                                } else {
-                                    false
-                                }
-                            } else {
-                                false
-                            };
-
-                            if !skip {
-                                if let Some(let_return_type) = get_type_of_expression(
-                                    module,
-                                    &lamda_val_context,
-                                    let_statement,
-                                    typed_context,
-                                    None,
-                                    call_stack,
-                                    backend,
-                                    statics,
-                                )? {
-                                    if *is_const {
-                                        // TODO I don't think it should happen
-                                        panic!("const not allowed here")
-                                    } else {
-                                        lamda_val_context.insert_let(
-                                            name.clone(),
-                                            let_return_type,
-                                            let_index,
-                                        );
-                                    }
-                                    Ok(())
-                                } else {
-                                    Err("expected expression value".into())
-                                }
-                            } else {
-                                Ok(())
-                            }
-                        }
-                        ASTStatement::Expression(ody_expr) => {
-                            // let mut new_call_stack = call_stack.clone();
-
-                            let skip = if let ASTFunctionCallExpression(inner_call) = ody_expr {
-                                debug_i!("addin inner call {inner_call}");
-                                // new_call_stack = call_stack.add(inner_call.clone());
-                                if call_stack.exists(inner_call) {
-                                    // panic!("loop");
-                                    false
-                                } else {
-                                    false
-                                }
-                            } else {
-                                false
-                            };
-
-                            if !skip && i == len - 1 {
-                                lamda_return_type = get_type_of_expression(
-                                    module,
-                                    &lamda_val_context,
-                                    ody_expr,
-                                    typed_context,
-                                    None,
-                                    call_stack,
-                                    backend,
-                                    statics,
-                                )?;
-                                Ok(())
-                            } else {
-                                Ok(())
-                            }
-                        }
-                    })
-                    .collect::<Vec<Result<(), TypeCheckError>>>();
-
-                if let Err(err) = result
-                    .into_iter()
-                    .filter(|it| it.is_err())
-                    .collect::<Result<Vec<()>, TypeCheckError>>()
-                {
-                    return Err(err);
+            let mut lambda_val_context = if let Some(lambda_type) = lambda {
+                get_context_from_lambda(context, def, lambda_type, &LinkedHashMap::new()).unwrap()
+            } else {
+                if !def.parameter_names.is_empty() {
+                    return Ok(None);
                 }
+                context.clone()
+            };
+            let mut lamda_return_type = None;
 
-                debug_i!("lamda return type: {:?}", lamda_return_type);
+            let len = def.body.len();
+
+            let result = def
+                .body
+                .iter()
+                .enumerate()
+                .map(|(i, statement)| match statement {
+                    ASTStatement::LetStatement(name, let_statement, is_const, let_index) => {
+                        // let mut new_call_stack = call_stack.clone();
+
+                        let skip = if let ASTFunctionCallExpression(inner_call) = let_statement {
+                            debug_i!("adding inner call {inner_call}");
+                            // new_call_stack = call_stack.add(inner_call.clone());
+                            if call_stack.exists(inner_call) {
+                                //panic!("loop");
+                                false
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+
+                        if !skip {
+                            if let Some(let_return_type) = get_type_of_expression(
+                                module,
+                                &lambda_val_context,
+                                let_statement,
+                                typed_context,
+                                None,
+                                call_stack,
+                                backend,
+                                statics,
+                            )? {
+                                if *is_const {
+                                    // TODO I don't think it should happen
+                                    panic!("const not allowed here")
+                                } else {
+                                    lambda_val_context.insert_let(
+                                        name.clone(),
+                                        let_return_type,
+                                        let_index,
+                                    );
+                                }
+                                Ok(())
+                            } else {
+                                Err("expected expression value".into())
+                            }
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    ASTStatement::Expression(body_expr) => {
+                        // let mut new_call_stack = call_stack.clone();
+
+                        let skip = if let ASTFunctionCallExpression(inner_call) = body_expr {
+                            debug_i!("addin inner call {inner_call}");
+                            // new_call_stack = call_stack.add(inner_call.clone());
+                            if call_stack.exists(inner_call) {
+                                // panic!("loop");
+                                false
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+
+                        if !skip && i == len - 1 {
+                            lamda_return_type = get_type_of_expression(
+                                module,
+                                &lambda_val_context,
+                                body_expr,
+                                typed_context,
+                                None,
+                                call_stack,
+                                backend,
+                                statics,
+                            )?;
+                            Ok(())
+                        } else {
+                            Ok(())
+                        }
+                    }
+                })
+                .collect::<Vec<Result<(), TypeCheckError>>>();
+
+            if let Err(err) = result
+                .into_iter()
+                .filter(|it| it.is_err())
+                .collect::<Result<Vec<()>, TypeCheckError>>()
+            {
+                return Err(err);
+            }
+
+            if log_enabled!(Level::Debug) {
+                debug_i!("lambda return type: {:?}", lamda_return_type);
                 for (par_name, _) in &def.parameter_names {
-                    debug_i!("par {par_name}: {:?}", lamda_val_context.get(par_name));
+                    debug_i!("par {par_name}: {:?}", lambda_val_context.get(par_name));
                 }
+            }
+            if lamda_return_type.is_some() {
                 Ok(Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
                     return_type: lamda_return_type.map(Box::new),
                     parameters: def
                         .parameter_names
                         .iter()
-                        .map(|(it, _)| match lamda_val_context.get(it).unwrap() {
+                        .map(|(it, _)| match lambda_val_context.get(it).unwrap() {
                             ValKind::ParameterRef(_, def) => def.ast_type.clone(),
                             ValKind::LetRef(_, def) => def.clone(),
                         })
@@ -1823,7 +1827,6 @@ fn get_type_of_expression(
             }
             // Some(ASTType::Builtin(BuiltinTypeKind::Lambda { return_type: None, parameters: vec![]}))
         }
-        ASTExpression::Any(ast_type) => Ok(Some(ast_type.clone())),
     };
 
     debug_i!("result {:?}", result);

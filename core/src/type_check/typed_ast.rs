@@ -16,6 +16,7 @@ use crate::parser::ast::{
 };
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
+use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
     convert_call, convert_function_def, convert_statement, get_new_native_call, substitute,
@@ -288,7 +289,7 @@ impl TypeDefProvider for ASTTypedModule {
         if let Some(e) = find_one(self.enums.iter(), |it| {
             if let ASTType::Custom {
                 name: ast_type_name,
-                param_types,
+                param_types: _,
             } = &it.ast_type
             {
                 ast_type_name == name
@@ -300,7 +301,7 @@ impl TypeDefProvider for ASTTypedModule {
         } else if let Some(s) = find_one(self.structs.iter(), |it| {
             if let ASTType::Custom {
                 name: ast_type_name,
-                param_types,
+                param_types: _,
             } = &it.ast_type
             {
                 ast_type_name == name
@@ -1433,9 +1434,13 @@ pub fn function_def(
                         .param_types
                         .iter()
                         .map(|it| {
-                            substitute(it, &def.resolved_generic_types).or_else(|| Some(it.clone()))
+                            if let Some(subst) = substitute(it, &def.resolved_generic_types) {
+                                Exact(subst)
+                            } else {
+                                Exact(it.clone())
+                            }
                         })
-                        .collect::<Vec<Option<ASTType>>>();
+                        .collect::<Vec<_>>();
 
                     let function_def_name_opt = {
                         typed_context
@@ -1876,13 +1881,13 @@ impl DefaultFunctionCall {
                             ASTExpression::Value(ValueType::F32(1.0), ASTIndex::none())
                         }
                         BuiltinTypeKind::Lambda {
-                            parameters,
-                            return_type,
+                            parameters: _,
+                            return_type: _,
                         } => ASTExpression::Any(it.clone()),
                     },
                     ASTType::Generic(_) => panic!(),
                     ASTType::Custom {
-                        name,
+                        name: _,
                         param_types: _,
                     } => ASTExpression::Any(it.clone()),
                 })

@@ -1,10 +1,11 @@
+use std::fmt::{Debug, Formatter};
 use std::iter::zip;
 
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind};
-use crate::utils::{format_option, format_option_option};
+use crate::utils::format_option_option;
 use crate::{debug_i, dedent, indent};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -13,11 +14,21 @@ pub struct FunctionsContainer {
 }
 
 // TODO
-#[derive(Debug)]
+#[derive(Clone)]
 pub enum TypeFilter {
     Exact(ASTType),
     Any,
     Lambda,
+}
+
+impl Debug for TypeFilter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
+            TypeFilter::Any => write!(f, "Any"),
+            TypeFilter::Lambda => write!(f, "Lambda"),
+        }
+    }
 }
 
 impl FunctionsContainer {
@@ -116,11 +127,10 @@ impl FunctionsContainer {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: Vec<Option<ASTType>>,
+        parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
     ) -> Option<&ASTFunctionDef> {
-        let name = function_name.replace("::", "_");
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -150,7 +160,7 @@ impl FunctionsContainer {
                                 None => it.return_type.is_none(),
                                 Some(t) => Self::almost_same_type(
                                     &it.return_type.clone().unwrap(),
-                                    &Some(t.clone()),
+                                    &TypeFilter::Exact(t.clone()),
                                     &mut resolved_generic_types,
                                 ),
                             },
@@ -183,7 +193,7 @@ impl FunctionsContainer {
     pub fn find_call_vec(
         &self,
         call: &ASTFunctionCall,
-        parameter_types_filter: Vec<Option<ASTType>>,
+        parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
     ) -> Vec<ASTFunctionDef> {
@@ -191,12 +201,7 @@ impl FunctionsContainer {
             "find_call_vec {call} return type {} filter {:?}",
             format_option_option(&return_type_filter),
             &parameter_types_filter
-                .iter()
-                .map(format_option)
-                .collect::<Vec<String>>()
-                .join(",")
         );
-        let name = call.function_name.clone().replace("::", "_");
         if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -226,7 +231,7 @@ impl FunctionsContainer {
                                 None => it.return_type.is_none(),
                                 Some(t) => Self::almost_same_type(
                                     &it.return_type.clone().unwrap(),
-                                    &Some(t.clone()),
+                                    &TypeFilter::Exact(t.clone()),
                                     &mut resolved_generic_types,
                                 ),
                             },
@@ -264,7 +269,7 @@ impl FunctionsContainer {
                                 .collect::<Vec<ASTType>>(),
                             &parameter_types_filter
                                 .iter()
-                                .map(|it| Some(it.clone()))
+                                .map(|it| TypeFilter::Exact(it.clone()))
                                 .collect(),
                             &mut resolved_generic_types,
                         )
@@ -292,7 +297,7 @@ impl FunctionsContainer {
 
     fn almost_same_parameters_types(
         parameter_types: &Vec<ASTType>,
-        parameter_types_filter: &Vec<Option<ASTType>>,
+        parameter_types_filter: &Vec<TypeFilter>,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
     ) -> bool {
         let result = if parameter_types.len() != parameter_types_filter.len() {
@@ -317,8 +322,8 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
     ) -> bool {
         if let Some(art) = actual_return_type {
-            if let Some(_ert) = expected_return_type {
-                Self::almost_same_type(art, expected_return_type, resolved_generic_types)
+            if let Some(ert) = expected_return_type {
+                Self::almost_same_type(art, &TypeFilter::Exact(ert.clone()), resolved_generic_types)
             } else {
                 false
             }
@@ -329,16 +334,16 @@ impl FunctionsContainer {
 
     pub fn almost_same_type(
         parameter_type: &ASTType,
-        parameter_type_filter: &Option<ASTType>,
+        parameter_type_filter: &TypeFilter,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
     ) -> bool {
         debug_i!(
-            "almost_same_type {parameter_type} filter {}",
-            format_option(parameter_type_filter)
+            "almost_same_type {parameter_type} filter {:?}",
+            parameter_type_filter
         );
         match parameter_type_filter {
-            None => true,
-            Some(filter_type) => {
+            TypeFilter::Any => true,
+            TypeFilter::Exact(filter_type) => {
                 if filter_type == parameter_type {
                     return true;
                 }
@@ -356,7 +361,7 @@ impl FunctionsContainer {
                                     && zip(filter_ps, a_p).all(|(filter_type, a)| {
                                         Self::almost_same_type(
                                             a,
-                                            &Some(filter_type.clone()),
+                                            &TypeFilter::Exact(filter_type.clone()),
                                             resolved_generic_types,
                                         )
                                     });
@@ -367,7 +372,7 @@ impl FunctionsContainer {
                                         None => false,
                                         Some(a_rt1) => Self::almost_same_type(
                                             a_rt1,
-                                            &Some(*filter_rt1.clone()),
+                                            &TypeFilter::Exact(*filter_rt1.clone()),
                                             resolved_generic_types,
                                         ),
                                     },
@@ -420,7 +425,9 @@ impl FunctionsContainer {
                                     && param_types.iter().enumerate().all(|(i, pt)| {
                                         Self::almost_same_type(
                                             pt,
-                                            &expected_param_types.get(i).cloned(),
+                                            &TypeFilter::Exact(
+                                                expected_param_types.get(i).unwrap().clone(),
+                                            ),
                                             resolved_generic_types,
                                         )
                                     })
@@ -428,6 +435,12 @@ impl FunctionsContainer {
                         }
                     }
                 }
+            }
+            TypeFilter::Lambda => {
+                matches!(
+                    parameter_type,
+                    ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
+                )
             }
         }
     }
@@ -478,6 +491,7 @@ mod tests {
     };
     use crate::parser::ValueType;
     use crate::type_check::functions_container::FunctionsContainer;
+    use crate::type_check::functions_container::TypeFilter::Exact;
 
     #[test]
     fn test() {
@@ -626,8 +640,8 @@ mod tests {
             &call.function_name,
             &call.original_function_name,
             vec![
-                Some(ASTType::Builtin(BuiltinTypeKind::I32)),
-                Some(ASTType::Generic("T".into())),
+                Exact(ASTType::Builtin(BuiltinTypeKind::I32)),
+                Exact(ASTType::Generic("T".into())),
             ],
             None,
             false,

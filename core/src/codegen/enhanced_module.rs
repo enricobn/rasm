@@ -4,7 +4,7 @@ use crate::parser::ast::{
     ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTStatement, ASTStructDef, ASTType,
     ASTTypeDef,
 };
-use crate::type_check::functions_container::FunctionsContainer;
+use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 
 #[derive(Clone)]
 pub struct EnhancedASTModule {
@@ -52,7 +52,7 @@ impl EnhancedASTModule {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: Vec<Option<ASTType>>,
+        parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
     ) -> Option<&ASTFunctionDef> {
         self.functions_by_name.find_call(
@@ -67,7 +67,7 @@ impl EnhancedASTModule {
     pub fn find_call_vec(
         &self,
         call: &ASTFunctionCall,
-        parameter_types_filter: Vec<Option<ASTType>>,
+        parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
     ) -> Vec<ASTFunctionDef> {
         self.functions_by_name.find_call_vec(
