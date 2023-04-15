@@ -873,9 +873,9 @@ impl<'a> CodeGen<'a> {
                     .iter()
                     .map(|ast_type| Some(ast_type.clone()))
                     .collect();
-                if let Some(new_function_def) =
-                    self.type_conversion_context
-                        .find_call(&it.name, &it.name, Some(filter), None)
+                if let Some(new_function_def) = self
+                    .type_conversion_context
+                    .find_call(&it.name, &it.name, filter, None)
                 {
                     debug_i!("converted to {new_function_def}");
                     if it.name != new_function_def.name {

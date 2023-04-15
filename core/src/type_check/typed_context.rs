@@ -46,7 +46,7 @@ impl TypeConversionContext {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        parameter_types_filter: Vec<Option<ASTType>>,
         return_type_filter: Option<Option<ASTType>>,
     ) -> Option<&ASTFunctionDef> {
         self.functions_by_name.find_call(

@@ -1440,12 +1440,7 @@ pub fn function_def(
                     let function_def_name_opt = {
                         typed_context
                             .borrow()
-                            .find_call(
-                                &it.name,
-                                &it.name,
-                                Some(call_parameters_types.clone()),
-                                None,
-                            )
+                            .find_call(&it.name, &it.name, call_parameters_types.clone(), None)
                             .map(|it| it.name.clone())
                     };
 
@@ -1471,7 +1466,7 @@ pub fn function_def(
                             let function_def_opt = module.find_call(
                                 &it.name,
                                 &it.name,
-                                Some(call_parameters_types.clone()),
+                                call_parameters_types.clone(),
                                 None,
                             );
 

@@ -12,6 +12,14 @@ pub struct FunctionsContainer {
     functions_by_name: LinkedHashMap<String, Vec<ASTFunctionDef>>,
 }
 
+// TODO
+#[derive(Debug)]
+pub enum TypeFilter {
+    Exact(ASTType),
+    Any,
+    Lambda,
+}
+
 impl FunctionsContainer {
     pub fn new() -> Self {
         Self {
@@ -108,7 +116,7 @@ impl FunctionsContainer {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        parameter_types_filter: Vec<Option<ASTType>>,
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
     ) -> Option<&ASTFunctionDef> {
@@ -125,19 +133,14 @@ impl FunctionsContainer {
                     if filter_on_name && it.name == function_name {
                         return true;
                     }
-                    let verify_params =
-                        if let Some(parameter_types) = parameter_types_filter.clone() {
-                            Self::almost_same_parameters_types(
-                                &it.parameters
-                                    .iter()
-                                    .map(|it| it.ast_type.clone())
-                                    .collect::<Vec<ASTType>>(),
-                                &parameter_types,
-                                &mut resolved_generic_types,
-                            )
-                        } else {
-                            it.name == name
-                        };
+                    let verify_params = Self::almost_same_parameters_types(
+                        &it.parameters
+                            .iter()
+                            .map(|it| it.ast_type.clone())
+                            .collect::<Vec<ASTType>>(),
+                        &parameter_types_filter,
+                        &mut resolved_generic_types,
+                    );
 
                     verify_params
                         && match return_type_filter {
@@ -622,10 +625,10 @@ mod tests {
         let result = sut.find_call(
             &call.function_name,
             &call.original_function_name,
-            Some(vec![
+            vec![
                 Some(ASTType::Builtin(BuiltinTypeKind::I32)),
                 Some(ASTType::Generic("T".into())),
-            ]),
+            ],
             None,
             false,
         );
