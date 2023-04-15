@@ -16,7 +16,7 @@ impl Display for CallStack {
             &self
                 .calls
                 .iter()
-                .map(|it| format!("{it}"))
+                .map(|it| format!("{} : {}", it.function_name, it.index))
                 .collect::<Vec<_>>()
                 .join("\n"),
         )

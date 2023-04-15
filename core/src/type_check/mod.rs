@@ -20,10 +20,11 @@ use crate::parser::ast::{
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
+use crate::type_check::functions_container::FunctionsContainer;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
-use crate::utils::format_option;
 use crate::utils::OptionOptionDisplay;
+use crate::utils::{format_option, SliceDisplay};
 use crate::{debug_i, dedent, indent};
 
 pub mod call_stack;
@@ -287,7 +288,7 @@ fn convert_statement(
                         let ast_type = type_conversion_context
                             .borrow()
                             .find_function(&call.function_name)
-                            .unwrap_or_else(|| panic!("{}", &call.function_name))
+                            .unwrap_or_else(|| panic!("{} : {}", &call.function_name, &call.index))
                             .return_type
                             .clone()
                             .unwrap();
@@ -732,6 +733,8 @@ pub fn convert_call(
         statics,
     )?
     .unwrap_or_else(|| {
+        typed_context.borrow().debug_i();
+        module.debug_i();
         panic!(
             "Cannot find function {}: {}",
             call.function_name, call.index
@@ -1396,7 +1399,7 @@ fn get_called_function(
     } else {
         typed_context.borrow().find_call_vec(
             call,
-            Some(call_parameters_types.clone()),
+            call_parameters_types.clone(),
             expected_return_type.clone(),
         )
     };
@@ -1406,9 +1409,11 @@ fn get_called_function(
         function_def_from_module = true;
         candidate_functions = module.find_call_vec(
             call,
-            Some(call_parameters_types.clone()),
+            call_parameters_types.clone(),
             expected_return_type.clone(),
         );
+    } else {
+        debug_i!("candidate_functions {}", SliceDisplay(&candidate_functions));
     }
 
     if candidate_functions.is_empty() {
@@ -1475,7 +1480,7 @@ fn get_called_function(
             debug_i!("new call parameters types {:?}", new_call_parameters_types);
             let mut new_function_def_opt = typed_context.borrow().find_call_vec(
                 call,
-                Some(new_call_parameters_types.clone()),
+                new_call_parameters_types.clone(),
                 expected_return_type.clone(),
             );
 
@@ -1483,7 +1488,7 @@ fn get_called_function(
                 function_def_from_module = true;
                 new_function_def_opt = module.find_call_vec(
                     call,
-                    Some(new_call_parameters_types.clone()),
+                    new_call_parameters_types.clone(),
                     expected_return_type.clone(),
                 );
             }
@@ -1513,9 +1518,16 @@ fn get_called_function(
 
         if let Some(ex) = expected_return_type {
             debug_i!("expected_return_type {:?}", ex);
+            let mut resolved_generic_types = LinkedHashMap::new();
             candidate_functions = candidate_functions
                 .into_iter()
-                .filter(|it| &it.return_type == ex)
+                .filter(|it| {
+                    FunctionsContainer::almost_same_return_type(
+                        &it.return_type,
+                        ex,
+                        &mut resolved_generic_types,
+                    )
+                })
                 .collect::<Vec<_>>();
         }
         if candidate_functions.len() > 1 {

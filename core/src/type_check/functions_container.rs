@@ -180,19 +180,18 @@ impl FunctionsContainer {
     pub fn find_call_vec(
         &self,
         call: &ASTFunctionCall,
-        parameter_types_filter: Option<Vec<Option<ASTType>>>,
+        parameter_types_filter: Vec<Option<ASTType>>,
         return_type_filter: Option<Option<ASTType>>,
         filter_on_name: bool,
     ) -> Vec<ASTFunctionDef> {
         debug_i!(
             "find_call_vec {call} return type {} filter {:?}",
             format_option_option(&return_type_filter),
-            format_option(&parameter_types_filter.clone().map(|v| {
-                v.iter()
-                    .map(format_option)
-                    .collect::<Vec<String>>()
-                    .join(",")
-            }))
+            &parameter_types_filter
+                .iter()
+                .map(format_option)
+                .collect::<Vec<String>>()
+                .join(",")
         );
         let name = call.function_name.clone().replace("::", "_");
         if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
@@ -207,19 +206,14 @@ impl FunctionsContainer {
                     if filter_on_name && it.name == call.function_name {
                         return true;
                     }
-                    let verify_params =
-                        if let Some(parameter_types) = parameter_types_filter.clone() {
-                            Self::almost_same_parameters_types(
-                                &it.parameters
-                                    .iter()
-                                    .map(|it| it.ast_type.clone())
-                                    .collect::<Vec<ASTType>>(),
-                                &parameter_types,
-                                &mut resolved_generic_types,
-                            )
-                        } else {
-                            it.name == name
-                        };
+                    let verify_params = Self::almost_same_parameters_types(
+                        &it.parameters
+                            .iter()
+                            .map(|it| it.ast_type.clone())
+                            .collect::<Vec<ASTType>>(),
+                        &parameter_types_filter,
+                        &mut resolved_generic_types,
+                    );
 
                     verify_params
                         && match return_type_filter {
@@ -314,7 +308,23 @@ impl FunctionsContainer {
         result
     }
 
-    fn almost_same_type(
+    pub fn almost_same_return_type(
+        actual_return_type: &Option<ASTType>,
+        expected_return_type: &Option<ASTType>,
+        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
+    ) -> bool {
+        if let Some(art) = actual_return_type {
+            if let Some(_ert) = expected_return_type {
+                Self::almost_same_type(art, expected_return_type, resolved_generic_types)
+            } else {
+                false
+            }
+        } else {
+            expected_return_type.is_none()
+        }
+    }
+
+    pub fn almost_same_type(
         parameter_type: &ASTType,
         parameter_type_filter: &Option<ASTType>,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
