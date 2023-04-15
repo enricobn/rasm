@@ -26,19 +26,19 @@ impl<'a> TypeParamsParser<'a> {
                         types.push(type_name.to_string());
                     } else {
                         self.parser.panic(&format!(
-                            "expected a parametric type or a comma, found {:?}",
+                            "expected a generic type or a comma, found {:?}",
                             kind
                         ));
                         break;
                     }
                 } else {
-                    self.parser.panic("error getting parametric types");
+                    self.parser.panic("error getting generic types");
                     break;
                 }
                 j += 1;
             }
             if types.is_empty() {
-                self.parser.panic("cannot find parametric types");
+                self.parser.panic("cannot find generic types");
             }
             return Some((types, self.parser.get_i() + j + 1));
         }

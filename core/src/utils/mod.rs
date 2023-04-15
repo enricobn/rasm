@@ -110,19 +110,22 @@ pub mod tests {
             None
         }
 
-        fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+        fn get_type_from_typed_type(&self, _typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
             None
         }
 
-        fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
+        fn get_ast_typed_type_from_type_name(&self, _name: &str) -> Option<ASTTypedType> {
             None
         }
 
-        fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
+        fn get_ast_typed_type_from_ast_type(&self, _ast_type: &ASTType) -> Option<ASTTypedType> {
             None
         }
 
-        fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
+        fn get_typed_type_def_from_type_name(
+            &self,
+            _type_to_find: &str,
+        ) -> Option<ASTTypedTypeDef> {
             None
         }
 

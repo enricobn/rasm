@@ -1,4 +1,4 @@
-use log::{debug, log_enabled, Level};
+use log::debug;
 use rand::Rng;
 
 #[cfg(test)]
@@ -42,10 +42,9 @@ fn test_f32() {
 
 fn test_print_f32(n: f32) {
     debug!("{n}");
-    if !log_enabled!(Level::Debug) {
-        let expected = format!("expected {n}");
-        print!("{:width$}got ", expected, width = 25);
-    }
+    let expected = format!("expected {n}");
+    debug!("{:width$}got ", expected, width = 25);
+
     let to_bits = n.to_bits();
     debug!("  bits {to_bits}");
 
@@ -55,9 +54,6 @@ fn test_print_f32(n: f32) {
 
     if sign != 0 {
         debug!("  sign -");
-        if !log_enabled!(Level::Debug) {
-            print!("-");
-        }
         result.push('-');
     } else {
         debug!("  sign +");
@@ -70,18 +66,10 @@ fn test_print_f32(n: f32) {
 
     result += &if exponent == 255 {
         if mantissa == 0 {
-            if log_enabled!(Level::Debug) {
-                debug!("  infinity");
-            } else {
-                println!("inf");
-            }
+            debug!("  infinity");
             "inf".to_owned()
         } else {
-            if log_enabled!(Level::Debug) {
-                debug!("  NaN");
-            } else {
-                println!("NaN");
-            }
+            debug!("  NaN");
             "NaN".to_owned()
         }
     } else {
@@ -111,11 +99,7 @@ fn test_print_f32(n: f32) {
 fn print_aligned(aligned_mantissa: u32, int_numbers_count: u32) -> String {
     debug!("  print_aligned({aligned_mantissa}, {int_numbers_count})");
     let int_number = aligned_mantissa >> (24 - int_numbers_count);
-    if log_enabled!(Level::Debug) {
-        debug!("  int {int_number}");
-    } else {
-        print!("{int_number}");
-    }
+    debug!("  int {int_number}");
 
     let mut and_for_decimal_numbers: u32 = 1;
     and_for_decimal_numbers <<= 24 - int_numbers_count;
@@ -173,11 +157,8 @@ fn print_decimals(n: u32, count: u32) -> String {
 
     let padded = format!("{:0width$}", result, width = 9);
 
-    if log_enabled!(Level::Debug) {
-        debug!("  dec {padded}");
-    } else {
-        println!(".{padded}");
-    }
+    debug!("  dec {padded}");
+
     format!(".{padded}")
 }
 

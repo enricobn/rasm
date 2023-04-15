@@ -647,14 +647,6 @@ mod tests {
             false,
         );
 
-        println!(
-            "{:?}",
-            sut.functions()
-                .iter()
-                .map(|it| format!("{it}"))
-                .collect::<Vec<_>>()
-        );
-
         assert!(result.is_some());
     }
 

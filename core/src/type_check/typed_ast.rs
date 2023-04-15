@@ -647,7 +647,7 @@ impl<'a> ConvContext<'a> {
                         cloned_param_types
                             .get(i)
                             .unwrap_or_else(|| {
-                                panic!("Cannot find parametric type {p} for struct {name}")
+                                panic!("Cannot find generic type {p} for struct {name}")
                             })
                             .clone(),
                     );
@@ -710,7 +710,7 @@ impl<'a> ConvContext<'a> {
                         typed_type(
                             self,
                             cloned_param_types.get(i).unwrap_or_else(|| {
-                                panic!("Cannot find parametric type {p} for type {name}")
+                                panic!("Cannot find generic type {p} for type {name}")
                             }),
                             "",
                         ),
@@ -1717,7 +1717,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
             }),
         },
         ASTType::Generic(p) => {
-            panic!("Unresolved parametric type '{p}': {message}");
+            panic!("Unresolved generic type '{p}': {message}");
         }
         ASTType::Custom {
             name,

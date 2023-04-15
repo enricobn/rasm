@@ -1359,8 +1359,6 @@ mod tests {
     }
 
     fn parse(source: &str) -> ASTModule {
-        println!("Current dir {:?}", env::current_dir().unwrap());
-
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));

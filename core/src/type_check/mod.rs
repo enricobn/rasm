@@ -1202,7 +1202,7 @@ pub fn convert_call(
 
     if !remaining_generic_types.is_empty() {
         debug_i!(
-            "remaining parametric types for {} {:?}, {something_converted}",
+            "remaining generic types for {} {:?}, {something_converted}",
             call.function_name,
             remaining_generic_types
         );
@@ -1546,7 +1546,7 @@ fn get_called_function(
             None
         }
     } else {
-        let all_not_parametric = candidate_functions
+        let all_not_generic = candidate_functions
             .iter()
             .filter(|it| {
                 it.parameters
@@ -1555,8 +1555,8 @@ fn get_called_function(
             })
             .collect::<Vec<_>>();
 
-        if all_not_parametric.len() == 1 {
-            all_not_parametric.first().copied().cloned()
+        if all_not_generic.len() == 1 {
+            all_not_generic.first().copied().cloned()
         } else {
             panic!(
                 "Cannot find one single function for {call} but {:?}: {}",
@@ -2299,7 +2299,7 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_simple() -> Result<(), TypeCheckError> {
-        let parametric_type = parametric("T");
+        let parametric_type = generic("T");
         let effective_type = i32();
         let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
 
@@ -2315,7 +2315,7 @@ mod tests {
     fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
         let parametric_type = ASTType::Custom {
             name: "List".into(),
-            param_types: vec![parametric("T")],
+            param_types: vec![generic("T")],
         };
         let effective_type = ASTType::Custom {
             name: "List".into(),
@@ -2335,12 +2335,12 @@ mod tests {
     #[test]
     fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), TypeCheckError> {
         let parametric_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-            parameters: vec![parametric("T")],
-            return_type: Some(Box::new(parametric("T"))),
+            parameters: vec![generic("T")],
+            return_type: Some(Box::new(generic("T"))),
         });
 
         let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-            parameters: vec![parametric("T")],
+            parameters: vec![generic("T")],
             return_type: Some(Box::new(i32())),
         });
 
@@ -2357,13 +2357,13 @@ mod tests {
     #[test]
     fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), TypeCheckError> {
         let parametric_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-            parameters: vec![parametric("T")],
-            return_type: Some(Box::new(parametric("T"))),
+            parameters: vec![generic("T")],
+            return_type: Some(Box::new(generic("T"))),
         });
 
         let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![i32()],
-            return_type: Some(Box::new(parametric("T"))),
+            return_type: Some(Box::new(generic("T"))),
         });
 
         let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
@@ -2375,7 +2375,7 @@ mod tests {
         Ok(())
     }
 
-    fn parametric(name: &str) -> ASTType {
+    fn generic(name: &str) -> ASTType {
         ASTType::Generic(name.into())
     }
 
