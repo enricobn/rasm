@@ -5,7 +5,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind};
-use crate::utils::format_option_option;
+use crate::utils::{format_option_option, SliceDisplay};
 use crate::{debug_i, dedent, indent};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -202,46 +202,51 @@ impl FunctionsContainer {
             format_option_option(&return_type_filter),
             &parameter_types_filter
         );
-        if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
-            if functions.is_empty() {
-                panic!(
-                    "cannot find functions for call {call} filter {:?}",
-                    parameter_types_filter
-                );
-            } else {
-                let mut resolved_generic_types = LinkedHashMap::new();
-                let lambda = |it: &&ASTFunctionDef| {
-                    if filter_on_name && it.name == call.function_name {
-                        return true;
-                    }
-                    let verify_params = Self::almost_same_parameters_types(
-                        &it.parameters
-                            .iter()
-                            .map(|it| it.ast_type.clone())
-                            .collect::<Vec<ASTType>>(),
-                        &parameter_types_filter,
-                        &mut resolved_generic_types,
+        let result =
+            if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
+                if functions.is_empty() {
+                    panic!(
+                        "cannot find functions for call {call} filter {:?}",
+                        parameter_types_filter
                     );
-
-                    verify_params
-                        && match return_type_filter {
-                            None => true,
-                            Some(None) => it.return_type.is_none(),
-                            Some(ref rt) => match rt {
-                                None => it.return_type.is_none(),
-                                Some(t) => Self::almost_same_type(
-                                    &it.return_type.clone().unwrap(),
-                                    &TypeFilter::Exact(t.clone()),
-                                    &mut resolved_generic_types,
-                                ),
-                            },
+                } else {
+                    let mut resolved_generic_types = LinkedHashMap::new();
+                    let lambda = |it: &&ASTFunctionDef| {
+                        if filter_on_name && it.name == call.function_name {
+                            return true;
                         }
-                };
-                functions.iter().filter(lambda).cloned().collect::<Vec<_>>()
-            }
-        } else {
-            vec![]
-        }
+                        let verify_params = Self::almost_same_parameters_types(
+                            &it.parameters
+                                .iter()
+                                .map(|it| it.ast_type.clone())
+                                .collect::<Vec<ASTType>>(),
+                            &parameter_types_filter,
+                            &mut resolved_generic_types,
+                        );
+
+                        verify_params
+                            && match return_type_filter {
+                                None => true,
+                                Some(None) => it.return_type.is_none(),
+                                Some(ref rt) => match rt {
+                                    None => it.return_type.is_none(),
+                                    Some(t) => Self::almost_same_type(
+                                        &it.return_type.clone().unwrap(),
+                                        &TypeFilter::Exact(t.clone()),
+                                        &mut resolved_generic_types,
+                                    ),
+                                },
+                            }
+                    };
+                    functions.iter().filter(lambda).cloned().collect::<Vec<_>>()
+                }
+            } else {
+                vec![]
+            };
+
+        debug_i!("Found functions {}", SliceDisplay(&result));
+
+        result
     }
 
     pub fn find_default_call(

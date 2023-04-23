@@ -49,6 +49,12 @@ fn main() {
                 .action(ArgAction::SetTrue)
                 .required(false),
         )
+        .arg(
+            Arg::new("message-format")
+                .help("for vscode")
+                .long("message-format")
+                .required(false),
+        )
         .get_matches();
 
     let path = env::current_dir();
