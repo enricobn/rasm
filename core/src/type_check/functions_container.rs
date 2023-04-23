@@ -492,9 +492,8 @@ mod tests {
     use crate::parser::ast::ASTFunctionBody::ASMBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType,
-        BuiltinTypeKind,
+        BuiltinTypeKind, ValueType,
     };
-    use crate::parser::ValueType;
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
 

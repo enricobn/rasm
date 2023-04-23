@@ -7,8 +7,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::{
     CodeGen, LambdaSpace, MemoryUnit, MemoryValue, TypedValContext, TypedValKind,
 };
-use crate::parser::ast::ASTIndex;
-use crate::parser::ValueType;
+use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,

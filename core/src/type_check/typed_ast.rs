@@ -13,8 +13,8 @@ use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
     ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
+    ValueType,
 };
-use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::ConvertCallResult::*;

@@ -13,7 +13,7 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef, ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::param_types_matcher;
@@ -50,14 +50,6 @@ pub struct Parser {
     requires: HashSet<String>,
     externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValueType {
-    Boolean(bool),
-    I32(i32),
-    Char(char),
-    F32(f32),
 }
 
 #[derive(Clone, Debug, strum_macros::Display)]
@@ -1041,9 +1033,9 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTStatement, ASTType,
-        BuiltinTypeKind,
+        BuiltinTypeKind, ValueType,
     };
-    use crate::parser::{Parser, ValueType};
+    use crate::parser::Parser;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();

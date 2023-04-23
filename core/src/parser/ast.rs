@@ -4,8 +4,6 @@ use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::parser::ValueType;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
     pub original_name: String,
@@ -212,6 +210,14 @@ impl Display for ASTIndex {
             self.column
         ))
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueType {
+    Boolean(bool),
+    I32(i32),
+    Char(char),
+    F32(f32),
 }
 
 // TODO can we do partialeq? It depends on ASTIndex

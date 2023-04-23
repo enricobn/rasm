@@ -15,10 +15,9 @@ use crate::codegen::{ValContext, ValKind};
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
-    ASTType, BuiltinTypeKind,
+    ASTType, BuiltinTypeKind, ValueType,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
-use crate::parser::ValueType;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::FunctionsContainer;
 use crate::type_check::functions_container::TypeFilter;
@@ -2285,9 +2284,8 @@ mod tests {
     use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
-        ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
+        ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
-    use crate::parser::ValueType;
     use crate::type_check::typed_ast::{
         convert_to_typed_module, ASTTypedExpression, ASTTypedStatement,
     };

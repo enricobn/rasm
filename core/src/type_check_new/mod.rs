@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
-use crate::parser::ValueType;
+use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind, ValueType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EnhancedType {
