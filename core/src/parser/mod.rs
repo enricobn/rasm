@@ -392,51 +392,8 @@ impl Parser {
                     continue;
                 }
                 Some(ParserState::Statement) => {
-                    if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
-                        self.state.pop();
-                        continue;
-                    } else if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
-                        if let Some(ParserData::Expression(epr)) = self.last_parser_data() {
-                            self.state.pop();
-                            self.parser_data.pop();
-                            self.parser_data
-                                .push(ParserData::Statement(ASTStatement::Expression(epr)));
-                            self.i += 1;
-                            continue;
-                        }
-                        self.panic("Found semicolon without an expression");
-                    } else if Some(&TokenKind::Bracket(
-                        BracketKind::Brace,
-                        BracketStatus::Close,
-                    )) == self.get_token_kind()
-                    {
-                        // Here probably we have an empty function...
-                        self.state.pop();
-                        continue;
-                    } else if let Some((name, next_i)) = self.try_parse_let(false) {
-                        self.parser_data.push(ParserData::Let(
-                            name,
-                            false,
-                            self.get_index(0).unwrap(),
-                        ));
-                        self.state.push(ParserState::Let);
-                        self.state.push(ParserState::Expression);
-                        self.i = next_i;
-                        continue;
-                    } else if let Some((name, next_i)) = self.try_parse_let(true) {
-                        self.parser_data.push(ParserData::Let(
-                            name,
-                            true,
-                            self.get_index(0).unwrap(),
-                        ));
-                        self.state.push(ParserState::Let);
-                        self.state.push(ParserState::Expression);
-                        self.i = next_i;
-                        continue;
-                    } else {
-                        self.state.push(ParserState::Expression);
-                        continue;
-                    }
+                    self.process_statement(token);
+                    continue;
                 }
             }
 
@@ -453,6 +410,43 @@ impl Parser {
             requires: self.requires.clone(),
             externals: self.externals.clone(),
             types: self.types.clone(),
+        }
+    }
+
+    fn process_statement(&mut self, token: Token) {
+        if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
+            self.state.pop();
+        } else if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
+            if let Some(ParserData::Expression(epr)) = self.last_parser_data() {
+                self.state.pop();
+                self.parser_data.pop();
+                self.parser_data
+                    .push(ParserData::Statement(ASTStatement::Expression(epr)));
+                self.i += 1;
+            } else {
+                self.panic("Found semicolon without an expression");
+            }
+        } else if Some(&TokenKind::Bracket(
+            BracketKind::Brace,
+            BracketStatus::Close,
+        )) == self.get_token_kind()
+        {
+            // Here probably we have an empty function...
+            self.state.pop();
+        } else if let Some((name, next_i)) = self.try_parse_let(false) {
+            self.parser_data
+                .push(ParserData::Let(name, false, self.get_index(0).unwrap()));
+            self.state.push(ParserState::Let);
+            self.state.push(ParserState::Expression);
+            self.i = next_i;
+        } else if let Some((name, next_i)) = self.try_parse_let(true) {
+            self.parser_data
+                .push(ParserData::Let(name, true, self.get_index(0).unwrap()));
+            self.state.push(ParserState::Let);
+            self.state.push(ParserState::Expression);
+            self.i = next_i;
+        } else {
+            self.state.push(ParserState::Expression);
         }
     }
 
