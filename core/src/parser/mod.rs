@@ -287,71 +287,12 @@ impl Parser {
                     continue;
                 }
                 Some(ParserState::FunctionDefParameter) => {
-                    if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
-                        if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
-                            let n = next_i - self.i;
-                            self.i = next_i;
-                            if let Some((ast_type, next_i)) =
-                                TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
-                            {
-                                self.i = next_i;
-                                self.parser_data.push(ParserData::FunctionDefParameter(
-                                    ASTParameterDef {
-                                        name,
-                                        ast_type,
-                                        ast_index: self.get_index_from_token(&token),
-                                    },
-                                ));
-                                self.state.pop();
-                                continue;
-                            } else {
-                                self.panic("");
-                            }
-                        } else {
-                            self.state.pop();
-                            continue;
-                        }
-                    } else {
-                        self.panic("Illegal state");
-                    }
+                    self.process_function_def_parameter(&token);
+                    continue;
                 }
                 Some(ParserState::FunctionBody) => {
-                    if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
-                        if let Some(ParserData::FunctionDef(mut def)) =
-                            self.before_last_parser_data()
-                        {
-                            let mut statements = match &def.body {
-                                RASMBody(statements) => {
-                                    // TODO try not to clone
-                                    statements.clone()
-                                }
-                                ASMBody(_) => self.panic("Expected function got asm"),
-                            };
-                            statements.push(stmt);
-                            def.body = RASMBody(statements);
-
-                            self.parser_data.pop();
-                            self.set_parser_data(ParserData::FunctionDef(def), 0);
-                        } else if let Some(ParserData::LambdaDef(mut def)) =
-                            self.before_last_parser_data()
-                        {
-                            def.body.push(stmt);
-                            self.parser_data.pop();
-                            self.set_parser_data(ParserData::LambdaDef(def), 0);
-                        } else {
-                            self.panic("Expected body");
-                        }
-                        continue;
-                    } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) =
-                        token.kind
-                    {
-                        self.state.pop();
-                        self.i += 1;
-                        continue;
-                    } else {
-                        self.state.push(ParserState::Statement);
-                        continue;
-                    }
+                    self.process_function_body(&token);
+                    continue;
                 }
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
@@ -447,69 +388,8 @@ impl Parser {
                     self.panic("Error parsing lambda");
                 }
                 Some(ParserState::Expression) => {
-                    if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
-                        self.state.pop();
-                        continue;
-                    } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
-                        self.get_token_kind()
-                    {
-                        self.state.pop();
-                        self.i += 1;
-                        continue;
-                    } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                        let call = ASTFunctionCall {
-                            original_function_name: function_name.clone(),
-                            function_name,
-                            parameters: Vec::new(),
-                            index: self.get_index(0).unwrap(),
-                        };
-                        self.parser_data.push(ParserData::FunctionCall(call));
-                        self.state.push(ParserState::FunctionCall);
-                        self.i = next_i;
-                        continue;
-                    } else if let Some((expression, next_i)) = self.try_parse_val() {
-                        self.parser_data.push(ParserData::Expression(expression));
-                        self.state.pop();
-                        self.i = next_i;
-                        continue;
-                    } else if Some(&TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))
-                        == self.get_token_kind()
-                    {
-                        let (parameter_names, next_i) = self.parse_lambda_parameters(1);
-                        self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
-                            parameter_names,
-                            body: Vec::new(),
-                        }));
-                        let fake_function_def = ASTFunctionDef {
-                            original_name: String::new(),
-                            name: String::new(),
-                            parameters: Vec::new(),
-                            body: RASMBody(Vec::new()),
-                            return_type: None,
-                            inline: false,
-                            generic_types: Vec::new(),
-                            resolved_generic_types: LinkedHashMap::new(),
-                        };
-                        self.parser_data
-                            .push(ParserData::FunctionDef(fake_function_def));
-                        self.state.push(ParserState::LambdaExpression);
-                        self.state.push(ParserState::FunctionBody);
-                        self.i = next_i;
-                        continue;
-                    } else if Some(&TokenKind::Bracket(
-                        BracketKind::Brace,
-                        BracketStatus::Close,
-                    )) == self.get_token_kind()
-                    {
-                        // Here probably we have an empty function...
-                        self.state.pop();
-                        continue;
-                    } else {
-                        self.panic(&format!(
-                            "Expected expression : {}",
-                            self.get_index(0).unwrap()
-                        ));
-                    }
+                    self.process_expression();
+                    continue;
                 }
                 Some(ParserState::Statement) => {
                     if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
@@ -573,6 +453,123 @@ impl Parser {
             requires: self.requires.clone(),
             externals: self.externals.clone(),
             types: self.types.clone(),
+        }
+    }
+
+    fn process_expression(&mut self) {
+        if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
+            self.state.pop();
+        } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+            self.get_token_kind()
+        {
+            self.state.pop();
+            self.i += 1;
+        } else if let Some((function_name, next_i)) = self.try_parse_function_call() {
+            let call = ASTFunctionCall {
+                original_function_name: function_name.clone(),
+                function_name,
+                parameters: Vec::new(),
+                index: self.get_index(0).unwrap(),
+            };
+            self.parser_data.push(ParserData::FunctionCall(call));
+            self.state.push(ParserState::FunctionCall);
+            self.i = next_i;
+        } else if let Some((expression, next_i)) = self.try_parse_val() {
+            self.parser_data.push(ParserData::Expression(expression));
+            self.state.pop();
+            self.i = next_i;
+        } else if Some(&TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))
+            == self.get_token_kind()
+        {
+            let (parameter_names, next_i) = self.parse_lambda_parameters(1);
+            self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
+                parameter_names,
+                body: Vec::new(),
+            }));
+            let fake_function_def = ASTFunctionDef {
+                original_name: String::new(),
+                name: String::new(),
+                parameters: Vec::new(),
+                body: RASMBody(Vec::new()),
+                return_type: None,
+                inline: false,
+                generic_types: Vec::new(),
+                resolved_generic_types: LinkedHashMap::new(),
+            };
+            self.parser_data
+                .push(ParserData::FunctionDef(fake_function_def));
+            self.state.push(ParserState::LambdaExpression);
+            self.state.push(ParserState::FunctionBody);
+            self.i = next_i;
+        } else if Some(&TokenKind::Bracket(
+            BracketKind::Brace,
+            BracketStatus::Close,
+        )) == self.get_token_kind()
+        {
+            // Here probably we have an empty function...
+            self.state.pop();
+        } else {
+            self.panic(&format!(
+                "Expected expression : {}",
+                self.get_index(0).unwrap()
+            ));
+        }
+    }
+
+    fn process_function_body(&mut self, token: &Token) {
+        if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
+            if let Some(ParserData::FunctionDef(mut def)) = self.before_last_parser_data() {
+                let mut statements = match &def.body {
+                    RASMBody(statements) => {
+                        // TODO try not to clone
+                        statements.clone()
+                    }
+                    ASMBody(_) => self.panic("Expected function got asm"),
+                };
+                statements.push(stmt);
+                def.body = RASMBody(statements);
+
+                self.parser_data.pop();
+                self.set_parser_data(ParserData::FunctionDef(def), 0);
+            } else if let Some(ParserData::LambdaDef(mut def)) = self.before_last_parser_data() {
+                def.body.push(stmt);
+                self.parser_data.pop();
+                self.set_parser_data(ParserData::LambdaDef(def), 0);
+            } else {
+                self.panic("Expected body");
+            }
+        } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
+            self.state.pop();
+            self.i += 1;
+        } else {
+            self.state.push(ParserState::Statement);
+        }
+    }
+
+    fn process_function_def_parameter(&mut self, token: &Token) {
+        if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
+            if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
+                let n = next_i - self.i;
+                self.i = next_i;
+                if let Some((ast_type, next_i)) =
+                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
+                {
+                    self.i = next_i;
+                    self.parser_data
+                        .push(ParserData::FunctionDefParameter(ASTParameterDef {
+                            name,
+                            ast_type,
+                            ast_index: self.get_index_from_token(token),
+                        }));
+                    self.state.pop();
+                } else {
+                    self.panic("");
+                }
+            } else {
+                self.state.pop();
+            }
+        } else {
+            self.panic("Illegal state");
         }
     }
 
