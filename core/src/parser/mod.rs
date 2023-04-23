@@ -36,12 +36,6 @@ pub mod tokens_matcher;
 mod type_params_parser;
 pub mod type_parser;
 
-enum ProcessResult {
-    Continue,
-    Next,
-    Panic(String),
-}
-
 pub struct Parser {
     tokens: Vec<Token>,
     body: Vec<ASTStatement>,
@@ -284,24 +278,14 @@ impl Parser {
                         continue;
                     }
                 }
-                Some(ParserState::FunctionCall) => match self.process_function_call(token) {
-                    ProcessResult::Next => {}
-                    ProcessResult::Continue => {
-                        continue;
-                    }
-                    ProcessResult::Panic(message) => {
-                        self.panic(&format!("Error {}: ", message));
-                    }
-                },
-                Some(ParserState::FunctionDef) => match self.process_function_def(token) {
-                    ProcessResult::Next => {}
-                    ProcessResult::Continue => {
-                        continue;
-                    }
-                    ProcessResult::Panic(message) => {
-                        self.panic(&format!("Error {}: ", message));
-                    }
-                },
+                Some(ParserState::FunctionCall) => {
+                    self.process_function_call(token);
+                    continue;
+                }
+                Some(ParserState::FunctionDef) => {
+                    self.process_function_def(token);
+                    continue;
+                }
                 Some(ParserState::FunctionDefParameter) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
                         if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
@@ -605,9 +589,9 @@ impl Parser {
         }
     }
 
-    fn process_function_call(&mut self, token: Token) -> ProcessResult {
+    fn process_function_call(&mut self, token: Token) {
         if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
-            return ProcessResult::Next;
+            self.i += 1;
         } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
             if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
                 self.parser_data.pop();
@@ -615,7 +599,6 @@ impl Parser {
             } else {
                 self.panic("expected function call");
             }
-            return ProcessResult::Continue;
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
                 self.state.pop();
@@ -623,24 +606,24 @@ impl Parser {
                 self.parser_data.push(ParserData::Expression(
                     ASTExpression::ASTFunctionCallExpression(call),
                 ));
-                return ProcessResult::Next;
+                self.i += 1;
             } else {
                 self.panic("expected function call");
             }
         } else {
             self.state.push(ParserState::Expression);
-            return ProcessResult::Continue;
         }
     }
 
-    fn process_function_def(&mut self, token: Token) -> ProcessResult {
+    fn process_function_def(&mut self, token: Token) {
         if let Some(ParserData::FunctionDefParameter(param_def)) = self.last_parser_data() {
             if let Some(ParserData::FunctionDef(mut def)) = self.before_last_parser_data() {
                 def.parameters.push(param_def);
                 let l = self.parser_data.len();
                 self.parser_data[l - 2] = ParserData::FunctionDef(def);
                 self.parser_data.pop();
-                return ProcessResult::Continue;
+            } else {
+                self.panic("Expected to be inside a function def");
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
@@ -655,33 +638,36 @@ impl Parser {
                 let l = self.parser_data.len();
                 self.parser_data[l - 1] = ParserData::FunctionDef(def);
                 self.i += 1;
-                return ProcessResult::Continue;
             } else {
-                self.panic("");
+                self.panic("Expected to be inside a function def");
             };
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
             self.state.push(ParserState::FunctionBody);
             self.state.push(ParserState::Statement);
+            self.i += 1;
         } else if let TokenKind::AsmBLock(body) = &token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
                 def.body = ASMBody(body.into());
                 self.functions.push(def);
                 self.parser_data.pop();
                 self.state.pop();
+                self.i += 1;
+            } else {
+                self.panic("Expected to be inside a function def");
             }
         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             self.state.push(ParserState::FunctionDefParameter);
+            self.i += 1;
         } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
             self.state.push(ParserState::FunctionDefReturnType);
+            self.i += 1;
         } else if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
             self.functions.push(def);
             self.parser_data.pop();
             self.state.pop();
-            return ProcessResult::Continue;
         } else {
-            return ProcessResult::Panic("processing function definition".into());
+            self.panic("Expected to be inside a function def");
         }
-        ProcessResult::Next
     }
 
     fn add_parameter_to_call_and_update_parser_data(
