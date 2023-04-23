@@ -5,17 +5,15 @@ use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::debug_i;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
 use crate::lexer::Lexer;
 use crate::parser::asm_def_parser::AsmDefParser;
-use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
-    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
+    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::param_types_matcher;
@@ -24,7 +22,7 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
-use crate::utils::{OptionDisplay, SliceDisplay};
+use crate::utils::SliceDisplay;
 
 mod asm_def_parser;
 pub(crate) mod ast;
@@ -76,7 +74,6 @@ enum ParserData {
     FunctionDefParameter(ASTParameterDef),
     LambdaDef(ASTLambdaDef),
     Let(String, bool, ASTIndex),
-    Val(ASTExpression, ASTIndex),
     StructDef(ASTStructDef),
     Expression(ASTExpression),
     Statement(ASTStatement),
@@ -93,7 +90,6 @@ enum ParserState {
     Expression,
     Statement,
     Let,
-    Val,
     StructDef,
     LambdaExpression,
 }
@@ -408,15 +404,6 @@ impl Parser {
                         panic!("Expected enum data : {}", self.get_index(0).unwrap())
                     }
                 }
-                Some(ParserState::Val) => {
-                    if let Some(ParserData::Val(expr, _index)) = self.last_parser_data() {
-                        self.parser_data.pop();
-                        self.parser_data.push(ParserData::Expression(expr));
-                        self.state.pop();
-                        continue;
-                    }
-                    panic!("Expected val name, found {:?}", self.last_parser_data());
-                }
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
                         if let Some((properties, next_i)) = StructParser::new(self)
@@ -436,80 +423,50 @@ impl Parser {
                     }
                 }
                 Some(ParserState::Let) => {
-                    if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
-                        if let Some(ParserData::Let(name, is_const, index)) =
-                            self.before_last_parser_data()
-                        {
-                            self.state.pop();
-                            self.parser_data.pop();
-                            self.parser_data.pop();
+                    if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
+                        if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                            if let Some(ParserData::Let(name, is_const, index)) =
+                                self.before_last_parser_data()
+                            {
+                                self.state.pop();
+                                self.parser_data.pop();
+                                self.parser_data.pop();
 
-                            self.parser_data.push(ParserData::Statement(
-                                ASTStatement::LetStatement(name, expr.clone(), is_const, index),
-                            ));
-                            continue;
+                                self.parser_data.push(ParserData::Statement(
+                                    ASTStatement::LetStatement(name, expr.clone(), is_const, index),
+                                ));
+                                self.i += 1;
+                                continue;
+                            }
                         }
                     }
-                    self.panic("Expected expression");
+                    self.panic("Expected expression and semicolon");
                 }
                 Some(ParserState::LambdaExpression) => {
-                    if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
-                        self.get_token_kind()
-                    {
-                        debug_i!("End of lambda expression");
-
-                        self.state.pop();
-
-                        if let Some(ParserData::FunctionDef(fake_function_def)) =
-                            self.parser_data.pop()
+                    if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
+                        if let Some(ParserData::LambdaDef(mut lambda_def)) =
+                            self.before_last_parser_data()
                         {
-                            if let Some(ParserData::LambdaDef(mut lambda_def)) =
-                                self.parser_data.pop()
-                            {
-                                if let RASMBody(statements) = fake_function_def.body {
-                                    lambda_def.body = statements;
-
-                                    if let Some(ParserData::FunctionDef(def)) =
-                                        self.last_parser_data()
-                                    {
-                                        if let RASMBody(statements) = &def.body {
-                                            let mut statements = statements.clone();
-                                            statements.push(ASTStatement::Expression(
-                                                ASTExpression::Lambda(lambda_def),
-                                            ));
-
-                                            let mut def = def.clone();
-                                            def.body = ASTFunctionBody::RASMBody(statements);
-                                            let l = self.parser_data.len();
-                                            self.parser_data[l - 1] = ParserData::FunctionDef(def);
-
-                                            self.i += 1;
-                                            continue;
-                                        } else {
-                                            self.panic("Expecting function rasm body");
-                                        }
-                                        // }
-                                    } else {
-                                        self.panic("Expecting function def");
-                                    }
-                                } else {
-                                    self.panic("Expecting fake function rasm body");
-                                }
-                            } else {
-                                self.panic("Expecting lambda def");
+                            if let RASMBody(statements) = def.body {
+                                lambda_def.body = statements;
+                                self.state.pop();
+                                self.state.pop();
+                                self.parser_data.pop();
+                                self.parser_data.pop();
+                                self.parser_data.push(ParserData::Expression(
+                                    ASTExpression::Lambda(lambda_def),
+                                ));
+                                continue;
                             }
-                        } else {
-                            self.panic("Expecting fake function def");
                         }
-                    } else {
-                        self.panic(&format!(
-                            "End of lambda expression, expected semicolon, but got {}",
-                            OptionDisplay(&self.get_token_kind())
-                        ));
                     }
+                    self.panic("Error parsing lambda");
                 }
                 Some(ParserState::Expression) => {
-                    if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
+                    if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
+                        self.state.pop();
+                        continue;
+                    } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
                         self.get_token_kind()
                     {
                         self.state.pop();
@@ -527,11 +484,8 @@ impl Parser {
                         self.i = next_i;
                         continue;
                     } else if let Some((expression, next_i)) = self.try_parse_val() {
-                        self.state.push(ParserState::Val);
-                        self.parser_data.push(ParserData::Val(
-                            expression,
-                            self.get_index(next_i - self.i).unwrap(),
-                        ));
+                        self.parser_data.push(ParserData::Expression(expression));
+                        self.state.pop();
                         self.i = next_i;
                         continue;
                     } else if Some(&TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))
@@ -577,12 +531,16 @@ impl Parser {
                     if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
                         self.state.pop();
                         continue;
-                    } else if let Some(ParserData::Expression(epr)) = self.last_parser_data() {
-                        self.state.pop();
-                        self.parser_data.pop();
-                        self.parser_data
-                            .push(ParserData::Statement(ASTStatement::Expression(epr)));
-                        continue;
+                    } else if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
+                        if let Some(ParserData::Expression(epr)) = self.last_parser_data() {
+                            self.state.pop();
+                            self.parser_data.pop();
+                            self.parser_data
+                                .push(ParserData::Statement(ASTStatement::Expression(epr)));
+                            self.i += 1;
+                            continue;
+                        }
+                        self.panic("Found semicolon without an expression");
                     } else if Some(&TokenKind::Bracket(
                         BracketKind::Brace,
                         BracketStatus::Close,
@@ -648,130 +606,31 @@ impl Parser {
     }
 
     fn process_function_call(&mut self, token: Token) -> ProcessResult {
-        if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
-            if let TokenKind::StringLiteral(value) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(
-                    call,
-                    ASTExpression::StringLiteral(value.clone()),
-                );
-                return ProcessResult::Continue;
-            } else if let TokenKind::CharLiteral(c) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(
-                    call,
-                    ASTExpression::Value(ValueType::Char(*c), self.get_index_from_token(&token)),
-                );
-                return ProcessResult::Continue;
-            } else if let TokenKind::Number(value) = &token.kind {
-                if value.contains('.') {
-                    self.add_parameter_to_call_and_update_parser_data(
-                        call,
-                        ASTExpression::Value(
-                            ValueType::F32(
-                                value.parse().unwrap_or_else(|_| {
-                                    panic!("Cannot parse float number {value}")
-                                }),
-                            ),
-                            self.get_index_from_token(&token),
-                        ),
-                    );
-                } else {
-                    self.add_parameter_to_call_and_update_parser_data(
-                        call,
-                        ASTExpression::Value(
-                            ValueType::I32(
-                                value.parse().unwrap_or_else(|_| {
-                                    panic!("Cannot parse integer number {value}")
-                                }),
-                            ),
-                            self.get_index_from_token(&token),
-                        ),
-                    );
-                }
-                return ProcessResult::Continue;
-            } else if let TokenKind::KeyWord(KeywordKind::True) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(
-                    call,
-                    ASTExpression::Value(
-                        ValueType::Boolean(true),
-                        self.get_index_from_token(&token),
-                    ),
-                );
-                return ProcessResult::Continue;
-            } else if let TokenKind::KeyWord(KeywordKind::False) = &token.kind {
-                self.add_parameter_to_call_and_update_parser_data(
-                    call,
-                    ASTExpression::Value(
-                        ValueType::Boolean(false),
-                        self.get_index_from_token(&token),
-                    ),
-                );
-                return ProcessResult::Continue;
-            } else if let TokenKind::AlphaNumeric(name) = &token.kind {
-                if let Some((function_name, next_i)) = self.try_parse_function_call() {
-                    self.parser_data
-                        .push(ParserData::FunctionCall(ASTFunctionCall {
-                            original_function_name: function_name.clone(),
-                            function_name,
-                            parameters: Vec::new(),
-                            index: self.get_index(0).unwrap(),
-                        }));
-                    self.state.push(ParserState::FunctionCall);
-                    self.i = next_i;
-                } else {
-                    self.add_parameter_to_call_and_update_parser_data(
-                        call,
-                        ASTExpression::ValueRef(name.clone(), self.get_index_from_token(&token)),
-                    );
-                }
-                return ProcessResult::Continue;
-            } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
-                self.i += 1;
-                return ProcessResult::Continue;
-            } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
-                let (parameter_names, next_i) = self.parse_lambda_parameters(1);
-                self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
-                    parameter_names,
-                    body: Vec::new(),
-                }));
-                self.state.push(ParserState::FunctionBody);
-                self.i = next_i;
-                return ProcessResult::Continue;
-            } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind
-            {
-                if let Some(ParserData::FunctionCall(mut before_call)) =
-                    self.before_last_parser_data()
-                {
-                    before_call.parameters.push(ASTFunctionCallExpression(call));
-                    let l = self.parser_data.len();
-                    self.parser_data[l - 2] = ParserData::FunctionCall(before_call);
-                    self.parser_data.pop();
-                    self.state.pop();
-                    self.i += 1;
-                    return ProcessResult::Continue;
-                } else {
-                    self.parser_data.pop();
-                    self.state.pop();
-                    self.parser_data.push(ParserData::Expression(
-                        ASTExpression::ASTFunctionCallExpression(call),
-                    ));
-                    self.i += 1;
-                    return ProcessResult::Continue;
-                }
-            }
-        } else if let Some(ParserData::LambdaDef(def)) = self.last_parser_data() {
-            if let Some(ParserData::FunctionCall(mut call)) = self.before_last_parser_data() {
-                call.parameters.push(ASTExpression::Lambda(def));
-                let l = self.parser_data.len();
-                self.parser_data[l - 2] = ParserData::FunctionCall(call);
+        if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
+            return ProcessResult::Next;
+        } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+            if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
                 self.parser_data.pop();
-                return ProcessResult::Continue;
+                self.add_parameter_to_call_and_update_parser_data(call, expr);
+            } else {
+                self.panic("expected function call");
             }
+            return ProcessResult::Continue;
+        } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
+            if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
+                self.state.pop();
+                self.parser_data.pop();
+                self.parser_data.push(ParserData::Expression(
+                    ASTExpression::ASTFunctionCallExpression(call),
+                ));
+                return ProcessResult::Next;
+            } else {
+                self.panic("expected function call");
+            }
+        } else {
+            self.state.push(ParserState::Expression);
+            return ProcessResult::Continue;
         }
-        ProcessResult::Panic(format!(
-            "unexpected kind: {} or last data {} processing function call",
-            token.kind,
-            OptionDisplay(&self.last_parser_data())
-        ))
     }
 
     fn process_function_def(&mut self, token: Token) -> ProcessResult {
@@ -833,7 +692,6 @@ impl Parser {
         call.parameters.push(ast_expression);
         let l = self.parser_data.len();
         self.parser_data[l - 1] = ParserData::FunctionCall(call);
-        self.i += 1;
     }
 
     pub fn print(module: &ASTModule) {
@@ -1059,11 +917,20 @@ impl Parser {
                 self.get_i() + 1,
             ));
         } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
+            let value = if n.contains('.') {
+                ValueType::F32(
+                    n.parse()
+                        .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an f32")),
+                )
+            } else {
+                ValueType::I32(
+                    n.parse()
+                        .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an i32")),
+                )
+            };
+
             return Some((
-                ASTExpression::Value(
-                    ValueType::I32(n.parse().unwrap()),
-                    self.get_index(0).unwrap(),
-                ),
+                ASTExpression::Value(value, self.get_index(0).unwrap()),
                 self.get_i() + 1,
             ));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
