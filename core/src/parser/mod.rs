@@ -142,140 +142,10 @@ impl Parser {
 
             match self.get_state() {
                 None => {
-                    if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
-                        self.body.push(stmt);
-                        self.parser_data.pop();
+                    if self.process_none(path, std_path, &token) {
                         continue;
-                    } else if let TokenKind::EndOfLine = token.kind {
-                        break;
-                    } else if !self.parser_data.is_empty() {
-                        self.panic("Error");
-                    } else if let Some((name, generic_types, next_i)) =
-                        self.try_parse_function_def()
-                    {
-                        self.parser_data
-                            .push(ParserData::FunctionDef(ASTFunctionDef {
-                                original_name: name.clone(),
-                                name,
-                                parameters: Vec::new(),
-                                body: RASMBody(Vec::new()),
-                                return_type: None,
-                                inline: false,
-                                generic_types,
-                                resolved_generic_types: LinkedHashMap::new(),
-                            }));
-                        self.state.push(ParserState::FunctionDef);
-                        self.state.push(ParserState::FunctionDefParameter);
-                        self.i = next_i;
-                        continue;
-                    } else if let Some((name, inline, param_types, next_i)) =
-                        AsmDefParser::new(self).try_parse()
-                    {
-                        self.parser_data
-                            .push(ParserData::FunctionDef(ASTFunctionDef {
-                                original_name: name.clone(),
-                                name,
-                                parameters: Vec::new(),
-                                body: ASMBody("".into()),
-                                return_type: None,
-                                inline,
-                                generic_types: param_types,
-                                resolved_generic_types: LinkedHashMap::new(),
-                            }));
-                        self.state.push(ParserState::FunctionDef);
-                        self.state.push(ParserState::FunctionDefParameter);
-                        self.i = next_i;
-                        continue;
-                    } else if let Some((resource, next_i)) = self.try_parse_include() {
-                        let mut buf = path.with_file_name(&resource);
-                        // First we try to get it relative to the current file,
-                        // then we try to get the file from the standard lib folder
-                        if !buf.exists() {
-                            buf = std_path.join(Path::new(&resource));
-                        }
-                        info!("include {}", buf.as_path().to_str().unwrap());
-
-                        let resource_path = buf.as_path();
-
-                        match Lexer::from_file(resource_path) {
-                            Ok(lexer) => {
-                                let mut parser = Parser::new(
-                                    lexer,
-                                    resource_path.to_str().map(|it| it.to_string()),
-                                );
-                                let mut module = parser.parse(resource_path, std_path);
-                                if !module.body.is_empty() {
-                                    self.panic(&format!(
-                                        "Cannot include a module with a body: {:?}.",
-                                        module.body
-                                    ));
-                                }
-                                self.included_functions.append(&mut module.functions);
-                                self.enums.append(&mut module.enums);
-                                self.structs.append(&mut module.structs);
-                                self.requires.extend(module.requires);
-                                self.externals.extend(module.externals);
-                                self.types.extend(module.types);
-                            }
-                            Err(err) => {
-                                self.panic(&format!(
-                                    "Error running lexer for {:?}: {err}",
-                                    resource_path.to_str()
-                                ));
-                            }
-                        }
-
-                        self.i = next_i;
-                        continue;
-                    } else if let Some((name, type_params, next_i)) =
-                        EnumParser::new(self).try_parse()
-                    {
-                        self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
-                            name,
-                            type_parameters: type_params,
-                            variants: Vec::new(),
-                        }));
-                        self.state.push(ParserState::EnumDef);
-                        self.i = next_i;
-                        continue;
-                    } else if let Some((name, type_params, next_i)) =
-                        StructParser::new(self).try_parse()
-                    {
-                        self.parser_data.push(ParserData::StructDef(ASTStructDef {
-                            name,
-                            type_parameters: type_params,
-                            properties: Vec::new(),
-                        }));
-                        self.state.push(StructDef);
-                        self.i = next_i;
-                        continue;
-                    } else if let TokenKind::KeyWord(KeywordKind::Requires) = token.kind {
-                        if let Some(TokenKind::StringLiteral(name)) = &self.get_token_kind_n(1) {
-                            self.requires.insert(name.clone());
-                            self.i += 2;
-                            continue;
-                        }
-                        self.panic("Cannot parse require")
-                    } else if let TokenKind::KeyWord(KeywordKind::Extern) = token.kind {
-                        if let Some(TokenKind::StringLiteral(name)) = self.get_token_kind_n(1) {
-                            self.externals.insert(name.clone());
-                            self.i += 2;
-                            continue;
-                        }
-                        self.panic("Cannot parse external")
-                    } else if let TokenKind::KeyWord(KeywordKind::Type) = token.kind {
-                        let (type_def, next_i) = self.parse_type_def();
-                        let token = self.get_token_kind_n(next_i - self.i);
-                        if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
-                            self.types.push(type_def);
-                            self.i = next_i + 1;
-                            continue;
-                        } else {
-                            self.panic(&format!("Missing semicolon, got {:?}", token))
-                        }
                     } else {
-                        self.state.push(ParserState::Statement);
-                        continue;
+                        break;
                     }
                 }
                 Some(ParserState::FunctionCall) => {
@@ -411,6 +281,132 @@ impl Parser {
             externals: self.externals.clone(),
             types: self.types.clone(),
         }
+    }
+
+    ///
+    /// returns true if the parser must continue
+    ///
+    fn process_none(&mut self, path: &Path, std_path: &Path, token: &Token) -> bool {
+        if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
+            self.body.push(stmt);
+            self.parser_data.pop();
+        } else if let TokenKind::EndOfLine = token.kind {
+            return false;
+        } else if !self.parser_data.is_empty() {
+            self.panic("Error");
+        } else if let Some((name, generic_types, next_i)) = self.try_parse_function_def() {
+            self.parser_data
+                .push(ParserData::FunctionDef(ASTFunctionDef {
+                    original_name: name.clone(),
+                    name,
+                    parameters: Vec::new(),
+                    body: RASMBody(Vec::new()),
+                    return_type: None,
+                    inline: false,
+                    generic_types,
+                    resolved_generic_types: LinkedHashMap::new(),
+                }));
+            self.state.push(ParserState::FunctionDef);
+            self.state.push(ParserState::FunctionDefParameter);
+            self.i = next_i;
+        } else if let Some((name, inline, param_types, next_i)) =
+            AsmDefParser::new(self).try_parse()
+        {
+            self.parser_data
+                .push(ParserData::FunctionDef(ASTFunctionDef {
+                    original_name: name.clone(),
+                    name,
+                    parameters: Vec::new(),
+                    body: ASMBody("".into()),
+                    return_type: None,
+                    inline,
+                    generic_types: param_types,
+                    resolved_generic_types: LinkedHashMap::new(),
+                }));
+            self.state.push(ParserState::FunctionDef);
+            self.state.push(ParserState::FunctionDefParameter);
+            self.i = next_i;
+        } else if let Some((resource, next_i)) = self.try_parse_include() {
+            let mut buf = path.with_file_name(&resource);
+            // First we try to get it relative to the current file,
+            // then we try to get the file from the standard lib folder
+            if !buf.exists() {
+                buf = std_path.join(Path::new(&resource));
+            }
+            info!("include {}", buf.as_path().to_str().unwrap());
+
+            let resource_path = buf.as_path();
+
+            match Lexer::from_file(resource_path) {
+                Ok(lexer) => {
+                    let mut parser =
+                        Parser::new(lexer, resource_path.to_str().map(|it| it.to_string()));
+                    let mut module = parser.parse(resource_path, std_path);
+                    if !module.body.is_empty() {
+                        self.panic(&format!(
+                            "Cannot include a module with a body: {:?}.",
+                            module.body
+                        ));
+                    }
+                    self.included_functions.append(&mut module.functions);
+                    self.enums.append(&mut module.enums);
+                    self.structs.append(&mut module.structs);
+                    self.requires.extend(module.requires);
+                    self.externals.extend(module.externals);
+                    self.types.extend(module.types);
+                }
+                Err(err) => {
+                    self.panic(&format!(
+                        "Error running lexer for {:?}: {err}",
+                        resource_path.to_str()
+                    ));
+                }
+            }
+
+            self.i = next_i;
+        } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
+            self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
+                name,
+                type_parameters: type_params,
+                variants: Vec::new(),
+            }));
+            self.state.push(ParserState::EnumDef);
+            self.i = next_i;
+        } else if let Some((name, type_params, next_i)) = StructParser::new(self).try_parse() {
+            self.parser_data.push(ParserData::StructDef(ASTStructDef {
+                name,
+                type_parameters: type_params,
+                properties: Vec::new(),
+            }));
+            self.state.push(StructDef);
+            self.i = next_i;
+        } else if let TokenKind::KeyWord(KeywordKind::Requires) = token.kind {
+            if let Some(TokenKind::StringLiteral(name)) = &self.get_token_kind_n(1) {
+                self.requires.insert(name.clone());
+                self.i += 2;
+            } else {
+                self.panic("Cannot parse require");
+            }
+        } else if let TokenKind::KeyWord(KeywordKind::Extern) = token.kind {
+            if let Some(TokenKind::StringLiteral(name)) = self.get_token_kind_n(1) {
+                self.externals.insert(name.clone());
+                self.i += 2;
+            } else {
+                self.panic("Cannot parse external");
+            }
+        } else if let TokenKind::KeyWord(KeywordKind::Type) = token.kind {
+            let (type_def, next_i) = self.parse_type_def();
+            let token = self.get_token_kind_n(next_i - self.i);
+            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
+                self.types.push(type_def);
+                self.i = next_i + 1;
+            } else {
+                self.panic(&format!("Missing semicolon, got {:?}", token))
+            }
+        } else {
+            self.state.push(ParserState::Statement);
+        }
+        true
     }
 
     fn process_statement(&mut self, token: Token) {
