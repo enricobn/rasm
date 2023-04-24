@@ -15,14 +15,14 @@ let l = Loop(
         if(greater(time, 5),
             { -> NoneModel();},
             { ->
-                let x = Model::x(model);
-                let y = Model::y(model);
+                let x = x(model);
+                let y = y(model);
                 Option::Some(Model(add(x, 1), add(y, 1)));
             });
     },
     { model ->
-        let x = Model::x(model);
-        let y = Model::y(model);
+        let x = x(model);
+        let y = y(model);
         print(x);
         print(",");
         println(y);
@@ -32,8 +32,8 @@ let l = Loop(
 loop(0, Model(0, 0), l);
 
 fn loop<T>(time: i32, model: T, l: Loop<T>) {
-    let update = Loop::update(l);
-    let render = Loop::render(l);
+    let update = update(l);
+    let render = render(l);
     let result = update(time, model);
     run(result, { newModel -> render(newModel); loop(add(time, 1), newModel, l);}, { -> });
 }

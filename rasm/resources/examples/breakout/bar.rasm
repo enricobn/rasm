@@ -5,11 +5,11 @@ struct Bar {
 }
 
 fn update(bar: Bar, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
-    let barLastUpdate = Bar::lastUpdate(bar);
+    let barLastUpdate = lastUpdate(bar);
     let elapsed = elapsedTime(actualTime, barLastUpdate);
 
-    let barPos = Bar::x(bar);
-    let velocity = Bar::velocity(bar);
+    let barPos = x(bar);
+    let velocity = velocity(bar);
 
     let left = negate(count(keys, { k -> eq(k, 80);}));
     let right = count(keys, { k -> eq(k, 79);});

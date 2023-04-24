@@ -29,17 +29,17 @@ fn initialWorld() -> World {
 }
 
 fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
-    let stage = GameState::stage(gameState);
-    let world = GameState::world(gameState);
+    let stage = stage(gameState);
+    let world = world(gameState);
 
     let newGameState = match(stage, { -> gameState;}, { ->
         let newWorld = update(resources, keys, world);
         GameState(stage, newWorld);
     });
 
-    let newWorld = GameState::world(newGameState);
-    let lives = World::lives(newWorld);
-    let score = World::score(newWorld);
+    let newWorld = world(newGameState);
+    let lives = lives(newWorld);
+    let score = score(newWorld);
 
     if(eq(lives, 0) { -> GameResult::End(score);} { -> GameResult::Play(newGameState);});
 }
@@ -48,13 +48,13 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     // println(time());
     // sleep(0, 1500);
     let actualTime = now();
-    let score = World::score(world);
-    let lives = World::lives(world);
+    let score = score(world);
+    let lives = lives(world);
 
-    let newBar = update(World::bar(world), actualTime, keys);
+    let newBar = update(bar(world), actualTime, keys);
 
-    let bricks = World::bricks(world);
-    let ball = World::ball(world);
+    let bricks = bricks(world);
+    let ball = ball(world);
     let newBall = update(ball, actualTime);
 
     let collision = collision(bricks, newBall);
@@ -62,18 +62,18 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     let newScore = match(collision, { b -> add(score, 10);}, { -> score;});
 
     let newBricks = match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
-    let barPos = Bar::x(newBar);
+    let barPos = x(newBar);
 
     if(collides(newBall, barPos), { ->
-        let x = Ball::x(ball);
-        let y = Ball::y(ball);
-        let xDir = Ball::xDir(ball);
-        let yDir = Ball::yDir(ball);
+        let x = x(ball);
+        let y = y(ball);
+        let xDir = xDir(ball);
+        let yDir = yDir(ball);
 
         let newBall2 = update(Ball(x, y, xDir, flip(yDir), actualTime), actualTime);
         World(newBricks, newBall2, newBar, newScore, lives);
     }, { ->
-        let y = Ball::y(ball);
+        let y = y(ball);
 
         match(collision, { brick ->
             let newBall2 = ballAfterCollision(ball, brick);
@@ -94,8 +94,8 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
 }
 
 fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
-    let stage = GameState::stage(gameState);
-    let world = GameState::world(gameState);
+    let stage = stage(gameState);
+    let world = world(gameState);
 
     run(stage, { -> }, { ->
         render(ren, resources, world);
@@ -103,15 +103,15 @@ fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 }
 
 fn render(ren: SDLRenderer, resources: Resources, world: World) {
-    let font = Resources::font(resources);
-    let bricks = World::bricks(world);
-    let score = World::score(world);
-    let lives = World::lives(world);
+    let font = font(resources);
+    let bricks = bricks(world);
+    let score = score(world);
+    let lives = lives(world);
 
     forEach(bricks, { brick ->
-        let x = Brick::x(brick);
-        let y = Brick::y(brick);
-        let color = Brick::color(brick);
+        let x = x(brick);
+        let y = y(brick);
+        let color = color(brick);
 
         sdlSetRenderDrawColor(ren, color);
 
@@ -119,14 +119,14 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     });
 
     sdlSetRenderDrawColor(ren, WHITE);
-    let bar = World::bar(world);
-    let barPos = Bar::x(bar);
+    let bar = bar(world);
+    let barPos = x(bar);
 
     sdlRenderFillRect(ren, SDLRect(toi32(barPos, 0), sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
 
-    let ball = World::ball(world);
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
+    let ball = ball(world);
+    let x = x(ball);
+    let y = y(ball);
 
     sdlRenderFillRect(ren, SDLRect(toi32(x, 0), toi32(y, 0), BALLSIZE, BALLSIZE));
 

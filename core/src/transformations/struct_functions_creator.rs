@@ -37,10 +37,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTM
         for (i, property_def) in struct_def.properties.iter().enumerate() {
             let property_function =
                 create_function_for_struct_property(backend, struct_def, property_def, i);
-            module.add_function(
-                struct_def.name.clone() + "::" + &property_def.name.clone(),
-                property_function,
-            );
+            module.add_function(property_def.name.clone(), property_function);
         }
 
         let function_def = ASTFunctionDef {
@@ -138,10 +135,10 @@ fn create_function_for_struct_property(
         .map(|it| ASTType::Generic(it.into()))
         .collect();
 
-    let name = struct_def.name.clone() + "_" + &property_def.name;
+    let name = &property_def.name;
     ASTFunctionDef {
         original_name: name.clone(),
-        name,
+        name: name.clone(),
         parameters: vec![ASTParameterDef {
             name: "v".into(),
             ast_type: ASTType::Custom {

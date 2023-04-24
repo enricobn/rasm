@@ -72,8 +72,8 @@ fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
 fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
     let es = enumerate(vec);
 
-    let filtered = filter(es, { e -> less(EnumerateEntry::index(e), count);});
+    let filtered = filter(es, { e -> less(index(e), count);});
 
-    map(filtered, { e -> EnumerateEntry::value(e);});
+    map(filtered, { e -> value(e);});
 }
 

@@ -11,12 +11,12 @@ fn initialBall(now: TimeVal) -> Ball {
 }
 
 fn update(ball: Ball, actualTime: TimeVal) -> Ball {
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
-    let xDir = Ball::xDir(ball);
-    let yDir = Ball::yDir(ball);
+    let x = x(ball);
+    let y = y(ball);
+    let xDir = xDir(ball);
+    let yDir = yDir(ball);
 
-    let lastUpdate = Ball::lastUpdate(ball);
+    let lastUpdate = lastUpdate(ball);
     let elapsed = elapsedTime(actualTime, lastUpdate);
 
     let diff = divf(elapsed, 3000);
@@ -31,11 +31,11 @@ fn update(ball: Ball, actualTime: TimeVal) -> Ball {
 }
 
 fn collides(ball: Ball, brick: Brick) -> bool {
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
+    let x = x(ball);
+    let y = y(ball);
 
-    let bx = Brick::x(brick);
-    let by = Brick::y(brick);
+    let bx = x(brick);
+    let by = y(brick);
 
     let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BRICKWIDTH)));
     let yColl = and(greater(add(y, BALLSIZE), by), less(y, add(by, BRICKHEIGHT)));
@@ -44,8 +44,8 @@ fn collides(ball: Ball, brick: Brick) -> bool {
 }
 
 fn collides(ball: Ball, barPos: f32) -> bool {
-    let x = Ball::x(ball);
-    let y = Ball::y(ball);
+    let x = x(ball);
+    let y = y(ball);
     let bx = barPos;
     let by = sub(HEIGHT, BARHEIGHT);
 
@@ -56,14 +56,14 @@ fn collides(ball: Ball, barPos: f32) -> bool {
 }
 
 fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
-    let ballX = Ball::x(ball);
-    let ballY = Ball::y(ball);
-    let xDir = Ball::xDir(ball);
-    let yDir = Ball::yDir(ball);
-    let lastUpdate = Ball::lastUpdate(ball);
+    let ballX = x(ball);
+    let ballY = y(ball);
+    let xDir = xDir(ball);
+    let yDir = yDir(ball);
+    let lastUpdate = lastUpdate(ball);
 
-    let brickX = Brick::x(brick);
-    let brickY = Brick::y(brick);
+    let brickX = x(brick);
+    let brickY = y(brick);
 
     let xDiff1 = sub(ballX, brickX);
     let xDiff2 = sub(add(brickX, BRICKWIDTH), ballX);

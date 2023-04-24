@@ -17,24 +17,24 @@ fn allCells(width: i32, height: i32) -> Vec<FullCell> {
 }
 
 fn moveCells(cells: Vec<Cell>, d: i32) -> Vec<Cell> {
-    map(cells, { it -> Cell(add(Cell::x(it), d), add(Cell::y(it), d)); });
+    map(cells, { it -> Cell(add(x(it), d), add(y(it), d)); });
 }
 
 fn next(cells: Vec<Cell>, allCells: Vec<FullCell>) -> Vec<Cell> {
     let result = map(filter(allCells, { it ->
-        let adjsAlive = count(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
-        let cell = FullCell::cell(it);
+        let adjsAlive = count(adjacents(it),  { a -> isAlive(cells, a); });
+        let cell = cell(it);
         ifImmediate(isAlive(cells, cell),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         );
-    }), { it -> FullCell::cell(it);});
+    }), { it -> cell(it);});
     result;
 }
 
 fn adjacents(cell: Cell) -> Vec<Cell> {
-    let x = Cell::x(cell);
-    let y = Cell::y(cell);
+    let x = x(cell);
+    let y = y(cell);
 
     let left = add(x, -1);
     let right = add(x, 1);
@@ -55,11 +55,11 @@ fn adjacents(cell: Cell) -> Vec<Cell> {
 
 /** false = 0 true = any other value **/
 fn isAlive(cells: Vec<Cell>, cell: Cell) -> bool {
-    let x = Cell::x(cell);
-    let y = Cell::y(cell);
+    let x = x(cell);
+    let y = y(cell);
 
     anyMatch(cells, { it ->
-        and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
+        and(eq(x, x(it)), eq(y, y(it)));
     });
 }
 
@@ -71,14 +71,14 @@ fn readCellFile(file: str) -> Vec<Cell> {
 }
 
 fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
-    let y = EnumerateEntry::index(line);
-    let lineStr = EnumerateEntry::value(line);
+    let y = index(line);
+    let lineStr = value(line);
 
     map(filter(listEnumerate(chars(lineStr)), { cell ->
-        let cellStr = EnumerateEntry::value(cell);
+        let cellStr = value(cell);
 
         match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> false;});
-    }), { cell -> Cell(EnumerateEntry::index(cell), y); });
+    }), { cell -> Cell(index(cell), y); });
 }
 
 fn filterLines(lines: List<str>) -> List<str> {
@@ -89,9 +89,9 @@ fn filterLines(lines: List<str>) -> List<str> {
 
 fn printCellsPlain(cells: Vec<Cell>) {
     forEach(cells, { cell ->
-        print(Cell::x(cell));
+        print(x(cell));
         print(",");
-        print(Cell::y(cell));
+        print(y(cell));
         print(" ");
     });
 
@@ -100,10 +100,10 @@ fn printCellsPlain(cells: Vec<Cell>) {
 
 fn printAllCellsPlain(cells: Vec<FullCell>) {
     forEach(cells, { fullCell ->
-        let cell = FullCell::cell(fullCell);
-        print(Cell::x(cell));
+        let cell = cell(fullCell);
+        print(x(cell));
         print(",");
-        print(Cell::y(cell));
+        print(y(cell));
         print(" ");
     });
 

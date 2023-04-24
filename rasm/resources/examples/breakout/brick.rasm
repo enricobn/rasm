@@ -5,11 +5,11 @@ struct Brick {
 }
 
 fn eq(b1: Brick, b2: Brick) -> bool {
-    let b1x = Brick::x(b1);
-    let b1y = Brick::y(b1);
+    let b1x = x(b1);
+    let b1y = y(b1);
 
-    let b2x = Brick::x(b2);
-    let b2y = Brick::y(b2);
+    let b2x = x(b2);
+    let b2y = y(b2);
 
     and(eq(b1x, b2x), eq(b1y, b2y));
 }

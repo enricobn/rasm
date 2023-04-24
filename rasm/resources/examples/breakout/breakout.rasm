@@ -70,14 +70,14 @@ sdlDestroyRenderer(ren);
 sdlDestroyWindow(win);
 
 fn update(event: Option<KeyEvent>, state: State) -> State {
-    let resources = State::resources(state);
-    let keys = State::keys(state);
-    let stage = State::stage(state);
-    let highScores = State::highScores(state);
+    let resources = resources(state);
+    let keys = keys(state);
+    let stage = stage(state);
+    let highScores = highScores(state);
 
     let newKeys = match(event, { e ->
-          let key = KeyEvent::key(e);
-          let keyState = KeyEvent::state(e);
+          let key = key(e);
+          let keyState = state(e);
 
           match(keyState, { ->
             vecOf(key);
@@ -110,8 +110,8 @@ fn render(ren: SDLRenderer, state: State) {
     sdlSetRenderDrawColor(ren, BLACK);
     sdlRenderClear(ren);
 
-    let resources = State::resources(state);
-    let stage = State::stage(state);
+    let resources = resources(state);
+    let stage = stage(state);
 
     run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
 
@@ -132,8 +132,8 @@ fn loadHighScores() -> Vec<HighScore> {
 
 fn printHighScores(highScores: Vec<HighScore>) {
     forEach(highScores, { highScore ->
-        let score = HighScore::score(highScore);
-        let time = HighScore::time(highScore);
+        let score = score(highScore);
+        let time = time(highScore);
         print("high score ", score);
         print(", ");
         println(time);
@@ -144,10 +144,10 @@ fn writeHighScores(highScores: Vec<HighScore>) {
     let file = createFile("scores.txt");
 
     forEach(highScores, { it ->
-        let score = HighScore::score(it);
-        let time = HighScore::time(it);
-        let sec = TimeVal::sec(time);
-        let nano = TimeVal::nano(time);
+        let score = score(it);
+        let time = time(it);
+        let sec = sec(time);
+        let nano = nano(time);
 
         print(file, score);
         print(file, ",");
@@ -161,8 +161,8 @@ fn writeHighScores(highScores: Vec<HighScore>) {
 }
 
 fn print(highScore: HighScore) {
-    let score = HighScore::score(highScore);
-    let time = HighScore::time(highScore);
+    let score = score(highScore);
+    let time = time(highScore);
     print(score);
     print(", ");
     println(time);
@@ -184,9 +184,9 @@ fn splitToList(s: str, separator: str) -> List<str> {
 
 fn findChar(chars: List<EnumerateEntry<str>>, c: str) -> Option<i32> {
     let o = first(filter(chars, { it ->
-        let currentChar = EnumerateEntry::value(it);
+        let currentChar = value(it);
         seq(currentChar, c);
     }));
 
-    match(o, { entry -> Option::Some(EnumerateEntry::index(entry));}, { -> Option::None();});
+    match(o, { entry -> Option::Some(index(entry));}, { -> Option::None();});
 }

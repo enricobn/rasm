@@ -7,9 +7,9 @@ println(listReverse(range(0, atoi(argv(1)))));
 println(count(listOf(1, 5, 3, 8, 4, 2), { it -> less(it, 5); }));
 
 println(listEnumerate(listOf("A", "B")), { it ->
-    print(EnumerateEntry::index(it));
+    print(index(it));
     print("-");
-    print(EnumerateEntry::value(it));
+    print(value(it));
 });
 
 println(get(listOf(10, 20), 1));

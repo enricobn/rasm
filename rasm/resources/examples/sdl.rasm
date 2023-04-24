@@ -138,7 +138,7 @@ asm sdlQuit() /{
 }/
 
 fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
-    sdlSetRenderDrawColor(ren, SDLColor::r(color), SDLColor::g(color), SDLColor::b(color), SDLColor::a(color));
+    sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
 }
 
 asm sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
@@ -256,7 +256,7 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
     let event = keyEvent();
 
     run(event, { keyEvent ->
-        let key = KeyEvent::key(keyEvent);
+        let key = key(keyEvent);
         ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
     }, { -> });
 
@@ -386,12 +386,12 @@ fn createSDLText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) ->
 }
 
 fn render(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
-    sdlRenderText(ren, SDLText::texture(text), rect);
+    sdlRenderText(ren, texture(text), rect);
 }
 
 fn release(text: SDLText) {
-    release(SDLText::texture(text));
-    release(SDLText::surface(text));
+    release(texture(text));
+    release(surface(text));
 }
 
 fn release(texture: SDLTexture) {

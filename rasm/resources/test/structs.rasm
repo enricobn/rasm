@@ -8,7 +8,7 @@ struct Point {
 printPoint(Point(10, 20));
 
 fn printPoint(point: Point) {
-    print(Point::x(point));
+    print(x(point));
     print(", ");
-    println(Point::y(point));
+    println(y(point));
 }

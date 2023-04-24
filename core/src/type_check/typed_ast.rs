@@ -1231,7 +1231,16 @@ pub fn get_type_of_typed_expression(
                             let ast_typed_type = module
                                 .functions_by_name
                                 .get(&call.function_name.replace("::", "_"))
-                                .unwrap()
+                                .unwrap_or_else(|| {
+                                    module
+                                        .functions_by_name
+                                        .iter()
+                                        .for_each(|it| println!("{}/{}", it.0, it.1.name));
+                                    panic!(
+                                        "cannot find function {} : {}",
+                                        call.function_name, call.index
+                                    )
+                                })
                                 .return_type
                                 .clone()
                                 .unwrap();

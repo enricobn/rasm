@@ -15,7 +15,7 @@ use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
-use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType};
+use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType, BuiltinTypeKind};
 use crate::transformations::enum_functions_creator::enum_functions_creator;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
@@ -135,6 +135,29 @@ impl ValContext {
 
     pub fn names(&self) -> Vec<&String> {
         self.value_to_address.keys().collect()
+    }
+
+    pub fn is_lambda(&self, key: &str) -> bool {
+        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                return_type: _,
+                parameters: _,
+            }) = &par.ast_type
+            {
+                return true;
+            }
+        }
+
+        if let Some(ValKind::LetRef(_i, ast_type)) = self.get(key) {
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                return_type: _,
+                parameters: _,
+            }) = ast_type
+            {
+                return true;
+            }
+        }
+        false
     }
 }
 

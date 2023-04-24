@@ -11,32 +11,32 @@ fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
 }
 
 fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
-    let font = Resources::font(resources);
+    let font = font(resources);
 
     let title = createSDLText(ren, font, "Rasm BREAKOUT", GREEN);
     render(ren, title, SDLRect(380, 200, 200, 24));
     release(title);
 
-    let highScores = take(sort(MenuState::highScores(menuState), { h1, h2 ->
-        let s1 = HighScore::score(h1);
-        let s2 = HighScore::score(h2);
+    let highScores = take(sort(highScores(menuState), { h1, h2 ->
+        let s1 = score(h1);
+        let s2 = score(h2);
         cmp(s2, s1);
     }), 10);
 
-    let last = first(sort(MenuState::highScores(menuState), { h1, h2 ->
-         let t1 = HighScore::time(h1);
-         let t2 = HighScore::time(h2);
+    let last = first(sort(highScores(menuState), { h1, h2 ->
+         let t1 = time(h1);
+         let t2 = time(h2);
          cmp(t2, t1);
      }));
 
     forEach(enumerate(highScores), { enumerateEntry ->
-        let index = EnumerateEntry::index(enumerateEntry);
-        let highScore = EnumerateEntry::value(enumerateEntry);
-        let score = HighScore::score(highScore);
-        let time = HighScore::time(highScore);
+        let index = index(enumerateEntry);
+        let highScore = value(enumerateEntry);
+        let score = score(highScore);
+        let time = time(highScore);
 
         let color = match(last, { h ->
-            let lastTime = HighScore::time(h);
+            let lastTime = time(h);
             ifImmediate(eq(lastTime, time), YELLOW, BLUE);
         }, { -> BLUE;});
 

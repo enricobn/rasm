@@ -17,22 +17,22 @@ fn allCells(width: i32, height: i32) -> List<FullCell> {
 }
 
 fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
-    map(cells, { it -> Cell(add(Cell::x(it), d), add(Cell::y(it), d)); });
+    map(cells, { it -> Cell(add(x(it), d), add(y(it), d)); });
 }
 
 fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
     map(filter(allCells, { it ->
-        let adjsAlive = count(FullCell::adjacents(it),  { a -> isAlive(cells, a); });
-        ifImmediate(isAlive(cells, FullCell::cell(it)),
+        let adjsAlive = count(adjacents(it),  { a -> isAlive(cells, a); });
+        ifImmediate(isAlive(cells, cell(it)),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         );
-    }), { it -> FullCell::cell(it);});
+    }), { it -> cell(it);});
 }
 
 fn adjacents(cell: Cell) -> List<Cell> {
-    let x = Cell::x(cell);
-    let y = Cell::y(cell);
+    let x = x(cell);
+    let y = y(cell);
 
     let left = add(x, -1);
     let right = add(x, 1);
@@ -53,11 +53,11 @@ fn adjacents(cell: Cell) -> List<Cell> {
 
 /** false = 0 true = any other value **/
 fn isAlive(cells: List<Cell>, cell: Cell) -> bool {
-    let x = Cell::x(cell);
-    let y = Cell::y(cell);
+    let x = x(cell);
+    let y = y(cell);
 
     anyMatch(cells, { it ->
-        and(eq(x, Cell::x(it)), eq(y, Cell::y(it)));
+        and(eq(x, x(it)), eq(y, y(it)));
     });
 }
 
@@ -68,14 +68,14 @@ fn readCellFile(file: str) -> List<Cell> {
 }
 
 fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
-    let y = EnumerateEntry::index(line);
-    let lineStr = EnumerateEntry::value(line);
+    let y = index(line);
+    let lineStr = value(line);
 
     map(filter(listEnumerate(chars(lineStr)), { cell ->
-        let cellStr = EnumerateEntry::value(cell);
+        let cellStr = value(cell);
 
         match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> false;});
-    }), { cell -> Cell(EnumerateEntry::index(cell), y); });
+    }), { cell -> Cell(index(cell), y); });
 }
 
 fn filterLines(lines: List<str>) -> List<str> {

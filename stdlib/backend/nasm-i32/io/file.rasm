@@ -13,9 +13,9 @@ struct FileMode {
 }
 
 fn fileMode(f: FileMode) -> i32 {
-    let user = FileMode::user(f);
-    let group = FileMode::group(f);
-    let others = FileMode::others(f);
+    let user = user(f);
+    let group = group(f);
+    let others = others(f);
 
     add(add(mul(64, filePermissions(user)), mul(8, filePermissions(group))), filePermissions(others));
 }

@@ -697,7 +697,7 @@ pub fn convert_call(
 
     indent!();
 
-    if context.get(&call.function_name).is_some() {
+    if context.is_lambda(&call.function_name) {
         debug_i!("found function in context parameters");
         dedent!();
         return Ok(NothingToConvert);
@@ -1021,7 +1021,7 @@ pub fn convert_call(
                         } else {
                             panic!("A Void result is not supported");
                         }
-                    } else if context.get(&call.function_name).is_some() {
+                    } else if context.is_lambda(&call.function_name) {
                         if let Ok(Some(ast_type)) = get_type_of_expression(
                             module,
                             context,
@@ -1850,21 +1850,21 @@ fn get_type_of_call(
             parameters: _,
         }) = &par.ast_type
         {
-            Ok(return_type.clone().map(|it| it.as_ref().clone()))
-        } else {
-            Err("Expected a lambda".into())
+            return Ok(return_type.clone().map(|it| it.as_ref().clone()));
         }
-    } else if let Some(ValKind::LetRef(_i, ast_type)) = context.get(&call.function_name) {
+    }
+
+    if let Some(ValKind::LetRef(_i, ast_type)) = context.get(&call.function_name) {
         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
             return_type,
             parameters: _,
         }) = ast_type
         {
-            Ok(return_type.clone().map(|it| it.as_ref().clone()))
-        } else {
-            Err("Expected a lambda".into())
+            return Ok(return_type.clone().map(|it| it.as_ref().clone()));
         }
-    } else if let Some((function, _)) = get_called_function(
+    }
+
+    if let Some((function, _)) = get_called_function(
         module,
         context,
         call,

@@ -20,17 +20,17 @@ asm now() -> TimeVal /{
 }/
 
 fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
-    let secA = TimeVal::sec(actual);
-    let nanoA = TimeVal::nano(actual);
-    let secP = TimeVal::sec(previous);
-    let nanoP = TimeVal::nano(previous);
+    let secA = sec(actual);
+    let nanoA = nano(actual);
+    let secP = sec(previous);
+    let nanoP = nano(previous);
 
     add(mul(1000000, sub(secA, secP)), sub(nanoA, nanoP));
 }
 
 fn print(timeVal: TimeVal) {
-    let sec = TimeVal::sec(timeVal);
-    let nano = TimeVal::nano(timeVal);
+    let sec = sec(timeVal);
+    let nano = nano(timeVal);
     print("sec=");
     print(sec);
     print(" nano=");
@@ -38,21 +38,21 @@ fn print(timeVal: TimeVal) {
 }
 
 fn less(t1: TimeVal, t2: TimeVal) -> bool {
-    let sec1 = TimeVal::sec(t1);
-    let nano1 = TimeVal::nano(t1);
+    let sec1 = sec(t1);
+    let nano1 = nano(t1);
 
-    let sec2 = TimeVal::sec(t2);
-    let nano2 = TimeVal::nano(t2);
+    let sec2 = sec(t2);
+    let nano2 = nano(t2);
 
     ifImmediate(less(sec1, sec2), true, ifImmediate(eq(sec1, sec2), less(nano1, nano2), false));
 }
 
 fn eq(t1: TimeVal, t2: TimeVal) -> bool {
-    let sec1 = TimeVal::sec(t1);
-    let nano1 = TimeVal::nano(t1);
+    let sec1 = sec(t1);
+    let nano1 = nano(t1);
 
-    let sec2 = TimeVal::sec(t2);
-    let nano2 = TimeVal::nano(t2);
+    let sec2 = sec(t2);
+    let nano2 = nano(t2);
 
     and(eq(sec1, sec2), eq(nano1, nano2));
 }
