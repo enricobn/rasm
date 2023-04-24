@@ -316,7 +316,7 @@ fn test_f32() {
 
 #[test]
 fn test_uniform() {
-    run_test("uniform", vec![], "30\n60\n60\n");
+    run_test("uniform", vec![], "30\n60\n60\n200\n");
 }
 
 // Compile tests

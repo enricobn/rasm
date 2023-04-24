@@ -11,6 +11,7 @@ use crate::lexer::tokens::{
 };
 use crate::lexer::Lexer;
 use crate::parser::asm_def_parser::AsmDefParser;
+use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
@@ -181,6 +182,20 @@ impl Parser {
                         self.parser_data.push(ParserData::FunctionCall(call));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
+                        continue;
+                    } else if let Some(TokenKind::AlphaNumeric(name)) =
+                        self.get_token_kind().cloned()
+                    {
+                        self.parser_data.pop();
+                        let call = ASTFunctionCall {
+                            original_function_name: name.clone(),
+                            function_name: name.clone(),
+                            parameters: vec![expr],
+                            index: self.get_index(0).unwrap(),
+                        };
+                        self.parser_data
+                            .push(ParserData::Expression(ASTFunctionCallExpression(call)));
+                        self.i += 1;
                         continue;
                     }
                 }
