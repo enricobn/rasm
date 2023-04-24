@@ -25,3 +25,5 @@ println(p.x.mul(p.y));
 
 let rect = Rect(p, 100, 200);
 println(rect.point.x);
+
+println(10.add(20));

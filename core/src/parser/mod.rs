@@ -168,6 +168,7 @@ impl Parser {
             self.debug("");
             debug!("");
 
+            // uniform call with dot notation
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                 if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
                     self.i += 1;
@@ -951,21 +952,40 @@ impl Parser {
                 self.get_i() + 1,
             ));
         } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
-            let value = if n.contains('.') {
-                ValueType::F32(
-                    n.parse()
-                        .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an f32")),
-                )
+            let (value, next_i) = if let Some(TokenKind::Punctuation(PunctuationKind::Dot)) =
+                self.get_token_kind_n(1)
+            {
+                if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
+                    (
+                        ValueType::F32(
+                            (n.to_owned() + "." + n1)
+                                .parse()
+                                .unwrap_or_else(|_| panic!("Cannot parse '{n}.{n1}' as an f32")),
+                        ),
+                        self.get_i() + 3,
+                    )
+                } else {
+                    (
+                        ValueType::I32(
+                            n.parse()
+                                .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an i32")),
+                        ),
+                        self.get_i() + 1,
+                    )
+                }
             } else {
-                ValueType::I32(
-                    n.parse()
-                        .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an i32")),
+                (
+                    ValueType::I32(
+                        n.parse()
+                            .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an i32")),
+                    ),
+                    self.get_i() + 1,
                 )
             };
 
             return Some((
                 ASTExpression::Value(value, self.get_index(0).unwrap()),
-                self.get_i() + 1,
+                next_i,
             ));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
             return Some((

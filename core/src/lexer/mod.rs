@@ -222,7 +222,7 @@ impl Iterator for Lexer {
                     }
                 }
                 LexStatus::Numeric => {
-                    if c.is_numeric() || c == '.' {
+                    if c.is_numeric() {
                         actual.push(c);
                     } else {
                         return self.some_token(TokenKind::Number(actual));
@@ -327,7 +327,9 @@ mod tests {
                 EndOfLine,
                 AlphaNumeric("println".into()),
                 Bracket(Round, Open),
-                Number("100.123".into()),
+                Number("100".into()),
+                Punctuation(PunctuationKind::Dot),
+                Number("123".into()),
                 Bracket(Round, Close),
             ],
             lst
