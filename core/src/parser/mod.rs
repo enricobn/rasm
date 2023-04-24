@@ -181,6 +181,7 @@ impl Parser {
                         self.parser_data.push(ParserData::FunctionCall(call));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
+                        continue;
                     }
                 }
             }
