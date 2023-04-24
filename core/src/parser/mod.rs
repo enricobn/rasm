@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 use linked_hash_map::LinkedHashMap;
@@ -52,7 +53,7 @@ pub struct Parser {
     types: Vec<ASTTypeDef>,
 }
 
-#[derive(Clone, Debug, strum_macros::Display)]
+#[derive(Clone, Debug)]
 enum ParserData {
     EnumDef(ASTEnumDef),
     FunctionCall(ASTFunctionCall),
@@ -63,6 +64,40 @@ enum ParserData {
     StructDef(ASTStructDef),
     Expression(ASTExpression),
     Statement(ASTStatement),
+}
+
+impl Display for ParserData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParserData::EnumDef(e) => {
+                write!(f, "EnumDef({})", e.name)
+            }
+            ParserData::FunctionCall(call) => {
+                write!(f, "FunctionCall({})", call)
+            }
+            ParserData::FunctionDef(def) => {
+                write!(f, "FunctionDef({})", def)
+            }
+            ParserData::FunctionDefParameter(def) => {
+                write!(f, "FunctionDefParameter({})", def)
+            }
+            ParserData::LambdaDef(def) => {
+                write!(f, "LambdaDef({})", def)
+            }
+            ParserData::Let(name, _, _) => {
+                write!(f, "Let({})", name)
+            }
+            ParserData::StructDef(s) => {
+                write!(f, "StructDef({})", s.name)
+            }
+            ParserData::Expression(e) => {
+                write!(f, "Expression({})", e)
+            }
+            ParserData::Statement(s) => {
+                write!(f, "Statement({})", s)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -131,6 +166,24 @@ impl Parser {
 
             self.debug("");
             debug!("");
+
+            if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
+                    self.i += 1;
+                    if let Some((function_name, next_i)) = self.try_parse_function_call() {
+                        self.parser_data.pop();
+                        let call = ASTFunctionCall {
+                            original_function_name: function_name.clone(),
+                            function_name,
+                            parameters: vec![expr],
+                            index: self.get_index(0).unwrap(),
+                        };
+                        self.parser_data.push(ParserData::FunctionCall(call));
+                        self.state.push(ParserState::FunctionCall);
+                        self.i = next_i;
+                    }
+                }
+            }
 
             match self.get_state() {
                 None => {

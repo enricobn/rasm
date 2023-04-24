@@ -1,0 +1,10 @@
+include "std.rasm"
+
+let v1 = 10;
+let v2 = 20;
+let v3 = 30;
+
+println(v1.add(v2));
+println(v1.add(v2).add(v3));
+let v4 = v1.add(v2).add(v3);
+println(v4);
