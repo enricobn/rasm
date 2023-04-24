@@ -47,7 +47,7 @@ impl Compiler {
                     false,
                     false,
                     true,
-                    true,
+                    false,
                 );
 
                 let asm = code_gen.asm();
