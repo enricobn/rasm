@@ -93,11 +93,9 @@ fn create_match_like_function(
         param_types.push(g);
     }
 
-    let f_name = format!("{}_{}", enum_def.name, name);
-
     let function_def = ASTFunctionDef {
-        original_name: f_name.clone(),
-        name: f_name,
+        original_name: name.to_owned(),
+        name: name.to_owned(),
         parameters,
         body: function_body,
         inline: false,
@@ -109,7 +107,7 @@ fn create_match_like_function(
 
     debug!("created function {function_def}");
 
-    module.add_function(format!("{}::{}", enum_def.name, name), function_def);
+    module.add_function(name.to_owned(), function_def);
 }
 
 fn create_constructors(

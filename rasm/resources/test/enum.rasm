@@ -8,7 +8,7 @@ enum Test {
 printOption(Option::Some("a value"));
 printOption(Option::None());
 
-Test::run(
+run(
     Test::T2(10, Option::Some("a value")),
     { v1, v2, o ->
         println("T1");
@@ -22,5 +22,5 @@ Test::run(
    });
 
 fn printOption(o: Option<str>) {
-    Option::run(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
+    run(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
 }

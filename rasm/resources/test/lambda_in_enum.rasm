@@ -9,5 +9,5 @@ do(10, Operation::One({ n -> add(n, 1);}));
 do(10, Operation::Two({ n -> sub(n, 1);}));
 
 fn do(v: i32, op: Operation) {
-    Operation::run(op, { f -> println("One ", f(v));}, { f -> println("Two ", f(v));});
+    run(op, { f -> println("One ", f(v));}, { f -> println("Two ", f(v));});
 }

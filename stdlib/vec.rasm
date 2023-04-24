@@ -11,7 +11,7 @@ fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
 }
 
 fn listToVec<T>(l: List<T>) -> Vec<T> {
-    List::match(l, { head, tail -> flatten(vecOf(vecOf(head), listToVec(tail)));},
+    match(l, { head, tail -> flatten(vecOf(vecOf(head), listToVec(tail)));},
         { -> Vec(); });
 }
 
@@ -31,10 +31,10 @@ fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
 fn sort<T>(vec: Vec<T>) -> Vec<T> {
     ifImmediateThen(less(length(vec), 2), vec, { ->
         let firstOfVec = first(vec);
-        Option::match(firstOfVec, { f ->
-            let l = filter(vec, { v -> Compare::match(cmp(v, f), { -> true;}, { -> false;}, { -> false;});});
-            let e = filter(vec, { v -> Compare::match(cmp(v, f), { -> false;}, { -> true;}, { -> false;});});
-            let g = filter(vec, { v -> Compare::match(cmp(v, f), { -> false;}, { -> false;}, { -> true;});});
+        match(firstOfVec, { f ->
+            let l = filter(vec, { v -> match(cmp(v, f), { -> true;}, { -> false;}, { -> false;});});
+            let e = filter(vec, { v -> match(cmp(v, f), { -> false;}, { -> true;}, { -> false;});});
+            let g = filter(vec, { v -> match(cmp(v, f), { -> false;}, { -> false;}, { -> true;});});
             add(sort(l), add(e, sort(g)));
         }, { -> Vec();});
     });
@@ -44,10 +44,10 @@ fn sort<T>(vec: Vec<T>) -> Vec<T> {
 fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
     ifImmediateThen(less(length(vec), 2), vec, { ->
         let firstOfVec = first(vec);
-        Option::match(firstOfVec, { f ->
-            let l = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> true;}, { -> false;}, { -> false;});});
-            let e = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> false;}, { -> true;}, { -> false;});});
-            let g = filter(vec, { v -> Compare::match(cmpFunction(v, f), { -> false;}, { -> false;}, { -> true;});});
+        match(firstOfVec, { f ->
+            let l = filter(vec, { v -> match(cmpFunction(v, f), { -> true;}, { -> false;}, { -> false;});});
+            let e = filter(vec, { v -> match(cmpFunction(v, f), { -> false;}, { -> true;}, { -> false;});});
+            let g = filter(vec, { v -> match(cmpFunction(v, f), { -> false;}, { -> false;}, { -> true;});});
             add(sort(l, cmpFunction), add(e, sort(g, cmpFunction)));
         }, { -> Vec();});
     });
@@ -63,7 +63,7 @@ fn eq<T>(vec1: Vec<T>, vec2: Vec<T>) -> bool {
 fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
     ifImmediateThen(not(eq(length(vec1), length(vec2))), false, { ->
         let booleans = zip(vec1, vec2, { v1, v2 ->
-            Compare::match(cmpFunction(v1, v2), { -> false;}, { -> true;}, { -> false;});
+            match(cmpFunction(v1, v2), { -> false;}, { -> true;}, { -> false;});
         });
         eq(count(booleans, { v -> not(v);}), 0);
     });

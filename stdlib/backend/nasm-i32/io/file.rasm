@@ -21,7 +21,7 @@ fn fileMode(f: FileMode) -> i32 {
 }
 
 fn filePermission(p: FilePermission) -> i32 {
-    FilePermission::match(p, { -> 4;}, { -> 2;}, { -> 1;});
+    match(p, { -> 4;}, { -> 2;}, { -> 1;});
 }
 
 fn filePermissions(p: Vec<FilePermission>) -> i32 {
@@ -41,7 +41,7 @@ enum FileFlag {
 }
 
 fn fileFlag(flag: FileFlag) -> i32 {
-    FileFlag::match(flag,
+    match(flag,
         { -> 0;},       //  ReadOnly
         { -> 1;},       //  WriteOnly,
         { -> 2;},       //  ReadWrite,

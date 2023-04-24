@@ -10,7 +10,7 @@ println(collect(Range(0, 0, 1)));
 
 fn collect<T,T1>(l: T) -> Vec<T1> {
     let a = actual(l);
-    Option::match(a, { v -> vecOf(v);}, { -> Vec();});
+    match(a, { v -> vecOf(v);}, { -> Vec();});
 }
 
 fn next(range: Range) -> Option<Range> {

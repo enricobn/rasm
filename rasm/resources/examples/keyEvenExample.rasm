@@ -18,12 +18,12 @@ fn m() {
     sleep(0, 10000);
     let event = keyEvent();
 
-    Option::run(event, { e ->
+    run(event, { e ->
         printAllocated();
         printTableSlotsAllocated();
     }, { -> });
 
-    Option::run(event, { e ->
+    run(event, { e ->
         let key = KeyEvent::key(e);
         ifRun(eq(key, 41), { ->
         }, { ->

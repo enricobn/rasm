@@ -21,8 +21,8 @@ fn update(ball: Ball, actualTime: TimeVal) -> Ball {
 
     let diff = divf(elapsed, 3000);
 
-    let newX = XDirection::match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
-    let newY = YDirection::match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
+    let newX = match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
+    let newY = match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
 
     let newXDir = if(or(greater(newX, sub(WIDTH, BALLSIZE)), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
     let newYDir = if(or(greater(newY, sub(HEIGHT, BALLSIZE)), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});

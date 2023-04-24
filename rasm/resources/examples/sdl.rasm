@@ -157,7 +157,7 @@ enum KeyState {
 }
 
 fn print(state: KeyState) {
-    KeyState::run(state, { -> print("Down");}, { -> print("Up");});
+    run(state, { -> print("Down");}, { -> print("Up");});
 }
 
 struct KeyEvent {
@@ -255,7 +255,7 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
     // printRef(world);
     let event = keyEvent();
 
-    Option::run(event, { keyEvent ->
+    run(event, { keyEvent ->
         let key = KeyEvent::key(keyEvent);
         ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
     }, { -> });

@@ -6,10 +6,10 @@ enum List<T> {
 }
 
 fn print<T>(l: List<T>) {
-    List::run(l,
+    run(l,
         { head,tail ->
             print(head);
-            List::run(tail, { head1,tail1 -> print(",");}, { -> });
+            run(tail, { head1,tail1 -> print(",");}, { -> });
             print(tail);
         }, { -> });
 }
@@ -24,20 +24,20 @@ fn range(start: i32, end: i32) -> List<i32> {
 }
 
 fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
-    List::match(l, { head,tail -> List::Full(f(head), map(tail, f)); }, { -> List::Empty();});
+    match(l, { head,tail -> List::Full(f(head), map(tail, f)); }, { -> List::Empty();});
 }
 
 fn forEach<T>(l: List<T>, f: fn(T) -> ()) {
-    List::run(l, { head,tail -> f(head); forEach(tail, f); }, { -> });
+    run(l, { head,tail -> f(head); forEach(tail, f); }, { -> });
 }
 
 /** false = 0 true = 1 **/
 fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
-    List::match(l, { head,tail -> ifImmediateThen(predicate(head), true, { -> anyMatch(tail, predicate); }); }, { -> false; });
+    match(l, { head,tail -> ifImmediateThen(predicate(head), true, { -> anyMatch(tail, predicate); }); }, { -> false; });
 }
 
 fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
-    List::match(l, { head,tail -> add(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> 0; });
+    match(l, { head,tail -> add(count(tail, predicate), ifImmediate(predicate(head), 1, 0)); }, { -> 0; });
 }
 
 fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {
@@ -45,7 +45,7 @@ fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {
 }
 
 fn listAddRight<T>(l: List<T>, value: T) -> List<T> {
-    List::match(l, { head, tail -> List::Full(head, listAddRight(tail, value));}, { -> List::Full(value, List::Empty());});
+    match(l, { head, tail -> List::Full(head, listAddRight(tail, value));}, { -> List::Full(value, List::Empty());});
 }
 
 fn listOf<T>(v: T) -> List<T> {
@@ -86,9 +86,9 @@ fn println<T>(l: List<T>, printFunction: fn(T) -> ()) {
 }
 
 fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
-    List::run(l, { head,tail ->
+    run(l, { head,tail ->
         printFunction(head);
-        List::run(tail, { head1,tail1 -> print(","); }, { -> });
+        run(tail, { head1,tail1 -> print(","); }, { -> });
         print(tail, printFunction);
     }, { -> });
 }
@@ -98,18 +98,18 @@ fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
 }
 
 fn flatten<T>(l: List<List<T>>) -> List<T> {
-    List::match(l, { head, tail ->
+    match(l, { head, tail ->
         listAppend(head, flatten(tail));
     },
     { -> List::Empty(); });
 }
 
 fn listAppend<T>(dest: List<T>, source: List<T>) -> List<T> {
-    List::match(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
+    match(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
 }
 
 fn foldLeft<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    List::match(l, { head, tail ->
+    match(l, { head, tail ->
          foldLeft(tail, accum(zero, head), accum);
     }, { -> zero; });
 }
@@ -119,13 +119,13 @@ fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 fn listReverse<T>(l: List<T>) -> List<T> {
-    List::match(l, { head, tail ->
+    match(l, { head, tail ->
         listAppend(listReverse(tail), listOf(head));
     }, { -> List::Empty(); });
 }
 
 fn filter<T>(l: List<T>, f: fn(T) -> bool) -> List<T> {
-    List::match(l, { head, tail ->
+    match(l, { head, tail ->
         if(f(head), { -> List::Full(head, filter(tail, f)); }, { -> filter(tail, f);});
     }, { -> List::Empty(); });
 }
@@ -135,7 +135,7 @@ fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
 }
 
 fn listEnumerateInternal<T>(l: List<T>, index: i32) -> List<EnumerateEntry<T>> {
-    List::match(l, { head,tail -> List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, { -> List::Empty();});
+    match(l, { head,tail -> List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, { -> List::Empty();});
 }
 
 struct EnumerateEntry<T> {
@@ -144,8 +144,8 @@ struct EnumerateEntry<T> {
 }
 
 fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
-    List::match(l1, { head1,tail1 ->
-        List::match(l2, { head2,tail2 -> List::Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, { -> List::Empty();});
+    match(l1, { head1,tail1 ->
+        match(l2, { head2,tail2 -> List::Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, { -> List::Empty();});
         }, { -> List::Empty();});
 }
 
@@ -156,27 +156,27 @@ fn cartesianProduct<T1,T2,T>(l1: List<T1>, l2: List<T2>, combineFunction: fn(T1,
 }
 
 fn first<T>(list: List<T>) -> Option<T> {
-    List::match(list, { head, tail -> Option::Some(head);}, { -> Option::None();});
+    match(list, { head, tail -> Option::Some(head);}, { -> Option::None();});
 }
 
 fn get<T>(list: List<T>, i: i32) -> Option<T> {
-    List::match(list, { head, tail ->
+    match(list, { head, tail ->
         if(eq(i, 0), { -> Option::Some(head);}, { -> get(tail, sub(i, 1));});
     }, { -> Option::None();});
 }
 
 fn map2<T,T1>(list: List<T>, fun: fn(T,T) -> T1) -> Option<T1> {
-    List::match(list, { head1, tail1 ->
-        List::match(tail1, { head2, tail2 ->
+    match(list, { head1, tail1 ->
+        match(tail1, { head2, tail2 ->
              Option::Some(fun(head1, head2));
         }, { -> Option::None();});
     }, { -> Option::None();});
 }
 
 fn map3<T,T1>(list: List<T>, fun: fn(T,T,T) -> T1) -> Option<T1> {
-    List::match(list, { head1, tail1 ->
-        List::match(tail1, { head2, tail2 ->
-            List::match(tail2, { head3, tail3 ->
+    match(list, { head1, tail1 ->
+        match(tail1, { head2, tail2 ->
+            match(tail2, { head3, tail3 ->
                 Option::Some(fun(head1, head2, head3));
             }, { -> Option::None();});
         }, { -> Option::None();});

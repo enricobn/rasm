@@ -79,5 +79,5 @@ enum Compare {
 }
 
 fn print(c: Compare) {
-    Compare::run(c, { -> print("Less");}, { -> print("Equal");}, { -> print("Greater");});
+    run(c, { -> print("Less");}, { -> print("Equal");}, { -> print("Greater");});
 }

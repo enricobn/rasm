@@ -32,7 +32,7 @@ fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameRes
     let stage = GameState::stage(gameState);
     let world = GameState::world(gameState);
 
-    let newGameState = GameStage::match(stage, { -> gameState;}, { ->
+    let newGameState = match(stage, { -> gameState;}, { ->
         let newWorld = update(resources, keys, world);
         GameState(stage, newWorld);
     });
@@ -59,9 +59,9 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
 
     let collision = collision(bricks, newBall);
 
-    let newScore = Option::match(collision, { b -> add(score, 10);}, { -> score;});
+    let newScore = match(collision, { b -> add(score, 10);}, { -> score;});
 
-    let newBricks = Option::match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
+    let newBricks = match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
     let barPos = Bar::x(newBar);
 
     if(collides(newBall, barPos), { ->
@@ -75,7 +75,7 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     }, { ->
         let y = Ball::y(ball);
 
-        Option::match(collision, { brick ->
+        match(collision, { brick ->
             let newBall2 = ballAfterCollision(ball, brick);
              World(newBricks, newBall2, newBar, newScore, lives);
         },
@@ -97,7 +97,7 @@ fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
     let stage = GameState::stage(gameState);
     let world = GameState::world(gameState);
 
-    GameStage::run(stage, { -> }, { ->
+    run(stage, { -> }, { ->
         render(ren, resources, world);
     });
 }

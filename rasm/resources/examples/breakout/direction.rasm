@@ -9,9 +9,9 @@ enum YDirection {
 }
 
 fn flip(xDir: XDirection) -> XDirection {
-    XDirection::match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
+    match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
 }
 
 fn flip(yDir: YDirection) -> YDirection {
-    YDirection::match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
+    match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
 }

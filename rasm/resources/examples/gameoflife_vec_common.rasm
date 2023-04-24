@@ -77,13 +77,13 @@ fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     map(filter(listEnumerate(chars(lineStr)), { cell ->
         let cellStr = EnumerateEntry::value(cell);
 
-        List::match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> false;});
+        match(chars(cellStr), { head, tail -> seq(head, "O"); }, { -> false;});
     }), { cell -> Cell(EnumerateEntry::index(cell), y); });
 }
 
 fn filterLines(lines: List<str>) -> List<str> {
     filter(lines, { line ->
-        List::match(chars(line), { head, tail -> not(seq(head, "!")); }, { -> false;});
+        match(chars(line), { head, tail -> not(seq(head, "!")); }, { -> false;});
     });
 }
 

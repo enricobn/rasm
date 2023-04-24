@@ -75,23 +75,23 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
     let stage = State::stage(state);
     let highScores = State::highScores(state);
 
-    let newKeys = Option::match(event, { e ->
+    let newKeys = match(event, { e ->
           let key = KeyEvent::key(e);
           let keyState = KeyEvent::state(e);
 
-          KeyState::match(keyState, { ->
+          match(keyState, { ->
             vecOf(key);
           }, { ->
             filter(keys, { k -> not(eq(k, key));});
           });
       }, { -> keys; });
 
-    Stage::match(stage, { menuState ->
+    match(stage, { menuState ->
         let newStage = update(resources, newKeys, menuState);
         State(resources, newKeys, newStage, highScores);
     }, { gameState ->
         let gameResult = update(resources, newKeys, gameState);
-        GameResult::match(gameResult, { newGameState ->
+        match(gameResult, { newGameState ->
             State(resources, newKeys, Stage::Game(newGameState), highScores);
         }, { score ->
             let newHighScores = addScore(highScores, score);
@@ -113,7 +113,7 @@ fn render(ren: SDLRenderer, state: State) {
     let resources = State::resources(state);
     let stage = State::stage(state);
 
-    Stage::run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
+    run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
 
     sdlRenderPresent(ren);
 }
@@ -173,11 +173,11 @@ fn splitToList(s: str, separator: str) -> List<str> {
 
     let separatorIndex = findChar(chars, separator);
 
-    Option::match(separatorIndex, { index ->
+    match(separatorIndex, { index ->
         let item = substr(s, 0, index);
         let remainder = substr(s, add(index, 1), sub(sub(slen(s), index), 1));
-        Option::match(item, { f ->
-            Option::match(remainder, { r -> listAppend(listOf(f), splitToList(r, separator));}, { -> listOf(f);});
+        match(item, { f ->
+            match(remainder, { r -> listAppend(listOf(f), splitToList(r, separator));}, { -> listOf(f);});
         }, { -> List::Empty();});
     }, { -> listOf(s);});
 }
@@ -188,5 +188,5 @@ fn findChar(chars: List<EnumerateEntry<str>>, c: str) -> Option<i32> {
         seq(currentChar, c);
     }));
 
-    Option::match(o, { entry -> Option::Some(EnumerateEntry::index(entry));}, { -> Option::None();});
+    match(o, { entry -> Option::Some(EnumerateEntry::index(entry));}, { -> Option::None();});
 }
