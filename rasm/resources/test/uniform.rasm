@@ -5,6 +5,12 @@ struct Point {
     y: i32
 }
 
+struct Rect {
+    point: Point,
+    width: i32,
+    height: i32
+}
+
 let v1 = 10;
 let v2 = 20;
 let v3 = 30;
@@ -16,3 +22,6 @@ println(v4);
 
 let p = Point(10, 20);
 println(p.x.mul(p.y));
+
+let rect = Rect(p, 100, 200);
+println(rect.point.x);
