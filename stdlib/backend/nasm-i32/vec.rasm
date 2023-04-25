@@ -124,7 +124,6 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     call    [eax]
     add     esp, 8
     $addRef(eax:T1)
-    ; TODO do I need to dereference it?
     mov     dword [edx], eax
     add     ebx, 4
     add     edx, 4
@@ -132,7 +131,7 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     jmp .loop
 .end:
     pop     eax
-    $call(deref, eax, "for map")
+    $deref(eax:Vec<T1>)
     pop     edx
     pop     ecx
     pop     ebx
