@@ -578,3 +578,18 @@ asm memContains(startAddress: i32, len: i32, what: i32) /{
     pop     ebx
     pop     eax
 }/
+
+asm clone<T>(o: T) -> T /{
+    push    ebx
+    push    ecx
+
+    mov     dword ebx,$o
+    mov     dword ecx,[ebx + 8] ; size
+    $call(malloc, ecx, "for clone")
+    $call(memcopy, [ebx], [eax], ecx)
+    ; $addRef(eax:T)
+    ; $call(deref,eax:i32, "deref for clone")
+
+    pop     ecx
+    pop     ebx
+}/

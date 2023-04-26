@@ -319,6 +319,15 @@ fn test_uniform() {
     run_test("uniform", vec![], "30\n60\n60\n200\n10\n30\n");
 }
 
+#[test]
+fn test_structpropertysetter() {
+    run_test(
+        "structpropertysetter",
+        vec![],
+        "p (10,20)\np1 (15,20)\np2 (30,20)\np (10,20)\nmoved (110,120)\n",
+    );
+}
+
 // Compile tests
 
 #[test]
