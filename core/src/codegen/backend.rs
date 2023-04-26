@@ -74,6 +74,15 @@ pub trait Backend: RefUnwindSafe {
         statics: &mut Statics,
     );
 
+    /// add ref, but not recursively
+    fn call_add_ref_simple(
+        &self,
+        out: &mut String,
+        source: &str,
+        descr: &str,
+        statics: &mut Statics,
+    );
+
     fn call_deref(
         &self,
         source: &str,
@@ -82,6 +91,9 @@ pub trait Backend: RefUnwindSafe {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
+
+    /// deref, but not recursively
+    fn call_deref_simple(&self, source: &str, descr: &str, statics: &mut Statics) -> String;
 
     fn function_preamble(&self, out: &mut String);
 
@@ -455,12 +467,6 @@ impl Backend for BackendAsm386 {
             };
 
         if has_references {
-            /*            CodeGen::add(
-                out,
-                &format!("$call({type_name}_addRef,{source}:{type_name})"),
-                None,
-                true,
-            );*/
             let call = if type_name == "str" {
                 "call     str_addRef_0".to_string()
             } else {
@@ -476,17 +482,36 @@ impl Backend for BackendAsm386 {
                 CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
             }
         } else {
-            /*            CodeGen::add(
-                out,
-                &format!("$call(addRef, {source}:{type_name},[{key}])"),
-                None,
-                true,
-            );*/
             CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
             CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
             CodeGen::add(out, "call     addRef_0", None, true);
             CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
+    }
+
+    fn call_add_ref_simple(
+        &self,
+        out: &mut String,
+        source: &str,
+        descr: &str,
+        statics: &mut Statics,
+    ) {
+        //println!("add ref {descr}");
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        if descr.is_empty() {
+            panic!();
+        }
+
+        let key = statics.add_str(descr);
+
+        CodeGen::add(out, "", Some(&("add ref simple ".to_owned() + descr)), true);
+
+        CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
+        CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+        CodeGen::add(out, "call     addRef_0", None, true);
+        CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
     fn call_deref(
@@ -540,6 +565,24 @@ impl Backend for BackendAsm386 {
             CodeGen::add(&mut result, "call     deref_0", None, true);
             CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
+
+        result.push('\n');
+        result
+    }
+
+    fn call_deref_simple(&self, source: &str, descr: &str, statics: &mut Statics) -> String {
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        let mut result = String::new();
+
+        let key = statics.add_str(descr);
+
+        CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
+        CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
+        CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
+        CodeGen::add(&mut result, "call     deref_0", None, true);
+        CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
 
         result.push('\n');
         result
