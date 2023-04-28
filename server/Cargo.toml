@@ -1,0 +1,13 @@
+[package]
+name = "rasm-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clap.workspace = true
+env_logger.workspace = true
+chrono.workspace = true
+log.workspace = true
+# local deps
+rasm-core.workspace = true

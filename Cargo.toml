@@ -1,5 +1,6 @@
 [workspace]
-members = ["core", "rasm"]
+members = ["core", "rasm", "server"]
+default-members = ["core", "rasm"]
 
 [workspace.package]
 version = "0.1.0-alpha.0"

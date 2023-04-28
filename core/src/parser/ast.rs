@@ -196,6 +196,14 @@ impl ASTIndex {
             column: 0,
         }
     }
+
+    pub fn mv(&self, offset: i32) -> Self {
+        Self {
+            file_name: self.file_name.clone(),
+            row: self.row,
+            column: (self.column as i32 + offset) as usize,
+        }
+    }
 }
 
 impl Display for ASTIndex {
@@ -317,6 +325,7 @@ pub struct ASTEnumDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub variants: Vec<ASTEnumVariantDef>,
+    pub index: ASTIndex,
 }
 
 impl ASTEnumDef {

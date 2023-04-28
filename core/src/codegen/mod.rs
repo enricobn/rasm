@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::env;
 use std::iter::zip;
 use std::ops::Deref;
 
@@ -287,27 +288,16 @@ impl<'a> CodeGen<'a> {
         });
 
         let mut statics = Statics::new();
-        let mut enhanced_module = EnhancedASTModule::new(module);
 
-        enum_functions_creator(backend, &mut enhanced_module, &mut statics);
-        struct_functions_creator(backend, &mut enhanced_module);
-        str_functions_creator(&mut enhanced_module);
-
-        let mandatory_functions = type_mandatory_functions(&enhanced_module);
-
-        let (mut typed_module, type_conversion_context) = convert_to_typed_module(
-            &enhanced_module,
+        let (typed_module, type_conversion_context) = Self::get_typed_module(
+            backend,
+            module,
             debug_asm,
             print_memory_info,
-            print_module,
-            mandatory_functions,
-            backend,
-            &mut statics,
             dereference,
+            print_module,
+            &mut statics,
         );
-        typed_enum_functions_creator(backend, &mut typed_module, &mut statics);
-        typed_struct_functions_creator(backend, &mut typed_module, &mut statics);
-        typed_type_functions_creator(backend, &mut typed_module, &mut statics);
 
         Self {
             module: typed_module,
@@ -326,6 +316,43 @@ impl<'a> CodeGen<'a> {
             dereference,
             type_conversion_context,
         }
+    }
+
+    pub fn get_typed_module(
+        backend: &dyn Backend,
+        module: ASTModule,
+        debug_asm: bool,
+        print_memory_info: bool,
+        dereference: bool,
+        print_module: bool,
+        statics: &mut Statics,
+    ) -> (ASTTypedModule, TypeConversionContext) {
+        let mut enhanced_module = EnhancedASTModule::new(module);
+
+        enum_functions_creator(backend, &mut enhanced_module, statics);
+        struct_functions_creator(backend, &mut enhanced_module);
+        str_functions_creator(&mut enhanced_module);
+
+        let mandatory_functions = type_mandatory_functions(&enhanced_module);
+
+        let (mut typed_module, type_conversion_context) = convert_to_typed_module(
+            &enhanced_module,
+            debug_asm,
+            print_memory_info,
+            print_module,
+            mandatory_functions,
+            backend,
+            statics,
+            dereference,
+        );
+        typed_enum_functions_creator(backend, &mut typed_module, statics);
+        typed_struct_functions_creator(backend, &mut typed_module, statics);
+        typed_type_functions_creator(backend, &mut typed_module, statics);
+        (typed_module, type_conversion_context)
+    }
+
+    pub fn get_std_lib_path() -> String {
+        env::var("RASM_STDLIB").unwrap_or("stdlib".to_owned())
     }
 
     pub fn asm(&mut self) -> String {

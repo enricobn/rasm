@@ -27,7 +27,7 @@ use crate::parser::ParserState::StructDef;
 use crate::utils::SliceDisplay;
 
 mod asm_def_parser;
-pub(crate) mod ast;
+pub mod ast;
 mod enum_parser;
 mod matchers;
 mod struct_parser;
@@ -431,6 +431,7 @@ impl Parser {
                 name,
                 type_parameters: type_params,
                 variants: Vec::new(),
+                index: self.get_index_from_token(token),
             }));
             self.state.push(ParserState::EnumDef);
             self.i = next_i;

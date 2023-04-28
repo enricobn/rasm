@@ -49,6 +49,7 @@ impl<'a> EnumParser<'a> {
                         name,
                         type_parameters,
                         variants,
+                        index: self.parser.get_index(0).unwrap().clone(),
                     },
                     next_i,
                 ));

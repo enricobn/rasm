@@ -11,9 +11,9 @@ use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::{TypedValContext, TypedValKind, ValContext};
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
-    ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
-    ValueType,
+    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
+    BuiltinTypeKind, ValueType,
 };
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::TypeFilter::Exact;
@@ -362,6 +362,7 @@ pub struct ASTTypedEnumDef {
     pub variants: Vec<ASTTypedEnumVariantDef>,
     pub ast_type: ASTType,
     pub ast_typed_type: ASTTypedType,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTTypedEnumDef {
@@ -555,7 +556,7 @@ impl<'a> ConvContext<'a> {
         }
     }
 
-    pub fn add_enum(&mut self, enum_type: &ASTType) -> ASTTypedType {
+    pub fn add_enum(&mut self, enum_type: &ASTType, enum_def: &ASTEnumDef) -> ASTTypedType {
         debug!("add_enum {enum_type}");
         self.count += 1;
         if self.count > 100 {
@@ -605,6 +606,7 @@ impl<'a> ConvContext<'a> {
                         variants,
                         ast_type: enum_type.clone(),
                         ast_typed_type: enum_typed_type.clone(),
+                        index: enum_def.index.clone(),
                     });
 
                     self.enums
@@ -1732,11 +1734,11 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
             name,
             param_types: _,
         } => {
-            if conv_context.module.enums.iter().any(|it| &it.name == name) {
+            if let Some(enum_def) = conv_context.module.enums.iter().find(|it| &it.name == name) {
                 if let Some(e) = conv_context.get_enum(ast_type) {
                     e
                 } else {
-                    conv_context.add_enum(ast_type)
+                    conv_context.add_enum(ast_type, enum_def)
                 }
             } else if conv_context
                 .module

@@ -610,6 +610,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-server"
+version = "0.1.0-alpha.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "env_logger",
+ "log",
+ "rasm-core",
+]
+
+[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

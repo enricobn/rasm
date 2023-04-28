@@ -1,9 +1,9 @@
 Doing
 ------
-- oop
 
 Next
 -----
+- oop example
 - private functions
 - optimize
   - can a recursive function's lambda space be reused?

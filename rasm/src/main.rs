@@ -75,7 +75,7 @@ fn main() {
     Compiler::compile(
         src.to_string(),
         out,
-        env::var("RASM_STDLIB").unwrap_or("stdlib".to_owned()),
+        get_std_lib_path(),
         matches.get_flag("compile"),
     );
 }

@@ -1,0 +1,9 @@
+include "std.rasm"
+
+let anI32 = 10;
+
+doSomething(anI32);
+
+fn doSomething(value: i32) {
+    println(value);
+}
