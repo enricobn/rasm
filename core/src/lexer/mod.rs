@@ -8,7 +8,7 @@ use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
 
-pub(crate) mod tokens;
+pub mod tokens;
 
 #[derive(Debug, PartialEq)]
 enum LexStatus {

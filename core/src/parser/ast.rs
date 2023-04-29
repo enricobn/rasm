@@ -197,6 +197,14 @@ impl ASTIndex {
         }
     }
 
+    pub fn new(file_name: Option<String>, row: usize, column: usize) -> Self {
+        Self {
+            file_name,
+            row,
+            column,
+        }
+    }
+
     pub fn mv(&self, offset: i32) -> Self {
         Self {
             file_name: self.file_name.clone(),
@@ -361,6 +369,7 @@ pub struct ASTStructDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub properties: Vec<ASTStructPropertyDef>,
+    pub index: ASTIndex,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -368,6 +377,7 @@ pub struct ASTTypeDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub is_ref: bool,
+    pub index: ASTIndex,
 }
 
 pub fn lambda(return_type: Option<Box<ASTType>>) -> ASTType {

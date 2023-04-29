@@ -440,6 +440,7 @@ impl Parser {
                 name,
                 type_parameters: type_params,
                 properties: Vec::new(),
+                index: self.get_index_from_token(token),
             }));
             self.state.push(StructDef);
             self.i = next_i;
@@ -1056,6 +1057,7 @@ impl Parser {
                             type_parameters,
                             name: name.clone(),
                             is_ref,
+                            index: self.get_index(0).unwrap(),
                         },
                         self.get_i() + n + 3,
                     );

@@ -44,6 +44,7 @@ impl<'a> StructParser<'a> {
                         name,
                         type_parameters,
                         properties,
+                        index: self.parser.get_index(0).unwrap(),
                     },
                     next_i,
                 ));
@@ -109,7 +110,7 @@ impl<'a> StructParser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::ASTType::{Builtin, Generic};
-    use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind};
+    use crate::parser::ast::{ASTIndex, ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind};
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
 
@@ -138,6 +139,7 @@ mod tests {
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
+                    index: ASTIndex::new(None, 1, 7)
                 },
                 11
             )),
@@ -170,6 +172,7 @@ mod tests {
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],
+                    index: ASTIndex::new(None, 1, 7)
                 },
                 14
             )),

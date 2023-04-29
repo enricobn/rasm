@@ -9,6 +9,8 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
 
+use rasm_core::codegen::CodeGen;
+
 use crate::compiler::Compiler;
 
 pub mod compiler;
@@ -75,7 +77,7 @@ fn main() {
     Compiler::compile(
         src.to_string(),
         out,
-        get_std_lib_path(),
+        CodeGen::get_std_lib_path(),
         matches.get_flag("compile"),
     );
 }

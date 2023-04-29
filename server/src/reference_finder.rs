@@ -1,8 +1,11 @@
 use std::path::Path;
 
-use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind};
+use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind, ValContext, ValKind};
 use rasm_core::lexer::Lexer;
-use rasm_core::parser::ast::ASTIndex;
+use rasm_core::parser::ast::{
+    ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement, ASTType,
+    BuiltinTypeKind,
+};
 use rasm_core::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
@@ -14,7 +17,7 @@ pub struct ReferenceFinder {
 }
 
 impl ReferenceFinder {
-    pub fn new(module: &ASTTypedModule) -> Self {
+    pub fn new(module: &ASTModule) -> Self {
         let selectable_items = Self::get_selectable_items(module);
         Self { selectable_items }
     }
@@ -24,20 +27,20 @@ impl ReferenceFinder {
 
         for selectable_item in self.selectable_items.iter() {
             if selectable_item.matches(index) {
-                println!("found {:?}", selectable_item);
+                //println!("found {:?}", selectable_item);
                 result.push(selectable_item.point_to.clone());
             }
 
             if selectable_item.min.file_name == index.file_name {
-                println!("NOT found {:?}", selectable_item.min.row);
+                //println!("NOT found {:?}", selectable_item.min.row);
             }
         }
 
         result
     }
 
-    fn get_selectable_items(module: &ASTTypedModule) -> Vec<SelectableItem> {
-        let mut val_context = TypedValContext::new(None);
+    fn get_selectable_items(module: &ASTModule) -> Vec<SelectableItem> {
+        let mut val_context = ValContext::new(None);
 
         let mut result = Vec::new();
 
@@ -45,8 +48,8 @@ impl ReferenceFinder {
 
         result.append(
             &mut module
-                .functions_by_name
-                .values()
+                .functions
+                .iter()
                 .flat_map(|it| Self::get_selectable_items_fn(it, module))
                 .collect(),
         );
@@ -55,15 +58,15 @@ impl ReferenceFinder {
     }
 
     fn get_selectable_items_fn(
-        function: &ASTTypedFunctionDef,
-        module: &ASTTypedModule,
+        function: &ASTFunctionDef,
+        module: &ASTModule,
     ) -> Vec<SelectableItem> {
-        if let ASTTypedFunctionBody::RASMBody(statements) = &function.body {
+        if let ASTFunctionBody::RASMBody(statements) = &function.body {
             let mut result = Vec::new();
-            let mut val_context = TypedValContext::new(None);
+            let mut val_context = ValContext::new(None);
 
             for par in function.parameters.iter() {
-                val_context.insert_par(par.name.clone(), 0, par.clone());
+                val_context.insert_par(par.name.clone(), par.clone());
             }
 
             Self::process_statements(&module, statements, &mut result, &mut val_context);
@@ -75,18 +78,18 @@ impl ReferenceFinder {
     }
 
     fn process_statements(
-        module: &ASTTypedModule,
-        statements: &Vec<ASTTypedStatement>,
+        module: &ASTModule,
+        statements: &Vec<ASTStatement>,
         result: &mut Vec<SelectableItem>,
-        mut val_context: &mut TypedValContext,
+        mut val_context: &mut ValContext,
     ) {
         for stmt in statements {
-            if let ASTTypedStatement::LetStatement(name, expr, is_const, index) = stmt {
+            if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
                 // TODO it's not always a string!!!
                 val_context.insert_let(
                     name.clone(),
-                    ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                    None,
+                    ASTType::Builtin(BuiltinTypeKind::String),
+                    index,
                 );
             }
             result.append(&mut Self::get_selectable_items_stmt(
@@ -98,29 +101,29 @@ impl ReferenceFinder {
     }
 
     fn get_selectable_items_stmt(
-        stmt: &ASTTypedStatement,
-        val_context: &mut TypedValContext,
-        module: &ASTTypedModule,
+        stmt: &ASTStatement,
+        val_context: &mut ValContext,
+        module: &ASTModule,
     ) -> Vec<SelectableItem> {
         match stmt {
-            ASTTypedStatement::Expression(expr) => {
+            ASTStatement::Expression(expr) => {
                 Self::get_selectable_items_expr(expr, val_context, module)
             }
-            ASTTypedStatement::LetStatement(name, expr, _, index) => {
+            ASTStatement::LetStatement(name, expr, _, index) => {
                 Self::get_selectable_items_expr(expr, val_context, module)
             }
         }
     }
 
     fn get_selectable_items_expr(
-        expr: &ASTTypedExpression,
-        val_context: &mut TypedValContext,
-        module: &ASTTypedModule,
+        expr: &ASTExpression,
+        val_context: &mut ValContext,
+        module: &ASTModule,
     ) -> Vec<SelectableItem> {
         let mut result = Vec::new();
         match expr {
-            ASTTypedExpression::StringLiteral(_) => {}
-            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+            ASTExpression::StringLiteral(_) => {}
+            ASTExpression::ASTFunctionCallExpression(call) => {
                 // TODO call
                 let mut v = call
                     .parameters
@@ -131,26 +134,23 @@ impl ReferenceFinder {
                     .collect::<Vec<_>>();
                 result.append(&mut v);
             }
-            ASTTypedExpression::ValueRef(name, index) => {
+            ASTExpression::ValueRef(name, index) => {
                 if let Some(v) = val_context.get(&name) {
                     match v {
-                        TypedValKind::ParameterRef(_, def) => {
+                        ValKind::ParameterRef(_, def) => {
                             result.push(SelectableItem {
                                 min: index.mv(-(name.len() as i32)),
                                 max: index.clone(),
                                 point_to: def.ast_index.clone(),
                             });
                         }
-                        TypedValKind::LetRef(_, def) => {
+                        ValKind::LetRef(_, def) => {
                             if let Some(type_index) = match def {
-                                ASTTypedType::Builtin(_) => None,
-                                ASTTypedType::Enum { name } => module
-                                    .enums
-                                    .iter()
-                                    .find(|it| &it.name == name)
-                                    .map(|it| it.index.clone()),
-                                ASTTypedType::Struct { name } => None,
-                                ASTTypedType::Type { name } => None,
+                                ASTType::Builtin(_) => None,
+                                ASTType::Custom { name, param_types } => {
+                                    Self::get_enum(module, name)
+                                }
+                                ASTType::Generic(_) => None,
                             } {
                                 result.push(SelectableItem {
                                     min: index.mv(-(name.len() as i32)),
@@ -162,8 +162,8 @@ impl ReferenceFinder {
                     }
                 }
             }
-            ASTTypedExpression::Value(value_type, index) => {}
-            ASTTypedExpression::Lambda(def) => {
+            ASTExpression::Value(value_type, index) => {}
+            ASTExpression::Lambda(def) => {
                 // TODO for we should add the parameter names in the context
                 let mut v = def
                     .body
@@ -174,9 +174,33 @@ impl ReferenceFinder {
                     .collect::<Vec<_>>();
                 result.append(&mut v);
             }
-            ASTTypedExpression::Any(_) => {}
+            ASTExpression::Any(_) => {}
         }
         result
+    }
+
+    fn get_enum(module: &ASTModule, name: &String) -> Option<ASTIndex> {
+        module
+            .enums
+            .iter()
+            .find(|it| &it.name == name)
+            .map(|it| it.index.clone())
+    }
+
+    fn get_struct(module: &ASTModule, name: &String) -> Option<ASTIndex> {
+        module
+            .structs
+            .iter()
+            .find(|it| &it.name == name)
+            .map(|it| it.index.clone())
+    }
+
+    fn get_type(module: &ASTModule, name: &String) -> Option<ASTIndex> {
+        module
+            .types
+            .iter()
+            .find(|it| &it.name == name)
+            .map(|it| it.index.clone())
     }
 }
 
@@ -200,8 +224,10 @@ impl SelectableItem {
 #[cfg(test)]
 mod tests {
     use std::env;
+    use std::io::Write;
     use std::path::Path;
 
+    use env_logger::Builder;
     use log::info;
 
     use rasm_core::codegen::backend::BackendAsm386;
@@ -216,13 +242,28 @@ mod tests {
     use crate::get_module;
     use crate::reference_finder::ReferenceFinder;
 
+    fn init() {
+        Builder::from_default_env()
+            .format(|buf, record| {
+                writeln!(
+                    buf,
+                    "{} [{}] - {}",
+                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
+                    record.level(),
+                    record.args()
+                )
+            })
+            .init();
+    }
+
     #[test]
     fn simple() {
+        init();
         env::set_var("RASM_STDLIB", "../stdlib");
 
-        let (typed_module, type_conversion_context) = get_module("resources/simple.rasm");
+        let module = get_module("resources/simple.rasm");
 
-        let finder = ReferenceFinder::new(&typed_module);
+        let finder = ReferenceFinder::new(&module);
 
         let file_name = "resources/simple.rasm".to_owned();
         let row = 5;

@@ -275,6 +275,7 @@ mod tests {
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
+                    index: ASTIndex::new(None, 1, 5)
                 },
                 15
             )),
