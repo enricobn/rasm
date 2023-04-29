@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
@@ -50,10 +51,8 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        // `GET /` goes to `root`
         .route("/", get(root))
-        // `POST /users` goes to `create_user`
-        .route("/users", post(create_user))
+        .route("/file/:name", get(file))
         .with_state(app_state);
 
     // run our app with hyper
@@ -79,40 +78,78 @@ impl ServerState {
     }
 }
 
-// root handler
 async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
-    info!("start rendering {}", state.src);
+    info!("start rendering root");
 
-    let file_path = Path::new(&state.src);
+    let mut html = String::new();
+    let root_path = Path::new(&state.src).parent().unwrap();
 
-    let result = if let Ok(mut file) = File::open(file_path) {
+    for entry in root_path.read_dir().expect("error rendering folder") {
+        if let Ok(entry) = entry {
+            if entry.file_name().to_str().unwrap().ends_with(".rasm") {
+                html.push_str(&format!(
+                    "<A href=\"/file/{}\">{}</A></br>",
+                    entry.path().file_name().unwrap().to_str().unwrap(),
+                    entry.path().file_name().unwrap().to_str().unwrap()
+                ));
+            }
+        }
+    }
+
+    let result = Html(html);
+    info!("end rendering root");
+    result
+}
+
+async fn file(
+    axum::extract::Path(params): axum::extract::Path<HashMap<String, String>>,
+    State(state): State<Arc<ServerState>>,
+) -> Html<String> {
+    let src = params.get("name").unwrap();
+    info!("start rendering {}", src);
+
+    let root_path = Path::new(&state.src).parent().unwrap();
+
+    let file_path = root_path.join(Path::new(&src));
+
+    let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();
         file.read_to_string(&mut s).unwrap();
 
-        let mut html = String::new();
+        let mut html = format!("<b>{src}</b></br></br>");
         html.push_str("<pre>\n");
 
-        let lexer = Lexer::new(s, state.src.clone());
+        let source_file = file_path.to_str().unwrap().to_owned();
+        let lexer = Lexer::new(s, source_file.clone());
 
         lexer.for_each(|it| {
             let index = ASTIndex {
-                file_name: Some(state.src.clone()),
+                file_name: Some(source_file.clone()),
                 row: it.row,
                 column: it.column,
             };
             let vec = state.finder.find(&index);
+            let name = format!("_{}_{}", it.row, it.column);
             if vec.len() > 0 {
-                html.push_str(&format!("<b>{}</b>", token_to_string(&it)));
+                let ref_name = format!(
+                    "_{}_{}",
+                    vec.first().unwrap().row,
+                    vec.first().unwrap().column
+                );
+                html.push_str(&format!(
+                    "<A HREF=\"#{ref_name}\" NAME=name>{}</A>",
+                    token_to_string(&it)
+                ));
             } else {
-                html.push_str(&format!("{}", token_to_string(&it)));
+                html.push_str(&format!("<A NAME=name>{}</A>", token_to_string(&it)));
             }
         });
         html.push_str("</pre>\n");
         Html(format!("{html}"))
     } else {
-        Html(format!("Error loading {}", state.src))
+        Html(format!("Error loading {}", src))
     };
-    info!("end rendering {}", state.src);
+    info!("end rendering {}", src);
     result
 }
 
@@ -154,35 +191,6 @@ fn token_to_string(token: &Token) -> String {
         TokenKind::CharLiteral(c) => format!("'{c}'"),
         TokenKind::WhiteSpaces(s) => s.clone(),
     }
-}
-
-async fn create_user(
-    // this argument tells axum to parse the request body
-    // as JSON into a `CreateUser` type
-    Json(payload): Json<CreateUser>,
-) -> (StatusCode, Json<User>) {
-    // insert your application logic here
-    let user = User {
-        id: 1337,
-        username: payload.username,
-    };
-
-    // this will be converted into a JSON response
-    // with a status code of `201 Created`
-    (StatusCode::CREATED, Json(user))
-}
-
-// the input to our `create_user` handler
-#[derive(Deserialize)]
-struct CreateUser {
-    username: String,
-}
-
-// the output to our `create_user` handler
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    username: String,
 }
 
 fn get_src() -> String {
