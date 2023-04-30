@@ -1066,7 +1066,7 @@ pub fn convert_call(
                             None
                         }
                     }
-                    Some(ValKind::LetRef(_, ast_type)) => {
+                    Some(ValKind::LetRef(_, ast_type, _)) => {
                         let gen_types = get_generic_types(ast_type);
 
                         if gen_types.is_empty() {
@@ -1677,7 +1677,7 @@ fn get_type_of_expression(
             if let Some(value) = context.get(v) {
                 match value {
                     ValKind::ParameterRef(_i, par) => Ok(Some(par.ast_type.clone())),
-                    ValKind::LetRef(_name, ast_type) => Ok(Some(ast_type.clone())),
+                    ValKind::LetRef(_name, ast_type, _) => Ok(Some(ast_type.clone())),
                 }
             } else if let Some(entry) = statics.get_const(v) {
                 Ok(Some(entry.ast_type.clone()))
@@ -1817,7 +1817,7 @@ fn get_type_of_expression(
                         .iter()
                         .map(|(it, _)| match lambda_val_context.get(it).unwrap() {
                             ValKind::ParameterRef(_, def) => def.ast_type.clone(),
-                            ValKind::LetRef(_, def) => def.clone(),
+                            ValKind::LetRef(_, def, _) => def.clone(),
                         })
                         .collect::<Vec<_>>(),
                 })))
@@ -1854,7 +1854,7 @@ fn get_type_of_call(
         }
     }
 
-    if let Some(ValKind::LetRef(_i, ast_type)) = context.get(&call.function_name) {
+    if let Some(ValKind::LetRef(_i, ast_type, _)) = context.get(&call.function_name) {
         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
             return_type,
             parameters: _,

@@ -138,41 +138,39 @@ impl ReferenceFinder {
                 if let Some(v) = val_context.get(&name) {
                     match v {
                         ValKind::ParameterRef(_, def) => {
-                            result.push(SelectableItem {
-                                min: index.mv(-(name.len() as i32)),
-                                max: index.clone(),
-                                point_to: def.ast_index.clone(),
-                            });
+                            result.push(SelectableItem::new(
+                                index.mv(-(name.len() as i32)),
+                                index.clone(),
+                                def.ast_index.clone(),
+                            ));
                         }
-                        ValKind::LetRef(_, def) => {
-                            if let Some(type_index) = match def {
-                                ASTType::Builtin(_) => None,
-                                ASTType::Custom { name, param_types } => {
-                                    Self::get_enum(module, name)
-                                }
-                                ASTType::Generic(_) => None,
-                            } {
-                                result.push(SelectableItem {
-                                    min: index.mv(-(name.len() as i32)),
-                                    max: index.clone(),
-                                    point_to: type_index,
-                                });
-                            }
+                        ValKind::LetRef(_, def, let_index) => {
+                            result.push(SelectableItem::new(
+                                index.mv(-(name.len() as i32)),
+                                index.clone(),
+                                let_index.clone(),
+                            ));
                         }
                     }
                 }
             }
             ASTExpression::Value(value_type, index) => {}
             ASTExpression::Lambda(def) => {
-                // TODO for we should add the parameter names in the context
-                let mut v = def
-                    .body
-                    .iter()
-                    .flat_map(|it| {
-                        Self::get_selectable_items_stmt(it, val_context, module).into_iter()
-                    })
-                    .collect::<Vec<_>>();
-                result.append(&mut v);
+                let mut lambda_context = ValContext::new(Some(val_context));
+                let mut lambda_result = Vec::new();
+                Self::process_statements(
+                    module,
+                    &def.body,
+                    &mut lambda_result,
+                    &mut lambda_context,
+                );
+                /*
+                for item in lambda_result.iter() {
+                    println!("lambda result {} -> {}", item.min, item.point_to);
+                }
+
+                 */
+                result.append(&mut lambda_result);
             }
             ASTExpression::Any(_) => {}
         }
@@ -212,6 +210,10 @@ pub struct SelectableItem {
 }
 
 impl SelectableItem {
+    pub fn new(min: ASTIndex, max: ASTIndex, point_to: ASTIndex) -> Self {
+        SelectableItem { min, max, point_to }
+    }
+
     pub fn matches(&self, index: &ASTIndex) -> bool {
         index.file_name == self.min.file_name
             && index.file_name == self.max.file_name
@@ -221,6 +223,7 @@ impl SelectableItem {
             && index.column <= self.max.column
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::env;
@@ -238,6 +241,7 @@ mod tests {
     use rasm_core::parser::Parser;
     use rasm_core::type_check::typed_ast::ASTTypedModule;
     use rasm_core::type_check::typed_context::TypeConversionContext;
+    use rasm_core::utils::SliceDisplay;
 
     use crate::get_module;
     use crate::reference_finder::ReferenceFinder;
@@ -269,12 +273,20 @@ mod tests {
         let row = 5;
         let column = 15;
 
-        let index = ASTIndex {
-            file_name: Some(file_name),
-            row,
-            column,
-        };
+        finder.selectable_items.iter().for_each(|it| {
+            if it.min.file_name == Some("resources/simple.rasm".to_owned()) {
+                println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
+            }
+        });
 
-        finder.find(&index);
+        assert_eq!(
+            finder.find(&ASTIndex::new(Some(file_name.clone()), 5, 15,)),
+            vec![ASTIndex::new(Some(file_name.clone()), 3, 10)]
+        );
+
+        assert_eq!(
+            finder.find(&ASTIndex::new(Some(file_name.clone()), 8, 15,)),
+            vec![ASTIndex::new(Some(file_name), 7, 21)]
+        );
     }
 }

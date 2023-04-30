@@ -119,9 +119,10 @@ impl ValContext {
         ast_type: ASTType,
         ast_index: &ASTIndex,
     ) -> Option<ValKind> {
-        let result = self
-            .value_to_address
-            .insert(key.clone(), ValKind::LetRef(self.let_index, ast_type));
+        let result = self.value_to_address.insert(
+            key.clone(),
+            ValKind::LetRef(self.let_index, ast_type, ast_index.clone()),
+        );
         self.let_index += 1;
         if result.is_some() {
             panic!("already added {key}: {}", ast_index);
@@ -149,7 +150,7 @@ impl ValContext {
             }
         }
 
-        if let Some(ValKind::LetRef(_i, ast_type)) = self.get(key) {
+        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                 return_type: _,
                 parameters: _,
@@ -165,7 +166,7 @@ impl ValContext {
 #[derive(Clone, Debug)]
 pub enum ValKind {
     ParameterRef(usize, ASTParameterDef),
-    LetRef(usize, ASTType),
+    LetRef(usize, ASTType, ASTIndex),
 }
 
 #[derive(Clone, Debug)]

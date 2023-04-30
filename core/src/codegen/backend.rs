@@ -343,7 +343,7 @@ impl Backend for BackendAsm386 {
                                 debug_i!("found ref {name}");
                                 match context.get(name.strip_prefix('$').unwrap()).unwrap() {
                                     ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                                    ValKind::LetRef(_, ast_type) => ast_type.clone(),
+                                    ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
                                 }
                             }
                             MacroParam::Ref(name, Some(ast_type), _) => {

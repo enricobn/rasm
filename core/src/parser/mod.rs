@@ -495,13 +495,13 @@ impl Parser {
             self.state.pop();
         } else if let Some((name, next_i)) = self.try_parse_let(false) {
             self.parser_data
-                .push(ParserData::Let(name, false, self.get_index(0).unwrap()));
+                .push(ParserData::Let(name, false, self.get_index(1).unwrap()));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
         } else if let Some((name, next_i)) = self.try_parse_let(true) {
             self.parser_data
-                .push(ParserData::Let(name, true, self.get_index(0).unwrap()));
+                .push(ParserData::Let(name, true, self.get_index(1).unwrap()));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;

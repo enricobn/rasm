@@ -68,18 +68,25 @@ async fn main() {
 struct ServerState {
     src: String,
     finder: ReferenceFinder,
+    module: ASTModule,
 }
 
 impl ServerState {
     fn new(src: String) -> Self {
         let module = get_module(&src);
         let finder = ReferenceFinder::new(&module);
-        Self { src, finder }
+        Self {
+            src,
+            finder,
+            module,
+        }
     }
 }
 
 async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
     info!("start rendering root");
+
+    // TODO probably I must only display the root file, since for now I don't know which files are imported...
 
     let mut html = String::new();
     let root_path = Path::new(&state.src).parent().unwrap();
@@ -136,12 +143,14 @@ async fn file(
                     vec.first().unwrap().row,
                     vec.first().unwrap().column
                 );
+                html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
                 html.push_str(&format!(
-                    "<A HREF=\"#{ref_name}\" NAME=name>{}</A>",
+                    "<A HREF=\"#{ref_name}\" NAME={name}>{}</A>",
                     token_to_string(&it)
                 ));
             } else {
-                html.push_str(&format!("<A NAME=name>{}</A>", token_to_string(&it)));
+                html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
+                html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it)));
             }
         });
         html.push_str("</pre>\n");
