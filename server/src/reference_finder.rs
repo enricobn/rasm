@@ -3,8 +3,8 @@ use std::path::Path;
 use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind, ValContext, ValKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement, ASTType,
-    BuiltinTypeKind,
+    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement,
+    ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
 use rasm_core::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -67,6 +67,7 @@ impl ReferenceFinder {
 
             for par in function.parameters.iter() {
                 val_context.insert_par(par.name.clone(), par.clone());
+                Self::process_type(&module, &par.ast_type, &mut result);
             }
 
             Self::process_statements(&module, statements, &mut result, &mut val_context);
@@ -74,6 +75,36 @@ impl ReferenceFinder {
             result
         } else {
             Vec::new()
+        }
+    }
+
+    fn process_type(module: &ASTModule, ast_type: &ASTType, result: &mut Vec<SelectableItem>) {
+        if let ASTType::Custom {
+            name,
+            param_types,
+            index,
+        } = ast_type
+        {
+            Self::process_custom_type(module, result, name, index);
+            param_types
+                .iter()
+                .for_each(|it| Self::process_type(module, it, result));
+        }
+    }
+
+    fn process_custom_type(
+        module: &ASTModule,
+        result: &mut Vec<SelectableItem>,
+        name: &String,
+        index: &ASTIndex,
+    ) {
+        let min = index.mv(-(name.len() as i32));
+        if let Some(def) = Self::get_enum(module, name) {
+            result.push(SelectableItem::new(min, index.clone(), def.index));
+        } else if let Some(def) = Self::get_struct(module, name) {
+            result.push(SelectableItem::new(min, index.clone(), def.index));
+        } else if let Some(def) = Self::get_type(module, name) {
+            result.push(SelectableItem::new(min, index.clone(), def.index));
         }
     }
 
@@ -164,12 +195,6 @@ impl ReferenceFinder {
                     &mut lambda_result,
                     &mut lambda_context,
                 );
-                /*
-                for item in lambda_result.iter() {
-                    println!("lambda result {} -> {}", item.min, item.point_to);
-                }
-
-                 */
                 result.append(&mut lambda_result);
             }
             ASTExpression::Any(_) => {}
@@ -177,28 +202,28 @@ impl ReferenceFinder {
         result
     }
 
-    fn get_enum(module: &ASTModule, name: &String) -> Option<ASTIndex> {
+    fn get_enum(module: &ASTModule, name: &String) -> Option<ASTEnumDef> {
         module
             .enums
             .iter()
             .find(|it| &it.name == name)
-            .map(|it| it.index.clone())
+            .map(|it| it.clone())
     }
 
-    fn get_struct(module: &ASTModule, name: &String) -> Option<ASTIndex> {
+    fn get_struct(module: &ASTModule, name: &String) -> Option<ASTStructDef> {
         module
             .structs
             .iter()
             .find(|it| &it.name == name)
-            .map(|it| it.index.clone())
+            .map(|it| it.clone())
     }
 
-    fn get_type(module: &ASTModule, name: &String) -> Option<ASTIndex> {
+    fn get_type(module: &ASTModule, name: &String) -> Option<ASTTypeDef> {
         module
             .types
             .iter()
             .find(|it| &it.name == name)
-            .map(|it| it.index.clone())
+            .map(|it| it.clone())
     }
 }
 
@@ -264,17 +289,17 @@ mod tests {
     fn simple() {
         init();
         env::set_var("RASM_STDLIB", "../stdlib");
+        let file_name = "resources/simple.rasm".to_owned();
 
-        let module = get_module("resources/simple.rasm");
+        let module = get_module(&file_name);
 
         let finder = ReferenceFinder::new(&module);
 
-        let file_name = "resources/simple.rasm".to_owned();
         let row = 5;
         let column = 15;
 
         finder.selectable_items.iter().for_each(|it| {
-            if it.min.file_name == Some("resources/simple.rasm".to_owned()) {
+            if it.min.file_name == Some(file_name.clone()) {
                 println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
             }
         });
@@ -287,6 +312,45 @@ mod tests {
         assert_eq!(
             finder.find(&ASTIndex::new(Some(file_name.clone()), 8, 15,)),
             vec![ASTIndex::new(Some(file_name), 7, 21)]
+        );
+    }
+
+    #[test]
+    fn types() {
+        init();
+        env::set_var("RASM_STDLIB", "../stdlib");
+        let file_name = "resources/types.rasm".to_owned();
+
+        let module = get_module(&file_name);
+
+        let finder = ReferenceFinder::new(&module);
+
+        let row = 5;
+        let column = 15;
+
+        finder.selectable_items.iter().for_each(|it| {
+            if it.min.file_name == Some(file_name.clone()) {
+                println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
+            }
+        });
+
+        assert_eq!(
+            finder.find(&ASTIndex::new(Some(file_name.clone()), 15, 23,)),
+            vec![ASTIndex::new(
+                Some("../stdlib/option.rasm".to_owned()),
+                1,
+                5
+            )]
+        );
+
+        assert_eq!(
+            finder.find(&ASTIndex::new(Some(file_name.clone()), 19, 23,)),
+            vec![ASTIndex::new(Some(file_name.clone()), 3, 7)]
+        );
+
+        assert_eq!(
+            finder.find(&ASTIndex::new(Some(file_name.clone()), 23, 23,)),
+            vec![ASTIndex::new(Some("../stdlib/vec.rasm".to_owned()), 1, 5)]
         );
     }
 }

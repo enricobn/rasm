@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 
 use linked_hash_map::LinkedHashMap;
 
@@ -84,13 +85,18 @@ pub enum BuiltinTypeKind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
     Generic(String),
     Custom {
         name: String,
         param_types: Vec<ASTType>,
+        #[derivative(PartialEq = "ignore")]
+        #[derivative(Hash = "ignore")]
+        index: ASTIndex,
     },
 }
 
@@ -123,7 +129,11 @@ impl Display for ASTType {
                 }
             },
             ASTType::Generic(name) => f.write_str(name),
-            ASTType::Custom { name, param_types } => {
+            ASTType::Custom {
+                name,
+                param_types,
+                index: _,
+            } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
                 if pars.is_empty() {
@@ -181,7 +191,7 @@ impl Display for ASTFunctionCall {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTIndex {
     pub file_name: Option<String>,
     pub row: usize,
@@ -326,6 +336,7 @@ pub struct ASTModule {
     pub requires: HashSet<String>,
     pub externals: HashSet<String>,
     pub types: Vec<ASTTypeDef>,
+    pub included_files: HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

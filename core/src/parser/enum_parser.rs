@@ -366,7 +366,8 @@ mod tests {
                             "tail",
                             ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Generic("T".into())]
+                                param_types: vec![Generic("T".into())],
+                                index: ASTIndex::none()
                             },
                             ASTIndex::none()
                         ),
@@ -481,6 +482,7 @@ mod tests {
                             ast_type: ASTType::Custom {
                                 name: "List".into(),
                                 param_types: vec![Generic("T".into())],
+                                index: ASTIndex::none(),
                             },
                             ast_index: ASTIndex::none(),
                         },

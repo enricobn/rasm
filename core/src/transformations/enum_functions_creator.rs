@@ -69,6 +69,8 @@ fn create_match_like_function(
         ast_type: ASTType::Custom {
             name: enum_def.name.clone(),
             param_types,
+            // TODO for now there's not a source for generated functions
+            index: ASTIndex::none(),
         },
         ast_index: ASTIndex::none(),
     }];
@@ -125,6 +127,8 @@ fn create_constructors(
         let ast_type = ASTType::Custom {
             name: enum_def.name.clone(),
             param_types: param_types.to_vec(),
+            // TODO for now here's no source fo generated functions
+            index: ASTIndex::none(),
         };
         let return_type = Some(ast_type);
         let body_str = if variant.parameters.is_empty() {

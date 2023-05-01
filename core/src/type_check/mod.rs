@@ -446,6 +446,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
         ASTType::Custom {
             name: _,
             param_types: pt,
+            index: _,
         } => {
             let mut result: Vec<String> = pt
                 .iter()
@@ -1984,10 +1985,12 @@ fn resolve_generic_types_from_effective_type(
         ASTType::Custom {
             name: p_name,
             param_types: p_param_types,
+            index: _,
         } => match effective_type {
             ASTType::Custom {
                 name: e_name,
                 param_types: e_param_types,
+                index: _,
             } => {
                 if p_name != e_name {
                     dedent!();
@@ -2172,11 +2175,29 @@ fn substitute(
                 None
             }
         }
-        ASTType::Custom { name, param_types } => {
+        ASTType::Custom {
+            name,
+            param_types,
+            index,
+        } => {
             substitute_types(param_types, resolved_param_types).map(|new_param_types| {
+                // TODO it's a bit heuristic
+                let new_index = if new_param_types.is_empty() {
+                    index.clone()
+                } else if let Some(ASTType::Custom {
+                    name,
+                    param_types,
+                    index: ast_index,
+                }) = new_param_types.last()
+                {
+                    ast_index.mv(1)
+                } else {
+                    index.clone()
+                };
                 ASTType::Custom {
                     name: name.clone(),
                     param_types: new_param_types,
+                    index: new_index,
                 }
             })
         }
@@ -2314,10 +2335,12 @@ mod tests {
         let parametric_type = ASTType::Custom {
             name: "List".into(),
             param_types: vec![generic("T")],
+            index: ASTIndex::none(),
         };
         let effective_type = ASTType::Custom {
             name: "List".into(),
             param_types: vec![i32()],
+            index: ASTIndex::none(),
         };
 
         let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
@@ -2430,6 +2453,7 @@ mod tests {
             requires: Default::default(),
             externals: Default::default(),
             types: Vec::new(),
+            included_files: HashSet::new(),
         };
 
         let (new_module, _) = convert_to_typed_module(

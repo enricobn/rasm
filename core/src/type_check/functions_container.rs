@@ -417,6 +417,7 @@ impl FunctionsContainer {
                     ASTType::Custom {
                         param_types: expected_param_types,
                         name: expected_type_name,
+                        index: _,
                     } => {
                         match parameter_type {
                             ASTType::Builtin(_) => false,
@@ -424,6 +425,7 @@ impl FunctionsContainer {
                             ASTType::Custom {
                                 param_types,
                                 name: type_name,
+                                index: _,
                             } => {
                                 type_name == expected_type_name
                                     && param_types.len() == expected_param_types.len()

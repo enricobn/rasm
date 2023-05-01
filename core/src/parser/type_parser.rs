@@ -68,6 +68,7 @@ impl<'a> TypeParser<'a> {
                         Custom {
                             name: type_name.into(),
                             param_types,
+                            index: self.parser.get_index(n).unwrap(),
                         },
                         next_i,
                     ))
@@ -203,7 +204,7 @@ impl<'a> TypeParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::lambda_unit;
+    use crate::parser::ast::{lambda_unit, ASTIndex};
     use crate::parser::test_utils::get_parser;
 
     use super::*;
@@ -246,6 +247,7 @@ mod tests {
                 Custom {
                     name: "Dummy".into(),
                     param_types: vec![Generic("T".into()), Generic("T1".into()),],
+                    index: ASTIndex::new(None, 1, 6)
                 },
                 6
             )),
@@ -267,6 +269,7 @@ mod tests {
                 Custom {
                     name: "T".into(),
                     param_types: vec![],
+                    index: ASTIndex::new(None, 1, 2)
                 },
                 1
             )),
@@ -280,12 +283,14 @@ mod tests {
         let option_t = Custom {
             name: "Option".into(),
             param_types: vec![Generic("T".into())],
+            index: ASTIndex::new(None, 1, 12),
         };
         assert_eq!(
             Some((
                 Custom {
                     name: "List".into(),
-                    param_types: vec![option_t]
+                    param_types: vec![option_t],
+                    index: ASTIndex::new(None, 1, 5)
                 },
                 7
             )),

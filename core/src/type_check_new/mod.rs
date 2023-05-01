@@ -129,7 +129,11 @@ impl EnhancedFunctionDefTransformer {
                     .get(name)
                     .expect(&format!("Cannot find generic type {}", name)),
             ),
-            ASTType::Custom { name, param_types } => EnhancedType::Custom {
+            ASTType::Custom {
+                name,
+                param_types,
+                index: _,
+            } => EnhancedType::Custom {
                 name: name.clone(),
                 param_types: param_types
                     .iter()

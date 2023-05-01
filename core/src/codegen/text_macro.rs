@@ -300,7 +300,12 @@ impl TextMacroEvaluator {
         function_def: &ASTTypedFunctionDef,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
-        if let ASTType::Custom { name, param_types } = ast_type {
+        if let ASTType::Custom {
+            name,
+            param_types,
+            index: _,
+        } = ast_type
+        {
             if let Some(typed_type) = function_def.generic_types.get(name) {
                 Some(typed_type.clone())
             } else if param_types.is_empty() {
@@ -346,6 +351,7 @@ impl TextMacroEvaluator {
                 type_def_provider.get_ast_typed_type_from_ast_type(&ASTType::Custom {
                     name: name.clone(),
                     param_types: resolved_types,
+                    index: ASTIndex::none(),
                 })
             }
         } else {
@@ -728,6 +734,7 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
     } else if let ASTType::Custom {
         name,
         param_types: _,
+        index: _,
     } = ast_type
     {
         if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
@@ -951,6 +958,7 @@ impl PrintRefMacro {
                         ASTType::Custom {
                             name: custom_type_name,
                             param_types: _,
+                            index: _,
                         } => get_type(custom_type_name, type_def_provider, function_def),
                         _ => panic!("printRef macro: unsupported type {ast_type}"),
                     },
@@ -1504,7 +1512,8 @@ mod tests {
                 ast_type,
                 ASTType::Custom {
                     name: "List".into(),
-                    param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)]
+                    param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
+                    index: ASTIndex::none()
                 }
             ),
         }

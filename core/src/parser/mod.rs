@@ -52,6 +52,7 @@ pub struct Parser {
     requires: HashSet<String>,
     externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
+    included_files: HashSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -126,6 +127,14 @@ impl Parser {
                 )
             })
             .collect();
+        let included_files = if let Some(file) = &file_name {
+            let mut set = HashSet::new();
+            set.insert(file.clone());
+            set
+        } else {
+            HashSet::new()
+        };
+
         Self {
             tokens,
             body: Vec::new(),
@@ -140,6 +149,7 @@ impl Parser {
             requires: HashSet::new(),
             externals: HashSet::new(),
             types: Vec::new(),
+            included_files,
         }
     }
 
@@ -342,6 +352,7 @@ impl Parser {
             requires: self.requires.clone(),
             externals: self.externals.clone(),
             types: self.types.clone(),
+            included_files: self.included_files.clone(),
         }
     }
 
@@ -399,6 +410,9 @@ impl Parser {
 
             let resource_path = buf.as_path();
 
+            self.included_files
+                .insert(resource_path.to_str().unwrap().to_owned());
+
             match Lexer::from_file(resource_path) {
                 Ok(lexer) => {
                     let mut parser =
@@ -416,6 +430,7 @@ impl Parser {
                     self.requires.extend(module.requires);
                     self.externals.extend(module.externals);
                     self.types.extend(module.types);
+                    self.included_files.extend(module.included_files)
                 }
                 Err(err) => {
                     self.panic(&format!(

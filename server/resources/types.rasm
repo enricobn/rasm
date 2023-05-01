@@ -1,0 +1,25 @@
+include "std.rasm"
+
+struct AStruct {
+    anI32: i32
+}
+
+let anEnum = Option::Some(10);
+let aStruct = AStruct(10);
+let aVec = vecOf(10);
+
+doSomething(anEnum);
+doSomething(aStruct);
+doSomething(aVec);
+
+fn doSomething(value: Option<i32>) {
+    println("anOption");
+}
+
+fn doSomething(value: AStruct) {
+    println("aStruct");
+}
+
+fn doSomething(value: Vec<i32>) {
+    println("aVec");
+}

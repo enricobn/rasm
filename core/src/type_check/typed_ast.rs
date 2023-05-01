@@ -290,6 +290,7 @@ impl TypeDefProvider for ASTTypedModule {
             if let ASTType::Custom {
                 name: ast_type_name,
                 param_types: _,
+                index: _,
             } = &it.ast_type
             {
                 ast_type_name == name
@@ -302,6 +303,7 @@ impl TypeDefProvider for ASTTypedModule {
             if let ASTType::Custom {
                 name: ast_type_name,
                 param_types: _,
+                index: _,
             } = &it.ast_type
             {
                 ast_type_name == name
@@ -315,6 +317,7 @@ impl TypeDefProvider for ASTTypedModule {
                 if let ASTType::Custom {
                     name: ast_type_name,
                     param_types: _,
+                    index: _,
                 } = &it.ast_type
                 {
                     ast_type_name == name
@@ -344,6 +347,7 @@ impl TypeDefProvider for ASTTypedModule {
             ASTType::Custom {
                 name,
                 param_types: _,
+                index: _,
             } => name == type_to_find,
         })
         .cloned()
@@ -532,6 +536,7 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
             ASTType::Custom {
                 name,
                 param_types: _,
+                index: _,
             } => name == type_to_find,
         })
         .cloned()
@@ -564,7 +569,11 @@ impl<'a> ConvContext<'a> {
             panic!();
         }
         match enum_type {
-            ASTType::Custom { name, param_types } => {
+            ASTType::Custom {
+                name,
+                param_types,
+                index: _,
+            } => {
                 let enum_def = self
                     .module
                     .enums
@@ -633,7 +642,11 @@ impl<'a> ConvContext<'a> {
             panic!();
         }
         match struct_type {
-            ASTType::Custom { name, param_types } => {
+            ASTType::Custom {
+                name,
+                param_types,
+                index: _,
+            } => {
                 let struct_def = self
                     .module
                     .structs
@@ -696,7 +709,11 @@ impl<'a> ConvContext<'a> {
             panic!();
         }
         match ast_type {
-            ASTType::Custom { name, param_types } => {
+            ASTType::Custom {
+                name,
+                param_types,
+                index: _,
+            } => {
                 let type_def = self
                     .module
                     .types
@@ -1547,14 +1564,17 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
         ASTTypedType::Enum { name } => ASTType::Custom {
             name: name.into(),
             param_types: Vec::new(),
+            index: ASTIndex::none(),
         },
         ASTTypedType::Struct { name } => ASTType::Custom {
             name: name.into(),
             param_types: Vec::new(),
+            index: ASTIndex::none(),
         },
         ASTTypedType::Type { name } => ASTType::Custom {
             name: name.into(),
             param_types: Vec::new(),
+            index: ASTIndex::none(),
         },
     }
 }
@@ -1733,6 +1753,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
         ASTType::Custom {
             name,
             param_types: _,
+            index: _,
         } => {
             if let Some(enum_def) = conv_context.module.enums.iter().find(|it| &it.name == name) {
                 if let Some(e) = conv_context.get_enum(ast_type) {
@@ -1900,6 +1921,7 @@ impl DefaultFunctionCall {
                     ASTType::Custom {
                         name: _,
                         param_types: _,
+                        index: _,
                     } => ASTExpression::Any(it.clone()),
                 })
                 .collect(),

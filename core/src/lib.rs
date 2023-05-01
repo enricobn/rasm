@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate derivative;
+
 pub mod codegen;
 pub mod lexer;
 pub mod parser;

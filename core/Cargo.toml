@@ -8,6 +8,7 @@ license.workspace = true
 backtrace.workspace = true
 chrono.workspace = true
 debug-cell.workspace = true
+derivative.workspace = true
 env_logger.workspace = true
 linked-hash-map.workspace = true
 log.workspace = true

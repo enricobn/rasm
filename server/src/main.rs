@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, LinkedList};
+use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
@@ -52,7 +53,7 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/", get(root))
-        .route("/file/:name", get(file))
+        .route("/file/*src", get(file))
         .with_state(app_state);
 
     // run our app with hyper
@@ -86,21 +87,29 @@ impl ServerState {
 async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
     info!("start rendering root");
 
-    // TODO probably I must only display the root file, since for now I don't know which files are imported...
-
     let mut html = String::new();
-    let root_path = Path::new(&state.src).parent().unwrap();
 
-    for entry in root_path.read_dir().expect("error rendering folder") {
-        if let Ok(entry) = entry {
-            if entry.file_name().to_str().unwrap().ends_with(".rasm") {
-                html.push_str(&format!(
-                    "<A href=\"/file/{}\">{}</A></br>",
-                    entry.path().file_name().unwrap().to_str().unwrap(),
-                    entry.path().file_name().unwrap().to_str().unwrap()
-                ));
-            }
-        }
+    html.push_str(&format!(
+        "<b><A href=\"/file/{}\">{}</A></b></br>",
+        state.src, state.src
+    ));
+
+    html.push_str("</br>");
+
+    let mut paths = Vec::new();
+
+    paths.extend(&mut state.module.included_files.iter());
+
+    paths.sort();
+
+    for included_file in paths
+        .iter()
+        .filter(|it| !it.starts_with("stdlib") && it.to_owned() != &&state.src)
+    {
+        html.push_str(&format!(
+            "<A href=\"/file/{}\">{}</A></br>",
+            included_file, included_file
+        ));
     }
 
     let result = Html(html);
@@ -109,15 +118,23 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 }
 
 async fn file(
-    axum::extract::Path(params): axum::extract::Path<HashMap<String, String>>,
+    axum::extract::Path(src): axum::extract::Path<String>,
     State(state): State<Arc<ServerState>>,
 ) -> Html<String> {
-    let src = params.get("name").unwrap();
     info!("start rendering {}", src);
 
     let root_path = Path::new(&state.src).parent().unwrap();
 
-    let file_path = root_path.join(Path::new(&src));
+    let file_path = if src.starts_with("stdlib") {
+        let path = Path::new(&src).strip_prefix("stdlib").unwrap();
+        let std_lib_path_s = CodeGen::get_std_lib_path();
+        let std_lib_path = Path::new(&std_lib_path_s).clone();
+        std_lib_path.join(path).to_str().unwrap().to_owned()
+    } else {
+        src.clone()
+    };
+
+    let file_path = Path::new(&file_path);
 
     let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();
@@ -138,16 +155,22 @@ async fn file(
             let vec = state.finder.find(&index);
             let name = format!("_{}_{}", it.row, it.column);
             if vec.len() > 0 {
-                let ref_name = format!(
-                    "_{}_{}",
-                    vec.first().unwrap().row,
-                    vec.first().unwrap().column
-                );
-                html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
-                html.push_str(&format!(
-                    "<A HREF=\"#{ref_name}\" NAME={name}>{}</A>",
-                    token_to_string(&it)
-                ));
+                if let Some(file_name) = &vec.first().cloned().and_then(|it| it.file_name) {
+                    let ref_name = format!(
+                        "/file/{}#_{}_{}",
+                        file_name,
+                        vec.first().unwrap().row,
+                        vec.first().unwrap().column
+                    );
+                    html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
+                    html.push_str(&format!(
+                        "<A HREF=\"{ref_name}\" NAME={name}>{}</A>",
+                        token_to_string(&it)
+                    ));
+                } else {
+                    html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
+                    html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it)));
+                }
             } else {
                 html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
                 html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it)));

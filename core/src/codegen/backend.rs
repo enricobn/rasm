@@ -370,6 +370,7 @@ impl Backend for BackendAsm386 {
                             ASTType::Custom {
                                 name,
                                 param_types: _,
+                                index: _,
                             } => {
                                 let result = if let Some(f) = function_def {
                                     if let Some(t) = f.generic_types.get(name) {

@@ -19,6 +19,8 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTM
         let ast_type = ASTType::Custom {
             name: struct_def.name.clone(),
             param_types: param_types.clone(),
+            // TODO for now here's no source fo generated functions
+            index: ASTIndex::none(),
         };
         let return_type = Some(ast_type);
         let body_str = struct_constructor_body(backend, struct_def);
@@ -207,6 +209,8 @@ fn create_function_for_struct_get_property(
             ast_type: ASTType::Custom {
                 name: struct_def.name.clone(),
                 param_types,
+                // TODO for now here's no source fo generated functions
+                index: ASTIndex::none(),
             },
             ast_index: ASTIndex::none(),
         }],
@@ -234,6 +238,8 @@ fn create_function_for_struct_set_property(
     let ast_type = ASTType::Custom {
         name: struct_def.name.clone(),
         param_types,
+        // TODO for now here's no source fo generated functions
+        index: ASTIndex::none(),
     };
     ASTFunctionDef {
         original_name: name.clone(),
