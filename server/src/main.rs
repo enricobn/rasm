@@ -35,6 +35,7 @@ use rasm_core::utils::SliceDisplay;
 
 use crate::reference_finder::ReferenceFinder;
 
+pub mod reference_context;
 pub mod reference_finder;
 
 #[tokio::main]

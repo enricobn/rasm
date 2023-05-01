@@ -1312,7 +1312,7 @@ pub fn convert_call(
     Ok(result)
 }
 
-fn get_value_type(val_type: &ValueType) -> ASTType {
+pub fn get_value_type(val_type: &ValueType) -> ASTType {
     let ast_type = match val_type {
         ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
         ValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),

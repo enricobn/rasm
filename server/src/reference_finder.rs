@@ -1,25 +1,41 @@
 use std::path::Path;
 
-use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind, ValContext, ValKind};
+use log::{debug, warn};
+
+use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind, ValKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement,
     ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
+use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use rasm_core::type_check::get_value_type;
 use rasm_core::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use rasm_core::type_check::typed_context::TypeConversionContext;
 
+use crate::reference_context::ReferenceContext;
+
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
+    functions_container: FunctionsContainer,
 }
 
 impl ReferenceFinder {
     pub fn new(module: &ASTModule) -> Self {
-        let selectable_items = Self::get_selectable_items(module);
-        Self { selectable_items }
+        let mut functions_container = FunctionsContainer::new();
+
+        module.functions.iter().for_each(|it| {
+            functions_container.add_function(it.original_name.clone(), it.clone());
+        });
+
+        let selectable_items = Self::get_selectable_items(module, &functions_container);
+        Self {
+            selectable_items,
+            functions_container,
+        }
     }
 
     pub fn find(&self, index: &ASTIndex) -> Vec<ASTIndex> {
@@ -39,18 +55,36 @@ impl ReferenceFinder {
         result
     }
 
-    fn get_selectable_items(module: &ASTModule) -> Vec<SelectableItem> {
-        let mut val_context = ValContext::new(None);
+    fn get_selectable_items(
+        module: &ASTModule,
+        functions_container: &FunctionsContainer,
+    ) -> Vec<SelectableItem> {
+        let mut reference_context = ReferenceContext::new(None);
+        let mut reference_static_context = ReferenceContext::new(None);
 
         let mut result = Vec::new();
 
-        Self::process_statements(module, &module.body, &mut result, &mut val_context);
+        Self::process_statements(
+            module,
+            &module.body,
+            &mut result,
+            &mut reference_context,
+            &mut reference_static_context,
+            functions_container,
+        );
 
         result.append(
             &mut module
                 .functions
                 .iter()
-                .flat_map(|it| Self::get_selectable_items_fn(it, module))
+                .flat_map(|it| {
+                    Self::get_selectable_items_fn(
+                        it,
+                        module,
+                        functions_container,
+                        &reference_static_context,
+                    )
+                })
                 .collect(),
         );
 
@@ -60,17 +94,30 @@ impl ReferenceFinder {
     fn get_selectable_items_fn(
         function: &ASTFunctionDef,
         module: &ASTModule,
+        functions_container: &FunctionsContainer,
+        reference_static_context: &ReferenceContext,
     ) -> Vec<SelectableItem> {
         if let ASTFunctionBody::RASMBody(statements) = &function.body {
             let mut result = Vec::new();
-            let mut val_context = ValContext::new(None);
+            let mut val_context = ReferenceContext::new(Some(reference_static_context));
 
             for par in function.parameters.iter() {
-                val_context.insert_par(par.name.clone(), par.clone());
+                val_context.add(
+                    par.name.clone(),
+                    par.ast_index.clone(),
+                    TypeFilter::Exact(par.ast_type.clone()),
+                );
                 Self::process_type(&module, &par.ast_type, &mut result);
             }
 
-            Self::process_statements(&module, statements, &mut result, &mut val_context);
+            Self::process_statements(
+                &module,
+                statements,
+                &mut result,
+                &mut val_context,
+                &mut ReferenceContext::new(None),
+                functions_container,
+            );
 
             result
         } else {
@@ -112,44 +159,136 @@ impl ReferenceFinder {
         module: &ASTModule,
         statements: &Vec<ASTStatement>,
         result: &mut Vec<SelectableItem>,
-        mut val_context: &mut ValContext,
+        mut reference_context: &mut ReferenceContext,
+        mut reference_static_context: &mut ReferenceContext,
+        functions_container: &FunctionsContainer,
     ) {
         for stmt in statements {
             if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
-                // TODO it's not always a string!!!
-                val_context.insert_let(
-                    name.clone(),
-                    ASTType::Builtin(BuiltinTypeKind::String),
-                    index,
-                );
+                let filter =
+                    Self::get_filter_of_expression(expr, reference_context, functions_container);
+                reference_context.add(name.clone(), index.clone(), filter.clone());
+                if *is_const {
+                    reference_static_context.add(name.clone(), index.clone(), filter);
+                }
             }
             result.append(&mut Self::get_selectable_items_stmt(
                 stmt,
-                &mut val_context,
+                &mut reference_context,
                 module,
+                functions_container,
             ));
+        }
+    }
+
+    /*
+    fn get_type_of_expression(
+        expr: &ASTExpression,
+        reference_context: &ReferenceContext,
+        functions_container: &FunctionsContainer,
+    ) -> Option<ASTType> {
+        match expr {
+            ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::String)),
+            ASTExpression::ASTFunctionCallExpression(call) => {
+                let filters = call
+                    .parameters
+                    .iter()
+                    .map(|it| {
+                        Self::get_filter_of_expression(it, reference_context, functions_container)
+                    })
+                    .collect();
+                let functions = functions_container.find_call_vec(call, filters, None, false);
+                if functions.len() == 1 {
+                    functions.first().and_then(|it| it.return_type.clone())
+                } else {
+                    None
+                }
+            }
+            ASTExpression::ValueRef(name, index) => match reference_context.get(name) {
+                None => {
+                    panic!("Cannot find '{name}' in context: {index}")
+                }
+                Some(kind) => match kind {
+                    ValKind::ParameterRef(_, def) => Some(def.ast_type.clone()),
+                    ValKind::LetRef(_, ast_type, _) => Some(ast_type.clone()),
+                },
+            },
+            ASTExpression::Value(value_type, _) => Some(get_value_type(value_type)),
+            ASTExpression::Lambda(def) => None,
+            ASTExpression::Any(ast_type) => Some(ast_type.clone()),
+        }
+    }
+
+     */
+
+    fn get_filter_of_expression(
+        expr: &ASTExpression,
+        reference_context: &ReferenceContext,
+        functions_container: &FunctionsContainer,
+    ) -> TypeFilter {
+        match expr {
+            ASTExpression::ASTFunctionCallExpression(call) => {
+                let filters = call
+                    .parameters
+                    .iter()
+                    .map(|it| {
+                        Self::get_filter_of_expression(it, reference_context, functions_container)
+                    })
+                    .collect();
+                let functions = functions_container.find_call_vec(call, filters, None, false);
+                if functions.len() == 1 {
+                    if let Some(ast_type) = &functions.first().unwrap().return_type {
+                        TypeFilter::Exact(ast_type.clone())
+                    } else {
+                        TypeFilter::Any
+                    }
+                } else {
+                    TypeFilter::Any
+                }
+            }
+            ASTExpression::Lambda(def) => TypeFilter::Lambda,
+            ASTExpression::StringLiteral(_) => {
+                TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::String))
+            }
+            ASTExpression::ValueRef(name, index) => reference_context
+                .get(name)
+                .expect(&format!("cannot find ref to '{name}' : {index}"))
+                .filter
+                .clone(),
+            ASTExpression::Value(value_type, index) => {
+                TypeFilter::Exact(get_value_type(value_type))
+            }
+            ASTExpression::Any(ast_type) => TypeFilter::Exact(ast_type.clone()),
         }
     }
 
     fn get_selectable_items_stmt(
         stmt: &ASTStatement,
-        val_context: &mut ValContext,
+        reference_context: &mut ReferenceContext,
         module: &ASTModule,
+        functions_container: &FunctionsContainer,
     ) -> Vec<SelectableItem> {
         match stmt {
-            ASTStatement::Expression(expr) => {
-                Self::get_selectable_items_expr(expr, val_context, module)
-            }
-            ASTStatement::LetStatement(name, expr, _, index) => {
-                Self::get_selectable_items_expr(expr, val_context, module)
-            }
+            ASTStatement::Expression(expr) => Self::get_selectable_items_expr(
+                expr,
+                reference_context,
+                module,
+                functions_container,
+            ),
+            ASTStatement::LetStatement(name, expr, _, index) => Self::get_selectable_items_expr(
+                expr,
+                reference_context,
+                module,
+                functions_container,
+            ),
         }
     }
 
     fn get_selectable_items_expr(
         expr: &ASTExpression,
-        val_context: &mut ValContext,
+        reference_context: &mut ReferenceContext,
         module: &ASTModule,
+        functions_container: &FunctionsContainer,
     ) -> Vec<SelectableItem> {
         let mut result = Vec::new();
         match expr {
@@ -160,40 +299,42 @@ impl ReferenceFinder {
                     .parameters
                     .iter()
                     .flat_map(|it| {
-                        Self::get_selectable_items_expr(it, val_context, module).into_iter()
+                        Self::get_selectable_items_expr(
+                            it,
+                            reference_context,
+                            module,
+                            functions_container,
+                        )
+                        .into_iter()
                     })
                     .collect::<Vec<_>>();
                 result.append(&mut v);
             }
             ASTExpression::ValueRef(name, index) => {
-                if let Some(v) = val_context.get(&name) {
-                    match v {
-                        ValKind::ParameterRef(_, def) => {
-                            result.push(SelectableItem::new(
-                                index.mv(-(name.len() as i32)),
-                                index.clone(),
-                                def.ast_index.clone(),
-                            ));
-                        }
-                        ValKind::LetRef(_, def, let_index) => {
-                            result.push(SelectableItem::new(
-                                index.mv(-(name.len() as i32)),
-                                index.clone(),
-                                let_index.clone(),
-                            ));
-                        }
-                    }
+                if let Some(v) = reference_context.get(&name) {
+                    result.push(SelectableItem::new(
+                        index.mv(-(name.len() as i32)),
+                        index.clone(),
+                        v.index.clone(),
+                    ));
                 }
             }
             ASTExpression::Value(value_type, index) => {}
             ASTExpression::Lambda(def) => {
-                let mut lambda_context = ValContext::new(Some(val_context));
+                let mut lambda_context = ReferenceContext::new(Some(reference_context));
+
+                for (name, index) in def.parameter_names.iter() {
+                    lambda_context.add(name.clone(), index.clone(), TypeFilter::Any);
+                }
+
                 let mut lambda_result = Vec::new();
                 Self::process_statements(
                     module,
                     &def.body,
                     &mut lambda_result,
                     &mut lambda_context,
+                    &mut ReferenceContext::new(None),
+                    functions_container,
                 );
                 result.append(&mut lambda_result);
             }
@@ -282,7 +423,8 @@ mod tests {
                     record.args()
                 )
             })
-            .init();
+            .try_init()
+            .unwrap_or(());
     }
 
     #[test]
