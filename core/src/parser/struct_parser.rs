@@ -89,7 +89,11 @@ impl<'a> StructParser<'a> {
                 let type_parser = TypeParser::new(parser);
                 let name = parameters_s.get(i).unwrap().clone();
                 if let Some((ast_type, _)) = type_parser.try_parse_ast_type(0, generic_types) {
-                    parameters.push(ASTStructPropertyDef { name, ast_type });
+                    parameters.push(ASTStructPropertyDef {
+                        name,
+                        ast_type,
+                        index: self.parser.get_index(n).unwrap(),
+                    });
                 } else {
                     self.parser
                         .panic(&format!("Cannot parse type for property {}:", name));
@@ -126,11 +130,13 @@ mod tests {
         let x = ASTStructPropertyDef {
             name: "x".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
+            index: ASTIndex::new(None, 2, 14),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
+            index: ASTIndex::new(None, 2, 14),
         };
 
         assert_eq!(
@@ -159,11 +165,13 @@ mod tests {
         let x = ASTStructPropertyDef {
             name: "index".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
+            index: ASTIndex::new(None, 2, 18),
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
             ast_type: Generic("T".into()),
+            index: ASTIndex::new(None, 2, 18),
         };
 
         assert_eq!(

@@ -59,6 +59,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTM
             generic_types: struct_def.type_parameters.clone(),
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: LinkedHashMap::new(),
+            index: struct_def.index.clone(),
         };
         module.add_function(struct_def.name.clone(), function_def);
     }
@@ -219,6 +220,7 @@ fn create_function_for_struct_get_property(
         generic_types: struct_def.type_parameters.clone(),
         inline: true,
         resolved_generic_types: LinkedHashMap::new(),
+        index: property_def.index.clone(),
     }
 }
 
@@ -261,5 +263,6 @@ fn create_function_for_struct_set_property(
         generic_types: struct_def.type_parameters.clone(),
         inline: false,
         resolved_generic_types: LinkedHashMap::new(),
+        index: struct_def.index.clone(),
     }
 }

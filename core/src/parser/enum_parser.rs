@@ -123,6 +123,7 @@ impl<'a> EnumParser<'a> {
                     ASTEnumVariantDef {
                         name: name.clone(),
                         parameters,
+                        index: self.parser.get_index(n).unwrap(),
                     }
                 })
                 .collect();
@@ -262,11 +263,13 @@ mod tests {
                 ast_type: Generic("T".into()),
                 ast_index: ASTIndex::none(),
             }],
+            index: ASTIndex::new(None, 2, 18),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
+            index: ASTIndex::new(None, 2, 18),
         };
 
         assert_eq!(
@@ -321,6 +324,7 @@ mod tests {
                         Generic("T".into()),
                         ASTIndex::none()
                     )],
+                    index: ASTIndex::new(None, 1, 5)
                 }]
             );
             assert_eq!(next_i, 7);
@@ -343,6 +347,7 @@ mod tests {
                         ASTParameterDef::new("v", Generic("T".into()), ASTIndex::none()),
                         ASTParameterDef::new("v1", Generic("T1".into()), ASTIndex::none()),
                     ],
+                    index: ASTIndex::new(None, 1, 10)
                 }]
             );
             assert_eq!(next_i, 11);
@@ -372,6 +377,7 @@ mod tests {
                             ASTIndex::none()
                         ),
                     ],
+                    index: ASTIndex::new(None, 1, 5)
                 }]
             );
             assert_eq!(next_i, 14);
@@ -398,11 +404,13 @@ mod tests {
                 ast_type: Generic("T".into()),
                 ast_index: ASTIndex::none(),
             }],
+            index: ASTIndex::new(None, 2, 18),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
+            index: ASTIndex::new(None, 2, 18),
         };
 
         assert_eq!(parse_result, Some((vec![empty, some], 9)));
@@ -416,6 +424,7 @@ mod tests {
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
+            index: ASTIndex::new(None, 1, 6),
         };
 
         assert_eq!(parse_result, Some((vec![empty], 2)));
@@ -440,11 +449,13 @@ mod tests {
                         ast_type: Generic("T".into()),
                         ast_index: ASTIndex::none(),
                     }],
+                    index: ASTIndex::new(None, 2, 18),
                 };
 
                 let empty = ASTEnumVariantDef {
                     name: "Empty".into(),
                     parameters: vec![],
+                    index: ASTIndex::new(None, 2, 18),
                 };
 
                 assert_eq!(vec![empty, some], variants);
@@ -487,11 +498,13 @@ mod tests {
                             ast_index: ASTIndex::none(),
                         },
                     ],
+                    index: ASTIndex::new(None, 2, 19),
                 };
 
                 let empty = ASTEnumVariantDef {
                     name: "Empty".into(),
                     parameters: vec![],
+                    index: ASTIndex::new(None, 2, 19),
                 };
 
                 assert_eq!(variants, vec![full, empty]);
@@ -523,6 +536,7 @@ mod tests {
                         Generic("L".into()),
                         ASTIndex::none(),
                     )],
+                    index: ASTIndex::new(None, 2, 17),
                 };
 
                 let right = ASTEnumVariantDef {
@@ -532,6 +546,7 @@ mod tests {
                         Generic("R".into()),
                         ASTIndex::none(),
                     )],
+                    index: ASTIndex::new(None, 2, 17),
                 };
 
                 assert_eq!(variants, vec![left, right]);

@@ -15,6 +15,7 @@ use rasm_core::type_check::typed_ast::{
     ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use rasm_core::type_check::typed_context::TypeConversionContext;
+use rasm_core::utils::SliceDisplay;
 
 use crate::reference_context::ReferenceContext;
 
@@ -181,46 +182,6 @@ impl ReferenceFinder {
         }
     }
 
-    /*
-    fn get_type_of_expression(
-        expr: &ASTExpression,
-        reference_context: &ReferenceContext,
-        functions_container: &FunctionsContainer,
-    ) -> Option<ASTType> {
-        match expr {
-            ASTExpression::StringLiteral(_) => Some(ASTType::Builtin(BuiltinTypeKind::String)),
-            ASTExpression::ASTFunctionCallExpression(call) => {
-                let filters = call
-                    .parameters
-                    .iter()
-                    .map(|it| {
-                        Self::get_filter_of_expression(it, reference_context, functions_container)
-                    })
-                    .collect();
-                let functions = functions_container.find_call_vec(call, filters, None, false);
-                if functions.len() == 1 {
-                    functions.first().and_then(|it| it.return_type.clone())
-                } else {
-                    None
-                }
-            }
-            ASTExpression::ValueRef(name, index) => match reference_context.get(name) {
-                None => {
-                    panic!("Cannot find '{name}' in context: {index}")
-                }
-                Some(kind) => match kind {
-                    ValKind::ParameterRef(_, def) => Some(def.ast_type.clone()),
-                    ValKind::LetRef(_, ast_type, _) => Some(ast_type.clone()),
-                },
-            },
-            ASTExpression::Value(value_type, _) => Some(get_value_type(value_type)),
-            ASTExpression::Lambda(def) => None,
-            ASTExpression::Any(ast_type) => Some(ast_type.clone()),
-        }
-    }
-
-     */
-
     fn get_filter_of_expression(
         expr: &ASTExpression,
         reference_context: &ReferenceContext,
@@ -235,7 +196,7 @@ impl ReferenceFinder {
                         Self::get_filter_of_expression(it, reference_context, functions_container)
                     })
                     .collect();
-                let functions = functions_container.find_call_vec(call, filters, None, false);
+                let functions = functions_container.find_call_vec(call, filters, None, true);
                 if functions.len() == 1 {
                     if let Some(ast_type) = &functions.first().unwrap().return_type {
                         TypeFilter::Exact(ast_type.clone())
@@ -309,6 +270,32 @@ impl ReferenceFinder {
                     })
                     .collect::<Vec<_>>();
                 result.append(&mut v);
+
+                let filters: Vec<TypeFilter> = call
+                    .parameters
+                    .iter()
+                    .map(|it| {
+                        Self::get_filter_of_expression(it, reference_context, functions_container)
+                    })
+                    .collect();
+
+                let functions =
+                    functions_container.find_call_vec(call, filters.clone(), None, true);
+
+                if functions.len() == 1 {
+                    result.push(SelectableItem::new(
+                        call.index.mv(-(call.function_name.len() as i32)),
+                        call.index.clone(),
+                        functions.first().unwrap().index.clone(),
+                    ));
+                } else {
+                    warn!(
+                        "Cannot find function for call {call} with filters {} : {}",
+                        SliceDisplay(&filters),
+                        call.index
+                    );
+                    functions_container.debug_i("functions_container");
+                }
             }
             ASTExpression::ValueRef(name, index) => {
                 if let Some(v) = reference_context.get(&name) {

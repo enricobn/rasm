@@ -105,6 +105,7 @@ fn create_match_like_function(
         generic_types: param_types,
         // TODO calculate, even if I don't know if it's useful
         resolved_generic_types: LinkedHashMap::new(),
+        index: ASTIndex::none(),
     };
 
     debug!("created function {function_def}");
@@ -201,6 +202,7 @@ fn create_constructors(
             generic_types: enum_def.type_parameters.clone(),
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: LinkedHashMap::new(),
+            index: variant.index.clone(),
         };
 
         debug!("created function {function_def}");

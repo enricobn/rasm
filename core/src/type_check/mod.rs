@@ -1278,6 +1278,7 @@ pub fn convert_call(
         generic_types: remaining_generic_types,
         inline: function_def.inline,
         resolved_generic_types: resolved_generic_types.clone(),
+        index: function_def.index.clone(),
     };
 
     let result = if let Some(f) = typed_context
@@ -1415,8 +1416,10 @@ fn get_called_function(
         typed_context.borrow().debug_i();
         module.debug_i();
         return Err(format!(
-            "Cannot find function for {call} with filters {:?} with return type {:?} in: {}",
-            call_parameters_types, expected_return_type, call.index
+            "Cannot find function for {call} with filters {} with return type {:?} in: {}",
+            SliceDisplay(&call_parameters_types),
+            expected_return_type,
+            call.index
         )
         .into());
     }
@@ -1430,14 +1433,14 @@ fn get_called_function(
         let mut found_function_def = None;
         for f_def in candidate_functions {
             debug_i!(
-                "Trying to find the right function {f_def} filter {:?}",
-                call_parameters_types
+                "Trying to find the right function {f_def} filter {}",
+                SliceDisplay(&call_parameters_types)
             );
             let new_call_parameters_types = call_parameters_types
                 .iter()
                 .enumerate()
                 .map(|(i, filter)| {
-                    debug_i!("filter {i} {:?}", filter);
+                    debug_i!("filter {i} {}", filter);
                     match filter {
                         TypeFilter::Any | TypeFilter::Lambda => {
                             let par = f_def.parameters.get(i).unwrap();
@@ -1474,7 +1477,10 @@ fn get_called_function(
                 })
                 .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
-            debug_i!("new call parameters types {:?}", new_call_parameters_types);
+            debug_i!(
+                "new call parameters types {}",
+                SliceDisplay(&new_call_parameters_types)
+            );
             let mut new_function_def_opt = typed_context.borrow().find_call_vec(
                 call,
                 new_call_parameters_types.clone(),
@@ -2443,6 +2449,7 @@ mod tests {
             generic_types: vec!["T".into()],
             resolved_generic_types: LinkedHashMap::new(),
             original_name: "consume".into(),
+            index: ASTIndex::none(),
         };
 
         let module = ASTModule {

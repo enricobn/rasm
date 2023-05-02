@@ -81,7 +81,7 @@ impl TypeConversionContext {
 mod tests {
     use linked_hash_map::LinkedHashMap;
 
-    use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef};
+    use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTIndex};
     use crate::type_check::typed_context::TypeConversionContext;
 
     #[test]
@@ -123,6 +123,7 @@ mod tests {
             generic_types: Vec::new(),
             resolved_generic_types: LinkedHashMap::new(),
             original_name: name.into(),
+            index: ASTIndex::none(),
         }
     }
 }

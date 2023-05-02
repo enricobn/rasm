@@ -15,6 +15,7 @@ pub struct ASTFunctionDef {
     pub inline: bool,
     pub generic_types: Vec<String>,
     pub resolved_generic_types: LinkedHashMap<String, ASTType>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTFunctionDef {
@@ -163,6 +164,7 @@ impl Display for ASTParameterDef {
 pub struct ASTStructPropertyDef {
     pub name: String,
     pub ast_type: ASTType,
+    pub index: ASTIndex,
 }
 
 impl ASTParameterDef {
@@ -361,6 +363,7 @@ impl ASTEnumDef {
 pub struct ASTEnumVariantDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTEnumVariantDef {

@@ -378,6 +378,7 @@ impl Parser {
                     inline: false,
                     generic_types,
                     resolved_generic_types: LinkedHashMap::new(),
+                    index: self.get_index(next_i - self.i).unwrap(),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -395,6 +396,7 @@ impl Parser {
                     inline,
                     generic_types: param_types,
                     resolved_generic_types: LinkedHashMap::new(),
+                    index: self.get_index(next_i - self.i).unwrap(),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -564,6 +566,7 @@ impl Parser {
                 inline: false,
                 generic_types: Vec::new(),
                 resolved_generic_types: LinkedHashMap::new(),
+                index: ASTIndex::none(),
             };
             self.parser_data
                 .push(ParserData::FunctionDef(fake_function_def));
@@ -1139,7 +1142,7 @@ mod tests {
 
     use crate::lexer::Lexer;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTStatement, ASTType,
+        ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement, ASTType,
         BuiltinTypeKind, ValueType,
     };
     use crate::parser::Parser;
@@ -1231,6 +1234,7 @@ mod tests {
             generic_types: vec!["T".into(), "T1".into()],
             resolved_generic_types: LinkedHashMap::new(),
             original_name: "p".into(),
+            index: ASTIndex::new(None, 1, 12),
         };
 
         assert_eq!(module.functions, vec![function_def]);

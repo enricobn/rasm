@@ -22,7 +22,7 @@ use crate::type_check::{
     convert_call, convert_function_def, convert_statement, get_new_native_call, substitute,
     TypeConversionContext,
 };
-use crate::utils::find_one;
+use crate::utils::{find_one, SliceDisplay};
 use crate::{debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1515,8 +1515,10 @@ pub fn function_def(
                             } else {
                                 module.debug_i();
                                 panic!(
-                                    "cannot find {} {:?}: {}",
-                                    function_call, call_parameters_types, function_call.index
+                                    "cannot find {} {}: {}",
+                                    function_call,
+                                    SliceDisplay(&call_parameters_types),
+                                    function_call.index
                                 );
                             }
                         }

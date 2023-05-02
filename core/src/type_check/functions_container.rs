@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::iter::zip;
 
 use linked_hash_map::LinkedHashMap;
@@ -21,7 +21,7 @@ pub enum TypeFilter {
     Lambda,
 }
 
-impl Debug for TypeFilter {
+impl Display for TypeFilter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             TypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
@@ -134,8 +134,8 @@ impl FunctionsContainer {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
-                    "cannot find functions for {function_name} filter {:?}",
-                    parameter_types_filter
+                    "cannot find functions for {function_name} filter {}",
+                    SliceDisplay(&parameter_types_filter)
                 );
             } else {
                 let mut resolved_generic_types = LinkedHashMap::new();
@@ -178,8 +178,8 @@ impl FunctionsContainer {
                         .collect::<Vec<String>>()
                         .join(",");
                     panic!(
-                        "Found more than one function for {function_name}\nfilter {:?}\nfunctions {f_descs}",
-                        parameter_types_filter
+                        "Found more than one function for {function_name}\nfilter {}\nfunctions {f_descs}",
+                        SliceDisplay(&parameter_types_filter)
                     );
                 } else {
                     matching_functions.first().cloned()
@@ -198,16 +198,16 @@ impl FunctionsContainer {
         filter_on_name: bool,
     ) -> Vec<ASTFunctionDef> {
         debug_i!(
-            "find_call_vec {call} return type {} filter {:?}",
+            "find_call_vec {call} return type {} filter {}",
             format_option_option(&return_type_filter),
-            &parameter_types_filter
+            SliceDisplay(&parameter_types_filter)
         );
         let result =
             if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
                 if functions.is_empty() {
                     panic!(
-                        "cannot find functions for call {call} filter {:?}",
-                        parameter_types_filter
+                        "cannot find functions for call {call} filter {}",
+                        SliceDisplay(&parameter_types_filter)
                     );
                 } else {
                     let mut resolved_generic_types = LinkedHashMap::new();
@@ -343,8 +343,8 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
     ) -> bool {
         debug_i!(
-            "almost_same_type {parameter_type} filter {:?}",
-            parameter_type_filter
+            "almost_same_type {parameter_type} filter {}",
+            &parameter_type_filter
         );
         match parameter_type_filter {
             TypeFilter::Any => true,
@@ -674,6 +674,7 @@ mod tests {
             resolved_generic_types: LinkedHashMap::new(),
             return_type: Some(ASTType::Builtin(BuiltinTypeKind::String)),
             original_name: name.into(),
+            index: ASTIndex::none(),
         }
     }
 
@@ -698,6 +699,7 @@ mod tests {
             resolved_generic_types: LinkedHashMap::new(),
             return_type: Some(ASTType::Builtin(param_kind)),
             original_name: "add".into(),
+            index: ASTIndex::none(),
         }
     }
 }

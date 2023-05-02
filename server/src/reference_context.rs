@@ -23,10 +23,10 @@ impl ReferenceContext {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ReferenceKind {
-    pub index: ASTIndex,
     pub filter: TypeFilter,
+    pub index: ASTIndex,
 }
 
 impl ReferenceContext {

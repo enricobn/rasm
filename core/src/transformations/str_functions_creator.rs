@@ -21,6 +21,7 @@ pub fn str_functions_creator(module: &mut EnhancedASTModule) {
         return_type: None,
         generic_types: Vec::new(),
         resolved_generic_types: LinkedHashMap::new(),
+        index: ASTIndex::none(),
     };
 
     module.add_function(function_def.name.clone(), function_def);
@@ -41,6 +42,7 @@ pub fn str_functions_creator(module: &mut EnhancedASTModule) {
         return_type: None,
         generic_types: Vec::new(),
         resolved_generic_types: LinkedHashMap::new(),
+        index: ASTIndex::none(),
     };
 
     module.add_function(function_def.name.clone(), function_def);
