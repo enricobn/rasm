@@ -19,13 +19,16 @@ use env_logger::Builder;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use rasm_core::codegen::backend::BackendAsm386;
+use rasm_core::codegen::backend::{Backend, BackendAsm386};
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind};
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};
 use rasm_core::parser::Parser;
+use rasm_core::transformations::enum_functions_creator::enum_functions_creator;
+use rasm_core::transformations::str_functions_creator::str_functions_creator;
+use rasm_core::transformations::struct_functions_creator::struct_functions_creator;
 use rasm_core::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
@@ -47,7 +50,7 @@ async fn main() {
     let src = get_src();
     info!("starting server for {src}");
 
-    let server_state = ServerState::new(src);
+    let server_state = ServerState::new(src, &BackendAsm386::new(HashSet::new(), HashSet::new()));
 
     let app_state = Arc::new(server_state);
 
@@ -74,8 +77,8 @@ struct ServerState {
 }
 
 impl ServerState {
-    fn new(src: String) -> Self {
-        let module = get_module(&src);
+    fn new(src: String, backend: &dyn Backend) -> Self {
+        let module = get_module(&src, backend);
         let finder = ReferenceFinder::new(&module);
         Self {
             src,
@@ -246,10 +249,10 @@ fn get_src() -> String {
     matches.get_one::<String>("SRC").unwrap().to_owned()
 }
 
-fn get_module(src: &str) -> ASTModule {
+fn get_module(src: &str, backend: &dyn Backend) -> ASTModule {
     let file_path = Path::new(src);
     let std_lib_path = CodeGen::get_std_lib_path();
-    match Lexer::from_file(file_path) {
+    let mut module = match Lexer::from_file(file_path) {
         Ok(lexer) => {
             info!("Lexer ended");
             let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
@@ -258,5 +261,13 @@ fn get_module(src: &str) -> ASTModule {
         Err(err) => {
             panic!("An error occurred: {}", err)
         }
-    }
+    };
+
+    let mut statics = Statics::new();
+
+    enum_functions_creator(backend, &mut module, &mut statics);
+    struct_functions_creator(backend, &mut module);
+    str_functions_creator(&mut module);
+
+    module
 }

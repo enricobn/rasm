@@ -1,7 +1,6 @@
 use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::backend::Backend;
-use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::CodeGen;
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTParameterDef, ASTStructDef,

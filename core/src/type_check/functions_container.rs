@@ -195,7 +195,7 @@ impl FunctionsContainer {
         call: &ASTFunctionCall,
         parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
-        filter_on_name: bool,
+        filter_only_on_name: bool,
     ) -> Vec<ASTFunctionDef> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
@@ -212,7 +212,7 @@ impl FunctionsContainer {
                 } else {
                     let mut resolved_generic_types = LinkedHashMap::new();
                     let lambda = |it: &&ASTFunctionDef| {
-                        if filter_on_name && it.name == call.function_name {
+                        if filter_only_on_name && it.name == call.function_name {
                             return true;
                         }
                         let verify_params = Self::almost_same_parameters_types(

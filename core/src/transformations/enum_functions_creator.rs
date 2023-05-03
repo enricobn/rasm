@@ -2,9 +2,8 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::Backend;
-use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::{CodeGen, MemoryValue};
+use crate::codegen::CodeGen;
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule,
     ASTParameterDef, ASTType, BuiltinTypeKind,

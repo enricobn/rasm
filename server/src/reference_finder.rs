@@ -196,7 +196,7 @@ impl ReferenceFinder {
                         Self::get_filter_of_expression(it, reference_context, functions_container)
                     })
                     .collect();
-                let functions = functions_container.find_call_vec(call, filters, None, true);
+                let functions = functions_container.find_call_vec(call, filters, None, false);
                 if functions.len() == 1 {
                     if let Some(ast_type) = &functions.first().unwrap().return_type {
                         TypeFilter::Exact(ast_type.clone())
@@ -280,7 +280,7 @@ impl ReferenceFinder {
                     .collect();
 
                 let functions =
-                    functions_container.find_call_vec(call, filters.clone(), None, true);
+                    functions_container.find_call_vec(call, filters.clone(), None, false);
 
                 if functions.len() == 1 {
                     result.push(SelectableItem::new(
@@ -294,7 +294,7 @@ impl ReferenceFinder {
                         SliceDisplay(&filters),
                         call.index
                     );
-                    functions_container.debug_i("functions_container");
+                    warn!("{}", SliceDisplay(&functions));
                 }
             }
             ASTExpression::ValueRef(name, index) => {
@@ -379,6 +379,7 @@ impl SelectableItem {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::env;
     use std::io::Write;
     use std::path::Path;
@@ -420,7 +421,10 @@ mod tests {
         env::set_var("RASM_STDLIB", "../stdlib");
         let file_name = "resources/simple.rasm".to_owned();
 
-        let module = get_module(&file_name);
+        let module = get_module(
+            &file_name,
+            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+        );
 
         let finder = ReferenceFinder::new(&module);
 
@@ -450,7 +454,10 @@ mod tests {
         env::set_var("RASM_STDLIB", "../stdlib");
         let file_name = "resources/types.rasm".to_owned();
 
-        let module = get_module(&file_name);
+        let module = get_module(
+            &file_name,
+            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+        );
 
         let finder = ReferenceFinder::new(&module);
 
