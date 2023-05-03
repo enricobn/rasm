@@ -87,14 +87,14 @@ pub struct ValContext {
 
 impl ValContext {
     pub fn new(parent_context: Option<&ValContext>) -> Self {
-        let mut map = LinkedHashMap::new();
+        let mut value_to_address = LinkedHashMap::new();
         if let Some(pc) = parent_context {
             for (key, value) in pc.value_to_address.iter() {
-                map.insert(key.clone(), value.clone());
+                value_to_address.insert(key.clone(), value.clone());
             }
         }
         Self {
-            value_to_address: map,
+            value_to_address,
             par_index: 0,
             let_index: 0,
         }
@@ -358,16 +358,7 @@ impl<'a> CodeGen<'a> {
 
     pub fn asm(&mut self) -> String {
         self.id = 0;
-        self.body = self.module.native_body.clone();
-        /*TextMacroEvaluator::new().translate(
-            self.backend,
-            &mut self.statics,
-            None,
-            &self.module.native_body,
-            Some(&self.module),
-        );
-
-         */
+        self.body = String::new();
 
         self.definitions = String::new();
         self.functions = self.module.functions_by_name.clone();
@@ -547,6 +538,31 @@ impl<'a> CodeGen<'a> {
             None,
             true,
         );
+
+        let mut temp_statics = Statics::new();
+        let mut evaluator = TextMacroEvaluator::new();
+        let code = evaluator.translate(
+            self.backend,
+            &mut temp_statics,
+            None,
+            &code,
+            self.dereference,
+            false,
+            &self.module,
+        );
+
+        /*
+        let code = evaluator.translate(
+            self.backend,
+            &mut temp_statics,
+            None,
+            &code,
+            self.dereference,
+            false,
+            &self.module,
+        );
+
+         */
 
         CodeGen::add(&mut asm, &code, None, true);
 

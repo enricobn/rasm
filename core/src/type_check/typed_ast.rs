@@ -239,7 +239,6 @@ pub struct ASTTypedModule {
     pub functions_by_name: LinkedHashMap<String, ASTTypedFunctionDef>,
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
-    pub native_body: String,
     pub types: Vec<ASTTypedTypeDef>,
 }
 
@@ -939,7 +938,6 @@ pub fn convert_to_typed_module(
         structs: conv_context.struct_defs,
         enums: conv_context.enum_defs,
         functions_by_name: LinkedHashMap::new(),
-        native_body: module.native_body.clone(),
         types: conv_context.type_defs,
     };
 

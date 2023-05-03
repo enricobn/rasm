@@ -15,8 +15,6 @@ pub fn enum_functions_creator(
     module: &mut EnhancedASTModule,
     statics: &mut Statics,
 ) {
-    let mut native_body = module.native_body.clone();
-
     for enum_def in module.enums.clone().iter() {
         let param_types: Vec<ASTType> = enum_def
             .type_parameters
@@ -24,14 +22,7 @@ pub fn enum_functions_creator(
             .map(|it| ASTType::Generic(it.into()))
             .collect();
 
-        create_constructors(
-            backend,
-            module,
-            &mut native_body,
-            enum_def,
-            &param_types,
-            statics,
-        );
+        create_constructors(backend, module, enum_def, &param_types, statics);
 
         create_match_like_function(
             backend,
@@ -44,8 +35,6 @@ pub fn enum_functions_creator(
 
         create_match_like_function(backend, module, &enum_def, "run", None, None);
     }
-
-    module.native_body = native_body;
 }
 
 fn create_match_like_function(
@@ -116,15 +105,11 @@ fn create_match_like_function(
 fn create_constructors(
     backend: &dyn Backend,
     module: &mut EnhancedASTModule,
-    native_body: &mut String,
     enum_def: &ASTEnumDef,
     param_types: &[ASTType],
     statics: &mut Statics,
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-        //debug!("variant parameters for {} : {:?}", variant.name, variant.parameters);
-        let descr_label = statics.add_str(&format!(" for {}::{}", enum_def.name, variant.name));
-
         let ast_type = ASTType::Custom {
             name: enum_def.name.clone(),
             param_types: param_types.to_vec(),
@@ -134,58 +119,15 @@ fn create_constructors(
         let return_type = Some(ast_type);
         let body_str = if variant.parameters.is_empty() {
             let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-            statics.insert(label.clone(), MemoryValue::I32Value(0));
-            //let all_tab_address_label = format!("_enum_{}_{}_alL_tab_address", enum_def.name, variant.name);
-            //self.statics.insert(all_tab_address_label.clone(), MemoryValue::I32Value(0));
-
-            CodeGen::add(
-                native_body,
-                &format!(
-                    "$call(malloc, {}, [{descr_label}]: str)",
-                    backend.word_len()
-                ),
-                None,
-                true,
-            );
-
-            CodeGen::add(
-                native_body,
-                &format!("$call(addRef, eax, [{descr_label}]: str)"),
-                None,
-                true,
-            );
-
-            /*
-            CodeGen::add(
-                native_body,
-                &format!("add   {}, {}", backend.stack_pointer(), backend.word_len()),
-                None,
-                true,
-            );
-
-             */
-
-            CodeGen::add(
-                native_body,
-                &format!("mov   {} [{label}], eax", backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                native_body,
-                &format!("mov   {} eax, [eax]", backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                native_body,
-                &format!("mov   {} [eax], {variant_num}", backend.word_size()),
-                None,
-                true,
+            statics.insert_value_in_heap(
+                &label,
+                &format!(" for {}::{}", enum_def.name, variant.name),
+                variant_num as i32,
             );
 
             format!("    mov    eax, [{}]\n", label)
         } else {
+            let descr_label = statics.add_str(&format!(" for {}::{}", enum_def.name, variant.name));
             enum_parametric_variant_constructor_body(backend, &variant_num, &variant, &descr_label)
         };
         let body = ASTFunctionBody::ASMBody(body_str);

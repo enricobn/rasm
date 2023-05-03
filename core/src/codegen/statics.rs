@@ -29,6 +29,7 @@ pub struct Statics {
     const_map: LinkedHashMap<String, ConstEntry>,
     const_typed_map: LinkedHashMap<String, ConstTypedEntry>,
     static_allocation: Vec<(String, String)>,
+    heap: LinkedHashMap<String, (String, i32)>,
 }
 
 impl Statics {
@@ -40,6 +41,7 @@ impl Statics {
             const_map: LinkedHashMap::new(),
             const_typed_map: LinkedHashMap::new(),
             static_allocation: Vec::new(),
+            heap: LinkedHashMap::new(),
         }
     }
 
@@ -247,6 +249,44 @@ impl Statics {
             CodeGen::add(&mut code, "pop  ecx", None, true);
         }
 
+        for (label, (descr_label, value)) in self.heap.iter() {
+            CodeGen::add(
+                &mut code,
+                &format!(
+                    "$call(malloc_0, {}, [{descr_label}]: str)",
+                    backend.word_len()
+                ),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("$call(addRef_0, eax, [{descr_label}]: str)"),
+                None,
+                true,
+            );
+
+            CodeGen::add(
+                &mut code,
+                &format!("mov   {} [{label}], eax", backend.word_size()),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut code,
+                &format!("mov   {} eax, [eax]", backend.word_size()),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut code,
+                &format!("mov   {} [eax], {value}", backend.word_size()),
+                None,
+                true,
+            );
+        }
+
         (data, bss, code)
     }
 
@@ -264,6 +304,12 @@ impl Statics {
 
     pub fn typed_const_names(&self) -> Vec<&String> {
         self.const_typed_map.keys().collect::<Vec<_>>()
+    }
+
+    pub fn insert_value_in_heap(&mut self, label: &str, descr: &str, value: i32) {
+        let descr_key = self.add_str(descr);
+        self.insert(label.to_owned(), MemoryValue::I32Value(0));
+        self.heap.insert(label.to_owned(), (descr_key, value));
     }
 
     fn print_res(
