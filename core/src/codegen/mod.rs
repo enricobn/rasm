@@ -328,11 +328,12 @@ impl<'a> CodeGen<'a> {
         print_module: bool,
         statics: &mut Statics,
     ) -> (ASTTypedModule, TypeConversionContext) {
-        let mut enhanced_module = EnhancedASTModule::new(module);
+        let mut module = module;
+        enum_functions_creator(backend, &mut module, statics);
+        struct_functions_creator(backend, &mut module);
+        str_functions_creator(&mut module);
 
-        enum_functions_creator(backend, &mut enhanced_module, statics);
-        struct_functions_creator(backend, &mut enhanced_module);
-        str_functions_creator(&mut enhanced_module);
+        let mut enhanced_module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
 

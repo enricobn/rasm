@@ -6,13 +6,13 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, MemoryValue};
 use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef,
-    ASTType, BuiltinTypeKind,
+    ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule,
+    ASTParameterDef, ASTType, BuiltinTypeKind,
 };
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
-    module: &mut EnhancedASTModule,
+    module: &mut ASTModule,
     statics: &mut Statics,
 ) {
     for enum_def in module.enums.clone().iter() {
@@ -39,7 +39,7 @@ pub fn enum_functions_creator(
 
 fn create_match_like_function(
     backend: &dyn Backend,
-    module: &mut EnhancedASTModule,
+    module: &mut ASTModule,
     enum_def: &&ASTEnumDef,
     name: &str,
     return_type: Option<ASTType>,
@@ -99,12 +99,12 @@ fn create_match_like_function(
 
     debug!("created function {function_def}");
 
-    module.add_function(name.to_owned(), function_def);
+    module.add_function(function_def);
 }
 
 fn create_constructors(
     backend: &dyn Backend,
-    module: &mut EnhancedASTModule,
+    module: &mut ASTModule,
     enum_def: &ASTEnumDef,
     param_types: &[ASTType],
     statics: &mut Statics,
@@ -134,7 +134,7 @@ fn create_constructors(
 
         let name = enum_def.name.clone() + "_" + &variant.name.clone();
         let function_def = ASTFunctionDef {
-            original_name: name.clone(),
+            original_name: enum_def.name.clone() + "::" + &variant.name.clone(),
             name,
             parameters: variant.parameters.clone(),
             body,
@@ -149,10 +149,7 @@ fn create_constructors(
 
         debug!("created function {function_def}");
 
-        module.add_function(
-            enum_def.name.clone() + "::" + &variant.name.clone(),
-            function_def,
-        );
+        module.add_function(function_def);
     }
 }
 

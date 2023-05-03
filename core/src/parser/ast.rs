@@ -341,6 +341,12 @@ pub struct ASTModule {
     pub included_files: HashSet<String>,
 }
 
+impl ASTModule {
+    pub fn add_function(&mut self, function_def: ASTFunctionDef) {
+        self.functions.push(function_def);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTEnumDef {
     pub name: String,

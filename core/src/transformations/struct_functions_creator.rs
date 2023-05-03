@@ -4,11 +4,11 @@ use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::CodeGen;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTStructDef, ASTStructPropertyDef,
-    ASTType,
+    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTParameterDef, ASTStructDef,
+    ASTStructPropertyDef, ASTType,
 };
 
-pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTModule) {
+pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
     for struct_def in &module.structs.clone() {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
@@ -39,14 +39,11 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTM
         for (i, property_def) in struct_def.properties.iter().enumerate() {
             let property_function =
                 create_function_for_struct_get_property(backend, struct_def, property_def, i);
-            module.add_function(property_def.name.clone(), property_function);
+            module.add_function(property_function);
 
             let property_setter_function =
                 create_function_for_struct_set_property(backend, struct_def, property_def, i);
-            module.add_function(
-                property_setter_function.name.clone(),
-                property_setter_function,
-            );
+            module.add_function(property_setter_function);
         }
 
         let function_def = ASTFunctionDef {
@@ -61,7 +58,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut EnhancedASTM
             resolved_generic_types: LinkedHashMap::new(),
             index: struct_def.index.clone(),
         };
-        module.add_function(struct_def.name.clone(), function_def);
+        module.add_function(function_def);
     }
 }
 

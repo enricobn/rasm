@@ -2,10 +2,10 @@ use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
+    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTParameterDef, ASTType, BuiltinTypeKind,
 };
 
-pub fn str_functions_creator(module: &mut EnhancedASTModule) {
+pub fn str_functions_creator(module: &mut ASTModule) {
     let body = ASTFunctionBody::ASMBody("$call(deref, $s:i32, \"String\")".into());
     let name: String = "str_deref".into();
     let function_def = ASTFunctionDef {
@@ -24,7 +24,7 @@ pub fn str_functions_creator(module: &mut EnhancedASTModule) {
         index: ASTIndex::none(),
     };
 
-    module.add_function(function_def.name.clone(), function_def);
+    module.add_function(function_def);
 
     let body = ASTFunctionBody::ASMBody("$call(addRef, $s:i32, \"String\")".into());
     let name: String = "str_addRef".into();
@@ -45,5 +45,5 @@ pub fn str_functions_creator(module: &mut EnhancedASTModule) {
         index: ASTIndex::none(),
     };
 
-    module.add_function(function_def.name.clone(), function_def);
+    module.add_function(function_def);
 }
