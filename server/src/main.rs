@@ -211,7 +211,12 @@ fn token_to_string(token: &Token) -> String {
                 BracketStatus::Open => "[".to_owned(),
             },
         },
-        TokenKind::Comment(s) => format!("// {s}"),
+        TokenKind::Comment(s) => {
+            format!("{s}")
+        }
+        TokenKind::MultiLineComment(s) => {
+            format!("<pre>{s}</pre>")
+        }
         TokenKind::EndOfLine => "</br>".to_owned(),
         TokenKind::KeyWord(keyword) => format!("{:?}", keyword).to_lowercase(),
         TokenKind::Number(n) => n.to_string(),

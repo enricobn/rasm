@@ -22,6 +22,7 @@ pub enum TokenKind {
     AsmBLock(String),
     Bracket(BracketKind, BracketStatus),
     Comment(String),
+    MultiLineComment(String),
     EndOfLine,
     KeyWord(KeywordKind),
     Number(String),
@@ -72,6 +73,9 @@ impl Display for TokenKind {
             },
             TokenKind::Comment(_) => {
                 write!(f, "comment")
+            }
+            TokenKind::MultiLineComment(_) => {
+                write!(f, "multi line comment")
             }
             TokenKind::EndOfLine => {
                 write!(f, "EOL")

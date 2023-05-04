@@ -123,7 +123,10 @@ impl Parser {
             .filter(|it| {
                 !matches!(
                     it.kind,
-                    TokenKind::WhiteSpaces(_) | TokenKind::Comment(_) | TokenKind::EndOfLine
+                    TokenKind::WhiteSpaces(_)
+                        | TokenKind::Comment(_)
+                        | TokenKind::MultiLineComment(_)
+                        | TokenKind::EndOfLine
                 )
             })
             .collect();

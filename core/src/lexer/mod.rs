@@ -241,7 +241,7 @@ impl Iterator for Lexer {
                         }
                     } else if actual.starts_with("/*") {
                         if actual.ends_with("*/") {
-                            let token = self.some_token(TokenKind::Comment(actual));
+                            let token = self.some_token(TokenKind::MultiLineComment(actual));
                             return token;
                         } else if c == '\n' {
                             self.row += 1;
@@ -406,7 +406,7 @@ mod tests {
         assert_eq!(
             vec![
                 Comment("// test6.rasm file".into()),
-                Comment("/*\n   A multi\n   line comment\n */".into()),
+                MultiLineComment("/*\n   A multi\n   line comment\n */".into()),
             ],
             lst
         );
