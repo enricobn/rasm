@@ -18,6 +18,7 @@ use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType, BuiltinTypeKind};
 use crate::transformations::enum_functions_creator::enum_functions_creator;
+use crate::transformations::globals_creator::add_rasm_resource_folder;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::transformations::struct_functions_creator::struct_functions_creator;
 use crate::transformations::type_functions_creator::type_mandatory_functions;
@@ -283,6 +284,7 @@ impl<'a> CodeGen<'a> {
         print_memory_info: bool,
         dereference: bool,
         print_module: bool,
+        resource_path: String,
     ) -> Self {
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
@@ -298,6 +300,7 @@ impl<'a> CodeGen<'a> {
             dereference,
             print_module,
             &mut statics,
+            resource_path,
         );
 
         Self {
@@ -327,8 +330,10 @@ impl<'a> CodeGen<'a> {
         dereference: bool,
         print_module: bool,
         statics: &mut Statics,
+        resource_path: String,
     ) -> (ASTTypedModule, TypeConversionContext) {
         let mut module = module;
+        add_rasm_resource_folder(&mut module, resource_path);
         enum_functions_creator(backend, &mut module, statics);
         struct_functions_creator(backend, &mut module);
         str_functions_creator(&mut module);

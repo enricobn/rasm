@@ -4,7 +4,7 @@ use linked_hash_map::LinkedHashMap;
 
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef};
-use crate::parser::matchers::param_types_matcher;
+use crate::parser::matchers::generic_types_matcher;
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
 };
@@ -21,12 +21,12 @@ impl<'a> EnumParser<'a> {
     }
 
     pub fn try_parse(&self) -> Option<(String, Vec<String>, usize)> {
-        let param_types = param_types_matcher();
+        let generic_types = generic_types_matcher();
 
         let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
-        matcher.add_matcher(param_types);
+        matcher.add_matcher(generic_types);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         matcher.match_tokens(self.parser, 0).map(|result| {

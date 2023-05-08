@@ -1,7 +1,7 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::{ASTStructDef, ASTStructPropertyDef};
 use crate::parser::enum_parser::EnumParser;
-use crate::parser::matchers::param_types_matcher;
+use crate::parser::matchers::generic_types_matcher;
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
@@ -16,7 +16,7 @@ impl<'a> StructParser<'a> {
     }
 
     pub fn try_parse(&self) -> Option<(String, Vec<String>, usize)> {
-        let param_types_matcher = param_types_matcher();
+        let param_types_matcher = generic_types_matcher();
 
         let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Struct));

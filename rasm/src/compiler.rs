@@ -14,14 +14,22 @@ pub struct Compiler {
     src: String,
     out: String,
     std_lib_path: String,
+    resource_folder: String,
 }
 
 impl Compiler {
-    pub fn compile(src: String, out: String, std_lib_path: String, only_compile: bool) {
+    pub fn compile(
+        src: String,
+        out: String,
+        std_lib_path: String,
+        only_compile: bool,
+        resource_folder: String,
+    ) {
         let compiler = Compiler {
             src,
             out,
             std_lib_path,
+            resource_folder,
         };
         compiler._compile(only_compile)
     }
@@ -48,6 +56,7 @@ impl Compiler {
                     false,
                     true,
                     false,
+                    self.resource_folder.clone(),
                 );
 
                 let asm = code_gen.asm();

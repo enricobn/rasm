@@ -18,7 +18,7 @@ use crate::parser::ast::{
     ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef, ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
-use crate::parser::matchers::param_types_matcher;
+use crate::parser::matchers::generic_types_matcher;
 use crate::parser::struct_parser::StructParser;
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
@@ -857,7 +857,7 @@ impl Parser {
 
     fn try_parse_function_def(&self) -> Option<(String, Vec<String>, usize)> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
-            let param_types_matcher = param_types_matcher();
+            let param_types_matcher = generic_types_matcher();
 
             let mut matcher = TokensMatcher::default();
             matcher.add_alphanumeric();
