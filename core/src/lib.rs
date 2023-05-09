@@ -8,4 +8,5 @@ pub mod transformations;
 pub mod type_check;
 #[macro_use]
 pub mod utils;
+pub mod project;
 pub mod type_check_new;

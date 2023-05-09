@@ -355,7 +355,6 @@ impl Parser {
             requires: self.requires.clone(),
             externals: self.externals.clone(),
             types: self.types.clone(),
-            included_files: self.included_files.clone(),
         }
     }
 
@@ -435,7 +434,6 @@ impl Parser {
                     self.requires.extend(module.requires);
                     self.externals.extend(module.externals);
                     self.types.extend(module.types);
-                    self.included_files.extend(module.included_files)
                 }
                 Err(err) => {
                     self.panic(&format!(

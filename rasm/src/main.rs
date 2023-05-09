@@ -10,29 +10,14 @@ use std::process::exit;
 use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
-use serde::{Deserialize, Serialize};
-use toml::Table;
 
 use rasm_core::codegen::CodeGen;
+use rasm_core::project::project;
+use rasm_core::project::project::RasmProject;
 
 use crate::compiler::Compiler;
 
 pub mod compiler;
-
-#[derive(Deserialize, Debug)]
-pub struct RasmPackage {
-    name: String,
-    version: String,
-    source_folder: String,
-    std_lib_path: String,
-    main: String,
-    resource_folder: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct RasmConfig {
-    package: RasmPackage,
-}
 
 fn main() {
     Builder::from_default_env()
@@ -88,54 +73,23 @@ fn main() {
         .unwrap_or(".".to_owned());
     let src_path = Path::new(&src);
 
-    let (src_file, std_lib_path, resource_folder) = if src_path.is_dir() {
-        info!("compiling project form folder {:?}", src_path);
-        let toml_file = src_path.join(Path::new("rasm.toml"));
-        if !toml_file.exists() {
-            panic!("Cannot find rasm.toml");
-        }
-        let mut s = String::new();
-        if let Ok(mut file) = File::open(toml_file) {
-            if let Ok(size) = file.read_to_string(&mut s) {
-                let config: RasmConfig = toml::from_str(&s).unwrap();
-                (
-                    src_path
-                        .join(Path::new(&config.package.source_folder))
-                        .join(Path::new(&config.package.main))
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
-                    src_path
-                        .join(Path::new(&config.package.std_lib_path))
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
-                    src_path
-                        .join(Path::new(&config.package.resource_folder))
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
-                )
-            } else {
-                panic!("Cannot read rasm.toml");
-            }
-        } else {
-            panic!("Cannot open rasm.toml");
-        }
-    } else {
-        (
-            src,
-            CodeGen::get_std_lib_path(),
-            current_path.to_str().unwrap().to_owned(),
-        )
-    };
+    let project = RasmProject::new(src);
 
-    info!("resource folder {}", resource_folder);
+    info!("project {:?}", project);
+
+    let main_src_file = project.main_src_file();
+    info!("main {main_src_file}");
+
+    let std_lib_path = project.std_lib_path();
+    info!("stdlib path {std_lib_path}");
+
+    let resource_folder = project.resource_folder();
+    info!("resource folder {resource_folder}");
 
     let out = if let Some(o) = matches.get_one::<String>("OUTPUT") {
         o.clone()
     } else {
-        let without_extension = Path::new(&src_file).with_extension("");
+        let without_extension = Path::new(&main_src_file).with_extension("");
         let file_name = without_extension.file_name().unwrap();
         let file_name_str = file_name.to_str().unwrap();
         String::new().add(file_name_str)
@@ -143,10 +97,10 @@ fn main() {
     .add(".asm");
 
     Compiler::compile(
-        src_file,
+        main_src_file,
         out,
         std_lib_path,
-        matches.get_flag("compile"),
         resource_folder,
+        matches.get_flag("compile"),
     );
 }

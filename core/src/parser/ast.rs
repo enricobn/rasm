@@ -338,7 +338,6 @@ pub struct ASTModule {
     pub requires: HashSet<String>,
     pub externals: HashSet<String>,
     pub types: Vec<ASTTypeDef>,
-    pub included_files: HashSet<String>,
 }
 
 impl ASTModule {

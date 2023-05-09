@@ -2460,7 +2460,6 @@ mod tests {
             requires: Default::default(),
             externals: Default::default(),
             types: Vec::new(),
-            included_files: HashSet::new(),
         };
 
         let (new_module, _) = convert_to_typed_module(

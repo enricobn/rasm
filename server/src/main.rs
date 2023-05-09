@@ -18,6 +18,7 @@ use clap::{Arg, Command};
 use env_logger::Builder;
 use log::info;
 use serde::{Deserialize, Serialize};
+use walkdir::WalkDir;
 
 use rasm_core::codegen::backend::{Backend, BackendAsm386};
 use rasm_core::codegen::statics::Statics;
@@ -26,6 +27,8 @@ use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Toke
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};
 use rasm_core::parser::Parser;
+use rasm_core::project::project::RasmProject;
+use rasm_core::transformations::enrich_module;
 use rasm_core::transformations::enum_functions_creator::enum_functions_creator;
 use rasm_core::transformations::str_functions_creator::str_functions_creator;
 use rasm_core::transformations::struct_functions_creator::struct_functions_creator;
@@ -60,10 +63,10 @@ async fn main() {
         .route("/file/*src", get(file))
         .with_state(app_state);
 
-    // run our app with hyper
-    // `axum::Server` is a re-export of `hyper::Server`
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("listening on http://{}", addr);
+    // run our app with hyper
+    // `axum::Server` is a re-export of `hyper::Server`
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -100,15 +103,26 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     html.push_str("</br>");
 
-    let mut paths = Vec::new();
+    let project = RasmProject::new(state.src.clone());
 
-    paths.extend(&mut state.module.included_files.iter());
+    let mut paths: Vec<String> = Vec::new();
+
+    for entry in WalkDir::new(format!("{}/{}", state.src, project.source_folder()))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
+    {
+        let f_name = String::from(entry.file_name().to_string_lossy());
+        paths.push(f_name);
+    }
+
+    //paths.extend(&mut state.module.included_files.iter());
 
     paths.sort();
 
     for included_file in paths
         .iter()
-        .filter(|it| !it.starts_with("stdlib") && it.to_owned() != &&state.src)
+        .filter(|it| !it.starts_with("stdlib") && it != &&state.src)
     {
         html.push_str(&format!(
             "<A href=\"/file/{}\">{}</A></br>",
@@ -255,6 +269,16 @@ fn get_src() -> String {
 }
 
 fn get_module(src: &str, backend: &dyn Backend) -> ASTModule {
+    /*
+       let file_path = Path::new(&self.main_src_file);
+       match Lexer::from_file(file_path) {
+           Ok(lexer) => {
+               info!("Lexer ended");
+               let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
+               let module = parser.parse(file_path, Path::new(&self.std_lib_path));
+
+    */
+
     let file_path = Path::new(src);
     let std_lib_path = CodeGen::get_std_lib_path();
     let mut module = match Lexer::from_file(file_path) {
@@ -270,9 +294,7 @@ fn get_module(src: &str, backend: &dyn Backend) -> ASTModule {
 
     let mut statics = Statics::new();
 
-    enum_functions_creator(backend, &mut module, &mut statics);
-    struct_functions_creator(backend, &mut module);
-    str_functions_creator(&mut module);
+    enrich_module(backend, "".to_owned(), &mut statics, &mut module);
 
     module
 }

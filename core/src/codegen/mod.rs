@@ -17,10 +17,7 @@ use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType, BuiltinTypeKind};
-use crate::transformations::enum_functions_creator::enum_functions_creator;
-use crate::transformations::globals_creator::add_rasm_resource_folder;
-use crate::transformations::str_functions_creator::str_functions_creator;
-use crate::transformations::struct_functions_creator::struct_functions_creator;
+use crate::transformations::enrich_module;
 use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
@@ -292,6 +289,9 @@ impl<'a> CodeGen<'a> {
 
         let mut statics = Statics::new();
 
+        let mut module = module;
+        enrich_module(backend, resource_path, &mut statics, &mut module);
+
         let (typed_module, type_conversion_context) = Self::get_typed_module(
             backend,
             module,
@@ -300,7 +300,6 @@ impl<'a> CodeGen<'a> {
             dereference,
             print_module,
             &mut statics,
-            resource_path,
         );
 
         Self {
@@ -330,15 +329,10 @@ impl<'a> CodeGen<'a> {
         dereference: bool,
         print_module: bool,
         statics: &mut Statics,
-        resource_path: String,
     ) -> (ASTTypedModule, TypeConversionContext) {
         let mut module = module;
-        add_rasm_resource_folder(&mut module, resource_path);
-        enum_functions_creator(backend, &mut module, statics);
-        struct_functions_creator(backend, &mut module);
-        str_functions_creator(&mut module);
 
-        let mut enhanced_module = EnhancedASTModule::new(module);
+        let enhanced_module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
 

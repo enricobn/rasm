@@ -11,7 +11,7 @@ use rasm_core::lexer::Lexer;
 use rasm_core::parser::Parser;
 
 pub struct Compiler {
-    src: String,
+    main_src_file: String,
     out: String,
     std_lib_path: String,
     resource_folder: String,
@@ -19,14 +19,14 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn compile(
-        src: String,
+        main_src_file: String,
         out: String,
         std_lib_path: String,
-        only_compile: bool,
         resource_folder: String,
+        only_compile: bool,
     ) {
         let compiler = Compiler {
-            src,
+            main_src_file,
             out,
             std_lib_path,
             resource_folder,
@@ -35,7 +35,7 @@ impl Compiler {
     }
 
     fn _compile(&self, only_compile: bool) {
-        let file_path = Path::new(&self.src);
+        let file_path = Path::new(&self.main_src_file);
         match Lexer::from_file(file_path) {
             Ok(lexer) => {
                 info!("Lexer ended");

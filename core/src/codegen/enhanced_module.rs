@@ -9,7 +9,6 @@ use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 #[derive(Clone)]
 pub struct EnhancedASTModule {
     pub body: Vec<ASTStatement>,
-    /// key: logical name
     functions_by_name: FunctionsContainer,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
