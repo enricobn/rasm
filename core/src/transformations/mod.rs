@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::ASTModule;
@@ -17,7 +19,7 @@ pub mod typed_type_functions_creator;
 
 pub fn enrich_module(
     backend: &dyn Backend,
-    resource_path: String,
+    resource_path: PathBuf,
     statics: &mut Statics,
     module: &mut ASTModule,
 ) {

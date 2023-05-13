@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
@@ -195,7 +195,7 @@ impl Display for ASTFunctionCall {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTIndex {
-    pub file_name: Option<String>,
+    pub file_name: Option<PathBuf>,
     pub row: usize,
     pub column: usize,
 }
@@ -209,7 +209,7 @@ impl ASTIndex {
         }
     }
 
-    pub fn new(file_name: Option<String>, row: usize, column: usize) -> Self {
+    pub fn new(file_name: Option<PathBuf>, row: usize, column: usize) -> Self {
         Self {
             file_name,
             row,
@@ -228,14 +228,15 @@ impl ASTIndex {
 
 impl Display for ASTIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let result = env::current_dir().unwrap();
-        let c_dir = result.to_str().unwrap();
         f.write_str(&format!(
-            "file:///{}/{}:{}:{}",
-            c_dir,
-            &self.file_name.clone().unwrap_or_else(|| "".into()),
-            self.row,
-            self.column
+            "{}:{}:{}",
+            &self
+                .file_name
+                .clone()
+                .map(|it| format!("file:///{}", it.canonicalize().unwrap().to_str().unwrap()))
+                .unwrap_or_else(|| "".to_owned()),
+            &self.row,
+            &self.column
         ))
     }
 }

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use log::{debug, warn};
 
@@ -33,6 +33,9 @@ impl ReferenceFinder {
         });
 
         let selectable_items = Self::get_selectable_items(module, &functions_container);
+
+        //println!("selectable_items {:?}", selectable_items);
+
         Self {
             selectable_items,
             functions_container,
@@ -98,19 +101,24 @@ impl ReferenceFinder {
         functions_container: &FunctionsContainer,
         reference_static_context: &ReferenceContext,
     ) -> Vec<SelectableItem> {
+        let mut result = Vec::new();
+
+        let mut val_context = ReferenceContext::new(Some(reference_static_context));
+
+        for par in function.parameters.iter() {
+            val_context.add(
+                par.name.clone(),
+                par.ast_index.clone(),
+                TypeFilter::Exact(par.ast_type.clone()),
+            );
+            Self::process_type(&module, &par.ast_type, &mut result);
+        }
+
+        if let Some(r) = &function.return_type {
+            Self::process_type(&module, r, &mut result);
+        }
+
         if let ASTFunctionBody::RASMBody(statements) = &function.body {
-            let mut result = Vec::new();
-            let mut val_context = ReferenceContext::new(Some(reference_static_context));
-
-            for par in function.parameters.iter() {
-                val_context.add(
-                    par.name.clone(),
-                    par.ast_index.clone(),
-                    TypeFilter::Exact(par.ast_type.clone()),
-                );
-                Self::process_type(&module, &par.ast_type, &mut result);
-            }
-
             Self::process_statements(
                 &module,
                 statements,
@@ -119,11 +127,9 @@ impl ReferenceFinder {
                 &mut ReferenceContext::new(None),
                 functions_container,
             );
-
-            result
-        } else {
-            Vec::new()
         }
+
+        result
     }
 
     fn process_type(module: &ASTModule, ast_type: &ASTType, result: &mut Vec<SelectableItem>) {
@@ -368,12 +374,25 @@ impl SelectableItem {
     }
 
     pub fn matches(&self, index: &ASTIndex) -> bool {
-        index.file_name == self.min.file_name
-            && index.file_name == self.max.file_name
-            && index.row == self.min.row
+        index.row == self.min.row
             && index.row == self.max.row
             && index.column >= self.min.column
             && index.column <= self.max.column
+            && Self::path_matches(&index.file_name, &self.min.file_name)
+            && Self::path_matches(&index.file_name, &self.max.file_name)
+    }
+
+    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> bool {
+        if let Some(p1) = op1 {
+            if let Some(p2) = op2 {
+                if p1.file_name() != p2.file_name() {
+                    return false;
+                }
+                return p1.canonicalize().unwrap() == p2.canonicalize().unwrap();
+            }
+        }
+
+        false
     }
 }
 
@@ -393,6 +412,7 @@ mod tests {
     use rasm_core::lexer::Lexer;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::parser::Parser;
+    use rasm_core::project::project::RasmProject;
     use rasm_core::type_check::typed_ast::ASTTypedModule;
     use rasm_core::type_check::typed_context::TypeConversionContext;
     use rasm_core::utils::SliceDisplay;
@@ -419,10 +439,12 @@ mod tests {
     fn simple() {
         init();
         env::set_var("RASM_STDLIB", "../stdlib");
-        let file_name = "resources/simple.rasm".to_owned();
+        let file_name = Path::new("resources/simple.rasm");
+
+        let project = RasmProject::new(file_name.to_path_buf());
 
         let module = get_module(
-            &file_name,
+            &project,
             &BackendAsm386::new(HashSet::new(), HashSet::new()),
         );
 
@@ -432,19 +454,19 @@ mod tests {
         let column = 15;
 
         finder.selectable_items.iter().for_each(|it| {
-            if it.min.file_name == Some(file_name.clone()) {
+            if it.min.file_name == Some(file_name.to_path_buf()) {
                 println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
             }
         });
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.clone()), 5, 15,)),
-            vec![ASTIndex::new(Some(file_name.clone()), 3, 10)]
+            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 5, 15,)),
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 3, 10)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.clone()), 8, 15,)),
-            vec![ASTIndex::new(Some(file_name), 7, 21)]
+            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 8, 15,)),
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 7, 21)]
         );
     }
 
@@ -452,10 +474,12 @@ mod tests {
     fn types() {
         init();
         env::set_var("RASM_STDLIB", "../stdlib");
-        let file_name = "resources/types.rasm".to_owned();
+        let file_name = Path::new("resources/types.rasm");
+
+        let project = RasmProject::new(file_name.to_path_buf());
 
         let module = get_module(
-            &file_name,
+            &project,
             &BackendAsm386::new(HashSet::new(), HashSet::new()),
         );
 
@@ -464,29 +488,35 @@ mod tests {
         let row = 5;
         let column = 15;
 
+        let source_file = Path::new(&file_name);
+
         finder.selectable_items.iter().for_each(|it| {
-            if it.min.file_name == Some(file_name.clone()) {
+            if it.min.file_name == Some(source_file.to_path_buf()) {
                 println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
             }
         });
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.clone()), 15, 23,)),
+            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 15, 23,)),
             vec![ASTIndex::new(
-                Some("../stdlib/option.rasm".to_owned()),
+                Some(Path::new("../stdlib/option.rasm").to_path_buf()),
                 1,
                 5
             )]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.clone()), 19, 23,)),
-            vec![ASTIndex::new(Some(file_name.clone()), 3, 7)]
+            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 19, 23,)),
+            vec![ASTIndex::new(Some(source_file.to_path_buf()), 3, 7)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.clone()), 23, 23,)),
-            vec![ASTIndex::new(Some("../stdlib/vec.rasm".to_owned()), 1, 5)]
+            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 23, 23,)),
+            vec![ASTIndex::new(
+                Some(Path::new("../stdlib/vec.rasm").to_path_buf()),
+                1,
+                5
+            )]
         );
     }
 }

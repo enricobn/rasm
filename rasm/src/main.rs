@@ -73,28 +73,25 @@ fn main() {
         .unwrap_or(".".to_owned());
     let src_path = Path::new(&src);
 
-    let project = RasmProject::new(src);
+    let project = RasmProject::new(src_path.to_path_buf());
 
     info!("project {:?}", project);
 
     let main_src_file = project.main_src_file();
-    info!("main {main_src_file}");
+    info!("main {:?}", main_src_file);
 
     let std_lib_path = project.std_lib_path();
-    info!("stdlib path {std_lib_path}");
+    info!("stdlib path {:?}", std_lib_path);
 
     let resource_folder = project.resource_folder();
-    info!("resource folder {resource_folder}");
+    info!("resource folder {:?}", resource_folder);
 
     let out = if let Some(o) = matches.get_one::<String>("OUTPUT") {
-        o.clone()
+        Path::new(o).to_path_buf()
     } else {
-        let without_extension = Path::new(&main_src_file).with_extension("");
-        let file_name = without_extension.file_name().unwrap();
-        let file_name_str = file_name.to_str().unwrap();
-        String::new().add(file_name_str)
+        Path::new(&main_src_file).with_extension("")
     }
-    .add(".asm");
+    .with_extension("asm");
 
     Compiler::compile(
         main_src_file,

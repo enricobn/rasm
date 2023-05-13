@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
+use std::path::PathBuf;
 
 use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
@@ -281,7 +282,7 @@ impl<'a> CodeGen<'a> {
         print_memory_info: bool,
         dereference: bool,
         print_module: bool,
-        resource_path: String,
+        resource_path: PathBuf,
     ) -> Self {
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;

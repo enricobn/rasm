@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 use log::{debug, info};
@@ -31,9 +31,9 @@ pub trait Backend: RefUnwindSafe {
 
     fn stack_pointer(&self) -> String;
 
-    fn compile_and_link(&self, source_file: &str);
+    fn compile_and_link(&self, source_file: &PathBuf);
 
-    fn compile(&self, source_file: &str) -> Output;
+    fn compile(&self, source_file: &PathBuf) -> Output;
 
     fn link(&self, path: &Path) -> Output;
 
@@ -192,9 +192,9 @@ impl Backend for BackendAsm386 {
         "esp".to_string()
     }
 
-    fn compile_and_link(&self, source_file: &str) {
-        info!("source file : '{}'", source_file);
-        let nasm_output = self.compile(&source_file);
+    fn compile_and_link(&self, source_file: &PathBuf) {
+        info!("source file : '{:?}'", source_file);
+        let nasm_output = self.compile(source_file);
         if nasm_output.status.success() {
             let path = Path::new(&source_file);
             let linker_output = self.link(path);
@@ -207,8 +207,8 @@ impl Backend for BackendAsm386 {
         }
     }
 
-    fn compile(&self, source_file: &str) -> Output {
-        info!("source file : '{}'", source_file);
+    fn compile(&self, source_file: &PathBuf) -> Output {
+        info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");
         nasm_command
             .arg("-f")

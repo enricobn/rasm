@@ -351,6 +351,11 @@ fn test_breakout() {
 }
 
 #[test]
+fn test_breakout_folder() {
+    compile_example("resources/examples/breakout", true);
+}
+
+#[test]
 fn test_showimage() {
     compile_example("resources/examples/showimage.rasm", true);
 }
@@ -358,13 +363,13 @@ fn test_showimage() {
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     let executable = compile(&dir, &format!("resources/test/{}.rasm", test_name), false);
-    execute(&executable, args, Some(expected_output));
+    execute(&executable.unwrap(), args, Some(expected_output));
 }
 
 fn run(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     let executable = compile(&dir, source, false);
-    execute(&executable, args, expected_output);
+    execute(&executable.unwrap(), args, expected_output);
 }
 
 fn compile_example(source: &str, only_compile: bool) {
@@ -372,19 +377,24 @@ fn compile_example(source: &str, only_compile: bool) {
     compile(&dir, source, only_compile);
 }
 
-fn compile(dir: &TempDir, source: &str, only_compile: bool) -> String {
-    let source_without_extension = Path::new(source).with_extension("");
-    let file_name = source_without_extension
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap();
-    let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
+fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
+    let (mut args, dest) = if source.ends_with(".rasm") {
+        let source_without_extension = Path::new(source).with_extension("");
+        let file_name = source_without_extension
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
 
-    let mut args = vec![source, &dest];
+        (vec![source.to_owned(), dest.clone()], Some(dest))
+    } else {
+        (vec![source.to_owned()], None)
+    };
 
     if only_compile {
-        args.push("--compile");
+        // it's needed for running some tests on github since we are not able to link
+        args.push("--compile".to_owned());
     }
 
     let status = test_bin::get_test_bin("rasm")

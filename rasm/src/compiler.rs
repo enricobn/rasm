@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use log::info;
 
@@ -11,18 +11,18 @@ use rasm_core::lexer::Lexer;
 use rasm_core::parser::Parser;
 
 pub struct Compiler {
-    main_src_file: String,
-    out: String,
-    std_lib_path: String,
-    resource_folder: String,
+    main_src_file: PathBuf,
+    out: PathBuf,
+    std_lib_path: PathBuf,
+    resource_folder: PathBuf,
 }
 
 impl Compiler {
     pub fn compile(
-        main_src_file: String,
-        out: String,
-        std_lib_path: String,
-        resource_folder: String,
+        main_src_file: PathBuf,
+        out: PathBuf,
+        std_lib_path: PathBuf,
+        resource_folder: PathBuf,
         only_compile: bool,
     ) {
         let compiler = Compiler {
@@ -39,7 +39,7 @@ impl Compiler {
         match Lexer::from_file(file_path) {
             Ok(lexer) => {
                 info!("Lexer ended");
-                let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
+                let mut parser = Parser::new(lexer, Some(file_path.to_path_buf()));
                 let module = parser.parse(file_path, Path::new(&self.std_lib_path));
 
                 info!("Parser ended");
@@ -70,9 +70,9 @@ impl Compiler {
                     .unwrap();
 
                 if only_compile {
-                    backend.compile(&self.out.to_string());
+                    backend.compile(&self.out);
                 } else {
-                    backend.compile_and_link(&self.out.to_string());
+                    backend.compile_and_link(&self.out);
                 }
 
                 info!("Compilation and linking ended");

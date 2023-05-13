@@ -3,10 +3,10 @@ use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{
     http::StatusCode,
@@ -27,6 +27,7 @@ use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Toke
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};
 use rasm_core::parser::Parser;
+use rasm_core::project;
 use rasm_core::project::project::RasmProject;
 use rasm_core::transformations::enrich_module;
 use rasm_core::transformations::enum_functions_creator::enum_functions_creator;
@@ -50,8 +51,10 @@ async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
 
-    let src = get_src();
-    info!("starting server for {src}");
+    let src = Path::new(&get_src()).to_path_buf();
+    info!("starting server for {:?}", src);
+
+    let project = RasmProject::new(src.clone());
 
     let server_state = ServerState::new(src, &BackendAsm386::new(HashSet::new(), HashSet::new()));
 
@@ -60,7 +63,7 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/", get(root))
-        .route("/file/*src", get(file))
+        .route("/file", get(file))
         .with_state(app_state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -73,15 +76,22 @@ async fn main() {
         .unwrap();
 }
 
-struct ServerState {
+#[derive(Deserialize)]
+struct FileQueryParams {
     src: String,
+}
+
+struct ServerState {
+    src: PathBuf,
     finder: ReferenceFinder,
     module: ASTModule,
 }
 
 impl ServerState {
-    fn new(src: String, backend: &dyn Backend) -> Self {
-        let module = get_module(&src, backend);
+    fn new(src: PathBuf, backend: &dyn Backend) -> Self {
+        let project = RasmProject::new(src.clone());
+
+        let module = get_module(&project, backend);
         let finder = ReferenceFinder::new(&module);
         Self {
             src,
@@ -96,24 +106,32 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let mut html = String::new();
 
+    let project = RasmProject::new(state.src.clone());
+
+    let root_file = project
+        .relative_to_root(project.main_src_file().as_path())
+        .unwrap();
+
+    info!("root file {}", root_file.to_str().unwrap());
+
     html.push_str(&format!(
-        "<b><A href=\"/file/{}\">{}</A></b></br>",
-        state.src, state.src
+        "<b><A href=\"/file?src={}\">{}</A></b></br>",
+        root_file.to_str().unwrap(),
+        root_file.to_str().unwrap()
     ));
 
     html.push_str("</br>");
 
-    let project = RasmProject::new(state.src.clone());
+    let mut paths: Vec<PathBuf> = Vec::new();
 
-    let mut paths: Vec<String> = Vec::new();
-
-    for entry in WalkDir::new(format!("{}/{}", state.src, project.source_folder()))
+    for entry in WalkDir::new(&project.source_folder())
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
     {
-        let f_name = String::from(entry.file_name().to_string_lossy());
-        paths.push(f_name);
+        let f_name = entry.into_path();
+        let file = project.relative_to_root(f_name.as_path()).unwrap();
+        paths.push(file);
     }
 
     //paths.extend(&mut state.module.included_files.iter());
@@ -122,11 +140,12 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     for included_file in paths
         .iter()
-        .filter(|it| !it.starts_with("stdlib") && it != &&state.src)
+        .filter(|it| !it.starts_with("stdlib") && it != &&root_file)
     {
         html.push_str(&format!(
-            "<A href=\"/file/{}\">{}</A></br>",
-            included_file, included_file
+            "<A href=\"/file?src={}\">{}</A></br>",
+            included_file.to_str().unwrap(),
+            included_file.to_str().unwrap()
         ));
     }
 
@@ -136,23 +155,16 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 }
 
 async fn file(
-    axum::extract::Path(src): axum::extract::Path<String>,
+    //axum::extract::Path(src): axum::extract::Path<String>,
+    src: Query<FileQueryParams>,
     State(state): State<Arc<ServerState>>,
 ) -> Html<String> {
+    let src = src.src.clone();
     info!("start rendering {}", src);
 
-    let root_path = Path::new(&state.src).parent().unwrap();
+    let project = RasmProject::new(state.src.clone());
 
-    let file_path = if src.starts_with("stdlib") {
-        let path = Path::new(&src).strip_prefix("stdlib").unwrap();
-        let std_lib_path_s = CodeGen::get_std_lib_path();
-        let std_lib_path = Path::new(&std_lib_path_s).clone();
-        std_lib_path.join(path).to_str().unwrap().to_owned()
-    } else {
-        src.clone()
-    };
-
-    let file_path = Path::new(&file_path);
+    let file_path = project.from_relative_to_root(Path::new(&src));
 
     let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();
@@ -162,11 +174,12 @@ async fn file(
         html.push_str("<pre>\n");
 
         let source_file = file_path.to_str().unwrap().to_owned();
-        let lexer = Lexer::new(s, source_file.clone());
+
+        let lexer = Lexer::new(s, src.clone());
 
         lexer.for_each(|it| {
             let index = ASTIndex {
-                file_name: Some(source_file.clone()),
+                file_name: Some(file_path.to_path_buf()),
                 row: it.row,
                 column: it.column,
             };
@@ -175,8 +188,12 @@ async fn file(
             if vec.len() > 0 {
                 if let Some(file_name) = &vec.first().cloned().and_then(|it| it.file_name) {
                     let ref_name = format!(
-                        "/file/{}#_{}_{}",
-                        file_name,
+                        "/file?src={}#_{}_{}",
+                        project
+                            .relative_to_root(file_name.as_path())
+                            .expect(&format!("{:?}", file_name))
+                            .to_str()
+                            .unwrap(),
                         vec.first().unwrap().row,
                         vec.first().unwrap().column
                     );
@@ -268,23 +285,14 @@ fn get_src() -> String {
     matches.get_one::<String>("SRC").unwrap().to_owned()
 }
 
-fn get_module(src: &str, backend: &dyn Backend) -> ASTModule {
-    /*
-       let file_path = Path::new(&self.main_src_file);
-       match Lexer::from_file(file_path) {
-           Ok(lexer) => {
-               info!("Lexer ended");
-               let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
-               let module = parser.parse(file_path, Path::new(&self.std_lib_path));
-
-    */
-
-    let file_path = Path::new(src);
-    let std_lib_path = CodeGen::get_std_lib_path();
+fn get_module(project: &RasmProject, backend: &dyn Backend) -> ASTModule {
+    let main_src_file = project.main_src_file();
+    let file_path = Path::new(&main_src_file);
+    let std_lib_path = project.std_lib_path();
     let mut module = match Lexer::from_file(file_path) {
         Ok(lexer) => {
             info!("Lexer ended");
-            let mut parser = Parser::new(lexer, file_path.to_str().map(|it| it.to_string()));
+            let mut parser = Parser::new(lexer, Some(file_path.to_path_buf()));
             parser.parse(file_path, Path::new(&std_lib_path))
         }
         Err(err) => {
@@ -294,7 +302,12 @@ fn get_module(src: &str, backend: &dyn Backend) -> ASTModule {
 
     let mut statics = Statics::new();
 
-    enrich_module(backend, "".to_owned(), &mut statics, &mut module);
+    enrich_module(
+        backend,
+        project.resource_folder(),
+        &mut statics,
+        &mut module,
+    );
 
     module
 }

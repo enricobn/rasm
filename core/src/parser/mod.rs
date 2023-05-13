@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
@@ -48,11 +48,11 @@ pub struct Parser {
     included_functions: Vec<ASTFunctionDef>,
     enums: Vec<ASTEnumDef>,
     structs: Vec<ASTStructDef>,
-    file_name: Option<String>,
+    file_name: Option<PathBuf>,
     requires: HashSet<String>,
     externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
-    included_files: HashSet<String>,
+    included_files: HashSet<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -118,7 +118,7 @@ enum ParserState {
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer, file_name: Option<String>) -> Self {
+    pub fn new(lexer: Lexer, file_name: Option<PathBuf>) -> Self {
         let tokens = lexer
             .filter(|it| {
                 !matches!(
@@ -404,24 +404,20 @@ impl Parser {
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
         } else if let Some((resource, next_i)) = self.try_parse_include() {
-            let mut buf = path.with_file_name(&resource);
+            let mut source_file = path.with_file_name(&resource);
             // First we try to get it relative to the current file,
             // then we try to get the file from the standard lib folder
-            if !buf.exists() {
-                buf = std_path.join(Path::new(&resource));
+            if !source_file.exists() {
+                source_file = std_path.join(Path::new(&resource));
             }
-            info!("include {}", buf.as_path().to_str().unwrap());
+            info!("include {}", source_file.to_str().unwrap());
 
-            let resource_path = buf.as_path();
+            self.included_files.insert(source_file.clone());
 
-            self.included_files
-                .insert(resource_path.to_str().unwrap().to_owned());
-
-            match Lexer::from_file(resource_path) {
+            match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
-                    let mut parser =
-                        Parser::new(lexer, resource_path.to_str().map(|it| it.to_string()));
-                    let mut module = parser.parse(resource_path, std_path);
+                    let mut parser = Parser::new(lexer, Some(source_file.clone()));
+                    let mut module = parser.parse(source_file.as_path(), std_path);
                     if !module.body.is_empty() {
                         self.panic(&format!(
                             "Cannot include a module with a body: {:?}.",
@@ -438,7 +434,7 @@ impl Parser {
                 Err(err) => {
                     self.panic(&format!(
                         "Error running lexer for {:?}: {err}",
-                        resource_path.to_str()
+                        source_file.to_str().unwrap()
                     ));
                 }
             }
@@ -1256,7 +1252,7 @@ mod tests {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, path.to_str().map(|it| it.to_string()));
+        let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
         let module = parser.parse(path, Path::new(&stdlib_path()));
         module
     }
