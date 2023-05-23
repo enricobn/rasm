@@ -122,10 +122,10 @@ impl TokensMatcherTrait for TokensGroup {
 
                     i = result.next_n();
 
-                    if !result.values().is_empty() {
+                    if !result.tokens().is_empty() {
                         // it's not a group I add the values directly to the result
                         if matcher.name().is_empty() {
-                            let mut matcher_values = result.values().clone();
+                            let mut matcher_values = result.tokens().clone();
                             values.append(&mut matcher_values);
                         }
                     }

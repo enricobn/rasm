@@ -2,7 +2,6 @@ use linked_hash_map::LinkedHashMap;
 use pad::PadStr;
 
 use crate::codegen::backend::Backend;
-use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::MemoryValue::Mem;
 use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
 use crate::parser::ast::ASTType;
@@ -312,6 +311,7 @@ impl Statics {
         self.heap.insert(label.to_owned(), (descr_key, value));
     }
 
+    /*
     fn print_res(
         &mut self,
         backend: &dyn Backend,
@@ -351,6 +351,8 @@ impl Statics {
             type_def_provider,
         )
     }
+
+     */
 
     fn print_address(asm: &mut String, address: &str) {
         let address_name = address.pad_to_width(50);

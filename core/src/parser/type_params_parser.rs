@@ -29,11 +29,9 @@ impl<'a> TypeParamsParser<'a> {
                             "expected a generic type or a comma, found {:?}",
                             kind
                         ));
-                        break;
                     }
                 } else {
                     self.parser.panic("error getting generic types");
-                    break;
                 }
                 j += 1;
             }

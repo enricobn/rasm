@@ -1,12 +1,13 @@
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use log::debug;
 
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
+use crate::parser::ast::ASTIndex;
 
 pub mod tokens;
 
@@ -22,8 +23,9 @@ enum LexStatus {
     Char,
 }
 
+#[derive(Clone)]
 pub struct Lexer {
-    source_file: String,
+    file_name: Option<PathBuf>,
     source: String,
     index: usize,
     row: usize,
@@ -36,7 +38,7 @@ impl Lexer {
         if let Ok(mut file) = File::open(path) {
             if let Ok(size) = file.read_to_string(&mut s) {
                 debug!("Reading file {:?}, size {}", path, size);
-                Ok(Lexer::new(s, path.to_str().unwrap().into()))
+                Ok(Lexer::new(s, Some(path.to_path_buf())))
             } else {
                 Err(format!("Cannot read file {:?}", path.to_str()))
             }
@@ -45,9 +47,9 @@ impl Lexer {
         }
     }
 
-    pub fn new(source: String, source_file: String) -> Self {
+    pub fn new(source: String, file_name: Option<PathBuf>) -> Self {
         Self {
-            source_file,
+            file_name,
             source,
             index: 0,
             row: 1,
@@ -56,7 +58,12 @@ impl Lexer {
     }
 
     fn some_token(&self, kind: TokenKind) -> Option<Token> {
-        Some(Token::new(kind, self.row, self.column))
+        Some(Token::new(
+            kind,
+            self.file_name.clone(),
+            self.row,
+            self.column,
+        ))
     }
 
     fn get_bracket(c: char) -> Option<TokenKind> {
@@ -95,8 +102,8 @@ impl Lexer {
 
     fn panic(&self, message: &str) -> ! {
         panic!(
-            "Error at {}:{}:{} {message}",
-            self.source_file, self.row, self.column
+            "{message} : {}",
+            ASTIndex::new(self.file_name.clone(), self.row, self.column)
         )
     }
 }
@@ -172,12 +179,10 @@ impl Iterator for Lexer {
                         status = LexStatus::Char
                     } else if c != END_OF_FILE {
                         panic!(
-                            "unknown char '{}' ({}) in {} at {},{} ***",
+                            "unknown char '{}' ({}) : {} ***",
                             c,
                             c.escape_debug(),
-                            self.source_file,
-                            self.row,
-                            self.column
+                            ASTIndex::new(self.file_name.clone(), self.row, self.column)
                         );
                     }
                 }

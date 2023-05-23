@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
+use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -392,7 +393,7 @@ impl TextMacroEvaluator {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
                 )
             } else {
-                let parser = TypeParserHelper::new(par_type_name);
+                let parser = TypeParserHelper::new(None, par_type_name);
                 // Parser::new(lexer, None);
 
                 let type_parser = TypeParser::new(&parser);
@@ -523,8 +524,8 @@ struct TypeParserHelper {
 }
 
 impl TypeParserHelper {
-    fn new(type_str: &str) -> Self {
-        let lexer = Lexer::new(type_str.into(), "".into());
+    fn new(file_name: Option<PathBuf>, type_str: &str) -> Self {
+        let lexer = Lexer::new(type_str.into(), file_name);
         Self {
             type_tokens: lexer.collect(),
         }
@@ -540,13 +541,8 @@ impl ParserTrait for TypeParserHelper {
         self.type_tokens.get(n)
     }
 
-    fn panic(&self, message: &str) {
+    fn panic(&self, message: &str) -> ! {
         panic!("{message}")
-    }
-
-    fn get_index(&self, n: usize) -> Option<ASTIndex> {
-        // TODO
-        Some(ASTIndex::none())
     }
 }
 
@@ -1503,7 +1499,7 @@ mod tests {
 
     #[test]
     fn parse_list_str() {
-        let parser = TypeParserHelper::new("List<str>");
+        let parser = TypeParserHelper::new(None, "List<str>");
         let type_parser = TypeParser::new(&parser);
 
         match type_parser.try_parse_ast_type(0, &[]) {

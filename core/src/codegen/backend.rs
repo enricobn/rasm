@@ -674,7 +674,7 @@ mod tests {
                 None,
                 "$call(something)",
                 &ValContext::new(None),
-                &DummyTypeDefProvider::new()
+                &DummyTypeDefProvider::new(),
             )
             .get(0)
             .unwrap()
@@ -693,7 +693,7 @@ mod tests {
                 None,
                 "mov    eax, 1; $call(something)",
                 &ValContext::new(None),
-                &DummyTypeDefProvider::new()
+                &DummyTypeDefProvider::new(),
             )
             .is_empty());
     }
@@ -710,7 +710,7 @@ mod tests {
                 None,
                 "call something",
                 &ValContext::new(None),
-                &DummyTypeDefProvider::new()
+                &DummyTypeDefProvider::new(),
             )
             .is_empty());
     }

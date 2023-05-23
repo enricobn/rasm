@@ -163,7 +163,7 @@ impl Parser {
         self.parser_data = Vec::new();
         self.state = Vec::new();
 
-        let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
+        let last_token = Token::new(TokenKind::EndOfLine, Some(path.to_path_buf()), 0, 0);
 
         let mut count = 0;
 
@@ -442,19 +442,20 @@ impl Parser {
             self.i = next_i;
         } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
-                name,
+                name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
-                index: self.get_index_from_token(token),
+                index: token.index(),
             }));
             self.state.push(ParserState::EnumDef);
             self.i = next_i;
-        } else if let Some((name, type_params, next_i)) = StructParser::new(self).try_parse() {
+        } else if let Some((name_token, type_params, next_i)) = StructParser::new(self).try_parse()
+        {
             self.parser_data.push(ParserData::StructDef(ASTStructDef {
-                name,
+                name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
-                index: self.get_index_from_token(token),
+                index: token.index(),
             }));
             self.state.push(StructDef);
             self.i = next_i;
@@ -628,7 +629,7 @@ impl Parser {
                         .push(ParserData::FunctionDefParameter(ASTParameterDef {
                             name,
                             ast_type,
-                            ast_index: self.get_index_from_token(token),
+                            ast_index: token.index(),
                         }));
                     self.state.pop();
                 } else {
@@ -647,6 +648,7 @@ impl Parser {
         self.parser_data[l - n - 1] = parser_data;
     }
 
+    /*
     fn get_index_from_token(&self, token: &Token) -> ASTIndex {
         ASTIndex {
             file_name: self.file_name.clone(),
@@ -654,6 +656,8 @@ impl Parser {
             column: token.column,
         }
     }
+
+     */
 
     fn process_function_call(&mut self, token: Token) {
         if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
@@ -801,11 +805,6 @@ impl Parser {
         }
     }
 
-    fn panic(&self, message: &str) -> ! {
-        self.debug(message);
-        panic!("{}", self.error_msg(message));
-    }
-
     fn debug(&self, message: &str) {
         debug!("{}", message);
         debug!("i {}", self.i);
@@ -859,9 +858,9 @@ impl Parser {
             matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
 
             if let Some(matcher_result) = matcher.match_tokens(self, 1) {
-                let param_types = matcher_result.group_values("type");
+                let param_types = matcher_result.group_alphas("type");
                 Some((
-                    matcher_result.values().first().unwrap().clone(),
+                    matcher_result.alphas().first().unwrap().to_string(),
                     param_types,
                     self.get_i() + matcher_result.next_n(),
                 ))
@@ -1100,23 +1099,16 @@ impl ParserTrait for Parser {
         self.tokens.get(self.i + n)
     }
 
-    fn panic(&self, message: &str) {
-        self.panic(message);
-    }
-
-    fn get_index(&self, n: usize) -> Option<ASTIndex> {
-        self.get_token_n(n).map(|it| ASTIndex {
-            file_name: self.file_name.clone(),
-            row: it.row,
-            column: it.column,
-        })
+    fn panic(&self, message: &str) -> ! {
+        self.debug(message);
+        panic!("{}", self.error_msg(message));
     }
 }
 
 pub trait ParserTrait {
     fn get_i(&self) -> usize;
     fn get_token_n(&self, n: usize) -> Option<&Token>;
-    fn panic(&self, message: &str);
+    fn panic(&self, message: &str) -> !;
     fn get_token_kind(&self) -> Option<&TokenKind> {
         self.get_token_kind_n(0)
     }
@@ -1127,7 +1119,9 @@ pub trait ParserTrait {
         self.get_token_n(0)
     }
 
-    fn get_index(&self, n: usize) -> Option<ASTIndex>;
+    fn get_index(&self, n: usize) -> Option<ASTIndex> {
+        self.get_token_n(n).map(|it| it.index())
+    }
 }
 
 #[cfg(test)]
@@ -1216,7 +1210,7 @@ mod tests {
 
     #[test]
     fn function_def_with_type_parameters() {
-        let lexer = Lexer::new("fn p<T,T1>() {}".into(), "a test file".into());
+        let lexer = Lexer::new("fn p<T,T1>() {}".into(), None);
 
         let mut parser = Parser::new(lexer, None);
 

@@ -6,7 +6,13 @@ use log::info;
 use pathdiff::diff_paths;
 use serde::Deserialize;
 
+use crate::codegen::backend::Backend;
+use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
+use crate::lexer::Lexer;
+use crate::parser::ast::ASTModule;
+use crate::parser::Parser;
+use crate::transformations::enrich_module;
 
 #[derive(Debug)]
 pub struct RasmProject {
@@ -69,6 +75,26 @@ impl RasmProject {
             path.canonicalize().unwrap(),
             self.source_folder().canonicalize().unwrap(),
         )
+    }
+
+    pub fn get_module(&self, backend: &dyn Backend, statics: &mut Statics) -> ASTModule {
+        let main_src_file = self.main_src_file();
+        let file_path = Path::new(&main_src_file);
+        let std_lib_path = self.std_lib_path();
+        let mut module = match Lexer::from_file(file_path) {
+            Ok(lexer) => {
+                info!("Lexer ended");
+                let mut parser = Parser::new(lexer, Some(file_path.to_path_buf()));
+                parser.parse(file_path, Path::new(&std_lib_path))
+            }
+            Err(err) => {
+                panic!("An error occurred: {}", err)
+            }
+        };
+
+        enrich_module(backend, self.resource_folder(), statics, &mut module);
+
+        module
     }
 }
 

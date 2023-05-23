@@ -31,7 +31,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             .map(|it| ASTParameterDef {
                 name: it.name.clone(),
                 ast_type: it.ast_type.clone(),
-                ast_index: ASTIndex::none(),
+                ast_index: it.index.clone(),
             })
             .collect();
 

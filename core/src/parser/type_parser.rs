@@ -156,7 +156,6 @@ impl<'a> TypeParser<'a> {
                     continue;
                 } else {
                     self.parser.panic("Error parsing fn type parameter");
-                    panic!();
                 }
             }
 
@@ -166,7 +165,6 @@ impl<'a> TypeParser<'a> {
                 n += 1;
             } else {
                 self.parser.panic("Error parsing fn type: expected -> ");
-                panic!();
             }
 
             let return_type = if let (
@@ -185,7 +183,6 @@ impl<'a> TypeParser<'a> {
                 Some(Box::new(t))
             } else {
                 self.parser.panic("Error parsing fn type parameter");
-                panic!();
             };
 
             (
@@ -197,7 +194,6 @@ impl<'a> TypeParser<'a> {
             )
         } else {
             self.parser.panic("Error parsing fn type: expected (");
-            panic!();
         }
     }
 }

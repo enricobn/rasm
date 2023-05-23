@@ -39,11 +39,7 @@ use rasm_core::type_check::typed_ast::{
 };
 use rasm_core::type_check::typed_context::TypeConversionContext;
 use rasm_core::utils::SliceDisplay;
-
-use crate::reference_finder::ReferenceFinder;
-
-pub mod reference_context;
-pub mod reference_finder;
+use rasm_server::reference_finder::ReferenceFinder;
 
 #[tokio::main]
 async fn main() {
@@ -91,7 +87,11 @@ impl ServerState {
     fn new(src: PathBuf, backend: &dyn Backend) -> Self {
         let project = RasmProject::new(src.clone());
 
-        let module = get_module(&project, backend);
+        let mut statics = Statics::new();
+        let module = project.get_module(
+            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &mut statics,
+        );
         let finder = ReferenceFinder::new(&module);
         Self {
             src,
@@ -175,7 +175,7 @@ async fn file(
 
         let source_file = file_path.to_str().unwrap().to_owned();
 
-        let lexer = Lexer::new(s, src.clone());
+        let lexer = Lexer::new(s, Some(file_path.to_path_buf()));
 
         lexer.for_each(|it| {
             let index = ASTIndex {
@@ -283,31 +283,4 @@ fn get_src() -> String {
         .get_matches();
 
     matches.get_one::<String>("SRC").unwrap().to_owned()
-}
-
-fn get_module(project: &RasmProject, backend: &dyn Backend) -> ASTModule {
-    let main_src_file = project.main_src_file();
-    let file_path = Path::new(&main_src_file);
-    let std_lib_path = project.std_lib_path();
-    let mut module = match Lexer::from_file(file_path) {
-        Ok(lexer) => {
-            info!("Lexer ended");
-            let mut parser = Parser::new(lexer, Some(file_path.to_path_buf()));
-            parser.parse(file_path, Path::new(&std_lib_path))
-        }
-        Err(err) => {
-            panic!("An error occurred: {}", err)
-        }
-    };
-
-    let mut statics = Statics::new();
-
-    enrich_module(
-        backend,
-        project.resource_folder(),
-        &mut statics,
-        &mut module,
-    );
-
-    module
 }

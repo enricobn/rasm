@@ -417,7 +417,6 @@ mod tests {
     use rasm_core::type_check::typed_context::TypeConversionContext;
     use rasm_core::utils::SliceDisplay;
 
-    use crate::get_module;
     use crate::reference_finder::ReferenceFinder;
 
     fn init() {
@@ -443,9 +442,10 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let module = get_module(
-            &project,
+        let mut statics = Statics::new();
+        let module = project.get_module(
             &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &mut statics,
         );
 
         let finder = ReferenceFinder::new(&module);
@@ -478,9 +478,10 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let module = get_module(
-            &project,
+        let mut statics = Statics::new();
+        let module = project.get_module(
             &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &mut statics,
         );
 
         let finder = ReferenceFinder::new(&module);
