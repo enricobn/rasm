@@ -1436,6 +1436,7 @@ fn get_called_function(
                 "Trying to find the right function {f_def} filter {}",
                 SliceDisplay(&call_parameters_types)
             );
+            let mut skip_function = false;
             let new_call_parameters_types = call_parameters_types
                 .iter()
                 .enumerate()
@@ -1446,6 +1447,7 @@ fn get_called_function(
                             let par = f_def.parameters.get(i).unwrap();
                             let expr = call.parameters.get(i).unwrap();
                             debug_i!("found None filter for {par}");
+
                             match &par.ast_type {
                                 ASTType::Builtin(BuiltinTypeKind::Lambda {
                                     parameters: _,
@@ -1467,15 +1469,53 @@ fn get_called_function(
                                             Ok(TypeFilter::Lambda)
                                         }
                                     }
-                                    _ => Err("Expected lambda".into()),
+                                    _ => {
+                                        skip_function = true;
+                                        Ok(TypeFilter::Any)
+                                    }
                                 },
-                                _ => Ok(TypeFilter::Any),
+                                _ => {
+                                    if let Some(la) = get_type_of_expression(
+                                        module,
+                                        context,
+                                        expr,
+                                        typed_context,
+                                        Some(&par.ast_type),
+                                        call_stack,
+                                        backend,
+                                        statics,
+                                    )? {
+                                        Ok(TypeFilter::Exact(la))
+                                    } else {
+                                        Ok(TypeFilter::NotALambda)
+                                    }
+                                }
                             }
                         }
                         TypeFilter::Exact(f) => Ok(TypeFilter::Exact(f.clone())),
+                        TypeFilter::NotALambda => {
+                            let par = f_def.parameters.get(i).unwrap();
+                            if matches!(
+                                par.ast_type,
+                                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                    parameters: _,
+                                    return_type: _,
+                                })
+                            ) {
+                                skip_function = true;
+                                Ok(TypeFilter::Any)
+                            } else {
+                                Ok(TypeFilter::NotALambda)
+                            }
+                        }
                     }
                 })
                 .collect::<Result<Vec<_>, TypeCheckError>>()?;
+
+            if skip_function {
+                debug_i!("skipping function {f_def}");
+                continue;
+            }
 
             debug_i!(
                 "new call parameters types {}",

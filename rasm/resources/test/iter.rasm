@@ -18,7 +18,7 @@ fn next(range: Range) -> Option<Range> {
     let start = Range::start(range);
     let end = Range::index(end);
 
-    ifImmediate(less(index, end), Option::None(), Option::Some(Range(add(index, 1), start, end)));
+    if(less(index, end), Option::None(), Option::Some(Range(add(index, 1), start, end)));
 }
 
 fn actual(range: Range) -> Option<i32> {
@@ -26,6 +26,6 @@ fn actual(range: Range) -> Option<i32> {
     let start = Range::start(range);
     let end = Range::index(end);
 
-    ifImmediate(less(index, end), Option::None(), Option::Some(index));
+    if(less(index, end), Option::None(), Option::Some(index));
 }
 

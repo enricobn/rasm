@@ -1,18 +1,18 @@
 fn min<T>(a: T, b: T) -> T {
-    ifImmediate(less(a, b), a, b);
+    if(less(a, b), a, b);
 }
 
 fn max<T>(a: T, b: T) -> T {
-    ifImmediate(greater(a, b), a, b);
+    if(greater(a, b), a, b);
 }
 
 fn between<T>(actual: T, minValue: T, maxValue: T) -> T {
     let g = greater(actual, maxValue);
     let l = less(actual, minValue);
 
-    ifImmediate(g, maxValue, ifImmediate(l, minValue, actual));
+    if(g, maxValue, if(l, minValue, actual));
 }
 
 fn cmp<T>(a: T, b: T) -> Compare {
-    ifImmediate(less(a, b), Compare::Less(), ifImmediate(eq(a, b), Compare::Equal(), Compare::Greater()));
+    if(less(a, b), Compare::Less(), if(eq(a, b), Compare::Equal(), Compare::Greater()));
 }

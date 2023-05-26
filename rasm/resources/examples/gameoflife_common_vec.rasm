@@ -24,7 +24,7 @@ fn next(cells: Vec<Cell>, allCells: Vec<FullCell>) -> Vec<Cell> {
     let result = map(filter(allCells, { it ->
         let adjsAlive = count(adjacents(it),  { a -> isAlive(cells, a); });
         let cell = cell(it);
-        ifImmediate(isAlive(cells, cell),
+        if(isAlive(cells, cell),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         );

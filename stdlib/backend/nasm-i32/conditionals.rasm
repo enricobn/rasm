@@ -51,7 +51,7 @@ inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     if you need a short circuit then use if function
     false = 0 true = any other value
 **/
-inline asm ifImmediate<T>(cond: bool, vtrue: T, vfalse: T) -> T /{
+inline asm if<T>(cond: bool, vtrue: T, vfalse: T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+10
@@ -73,7 +73,7 @@ inline asm ifImmediate<T>(cond: bool, vtrue: T, vfalse: T) -> T /{
     if you need a full short circuit then use the if function
     false = 0 true = any other value
 **/
-inline asm ifImmediateThen<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
+inline asm if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+10

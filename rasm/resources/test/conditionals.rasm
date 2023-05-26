@@ -26,8 +26,8 @@ include "std.rasm"
 
     ifRun(lessOrEqual(2,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
-    println(ifImmediate(false, 100, 200));
-    println(ifImmediate(true, 100, 200));
+    println(if(false, 100, 200));
+    println(if(true, 100, 200));
 
     // TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
     assertFalse(or(false, false));

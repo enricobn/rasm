@@ -8,7 +8,7 @@ include "std.rasm"
 println(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
-    ifImmediateThen(lessOrEqual(n, 1),n,{ ->
+    if(lessOrEqual(n, 1),n,{ ->
         add(fib(add(n,-1)), fib(add(n,-2)));
     });
 }

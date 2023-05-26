@@ -44,7 +44,7 @@ fn less(t1: TimeVal, t2: TimeVal) -> bool {
     let sec2 = sec(t2);
     let nano2 = nano(t2);
 
-    ifImmediate(less(sec1, sec2), true, ifImmediate(eq(sec1, sec2), less(nano1, nano2), false));
+    if(less(sec1, sec2), true, if(eq(sec1, sec2), less(nano1, nano2), false));
 }
 
 fn eq(t1: TimeVal, t2: TimeVal) -> bool {

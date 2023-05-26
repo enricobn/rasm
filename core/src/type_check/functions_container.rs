@@ -19,6 +19,7 @@ pub enum TypeFilter {
     Exact(ASTType),
     Any,
     Lambda,
+    NotALambda,
 }
 
 impl Display for TypeFilter {
@@ -27,6 +28,7 @@ impl Display for TypeFilter {
             TypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
             TypeFilter::Any => write!(f, "Any"),
             TypeFilter::Lambda => write!(f, "Lambda"),
+            TypeFilter::NotALambda => write!(f, "Not a lambda"),
         }
     }
 }
@@ -449,6 +451,10 @@ impl FunctionsContainer {
                     ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
                 )
             }
+            TypeFilter::NotALambda => !matches!(
+                parameter_type,
+                ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
+            ),
         }
     }
 

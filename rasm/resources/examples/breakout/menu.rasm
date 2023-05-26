@@ -37,7 +37,7 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
 
         let color = match(last, { h ->
             let lastTime = time(h);
-            ifImmediate(eq(lastTime, time), YELLOW, BLUE);
+            if(eq(lastTime, time), YELLOW, BLUE);
         }, { -> BLUE;});
 
         let sScore = padLeft(toString(score), 10);
