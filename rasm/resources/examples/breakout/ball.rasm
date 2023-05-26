@@ -11,12 +11,12 @@ fn initialBall(now: TimeVal) -> Ball {
 }
 
 fn update(ball: Ball, actualTime: TimeVal) -> Ball {
-    let x = x(ball);
-    let y = y(ball);
-    let xDir = xDir(ball);
-    let yDir = yDir(ball);
+    let x = ball.x;
+    let y = ball.y;
+    let xDir = ball.xDir;
+    let yDir = ball.yDir;
 
-    let lastUpdate = lastUpdate(ball);
+    let lastUpdate = ball.lastUpdate;
     let elapsed = elapsedTime(actualTime, lastUpdate);
 
     let diff = divf(elapsed, 3000);
@@ -31,47 +31,47 @@ fn update(ball: Ball, actualTime: TimeVal) -> Ball {
 }
 
 fn collides(ball: Ball, brick: Brick) -> bool {
-    let x = x(ball);
-    let y = y(ball);
+    let x = ball.x;
+    let y = ball.y;
 
-    let bx = x(brick);
-    let by = y(brick);
+    let bx = brick.x;
+    let by = brick.y;
 
-    let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BRICKWIDTH)));
-    let yColl = and(greater(add(y, BALLSIZE), by), less(y, add(by, BRICKHEIGHT)));
+    let xColl = x.add(BALLSIZE).greater(bx).and(x.less(bx.add(BRICKWIDTH)));
+    let yColl = y.add(BALLSIZE).greater(by).and(y.less(by.add(BRICKHEIGHT)));
 
-    and(xColl, yColl);
+    xColl.and(yColl);
 }
 
 fn collides(ball: Ball, barPos: f32) -> bool {
-    let x = x(ball);
-    let y = y(ball);
+    let x = ball.x;
+    let y = ball.y;
     let bx = barPos;
-    let by = sub(HEIGHT, BARHEIGHT);
+    let by = HEIGHT.sub(BARHEIGHT);
 
-    let xColl = and(greater(add(x, BALLSIZE), bx), less(x, add(bx, BARWIDTH)));
-    let yColl = greater(add(y, BALLSIZE), by);
+    let xColl = x.add(BALLSIZE).greater(bx).and(x.less(bx.add(BARWIDTH)));
+    let yColl = y.add(BALLSIZE).greater(by);
 
-    and(xColl, yColl);
+    xColl.and(yColl);
 }
 
 fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
-    let ballX = x(ball);
-    let ballY = y(ball);
-    let xDir = xDir(ball);
-    let yDir = yDir(ball);
-    let lastUpdate = lastUpdate(ball);
+    let ballX = ball.x;
+    let ballY = ball.y;
+    let xDir = ball.xDir;
+    let yDir = ball.yDir;
+    let lastUpdate = ball.lastUpdate;
 
-    let brickX = x(brick);
-    let brickY = y(brick);
+    let brickX = brick.x;
+    let brickY = brick.y;
 
-    let xDiff1 = sub(ballX, brickX);
-    let xDiff2 = sub(add(brickX, BRICKWIDTH), ballX);
-    let yDiff1 = sub(ballY, brickY);
-    let yDiff2 = sub(add(brickY, BRICKHEIGHT), ballY);
+    let xDiff1 = ballX.sub(brickX);
+    let xDiff2 = brickX.add(BRICKWIDTH).sub(ballX);
+    let yDiff1 = ballY.sub(brickY);
+    let yDiff2 = brickY.add(BRICKHEIGHT).sub(ballY);
 
     let xDiff = min(xDiff1, xDiff2);
     let yDiff = min(yDiff1, yDiff2);
 
-    if(less(xDiff, yDiff), { -> Ball(ballX, ballY, flip(xDir), yDir, lastUpdate);}, { -> Ball(ballX, ballY, xDir, flip(yDir), lastUpdate);});
+    if(xDiff.less(yDiff), { -> ball.xDir(xDir.flip);}, { -> ball.yDir(yDir.flip);});
 }

@@ -4,27 +4,30 @@
 // 54327 table slots allocated
 //
 // real    0m0,355s
+//
+// 80 * 50
+// real    0m1,753s
 
 include "std.rasm"
-include "gameoflife_vec_common.rasm"
+include "gameoflife_common.rasm"
+include "gameoflife_common_vec.rasm"
 
 let file = argv(1);
 let start = readCellFile(file);
 let count = atoi(argv(2));
-let size = 30;
 
-run(moveCells(start, 10), size, count);
+run(moveCells(start, 20), 80, 50, count);
 
-fn run(start: Vec<Cell>, size: i32, count: i32) {
-    let allCells = allCells(size, size);
+fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
+    let allCells = allCells(width, height);
 
     printCells(
         foldLeft(vecRange(0, count), start, { prev, act ->
-            printCells(prev, size, size);
-            moveUp(size);
+            printCells(prev, width, height);
+            moveUp(height);
             //sleep(0, 250000000);
             next(prev, allCells);
-          }), size, size);
+          }), width, height);
 
 }
 

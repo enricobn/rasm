@@ -12,10 +12,10 @@ run(substr("first\nsecond\nthird\n", 13, 5), { v -> println(v);}, { -> println("
 println(nextChar("1", 0));
 println(nextChar("è", 0));
 println(nextChar("☀", 0));
-println(seq("Hello", "Hello"));
-println(seq("Hell", "Hello"));
-println(seq("Hello", "Hell"));
-println(seq("Hello", "Hella"));
+println(eq("Hello", "Hello"));
+println(eq("Hell", "Hello"));
+println(eq("Hello", "Hell"));
+println(eq("Hello", "Hella"));
 println(toString(9999));
 
 println(padLeft("Hello", 10));

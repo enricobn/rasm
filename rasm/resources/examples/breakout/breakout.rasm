@@ -185,7 +185,7 @@ fn splitToList(s: str, separator: str) -> List<str> {
 fn findChar(chars: List<EnumerateEntry<str>>, c: str) -> Option<i32> {
     let o = first(filter(chars, { it ->
         let currentChar = value(it);
-        seq(currentChar, c);
+        eq(currentChar, c);
     }));
 
     match(o, { entry -> Option::Some(index(entry));}, { -> Option::None();});

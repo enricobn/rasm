@@ -152,7 +152,7 @@ asm nextChar(s: str, offset: i32) -> i32 /{
     pop     ebx
 }/
 
-asm seq(s1: str, s2: str) -> bool /{
+asm eq(s1: str, s2: str) -> bool /{
     push   ebx
     push   ecx
 

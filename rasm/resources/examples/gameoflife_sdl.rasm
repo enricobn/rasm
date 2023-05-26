@@ -10,6 +10,7 @@ include "std.rasm"
 include "sdl.rasm"
 
 include "gameoflife_common.rasm"
+include "gameoflife_common_list.rasm"
 
 extern "printf"
 

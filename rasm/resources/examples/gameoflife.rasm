@@ -5,10 +5,9 @@
 //
 // real    0m24,496s
 
-
-
 include "std.rasm"
 include "gameoflife_common.rasm"
+include "gameoflife_common_list.rasm"
 
 let file = argv(1);
 let start = readCellFile(file);
