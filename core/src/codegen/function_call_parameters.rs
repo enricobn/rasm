@@ -2,11 +2,10 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::Backend;
+use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
-use crate::codegen::{
-    CodeGen, LambdaSpace, MemoryUnit, MemoryValue, TypedValContext, TypedValKind,
-};
+use crate::codegen::{CodeGen, MemoryUnit, MemoryValue, TypedValContext, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -212,7 +211,7 @@ impl<'a> FunctionCallParameters<'a> {
     ) -> LambdaSpace {
         let sbp = self.backend.stack_base_pointer();
         let sp = self.backend.stack_pointer();
-        let wl = self.backend.word_len() as usize;
+        let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let ptrs = self.backend.pointer_size();
 
@@ -376,7 +375,7 @@ impl<'a> FunctionCallParameters<'a> {
                 }
 
                 let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
-                    parent_lambda.context.get(name).is_some()
+                    parent_lambda.is_in_context(name)
                 } else {
                     false
                 };
@@ -399,6 +398,24 @@ impl<'a> FunctionCallParameters<'a> {
                         "ebx",
                         Some(&format!("context parameter {}", name)),
                     );
+                /*
+                                   let ast_type = match kind {
+                                       TypedValKind::ParameterRef(_, def) => &def.ast_type,
+                                       TypedValKind::LetRef(_, t) => t,
+                                   };
+
+                                   if let Some(type_name) = CodeGen::get_reference_type_name(ast_type, module) {
+                                       self.backend.call_add_ref(
+                                           &mut self.before,
+                                           &format!("[{}+{}]", sbp, relative_address * wl as i32),
+                                           &type_name,
+                                           &format!("value \"{name}\" in context"),
+                                           module,
+                                           statics,
+                                       )
+                                   }
+
+                */
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
                         Self::indirect_mov(
@@ -416,7 +433,7 @@ impl<'a> FunctionCallParameters<'a> {
                     panic!()
                 }
 
-                lambda_space.add_context_parameter(name.clone(), i);
+                lambda_space.add_context_parameter(name.clone());
                 i += 1;
             });
 

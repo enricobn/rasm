@@ -8,6 +8,7 @@ use linked_hash_map::{Iter, LinkedHashMap};
 use log::debug;
 
 use enhanced_module::EnhancedASTModule;
+use lambda::{LambdaCall, LambdaSpace};
 
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
@@ -36,6 +37,7 @@ use crate::utils::OptionDisplay;
 pub mod backend;
 pub mod enhanced_module;
 mod function_call_parameters;
+pub mod lambda;
 pub mod stack;
 pub mod statics;
 pub mod text_macro;
@@ -240,35 +242,6 @@ impl TypedValContext {
 pub enum TypedValKind {
     ParameterRef(usize, ASTTypedParameterDef),
     LetRef(usize, ASTTypedType),
-}
-
-#[derive(Debug, Clone)]
-struct LambdaCall {
-    def: ASTTypedFunctionDef,
-    space: LambdaSpace,
-}
-
-#[derive(Debug, Clone)]
-pub struct LambdaSpace {
-    parameters_indexes: LinkedHashMap<String, usize>,
-    context: TypedValContext,
-}
-
-impl LambdaSpace {
-    fn new(context: TypedValContext) -> Self {
-        LambdaSpace {
-            parameters_indexes: LinkedHashMap::new(),
-            context,
-        }
-    }
-
-    fn add_context_parameter(&mut self, name: String, index: usize) {
-        self.parameters_indexes.insert(name, index);
-    }
-
-    fn get_index(&self, name: &str) -> Option<usize> {
-        self.parameters_indexes.get(name).cloned()
-    }
 }
 
 impl<'a> CodeGen<'a> {
@@ -1003,7 +976,7 @@ impl<'a> CodeGen<'a> {
             lambda_calls.append(&mut self.add_function_def(
                 &lambda_call.def,
                 Some(&lambda_call.space),
-                &lambda_call.space.context,
+                lambda_call.space.get_context(),
                 indent,
                 true,
             ));
@@ -1234,7 +1207,7 @@ impl<'a> CodeGen<'a> {
 
                                         self.id += 1;
 
-                                        let new_new_lambda_space = parameters.add_lambda(
+                                        let new_lambda_space = parameters.add_lambda(
                                             &def,
                                             lambda_space,
                                             &context,
@@ -1251,7 +1224,7 @@ impl<'a> CodeGen<'a> {
                                         );
                                         lambda_calls.push(LambdaCall {
                                             def,
-                                            space: new_new_lambda_space,
+                                            space: new_lambda_space,
                                         });
                                     } else {
                                         panic!("Expected lambda return type");
