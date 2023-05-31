@@ -1,0 +1,7 @@
+[package]
+name = "breakout"
+version = "1.0.0"
+source_folder = "."
+std_lib_path = "../../../../stdlib"
+main = "breakout.rasm"
+resource_folder = "."
