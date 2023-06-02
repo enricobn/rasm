@@ -1,22 +1,30 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 
+use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider};
-use crate::codegen::{CodeGen, ValContext, ValKind};
+use crate::codegen::{CodeGen, TypedValKind, ValContext, ValKind};
 use crate::debug_i;
-use crate::parser::ast::{ASTType, BuiltinTypeKind, ValueType};
+use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind, ValueType};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+    ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
+    BuiltinTypedTypeKind, DefaultFunctionCall,
 };
+
+thread_local! {
+    static LAMBDA_REF_INDEX : RefCell<usize> = RefCell::new(0);
+}
 
 pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -104,6 +112,20 @@ pub trait Backend: RefUnwindSafe {
     fn function_end(&self, out: &mut String, add_return: bool);
 
     fn value_to_string(&self, value_type: &ValueType) -> String;
+
+    fn create_lambda_addref(
+        &self,
+        lambda_space: &LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+    ) -> ASTTypedFunctionDef;
+
+    fn create_lambda_deref(
+        &self,
+        lambda_space: &LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+    ) -> ASTTypedFunctionDef;
 }
 
 enum Linker {
@@ -112,6 +134,7 @@ enum Linker {
 }
 
 pub struct BackendAsm386 {
+    id: usize,
     requires: HashSet<String>,
     externals: HashSet<String>,
     linker: Linker,
@@ -122,6 +145,7 @@ impl BackendAsm386 {
     pub fn new(requires: HashSet<String>, externals: HashSet<String>) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
+            id: 0,
             requires,
             externals,
             linker: if libc { Linker::Gcc } else { Linker::Ld },
@@ -163,6 +187,76 @@ impl BackendAsm386 {
                 BuiltinTypedTypeKind::Lambda { .. } => todo!(),
             },
             _ => type_def_provider.get_type_from_typed_type(ast_typed_type),
+        }
+    }
+
+    fn create_lambda_addref_like_function(
+        &self,
+        lambda_space: &LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+        name: &str,
+    ) -> ASTTypedFunctionDef {
+        let mut body = String::new();
+
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        CodeGen::add(&mut body, "push   eax", None, true);
+        CodeGen::add(&mut body, "mov {ws} eax, [$address]", None, true);
+        CodeGen::add(&mut body, "mov {ws} eax, [eax]", None, true);
+        CodeGen::add(&mut body, &format!("add {ws} eax, {}", wl * 3), None, true);
+        for (name, kind) in lambda_space.iter() {
+            let ast_typed_type = match kind {
+                TypedValKind::ParameterRef(_, def) => &def.ast_type,
+                TypedValKind::LetRef(_, typed_type) => typed_type,
+            };
+            if let Some(type_name) =
+                CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
+            {
+                if name == "add_ref" {
+                    self.call_add_ref(
+                        &mut body,
+                        "[eax]",
+                        &type_name,
+                        &format!("\"{name}\" in lambda context"),
+                        type_def_provider,
+                        statics,
+                    );
+                } else {
+                    body.push_str(&self.call_deref(
+                        "[eax]",
+                        &type_name,
+                        &format!("\"{name}\" in lambda context"),
+                        type_def_provider,
+                        statics,
+                    ));
+                }
+            }
+        }
+
+        CodeGen::add(&mut body, "pop   eax", None, true);
+
+        let index = LAMBDA_REF_INDEX.with(|i| {
+            *i.borrow_mut() += 1;
+            *i.borrow()
+        });
+
+        let name = format!("lambda_{}_{}", name, index);
+
+        let parameters = vec![ASTTypedParameterDef {
+            name: "address".to_owned(),
+            ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+            ast_index: ASTIndex::none(),
+        }];
+
+        ASTTypedFunctionDef {
+            name,
+            parameters,
+            body: ASTTypedFunctionBody::ASMBody(body),
+            return_type: None,
+            generic_types: LinkedHashMap::new(),
+            inline: false,
         }
     }
 }
@@ -654,6 +748,78 @@ impl Backend for BackendAsm386 {
                 format!("{}", result)
             }
         }
+    }
+
+    fn create_lambda_addref(
+        &self,
+        lambda_space: &LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+    ) -> ASTTypedFunctionDef {
+        self.create_lambda_addref_like_function(lambda_space, type_def_provider, statics, "add_ref")
+        /*
+        let mut body = String::new();
+
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        CodeGen::add(&mut body, "push   eax", None, true);
+        CodeGen::add(&mut body, "mov {ws} eax, [$address]", None, true);
+        CodeGen::add(&mut body, "mov {ws} eax, [eax]", None, true);
+        CodeGen::add(&mut body, &format!("add {ws} eax, {}", wl * 3), None, true);
+        for (name, kind) in lambda_space.iter() {
+            let ast_typed_type = match kind {
+                TypedValKind::ParameterRef(_, def) => &def.ast_type,
+                TypedValKind::LetRef(_, typed_type) => typed_type,
+            };
+            if let Some(type_name) =
+                CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
+            {
+                self.call_add_ref(
+                    &mut body,
+                    "[eax]",
+                    &type_name,
+                    &format!("\"{name}\" in lambda context"),
+                    type_def_provider,
+                    statics,
+                );
+            }
+        }
+
+        CodeGen::add(&mut body, "pop   eax", None, true);
+
+        let index = LAMBDA_REF_INDEX.with(|i| {
+            *i.borrow_mut() += 1;
+            *i.borrow()
+        });
+
+        let name = format!("lambda_addref_{}", index);
+
+        let parameters = vec![ASTTypedParameterDef {
+            name: "address".to_owned(),
+            ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+            ast_index: ASTIndex::none(),
+        }];
+
+        ASTTypedFunctionDef {
+            name,
+            parameters,
+            body: ASTTypedFunctionBody::ASMBody(body),
+            return_type: None,
+            generic_types: LinkedHashMap::new(),
+            inline: false,
+        }
+
+             */
+    }
+
+    fn create_lambda_deref(
+        &self,
+        lambda_space: &LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+    ) -> ASTTypedFunctionDef {
+        self.create_lambda_addref_like_function(lambda_space, type_def_provider, statics, "deref")
     }
 }
 

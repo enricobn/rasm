@@ -1,0 +1,8 @@
+struct ToString {
+    toString: fn() -> str
+}
+
+fn toString(o: ToString) -> str {
+    let f = o.toString;
+    f();
+}

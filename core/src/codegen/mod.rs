@@ -1213,7 +1213,7 @@ impl<'a> CodeGen<'a> {
                                             &context,
                                             None,
                                             &mut self.statics,
-                                            &self.module,
+                                            &mut self.module,
                                         );
 
                                         before.push_str(&parameters.before());
@@ -1679,7 +1679,7 @@ impl<'a> CodeGen<'a> {
                             context,
                             None,
                             &mut self.statics,
-                            &self.module,
+                            &mut self.module,
                         );
 
                         // I add the parameters of the lambda itself

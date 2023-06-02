@@ -1,0 +1,20 @@
+struct Shape {
+    shapeToString : ToString,
+    move: fn(i32,i32) -> Shape,
+    printShape: fn() -> ()
+}
+
+fn toString(shape: Shape) -> str {
+    let f = shape.shapeToString;
+    f();
+}
+
+fn move(shape: Shape, dx: i32, dy: i32) -> Shape {
+    let f = shape.move;
+    f(dx, dy);
+}
+
+fn print(shape: Shape) {
+    let f = shape.printShape;
+    f();
+}

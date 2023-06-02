@@ -1,4 +1,6 @@
-use crate::codegen::TypedValContext;
+use linked_hash_map::{Iter, LinkedHashMap};
+
+use crate::codegen::{TypedValContext, TypedValKind};
 use crate::type_check::typed_ast::ASTTypedFunctionDef;
 
 #[derive(Debug, Clone)]
@@ -9,27 +11,27 @@ pub struct LambdaCall {
 
 #[derive(Debug, Clone)]
 pub struct LambdaSpace {
-    parameters: Vec<String>,
+    values: LinkedHashMap<String, TypedValKind>,
     context: TypedValContext,
 }
 
 impl LambdaSpace {
     pub fn new(context: TypedValContext) -> Self {
         LambdaSpace {
-            parameters: Vec::new(),
+            values: LinkedHashMap::new(),
             context,
         }
     }
 
-    pub fn add_context_parameter(&mut self, name: String) {
-        self.parameters.push(name);
+    pub fn add(&mut self, name: String, kind: TypedValKind) {
+        self.values.insert(name, kind);
     }
 
     pub fn get_index(&self, name: &str) -> Option<usize> {
         return self
-            .parameters
+            .values
             .iter()
-            .position(|it| it == name)
+            .position(|(n, _)| n == name)
             .map(|it| it + 1);
     }
 
@@ -39,5 +41,9 @@ impl LambdaSpace {
 
     pub fn get_context(&self) -> &TypedValContext {
         &self.context
+    }
+
+    pub fn iter(&self) -> Iter<String, TypedValKind> {
+        self.values.iter()
     }
 }

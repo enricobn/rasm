@@ -207,7 +207,7 @@ impl<'a> FunctionCallParameters<'a> {
         context: &TypedValContext,
         comment: Option<&str>,
         statics: &mut Statics,
-        module: &ASTTypedModule,
+        module: &mut ASTTypedModule,
     ) -> LambdaSpace {
         let sbp = self.backend.stack_base_pointer();
         let sp = self.backend.stack_pointer();
@@ -226,6 +226,9 @@ impl<'a> FunctionCallParameters<'a> {
 
         let mut lambda_space = LambdaSpace::new(context.clone());
 
+        let mut add_ref_function = "addref_0";
+        let mut deref_function = "deref_0";
+
         CodeGen::add(
             &mut self.before,
             &format!("push  {} ecx", self.backend.word_size()),
@@ -240,7 +243,7 @@ impl<'a> FunctionCallParameters<'a> {
         */
         if context.is_empty() {
             let (label_allocation, label_memory) =
-                statics.insert_static_allocation(MemoryValue::Mem(1, MemoryUnit::Words));
+                statics.insert_static_allocation(MemoryValue::Mem(3, MemoryUnit::Words));
 
             // we save the allocation table address of the lambda space in the stack
             CodeGen::add(
@@ -258,6 +261,22 @@ impl<'a> FunctionCallParameters<'a> {
                 true,
             );
         } else {
+            let add_ref_function_def =
+                self.backend
+                    .create_lambda_addref(&lambda_space, module, statics);
+
+            add_ref_function = &add_ref_function_def.name;
+
+            let deref_function_def =
+                self.backend
+                    .create_lambda_deref(&lambda_space, module, statics);
+
+            deref_function = &deref_function_def.name;
+
+            module
+                .functions_by_name
+                .insert(add_ref_function_def.name.clone(), add_ref_function_def);
+
             let num_of_values_in_context = context.iter().count();
 
             // TODO we should try to understand if we can optimize using a static lambda context and reusing
@@ -269,7 +288,7 @@ impl<'a> FunctionCallParameters<'a> {
 
             if optimize {
                 let (label_allocation, lm) = statics.insert_static_allocation(MemoryValue::Mem(
-                    num_of_values_in_context + 1,
+                    num_of_values_in_context + 3,
                     MemoryUnit::Words,
                 ));
 
@@ -295,7 +314,7 @@ impl<'a> FunctionCallParameters<'a> {
                     self.backend,
                     &mut self.before,
                     "ecx",
-                    num_of_values_in_context + 1,
+                    num_of_values_in_context + 3,
                     statics,
                 );
 
@@ -327,7 +346,7 @@ impl<'a> FunctionCallParameters<'a> {
             );
             CodeGen::add(
                 &mut self.before,
-                &format!("mov   {} eax, [{sbp}+8]", ws),
+                &format!("mov   {} eax, [{sbp} + {}]", ws, 2 * wl),
                 None,
                 true,
             );
@@ -433,7 +452,7 @@ impl<'a> FunctionCallParameters<'a> {
                     panic!()
                 }
 
-                lambda_space.add_context_parameter(name.clone());
+                lambda_space.add(name.clone(), kind.clone());
                 i += 1;
             });
 
@@ -471,7 +490,7 @@ impl<'a> FunctionCallParameters<'a> {
                     "mov {} [{} + {}], ecx",
                     ws,
                     sp,
-                    (to_remove_from_stack + 1) * wl as usize
+                    (to_remove_from_stack + 1) * wl
                 ),
                 comment,
                 true,

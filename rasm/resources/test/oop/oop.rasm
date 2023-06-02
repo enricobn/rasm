@@ -1,0 +1,12 @@
+include "std.rasm"
+
+include "circle.rasm"
+include "rect.rasm"
+include "shape.rasm"
+include "toString.rasm"
+
+let v = vecOf(Shape(Circle(1, 1, 2)), Shape(Rect(10, 20)));
+
+println(v);
+
+println(map(v, { shape -> move(shape, 100, 100);}));

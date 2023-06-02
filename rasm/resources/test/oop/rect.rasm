@@ -1,0 +1,22 @@
+struct Rect {
+    x: i32,
+    y: i32,
+}
+
+fn ToString(rect: Rect) -> ToString {
+    ToString({ -> "Rect"; });
+}
+
+fn Shape(rect: Rect) -> Shape {
+    Shape(
+    ToString(rect),
+    { dx, dy ->
+        let result = Rect(add(rect.x, dx), add(rect.y, dy));
+
+        Shape(result);
+    }, { ->
+         print("Rect(", rect.x);
+         print(",", rect.y);
+         print(")");
+    });
+}
