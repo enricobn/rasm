@@ -4,7 +4,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
-use linked_hash_map::{Iter, LinkedHashMap};
+use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use enhanced_module::EnhancedASTModule;
@@ -15,10 +15,11 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
+use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::MemoryUnit::{Bytes, Words};
 use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
-use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType, BuiltinTypeKind};
+use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType};
 use crate::transformations::enrich_module;
 use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
@@ -41,6 +42,7 @@ pub mod lambda;
 pub mod stack;
 pub mod statics;
 pub mod text_macro;
+pub mod val_context;
 
 /// It's a constant that will be replaced by the code generator with the size (in bytes)
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function
@@ -54,7 +56,6 @@ pub struct CodeGen<'a> {
     body: String,
     definitions: String,
     lambdas: Vec<LambdaCall>,
-    functions: LinkedHashMap<String, ASTTypedFunctionDef>,
     backend: &'a dyn Backend,
     heap_size: usize,
     heap_table_slots: usize,
@@ -80,162 +81,9 @@ pub enum MemoryUnit {
 }
 
 #[derive(Clone, Debug)]
-pub struct ValContext {
-    pub value_to_address: LinkedHashMap<String, ValKind>,
-    let_index: usize,
-    par_index: usize,
-}
-
-impl ValContext {
-    pub fn new(parent_context: Option<&ValContext>) -> Self {
-        let mut value_to_address = LinkedHashMap::new();
-        if let Some(pc) = parent_context {
-            for (key, value) in pc.value_to_address.iter() {
-                value_to_address.insert(key.clone(), value.clone());
-            }
-        }
-        Self {
-            value_to_address,
-            par_index: 0,
-            let_index: 0,
-        }
-    }
-
-    pub fn insert_par(&mut self, key: String, par: ASTParameterDef) -> Option<ValKind> {
-        let result = self.value_to_address.insert(
-            key.clone(),
-            ValKind::ParameterRef(self.par_index, par.clone()),
-        );
-        self.par_index += 1;
-        if result.is_some() {
-            panic!("already added {key}: {}", par.ast_index);
-        }
-        debug_i!("added parameter {key} -> {par} to context");
-        result
-    }
-
-    pub fn insert_let(
-        &mut self,
-        key: String,
-        ast_type: ASTType,
-        ast_index: &ASTIndex,
-    ) -> Option<ValKind> {
-        let result = self.value_to_address.insert(
-            key.clone(),
-            ValKind::LetRef(self.let_index, ast_type, ast_index.clone()),
-        );
-        self.let_index += 1;
-        if result.is_some() {
-            panic!("already added {key}: {}", ast_index);
-        }
-        debug_i!("added let val {key} to context");
-        result
-    }
-
-    pub fn get(&self, key: &str) -> Option<&ValKind> {
-        self.value_to_address.get(key)
-    }
-
-    pub fn names(&self) -> Vec<&String> {
-        self.value_to_address.keys().collect()
-    }
-
-    pub fn is_lambda(&self, key: &str) -> bool {
-        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                return_type: _,
-                parameters: _,
-            }) = &par.ast_type
-            {
-                return true;
-            }
-        }
-
-        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                return_type: _,
-                parameters: _,
-            }) = ast_type
-            {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-#[derive(Clone, Debug)]
 pub enum ValKind {
     ParameterRef(usize, ASTParameterDef),
     LetRef(usize, ASTType, ASTIndex),
-}
-
-#[derive(Clone, Debug)]
-pub struct TypedValContext {
-    pub value_to_address: LinkedHashMap<String, TypedValKind>,
-    let_index: usize,
-}
-
-impl TypedValContext {
-    pub fn new(parent_context: Option<&TypedValContext>) -> Self {
-        let mut map = LinkedHashMap::new();
-        if let Some(pc) = parent_context {
-            for (key, value) in pc.value_to_address.iter() {
-                map.insert(key.clone(), value.clone());
-            }
-        }
-        Self {
-            value_to_address: map,
-            let_index: 0,
-        }
-    }
-
-    pub fn insert_par(
-        &mut self,
-        key: String,
-        index: usize,
-        par: ASTTypedParameterDef,
-    ) -> Option<TypedValKind> {
-        self.value_to_address
-            .insert(key, TypedValKind::ParameterRef(index, par))
-    }
-
-    pub fn insert_let(
-        &mut self,
-        key: String,
-        ast_typed_type: ASTTypedType,
-        index_relative_to_bp: Option<usize>,
-    ) -> Option<TypedValKind> {
-        let result = self.value_to_address.insert(
-            key,
-            TypedValKind::LetRef(
-                index_relative_to_bp.unwrap_or(self.let_index + 1),
-                ast_typed_type,
-            ),
-        );
-        self.let_index += 1;
-        result
-    }
-
-    pub fn insert(&mut self, key: String, kind: TypedValKind) {
-        self.value_to_address.insert(key, kind);
-    }
-
-    pub fn get(&self, key: &str) -> Option<&TypedValKind> {
-        self.value_to_address.get(key)
-    }
-
-    pub fn iter(&self) -> Iter<String, TypedValKind> {
-        self.value_to_address.iter()
-    }
-
-    pub fn names(&self) -> Vec<&String> {
-        self.value_to_address.keys().collect()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.value_to_address.is_empty()
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -283,7 +131,6 @@ impl<'a> CodeGen<'a> {
             id: 0,
             definitions: String::new(),
             lambdas: Vec::new(),
-            functions: LinkedHashMap::new(),
             backend,
             heap_size,
             heap_table_slots,
@@ -335,7 +182,6 @@ impl<'a> CodeGen<'a> {
         self.body = String::new();
 
         self.definitions = String::new();
-        self.functions = self.module.functions_by_name.clone();
 
         // for now main has no context
         let mut context = TypedValContext::new(None);
@@ -947,24 +793,17 @@ impl<'a> CodeGen<'a> {
     }
 
     fn create_all_functions(&mut self) {
-        debug!(
-            "create_all_functions, {:?}",
-            self.functions
-                .values()
-                .map(|it| it.name.clone())
-                .collect::<Vec<String>>()
-        );
-        for function_def in self.functions.clone().values() {
-            // VarContext ???
+        for function_def in self.functions().clone().values() {
+            // ValContext ???
             if !function_def.inline {
-                let vec1 = self.add_function_def(
+                let lambda_calls = self.add_function_def(
                     function_def,
                     None,
                     &TypedValContext::new(None),
                     0,
                     false,
                 );
-                self.create_lambdas(vec1, 0);
+                self.create_lambdas(lambda_calls, 0);
             }
         }
     }
@@ -981,6 +820,22 @@ impl<'a> CodeGen<'a> {
                 true,
             ));
             //Parser::print_function_def(&lambda_call.def);
+            lambda_calls.extend(
+                lambda_call
+                    .space
+                    .get_ref_functions()
+                    .iter()
+                    .flat_map(|it| {
+                        self.add_function_def(
+                            it,
+                            None,
+                            lambda_call.space.get_context(),
+                            indent,
+                            false,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            );
         }
         if !lambda_calls.is_empty() {
             self.create_lambdas(lambda_calls, indent + 1);
@@ -1002,6 +857,7 @@ impl<'a> CodeGen<'a> {
         );
 
         let mut lambda_calls = Vec::new();
+
         CodeGen::add(
             &mut self.definitions,
             &format!("; function {}", function_def),
@@ -1323,12 +1179,12 @@ impl<'a> CodeGen<'a> {
         let mut after = Vec::new();
 
         let lambda_calls = if let Some(function_def) =
-            self.functions.get(&function_call.function_name)
+            self.functions().get(&function_call.function_name)
         {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self
-                .functions
+                .functions()
                 .get(&function_call.function_name)
                 .unwrap()
                 .clone()
@@ -1357,13 +1213,13 @@ impl<'a> CodeGen<'a> {
                 &mut after,
             )
         } else if let Some(function_def) = self
-            .functions
+            .functions()
             .get(&function_call.function_name.replace("::", "_"))
         {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = self
-                .functions
+                .functions()
                 .get(&function_call.function_name.replace("::", "_"))
                 .unwrap()
                 .clone()
@@ -1741,7 +1597,7 @@ impl<'a> CodeGen<'a> {
                 // we add the address to the "lambda space" as the last parameter of the lambda
                 CodeGen::add(
                     before,
-                    &format!("add eax, {}", address * self.backend.word_len() as usize),
+                    &format!("add eax, {}", (address + 2) * self.backend.word_len()),
                     Some("address to the allocation table of the \"lambda space\""),
                     true,
                 );
@@ -1868,7 +1724,7 @@ impl<'a> CodeGen<'a> {
 
         if call_parameters.to_remove_from_stack() > 0 {
             let sp = self.backend.stack_pointer();
-            let wl = self.backend.word_len() as usize;
+            let wl = self.backend.word_len();
 
             CodeGen::add(
                 before,
@@ -2019,5 +1875,9 @@ impl<'a> CodeGen<'a> {
 
     pub fn add_empty_line(out: &mut String) {
         out.push('\n');
+    }
+
+    fn functions(&self) -> &LinkedHashMap<String, ASTTypedFunctionDef> {
+        &self.module.functions_by_name
     }
 }

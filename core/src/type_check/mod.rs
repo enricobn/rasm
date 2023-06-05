@@ -11,7 +11,8 @@ use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro};
-use crate::codegen::{ValContext, ValKind};
+use crate::codegen::val_context::ValContext;
+use crate::codegen::ValKind;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,

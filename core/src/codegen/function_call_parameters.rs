@@ -5,7 +5,8 @@ use crate::codegen::backend::Backend;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::Statics;
-use crate::codegen::{CodeGen, MemoryUnit, MemoryValue, TypedValContext, TypedValKind};
+use crate::codegen::val_context::TypedValContext;
+use crate::codegen::{CodeGen, MemoryUnit, MemoryValue, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -226,8 +227,8 @@ impl<'a> FunctionCallParameters<'a> {
 
         let mut lambda_space = LambdaSpace::new(context.clone());
 
-        let mut add_ref_function = "addref_0";
-        let mut deref_function = "deref_0";
+        let mut add_ref_function = "addref_0".to_owned();
+        let mut deref_function = "deref_0".to_owned();
 
         CodeGen::add(
             &mut self.before,
@@ -263,19 +264,33 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             let add_ref_function_def =
                 self.backend
-                    .create_lambda_addref(&lambda_space, module, statics);
+                    .create_lambda_addref(&lambda_space, module, statics, &def.name);
 
-            add_ref_function = &add_ref_function_def.name;
+            add_ref_function = add_ref_function_def.name.clone();
 
-            let deref_function_def =
-                self.backend
-                    .create_lambda_deref(&lambda_space, module, statics);
-
-            deref_function = &deref_function_def.name;
-
+            /*
             module
                 .functions_by_name
                 .insert(add_ref_function_def.name.clone(), add_ref_function_def);
+
+             */
+
+            lambda_space.add_ref_function(add_ref_function_def);
+
+            let deref_function_def =
+                self.backend
+                    .create_lambda_deref(&lambda_space, module, statics, &def.name);
+
+            deref_function = deref_function_def.name.clone();
+
+            /*
+            module
+                .functions_by_name
+                .insert(deref_function_def.name.clone(), deref_function_def);
+
+             */
+
+            lambda_space.add_ref_function(deref_function_def);
 
             let num_of_values_in_context = context.iter().count();
 
@@ -360,6 +375,19 @@ impl<'a> FunctionCallParameters<'a> {
                 println!("create lambda {}", def.name);
             }
 
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov {} [ecx + {}], {add_ref_function}", ws, i * wl),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov {} [ecx + {}], {deref_function}", ws, (i + 1) * wl),
+                None,
+                true,
+            );
+
             context.iter().for_each(|(name, kind)| {
                 if optimize {
                     let offset_to_stack = self.stack_vals.reserve(
@@ -373,7 +401,7 @@ impl<'a> FunctionCallParameters<'a> {
                     Self::indirect_mov(
                         self.backend,
                         &mut self.before,
-                        &format!("{label_memory} + {}", i * wl),
+                        &format!("{label_memory} + {}", (i + 2) * wl),
                         &format!("{} - {}", sbp, offset_to_stack * wl),
                         "ebx",
                         Some(&format!("saving context parameter {} in the stack", name)),
@@ -384,7 +412,7 @@ impl<'a> FunctionCallParameters<'a> {
                         self.backend,
                         &mut after,
                         &format!("{} - {}", sbp, offset_to_stack * wl),
-                        &format!("{label_memory} + {}", i * wl),
+                        &format!("{label_memory} + {}", (i + 2) * wl),
                         "ebx",
                         Some(&format!(
                             "reload the parameter {} from the stack to the lambda context",
@@ -413,7 +441,7 @@ impl<'a> FunctionCallParameters<'a> {
                         self.backend,
                         &mut self.before,
                         &format!("{}+{}", sbp, relative_address * wl as i32),
-                        &format!("ecx + {}", i * wl),
+                        &format!("ecx + {}", (i + 2) * wl),
                         "ebx",
                         Some(&format!("context parameter {}", name)),
                     );
@@ -440,8 +468,8 @@ impl<'a> FunctionCallParameters<'a> {
                         Self::indirect_mov(
                             self.backend,
                             &mut self.before,
-                            &format!("eax + {}", (parent_index) * wl),
-                            &format!("ecx + {}", (i) * wl),
+                            &format!("eax + {}", (parent_index + 2) * wl),
+                            &format!("ecx + {}", (i + 2) * wl),
                             "ebx",
                             Some(&format!("context parameter from parent {}", name)),
                         );
@@ -827,9 +855,9 @@ impl<'a> FunctionCallParameters<'a> {
     ) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
-        let word_len = self.backend.word_len() as usize;
+        let word_len = self.backend.word_len();
 
-        let src = format!("[edx + {}]", lambda_space_index * word_len);
+        let src = format!("[edx + {}]", (lambda_space_index + 2) * word_len);
 
         if self.inline {
             self.has_inline_lambda_param = true;
@@ -854,11 +882,11 @@ impl<'a> FunctionCallParameters<'a> {
                 Self::indirect_mov(
                     self.backend,
                     &mut self.before,
-                    &format!("edx + {}", lambda_space_index * word_len),
+                    &format!("edx + {}", (lambda_space_index + 2) * word_len),
                     &format!(
                         "{} + {}",
                         self.backend.stack_pointer(),
-                        (to_remove_from_stack + 1) * self.backend.word_len() as usize
+                        (to_remove_from_stack + 1) * self.backend.word_len()
                     ),
                     "ebx",
                     None,

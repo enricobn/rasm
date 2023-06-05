@@ -22,7 +22,7 @@ use walkdir::WalkDir;
 
 use rasm_core::codegen::backend::{Backend, BackendAsm386};
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind};
+use rasm_core::codegen::{CodeGen, TypedValKind};
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};

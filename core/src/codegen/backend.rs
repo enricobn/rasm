@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
@@ -11,7 +10,8 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider};
-use crate::codegen::{CodeGen, TypedValKind, ValContext, ValKind};
+use crate::codegen::val_context::ValContext;
+use crate::codegen::{CodeGen, TypedValKind, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind, ValueType};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
@@ -21,10 +21,6 @@ use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
     BuiltinTypedTypeKind, DefaultFunctionCall,
 };
-
-thread_local! {
-    static LAMBDA_REF_INDEX : RefCell<usize> = RefCell::new(0);
-}
 
 pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -118,6 +114,7 @@ pub trait Backend: RefUnwindSafe {
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
+        name: &str,
     ) -> ASTTypedFunctionDef;
 
     fn create_lambda_deref(
@@ -125,6 +122,7 @@ pub trait Backend: RefUnwindSafe {
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
+        name: &str,
     ) -> ASTTypedFunctionDef;
 }
 
@@ -134,7 +132,6 @@ enum Linker {
 }
 
 pub struct BackendAsm386 {
-    id: usize,
     requires: HashSet<String>,
     externals: HashSet<String>,
     linker: Linker,
@@ -145,7 +142,6 @@ impl BackendAsm386 {
     pub fn new(requires: HashSet<String>, externals: HashSet<String>) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
-            id: 0,
             requires,
             externals,
             linker: if libc { Linker::Gcc } else { Linker::Ld },
@@ -190,12 +186,13 @@ impl BackendAsm386 {
         }
     }
 
-    fn create_lambda_addref_like_function(
+    fn create_lambda_add_ref_like_function(
         &self,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
+        is_deref: bool,
     ) -> ASTTypedFunctionDef {
         let mut body = String::new();
 
@@ -203,10 +200,12 @@ impl BackendAsm386 {
         let wl = self.word_len();
 
         CodeGen::add(&mut body, "push   eax", None, true);
-        CodeGen::add(&mut body, "mov {ws} eax, [$address]", None, true);
-        CodeGen::add(&mut body, "mov {ws} eax, [eax]", None, true);
+        CodeGen::add(&mut body, &format!("mov {ws} eax, $address"), None, true);
+        CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
         CodeGen::add(&mut body, &format!("add {ws} eax, {}", wl * 3), None, true);
-        for (name, kind) in lambda_space.iter() {
+        for (val_name, kind) in lambda_space.iter() {
+            println!("adding ref for lambda {name} val {val_name}");
+
             let ast_typed_type = match kind {
                 TypedValKind::ParameterRef(_, def) => &def.ast_type,
                 TypedValKind::LetRef(_, typed_type) => typed_type,
@@ -214,12 +213,12 @@ impl BackendAsm386 {
             if let Some(type_name) =
                 CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
             {
-                if name == "add_ref" {
+                if !is_deref {
                     self.call_add_ref(
                         &mut body,
                         "[eax]",
                         &type_name,
-                        &format!("\"{name}\" in lambda context"),
+                        &format!("\"{val_name}\" in lambda context"),
                         type_def_provider,
                         statics,
                     );
@@ -227,7 +226,7 @@ impl BackendAsm386 {
                     body.push_str(&self.call_deref(
                         "[eax]",
                         &type_name,
-                        &format!("\"{name}\" in lambda context"),
+                        &format!("\"{val_name}\" in lambda context"),
                         type_def_provider,
                         statics,
                     ));
@@ -237,13 +236,6 @@ impl BackendAsm386 {
 
         CodeGen::add(&mut body, "pop   eax", None, true);
 
-        let index = LAMBDA_REF_INDEX.with(|i| {
-            *i.borrow_mut() += 1;
-            *i.borrow()
-        });
-
-        let name = format!("lambda_{}_{}", name, index);
-
         let parameters = vec![ASTTypedParameterDef {
             name: "address".to_owned(),
             ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
@@ -251,7 +243,7 @@ impl BackendAsm386 {
         }];
 
         ASTTypedFunctionDef {
-            name,
+            name: name.to_owned(),
             parameters,
             body: ASTTypedFunctionBody::ASMBody(body),
             return_type: None,
@@ -755,62 +747,15 @@ impl Backend for BackendAsm386 {
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
+        name: &str,
     ) -> ASTTypedFunctionDef {
-        self.create_lambda_addref_like_function(lambda_space, type_def_provider, statics, "add_ref")
-        /*
-        let mut body = String::new();
-
-        let ws = self.word_size();
-        let wl = self.word_len();
-
-        CodeGen::add(&mut body, "push   eax", None, true);
-        CodeGen::add(&mut body, "mov {ws} eax, [$address]", None, true);
-        CodeGen::add(&mut body, "mov {ws} eax, [eax]", None, true);
-        CodeGen::add(&mut body, &format!("add {ws} eax, {}", wl * 3), None, true);
-        for (name, kind) in lambda_space.iter() {
-            let ast_typed_type = match kind {
-                TypedValKind::ParameterRef(_, def) => &def.ast_type,
-                TypedValKind::LetRef(_, typed_type) => typed_type,
-            };
-            if let Some(type_name) =
-                CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
-            {
-                self.call_add_ref(
-                    &mut body,
-                    "[eax]",
-                    &type_name,
-                    &format!("\"{name}\" in lambda context"),
-                    type_def_provider,
-                    statics,
-                );
-            }
-        }
-
-        CodeGen::add(&mut body, "pop   eax", None, true);
-
-        let index = LAMBDA_REF_INDEX.with(|i| {
-            *i.borrow_mut() += 1;
-            *i.borrow()
-        });
-
-        let name = format!("lambda_addref_{}", index);
-
-        let parameters = vec![ASTTypedParameterDef {
-            name: "address".to_owned(),
-            ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-            ast_index: ASTIndex::none(),
-        }];
-
-        ASTTypedFunctionDef {
-            name,
-            parameters,
-            body: ASTTypedFunctionBody::ASMBody(body),
-            return_type: None,
-            generic_types: LinkedHashMap::new(),
-            inline: false,
-        }
-
-             */
+        self.create_lambda_add_ref_like_function(
+            lambda_space,
+            type_def_provider,
+            statics,
+            &format!("{name}_add_ref"),
+            false,
+        )
     }
 
     fn create_lambda_deref(
@@ -818,8 +763,15 @@ impl Backend for BackendAsm386 {
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
+        name: &str,
     ) -> ASTTypedFunctionDef {
-        self.create_lambda_addref_like_function(lambda_space, type_def_provider, statics, "deref")
+        self.create_lambda_add_ref_like_function(
+            lambda_space,
+            type_def_provider,
+            statics,
+            &format!("{name}_deref"),
+            true,
+        )
     }
 }
 
@@ -828,7 +780,7 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::codegen::backend::{Backend, BackendAsm386};
-    use crate::codegen::ValContext;
+    use crate::codegen::val_context::ValContext;
     use crate::utils::tests::DummyTypeDefProvider;
 
     #[test]

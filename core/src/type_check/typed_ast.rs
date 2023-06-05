@@ -8,7 +8,8 @@ use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
-use crate::codegen::{TypedValContext, TypedValKind, ValContext};
+use crate::codegen::val_context::{TypedValContext, ValContext};
+use crate::codegen::TypedValKind;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,

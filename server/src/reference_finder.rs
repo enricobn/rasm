@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use log::{debug, warn};
 
-use rasm_core::codegen::{CodeGen, TypedValContext, TypedValKind, ValKind};
+use rasm_core::codegen::{CodeGen, TypedValKind, ValKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement,
