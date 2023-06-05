@@ -204,8 +204,6 @@ impl BackendAsm386 {
         CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
         CodeGen::add(&mut body, &format!("add {ws} eax, {}", wl * 3), None, true);
         for (val_name, kind) in lambda_space.iter() {
-            println!("adding ref for lambda {name} val {val_name}");
-
             let ast_typed_type = match kind {
                 TypedValKind::ParameterRef(_, def) => &def.ast_type,
                 TypedValKind::LetRef(_, typed_type) => typed_type,

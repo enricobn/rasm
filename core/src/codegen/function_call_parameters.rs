@@ -227,7 +227,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         let mut lambda_space = LambdaSpace::new(context.clone());
 
-        let mut add_ref_function = "addref_0".to_owned();
+        let mut add_ref_function = "addRef_0".to_owned();
         let mut deref_function = "deref_0".to_owned();
 
         CodeGen::add(
@@ -262,36 +262,6 @@ impl<'a> FunctionCallParameters<'a> {
                 true,
             );
         } else {
-            let add_ref_function_def =
-                self.backend
-                    .create_lambda_addref(&lambda_space, module, statics, &def.name);
-
-            add_ref_function = add_ref_function_def.name.clone();
-
-            /*
-            module
-                .functions_by_name
-                .insert(add_ref_function_def.name.clone(), add_ref_function_def);
-
-             */
-
-            lambda_space.add_ref_function(add_ref_function_def);
-
-            let deref_function_def =
-                self.backend
-                    .create_lambda_deref(&lambda_space, module, statics, &def.name);
-
-            deref_function = deref_function_def.name.clone();
-
-            /*
-            module
-                .functions_by_name
-                .insert(deref_function_def.name.clone(), deref_function_def);
-
-             */
-
-            lambda_space.add_ref_function(deref_function_def);
-
             let num_of_values_in_context = context.iter().count();
 
             // TODO we should try to understand if we can optimize using a static lambda context and reusing
@@ -374,19 +344,6 @@ impl<'a> FunctionCallParameters<'a> {
                 CodeGen::add(&mut after, "push ebx", None, true);
                 println!("create lambda {}", def.name);
             }
-
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov {} [ecx + {}], {add_ref_function}", ws, i * wl),
-                None,
-                true,
-            );
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov {} [ecx + {}], {deref_function}", ws, (i + 1) * wl),
-                None,
-                true,
-            );
 
             context.iter().for_each(|(name, kind)| {
                 if optimize {
@@ -484,6 +441,22 @@ impl<'a> FunctionCallParameters<'a> {
                 i += 1;
             });
 
+            let add_ref_function_def =
+                self.backend
+                    .create_lambda_addref(&lambda_space, module, statics, &def.name);
+
+            add_ref_function = add_ref_function_def.name.clone();
+
+            lambda_space.add_ref_function(add_ref_function_def);
+
+            let deref_function_def =
+                self.backend
+                    .create_lambda_deref(&lambda_space, module, statics, &def.name);
+
+            deref_function = deref_function_def.name.clone();
+
+            lambda_space.add_ref_function(deref_function_def);
+
             if optimize {
                 CodeGen::add(&mut after, "pop ebx", None, true);
             }
@@ -499,6 +472,19 @@ impl<'a> FunctionCallParameters<'a> {
         CodeGen::add(
             &mut self.before,
             &format!("mov {} [ecx], {}", ptrs, def.name),
+            None,
+            true,
+        );
+
+        CodeGen::add(
+            &mut self.before,
+            &format!("mov {} [ecx + {wl}], {add_ref_function}", ws),
+            None,
+            true,
+        );
+        CodeGen::add(
+            &mut self.before,
+            &format!("mov {} [ecx + 2 * {wl}], {deref_function}", ws),
             None,
             true,
         );
