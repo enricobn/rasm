@@ -215,6 +215,10 @@ impl<'a> FunctionCallParameters<'a> {
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let ptrs = self.backend.pointer_size();
+        // TODO we should try to understand if we can optimize using a static lambda context and reusing
+        //  the values, it should not be done if the lambda is returned or put in a "container", but
+        //  how can we do it?
+        let optimize = false;
 
         let mut references = self.body_references_to_context(&def.body, context);
         references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
@@ -264,11 +268,6 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             let num_of_values_in_context = context.iter().count();
 
-            // TODO we should try to understand if we can optimize using a static lambda context and reusing
-            //  the values, it should not be done if the lambda is returned or put in a "container", but
-            //  how can we do it?
-            let optimize = false;
-
             let mut label_memory = String::new();
 
             if optimize {
@@ -310,8 +309,6 @@ impl<'a> FunctionCallParameters<'a> {
                     comment,
                     true,
                 );
-
-                self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
 
                 // we put in ecx the address of the lambda space
                 CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
@@ -402,24 +399,6 @@ impl<'a> FunctionCallParameters<'a> {
                         "ebx",
                         Some(&format!("context parameter {}", name)),
                     );
-                /*
-                                   let ast_type = match kind {
-                                       TypedValKind::ParameterRef(_, def) => &def.ast_type,
-                                       TypedValKind::LetRef(_, t) => t,
-                                   };
-
-                                   if let Some(type_name) = CodeGen::get_reference_type_name(ast_type, module) {
-                                       self.backend.call_add_ref(
-                                           &mut self.before,
-                                           &format!("[{}+{}]", sbp, relative_address * wl as i32),
-                                           &type_name,
-                                           &format!("value \"{name}\" in context"),
-                                           module,
-                                           statics,
-                                       )
-                                   }
-
-                */
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
                         Self::indirect_mov(
@@ -491,7 +470,8 @@ impl<'a> FunctionCallParameters<'a> {
 
         if self.immediate {
             // the allocation table address of the lambda space
-            CodeGen::add(&mut self.before, "pop   eax", None, true);
+            CodeGen::add(&mut self.before, "pop   ecx", None, true);
+            CodeGen::add(&mut self.before, &format!("mov {ws} eax, ecx"), None, true);
         } else {
             // the allocation table address of the lambda space
             CodeGen::add(&mut self.before, "pop   ecx", None, true);
@@ -509,6 +489,10 @@ impl<'a> FunctionCallParameters<'a> {
                 comment,
                 true,
             );
+        }
+
+        if !context.is_empty() && !optimize {
+            self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
         }
 
         CodeGen::add(&mut self.before, "pop  ecx", comment, true);

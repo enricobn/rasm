@@ -1,0 +1,20 @@
+include "std.rasm"
+
+printAllocated();
+
+main();
+
+printAllocated();
+
+fn main() {
+    println(callFn(getList()));
+}
+
+fn getList() -> fn() -> List<i32> {
+    let one = listOf(1);
+    {  -> listAddRight(one, 2);};
+}
+
+fn callFn(f: fn() -> List<i32>) -> List<i32> {
+    f();
+}

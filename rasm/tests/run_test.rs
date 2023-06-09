@@ -290,7 +290,7 @@ fn test_lambda_as_return_value() {
     run_test(
         "lambda_as_return_value",
         vec![],
-        "2,3\n0,1\nSome(2),Some(2)\nSome(2),Some(2)\n",
+        "2,3\n0,1\nSome(1),Some(1)\nSome(1),Some(1)\n",
     );
 }
 
@@ -325,6 +325,24 @@ fn test_structpropertysetter() {
         "structpropertysetter",
         vec![],
         "p (10,20)\np1 (15,20)\np2 (30,20)\np (10,20)\nmoved (110,120)\n",
+    );
+}
+
+#[test]
+fn test_allocation() {
+    run_test(
+        "allocation",
+        vec![],
+        "56 bytes allocated\n1,2\n56 bytes allocated\n",
+    );
+}
+
+#[test]
+fn test_oop() {
+    run_test(
+        "oop/oop",
+        vec![],
+        "Circle(1,1,2),Rect(10,20),\nCircle(101,101,2),Rect(110,120),\n",
     );
 }
 

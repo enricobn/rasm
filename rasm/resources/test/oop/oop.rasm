@@ -9,4 +9,4 @@ let v = vecOf(Shape(Circle(1, 1, 2)), Shape(Rect(10, 20)));
 
 println(v);
 
-println(map(v, { shape -> move(shape, 100, 100);}));
+println(map(v, { shape -> shape.move(100, 100);}));

@@ -3,6 +3,9 @@
 
 //real    0m4,345s
 
+// with lambda space ref / deref
+// real    0m6,390s
+
 include "std.rasm"
 
 println(fib(atoi(argv(1))));

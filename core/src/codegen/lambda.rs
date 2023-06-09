@@ -57,4 +57,8 @@ impl LambdaSpace {
     pub fn get_ref_functions(&self) -> Vec<ASTTypedFunctionDef> {
         self.ref_functions.clone()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
 }

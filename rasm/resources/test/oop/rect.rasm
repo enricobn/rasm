@@ -9,14 +9,15 @@ fn ToString(rect: Rect) -> ToString {
 
 fn Shape(rect: Rect) -> Shape {
     Shape(
-    ToString(rect),
-    { dx, dy ->
-        let result = Rect(add(rect.x, dx), add(rect.y, dy));
+        ToString(rect),
+        { dx, dy ->
+            let result = Rect(add(rect.x, dx), add(rect.y, dy));
 
-        Shape(result);
-    }, { ->
-         print("Rect(", rect.x);
-         print(",", rect.y);
-         print(")");
-    });
+            Shape(result);
+        }, { ->
+             print("Rect(", rect.x);
+             print(",", rect.y);
+             print(")");
+        }
+    );
 }

@@ -5,10 +5,10 @@ For example if we have a lambda called lambda1 (the mnemonic address to the func
 the context
 we allocate 5 (* word) bytes in memory then we store the address, the address of the addref function, the deref function and the values:  
 [m] = lambda1
-[m + 2 * word] = addref
-[m + 3 * word] = deref
-[m + 4 * word] = v1  
-[m + 5 * word] = v2  
+[m + word] = addref
+[m + 2 * word] = deref
+[m + 3 * word] = v1  
+[m + 4 * word] = v2  
 
 Then we do not pass the mnemonic address (lambda1) to the function (a_function), but m
 so the function, in order to call the lambda must get the real address from [m]

@@ -97,7 +97,7 @@ pub trait Backend: RefUnwindSafe {
     ) -> String;
 
     /// deref, but not recursively
-    fn call_deref_simple(&self, source: &str, descr: &str, statics: &mut Statics) -> String;
+    fn call_deref_simple(&self, out: &mut String, source: &str, descr: &str, statics: &mut Statics);
 
     fn function_preamble(&self, out: &mut String);
 
@@ -199,46 +199,60 @@ impl BackendAsm386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        CodeGen::add(&mut body, "push   eax", None, true);
-        CodeGen::add(&mut body, &format!("mov {ws} eax, $address"), None, true);
-        CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
-        CodeGen::add(&mut body, &format!("add {ws} eax, {}", wl * 3), None, true);
-        for (val_name, kind) in lambda_space.iter() {
-            let ast_typed_type = match kind {
-                TypedValKind::ParameterRef(_, def) => &def.ast_type,
-                TypedValKind::LetRef(_, typed_type) => typed_type,
-            };
-            if let Some(type_name) =
-                CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
-            {
-                if !is_deref {
-                    self.call_add_ref(
-                        &mut body,
-                        "[eax]",
-                        &type_name,
-                        &format!("\"{val_name}\" in lambda context"),
-                        type_def_provider,
-                        statics,
-                    );
-                } else {
-                    body.push_str(&self.call_deref(
-                        "[eax]",
-                        &type_name,
-                        &format!("\"{val_name}\" in lambda context"),
-                        type_def_provider,
-                        statics,
-                    ));
-                }
-            }
+        if is_deref {
+            self.call_deref_simple(&mut body, "$address", &format!("main {name}"), statics);
+        } else {
+            self.call_add_ref_simple(&mut body, "$address", &format!("main {name}"), statics);
         }
 
-        CodeGen::add(&mut body, "pop   eax", None, true);
+        if !lambda_space.is_empty() {
+            CodeGen::add(&mut body, "push   ebx", None, true);
+            CodeGen::add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
+            CodeGen::add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
+            CodeGen::add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
+            for (i, (val_name, kind)) in lambda_space.iter().enumerate() {
+                let ast_typed_type = match kind {
+                    TypedValKind::ParameterRef(_, def) => &def.ast_type,
+                    TypedValKind::LetRef(_, typed_type) => typed_type,
+                };
+                if let Some(type_name) =
+                    CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
+                {
+                    if is_deref {
+                        body.push_str(&self.call_deref(
+                            &format!("[ebx + {}]", i * self.word_len()),
+                            &type_name,
+                            &format!("\"{val_name}\" in lambda context"),
+                            type_def_provider,
+                            statics,
+                        ));
+                    } else {
+                        self.call_add_ref(
+                            &mut body,
+                            &format!("[ebx + {}]", i * self.word_len()),
+                            &type_name,
+                            &format!("\"{val_name}\" in lambda context"),
+                            type_def_provider,
+                            statics,
+                        );
+                    }
+                }
+            }
+            CodeGen::add(&mut body, "pop   ebx", None, true);
+        }
 
-        let parameters = vec![ASTTypedParameterDef {
-            name: "address".to_owned(),
-            ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-            ast_index: ASTIndex::none(),
-        }];
+        let parameters = vec![
+            ASTTypedParameterDef {
+                name: "address".to_owned(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+                ast_index: ASTIndex::none(),
+            },
+            ASTTypedParameterDef {
+                name: "descr".to_owned(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
+            },
+        ];
 
         ASTTypedFunctionDef {
             name: name.to_owned(),
@@ -459,15 +473,13 @@ impl Backend for BackendAsm386 {
                                 let result = if let Some(f) = function_def {
                                     if let Some(t) = f.generic_types.get(name) {
                                         Self::get_type_from_typed_type(t, type_def_provider)
-                                            .expect(&format!("name {name} t {t}"))
+                                            .unwrap_or_else(|| panic!("name {name} t {t}"))
+                                    } else if let Some(t) =
+                                        type_def_provider.get_type_from_typed_type_name(name)
+                                    {
+                                        t
                                     } else {
-                                        if let Some(t) =
-                                            type_def_provider.get_type_from_typed_type_name(name)
-                                        {
-                                            t
-                                        } else {
-                                            ast_type.clone()
-                                        }
+                                        ast_type.clone()
                                     }
                                 } else {
                                     ast_type.clone()
@@ -545,13 +557,47 @@ impl Backend for BackendAsm386 {
                 (enum_has_references(enum_def, type_def_provider), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_has_references(type_def), true)
-            } else if "_fn" == type_name {
-                (false, false)
-            } else {
+            } else if "str" == type_name || "_fn" == type_name {
                 (true, false)
+            } else {
+                panic!("cannot find type {descr} {type_name}");
             };
 
-        if has_references {
+        if "_fn" == type_name {
+            CodeGen::add(out, &format!("push     {ws} eax"), None, true);
+            // tmp value to store the source since it can be eax...
+            CodeGen::add(out, &format!("push     {ws} 0"), None, true);
+            CodeGen::add(out, &format!("mov      {ws} eax,{source}"), None, true);
+            CodeGen::add(
+                out,
+                &format!("mov      {ws} [{}],eax", self.stack_pointer()),
+                None,
+                true,
+            );
+            CodeGen::add(out, &format!("mov      {ws} eax,[eax]"), None, true);
+            CodeGen::add(out, &format!("push     {ws} [{key}]"), None, true);
+            CodeGen::add(
+                out,
+                &format!("push     {ws} [{} + {wl}]", self.stack_pointer()),
+                None,
+                true,
+            );
+            CodeGen::add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
+            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+            CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
+            CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
+            /*
+            CodeGen::add(out, &format!("push     {ws} eax"), None, true);
+            CodeGen::add(out, &format!("mov      {ws} eax,{source}"), None, true);
+            CodeGen::add(out, &format!("mov      {ws} eax,[eax]"), None, true);
+            CodeGen::add(out, &format!("push     {ws} [{key}]"), None, true);
+            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+            CodeGen::add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
+            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+            CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
+
+             */
+        } else if has_references {
             let call = if type_name == "str" {
                 "call     str_addRef_0".to_string()
             } else {
@@ -612,24 +658,57 @@ impl Backend for BackendAsm386 {
 
         let mut result = String::new();
 
-        let (has_references, is_type) = if "str" == type_name {
-            (true, false)
-        } else if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-            (struct_has_references(struct_def, type_def_provider), false)
-        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-            (enum_has_references(enum_def, type_def_provider), false)
-        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-            (type_has_references(type_def), true)
-        } else if "_fn" == type_name {
-            (false, false)
-        } else {
-            panic!("cannot find type {descr} {type_name}");
-        };
+        let (has_references, is_type) =
+            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+                (struct_has_references(struct_def, type_def_provider), false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (enum_has_references(enum_def, type_def_provider), false)
+            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+                (type_has_references(type_def), true)
+            } else if "str" == type_name || "_fn" == type_name {
+                (true, false)
+            } else {
+                panic!("cannot find type {descr} {type_name}");
+            };
 
         let key = statics.add_str(descr);
 
         CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
-        if has_references {
+
+        if "_fn" == type_name {
+            CodeGen::add(&mut result, &format!("push     {ws} eax"), None, true);
+            // tmp value to store the source since it can be eax...
+            CodeGen::add(&mut result, &format!("push     {ws} 0"), None, true);
+            CodeGen::add(
+                &mut result,
+                &format!("mov      {ws} eax,{source}"),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut result,
+                &format!("mov      {ws} [{}],eax", self.stack_pointer()),
+                None,
+                true,
+            );
+            CodeGen::add(&mut result, &format!("mov      {ws} eax,[eax]"), None, true);
+            CodeGen::add(&mut result, &format!("push     {ws} [{key}]"), None, true);
+            CodeGen::add(
+                &mut result,
+                &format!("push     {ws} [{} + {wl}]", self.stack_pointer()),
+                None,
+                true,
+            );
+            CodeGen::add(
+                &mut result,
+                &format!("call     {ws} [eax + 2 * {wl}]"),
+                None,
+                true,
+            );
+            CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
+            CodeGen::add(&mut result, &format!("pop      {ws} eax"), None, true);
+            CodeGen::add(&mut result, &format!("pop      {ws} eax"), None, true);
+        } else if has_references {
             let call = if type_name == "str" {
                 "call     str_deref_0".to_string()
             } else {
@@ -655,22 +734,23 @@ impl Backend for BackendAsm386 {
         result
     }
 
-    fn call_deref_simple(&self, source: &str, descr: &str, statics: &mut Statics) -> String {
+    fn call_deref_simple(
+        &self,
+        out: &mut String,
+        source: &str,
+        descr: &str,
+        statics: &mut Statics,
+    ) {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        let mut result = String::new();
-
         let key = statics.add_str(descr);
 
-        CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
-        CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
-        CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(&mut result, "call     deref_0", None, true);
-        CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
-
-        result.push('\n');
-        result
+        CodeGen::add(out, "", Some(&("deref ".to_owned() + descr)), true);
+        CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
+        CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
+        CodeGen::add(out, "call     deref_0", None, true);
+        CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
     fn function_preamble(&self, out: &mut String) {
@@ -687,7 +767,7 @@ impl Backend for BackendAsm386 {
             CodeGen::add(
                 out,
                 &format!(
-                    "add   {sp}, {}",
+                    "\nadd   {sp}, {}",
                     stack.len_of_local_vals() * self.word_len()
                 ),
                 Some("restore stack local vals (let)"),
