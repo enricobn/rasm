@@ -491,8 +491,22 @@ impl<'a> FunctionCallParameters<'a> {
             );
         }
 
-        if !context.is_empty() && !optimize {
-            self.add_code_for_reference_type(module, "_fn", "ecx", "lambda space", statics);
+        if !context.is_empty() && !optimize && self.dereference {
+            // we don't need a "deep" reference / dereference here
+            self.backend
+                .call_add_ref_simple(&mut self.before, "ecx", "lambda space", statics);
+            let pos = self.push_to_scope_stack("ecx");
+
+            let mut result = String::new();
+            CodeGen::add(&mut result, "; scope pop", None, true);
+            self.backend.call_deref_simple(
+                &mut result,
+                &format!("[{} - {}]", self.backend.stack_base_pointer(), pos),
+                "lambda space",
+                statics,
+            );
+
+            self.after.insert(0, result);
         }
 
         CodeGen::add(&mut self.before, "pop  ecx", comment, true);

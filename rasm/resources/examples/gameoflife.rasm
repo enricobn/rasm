@@ -12,6 +12,14 @@
 // 136486 table slots allocated
 //
 // real    0m16,599s
+//
+// optimized lambda space ref /deref
+// run with: time ./gameoflife resources/examples/f116.cells 100
+// 481240 bytes allocated
+// 138332 table slots allocated
+//
+// real    0m28,633s
+
 
 include "std.rasm"
 include "gameoflife_common.rasm"

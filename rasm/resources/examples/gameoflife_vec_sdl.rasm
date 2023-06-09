@@ -2,14 +2,21 @@
 //
 // 482472 bytes allocated
 // 88481 table slots allocated
-
+//
 // real    0m1,712s
 
 // with lambda space ref / deref
 // 507712 bytes allocated
 // 88686 table slots allocated
-
+//
 // real    0m2,215s
+
+// optimized lambda space ref /deref
+// 507712 bytes allocated
+// 88686 table slots allocated
+//
+//real    0m2,121s
+
 
 include "std.rasm"
 include "sdl.rasm"
