@@ -19,11 +19,14 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 
 ### Compile a rasm program
 
-`target/release/rasm "file name".rasm`    
+`target/release/rasm "file name".rasm` 
+it will produce a "file name" executable
+
+`target/release/rasm "file name".rasm` "file name"  
 it will produce a "file name" executable
 
 for example:  
-`target/release/rasm resources/test/fibonacci.rasm`  
+`target/release/rasm rasm/resources/test/fibonacci.rasm fibonacci`  
 will produce fibonacci file  
 you can run it with:  
 `./fibonacci 40`  
