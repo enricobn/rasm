@@ -1,18 +1,13 @@
 extern crate core;
 
 use std::env;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::ops::Add;
+use std::io::Write;
 use std::path::Path;
-use std::process::exit;
 
 use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
 
-use rasm_core::codegen::CodeGen;
-use rasm_core::project::project;
 use rasm_core::project::project::RasmProject;
 
 use crate::compiler::Compiler;

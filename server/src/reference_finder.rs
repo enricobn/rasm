@@ -1,20 +1,13 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use log::{debug, warn};
+use log::warn;
 
-use rasm_core::codegen::{CodeGen, TypedValKind, ValKind};
-use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement,
     ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
 use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use rasm_core::type_check::get_value_type;
-use rasm_core::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
-};
-use rasm_core::type_check::typed_context::TypeConversionContext;
 use rasm_core::utils::SliceDisplay;
 
 use crate::reference_context::ReferenceContext;
@@ -404,18 +397,11 @@ mod tests {
     use std::path::Path;
 
     use env_logger::Builder;
-    use log::info;
 
     use rasm_core::codegen::backend::BackendAsm386;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::CodeGen;
-    use rasm_core::lexer::Lexer;
     use rasm_core::parser::ast::ASTIndex;
-    use rasm_core::parser::Parser;
     use rasm_core::project::project::RasmProject;
-    use rasm_core::type_check::typed_ast::ASTTypedModule;
-    use rasm_core::type_check::typed_context::TypeConversionContext;
-    use rasm_core::utils::SliceDisplay;
 
     use crate::reference_finder::ReferenceFinder;
 

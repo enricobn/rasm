@@ -1,7 +1,6 @@
-use std::collections::{HashMap, HashSet, LinkedList};
-use std::env;
+use std::collections::HashSet;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -9,36 +8,21 @@ use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{
-    http::StatusCode,
-    response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use clap::{Arg, Command};
-use env_logger::Builder;
 use log::info;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use walkdir::WalkDir;
 
 use rasm_core::codegen::backend::{Backend, BackendAsm386};
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::{CodeGen, TypedValKind};
+use rasm_core::codegen::CodeGen;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};
-use rasm_core::parser::Parser;
-use rasm_core::project;
 use rasm_core::project::project::RasmProject;
-use rasm_core::transformations::enrich_module;
-use rasm_core::transformations::enum_functions_creator::enum_functions_creator;
-use rasm_core::transformations::str_functions_creator::str_functions_creator;
-use rasm_core::transformations::struct_functions_creator::struct_functions_creator;
-use rasm_core::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
-};
-use rasm_core::type_check::typed_context::TypeConversionContext;
-use rasm_core::utils::SliceDisplay;
 use rasm_server::reference_finder::ReferenceFinder;
 
 #[tokio::main]
