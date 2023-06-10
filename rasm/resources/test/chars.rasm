@@ -3,7 +3,7 @@ include "std.rasm"
 println('a');
 println('è');
 println('😀');
-println(ceq('A', 'A'));
-println(ceq('A', 'b'));
+println(eq('A', 'A'));
+println(eq('A', 'b'));
 
 println(chars("Hello"));

@@ -19,8 +19,8 @@ fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
     forEach(v, { n -> printFunction(n); print(",");});
 }
 
-fn print<T>(v: Vec<T>) {
-    forEach(v, { n -> print(n); print(",");});
+fn print<T>(file: File, v: Vec<T>) {
+    forEach(v, { n -> print(file, n); print(",");});
 }
 
 fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {

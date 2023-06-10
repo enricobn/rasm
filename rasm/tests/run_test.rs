@@ -342,7 +342,7 @@ fn test_oop() {
     run_test(
         "oop/oop",
         vec![],
-        "Circle(1,1,2),Rect(10,20),\nCircle(101,101,2),Rect(110,120),\n",
+        "Circle(1,1,2),Rect(10,20,5,5),\nCircle(101,101,2),Rect(110,120,5,5),\nPoint(1,1),Point(12,22),\n",
     );
 }
 

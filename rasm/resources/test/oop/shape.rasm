@@ -1,7 +1,7 @@
 struct Shape {
-    shapeToString : ToString,
+    toCenter: fn() -> Point,
     move: fn(i32,i32) -> Shape,
-    printShape: fn() -> ()
+    shapeToString: fn() -> str
 }
 
 fn toString(shape: Shape) -> str {
@@ -14,7 +14,7 @@ fn move(shape: Shape, dx: i32, dy: i32) -> Shape {
     f(dx, dy);
 }
 
-fn print(shape: Shape) {
-    let f = shape.printShape;
+fn center(shape: Shape) -> Point {
+    let f = shape.toCenter;
     f();
 }

@@ -583,20 +583,9 @@ impl Backend for BackendAsm386 {
                 true,
             );
             CodeGen::add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
-            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+            // wl * 3 because we get reed even of the temp value in the stack
+            CodeGen::add(out, &format!("add      esp,{}", 3 * wl), None, true);
             CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
-            CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
-            /*
-            CodeGen::add(out, &format!("push     {ws} eax"), None, true);
-            CodeGen::add(out, &format!("mov      {ws} eax,{source}"), None, true);
-            CodeGen::add(out, &format!("mov      {ws} eax,[eax]"), None, true);
-            CodeGen::add(out, &format!("push     {ws} [{key}]"), None, true);
-            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
-            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
-            CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
-
-             */
         } else if has_references {
             let call = if type_name == "str" {
                 "call     str_addRef_0".to_string()
@@ -705,8 +694,8 @@ impl Backend for BackendAsm386 {
                 None,
                 true,
             );
-            CodeGen::add(&mut result, &format!("add      esp,{}", wl * 2), None, true);
-            CodeGen::add(&mut result, &format!("pop      {ws} eax"), None, true);
+            // wl * 3 because we get reed even of the temp value in the stack
+            CodeGen::add(&mut result, &format!("add      esp,{}", wl * 3), None, true);
             CodeGen::add(&mut result, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {

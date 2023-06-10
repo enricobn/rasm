@@ -1,0 +1,8 @@
+struct Point {
+    x: i32,
+    y: i32
+}
+
+fn toString(p: Point) -> str {
+    add(add("Point(", p.x, ",", p.y), ")");
+}

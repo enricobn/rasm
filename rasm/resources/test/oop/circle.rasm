@@ -4,22 +4,16 @@ struct Circle {
     radius: i32
 }
 
-fn ToString(circle: Circle) -> ToString {
-    ToString({ -> "Circle"; });
-}
-
 fn Shape(circle: Circle) -> Shape {
     Shape(
-        ToString(circle),
+        { -> Point(circle.x, circle.y); },
         { dx, dy ->
             let result = Circle(add(circle.x, dx), add(circle.y, dy), circle.radius);
 
             Shape(result);
         }, { ->
               //printRef(circle);
-              print("Circle(", circle.x);
-              print(",", circle.y);
-              print(",", circle.radius);
-              print(")");
+              add(add("Circle(", circle.x, ",", circle.y),
+                add(",", circle.radius, ")"));
          });
     }

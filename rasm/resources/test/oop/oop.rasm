@@ -2,11 +2,16 @@ include "std.rasm"
 
 include "circle.rasm"
 include "rect.rasm"
+include "point.rasm"
 include "shape.rasm"
-include "toString.rasm"
 
-let v = vecOf(Shape(Circle(1, 1, 2)), Shape(Rect(10, 20)));
+let v = vecOf(Shape(Circle(1, 1, 2)), Shape(Rect(10, 20, 5, 5)));
 
 println(v);
 
 println(map(v, { shape -> shape.move(100, 100);}));
+
+// TODO println(map(v, { shape -> center(shape);})); does not work
+let v1 = map(v, { shape -> center(shape);});
+
+println(v1);
