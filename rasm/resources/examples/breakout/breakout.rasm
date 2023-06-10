@@ -69,6 +69,7 @@ sdlLoop(ren, initialState,
 sdlDestroyRenderer(ren);
 sdlDestroyWindow(win);
 
+// TODO keys are not as expected space is 44 but should be 32!
 fn update(event: Option<KeyEvent>, state: State) -> State {
     let resources = resources(state);
     let keys = keys(state);
