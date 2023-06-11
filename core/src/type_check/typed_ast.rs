@@ -16,7 +16,6 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
-use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
@@ -858,7 +857,6 @@ pub fn convert_to_typed_module(
                 &mut new_body,
                 statement,
                 backend,
-                &CallStack::new(),
                 statics,
             );
 
@@ -1333,7 +1331,6 @@ fn add_default_function(
         typed_context,
         None,
         backend,
-        &CallStack::new(),
         statics,
     ) {
         Err(e) => {
@@ -1489,7 +1486,6 @@ pub fn function_def(
                             typed_context,
                             None,
                             backend,
-                            &CallStack::new(),
                             statics,
                         ) {
                             debug_i!("new_call {:?}", new_call);

@@ -19,7 +19,6 @@ use crate::parser::ast::{
     ASTType, BuiltinTypeKind, ValueType,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
-use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::FunctionsContainer;
 use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::typed_context::TypeConversionContext;
@@ -28,7 +27,6 @@ use crate::utils::OptionOptionDisplay;
 use crate::utils::SliceDisplay;
 use crate::{debug_i, dedent, indent};
 
-pub mod call_stack;
 pub mod functions_container;
 pub mod typed_ast;
 pub mod typed_context;
@@ -75,17 +73,14 @@ fn convert_function_def(
 
     match &function_def.body {
         ASTFunctionBody::RASMBody(body) => {
-            let call_stack = CallStack::new();
-
             let return_type = function_def.return_type.clone();
 
             if let Some(new_body) = convert_body(
                 backend,
                 module,
                 type_conversion_context,
-                &mut context,
+                &context,
                 body,
-                &call_stack,
                 return_type,
                 statics,
                 resolved_generic_types,
@@ -114,7 +109,6 @@ fn convert_body(
     type_conversion_context: &RefCell<TypeConversionContext>,
     context: &ValContext,
     body: &Vec<ASTStatement>,
-    call_stack: &CallStack,
     return_type: Option<ASTType>,
     statics: &Statics,
     resolved_generic_types: &LinkedHashMap<String, ASTType>,
@@ -137,7 +131,6 @@ fn convert_body(
                     type_conversion_context,
                     return_type.clone(),
                     backend,
-                    call_stack,
                     statics,
                     resolved_generic_types,
                 )
@@ -148,7 +141,6 @@ fn convert_body(
                     &mut context,
                     type_conversion_context,
                     backend,
-                    call_stack,
                     statics,
                 )
             };
@@ -224,7 +216,6 @@ fn convert_statement(
     new_body: &mut Vec<ASTStatement>,
     statement: &ASTStatement,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &mut Statics,
 ) -> bool {
     let mut something_to_convert = false;
@@ -239,7 +230,6 @@ fn convert_statement(
                     type_conversion_context,
                     None,
                     backend,
-                    call_stack,
                     statics,
                 );
 
@@ -277,7 +267,6 @@ fn convert_statement(
                     type_conversion_context,
                     None,
                     backend,
-                    call_stack,
                     statics,
                 );
 
@@ -471,47 +460,24 @@ fn convert_statement_in_body(
     context: &mut ValContext,
     typed_context: &RefCell<TypeConversionContext>,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &Statics,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
     match statement {
-        ASTStatement::Expression(e) => convert_expr_in_body(
-            module,
-            e,
-            context,
-            typed_context,
-            backend,
-            call_stack,
-            statics,
-        )
-        .map(|ito| ito.map(ASTStatement::Expression)),
+        ASTStatement::Expression(e) => {
+            convert_expr_in_body(module, e, context, typed_context, backend, statics)
+                .map(|ito| ito.map(ASTStatement::Expression))
+        }
         ASTStatement::LetStatement(name, e, is_const, let_index) => {
-            let result = convert_expr_in_body(
-                module,
-                e,
-                context,
-                typed_context,
-                backend,
-                call_stack,
-                statics,
-            )
-            .map(|ito| {
-                ito.map(|it| {
-                    ASTStatement::LetStatement(name.clone(), it, *is_const, let_index.clone())
-                })
-            });
+            let result = convert_expr_in_body(module, e, context, typed_context, backend, statics)
+                .map(|ito| {
+                    ito.map(|it| {
+                        ASTStatement::LetStatement(name.clone(), it, *is_const, let_index.clone())
+                    })
+                });
 
-            let ast_type = get_type_of_expression(
-                module,
-                context,
-                e,
-                typed_context,
-                None,
-                call_stack,
-                backend,
-                statics,
-            )?
-            .unwrap_or_else(|| panic!("cannot get type of expression {e}: {let_index}"));
+            let ast_type =
+                get_type_of_expression(module, context, e, typed_context, None, backend, statics)?
+                    .unwrap_or_else(|| panic!("cannot get type of expression {e}: {let_index}"));
 
             if *is_const {
                 panic!("const not allowed here");
@@ -529,7 +495,6 @@ fn convert_expr_in_body(
     context: &ValContext,
     typed_context: &RefCell<TypeConversionContext>,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &Statics,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
     debug_i!("converting expr in body {expr}");
@@ -538,16 +503,7 @@ fn convert_expr_in_body(
 
     let result = match expr {
         ASTFunctionCallExpression(call) => {
-            match convert_call(
-                module,
-                context,
-                call,
-                typed_context,
-                None,
-                backend,
-                call_stack,
-                statics,
-            )? {
+            match convert_call(module, context, call, typed_context, None, backend, statics)? {
                 NothingToConvert => None,
                 // TODO is right?
                 SomethingConverted => Some(expr.clone()),
@@ -575,7 +531,6 @@ fn convert_last_statement_in_body(
     typed_context: &RefCell<TypeConversionContext>,
     return_type: Option<ASTType>,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &Statics,
     resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
@@ -587,7 +542,6 @@ fn convert_last_statement_in_body(
             typed_context,
             return_type,
             backend,
-            call_stack,
             statics,
             resolved_generic_types,
         )
@@ -607,7 +561,6 @@ fn convert_last_expr_in_body(
     typed_context: &RefCell<TypeConversionContext>,
     return_type: Option<ASTType>,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &Statics,
     resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
@@ -629,7 +582,6 @@ fn convert_last_expr_in_body(
                     typed_context,
                     Some(return_type),
                     backend,
-                    call_stack,
                     statics,
                 )? {
                     NothingToConvert => None,
@@ -660,7 +612,6 @@ fn convert_last_expr_in_body(
                 typed_context,
                 &resolved_generic_types,
                 backend,
-                call_stack,
                 statics,
             )?
             .map(ASTExpression::Lambda)
@@ -687,7 +638,6 @@ pub fn convert_call(
     typed_context: &RefCell<TypeConversionContext>,
     expected_return_type: Option<Option<ASTType>>,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &Statics,
 ) -> Result<ConvertCallResult, TypeCheckError> {
     debug_i!(
@@ -705,15 +655,12 @@ pub fn convert_call(
         return Ok(NothingToConvert);
     }
 
-    let call_stack = call_stack.add(call.clone());
-
     let (function_def, _) = get_called_function(
         module,
         context,
         call,
         typed_context,
         &expected_return_type,
-        &call_stack,
         backend,
         None,
         false,
@@ -789,7 +736,6 @@ pub fn convert_call(
                     typed_context,
                     &resolved_generic_types,
                     backend,
-                    &call_stack,
                     statics,
                 )? {
                     debug_i!("lambda something converted");
@@ -824,7 +770,6 @@ pub fn convert_call(
                                             expr,
                                             typed_context,
                                             None,
-                                            &call_stack,
                                             backend,
                                             statics,
                                         )?
@@ -843,7 +788,6 @@ pub fn convert_call(
                                     &context,
                                     last,
                                     typed_context,
-                                    &call_stack,
                                     backend,
                                     statics,
                                 )?;
@@ -934,7 +878,6 @@ pub fn convert_call(
                     typed_context,
                     expected_return_type,
                     backend,
-                    &call_stack,
                     statics,
                 )?;
 
@@ -1030,7 +973,6 @@ pub fn convert_call(
                             expr,
                             typed_context,
                             None,
-                            &call_stack,
                             backend,
                             statics,
                         ) {
@@ -1136,7 +1078,6 @@ pub fn convert_call(
         call,
         typed_context,
         &expected_return_type,
-        &call_stack,
         backend,
         None,
         false,
@@ -1330,7 +1271,6 @@ fn get_called_function(
     call: &ASTFunctionCall,
     typed_context: &RefCell<TypeConversionContext>,
     expected_return_type: &Option<Option<ASTType>>,
-    call_stack: &CallStack,
     backend: &dyn Backend,
     verify_function: Option<&ASTFunctionDef>,
     only_from_module: bool,
@@ -1374,7 +1314,6 @@ fn get_called_function(
                 it,
                 typed_context,
                 lambda.as_ref(),
-                call_stack,
                 backend,
                 statics,
             ) {
@@ -1461,7 +1400,6 @@ fn get_called_function(
                                             expr,
                                             typed_context,
                                             Some(&par.ast_type),
-                                            call_stack,
                                             backend,
                                             statics,
                                         )? {
@@ -1482,7 +1420,6 @@ fn get_called_function(
                                         expr,
                                         typed_context,
                                         Some(&par.ast_type),
-                                        call_stack,
                                         backend,
                                         statics,
                                     )? {
@@ -1627,7 +1564,6 @@ fn get_called_function(
                 call,
                 typed_context,
                 expected_return_type,
-                call_stack,
                 backend,
                 Some(&fd),
                 false,
@@ -1646,7 +1582,6 @@ fn get_called_function(
                     call,
                     typed_context,
                     expected_return_type,
-                    call_stack,
                     backend,
                     None,
                     true,
@@ -1669,31 +1604,16 @@ fn get_type_of_statement(
     context: &ValContext,
     statement: &ASTStatement,
     typed_context: &RefCell<TypeConversionContext>,
-    call_stack: &CallStack,
     backend: &dyn Backend,
     statics: &Statics,
 ) -> Result<Option<ASTType>, TypeCheckError> {
     match statement {
-        ASTStatement::Expression(e) => get_type_of_expression(
-            module,
-            context,
-            e,
-            typed_context,
-            None,
-            call_stack,
-            backend,
-            statics,
-        ),
-        ASTStatement::LetStatement(_, e, _is_const, _let_index) => get_type_of_expression(
-            module,
-            context,
-            e,
-            typed_context,
-            None,
-            call_stack,
-            backend,
-            statics,
-        ),
+        ASTStatement::Expression(e) => {
+            get_type_of_expression(module, context, e, typed_context, None, backend, statics)
+        }
+        ASTStatement::LetStatement(_, e, _is_const, _let_index) => {
+            get_type_of_expression(module, context, e, typed_context, None, backend, statics)
+        }
     }
 }
 
@@ -1703,7 +1623,6 @@ fn get_type_of_expression(
     expr: &ASTExpression,
     typed_context: &RefCell<TypeConversionContext>,
     lambda: Option<&ASTType>,
-    call_stack: &CallStack,
     backend: &dyn Backend,
     statics: &Statics,
 ) -> Result<Option<ASTType>, TypeCheckError> {
@@ -1712,15 +1631,9 @@ fn get_type_of_expression(
 
     let result: Result<Option<ASTType>, TypeCheckError> = match expr {
         ASTExpression::StringLiteral(_) => Ok(Some(ASTType::Builtin(BuiltinTypeKind::String))),
-        ASTFunctionCallExpression(call) => get_type_of_call(
-            module,
-            context,
-            call,
-            typed_context,
-            call_stack,
-            backend,
-            statics,
-        ),
+        ASTFunctionCallExpression(call) => {
+            get_type_of_call(module, context, call, typed_context, backend, statics)
+        }
         ASTExpression::ValueRef(v, index) => {
             if let Some(value) = context.get(v) {
                 match value {
@@ -1764,74 +1677,38 @@ fn get_type_of_expression(
                 .enumerate()
                 .map(|(i, statement)| match statement {
                     ASTStatement::LetStatement(name, let_statement, is_const, let_index) => {
-                        // let mut new_call_stack = call_stack.clone();
-
-                        let skip = if let ASTFunctionCallExpression(inner_call) = let_statement {
-                            debug_i!("adding inner call {inner_call}");
-                            // new_call_stack = call_stack.add(inner_call.clone());
-                            if call_stack.exists(inner_call) {
-                                //panic!("loop");
-                                false
+                        if let Some(let_return_type) = get_type_of_expression(
+                            module,
+                            &lambda_val_context,
+                            let_statement,
+                            typed_context,
+                            None,
+                            backend,
+                            statics,
+                        )? {
+                            if *is_const {
+                                // TODO I don't think it should happen
+                                panic!("const not allowed here")
                             } else {
-                                false
+                                lambda_val_context.insert_let(
+                                    name.clone(),
+                                    let_return_type,
+                                    let_index,
+                                );
                             }
-                        } else {
-                            false
-                        };
-
-                        if !skip {
-                            if let Some(let_return_type) = get_type_of_expression(
-                                module,
-                                &lambda_val_context,
-                                let_statement,
-                                typed_context,
-                                None,
-                                call_stack,
-                                backend,
-                                statics,
-                            )? {
-                                if *is_const {
-                                    // TODO I don't think it should happen
-                                    panic!("const not allowed here")
-                                } else {
-                                    lambda_val_context.insert_let(
-                                        name.clone(),
-                                        let_return_type,
-                                        let_index,
-                                    );
-                                }
-                                Ok(())
-                            } else {
-                                Err("expected expression value".into())
-                            }
-                        } else {
                             Ok(())
+                        } else {
+                            Err("expected expression value".into())
                         }
                     }
                     ASTStatement::Expression(body_expr) => {
-                        // let mut new_call_stack = call_stack.clone();
-
-                        let skip = if let ASTFunctionCallExpression(inner_call) = body_expr {
-                            debug_i!("addin inner call {inner_call}");
-                            // new_call_stack = call_stack.add(inner_call.clone());
-                            if call_stack.exists(inner_call) {
-                                // panic!("loop");
-                                false
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        };
-
-                        if !skip && i == len - 1 {
+                        if i == len - 1 {
                             lamda_return_type = get_type_of_expression(
                                 module,
                                 &lambda_val_context,
                                 body_expr,
                                 typed_context,
                                 None,
-                                call_stack,
                                 backend,
                                 statics,
                             )?;
@@ -1888,7 +1765,6 @@ fn get_type_of_call(
     context: &ValContext,
     call: &ASTFunctionCall,
     typed_context: &RefCell<TypeConversionContext>,
-    call_stack: &CallStack,
     backend: &dyn Backend,
     statics: &Statics,
 ) -> Result<Option<ASTType>, TypeCheckError> {
@@ -1918,7 +1794,6 @@ fn get_type_of_call(
         call,
         typed_context,
         &None,
-        call_stack,
         backend,
         None,
         false,
@@ -1928,16 +1803,8 @@ fn get_type_of_call(
             if get_generic_types(&return_type).is_empty() {
                 Ok(Some(return_type))
             } else {
-                let convert_call_result = convert_call(
-                    module,
-                    context,
-                    call,
-                    typed_context,
-                    None,
-                    backend,
-                    call_stack,
-                    statics,
-                );
+                let convert_call_result =
+                    convert_call(module, context, call, typed_context, None, backend, statics);
 
                 if let Ok(Converted(new_call)) = convert_call_result {
                     if let Some((function, _)) = get_called_function(
@@ -1946,7 +1813,6 @@ fn get_type_of_call(
                         &new_call,
                         typed_context,
                         &None,
-                        call_stack,
                         backend,
                         None,
                         false,
@@ -2119,7 +1985,6 @@ fn convert_lambda(
     typed_context: &RefCell<TypeConversionContext>,
     resolved_generic_types: &LinkedHashMap<String, ASTType>,
     backend: &dyn Backend,
-    call_stack: &CallStack,
     statics: &Statics,
 ) -> Result<Option<ASTLambdaDef>, TypeCheckError> {
     debug_i!(
@@ -2152,7 +2017,6 @@ fn convert_lambda(
         typed_context,
         context,
         &lambda.body,
-        call_stack,
         rt,
         statics,
         resolved_generic_types,
