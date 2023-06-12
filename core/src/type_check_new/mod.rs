@@ -127,7 +127,7 @@ impl EnhancedFunctionDefTransformer {
                 name.clone(),
                 *generic_types_map
                     .get(name)
-                    .expect(&format!("Cannot find generic type {}", name)),
+                    .unwrap_or_else(|| panic!("Cannot find generic type {}", name)),
             ),
             ASTType::Custom {
                 name,
@@ -171,7 +171,7 @@ impl EnhancedFunctionDefTransformer {
 
     fn new_generic_types_map(
         &mut self,
-        names: &Vec<String>,
+        names: &[String],
         source_for_error_msg: &str,
     ) -> HashMap<String, usize> {
         let mut generic_types = HashMap::new();

@@ -39,10 +39,9 @@ pub trait TypeDefProvider {
             Some(t.ast_type.clone())
         } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {
             Some(t.ast_type.clone())
-        } else if let Some(t) = self.get_type_def_by_name(typed_type_to_find) {
-            Some(t.ast_type.clone())
         } else {
-            None
+            self.get_type_def_by_name(typed_type_to_find)
+                .map(|t| t.ast_type.clone())
         }
     }
 
@@ -834,7 +833,7 @@ impl TextMacroEval for AddRefMacro {
             if self.deref {
                 result.push_str(&backend.call_deref(
                     address,
-                    &type_name,
+                    type_name,
                     descr,
                     type_def_provider,
                     statics,
@@ -843,7 +842,7 @@ impl TextMacroEval for AddRefMacro {
                 backend.call_add_ref(
                     &mut result,
                     address,
-                    &type_name,
+                    type_name,
                     descr,
                     type_def_provider,
                     statics,

@@ -16,7 +16,7 @@ use crate::codegen::ValKind;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
-    ASTType, BuiltinTypeKind, ValueType,
+    ASTType, BuiltinTypeKind,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::type_check::functions_container::FunctionsContainer;
@@ -340,9 +340,9 @@ fn convert_statement(
                 }
             } else if let ASTExpression::Value(value_type, index) = expr {
                 if *is_const {
-                    statics.add_const(name.to_owned(), get_value_type(value_type));
+                    statics.add_const(name.to_owned(), value_type.to_type());
                 } else {
-                    context.insert_let(name.clone(), get_value_type(value_type), index);
+                    context.insert_let(name.clone(), value_type.to_type(), index);
                 }
                 new_body.push(ASTStatement::LetStatement(
                     name.clone(),
@@ -1047,7 +1047,7 @@ pub fn convert_call(
                 }
             }
             ASTExpression::Value(val_type, _index) => {
-                let ast_type = get_value_type(val_type);
+                let ast_type = val_type.to_type();
                 something_converted_in_loop = update(
                     &ast_type,
                     expr.clone(),
@@ -1149,11 +1149,11 @@ pub fn convert_call(
             remaining_generic_types
         );
         dedent!();
-        if something_converted {
-            return Ok(SomethingConverted);
+        return if something_converted {
+            Ok(SomethingConverted)
         } else {
-            return Ok(NothingToConvert);
-        }
+            Ok(NothingToConvert)
+        };
     }
 
     if !something_converted {
@@ -1255,16 +1255,6 @@ pub fn convert_call(
     Ok(result)
 }
 
-pub fn get_value_type(val_type: &ValueType) -> ASTType {
-    let ast_type = match val_type {
-        ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
-        ValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
-        ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
-        ValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
-    };
-    ast_type
-}
-
 fn get_called_function(
     module: &EnhancedASTModule,
     context: &ValContext,
@@ -1316,16 +1306,15 @@ fn get_called_function(
                 lambda.as_ref(),
                 backend,
                 statics,
-            ) {
-                Ok(Some(ast_type)) => Ok(TypeFilter::Exact(ast_type)),
-                Ok(None) => {
+            )? {
+                Some(ast_type) => Ok(TypeFilter::Exact(ast_type)),
+                None => {
                     if matches!(it, ASTExpression::Lambda(_)) {
                         Ok(TypeFilter::Lambda)
                     } else {
                         Ok(TypeFilter::Any)
                     }
                 }
-                Err(e) => Err(e),
             }
         })
         .collect::<Result<Vec<_>, TypeCheckError>>()?;
@@ -1558,7 +1547,7 @@ fn get_called_function(
         debug_i!("found function def {fd}");
 
         if verify_function.is_none() && !only_from_module && !function_def_from_module {
-            if let Ok(Some((f, new_function_def_from_module))) = get_called_function(
+            if let Some((f, new_function_def_from_module)) = get_called_function(
                 module,
                 context,
                 call,
@@ -1568,7 +1557,7 @@ fn get_called_function(
                 Some(&fd),
                 false,
                 statics,
-            ) {
+            )? {
                 if f != fd {
                     // TODO it's really a guess...
                     return Ok(Some((f, new_function_def_from_module)));
@@ -1651,12 +1640,7 @@ fn get_type_of_expression(
                 .into())
             }
         }
-        ASTExpression::Value(val_type, _) => Ok(match val_type {
-            ValueType::Boolean(_) => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
-            ValueType::I32(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
-            ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
-            ValueType::F32(_) => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
-        }),
+        ASTExpression::Value(val_type, _) => Ok(Some(val_type.to_type())),
         ASTExpression::Any(ast_type) => Ok(Some(ast_type.clone())),
         ASTExpression::Lambda(def) => {
             let mut lambda_val_context = if let Some(lambda_type) = lambda {
@@ -1951,7 +1935,7 @@ fn get_context_from_lambda(
             }) => {
                 let pp = parameters
                     .get(inner_i)
-                    .expect(&format!("cannot find parameter {inner_i}: {}", index));
+                    .unwrap_or_else(|| panic!("cannot find parameter {inner_i}: {}", index));
 
                 let p = if let Some(ct) = substitute(pp, resolved_param_types) {
                     ct

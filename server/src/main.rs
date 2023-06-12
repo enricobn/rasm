@@ -7,10 +7,7 @@ use std::sync::Arc;
 
 use axum::extract::{Query, State};
 use axum::response::Html;
-use axum::{
-    routing::{get, post},
-    Json, Router,
-};
+use axum::{routing::get, Json, Router};
 use clap::{Arg, Command};
 use log::info;
 use serde::Deserialize;
@@ -18,7 +15,6 @@ use walkdir::WalkDir;
 
 use rasm_core::codegen::backend::{Backend, BackendAsm386};
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::CodeGen;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};
@@ -159,7 +155,7 @@ async fn file(
 
         let source_file = file_path.to_str().unwrap().to_owned();
 
-        let lexer = Lexer::new(s, Some(file_path.to_path_buf()));
+        let lexer = Lexer::new(s, Some(file_path.clone()));
 
         lexer.for_each(|it| {
             let index = ASTIndex {
@@ -175,7 +171,7 @@ async fn file(
                         "/file?src={}#_{}_{}",
                         project
                             .relative_to_root(file_name.as_path())
-                            .expect(&format!("{:?}", file_name))
+                            .unwrap_or_else(|| panic!("{:?}", file_name))
                             .to_str()
                             .unwrap(),
                         vec.first().unwrap().row,
@@ -196,7 +192,7 @@ async fn file(
             }
         });
         html.push_str("</pre>\n");
-        Html(format!("{html}"))
+        Html(html)
     } else {
         Html(format!("Error loading {}", src))
     };
@@ -226,9 +222,7 @@ fn token_to_string(token: &Token) -> String {
                 BracketStatus::Open => "[".to_owned(),
             },
         },
-        TokenKind::Comment(s) => {
-            format!("{s}")
-        }
+        TokenKind::Comment(s) => s.to_string(),
         TokenKind::MultiLineComment(s) => {
             format!("<pre>{s}</pre>")
         }

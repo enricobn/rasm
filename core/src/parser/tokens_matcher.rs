@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn test_result_values() {
         let t = new_result_with_values(vec!["T", "T1"]);
-        let t1 = new_result_with_values(vec!["T2".into()]);
+        let t1 = new_result_with_values(vec!["T2"]);
 
         let result = new_result_with_inner_results("type", vec![t, t1]);
 
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn test_result_values_1() {
         let t = new_result_with_values(vec!["T", "T1"]);
-        let t1 = new_result_with_values(vec!["T2".into()]);
+        let t1 = new_result_with_values(vec!["T2"]);
 
         let result1 = new_result_with_inner_results("type", vec![t]);
         let result2 = new_result_with_inner_results("type", vec![t1]);

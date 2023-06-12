@@ -15,7 +15,7 @@ impl TypeConversionContext {
 
     pub fn try_add_new(
         &mut self,
-        original_name: &String,
+        original_name: &str,
         function_def: &ASTFunctionDef,
     ) -> Option<ASTFunctionDef> {
         self.functions_by_name
@@ -88,13 +88,13 @@ mod tests {
     fn test() {
         let mut context = TypeConversionContext::new();
 
-        context.try_add_new(&"aFun".to_string(), &simple_function_def("aFun"));
+        context.try_add_new("aFun", &simple_function_def("aFun"));
 
         assert!(context
-            .try_add_new(&"f".into(), &simple_function_def("newFun"))
+            .try_add_new("f", &simple_function_def("newFun"))
             .is_some());
         assert!(context
-            .try_add_new(&"ff".into(), &simple_function_def("anotherNewFun"))
+            .try_add_new("ff", &simple_function_def("anotherNewFun"))
             .is_some());
 
         assert!(context.find_function("aFun_0").is_some());

@@ -48,8 +48,8 @@ impl Statics {
         if let Some((label, _)) = self.strings_map.get(s) {
             label.clone()
         } else {
-            let value_label = self.insert_prefix("_sv".into(), MemoryValue::StringValue(s.into()));
-            let label = self.insert_prefix("_s".into(), Mem(1, MemoryUnit::Words));
+            let value_label = self.insert_prefix("_sv", MemoryValue::StringValue(s.into()));
+            let label = self.insert_prefix("_s", Mem(1, MemoryUnit::Words));
 
             self.strings_map
                 .insert(s.into(), (label.clone(), value_label));

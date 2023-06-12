@@ -151,8 +151,6 @@ impl<'a> CodeGen<'a> {
         print_module: bool,
         statics: &mut Statics,
     ) -> (ASTTypedModule, TypeConversionContext) {
-        let mut module = module;
-
         let enhanced_module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
@@ -517,7 +515,7 @@ impl<'a> CodeGen<'a> {
             ASTTypedExpression::Value(value_type, index) => {
                 let value = self.backend.value_to_string(value_type);
                 let typed_type =
-                    get_type_of_typed_expression(&self.module, &context, expr, None, &self.statics)
+                    get_type_of_typed_expression(&self.module, context, expr, None, &self.statics)
                         .unwrap();
 
                 if is_const {
@@ -1267,7 +1265,7 @@ impl<'a> CodeGen<'a> {
                 parameters,
             }) = &ast_type
             {
-                let wl = self.backend.word_len() as usize;
+                let wl = self.backend.word_len();
                 let bp = self.backend.stack_base_pointer();
 
                 let parameters_defs = parameters
@@ -1530,7 +1528,7 @@ impl<'a> CodeGen<'a> {
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
                         let lambda_space = call_parameters.add_lambda(
-                            &mut def,
+                            &def,
                             lambda_space_opt,
                             context,
                             None,
@@ -1648,8 +1646,7 @@ impl<'a> CodeGen<'a> {
                                 &function_call.function_name,
                             )
                             .unwrap();
-                        let index_in_context = -(relative_to_bp_found as i32);
-                        index_in_context
+                        -(relative_to_bp_found as i32)
                     }
                 };
 

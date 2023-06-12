@@ -1204,12 +1204,7 @@ pub fn get_type_of_typed_expression(
                 );
             }
         }
-        ASTTypedExpression::Value(val_type, _) => match val_type {
-            ValueType::Boolean(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
-            ValueType::I32(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
-            ValueType::Char(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
-            ValueType::F32(_) => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
-        },
+        ASTTypedExpression::Value(val_type, _) => Some(val_type.to_typed_type()),
         ASTTypedExpression::Lambda(lambda_def) => {
             let mut context = TypedValContext::new(Some(context));
 
@@ -1549,10 +1544,7 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
                 parameters,
                 return_type,
             } => ASTType::Builtin(BuiltinTypeKind::Lambda {
-                parameters: parameters
-                    .iter()
-                    .map(|it| type_to_untyped_type(it))
-                    .collect(),
+                parameters: parameters.iter().map(type_to_untyped_type).collect(),
                 return_type: return_type
                     .clone()
                     .map(|it| Box::new(type_to_untyped_type(&it))),

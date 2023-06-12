@@ -86,7 +86,6 @@ fn create_free_body(
 
     let mut result = String::new();
     let descr = format!("type {}", type_def.name);
-    let key = statics.add_str(&descr);
 
     CodeGen::add(&mut result, "", Some(&descr), true);
     CodeGen::add(&mut result, &format!("push  {ws} $descr"), None, true);

@@ -7,7 +7,6 @@ use rasm_core::parser::ast::{
     ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
 use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter};
-use rasm_core::type_check::get_value_type;
 use rasm_core::utils::SliceDisplay;
 
 use crate::reference_context::ReferenceContext;
@@ -104,16 +103,16 @@ impl ReferenceFinder {
                 par.ast_index.clone(),
                 TypeFilter::Exact(par.ast_type.clone()),
             );
-            Self::process_type(&module, &par.ast_type, &mut result);
+            Self::process_type(module, &par.ast_type, &mut result);
         }
 
         if let Some(r) = &function.return_type {
-            Self::process_type(&module, r, &mut result);
+            Self::process_type(module, r, &mut result);
         }
 
         if let ASTFunctionBody::RASMBody(statements) = &function.body {
             Self::process_statements(
-                &module,
+                module,
                 statements,
                 &mut result,
                 &mut val_context,
@@ -159,8 +158,8 @@ impl ReferenceFinder {
         module: &ASTModule,
         statements: &Vec<ASTStatement>,
         result: &mut Vec<SelectableItem>,
-        mut reference_context: &mut ReferenceContext,
-        mut reference_static_context: &mut ReferenceContext,
+        reference_context: &mut ReferenceContext,
+        reference_static_context: &mut ReferenceContext,
         functions_container: &FunctionsContainer,
     ) {
         for stmt in statements {
@@ -174,7 +173,7 @@ impl ReferenceFinder {
             }
             result.append(&mut Self::get_selectable_items_stmt(
                 stmt,
-                &mut reference_context,
+                reference_context,
                 module,
                 functions_container,
             ));
@@ -212,12 +211,10 @@ impl ReferenceFinder {
             }
             ASTExpression::ValueRef(name, index) => reference_context
                 .get(name)
-                .expect(&format!("cannot find ref to '{name}' : {index}"))
+                .unwrap_or_else(|| panic!("cannot find ref to '{name}' : {index}"))
                 .filter
                 .clone(),
-            ASTExpression::Value(value_type, index) => {
-                TypeFilter::Exact(get_value_type(value_type))
-            }
+            ASTExpression::Value(value_type, index) => TypeFilter::Exact(value_type.to_type()),
             ASTExpression::Any(ast_type) => TypeFilter::Exact(ast_type.clone()),
         }
     }
@@ -297,7 +294,7 @@ impl ReferenceFinder {
                 }
             }
             ASTExpression::ValueRef(name, index) => {
-                if let Some(v) = reference_context.get(&name) {
+                if let Some(v) = reference_context.get(name) {
                     result.push(SelectableItem::new(
                         index.mv(-(name.len() as i32)),
                         index.clone(),
@@ -330,27 +327,15 @@ impl ReferenceFinder {
     }
 
     fn get_enum(module: &ASTModule, name: &String) -> Option<ASTEnumDef> {
-        module
-            .enums
-            .iter()
-            .find(|it| &it.name == name)
-            .map(|it| it.clone())
+        module.enums.iter().find(|it| &it.name == name).cloned()
     }
 
     fn get_struct(module: &ASTModule, name: &String) -> Option<ASTStructDef> {
-        module
-            .structs
-            .iter()
-            .find(|it| &it.name == name)
-            .map(|it| it.clone())
+        module.structs.iter().find(|it| &it.name == name).cloned()
     }
 
     fn get_type(module: &ASTModule, name: &String) -> Option<ASTTypeDef> {
-        module
-            .types
-            .iter()
-            .find(|it| &it.name == name)
-            .map(|it| it.clone())
+        module.types.iter().find(|it| &it.name == name).cloned()
     }
 }
 

@@ -51,7 +51,7 @@ impl<'a> EnumParser<'a> {
                         name: token.alpha().unwrap(),
                         type_parameters,
                         variants,
-                        index: self.parser.get_index(0).unwrap().clone(),
+                        index: self.parser.get_index(0).unwrap(),
                     },
                     next_i,
                 ));

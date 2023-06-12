@@ -166,7 +166,7 @@ fn enum_parametric_variant_constructor_body(
         &mut body,
         &format!(
             "$call(malloc, {}, [{descr_label}]: str)",
-            (variant.parameters.len() + 1) * word_len as usize
+            (variant.parameters.len() + 1) * word_len
         ),
         None,
         true,
@@ -191,11 +191,7 @@ fn enum_parametric_variant_constructor_body(
 
         CodeGen::add(
             &mut body,
-            &format!(
-                "mov {}  [eax + {}], ebx",
-                word_size,
-                (i + 1) * word_len as usize
-            ),
+            &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len),
             None,
             true,
         );
@@ -271,7 +267,7 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
         for (i, param) in variant.parameters.iter().enumerate() {
             CodeGen::add(
                 &mut body,
-                &format!("push {} [eax + {}]", word_size, (i + 1) * word_len as usize),
+                &format!("push {} [eax + {}]", word_size, (i + 1) * word_len),
                 Some(&format!("param {}", param.name)),
                 true,
             );
@@ -289,11 +285,7 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
 
         CodeGen::add(
             &mut body,
-            &format!(
-                "add {}, {}",
-                sp,
-                (variant.parameters.len() + 1) * word_len as usize
-            ),
+            &format!("add {}, {}", sp, (variant.parameters.len() + 1) * word_len),
             None,
             true,
         );

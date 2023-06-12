@@ -134,7 +134,7 @@ impl<'a> FunctionCallParameters<'a> {
                     "mov {} [{} + {}], {}",
                     self.backend.word_size(),
                     self.backend.stack_pointer(),
-                    to_remove_from_stack * self.backend.word_len() as usize,
+                    to_remove_from_stack * self.backend.word_len(),
                     n
                 ),
                 comment,
@@ -157,10 +157,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         CodeGen::add(
             &mut self.before,
-            &format!(
-                "mov {ws} [{sp} + {}], eax",
-                self.parameters_added * wl as usize
-            ),
+            &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl),
             Some(comment),
             true,
         );
@@ -763,7 +760,7 @@ impl<'a> FunctionCallParameters<'a> {
             indent,
         );
 
-        let word_len = self.backend.word_len() as usize;
+        let word_len = self.backend.word_len();
 
         let source = &format!(
             "{}+{}",
@@ -805,7 +802,7 @@ impl<'a> FunctionCallParameters<'a> {
                     &format!(
                         "{} + {}",
                         self.backend.stack_pointer(),
-                        (to_remove_from_stack + 1) * self.backend.word_len() as usize
+                        (to_remove_from_stack + 1) * self.backend.word_len()
                     ),
                     "ebx",
                     None,
@@ -952,12 +949,12 @@ impl<'a> FunctionCallParameters<'a> {
                 ));
                 format!(
                     "{}-({})-{}",
-                    (i as i32 - self.to_remove_from_stack() as i32) * word_len,
+                    (i - self.to_remove_from_stack() as i32) * word_len,
                     to_remove_from_stack,
                     crate::codegen::STACK_VAL_SIZE_NAME
                 )
             } else {
-                format!("{}", (i as i32 + 2) * self.backend.word_len() as i32)
+                format!("{}", (i + 2) * self.backend.word_len() as i32)
             };
 
             let address = format!(
@@ -994,7 +991,7 @@ impl<'a> FunctionCallParameters<'a> {
     pub fn before(&self) -> String {
         let mut result = String::new();
 
-        let word_len = self.backend.word_len() as usize;
+        let word_len = self.backend.word_len();
 
         if self.to_remove_from_stack() > 0 {
             CodeGen::add(
@@ -1159,7 +1156,7 @@ impl<'a> FunctionCallParameters<'a> {
             &format!(
                 "add {},{}",
                 self.backend.stack_pointer(),
-                slots * self.backend.word_len() as usize
+                slots * self.backend.word_len()
             ),
             comment,
             true,

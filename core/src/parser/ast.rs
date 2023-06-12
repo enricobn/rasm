@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
+use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
     pub original_name: String,
@@ -247,6 +249,26 @@ pub enum ValueType {
     I32(i32),
     Char(char),
     F32(f32),
+}
+
+impl ValueType {
+    pub fn to_type(&self) -> ASTType {
+        match self {
+            ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
+            ValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
+            ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
+            ValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
+        }
+    }
+
+    pub fn to_typed_type(&self) -> ASTTypedType {
+        match self {
+            ValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
+            ValueType::I32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+            ValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            ValueType::F32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
+        }
+    }
 }
 
 // TODO can we do partialeq? It depends on ASTIndex
