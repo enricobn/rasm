@@ -375,29 +375,6 @@ fn convert_statement(
     something_to_convert
 }
 
-/*
-fn unknown_function_in_expr(
-    type_conversion_context: &TypeConversionContext,
-    expr: &ASTExpression,
-) -> bool {
-    match expr {
-        ASTExpression::ASTFunctionCallExpression(call) => {
-            type_conversion_context.get(&call.function_name).is_none()
-                || call
-                    .parameters
-                    .iter()
-                    .any(|it| unknown_function_in_expr(type_conversion_context, it))
-        }
-        ASTExpression::Lambda(lambda) => lambda
-            .body
-            .iter()
-            .any(|it| unknown_function_in_expr(type_conversion_context, it)),
-        _ => false,
-    }
-}
-
- */
-
 fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
     return match ast_type {
         ASTType::Builtin(kind) => match kind {
@@ -655,7 +632,7 @@ pub fn convert_call(
         return Ok(NothingToConvert);
     }
 
-    let (function_def, _) = get_called_function(
+    let (function_def, function_def_from_module) = get_called_function(
         module,
         context,
         call,
@@ -679,14 +656,16 @@ pub fn convert_call(
 
     let expected_return_type = if let Some(Some(ret)) = expected_return_type {
         if get_generic_types(&ret).is_empty() {
-            let generic_types_from_effective_type = resolve_generic_types_from_effective_type(
-                &function_def.return_type.unwrap(),
-                &ret,
-            )?;
+            if let Some(ref return_type) = function_def.return_type {
+                let generic_types_from_effective_type =
+                    resolve_generic_types_from_effective_type(return_type, &ret)?;
 
-            resolved_generic_types.extend(generic_types_from_effective_type);
+                resolved_generic_types.extend(generic_types_from_effective_type);
 
-            Some(Some(ret))
+                Some(Some(ret))
+            } else {
+                panic!();
+            }
         } else {
             None
         }
@@ -1071,24 +1050,6 @@ pub fn convert_call(
 
         something_converted |= something_converted_in_loop;
     }
-
-    let (function_def, function_def_from_module) = get_called_function(
-        module,
-        context,
-        call,
-        typed_context,
-        &expected_return_type,
-        backend,
-        None,
-        false,
-        statics,
-    )?
-    .unwrap_or_else(|| {
-        panic!(
-            "cannot find function {}: {}",
-            call.original_function_name, call.index
-        )
-    });
 
     if function_def.name != call.function_name {
         debug_i!("something converted: new function name");
