@@ -1,11 +1,11 @@
 use std::cell::RefCell;
-use std::fmt::{Display, Formatter};
 use std::panic;
 
-use backtrace::Backtrace;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, log_enabled, Level};
 use strum_macros::Display;
+
+use type_check_error::TypeCheckError;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -28,33 +28,9 @@ use crate::utils::SliceDisplay;
 use crate::{debug_i, dedent, indent};
 
 pub mod functions_container;
+pub mod type_check_error;
 pub mod typed_ast;
 pub mod typed_context;
-
-#[derive(Debug)]
-pub struct TypeCheckError {
-    pub message: String,
-}
-
-impl Display for TypeCheckError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let bt = Backtrace::new();
-        println!("{:?}", bt);
-        f.write_str(&format!("TypeCheckError({})", &self.message))
-    }
-}
-
-impl From<&str> for TypeCheckError {
-    fn from(s: &str) -> Self {
-        TypeCheckError { message: s.into() }
-    }
-}
-
-impl From<String> for TypeCheckError {
-    fn from(s: String) -> Self {
-        TypeCheckError { message: s }
-    }
-}
 
 fn convert_function_def(
     backend: &dyn Backend,
@@ -1603,20 +1579,21 @@ fn get_type_of_expression(
         }
         ASTExpression::Value(val_type, _) => Ok(Some(val_type.to_type())),
         ASTExpression::Any(ast_type) => Ok(Some(ast_type.clone())),
-        ASTExpression::Lambda(def) => {
+        ASTExpression::Lambda(lambda_def) => {
             let mut lambda_val_context = if let Some(lambda_type) = lambda {
-                get_context_from_lambda(context, def, lambda_type, &LinkedHashMap::new()).unwrap()
+                get_context_from_lambda(context, lambda_def, lambda_type, &LinkedHashMap::new())
+                    .unwrap()
             } else {
-                if !def.parameter_names.is_empty() {
+                if !lambda_def.parameter_names.is_empty() {
                     return Ok(None);
                 }
                 context.clone()
             };
             let mut lamda_return_type = None;
 
-            let len = def.body.len();
+            let len = lambda_def.body.len();
 
-            let result = def
+            lambda_def
                 .body
                 .iter()
                 .enumerate()
@@ -1663,31 +1640,24 @@ fn get_type_of_expression(
                         }
                     }
                 })
-                .collect::<Vec<Result<(), TypeCheckError>>>();
-
-            if let Err(err) = result
-                .into_iter()
                 .filter(|it| it.is_err())
-                .collect::<Result<Vec<()>, TypeCheckError>>()
-            {
-                return Err(err);
-            }
+                .collect::<Result<Vec<()>, TypeCheckError>>()?;
 
             if log_enabled!(Level::Debug) {
                 debug_i!("lambda return type: {:?}", lamda_return_type);
-                for (par_name, _) in &def.parameter_names {
+                for (par_name, _) in &lambda_def.parameter_names {
                     debug_i!("par {par_name}: {:?}", lambda_val_context.get(par_name));
                 }
             }
             if lamda_return_type.is_some() {
                 Ok(Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
                     return_type: lamda_return_type.map(Box::new),
-                    parameters: def
+                    parameters: lambda_def
                         .parameter_names
                         .iter()
                         .map(|(it, _)| match lambda_val_context.get(it).unwrap() {
                             ValKind::ParameterRef(_, def) => def.ast_type.clone(),
-                            ValKind::LetRef(_, def, _) => def.clone(),
+                            ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
                         })
                         .collect::<Vec<_>>(),
                 })))
@@ -2163,10 +2133,11 @@ mod tests {
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
         ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
+    use crate::type_check::resolve_generic_types_from_effective_type;
+    use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::{
         convert_to_typed_module, ASTTypedExpression, ASTTypedStatement,
     };
-    use crate::type_check::{resolve_generic_types_from_effective_type, TypeCheckError};
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
