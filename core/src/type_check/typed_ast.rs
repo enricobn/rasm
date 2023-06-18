@@ -193,6 +193,19 @@ pub enum ASTTypedExpression {
     Any(ASTTypedType),
 }
 
+impl ASTTypedExpression {
+    pub fn get_index(&self) -> Option<ASTIndex> {
+        match self {
+            ASTTypedExpression::StringLiteral(_) => None,
+            ASTTypedExpression::ASTFunctionCallExpression(call) => Some(call.index.clone()),
+            ASTTypedExpression::ValueRef(_, index) => Some(index.clone()),
+            ASTTypedExpression::Value(_, index) => Some(index.clone()),
+            ASTTypedExpression::Lambda(lambda) => None,
+            ASTTypedExpression::Any(t) => None,
+        }
+    }
+}
+
 impl Display for ASTTypedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -219,6 +232,15 @@ impl Display for ASTTypedExpression {
 pub enum ASTTypedStatement {
     Expression(ASTTypedExpression),
     LetStatement(String, ASTTypedExpression, bool, ASTIndex),
+}
+
+impl ASTTypedStatement {
+    pub fn get_index(&self) -> Option<ASTIndex> {
+        match self {
+            ASTTypedStatement::Expression(e) => e.get_index(),
+            ASTTypedStatement::LetStatement(_, _, _, index) => Some(index.clone()),
+        }
+    }
 }
 
 impl Display for ASTTypedStatement {
@@ -1294,8 +1316,12 @@ pub fn get_type_of_typed_expression(
                     .clone()
                     .unwrap_or_else(|| panic!("expected {:?}, but got None", t));
                 assert_eq!(t.as_ref(), &rt, "expression {:?}", expr)
-            } else if real_return_type.is_some() {
-                panic!()
+            } else if let Some(rrt) = real_return_type {
+                if let Some(index) = lambda_def.body.iter().last().and_then(|it| it.get_index()) {
+                    panic!("Expected no return type but got {rrt} : {index}");
+                } else {
+                    panic!("Expected no return type but got {rrt}");
+                }
             }
 
             Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
