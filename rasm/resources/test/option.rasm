@@ -1,0 +1,13 @@
+include "std.rasm"
+
+println(Option::Some(1).fmap({v -> Option::Some(add("value = ", 2));}));
+
+println(or(Option::None(), Option::Some(10)));
+
+println(or(Option::Some(1), Option::Some(10)));
+
+println(orElse(Option::None(), { -> Option::Some(10);}));
+
+println(orElse(Option::Some(1), { -> Option::Some(10);}));
+
+Option::Some(10).run({ v -> println(v);});

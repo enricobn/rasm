@@ -346,6 +346,15 @@ fn test_oop() {
     );
 }
 
+#[test]
+fn test_option() {
+    run_test(
+        "option",
+        vec![],
+        "Some(value = 2)\nSome(10)\nSome(1)\nSome(10)\nSome(1)\n10\n",
+    );
+}
+
 // Compile tests
 
 #[test]
