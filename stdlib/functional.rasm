@@ -9,7 +9,7 @@ type Monad<M> {
 impl Monad for List {
 
     fn map<T,T1>(o: List<T>, f: fn(T) -> T1) -> List<T1> {
-        mapo, f);
+        map(o, f);
     }
 
     fn flatten<T>(o: List<List<T>>) -> List<T> {
