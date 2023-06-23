@@ -3,15 +3,23 @@ enum XDirection {
     Right
 }
 
+fn flip(xDir: XDirection) -> XDirection {
+    match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
+}
+
+fn move(x: f32, xDir: XDirection, diff: f32) -> f32 {
+    match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
+}
+
 enum YDirection {
     Up,
     Down
 }
 
-fn flip(xDir: XDirection) -> XDirection {
-    match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
-}
-
 fn flip(yDir: YDirection) -> YDirection {
     match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
+}
+
+fn move(y: f32, yDir: YDirection, diff: f32) -> f32 {
+    match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
 }
