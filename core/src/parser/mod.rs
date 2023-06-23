@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, info};
+use log::{debug, error, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::lexer::tokens::{
@@ -170,7 +170,11 @@ impl Parser {
         while self.i <= self.tokens.len() {
             count += 1;
             if count > 10000 {
-                panic!();
+                if let Some(index) = self.get_index(0) {
+                    panic!("error at : {}", index);
+                } else {
+                    panic!("{:?}", self.state);
+                }
             }
             let token = if self.i == self.tokens.len() {
                 last_token.clone()
