@@ -291,7 +291,6 @@ impl Backend for BackendAsm386 {
     }
 
     fn compile_and_link(&self, source_file: &PathBuf) {
-        info!("source file : '{:?}'", source_file);
         let nasm_output = self.compile(source_file);
         if nasm_output.status.success() {
             let path = Path::new(&source_file);
