@@ -21,6 +21,10 @@ inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     nop
 }/
 
+fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond: bool, fElseIf: fn() -> T, ffalse: fn() -> T) -> T {
+    if(cond, ftrue, { -> if(elseIfCond, fElseIf, ffalse); });
+}
+
 inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     mov     eax,$cond
     cmp     eax, 0
