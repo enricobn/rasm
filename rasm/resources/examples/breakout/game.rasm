@@ -1,6 +1,9 @@
+include "fps.rasm"
+
 struct GameState {
     stage: GameStage,
     world: World,
+    fps: FPS
 }
 
 struct World {
@@ -17,7 +20,7 @@ enum GameStage {
 }
 
 fn initialGameState() -> GameState {
-    GameState(GameStage::Run(), initialWorld());
+    GameState(GameStage::Run(), initialWorld(), FPS(0, now(), 0));
 }
 
 fn initialWorld() -> World {
@@ -31,10 +34,13 @@ fn initialWorld() -> World {
 fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
     let stage = stage(gameState);
     let world = world(gameState);
+    let fps = gameState.fps.update();
 
-    let newGameState = match(stage, { -> gameState;}, { ->
+    let newGameState = match(stage, { -> gameState.fps(fps);}, { ->
         let newWorld = update(resources, keys, world);
-        GameState(stage, newWorld);
+
+        // range(0, 100); // wait...
+        GameState(stage, newWorld, fps);
     });
 
     let newWorld = world(newGameState);
@@ -98,11 +104,11 @@ fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
     let world = world(gameState);
 
     run(stage, { -> }, { ->
-        render(ren, resources, world);
+        render(ren, resources, world, gameState.fps.fps);
     });
 }
 
-fn render(ren: SDLRenderer, resources: Resources, world: World) {
+fn render(ren: SDLRenderer, resources: Resources, world: World, fps: i32) {
     let font = font(resources);
     let bricks = bricks(world);
     let score = score(world);
@@ -140,6 +146,10 @@ fn render(ren: SDLRenderer, resources: Resources, world: World) {
     let livesText = createSDLText(ren, font, add("Lives: ", toString(lives)), GREEN);
     render(ren, livesText, SDLRect(200, 2, 100, 24));
     release(livesText);
+
+    let fpsText = createSDLText(ren, font, add("FPS: ", toString(fps)), GREEN);
+    render(ren, fpsText, SDLRect(400, 2, 100, 24));
+    release(fpsText);
 }
 
 fn toi32(f: f32, default: i32) -> i32 {
