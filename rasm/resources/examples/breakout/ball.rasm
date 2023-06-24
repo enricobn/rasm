@@ -21,13 +21,35 @@ fn update(ball: Ball, actualTime: TimeVal) -> Ball {
 
     let diff = divf(elapsed, 3000);
 
-    let newX = match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
-    let newY = match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
+    let updatedX = update(x, xDir, diff);
+    let newX = updatedX.first;
+    let newXDir = updatedX.second;
 
-    let newXDir = if(or(greater(newX, sub(WIDTH, BALLSIZE)), less(newX, 1)), { -> flip(xDir); }, { -> xDir;});
-    let newYDir = if(or(greater(newY, sub(HEIGHT, BALLSIZE)), less(newY, HEADERHEIGHT)), { -> flip(yDir); }, { -> yDir;});
+    let updatedY = update(y, yDir, diff);
+    let newY = updatedY.first;
+    let newYDir = updatedY.second;
 
     Ball(newX, newY, newXDir, newYDir, actualTime);
+}
+
+fn update(x: f32, xDir: XDirection, diff: f32) -> Pair<f32,XDirection> {
+    let newX = x.move(xDir, diff);
+    let rightMargin = sub(WIDTH, BALLSIZE);
+
+    if (greater(newX, rightMargin),
+        { -> Pair(rightMargin.sub(newX.sub(rightMargin)), flip(xDir)); },
+        less(newX, 0),
+        { -> Pair(sub(0.0, newX), flip(xDir)); },
+        { -> Pair(newX, xDir);}
+    );
+}
+
+fn update(y: f32, yDir: YDirection, diff: f32) -> Pair<f32,YDirection> {
+    let newY = y.move(yDir, diff);
+    if(less(newY, HEADERHEIGHT),
+        { -> Pair(tof32(HEADERHEIGHT).add(tof32(HEADERHEIGHT).sub(newY)), flip(yDir));},
+        { -> Pair(newY, yDir);}
+    );
 }
 
 fn collides(ball: Ball, brick: Brick) -> bool {
