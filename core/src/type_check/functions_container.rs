@@ -232,11 +232,17 @@ impl FunctionsContainer {
                                 Some(None) => it.return_type.is_none(),
                                 Some(ref rt) => match rt {
                                     None => it.return_type.is_none(),
-                                    Some(t) => Self::almost_same_type(
-                                        &it.return_type.clone().unwrap(),
-                                        &TypeFilter::Exact(t.clone()),
-                                        &mut resolved_generic_types,
-                                    ),
+                                    Some(t) => {
+                                        if let Some(parameter_return_type) = &it.return_type {
+                                            Self::almost_same_type(
+                                                parameter_return_type,
+                                                &TypeFilter::Exact(t.clone()),
+                                                &mut resolved_generic_types,
+                                            )
+                                        } else {
+                                            false
+                                        }
+                                    }
                                 },
                             }
                     };
