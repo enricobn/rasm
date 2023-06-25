@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, error, info};
+use log::{debug, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::lexer::tokens::{
