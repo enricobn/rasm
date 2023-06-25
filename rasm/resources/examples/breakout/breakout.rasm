@@ -150,12 +150,15 @@ fn writeHighScores(highScores: Vec<HighScore>) {
         let sec = sec(time);
         let nano = nano(time);
 
-        print(file, score);
-        print(file, ",");
-        print(file, sec);
-        print(file, ",");
-        println(file, nano);
-
+        print(file, score)
+        .or(print(file, ","))
+        .or(print(file, sec))
+        .or(print(file, ","))
+        .or(println(file, nano))
+        .run({ error ->
+            println(error);
+            exitMain(1);
+        });
     });
 
     sysClose(file);
@@ -174,13 +177,22 @@ fn splitToList(s: str, separator: str) -> List<str> {
 
     let separatorIndex = findChar(chars, separator);
 
-    match(separatorIndex, { index ->
-        let item = substr(s, 0, index);
-        let remainder = substr(s, add(index, 1), sub(sub(slen(s), index), 1));
-        match(item, { f ->
-            match(remainder, { r -> listAppend(listOf(f), splitToList(r, separator));}, { -> listOf(f);});
-        }, { -> List::Empty();});
-    }, { -> listOf(s);});
+    match(separatorIndex,
+        { index ->
+            let item = substr(s, 0, index);
+            let remainder = substr(s, add(index, 1), sub(sub(slen(s), index), 1));
+            match(item,
+                { f ->
+                    match(remainder,
+                        { r -> listAppend(listOf(f), splitToList(r, separator));},
+                        { -> listOf(f);}
+                    );
+                },
+                { -> List::Empty();}
+            );
+        },
+        { -> listOf(s);}
+    );
 }
 
 fn findChar(chars: List<EnumerateEntry<str>>, c: str) -> Option<i32> {

@@ -355,6 +355,24 @@ fn test_option() {
     );
 }
 
+#[test]
+fn test_error_handling() {
+    run_test(
+        "error_handling",
+        vec!["/tmp/error_handling.txt"],
+        "c\nHello\n",
+    );
+}
+
+#[test]
+fn test_error_handling1() {
+    run_test(
+        "error_handling",
+        vec!["/error_handling.txt"],
+        "IOError(Error writing to file.)\n",
+    );
+}
+
 // Compile tests
 
 #[test]

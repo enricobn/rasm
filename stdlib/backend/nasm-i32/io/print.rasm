@@ -13,7 +13,7 @@ fn print<T>(v: T) {
     print(STDOut(), v);
 }
 
-fn println<T>(file: File, v: T) {
+fn println<T>(file: File, v: T) -> Option<IOError> {
     print(file, v);
     println(file);
 }
@@ -22,9 +22,8 @@ fn println<T>(file: File, v: T) {
  * Prints the number to the File specified.
  * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
  **/
-asm print(file: File, n: i32) /{
+asm print(file: File, n: i32) -> Option<IOError>/{
     push    esi
-    push    eax
     push    ebx
     push    ecx
     push    edx
@@ -45,7 +44,10 @@ asm print(file: File, n: i32) /{
     jz      .positive
     xor     dword eax,0xFFFFFFFF
     inc     dword eax
-    $call(print, "-")
+    push    dword eax
+    $call(print, $file, "-")
+    gotoOnSome .end
+    pop eax
 .positive:
     mov     byte [esi],0    ; String terminator
 
@@ -62,25 +64,18 @@ asm print(file: File, n: i32) /{
     test eax,eax
     jnz .next_digit     ; Repeat until eax==0
 
-    mov    edx,ecx ; the length
-    mov    ecx,esi ; the pointer to the first digit (not necessarily the start of the provided buffer)
-    mov    ebx, $file
-    mov    eax, 4  ; write
-    int    80h
-
+    $call(sysPrint,$file,esi,ecx)
+.end:
     pop    edx
     pop    ecx
     pop    ebx
-    pop    eax
     pop    esi
 }/
 
 /**
  * Prints the number to the File specified.
   **/
-asm print(file: File, n: f32) /{
-    ; $call(println, "print ", $n: i32)
-    push    eax
+asm print(file: File, n: f32) -> Option<IOError> /{
     push    ebx
     push    ecx
     push    edx
@@ -89,6 +84,7 @@ asm print(file: File, n: f32) /{
     and     dword edx, 0x80000000
     jz      .mantissa
     $call(print, $file, "-")
+    gotoOnSome .end
 .mantissa:
     ; mantissa
     mov     dword edx, $n
@@ -97,11 +93,10 @@ asm print(file: File, n: f32) /{
     mov     dword ebx, $n
     and     dword ebx, 0x7F800000
     shr     dword ebx, 23
-    ;$call(println, "exponent ", ebx)
     cmp     dword ebx, 255
     jne     .defined
 .undefined:
-    $call(print, "undefined")
+    $call(print, $file, "undefined")
     jmp     .end
 .defined:
     cmp     dword ebx, 0
@@ -124,16 +119,9 @@ asm print(file: File, n: f32) /{
     pop     edx
     pop     ecx
     pop     ebx
-    pop     eax
 }/
 
-asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) /{
-    ; $call(print, "printAligned(")
-    ; $call(print, $alignedMantissa)
-    ; $call(print, ",")
-    ; $call(print, $intNumbersCount)
-    ; $call(println, ")")
-    push    eax
+asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) -> Option<IOError> /{
     push    ecx
 
     mov     dword ecx, 24
@@ -141,6 +129,7 @@ asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) /{
     mov     dword eax, $alignedMantissa
     shr     dword eax, cl
     $call(print, $file, eax)
+    gotoOnSome .end
 
     mov     dword eax, 1
     shl     dword eax, cl
@@ -148,20 +137,14 @@ asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) /{
     and     eax, $alignedMantissa
     $call(printDecimals, $file, eax, ecx)
 
+.end:
     pop     ecx
-    pop     eax
 }/
 
-asm printDecimals(file: File, n: i32, count: i32) /{
+asm printDecimals(file: File, n: i32, count: i32) -> Option<IOError> /{
     ; local val for result
     sub     dword esp,4
 
-    ; $call(print, "printDecimals(")
-    ; $call(print, $n)
-    ; $call(print, ",")
-    ; $call(print, $count)
-    ; $call(println, ")")
-    push    eax
     push    ebx
     push    ecx
     push    edx
@@ -173,8 +156,6 @@ asm printDecimals(file: File, n: i32, count: i32) /{
     mov     dword [ebp -4],0        ; result
 
 .loop:
-    ; $call(print, "  temp result ", ebx)
-    ; $call(println, " five multiplier ", eax)
     cmp     dword edx,0
     jz      .end
 
@@ -217,19 +198,20 @@ asm printDecimals(file: File, n: i32, count: i32) /{
 .end:
     mov     dword eax,[ebp -4]                     ; result
     add     dword eax, ebx
+    mov     dword ebx,eax
     $call(print, $file, ".")
-    $call(printPadLeft, $file, eax, '0': char, 9)
+    gotoOnSome .end2
+    $call(printPadLeft, $file, ebx, '0': char, 9)
 
+.end2:
     pop    edx
     pop    ecx
     pop    ebx
-    pop    eax
 
     add    dword esp,4
 }/
 
-asm printPadLeft(file: File, n: i32, ch: char, count: i32) /{
-    push    eax
+asm printPadLeft(file: File, n: i32, ch: char, count: i32) -> Option<IOError> /{
     push    ebx
 
     mov     dword ebx,$count
@@ -240,13 +222,13 @@ asm printPadLeft(file: File, n: i32, ch: char, count: i32) /{
     cmp     dword ebx, 0
     jz      .end
     $call(print, $file, $ch)
+    gotoOnSome .end2
     dec     dword ebx
     jmp     .loop
 .end:
     $call(print, $file, $n)
-
+.end2:
     pop     ebx
-    pop     eax
 }/
 
 // false = 0 true = any other value
@@ -272,48 +254,23 @@ asm getNthBit(value: i32, n: i32) -> bool /{
 /**
  * Prints a new line to file.
  */
-asm println(file: File) /{
-    push    edx
-    push    ecx
-    push    ebx
-    push    eax
-
-    mov     dword ecx, _NEW_LINE
-    mov     ebx, $file
-    mov     eax, 4 ; write
-    mov     edx, 1
-    int     80h
-
-    pop     eax
-    pop     ebx
-    pop     ecx
-    pop     edx
+asm println(file: File) -> Option<IOError> /{
+    $call(sysPrint, $file, _NEW_LINE: i32, 1)
 }/
 
 /**
  * Prints the string to the file.
  **/
-asm print(file: File, s: str) /{
-    push    edx
-    push    ecx
+asm print(file: File, s: str) -> Option<IOError> /{
     push    ebx
-    push    eax
-    mov     eax,$s
-    push    eax
+
     $call(slen, $s)
+    mov     ebx, eax
+    mov     eax, $s
 
-    mov     edx, eax
-    pop     eax
+    $call(sysPrint, $file, [eax], ebx)
 
-    mov     dword ecx, [eax]
-    mov     ebx, $file
-    mov     eax, 4
-    int     80h
-
-    pop     eax
     pop     ebx
-    pop     ecx
-    pop     edx
 }/
 
 asm printESC() /{
@@ -334,37 +291,57 @@ asm printESC() /{
     pop     eax
 }/
 
-asm print(file: File, c: char) /{
-    push    edx
+asm print(file: File, c: char) -> Option<IOError> /{
     push    ecx
     push    ebx
-    push    eax
 
-    mov     dword   edx,1
+    mov     dword   ebx,1
     mov     dword   eax,$c
 
     and     eax,0xFFFFFF00
     jz     .end
-    inc     edx
+    inc     ebx
     and     eax,0xFFFF0000
     jz      .end
-    inc     edx
+    inc     ebx
     and     eax,0xFF00000
     jz      .end
-    inc     edx
+    inc     ebx
 .end:
     ; we use the stack pointer as the address of the "string" to be printed
     push    dword $c
     mov     dword ecx,esp
+    $call(sysPrint,$file,ecx,ebx)
+    add     esp,4
 
+    pop     ebx
+    pop     ecx
+}/
+
+asm sysPrint(file: File, s: i32, len: i32) -> Option<IOError> /{
+    push    dword edx
+    push    dword ecx
+    push    dword ebx
+
+    mov     dword edx, $len
+    mov     dword ecx, $s
     mov     ebx, $file
     mov     eax, 4
     int     80h
 
-    add     esp,4
-
-    pop     eax
+    cmp     dword eax, 0xfffff000   ; unsigned 2^32 - 4096, aka signed -4096
+    ja      .error
+    mov     dword eax, [_enum_Option_None]
+    jmp     .end
+.error:
+    $call(someIOError, "Error writing to file.")
+.end:
     pop     ebx
     pop     ecx
     pop     edx
 }/
+
+fn someIOError(msg: str) -> Option<IOError> {
+    let error = IOError(msg);
+    Option::Some(error);
+}
