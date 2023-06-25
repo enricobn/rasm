@@ -391,6 +391,10 @@ impl Backend for BackendAsm386 {
     }
 
     fn preamble(&self, code: &mut String) {
+        CodeGen::add(code, "%macro gotoOnSome 1", None, false);
+        CodeGen::add(code, "cmp dword eax,[_enum_Option_None]", None, true);
+        CodeGen::add(code, "jne %1", None, true);
+        CodeGen::add(code, "%endmacro", None, false);
         if self.libc {
             CodeGen::add(code, "%DEFINE LIBC 1", None, false);
             CodeGen::add(code, "extern exit", None, true);
