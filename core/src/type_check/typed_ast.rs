@@ -16,11 +16,11 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
+use crate::type_check::call_converter::convert_call;
+use crate::type_check::call_converter::ConvertCallResult::*;
 use crate::type_check::functions_container::TypeFilter::Exact;
-use crate::type_check::ConvertCallResult::*;
 use crate::type_check::{
-    convert_call, convert_function_def, convert_statement, get_new_native_call, substitute,
-    TypeConversionContext,
+    convert_function_def, convert_statement, get_new_native_call, substitute, TypeConversionContext,
 };
 use crate::utils::{find_one, SliceDisplay};
 use crate::{debug_i, dedent, indent};
