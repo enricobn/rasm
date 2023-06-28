@@ -20,7 +20,7 @@ use std::cell::RefCell;
 use std::panic;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, log_enabled};
+use log::debug;
 use strum_macros::Display;
 
 use crate::codegen::backend::Backend;
@@ -50,7 +50,6 @@ pub enum ConvertCallResult {
     Converted(ASTFunctionCall),
 }
 
-/// return None if nothing has been converted, Some((call, something converted))
 pub fn convert_call(
     module: &EnhancedASTModule,
     context: &ValContext,
@@ -98,7 +97,7 @@ pub fn convert_call(
     let mut resolved_generic_types = function_def.resolved_generic_types.clone();
 
     let expected_return_type = if let Some(Some(ret)) = expected_return_type {
-        if type_check::get_generic_types(&ret).is_empty() {
+        if !type_check::is_generic_type(&ret) {
             if let Some(ref return_type) = function_def.return_type {
                 let generic_types_from_effective_type =
                     type_check::resolve_generic_types_from_effective_type(return_type, &ret)?;
@@ -219,7 +218,7 @@ pub fn convert_call(
                                 // the generic types of the expression do not belong to this
                                 if result_type
                                     .clone()
-                                    .map(|it| type_check::get_generic_types(&it).is_empty())
+                                    .map(|it| !type_check::is_generic_type(&it))
                                     .unwrap_or(true)
                                 {
                                     result_type
@@ -292,7 +291,7 @@ pub fn convert_call(
                 } else {
                     par.ast_type.clone()
                 };
-                let expected_return_type = if type_check::get_generic_types(&par_type).is_empty() {
+                let expected_return_type = if !type_check::is_generic_type(&par_type) {
                     Some(Some(par_type.clone()))
                 } else {
                     None
@@ -326,7 +325,7 @@ pub fn convert_call(
 
                     if let Some(rt) = &inner_function_def.return_type {
                         // the generic types of the inner function are not the same of the this function
-                        let result_type = if type_check::get_generic_types(rt).is_empty() {
+                        let result_type = if !type_check::is_generic_type(rt) {
                             inner_function_def.return_type.clone().unwrap()
                         } else {
                             par.clone().ast_type
@@ -366,13 +365,13 @@ pub fn convert_call(
                                 .push(ASTFunctionCallExpression(ast_function_call));
                         }
                     }
-                } else if !type_check::get_generic_types(&par.ast_type).is_empty() {
+                } else if type_check::is_generic_type(&par.ast_type) {
                     if let Some(inner_function_def) =
                         typed_context_ptr.find_function(&call.function_name)
                     {
                         if let Some(rt) = &inner_function_def.return_type {
                             // the generic types of the inner function are not the same of the this function
-                            let result_type = if type_check::get_generic_types(rt).is_empty() {
+                            let result_type = if !type_check::is_generic_type(rt) {
                                 inner_function_def.return_type.clone().unwrap()
                             } else {
                                 par.clone().ast_type
@@ -429,19 +428,14 @@ pub fn convert_call(
                     Some(ValKind::ParameterRef(_, referenced_parameter_def)) => {
                         // TODO the generic types are not the same of those in this function
                         //   so if there's some generic type, I cannot "resolve" the ref
-                        let gen_types =
-                            type_check::get_generic_types(&referenced_parameter_def.ast_type);
-
-                        if gen_types.is_empty() {
+                        if !type_check::is_generic_type(&referenced_parameter_def.ast_type) {
                             Some(referenced_parameter_def.ast_type.clone())
                         } else {
                             None
                         }
                     }
                     Some(ValKind::LetRef(_, ast_type, _)) => {
-                        let gen_types = type_check::get_generic_types(ast_type);
-
-                        if gen_types.is_empty() {
+                        if !type_check::is_generic_type(ast_type) {
                             Some(ast_type.clone())
                         } else {
                             None
@@ -515,7 +509,7 @@ pub fn convert_call(
     let mut parameters = Vec::new();
 
     for par in converted_parameters {
-        if !type_check::get_generic_types(&par.ast_type).is_empty() {
+        if type_check::is_generic_type(&par.ast_type) {
             if let Some(new_ref) =
                 type_check::substitute(&par.ast_type, &resolved_generic_types.clone())
             {
@@ -613,10 +607,10 @@ pub fn convert_call(
 
         let parameters_to_convert = parameters
             .iter()
-            .any(|par| !type_check::get_generic_types(&par.ast_type).is_empty());
+            .any(|par| type_check::is_generic_type(&par.ast_type));
 
         if parameters_to_convert {
-            //panic!();
+            panic!();
         }
 
         dedent!();
@@ -675,7 +669,7 @@ fn update(
     parameters: &mut Vec<ASTParameterDef>,
     expressions: &mut Vec<ASTExpression>,
 ) -> Result<bool, TypeCheckError> {
-    if type_check::get_generic_types(&par.ast_type).is_empty() {
+    if !type_check::is_generic_type(&par.ast_type) {
         expressions.push(expr);
         parameters.push(par.clone());
         return Ok(false);
@@ -745,14 +739,16 @@ pub fn get_type_of_call(
         }
     }
 
-    if let Some(ValKind::LetRef(_i, ast_type, _)) = context.get(&call.function_name) {
-        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+    if let Some(ValKind::LetRef(
+        _i,
+        ASTType::Builtin(BuiltinTypeKind::Lambda {
             return_type,
             parameters: _,
-        }) = ast_type
-        {
-            return Ok(return_type.clone().map(|it| it.as_ref().clone()));
-        }
+        }),
+        _,
+    )) = context.get(&call.function_name)
+    {
+        return Ok(return_type.clone().map(|it| it.as_ref().clone()));
     }
 
     if let Some((function, _)) = get_called_function(
@@ -767,7 +763,7 @@ pub fn get_type_of_call(
         statics,
     )? {
         if let Some(return_type) = function.return_type {
-            if type_check::get_generic_types(&return_type).is_empty() {
+            if !type_check::is_generic_type(&return_type) {
                 Ok(Some(return_type))
             } else {
                 let convert_call_result =

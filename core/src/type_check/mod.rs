@@ -3,7 +3,6 @@ use std::panic;
 
 use linked_hash_map::LinkedHashMap;
 use log::{debug, log_enabled, Level};
-use strum_macros::Display;
 
 use call_converter::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
 use type_check_error::TypeCheckError;
@@ -20,11 +19,7 @@ use crate::parser::ast::{
     ASTType, BuiltinTypeKind,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
-use crate::type_check::functions_container::FunctionsContainer;
-use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::typed_context::TypeConversionContext;
-use crate::utils::OptionOptionDisplay;
-use crate::utils::SliceDisplay;
 use crate::{debug_i, dedent, indent};
 
 mod call_converter;
@@ -385,7 +380,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
             }
         },
         ASTType::Generic(p) => {
-            vec![p.into()]
+            vec![p.to_owned()]
         }
         ASTType::Custom {
             name: _,
@@ -394,9 +389,9 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
         } => {
             let mut result: Vec<String> = pt
                 .iter()
-                .flat_map(|it| match it.clone() {
+                .flat_map(|it| match it {
                     ASTType::Generic(name) => {
-                        vec![name]
+                        vec![name.clone()]
                     }
                     _ => get_generic_types(it),
                 })
@@ -405,6 +400,37 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
             result.dedup();
             result
         }
+    };
+}
+
+fn is_generic_type(ast_type: &ASTType) -> bool {
+    return match ast_type {
+        ASTType::Builtin(kind) => match kind {
+            BuiltinTypeKind::String => false,
+            BuiltinTypeKind::I32 => false,
+            BuiltinTypeKind::Bool => false,
+            BuiltinTypeKind::Char => false,
+            BuiltinTypeKind::F32 => false,
+            BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            } => {
+                let mut par_types: bool = parameters.iter().any(is_generic_type);
+                if let Some(rt) = return_type {
+                    par_types = par_types || is_generic_type(rt.as_ref());
+                }
+                par_types
+            }
+        },
+        ASTType::Generic(p) => true,
+        ASTType::Custom {
+            name: _,
+            param_types: pt,
+            index: _,
+        } => pt.iter().any(|it| match it {
+            ASTType::Generic(name) => true,
+            _ => is_generic_type(it),
+        }),
     };
 }
 
@@ -741,7 +767,7 @@ fn resolve_generic_types_from_effective_type(
 ) -> Result<LinkedHashMap<String, ASTType>, TypeCheckError> {
     let mut result: LinkedHashMap<String, ASTType> = LinkedHashMap::new();
 
-    if generic_type == effective_type || get_generic_types(generic_type).is_empty() {
+    if generic_type == effective_type || !is_generic_type(generic_type) {
         return Ok(result);
     }
 
@@ -941,7 +967,7 @@ fn substitute(
     ast_type: &ASTType,
     resolved_param_types: &LinkedHashMap<String, ASTType>,
 ) -> Option<ASTType> {
-    if get_generic_types(ast_type).is_empty() {
+    if !is_generic_type(ast_type) {
         return None;
     }
 
