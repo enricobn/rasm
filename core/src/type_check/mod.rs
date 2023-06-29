@@ -19,6 +19,7 @@ use crate::parser::ast::{
     ASTType, BuiltinTypeKind,
 };
 use crate::parser::ast::{ASTStatement, MyToString};
+use crate::type_check::call_converter::CallConverter;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::{debug_i, dedent, indent};
 
@@ -195,15 +196,9 @@ fn convert_statement(
     match statement {
         ASTStatement::Expression(expr) => {
             if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
-                let converted_call = call_converter::convert_call(
-                    module,
-                    context,
-                    call,
-                    type_conversion_context,
-                    None,
-                    backend,
-                    statics,
-                );
+                let converted_call =
+                    CallConverter::new(module, context, type_conversion_context, backend, statics)
+                        .convert_call(call, None);
 
                 match converted_call {
                     Err(e) => {
@@ -232,15 +227,9 @@ fn convert_statement(
         }
         ASTStatement::LetStatement(name, expr, is_const, let_index) => {
             if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
-                let converted_call = call_converter::convert_call(
-                    module,
-                    context,
-                    call,
-                    type_conversion_context,
-                    None,
-                    backend,
-                    statics,
-                );
+                let converted_call =
+                    CallConverter::new(module, context, type_conversion_context, backend, statics)
+                        .convert_call(call, None);
 
                 match converted_call {
                     Err(e) => {
@@ -483,15 +472,9 @@ fn convert_expr_in_body(
 
     let result = match expr {
         ASTFunctionCallExpression(call) => {
-            match call_converter::convert_call(
-                module,
-                context,
-                call,
-                typed_context,
-                None,
-                backend,
-                statics,
-            )? {
+            match CallConverter::new(module, context, typed_context, backend, statics)
+                .convert_call(call, None)?
+            {
                 NothingToConvert => None,
                 // TODO is right?
                 SomethingConverted => Some(expr.clone()),
@@ -563,19 +546,14 @@ fn convert_last_expr_in_body(
     let result = match expr {
         ASTFunctionCallExpression(call) => {
             if let Some(ast_type) = &return_type {
-                let result = match call_converter::convert_call(
-                    module,
-                    context,
-                    call,
-                    typed_context,
-                    Some(return_type),
-                    backend,
-                    statics,
-                )? {
-                    NothingToConvert => None,
-                    SomethingConverted => Some(expr.clone()),
-                    Converted(new_call) => Some(ASTFunctionCallExpression(new_call)),
-                };
+                let result =
+                    match CallConverter::new(module, context, typed_context, backend, statics)
+                        .convert_call(call, Some(return_type))?
+                    {
+                        NothingToConvert => None,
+                        SomethingConverted => Some(expr.clone()),
+                        Converted(new_call) => Some(ASTFunctionCallExpression(new_call)),
+                    };
 
                 dedent!();
                 return Ok(result);

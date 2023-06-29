@@ -16,7 +16,7 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
-use crate::type_check::call_converter::convert_call;
+use crate::type_check::call_converter::CallConverter;
 use crate::type_check::call_converter::ConvertCallResult::*;
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::{
@@ -1345,15 +1345,9 @@ fn add_default_function(
 
     let call = function_call.to_call();
 
-    match convert_call(
-        module,
-        &context,
-        &call,
-        typed_context,
-        None,
-        backend,
-        statics,
-    ) {
+    match CallConverter::new(module, &context, typed_context, backend, statics)
+        .convert_call(&call, None)
+    {
         Err(e) => {
             panic!(
                 "Error converting mandatory function {} : {e}",
@@ -1500,15 +1494,15 @@ pub fn function_def(
                     } else {
                         let function_call = it.to_call();
 
-                        if let Ok(Converted(new_call)) = convert_call(
+                        if let Ok(Converted(new_call)) = CallConverter::new(
                             module,
                             &ValContext::new(None),
-                            &function_call,
                             typed_context,
-                            None,
                             backend,
                             statics,
-                        ) {
+                        )
+                        .convert_call(&function_call, None)
+                        {
                             debug_i!("new_call {:?}", new_call);
                             new_call.function_name
                         } else {
