@@ -1,4 +1,4 @@
-asm STDOut() -> File /{
+inline asm STDOut() -> File /{
     mov dword eax, 1
 }/
 
