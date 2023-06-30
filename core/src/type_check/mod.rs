@@ -749,7 +749,7 @@ fn resolve_generic_types_from_effective_type(
         return Ok(result);
     }
 
-    debug_i!("extract_generic_types_from_effective_type: parametric_type {generic_type} effective_type  {effective_type}");
+    debug_i!("extract_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}");
     indent!();
 
     match generic_type {
@@ -784,7 +784,7 @@ fn resolve_generic_types_from_effective_type(
                         } else {
                             dedent!();
                             if let ASTType::Generic(p) = p_t.as_ref() {
-                                return Err(format!("Found parametric type {p} that is (). For now we cannot handle it").into());
+                                return Err(format!("Found generic type {p} that is (). For now we cannot handle it").into());
                             }
                             return Err("Expected some type but got None".into());
                         }
@@ -1075,9 +1075,9 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_simple() -> Result<(), TypeCheckError> {
-        let parametric_type = generic("T");
+        let generic_type = generic("T");
         let effective_type = i32();
-        let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
+        let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
@@ -1089,7 +1089,7 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
-        let parametric_type = ASTType::Custom {
+        let generic_type = ASTType::Custom {
             name: "List".into(),
             param_types: vec![generic("T")],
             index: ASTIndex::none(),
@@ -1100,7 +1100,7 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
+        let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
@@ -1112,7 +1112,7 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), TypeCheckError> {
-        let parametric_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let generic_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Some(Box::new(generic("T"))),
         });
@@ -1122,7 +1122,7 @@ mod tests {
             return_type: Some(Box::new(i32())),
         });
 
-        let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
+        let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());
@@ -1134,7 +1134,7 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), TypeCheckError> {
-        let parametric_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let generic_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Some(Box::new(generic("T"))),
         });
@@ -1144,7 +1144,7 @@ mod tests {
             return_type: Some(Box::new(generic("T"))),
         });
 
-        let result = resolve_generic_types_from_effective_type(&parametric_type, &effective_type)?;
+        let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = LinkedHashMap::new();
         expected_result.insert("T".into(), i32());

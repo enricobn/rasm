@@ -4,9 +4,9 @@ we must allocate memory to store the address to the lambda function and then all
 For example if we have a lambda called lambda1 (the mnemonic address to the function to call) and values v1 and v2 in
 the context
 we allocate 5 (* word) bytes in memory then we store the address, the address of the addref function, the deref function and the values:  
-[m] = lambda1
-[m + word] = addref
-[m + 2 * word] = deref
+[m] = lambda1  
+[m + word] = addref  
+[m + 2 * word] = deref  
 [m + 3 * word] = v1  
 [m + 4 * word] = v2  
 
@@ -14,7 +14,7 @@ Then we do not pass the mnemonic address (lambda1) to the function (a_function),
 so the function, in order to call the lambda must get the real address from [m]
 and before the function calls the lambda, it must push m so the lambda can access to the context variables
 
-in the lambda1 to access to the variables it should use [m + word] (v1) and [m + 2 * word] (v2)
+in the lambda1 to access to the variables it should use [m + 3 * word] (v1) and [m + 4 * word] (v2)
 
 **Registers**  
 During the calculation of parameters (function_call_parameters) we use ecx to store the actual lambda space,
@@ -38,7 +38,7 @@ allocate(n)
 I search the first slot with almost n free memory
 if there's no slot: pack the _allocation_table_ and search for n free memory
 if there's no slot: OutOfMemory
-otherwise, i return the anAddress, decrease the size of the slot, increment the address of the slot,
+otherwise, I return the anAddress, decrease the size of the slot, increment the address of the slot,
 set the count to 1
 
 add_ref(address)  

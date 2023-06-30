@@ -406,7 +406,7 @@ impl FunctionsContainer {
                         match parameter_type {
                             ASTType::Generic(_parameter_generic_type) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
-                                //   to know it we need another attribute in ASTType::Builtin::Parametric : the context
+                                //   to know it we need another attribute in ASTType::Builtin::Generic : the context
                                 true
                             }
                             _ => {

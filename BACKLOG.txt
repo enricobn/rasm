@@ -3,7 +3,6 @@ Doing
 
 Next
 -----
-- oop example
 - private functions
 - optimize
   - can a recursive function's lambda space be reused?
@@ -20,7 +19,6 @@ Next
 - game of life: if we don't pass a number, it should run until no cells are alive
 - type check
   - use Result
-- rename "parametric type" to "generic type" all over the place
 - libraries
   - the include files should be searched relative to "current folder"/"stdlib folder", plus the current folder, and it can
     be overridden with an environment var with a list of folders, separated by colon
