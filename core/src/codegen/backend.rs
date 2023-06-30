@@ -115,7 +115,7 @@ pub trait Backend: RefUnwindSafe {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
-    ) -> ASTTypedFunctionDef;
+    ) -> Option<ASTTypedFunctionDef>;
 
     fn create_lambda_deref(
         &self,
@@ -123,7 +123,7 @@ pub trait Backend: RefUnwindSafe {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
-    ) -> ASTTypedFunctionDef;
+    ) -> Option<ASTTypedFunctionDef>;
 }
 
 enum Linker {
@@ -193,7 +193,7 @@ impl BackendAsm386 {
         statics: &mut Statics,
         name: &str,
         is_deref: bool,
-    ) -> ASTTypedFunctionDef {
+    ) -> Option<ASTTypedFunctionDef> {
         let mut body = String::new();
 
         let ws = self.word_size();
@@ -205,11 +205,8 @@ impl BackendAsm386 {
             self.call_add_ref_simple(&mut body, "$address", &format!("main {name}"), statics);
         }
 
+        let mut initialized = false;
         if !lambda_space.is_empty() {
-            CodeGen::add(&mut body, "push   ebx", None, true);
-            CodeGen::add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
-            CodeGen::add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
-            CodeGen::add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
             for (i, (val_name, kind)) in lambda_space.iter().enumerate() {
                 let ast_typed_type = match kind {
                     TypedValKind::ParameterRef(_, def) => &def.ast_type,
@@ -218,6 +215,13 @@ impl BackendAsm386 {
                 if let Some(type_name) =
                     CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
                 {
+                    if !initialized {
+                        CodeGen::add(&mut body, "push   ebx", None, true);
+                        CodeGen::add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
+                        CodeGen::add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
+                        CodeGen::add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
+                        initialized = true;
+                    }
                     if is_deref {
                         body.push_str(&self.call_deref(
                             &format!("[ebx + {}]", i * self.word_len()),
@@ -241,6 +245,10 @@ impl BackendAsm386 {
             CodeGen::add(&mut body, "pop   ebx", None, true);
         }
 
+        if !initialized {
+            return None;
+        }
+
         let parameters = vec![
             ASTTypedParameterDef {
                 name: "address".to_owned(),
@@ -254,14 +262,14 @@ impl BackendAsm386 {
             },
         ];
 
-        ASTTypedFunctionDef {
+        Some(ASTTypedFunctionDef {
             name: name.to_owned(),
             parameters,
             body: ASTTypedFunctionBody::ASMBody(body),
             return_type: None,
             generic_types: LinkedHashMap::new(),
             inline: false,
-        }
+        })
     }
 }
 
@@ -818,7 +826,7 @@ impl Backend for BackendAsm386 {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
-    ) -> ASTTypedFunctionDef {
+    ) -> Option<ASTTypedFunctionDef> {
         self.create_lambda_add_ref_like_function(
             lambda_space,
             type_def_provider,
@@ -834,7 +842,7 @@ impl Backend for BackendAsm386 {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
-    ) -> ASTTypedFunctionDef {
+    ) -> Option<ASTTypedFunctionDef> {
         self.create_lambda_add_ref_like_function(
             lambda_space,
             type_def_provider,

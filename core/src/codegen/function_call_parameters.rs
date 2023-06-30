@@ -396,21 +396,23 @@ impl<'a> FunctionCallParameters<'a> {
                 i += 1;
             });
 
-            let add_ref_function_def =
+            if let Some(add_ref_function_def) =
                 self.backend
-                    .create_lambda_addref(&lambda_space, module, statics, &def.name);
+                    .create_lambda_addref(&lambda_space, module, statics, &def.name)
+            {
+                add_ref_function = add_ref_function_def.name.clone();
 
-            add_ref_function = add_ref_function_def.name.clone();
+                lambda_space.add_ref_function(add_ref_function_def);
+            }
 
-            lambda_space.add_ref_function(add_ref_function_def);
-
-            let deref_function_def =
+            if let Some(deref_function_def) =
                 self.backend
-                    .create_lambda_deref(&lambda_space, module, statics, &def.name);
+                    .create_lambda_deref(&lambda_space, module, statics, &def.name)
+            {
+                deref_function = deref_function_def.name.clone();
 
-            deref_function = deref_function_def.name.clone();
-
-            lambda_space.add_ref_function(deref_function_def);
+                lambda_space.add_ref_function(deref_function_def);
+            }
 
             if optimize {
                 CodeGen::add(&mut after, "pop ebx", None, true);
