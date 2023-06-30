@@ -16,8 +16,10 @@ pub fn typed_type_functions_creator(
     statics: &mut Statics,
 ) {
     for typed_type_def in module.types.clone().iter() {
-        create_free(backend, typed_type_def, "deref", "deref", module, statics);
-        create_free(backend, typed_type_def, "addRef", "addRef", module, statics);
+        if typed_type_def.is_ref {
+            create_free(backend, typed_type_def, "deref", "deref", module, statics);
+            create_free(backend, typed_type_def, "addRef", "addRef", module, statics);
+        }
     }
 }
 
