@@ -53,7 +53,6 @@ fn convert_function_def(
                 body,
                 &function_def.return_type,
                 statics,
-                &LinkedHashMap::new(),
             )? {
                 let new_function_def = type_conversion_context
                     .borrow_mut()
@@ -76,7 +75,6 @@ fn convert_body(
     body: &Vec<ASTStatement>,
     return_type: &Option<ASTType>,
     statics: &Statics,
-    resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<Vec<ASTStatement>>, TypeCheckError> {
     debug_i!("converting body return type {:?}", return_type);
     indent!();
@@ -97,7 +95,6 @@ fn convert_body(
                     return_type.clone(),
                     backend,
                     statics,
-                    resolved_generic_types,
                 )
             } else {
                 convert_statement_in_body(
@@ -495,7 +492,6 @@ fn convert_last_statement_in_body(
     return_type: Option<ASTType>,
     backend: &dyn Backend,
     statics: &Statics,
-    resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
     match statement {
         ASTStatement::Expression(e) => convert_last_expr_in_body(
@@ -506,7 +502,6 @@ fn convert_last_statement_in_body(
             return_type,
             backend,
             statics,
-            resolved_generic_types,
         )
         .map(|ito| ito.map(ASTStatement::Expression)),
         ASTStatement::LetStatement(_name, _e, _is_const, let_index) => Err(format!(
@@ -525,12 +520,10 @@ fn convert_last_expr_in_body(
     return_type: Option<ASTType>,
     backend: &dyn Backend,
     statics: &Statics,
-    resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
     debug_i!(
-        "converting last expr in body {expr} return_type {:?} resolved_generic_types {:?}",
-        return_type,
-        resolved_generic_types
+        "converting last expr in body {expr} return_type {:?}",
+        return_type
     );
 
     indent!();
@@ -921,7 +914,6 @@ fn convert_lambda(
         &lambda.body,
         &rt,
         statics,
-        resolved_generic_types,
     )? {
         debug_i!("lambda type something converted");
         Some(ASTLambdaDef {
