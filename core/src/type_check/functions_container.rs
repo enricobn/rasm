@@ -92,19 +92,19 @@ impl FunctionsContainer {
     }
 
     pub fn replace_body(&mut self, function_def: &ASTFunctionDef) {
-        for (_, f_defs) in self.functions_by_name.iter_mut() {
-            for mut f_def in f_defs.iter_mut() {
-                if f_def.name == function_def.name
-                    && f_def.parameters == function_def.parameters
-                    && f_def.return_type == function_def.return_type
-                {
-                    f_def.body = function_def.body.clone();
-                    return;
-                }
+        let functions = self
+            .functions_by_name
+            .get_mut(&function_def.original_name)
+            .unwrap_or_else(|| panic!("Cannot find {}", function_def.name));
+        for mut f_def in functions.iter_mut() {
+            if f_def.name == function_def.name
+                && f_def.parameters == function_def.parameters
+                && f_def.return_type == function_def.return_type
+            {
+                f_def.body = function_def.body.clone();
+                return;
             }
         }
-
-        panic!("clone() {} {:?}", function_def, self.functions_desc())
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
