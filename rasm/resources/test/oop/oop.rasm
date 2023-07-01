@@ -5,7 +5,7 @@ include "rect.rasm"
 include "point.rasm"
 include "shape.rasm"
 
-let v = vecOf(Shape(Circle(1, 1, 2)), Shape(Rect(10, 20, 5, 5)));
+let v = vecOf(Shape(Circle(1, 1, 2)), Shape(Rect(10, 20, 5, 5)), Shape(Point(4, 5)));
 
 println(v);
 

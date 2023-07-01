@@ -4,5 +4,17 @@ struct Point {
 }
 
 fn toString(p: Point) -> str {
-    add(add("Point(", p.x, ",", p.y), ")");
+    "Point(".add(p.x).add(",").add(p.y).add(")");
+}
+
+fn Shape(point: Point) -> Shape {
+    Shape(
+        { -> point; },
+        { dx, dy ->
+            let result = Point(point.x.add(dx), point.y.add(dy));
+
+            Shape(result);
+        }, { ->
+            toString(point);
+    });
 }

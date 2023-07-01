@@ -8,12 +8,17 @@ fn Shape(circle: Circle) -> Shape {
     Shape(
         { -> Point(circle.x, circle.y); },
         { dx, dy ->
-            let result = Circle(add(circle.x, dx), add(circle.y, dy), circle.radius);
+            let result = Circle(circle.x.add(dx), circle.y.add(dy), circle.radius);
 
             Shape(result);
         }, { ->
-              //printRef(circle);
-              add(add("Circle(", circle.x, ",", circle.y),
-                add(",", circle.radius, ")"));
-         });
-    }
+          //printRef(circle);
+            "Circle("
+                .add(circle.x)
+                .add(",")
+                .add(circle.y)
+                .add(",")
+                .add(circle.radius)
+                .add(")");
+    });
+}
