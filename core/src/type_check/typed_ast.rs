@@ -869,7 +869,7 @@ pub fn convert_to_typed_module(
 
         let mut context = ValContext::new(None);
 
-        for statement in body.iter() {
+        for statement in body {
             debug_i!("converting statement {statement}");
             indent!();
             let statement_converted = convert_statement(
@@ -891,7 +891,7 @@ pub fn convert_to_typed_module(
             dedent!();
         }
 
-        body = new_body.clone();
+        body = new_body;
 
         new_typed_context.borrow().debug_i();
 

@@ -176,13 +176,13 @@ fn convert_statement(
     context: &mut ValContext,
     type_conversion_context: &RefCell<TypeConversionContext>,
     new_body: &mut Vec<ASTStatement>,
-    statement: &ASTStatement,
+    statement: ASTStatement,
     backend: &dyn Backend,
     statics: &mut Statics,
 ) -> bool {
     let mut something_to_convert = false;
 
-    match statement {
+    match &statement {
         ASTStatement::Expression(expr) => {
             if let ASTFunctionCallExpression(call @ ASTFunctionCall { .. }) = expr {
                 let converted_call =
@@ -193,9 +193,9 @@ fn convert_statement(
                     Err(e) => {
                         panic!("{e} expression: {}", expr);
                     }
-                    Ok(NothingToConvert) => new_body.push(statement.clone()),
+                    Ok(NothingToConvert) => new_body.push(statement),
                     Ok(SomethingConverted) => {
-                        new_body.push(statement.clone());
+                        new_body.push(statement);
                         something_to_convert = true;
                     }
                     Ok(Converted(new_call)) => {
@@ -238,7 +238,7 @@ fn convert_statement(
                         } else {
                             context.insert_let(name.clone(), ast_type, let_index);
                         }
-                        new_body.push(statement.clone())
+                        new_body.push(statement)
                     }
                     Ok(SomethingConverted) => {
                         something_to_convert = true;
@@ -255,7 +255,7 @@ fn convert_statement(
                         } else {
                             context.insert_let(name.clone(), ast_type, let_index);
                         }
-                        new_body.push(statement.clone())
+                        new_body.push(statement)
                     }
                     Ok(Converted(new_call)) => {
                         something_to_convert = true;
