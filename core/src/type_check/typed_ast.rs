@@ -901,12 +901,10 @@ pub fn convert_to_typed_module(
 
         for new_function_def in new_typed_context.borrow().functions().into_iter() {
             debug_i!("converting function {new_function_def}");
-            let resolved_generic_types = LinkedHashMap::new();
             let converted_function = if let Some(function_converted) = convert_function_def(
                 backend,
                 module,
                 &cloned_typed_context,
-                &resolved_generic_types,
                 new_function_def,
                 statics,
             )

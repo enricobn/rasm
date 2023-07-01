@@ -1,4 +1,4 @@
-use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType};
+use crate::parser::ast::{ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTType};
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,8 +22,12 @@ impl TypeConversionContext {
             .try_add_new(original_name, function_def)
     }
 
-    pub fn replace_body(&mut self, function_def: &ASTFunctionDef) {
-        self.functions_by_name.replace_body(function_def);
+    pub fn replace_body(
+        &mut self,
+        function_def: &ASTFunctionDef,
+        body: ASTFunctionBody,
+    ) -> ASTFunctionDef {
+        self.functions_by_name.replace_body(function_def, body)
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {

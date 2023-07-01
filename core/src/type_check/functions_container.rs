@@ -4,7 +4,9 @@ use std::iter::zip;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
-use crate::parser::ast::{ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind};
+use crate::parser::ast::{
+    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind,
+};
 use crate::utils::{format_option_option, SliceDisplay};
 use crate::{debug_i, dedent, indent};
 
@@ -91,20 +93,22 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn replace_body(&mut self, function_def: &ASTFunctionDef) {
+    pub fn replace_body(
+        &mut self,
+        function_def: &ASTFunctionDef,
+        body: ASTFunctionBody,
+    ) -> ASTFunctionDef {
         let functions = self
             .functions_by_name
             .get_mut(&function_def.original_name)
             .unwrap_or_else(|| panic!("Cannot find {}", function_def.name));
         for mut f_def in functions.iter_mut() {
-            if f_def.name == function_def.name
-                && f_def.parameters == function_def.parameters
-                && f_def.return_type == function_def.return_type
-            {
-                f_def.body = function_def.body.clone();
-                return;
+            if f_def.name == function_def.name {
+                f_def.body = body;
+                return f_def.clone();
             }
         }
+        panic!("Cannot find {}", function_def.name)
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {

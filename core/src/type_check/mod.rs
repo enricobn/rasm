@@ -33,7 +33,6 @@ fn convert_function_def(
     backend: &dyn Backend,
     module: &EnhancedASTModule,
     type_conversion_context: &RefCell<TypeConversionContext>,
-    resolved_generic_types: &LinkedHashMap<String, ASTType>,
     function_def: &ASTFunctionDef,
     statics: &Statics,
 ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
@@ -46,26 +45,19 @@ fn convert_function_def(
 
     match &function_def.body {
         ASTFunctionBody::RASMBody(body) => {
-            let return_type = function_def.return_type.clone();
-
             if let Some(new_body) = convert_body(
                 backend,
                 module,
                 type_conversion_context,
                 &context,
                 body,
-                return_type,
+                &function_def.return_type,
                 statics,
-                resolved_generic_types,
+                &LinkedHashMap::new(),
             )? {
-                let mut new_function_def = function_def.clone();
-                new_function_def.body = ASTFunctionBody::RASMBody(new_body);
-
-                new_function_def.resolved_generic_types = resolved_generic_types.clone();
-
-                type_conversion_context
+                let new_function_def = type_conversion_context
                     .borrow_mut()
-                    .replace_body(&new_function_def);
+                    .replace_body(function_def, ASTFunctionBody::RASMBody(new_body));
 
                 Ok(Some(new_function_def))
             } else {
@@ -82,7 +74,7 @@ fn convert_body(
     type_conversion_context: &RefCell<TypeConversionContext>,
     context: &ValContext,
     body: &Vec<ASTStatement>,
-    return_type: Option<ASTType>,
+    return_type: &Option<ASTType>,
     statics: &Statics,
     resolved_generic_types: &LinkedHashMap<String, ASTType>,
 ) -> Result<Option<Vec<ASTStatement>>, TypeCheckError> {
@@ -911,10 +903,15 @@ fn convert_lambda(
 
     debug_i!("return type {:?}", return_type);
 
-    let rt = return_type.clone().and_then(|it| {
-        substitute(it.as_ref(), resolved_generic_types)
-            .or_else(|| return_type.clone().map(|rt| rt.as_ref().clone()))
-    });
+    let rt = if let Some(rt) = return_type {
+        if let Some(srt) = substitute(rt.as_ref(), resolved_generic_types) {
+            Some(srt)
+        } else {
+            Some(rt.as_ref().clone())
+        }
+    } else {
+        None
+    };
 
     let result = if let Some(new_body) = convert_body(
         backend,
@@ -922,7 +919,7 @@ fn convert_lambda(
         typed_context,
         context,
         &lambda.body,
-        rt,
+        &rt,
         statics,
         resolved_generic_types,
     )? {
