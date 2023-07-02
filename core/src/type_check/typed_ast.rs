@@ -897,9 +897,10 @@ pub fn convert_to_typed_module(
 
         let cloned_typed_context = new_typed_context.clone();
 
-        functions_by_name.clear();
-
         for new_function_def in new_typed_context.borrow().functions().into_iter() {
+            if functions_by_name.contains_key(&new_function_def.name) {
+                continue;
+            }
             debug_i!("converting function {new_function_def}");
             let converted_function = if let Some(function_converted) = convert_function_def(
                 backend,
