@@ -829,8 +829,6 @@ pub fn convert_to_typed_module(
         default_functions.append(&mut vec![
             DefaultFunctionCall::new_0("printAllocated"),
             DefaultFunctionCall::new_0("printTableSlotsAllocated"),
-            DefaultFunctionCall::new_0("printAllocatedString"),
-            DefaultFunctionCall::new_0("printTableSlotsAllocatedString"),
         ])
     }
 

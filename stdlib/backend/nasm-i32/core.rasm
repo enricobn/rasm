@@ -257,7 +257,8 @@ asm deref(address: i32, descr: str) -> i32 /{
     mov     dword [ebx],eax
 
     %ifdef LOG_DEBUG
-    $call(addReused, ebx, [ebx])
+    $call(print, "  add reused ", ebx);
+    $call(print, " with value ", [ebx]);
     %endif
 
     add     ebx,4
@@ -402,25 +403,6 @@ asm removeFromReused(address: i32) /{
     pop     eax
 }/
 
-fn printReplacedReused(address: i32, value: i32) {
-    print("  replaced reused ");
-    print(address);
-    print(" with value ");
-    println(value);
-}
-
-fn addReused(address: i32, value: i32) {
-    print("  add reused ");
-    print(address);
-    print(" with value ");
-    println(value);
-}
-
-fn printRefCount(count: i32) {
-    print("  ref count: ");
-    println(count);
-}
-
 fn invalidAddress() {
     print("invalid address \n");
     exitMain(1);
@@ -448,7 +430,7 @@ asm printAllocated() /{
     jmp     .loop
 .end:
     $call(print, ecx)
-    $call(printAllocatedString)
+    $call(println, " bytes allocated")
 
     pop     edx
     pop     ecx
@@ -498,19 +480,11 @@ asm printTableSlotsAllocated() /{
     jmp     .loop
 .end:
     $call(print, eax)
-    $call(printTableSlotsAllocatedString)
+    $call(println, " table slots allocated")
 
     pop     ebx
     pop     eax
 }/
-
-fn printTableSlotsAllocatedString() {
-    println(" table slots allocated");
-}
-
-fn printAllocatedString() {
-    println(" bytes allocated");
-}
 
 fn derefAddressNotFound() {
     println("Deref: address not found");
