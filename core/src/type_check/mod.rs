@@ -1208,7 +1208,7 @@ mod tests {
             false,
             false,
             Vec::new(),
-            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
             &mut Statics::new(),
             true,
         );

@@ -32,7 +32,10 @@ async fn main() {
 
     let project = RasmProject::new(src.clone());
 
-    let server_state = ServerState::new(src, &BackendAsm386::new(HashSet::new(), HashSet::new()));
+    let server_state = ServerState::new(
+        src,
+        &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+    );
 
     let app_state = Arc::new(server_state);
 
@@ -68,10 +71,7 @@ impl ServerState {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let module = project.get_module(
-            &BackendAsm386::new(HashSet::new(), HashSet::new()),
-            &mut statics,
-        );
+        let module = project.get_module(backend, &mut statics);
         let finder = ReferenceFinder::new(&module);
         Self {
             src,

@@ -21,7 +21,14 @@ pub fn enum_functions_creator(
             .map(|it| ASTType::Generic(it.into()))
             .collect();
 
-        create_constructors(backend, module, enum_def, &param_types, statics);
+        create_constructors(
+            backend,
+            module,
+            enum_def,
+            &param_types,
+            statics,
+            backend.debug_asm(),
+        );
 
         create_match_like_function(
             backend,
@@ -107,6 +114,7 @@ fn create_constructors(
     enum_def: &ASTEnumDef,
     param_types: &[ASTType],
     statics: &mut Statics,
+    debug_asm: bool,
 ) {
     for (variant_num, variant) in enum_def.variants.iter().enumerate() {
         let ast_type = ASTType::Custom {
@@ -116,17 +124,19 @@ fn create_constructors(
             index: ASTIndex::none(),
         };
         let return_type = Some(ast_type);
+        let descr = if debug_asm {
+            format!(" for {}::{}", enum_def.name, variant.name)
+        } else {
+            String::new()
+        };
+
         let body_str = if variant.parameters.is_empty() {
             let label = format!("_enum_{}_{}", enum_def.name, variant.name);
-            statics.insert_value_in_heap(
-                &label,
-                &format!(" for {}::{}", enum_def.name, variant.name),
-                variant_num as i32,
-            );
+            statics.insert_value_in_heap(&label, &descr, variant_num as i32);
 
             format!("    mov    eax, [{}]\n", label)
         } else {
-            let descr_label = statics.add_str(&format!(" for {}::{}", enum_def.name, variant.name));
+            let descr_label = statics.add_str(&descr);
             enum_parametric_variant_constructor_body(backend, &variant_num, &variant, &descr_label)
         };
         let body = ASTFunctionBody::ASMBody(body_str);

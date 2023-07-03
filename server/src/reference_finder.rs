@@ -415,7 +415,7 @@ mod tests {
 
         let mut statics = Statics::new();
         let module = project.get_module(
-            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
             &mut statics,
         );
 
@@ -451,7 +451,7 @@ mod tests {
 
         let mut statics = Statics::new();
         let module = project.get_module(
-            &BackendAsm386::new(HashSet::new(), HashSet::new()),
+            &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
             &mut statics,
         );
 

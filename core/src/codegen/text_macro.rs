@@ -1515,6 +1515,6 @@ mod tests {
     }
 
     fn backend() -> BackendAsm386 {
-        BackendAsm386::new(HashSet::new(), HashSet::new())
+        BackendAsm386::new(HashSet::new(), HashSet::new(), false)
     }
 }

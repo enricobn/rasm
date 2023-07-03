@@ -44,7 +44,13 @@ impl Compiler {
 
                 info!("Parser ended");
 
-                let backend = BackendAsm386::new(module.requires.clone(), module.externals.clone());
+                let debug_asm = false;
+
+                let backend = BackendAsm386::new(
+                    module.requires.clone(),
+                    module.externals.clone(),
+                    debug_asm,
+                );
 
                 let mut code_gen = CodeGen::new(
                     &backend,
@@ -52,7 +58,7 @@ impl Compiler {
                     1024 * 1024,
                     64 * 1024 * 1024,
                     1024 * 1024,
-                    false,
+                    debug_asm,
                     false,
                     true,
                     false,

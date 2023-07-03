@@ -77,7 +77,12 @@ fn create_free_body(
 
     let mut result = String::new();
 
-    let descr = format!("type {}", enum_def.name);
+    let descr = if backend.debug_asm() {
+        format!("type {}", enum_def.name)
+    } else {
+        String::new()
+    };
+
     let key = statics.add_str(&descr);
 
     CodeGen::add(&mut result, "", Some(&descr), true);

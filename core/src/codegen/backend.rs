@@ -124,6 +124,8 @@ pub trait Backend: RefUnwindSafe {
         statics: &mut Statics,
         name: &str,
     ) -> Option<ASTTypedFunctionDef>;
+
+    fn debug_asm(&self) -> bool;
 }
 
 enum Linker {
@@ -136,16 +138,18 @@ pub struct BackendAsm386 {
     externals: HashSet<String>,
     linker: Linker,
     libc: bool,
+    debug_asm: bool,
 }
 
 impl BackendAsm386 {
-    pub fn new(requires: HashSet<String>, externals: HashSet<String>) -> Self {
+    pub fn new(requires: HashSet<String>, externals: HashSet<String>, debug_asm: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
             requires,
             externals,
             linker: if libc { Linker::Gcc } else { Linker::Ld },
             libc,
+            debug_asm,
         }
     }
 
@@ -545,7 +549,7 @@ impl Backend for BackendAsm386 {
         out: &mut String,
         source: &str,
         type_name: &str,
-        descr: &str,
+        descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) {
@@ -553,9 +557,11 @@ impl Backend for BackendAsm386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        if descr.is_empty() {
+        if descr_for_debug.is_empty() {
             panic!();
         }
+
+        let descr = if self.debug_asm { descr_for_debug } else { "" };
 
         let key = statics.add_str(descr);
 
@@ -624,16 +630,18 @@ impl Backend for BackendAsm386 {
         &self,
         out: &mut String,
         source: &str,
-        descr: &str,
+        descr_for_debug: &str,
         statics: &mut Statics,
     ) {
         //println!("add ref {descr}");
         let ws = self.word_size();
         let wl = self.word_len();
 
-        if descr.is_empty() {
+        if descr_for_debug.is_empty() {
             panic!();
         }
+
+        let descr = if self.debug_asm { descr_for_debug } else { "" };
 
         let key = statics.add_str(descr);
 
@@ -649,12 +657,14 @@ impl Backend for BackendAsm386 {
         &self,
         source: &str,
         type_name: &str,
-        descr: &str,
+        descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let ws = self.word_size();
         let wl = self.word_len();
+
+        let descr = if self.debug_asm { descr_for_debug } else { "" };
 
         let mut result = String::new();
 
@@ -738,11 +748,13 @@ impl Backend for BackendAsm386 {
         &self,
         out: &mut String,
         source: &str,
-        descr: &str,
+        descr_for_debug: &str,
         statics: &mut Statics,
     ) {
         let ws = self.word_size();
         let wl = self.word_len();
+
+        let descr = if self.debug_asm { descr_for_debug } else { "" };
 
         let key = statics.add_str(descr);
 
@@ -851,6 +863,10 @@ impl Backend for BackendAsm386 {
             true,
         )
     }
+
+    fn debug_asm(&self) -> bool {
+        self.debug_asm
+    }
 }
 
 #[cfg(test)]
@@ -863,7 +879,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = BackendAsm386::new(Default::default(), Default::default());
+        let sut = BackendAsm386::new(Default::default(), Default::default(), false);
 
         assert_eq!(
             sut.called_functions(
@@ -882,7 +898,7 @@ mod tests {
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = BackendAsm386::new(Default::default(), Default::default());
+        let sut = BackendAsm386::new(Default::default(), Default::default(), false);
 
         assert!(sut
             .called_functions(
@@ -899,7 +915,7 @@ mod tests {
         let mut externals = HashSet::new();
         externals.insert("something".into());
 
-        let sut = BackendAsm386::new(Default::default(), externals);
+        let sut = BackendAsm386::new(Default::default(), externals, false);
 
         assert!(sut
             .called_functions(
