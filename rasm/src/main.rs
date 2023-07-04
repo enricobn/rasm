@@ -3,6 +3,7 @@ extern crate core;
 use std::env;
 use std::io::Write;
 use std::path::Path;
+use std::time::Instant;
 
 use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
@@ -15,6 +16,8 @@ use crate::compiler::Compiler;
 pub mod compiler;
 
 fn main() {
+    let start = Instant::now();
+
     Builder::from_default_env()
         .format(|buf, record| {
             writeln!(
@@ -95,4 +98,5 @@ fn main() {
         resource_folder,
         matches.get_flag("compile"),
     );
+    info!("finished in {:?}", start.elapsed());
 }

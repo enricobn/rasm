@@ -66,12 +66,19 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     let wl = backend.word_len();
     let mut body = String::new();
     CodeGen::add(&mut body, "push ebx", None, true);
+
+    let descr = if backend.debug_asm() {
+        format!(" for {}", struct_def.name)
+    } else {
+        String::new()
+    };
+
     CodeGen::add(
         &mut body,
         &format!(
-            "$call(malloc, {}, \" for {}\")",
+            "$call(malloc, {}, \"{}\")",
             struct_def.properties.len() * wl,
-            struct_def.name
+            descr
         ),
         None,
         true,

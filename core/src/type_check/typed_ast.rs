@@ -823,6 +823,17 @@ pub fn convert_to_typed_module(
         ),
         DefaultFunctionCall::new_1("str_addRef", BuiltinTypeKind::String),
         DefaultFunctionCall::new_1("str_deref", BuiltinTypeKind::String),
+        DefaultFunctionCall::new_2(
+            "addStaticAllocation",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+        DefaultFunctionCall::new_3(
+            "addHeap",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
     ];
 
     if print_allocation {

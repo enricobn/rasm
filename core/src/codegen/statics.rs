@@ -187,100 +187,19 @@ impl Statics {
             CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
 
-        if !self.static_allocation.is_empty() {
-            CodeGen::add(
-                &mut code,
-                &format!("push  {} ecx", backend.word_size()),
-                None,
-                true,
-            );
-        }
-
         for (label_allocation, label_memory) in self.static_allocation.iter() {
             CodeGen::add(
                 &mut code,
-                &format!("mov  {} ecx, {label_allocation}", backend.word_size()),
+                &format!("$call(addStaticAllocation_0, {label_allocation}, {label_memory})"),
                 None,
                 true,
             );
-
-            CodeGen::add(
-                &mut code,
-                &format!("mov  {} [ecx], {label_memory}", backend.word_size()),
-                None,
-                true,
-            );
-
-            // allocated flag
-            CodeGen::add(
-                &mut code,
-                &format!("mov  {} [ecx + 4], 1", backend.word_size()),
-                None,
-                true,
-            );
-
-            // size
-            CodeGen::add(
-                &mut code,
-                &format!("mov  {} [ecx + 8], 4", backend.word_size()),
-                None,
-                true,
-            );
-
-            // count
-            CodeGen::add(
-                &mut code,
-                &format!("mov  {} [ecx + 12], 1", backend.word_size()),
-                None,
-                true,
-            );
-
-            // reusable table
-            CodeGen::add(
-                &mut code,
-                &format!("mov  {} [ecx + 16], 0", backend.word_size()),
-                None,
-                true,
-            );
-        }
-
-        if !self.static_allocation.is_empty() {
-            CodeGen::add(&mut code, "pop  ecx", None, true);
         }
 
         for (label, (descr_label, value)) in self.heap.iter() {
             CodeGen::add(
                 &mut code,
-                &format!(
-                    "$call(malloc_0, {}, [{descr_label}]: str)",
-                    backend.word_len()
-                ),
-                None,
-                true,
-            );
-
-            CodeGen::add(
-                &mut code,
-                &format!("$call(addRef_0, eax, [{descr_label}]: str)"),
-                None,
-                true,
-            );
-
-            CodeGen::add(
-                &mut code,
-                &format!("mov   {} [{label}], eax", backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                &mut code,
-                &format!("mov   {} eax, [eax]", backend.word_size()),
-                None,
-                true,
-            );
-            CodeGen::add(
-                &mut code,
-                &format!("mov   {} [eax], {value}", backend.word_size()),
+                &format!("$call(addHeap_0, {label}, {descr_label}: str, {value})"),
                 None,
                 true,
             );

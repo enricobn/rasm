@@ -3,9 +3,10 @@ use std::env;
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
-use log::debug;
+use log::{debug, info};
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
@@ -105,6 +106,8 @@ impl<'a> CodeGen<'a> {
         print_module: bool,
         resource_path: PathBuf,
     ) -> Self {
+        let start = Instant::now();
+
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
         });
@@ -123,6 +126,8 @@ impl<'a> CodeGen<'a> {
             print_module,
             &mut statics,
         );
+
+        info!("type check ended in {:?}", start.elapsed());
 
         Self {
             module: typed_module,
@@ -359,6 +364,7 @@ impl<'a> CodeGen<'a> {
 
         let mut temp_statics = Statics::new();
         let mut evaluator = TextMacroEvaluator::new();
+
         let code = evaluator.translate(
             self.backend,
             &mut temp_statics,

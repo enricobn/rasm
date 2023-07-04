@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
@@ -317,6 +318,7 @@ impl Backend for BackendAsm386 {
     }
 
     fn compile(&self, source_file: &PathBuf) -> Output {
+        let start = Instant::now();
         info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");
         nasm_command
@@ -327,14 +329,17 @@ impl Backend for BackendAsm386 {
             .arg("dwarf")
             .arg(source_file);
         BackendAsm386::log_command(&nasm_command);
-        nasm_command
+        let result = nasm_command
             .stderr(Stdio::inherit())
             .output()
-            .expect("failed to execute nasm")
+            .expect("failed to execute nasm");
+        info!("assembler ended in {:?}", start.elapsed());
+        result
     }
 
     fn link(&self, path: &Path) -> Output {
-        match self.linker {
+        let start = Instant::now();
+        let result = match self.linker {
             Linker::Ld => {
                 let mut ld_command = Command::new("ld");
                 ld_command
@@ -375,7 +380,9 @@ impl Backend for BackendAsm386 {
                     .output()
                     .expect("failed to execute gcc")
             }
-        }
+        };
+        info!("linker ended in {:?}", start.elapsed());
+        result
     }
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String> {

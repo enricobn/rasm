@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use log::info;
 
@@ -38,11 +39,12 @@ impl Compiler {
         let file_path = Path::new(&self.main_src_file);
         match Lexer::from_file(file_path) {
             Ok(lexer) => {
-                info!("Lexer ended");
+                info!("lexer ended");
+                let start = Instant::now();
                 let mut parser = Parser::new(lexer, Some(file_path.to_path_buf()));
                 let module = parser.parse(file_path, Path::new(&self.std_lib_path));
 
-                info!("Parser ended");
+                info!("parser ended in {:?}", start.elapsed());
 
                 let debug_asm = false;
 
@@ -65,9 +67,11 @@ impl Compiler {
                     self.resource_folder.clone(),
                 );
 
+                let start = Instant::now();
+
                 let asm = code_gen.asm();
 
-                info!("Code generation ended");
+                info!("code generation ended in {:?}", start.elapsed());
 
                 let out_path = Path::new(&self.out);
                 File::create(out_path)
@@ -80,8 +84,6 @@ impl Compiler {
                 } else {
                     backend.compile_and_link(&self.out);
                 }
-
-                info!("Compilation and linking ended");
             }
             Err(err) => {
                 panic!("An error occurred: {}", err)
