@@ -1,0 +1,24 @@
+// RUST_LOG=info RUST_BACKTRACE=full cargo run --release rasm/resources/profile/vec.rasm vec
+// ./vec 1000000
+// 56 bytes allocated
+// real    0m0,061s
+include "std.rasm"
+
+struct Point {
+    x: i32,
+    y: i32
+}
+
+main();
+main();
+
+printAllocated();
+
+fn main() {
+    let points = points(atoi(argv(1)));
+    println(points.length);
+}
+
+fn points(count: i32) -> Vec<Point> {
+    vecRange(0, count).map({ it -> Point(it, it); });
+}
