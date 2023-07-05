@@ -53,6 +53,10 @@ pub struct Parser {
     externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
     included_files: HashSet<PathBuf>,
+    // TODO it should be a "constant"
+    function_def_matcher: TokensMatcher,
+    // TODO it should be a "constant"
+    enum_parser: EnumParser,
 }
 
 #[derive(Clone, Debug)]
@@ -138,6 +142,11 @@ impl Parser {
             HashSet::new()
         };
 
+        let mut function_def_matcher = TokensMatcher::default();
+        function_def_matcher.add_alphanumeric();
+        function_def_matcher.add_matcher(generic_types_matcher());
+        function_def_matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
+
         Self {
             tokens,
             body: Vec::new(),
@@ -153,6 +162,8 @@ impl Parser {
             externals: HashSet::new(),
             types: Vec::new(),
             included_files,
+            function_def_matcher,
+            enum_parser: EnumParser::new(),
         }
     }
 
@@ -263,7 +274,8 @@ impl Parser {
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
                         if let Some((variants, next_i)) =
-                            EnumParser::new(self).parse_variants(&def.type_parameters, 0)
+                            self.enum_parser
+                                .parse_variants(self, &def.type_parameters, 0)
                         {
                             def.variants = variants;
                             self.enums.push(def);
@@ -444,7 +456,7 @@ impl Parser {
             }
 
             self.i = next_i;
-        } else if let Some((name, type_params, next_i)) = EnumParser::new(self).try_parse() {
+        } else if let Some((name, type_params, next_i)) = self.enum_parser.try_parse(self) {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
@@ -854,14 +866,7 @@ impl Parser {
 
     fn try_parse_function_def(&self) -> Option<(String, Vec<String>, usize)> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
-            let param_types_matcher = generic_types_matcher();
-
-            let mut matcher = TokensMatcher::default();
-            matcher.add_alphanumeric();
-            matcher.add_matcher(param_types_matcher);
-            matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
-
-            if let Some(matcher_result) = matcher.match_tokens(self, 1) {
+            if let Some(matcher_result) = self.function_def_matcher.match_tokens(self, 1) {
                 let param_types = matcher_result.group_alphas("type");
                 Some((
                     matcher_result.alphas().first().unwrap().to_string(),

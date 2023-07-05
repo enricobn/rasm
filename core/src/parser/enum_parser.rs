@@ -13,16 +13,12 @@ use crate::parser::tokens_matcher::{
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
-pub struct EnumParser<'a> {
-    parser: &'a dyn ParserTrait,
+pub struct EnumParser {
+    matcher: TokensMatcher,
 }
 
-impl<'a> EnumParser<'a> {
-    pub fn new(parser: &'a dyn ParserTrait) -> Self {
-        Self { parser }
-    }
-
-    pub fn try_parse(&self) -> Option<(Token, Vec<String>, usize)> {
+impl EnumParser {
+    pub fn new() -> Self {
         let generic_types = generic_types_matcher();
 
         let mut matcher = TokensMatcher::default();
@@ -31,27 +27,31 @@ impl<'a> EnumParser<'a> {
         matcher.add_matcher(generic_types);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        matcher.match_tokens(self.parser, 0).map(|result| {
+        Self { matcher }
+    }
+
+    pub fn try_parse(&self, parser: &dyn ParserTrait) -> Option<(Token, Vec<String>, usize)> {
+        self.matcher.match_tokens(parser, 0).map(|result| {
             let param_types = result.group_alphas("type");
             (
                 result.tokens().get(1).unwrap().clone(),
                 param_types,
-                self.parser.get_i() + result.next_n(),
+                parser.get_i() + result.next_n(),
             )
         })
     }
 
-    pub fn try_parse_enum(&self) -> Option<(ASTEnumDef, usize)> {
-        if let Some((token, type_parameters, next_i)) = self.try_parse() {
+    pub fn try_parse_enum(&self, parser: &dyn ParserTrait) -> Option<(ASTEnumDef, usize)> {
+        if let Some((token, type_parameters, next_i)) = self.try_parse(parser) {
             if let Some((variants, next_i)) =
-                self.parse_variants(&type_parameters, next_i - self.parser.get_i())
+                self.parse_variants(parser, &type_parameters, next_i - parser.get_i())
             {
                 return Some((
                     ASTEnumDef {
                         name: token.alpha().unwrap(),
                         type_parameters,
                         variants,
-                        index: self.parser.get_index(0).unwrap(),
+                        index: parser.get_index(0).unwrap(),
                     },
                     next_i,
                 ));
@@ -62,27 +62,29 @@ impl<'a> EnumParser<'a> {
 
     pub fn parse_variants(
         &self,
+        parser: &dyn ParserTrait,
         type_parameters: &[String],
         n: usize,
     ) -> Option<(Vec<ASTEnumVariantDef>, usize)> {
         //println!("parse_variants n {}", n);
-        let mut matcher = TokensMatcher::default();
-        matcher.add_matcher(EnumParser::variant_matcher(
+        let mut enum_variants_matcher = TokensMatcher::default();
+        enum_variants_matcher.add_matcher(EnumParser::variant_matcher(
             "variant",
             Quantifier::One,
             type_parameters,
         ));
-        matcher.start_group("variant_", Quantifier::ZeroOrMore);
-        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
-        matcher.add_matcher(EnumParser::variant_matcher(
+        enum_variants_matcher.start_group("variant_", Quantifier::ZeroOrMore);
+        enum_variants_matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
+        enum_variants_matcher.add_matcher(EnumParser::variant_matcher(
             "variant",
             Quantifier::One,
             type_parameters,
         ));
-        matcher.end_group();
-        matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
+        enum_variants_matcher.end_group();
+        enum_variants_matcher
+            .add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
 
-        if let Some(variants_result) = matcher.match_tokens(self.parser, n) {
+        if let Some(variants_result) = enum_variants_matcher.match_tokens(parser, n) {
             let variant_results: Vec<&TokensMatcherResult> =
                 variants_result.group_results("variant");
 
@@ -113,13 +115,13 @@ impl<'a> EnumParser<'a> {
                                         ast_index: token.index(),
                                     });
                                 } else {
-                                    self.parser.panic(&format!(
+                                    parser.panic(&format!(
                                         "Cannot parse type for enum variant, unexpected token {:?}:",
                                         parameters_tokens.get(i)
                                     ));
                                 }
                             } else {
-                                self.parser.panic(&format!(
+                                parser.panic(&format!(
                                     "Cannot parse type for enum variant {:?}:",
                                     name_token
                                 ));
@@ -137,7 +139,7 @@ impl<'a> EnumParser<'a> {
                 .collect();
 
             //println!("parse_variants next_n: {}", variants_result.next_n());
-            Some((variants, self.parser.get_i() + variants_result.next_n()))
+            Some((variants, parser.get_i() + variants_result.next_n()))
         } else {
             None
         }
@@ -586,17 +588,17 @@ mod tests {
     fn try_parse(source: &str) -> Option<(Token, Vec<String>, usize)> {
         let parser = get_parser(source);
 
-        let sut = EnumParser::new(&parser);
+        let sut = EnumParser::new();
 
-        sut.try_parse()
+        sut.try_parse(&parser)
     }
 
     fn try_parse_enum(source: &str) -> Option<(ASTEnumDef, usize)> {
         let parser = get_parser(source);
 
-        let sut = EnumParser::new(&parser);
+        let sut = EnumParser::new();
 
-        sut.try_parse_enum()
+        sut.try_parse_enum(&parser)
     }
 
     fn parse_variants(
@@ -606,9 +608,9 @@ mod tests {
     ) -> Option<(Vec<ASTEnumVariantDef>, usize)> {
         let parser = get_parser(source);
 
-        let sut = EnumParser::new(&parser);
+        let sut = EnumParser::new();
 
-        sut.parse_variants(type_parameters, n)
+        sut.parse_variants(&parser, type_parameters, n)
     }
 
     fn try_parse_variant(source: &str, type_parameters: &[String]) -> Option<TokensMatcherResult> {
