@@ -1804,7 +1804,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                         .map(|it| format!("{:?}", it))
                         .collect::<Vec<_>>()
                 );
-                panic!("Cannot find custom type {name}");
+                panic!("Cannot find custom type {name}. {message}");
             }
         }
     }

@@ -250,7 +250,7 @@ asm keyEvent() -> Option<KeyEvent> /{
 
 // LOOP
 
-fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEvent>, WORLD) -> WORLD, renderFun: fn(CTX, WORLD) -> ()) -> WORLD {
+fn sdlSingleLoop<CTX,MODEL>(ctx: CTX, model: MODEL, updateFun: fn(Option<KeyEvent>, MODEL) -> MODEL, renderFun: fn(CTX, MODEL) -> ()) -> MODEL {
     // println("State in sdlSingleLoop");
     // printRef(world);
     let event = keyEvent();
@@ -260,38 +260,38 @@ fn sdlSingleLoop<CTX,WORLD>(ctx: CTX, world: WORLD, updateFun: fn(Option<KeyEven
         ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
     }, { -> });
 
-    let newWorld = updateFun(event, world);
-    renderFun(ctx, newWorld);
+    let newModel = updateFun(event, model);
+    renderFun(ctx, newModel);
 
-    newWorld;
+    newModel;
 }
 
-asm sdlLoop<CTX,STATE>(ctx: CTX, state: STATE, update: fn(Option<KeyEvent>, STATE) -> STATE, render: fn(CTX, STATE) -> ()) /{
+asm sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
     push    ebx
     push    ecx
     push    edx
 
-    mov     dword edx, $state
-    mov     dword ebx, $state
+    mov     dword edx, $model
+    mov     dword ebx, $model
 .loop:
     ; $call(printTotalMemory)
     ; $call(printAllocated)
     ; $call(printTableSlotsAllocated)
     mov     dword ecx, [ebx]
-    $call(sdlSingleLoop,$ctx:CTX,ebx:STATE,$update,$render)
+    $call(sdlSingleLoop,$ctx:CTX,ebx:MODEL,$update,$render)
     cmp     dword ebx,eax
     jne     .doRef
     $call(println, "state is the same")
     jmp     .skipRef
 .doRef:
-    $addRef(eax: STATE)
+    $addRef(eax: MODEL)
     ;$call(println, "New state ")
-    ;$printRef(eax:STATE)
-    cmp     ebx,$state
+    ;$printRef(eax:MODEL)
+    cmp     ebx,$model
     je      .skipRef
     ;$call(println, "Old state ")
-    ; $printRef(ebx:STATE)
-    $deref(ebx: STATE)
+    ; $printRef(ebx:MODEL)
+    $deref(ebx: MODEL)
 .skipRef:
     mov     dword edx, ebx
     mov     dword ebx, eax
