@@ -1,4 +1,3 @@
-include "std.rasm"
 
 let file = createFile("file_for_write.txt");
 

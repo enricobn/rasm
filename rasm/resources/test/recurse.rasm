@@ -1,4 +1,3 @@
-include "std.rasm"
 
 recurse(5, {n -> add(n, -1);});
 

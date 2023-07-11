@@ -1,13 +1,3 @@
-include "std.rasm"
-include "../sdl.rasm"
-
-include "ball.rasm"
-include "bar.rasm"
-include "brick.rasm"
-include "direction.rasm"
-include "game.rasm"
-include "menu.rasm"
-
 enum GameResult {
     Play(state: GameState),
     End(score: i32)

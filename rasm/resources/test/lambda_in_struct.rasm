@@ -1,5 +1,3 @@
-include "std.rasm"
-
 struct Loop<T> {
     update: fn(i32, T) -> Option<T>,
     render: fn(T) -> ()

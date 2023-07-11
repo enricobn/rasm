@@ -1,3 +1,2 @@
-include "std.rasm"
 
 println(readFile(argv(1)));

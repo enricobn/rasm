@@ -1,5 +1,4 @@
-include "std.rasm"
-include "sdl.rasm"
+include "sdl/sdl.rasm"
 
 let win = sdlCreateWindow("Bricks", 100, 100, 800, 600);
 let ren = sdlCreateRenderer(win);

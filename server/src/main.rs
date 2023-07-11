@@ -19,6 +19,7 @@ use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Toke
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::{ASTIndex, ASTModule};
 use rasm_core::project::project::RasmProject;
+use rasm_core::transformations::enrich_module;
 use rasm_server::reference_finder::ReferenceFinder;
 
 #[tokio::main]
@@ -71,7 +72,15 @@ impl ServerState {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let module = project.get_module(backend, &mut statics);
+        let mut module = project.get_module();
+
+        enrich_module(
+            backend,
+            project.resource_folder(),
+            &mut statics,
+            &mut module,
+        );
+
         let finder = ReferenceFinder::new(&module);
         Self {
             src,
@@ -89,7 +98,12 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
     let project = RasmProject::new(state.src.clone());
 
     let root_file = project
-        .relative_to_root(project.main_src_file().as_path())
+        .relative_to_root(
+            project
+                .main_src_file()
+                .expect("undefined main in rasm.toml")
+                .as_path(),
+        )
         .unwrap();
 
     info!("root file {}", root_file.to_str().unwrap());

@@ -1,5 +1,3 @@
-include "std.rasm"
-
 struct AStruct {
     anI32: i32
 }

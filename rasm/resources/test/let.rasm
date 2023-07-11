@@ -1,5 +1,3 @@
-include "std.rasm"
-
 println(test(5));
 println(test2(5));
 

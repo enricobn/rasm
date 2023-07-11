@@ -1,4 +1,3 @@
-include "std.rasm"
 
 test(nItPrint(0), nItPrint(1));
 

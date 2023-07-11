@@ -1,5 +1,3 @@
-include "std.rasm"
-
 printWith(15);
 
 fn printWith(v1: i32) {

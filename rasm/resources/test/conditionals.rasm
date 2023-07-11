@@ -1,46 +1,43 @@
-include "std.rasm"
-
-
 //False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
 
 
-    ifRun(false,{ -> println("True");},{ -> println("False");});
+ifRun(false,{ -> println("True");},{ -> println("False");});
 
-    ifRun(true,{ -> println("True");},{ -> println("False");});
+ifRun(true,{ -> println("True");},{ -> println("False");});
 
-    ifRun(eq(0,0),{ -> println("equal");},{ -> println("not equal");});
+ifRun(eq(0,0),{ -> println("equal");},{ -> println("not equal");});
 
-    ifRun(eq(0,1),{ -> println("equal");},{ -> println("not equal");});
+ifRun(eq(0,1),{ -> println("equal");},{ -> println("not equal");});
 
-    ifRun(less(1,2),{ -> println("less");},{ -> println("not less");});
+ifRun(less(1,2),{ -> println("less");},{ -> println("not less");});
 
-    ifRun(less(0,0),{ -> println("less");},{ -> println("not less");});
+ifRun(less(0,0),{ -> println("less");},{ -> println("not less");});
 
-    ifRun(greater(1,0),{ -> println("greater");},{ -> println("not greater");});
+ifRun(greater(1,0),{ -> println("greater");},{ -> println("not greater");});
 
-    ifRun(greater(0,1),{ -> println("greater");},{ -> println("not greater");});
+ifRun(greater(0,1),{ -> println("greater");},{ -> println("not greater");});
 
-    ifRun(lessOrEqual(0,1),{ -> println("less or equal");},{ -> println("not less or equal");});
+ifRun(lessOrEqual(0,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
-    ifRun(lessOrEqual(1,1),{ -> println("less or equal");},{ -> println("not less or equal");});
+ifRun(lessOrEqual(1,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
-    ifRun(lessOrEqual(2,1),{ -> println("less or equal");},{ -> println("not less or equal");});
+ifRun(lessOrEqual(2,1),{ -> println("less or equal");},{ -> println("not less or equal");});
 
-    println(if(false, 100, 200));
-    println(if(true, 100, 200));
+println(if(false, 100, 200));
+println(if(true, 100, 200));
 
-    // TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
-    assertFalse(or(false, false));
-    assert(or(true, false));
-    assert(or(false, true));
-    assert(or(true, true));
+// TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
+assertFalse(or(false, false));
+assert(or(true, false));
+assert(or(false, true));
+assert(or(true, true));
 
-    assertFalse(and(false, false));
-    assertFalse(and(true, false));
-    assertFalse(and(false, true));
-    assert(and(true, true));
-    assert(not(false));
-    assertFalse(not(true));
+assertFalse(and(false, false));
+assertFalse(and(true, false));
+assertFalse(and(false, true));
+assert(and(true, true));
+assert(not(false));
+assertFalse(not(true));
 
 
 

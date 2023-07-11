@@ -1,5 +1,3 @@
-include "std.rasm"
-
 let v = vecOf(10);
 
 ifRun(true, { ->

@@ -1,3 +1,2 @@
-include "std.rasm"
 
 println(filter(range(0,10), { v -> less(v, 5); }));

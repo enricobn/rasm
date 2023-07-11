@@ -10,84 +10,60 @@ use rasm_core::codegen::backend::BackendAsm386;
 use rasm_core::codegen::CodeGen;
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::Parser;
+use rasm_core::project::project::RasmProject;
+use rasm_core::transformations::enrich_module;
 
 pub struct Compiler {
-    main_src_file: PathBuf,
+    project: RasmProject,
     out: PathBuf,
-    std_lib_path: PathBuf,
-    resource_folder: PathBuf,
 }
 
 impl Compiler {
-    pub fn compile(
-        main_src_file: PathBuf,
-        out: PathBuf,
-        std_lib_path: PathBuf,
-        resource_folder: PathBuf,
-        only_compile: bool,
-    ) {
-        let compiler = Compiler {
-            main_src_file,
-            out,
-            std_lib_path,
-            resource_folder,
-        };
+    pub fn compile(project: RasmProject, out: PathBuf, only_compile: bool) {
+        let compiler = Compiler { project, out };
         compiler._compile(only_compile)
     }
 
     fn _compile(&self, only_compile: bool) {
-        let file_path = Path::new(&self.main_src_file);
-        match Lexer::from_file(file_path) {
-            Ok(lexer) => {
-                info!("lexer ended");
-                let start = Instant::now();
-                let mut parser = Parser::new(lexer, Some(file_path.to_path_buf()));
-                let module = parser.parse(file_path, Path::new(&self.std_lib_path));
+        let start = Instant::now();
 
-                info!("parser ended in {:?}", start.elapsed());
+        let debug_asm = false;
 
-                let debug_asm = false;
+        let module = self.project.get_module();
+        info!("parse ended in {:?}", start.elapsed());
 
-                let backend = BackendAsm386::new(
-                    module.requires.clone(),
-                    module.externals.clone(),
-                    debug_asm,
-                );
+        let backend =
+            BackendAsm386::new(module.requires.clone(), module.externals.clone(), debug_asm);
 
-                let mut code_gen = CodeGen::new(
-                    &backend,
-                    module,
-                    1024 * 1024,
-                    64 * 1024 * 1024,
-                    1024 * 1024,
-                    debug_asm,
-                    false,
-                    true,
-                    false,
-                    self.resource_folder.clone(),
-                );
+        let mut code_gen = CodeGen::new(
+            &backend,
+            module,
+            1024 * 1024,
+            64 * 1024 * 1024,
+            1024 * 1024,
+            debug_asm,
+            false,
+            true,
+            false,
+            self.project.resource_folder(),
+        );
 
-                let start = Instant::now();
+        let start = Instant::now();
 
-                let asm = code_gen.asm();
+        let asm = code_gen.asm();
 
-                info!("code generation ended in {:?}", start.elapsed());
+        info!("code generation ended in {:?}", start.elapsed());
 
-                let out_path = Path::new(&self.out);
-                File::create(out_path)
-                    .unwrap()
-                    .write_all(asm.as_bytes())
-                    .unwrap();
+        let out_path = Path::new(&self.out);
+        File::create(out_path)
+            .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
+            .write_all(asm.as_bytes())
+            .unwrap();
 
-                if only_compile {
-                    backend.compile(&self.out);
-                } else {
-                    backend.compile_and_link(&self.out);
-                }
-            }
-            Err(err) => {
-                panic!("An error occurred: {}", err)
-            }
+        if only_compile {
+            backend.compile(&self.out);
+        } else {
+            backend.compile_and_link(&self.out);
         }
     }
 }

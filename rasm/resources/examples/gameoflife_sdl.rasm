@@ -6,8 +6,7 @@
 // real    0m21,196s
 
 
-include "std.rasm"
-include "sdl.rasm"
+include "sdl/sdl.rasm"
 
 include "gameoflife_common.rasm"
 include "gameoflife_common_list.rasm"

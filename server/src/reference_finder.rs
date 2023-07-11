@@ -379,7 +379,7 @@ mod tests {
     use std::collections::HashSet;
     use std::env;
     use std::io::Write;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use env_logger::Builder;
 
@@ -387,6 +387,7 @@ mod tests {
     use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::project::RasmProject;
+    use rasm_core::transformations::enrich_module;
 
     use crate::reference_finder::ReferenceFinder;
 
@@ -408,21 +409,22 @@ mod tests {
     #[test]
     fn simple() {
         init();
-        env::set_var("RASM_STDLIB", "../stdlib");
+        env::set_var("RASM_STDLIB", "../../stdlib");
         let file_name = Path::new("resources/simple.rasm");
 
         let project = RasmProject::new(file_name.to_path_buf());
 
         let mut statics = Statics::new();
-        let module = project.get_module(
+        let mut module = project.get_module();
+
+        enrich_module(
             &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+            project.resource_folder(),
             &mut statics,
+            &mut module,
         );
 
         let finder = ReferenceFinder::new(&module);
-
-        let row = 5;
-        let column = 15;
 
         finder.selectable_items.iter().for_each(|it| {
             if it.min.file_name == Some(file_name.to_path_buf()) {
@@ -431,34 +433,36 @@ mod tests {
         });
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 5, 15,)),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 3, 10)]
+            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,)),
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 1, 10)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 8, 15,)),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 7, 21)]
+            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 15,)),
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 21)]
         );
     }
 
     #[test]
     fn types() {
         init();
-        env::set_var("RASM_STDLIB", "../stdlib");
+        let stdlib = "../../stdlib";
+        env::set_var("RASM_STDLIB", stdlib);
         let file_name = Path::new("resources/types.rasm");
 
         let project = RasmProject::new(file_name.to_path_buf());
 
         let mut statics = Statics::new();
-        let module = project.get_module(
+        let mut module = project.get_module();
+
+        enrich_module(
             &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+            project.resource_folder(),
             &mut statics,
+            &mut module,
         );
 
         let finder = ReferenceFinder::new(&module);
-
-        let row = 5;
-        let column = 15;
 
         let source_file = Path::new(&file_name);
 
@@ -468,27 +472,24 @@ mod tests {
             }
         });
 
+        let stdlib_path = project
+            .from_relative_to_root(Path::new(stdlib))
+            .canonicalize()
+            .unwrap();
+
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 15, 23,)),
-            vec![ASTIndex::new(
-                Some(Path::new("../stdlib/option.rasm").to_path_buf()),
-                1,
-                5
-            )]
+            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,)),
+            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 5)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 19, 23,)),
-            vec![ASTIndex::new(Some(source_file.to_path_buf()), 3, 7)]
+            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 17, 23,)),
+            vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 7)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 23, 23,)),
-            vec![ASTIndex::new(
-                Some(Path::new("../stdlib/vec.rasm").to_path_buf()),
-                1,
-                5
-            )]
+            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,)),
+            vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 5)]
         );
     }
 }

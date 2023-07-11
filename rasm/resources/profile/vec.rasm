@@ -2,8 +2,6 @@
 // ./vec 1000000
 // 56 bytes allocated
 // real    0m0,061s
-include "std.rasm"
-
 struct Point {
     x: i32,
     y: i32

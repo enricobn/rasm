@@ -1,5 +1,3 @@
-include "std.rasm"
-
 let r = range(0, 2);
 println(anyMatch(range(0,2), { n -> eq(n, 0);}));
 println(anyMatch(r, { n -> eq(n, 0);}));

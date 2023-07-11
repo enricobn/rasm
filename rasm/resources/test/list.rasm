@@ -1,5 +1,3 @@
-include "std.rasm"
-
 println(range(0, atoi(argv(1))));
 
 println(listReverse(range(0, atoi(argv(1)))));

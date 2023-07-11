@@ -1,4 +1,3 @@
-include "std.rasm"
 
 println("😀");
 println(add("Hello ", "world!"));

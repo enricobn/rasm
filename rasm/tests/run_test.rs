@@ -1,3 +1,4 @@
+use std::env;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -340,7 +341,7 @@ fn test_allocation() {
 #[test]
 fn test_oop() {
     run_test(
-        "oop/oop",
+        "oop",
         vec![],
         "Circle(1,1,2),Rect(10,20,5,5),Point(4,5),\nCircle(101,101,2),Rect(110,120,5,5),Point(104,105),\nPoint(1,1),Point(12,22),Point(4,5),\n",
     );
@@ -392,11 +393,6 @@ fn test_gameoflife_vec_sdl_compile() {
 
 #[test]
 fn test_breakout() {
-    compile_example("resources/examples/breakout/breakout.rasm", true);
-}
-
-#[test]
-fn test_breakout_folder() {
     compile_example("resources/examples/breakout", true);
 }
 
@@ -407,7 +403,14 @@ fn test_showimage() {
 
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
-    let executable = compile(&dir, &format!("resources/test/{}.rasm", test_name), false);
+
+    let mut main = format!("resources/test/{}", test_name);
+
+    if !Path::new(&main).is_dir() {
+        main = format!("{main}.rasm");
+    }
+
+    let executable = compile(&dir, &main, false);
     execute(&executable.unwrap(), args, Some(expected_output));
 }
 
@@ -423,19 +426,16 @@ fn compile_example(source: &str, only_compile: bool) {
 }
 
 fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
-    let (mut args, dest) = if source.ends_with(".rasm") {
-        let source_without_extension = Path::new(source).with_extension("");
-        let file_name = source_without_extension
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap();
-        let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
+    let source_without_extension = Path::new(source).with_extension("");
+    let file_name = source_without_extension
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
 
-        (vec![source.to_owned(), dest.clone()], Some(dest))
-    } else {
-        (vec![source.to_owned()], None)
-    };
+    let mut args = vec![source.to_owned(), dest.clone()];
+    let dest = Some(dest);
 
     if only_compile {
         // it's needed for running some tests on github since we are not able to link
@@ -443,7 +443,14 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
     }
 
     let status = test_bin::get_test_bin("rasm")
-        .env("RASM_STDLIB", "../stdlib")
+        .env(
+            "RASM_STDLIB",
+            Path::new("../stdlib")
+                .canonicalize()
+                .unwrap()
+                .to_str()
+                .unwrap(),
+        )
         .args(args)
         .stderr(Stdio::inherit())
         .status()

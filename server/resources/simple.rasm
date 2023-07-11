@@ -1,5 +1,3 @@
-include "std.rasm"
-
 let anI32 = 10;
 
 doSomething(anI32);

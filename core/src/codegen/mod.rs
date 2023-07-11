@@ -177,7 +177,9 @@ impl<'a> CodeGen<'a> {
     }
 
     pub fn get_std_lib_path() -> String {
-        env::var("RASM_STDLIB").unwrap_or("stdlib".to_owned())
+        let current_dir = env::current_dir().unwrap();
+        println!("current dir {}", current_dir.to_str().unwrap());
+        env::var("RASM_STDLIB").unwrap_or(current_dir.join("stdlib").to_str().unwrap().to_owned())
     }
 
     pub fn asm(&mut self) -> String {

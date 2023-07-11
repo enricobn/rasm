@@ -1,3 +1,2 @@
-include "std.rasm"
 
 println(flatten(listOf(listOf(1, 2), listOf(3, 4))));

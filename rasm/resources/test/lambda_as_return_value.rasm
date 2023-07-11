@@ -1,5 +1,3 @@
-include "std.rasm"
-
 const COUNT = 3;
 
 println(map(range(1,COUNT), getAdd()));

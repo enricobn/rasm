@@ -75,11 +75,10 @@ fn main() {
 
     info!("project {:?}", project);
 
-    let main_src_file = project.main_src_file();
+    let main_src_file = project
+        .main_src_file()
+        .expect("undefined main in rasm.toml");
     info!("main {:?}", main_src_file);
-
-    let std_lib_path = project.std_lib_path();
-    info!("stdlib path {:?}", std_lib_path);
 
     let resource_folder = project.resource_folder();
     info!("resource folder {:?}", resource_folder);
@@ -91,12 +90,6 @@ fn main() {
     }
     .with_extension("asm");
 
-    Compiler::compile(
-        main_src_file,
-        out,
-        std_lib_path,
-        resource_folder,
-        matches.get_flag("compile"),
-    );
+    Compiler::compile(project, out, matches.get_flag("compile"));
     info!("finished in {:?}", start.elapsed());
 }

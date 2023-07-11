@@ -1,5 +1,3 @@
-include "std.rasm"
-
 struct Range {
     index: i32,
     start: i32,

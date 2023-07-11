@@ -572,9 +572,9 @@ impl<'a> CallConverter<'a> {
 
     fn convert_lambda_expr(
         &self,
-        mut resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-        mut converted_expressions: &mut Vec<ASTExpression>,
-        mut converted_parameters: &mut Vec<ASTParameterDef>,
+        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
+        converted_expressions: &mut Vec<ASTExpression>,
+        converted_parameters: &mut Vec<ASTParameterDef>,
         par: &ASTParameterDef,
         lambda: &ASTLambdaDef,
     ) -> Result<bool, TypeCheckError> {

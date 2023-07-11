@@ -364,8 +364,30 @@ pub struct ASTModule {
 }
 
 impl ASTModule {
+    pub fn new() -> Self {
+        Self {
+            body: Vec::new(),
+            functions: Vec::new(),
+            enums: Vec::new(),
+            structs: Vec::new(),
+            requires: HashSet::new(),
+            externals: HashSet::new(),
+            types: Vec::new(),
+        }
+    }
+
     pub fn add_function(&mut self, function_def: ASTFunctionDef) {
         self.functions.push(function_def);
+    }
+
+    pub fn add(&mut self, mut module: ASTModule) {
+        self.body.append(&mut module.body);
+        self.functions.append(&mut module.functions);
+        self.enums.append(&mut module.enums);
+        self.structs.append(&mut module.structs);
+        self.requires.extend(module.requires);
+        self.externals.extend(module.externals);
+        self.types.extend(module.types);
     }
 }
 

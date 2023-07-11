@@ -13,8 +13,6 @@
 // real    0m4,716s
 
 
-include "std.rasm"
-
 println(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {

@@ -1,3 +1,1 @@
-include "std.rasm"
-
 println(add(add(2, 3), add(add(5, 10), 9)));

@@ -17,9 +17,7 @@
 //
 //real    0m2,121s
 
-
-include "std.rasm"
-include "sdl.rasm"
+include "sdl/sdl.rasm"
 
 include "gameoflife_common.rasm"
 include "gameoflife_common_vec.rasm"

@@ -1,3 +1,4 @@
+/*
 asm malloc(size: i32) -> i32 /{
     push    ebx
     push    ecx
@@ -214,7 +215,7 @@ asm addRef(address: i32, descr: str) /{
 
 fn printRefCount(count: i32) {
     print("  ref count: ");
-    println($count);
+    println(count);
 }
 
 fn endDeref() {
@@ -354,3 +355,4 @@ fn derefAddressNotFound() {
     println("Deref: address not found");
     exit(1);
 }
+*/

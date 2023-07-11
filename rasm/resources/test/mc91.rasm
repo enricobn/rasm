@@ -1,4 +1,3 @@
-include "std.rasm"
 
 println(mc91(87));
 

@@ -1,5 +1,3 @@
-include "std.rasm"
-
 const aNumber = 10;
 const aChar = 'è';
 const aBool = true;

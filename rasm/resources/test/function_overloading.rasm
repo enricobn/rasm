@@ -1,5 +1,3 @@
-include "std.rasm"
-
 println(myToString(10));
 println(myToString("Hello"));
 println(add("Hello", " world"));

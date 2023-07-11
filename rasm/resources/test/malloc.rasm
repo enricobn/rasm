@@ -1,4 +1,3 @@
-include "std.rasm"
 
 printOption(Option::Some(Option::Some("1")));
 

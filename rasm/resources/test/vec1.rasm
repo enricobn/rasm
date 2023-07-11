@@ -1,4 +1,3 @@
-include "std.rasm"
 
 println(add(vecOf(1, 2), vecOf(3, 4)));
 println(eq(vecOf(1, 2), vecOf(3, 4)));

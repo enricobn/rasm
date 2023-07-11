@@ -1,5 +1,3 @@
-include "std.rasm"
-
 let v = vecRange(0, 2);
 println(v);
 

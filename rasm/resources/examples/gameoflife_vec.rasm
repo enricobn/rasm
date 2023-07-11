@@ -8,7 +8,6 @@
 // 80 * 50
 // real    0m1,753s
 
-include "std.rasm"
 include "gameoflife_common.rasm"
 include "gameoflife_common_vec.rasm"
 

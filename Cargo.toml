@@ -30,4 +30,5 @@ tempdir = "0.3"
 test_bin = "0.4"
 test-log = "0.2"
 toml = "0.7"
+walkdir = "2.3"
 

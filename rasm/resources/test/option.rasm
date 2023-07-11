@@ -1,4 +1,3 @@
-include "std.rasm"
 
 println(Option::Some(1).fmap({v -> Option::Some(add("value = ", 2));}));
 

@@ -1,3 +1,4 @@
+/*
 type Monad<M> {
 
     fn map<T,T1>(o: M<T>, f: fn(T) -> T1) -> M<T1>;
@@ -28,3 +29,4 @@ fn fMap[MI,MO]<TI,TO>(in: MI<TI>, f: fn(TI) -> MO<TO>) -> MO<TO> {
 
 //Example
 println(fMap(range(0,2), { n -> listOf(n, 5);}, { o,f -> mapo, f);}, { o -> flatten(o);}));
+*/

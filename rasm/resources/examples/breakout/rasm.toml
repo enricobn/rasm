@@ -5,3 +5,7 @@ source_folder = "."
 std_lib_path = "../../../../stdlib"
 main = "breakout.rasm"
 resource_folder = "."
+
+[dependencies]
+stdlib = { path = "../../../../stdlib" }
+sdl = { path = "../sdl" }

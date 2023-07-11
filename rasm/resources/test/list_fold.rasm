@@ -1,4 +1,3 @@
-include "std.rasm"
 
 println(foldLeft(range(0, atoi(argv(1))), 0, { prev, actual -> add(prev, add(prev, actual)); }));
 

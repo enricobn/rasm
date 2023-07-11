@@ -1,4 +1,3 @@
-include "std.rasm"
 
 println(cmp(10, 12));
 println(cmp(10, 10));

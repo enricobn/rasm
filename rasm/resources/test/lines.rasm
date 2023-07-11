@@ -1,3 +1,1 @@
-include "std.rasm"
-
 println(lines("first\nsecond\nthird\n"));

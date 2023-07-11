@@ -1,5 +1,3 @@
-include "std.rasm"
-
 inner(atoi(argv(1)));
 
 fn inner(p1: i32) {

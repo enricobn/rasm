@@ -1,5 +1,4 @@
-include "std.rasm"
-include "sdl.rasm"
+include "sdl/sdl.rasm"
 
 extern "printf"
 extern "exit"

@@ -20,8 +20,6 @@
 //
 // real    0m28,633s
 
-
-include "std.rasm"
 include "gameoflife_common.rasm"
 include "gameoflife_common_list.rasm"
 

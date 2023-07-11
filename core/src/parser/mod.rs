@@ -167,7 +167,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, path: &Path, std_path: &Path) -> ASTModule {
+    pub fn parse(&mut self, path: &Path) -> ASTModule {
         self.body = Vec::new();
         self.functions = Vec::new();
         self.i = 0;
@@ -232,7 +232,7 @@ impl Parser {
 
             match self.get_state() {
                 None => {
-                    if self.process_none(path, std_path, &token) {
+                    if self.process_none(path, &token) {
                         continue;
                     } else {
                         break;
@@ -377,7 +377,7 @@ impl Parser {
     ///
     /// returns true if the parser must continue
     ///
-    fn process_none(&mut self, path: &Path, std_path: &Path, token: &Token) -> bool {
+    fn process_none(&mut self, path: &Path, token: &Token) -> bool {
         if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
             self.body.push(stmt);
             self.parser_data.pop();
@@ -421,11 +421,6 @@ impl Parser {
             self.i = next_i;
         } else if let Some((resource, next_i)) = self.try_parse_include() {
             let mut source_file = path.with_file_name(&resource);
-            // First we try to get it relative to the current file,
-            // then we try to get the file from the standard lib folder
-            if !source_file.exists() {
-                source_file = std_path.join(Path::new(&resource));
-            }
             info!("include {}", source_file.to_str().unwrap());
 
             self.included_files.insert(source_file.clone());
@@ -433,7 +428,7 @@ impl Parser {
             match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
                     let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    let mut module = parser.parse(source_file.as_path(), std_path);
+                    let mut module = parser.parse(source_file.as_path());
                     if !module.body.is_empty() {
                         self.panic(&format!(
                             "Cannot include a module with a body: {:?}.",
@@ -1223,7 +1218,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let module = parser.parse(Path::new("."), Path::new(&stdlib_path()));
+        let module = parser.parse(Path::new("."));
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1256,11 +1251,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        let module = parser.parse(path, Path::new(&stdlib_path()));
-        module
-    }
-
-    fn stdlib_path() -> String {
-        env::var("RASM_STDLIB").unwrap_or("../stdlib".to_owned())
+        parser.parse(path)
     }
 }
