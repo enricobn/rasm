@@ -148,7 +148,6 @@ impl RasmProject {
                 if let Value::Table(table) = dependency {
                     if let Some(path_value) = table.get("path") {
                         if let Value::String(path) = path_value {
-                            println!("path: {path}");
                             let path_buf = self
                                 .from_relative_to_root(Path::new(path))
                                 .canonicalize()

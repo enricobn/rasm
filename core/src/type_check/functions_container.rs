@@ -238,11 +238,15 @@ impl FunctionsContainer {
                                     None => it.return_type.is_none(),
                                     Some(t) => {
                                         if let Some(parameter_return_type) = &it.return_type {
-                                            Self::almost_same_type(
-                                                parameter_return_type,
-                                                &TypeFilter::Exact(t.clone()),
-                                                &mut resolved_generic_types,
-                                            )
+                                            if matches!(t, ASTType::Generic(_)) {
+                                                true
+                                            } else {
+                                                Self::almost_same_type(
+                                                    parameter_return_type,
+                                                    &TypeFilter::Exact(t.clone()),
+                                                    &mut resolved_generic_types,
+                                                )
+                                            }
                                         } else {
                                             false
                                         }
