@@ -296,9 +296,6 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_for_nprint".into(), Mem(20, Bytes));
 
         asm.push_str("SECTION .data\n");
-        asm.push_str("    timeval:\n");
-        asm.push_str("        tv_sec  dd 0\n");
-        asm.push_str("        tv_usec dd 0\n");
 
         let (data, bss, code) = self.statics.generate_code(self.backend.borrow());
 
