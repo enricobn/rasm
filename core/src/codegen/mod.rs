@@ -295,7 +295,7 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_ESC".into(), I32Value(27));
         self.statics.insert("_for_nprint".into(), Mem(20, Bytes));
 
-        let (declarations, code) = self.statics.generate_code(self.backend.borrow());
+        let (declarations, code) = self.statics.generate_code(self.backend);
 
         asm.push_str(&declarations);
 

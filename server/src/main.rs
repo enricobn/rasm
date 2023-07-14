@@ -13,7 +13,7 @@ use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use rasm_core::codegen::backend::{Backend, BackendAsm386};
+use rasm_core::codegen::backend::{Backend, BackendNasm386};
 use rasm_core::codegen::statics::Statics;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
@@ -35,7 +35,7 @@ async fn main() {
 
     let server_state = ServerState::new(
         src,
-        &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+        &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
     );
 
     let app_state = Arc::new(server_state);

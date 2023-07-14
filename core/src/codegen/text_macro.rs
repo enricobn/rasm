@@ -1267,7 +1267,7 @@ mod tests {
 
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::backend::BackendAsm386;
+    use crate::codegen::backend::BackendNasm386;
     use crate::codegen::statics::Statics;
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
     use crate::codegen::MemoryValue;
@@ -1514,7 +1514,7 @@ mod tests {
         }
     }
 
-    fn backend() -> BackendAsm386 {
-        BackendAsm386::new(HashSet::new(), HashSet::new(), false)
+    fn backend() -> BackendNasm386 {
+        BackendNasm386::new(HashSet::new(), HashSet::new(), false)
     }
 }

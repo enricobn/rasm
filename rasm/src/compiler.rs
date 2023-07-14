@@ -6,7 +6,7 @@ use std::time::Instant;
 use log::info;
 
 use rasm_core::codegen::backend::Backend;
-use rasm_core::codegen::backend::BackendAsm386;
+use rasm_core::codegen::backend::BackendNasm386;
 use rasm_core::codegen::CodeGen;
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::Parser;
@@ -33,7 +33,7 @@ impl Compiler {
         info!("parse ended in {:?}", start.elapsed());
 
         let backend =
-            BackendAsm386::new(module.requires.clone(), module.externals.clone(), debug_asm);
+            BackendNasm386::new(module.requires.clone(), module.externals.clone(), debug_asm);
 
         let mut code_gen = CodeGen::new(
             &backend,

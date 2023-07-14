@@ -1044,7 +1044,7 @@ mod tests {
 
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::backend::BackendAsm386;
+    use crate::codegen::backend::BackendNasm386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
@@ -1208,7 +1208,7 @@ mod tests {
             false,
             false,
             Vec::new(),
-            &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
             &mut Statics::new(),
             true,
         );

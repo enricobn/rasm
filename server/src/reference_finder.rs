@@ -383,7 +383,7 @@ mod tests {
 
     use env_logger::Builder;
 
-    use rasm_core::codegen::backend::BackendAsm386;
+    use rasm_core::codegen::backend::BackendNasm386;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::project::RasmProject;
@@ -418,7 +418,7 @@ mod tests {
         let mut module = project.get_module();
 
         enrich_module(
-            &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
             project.resource_folder(),
             &mut statics,
             &mut module,
@@ -456,7 +456,7 @@ mod tests {
         let mut module = project.get_module();
 
         enrich_module(
-            &BackendAsm386::new(HashSet::new(), HashSet::new(), false),
+            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
             project.resource_folder(),
             &mut statics,
             &mut module,

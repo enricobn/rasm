@@ -134,7 +134,7 @@ enum Linker {
     Gcc,
 }
 
-pub struct BackendAsm386 {
+pub struct BackendNasm386 {
     requires: HashSet<String>,
     externals: HashSet<String>,
     linker: Linker,
@@ -142,7 +142,7 @@ pub struct BackendAsm386 {
     debug_asm: bool,
 }
 
-impl BackendAsm386 {
+impl BackendNasm386 {
     pub fn new(requires: HashSet<String>, externals: HashSet<String>, debug_asm: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
@@ -278,7 +278,7 @@ impl BackendAsm386 {
     }
 }
 
-impl Backend for BackendAsm386 {
+impl Backend for BackendNasm386 {
     fn address_from_base_pointer(&self, index: i8) -> String {
         format!("[ebp+{}]", index * 4)
     }
@@ -328,7 +328,7 @@ impl Backend for BackendAsm386 {
             .arg("-F")
             .arg("dwarf")
             .arg(source_file);
-        BackendAsm386::log_command(&nasm_command);
+        BackendNasm386::log_command(&nasm_command);
         let result = nasm_command
             .stderr(Stdio::inherit())
             .output()
@@ -351,7 +351,7 @@ impl Backend for BackendAsm386 {
                     .arg("/lib32/ld-linux.so.2")
                     .arg("-o")
                     .arg(path.with_extension(""));
-                BackendAsm386::log_command(&ld_command);
+                BackendNasm386::log_command(&ld_command);
                 ld_command
                     .stderr(Stdio::inherit())
                     .output()
@@ -374,7 +374,7 @@ impl Backend for BackendAsm386 {
                     .arg(path.with_extension(""))
                     .arg(path.with_extension("o"))
                     .args(libraries);
-                BackendAsm386::log_command(&gcc_command);
+                BackendNasm386::log_command(&gcc_command);
                 gcc_command
                     .stderr(Stdio::inherit())
                     .output()
@@ -880,13 +880,13 @@ impl Backend for BackendAsm386 {
 mod tests {
     use std::collections::HashSet;
 
-    use crate::codegen::backend::{Backend, BackendAsm386};
+    use crate::codegen::backend::{Backend, BackendNasm386};
     use crate::codegen::val_context::ValContext;
     use crate::utils::tests::DummyTypeDefProvider;
 
     #[test]
     fn called_functions() {
-        let sut = BackendAsm386::new(Default::default(), Default::default(), false);
+        let sut = BackendNasm386::new(Default::default(), Default::default(), false);
 
         assert_eq!(
             sut.called_functions(
@@ -905,7 +905,7 @@ mod tests {
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = BackendAsm386::new(Default::default(), Default::default(), false);
+        let sut = BackendNasm386::new(Default::default(), Default::default(), false);
 
         assert!(sut
             .called_functions(
@@ -922,7 +922,7 @@ mod tests {
         let mut externals = HashSet::new();
         externals.insert("something".into());
 
-        let sut = BackendAsm386::new(Default::default(), externals, false);
+        let sut = BackendNasm386::new(Default::default(), externals, false);
 
         assert!(sut
             .called_functions(
