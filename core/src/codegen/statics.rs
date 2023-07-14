@@ -1,9 +1,7 @@
 use linked_hash_map::LinkedHashMap;
-use pad::PadStr;
 
-use crate::codegen::backend::Backend;
 use crate::codegen::MemoryValue::Mem;
-use crate::codegen::{CodeGen, MemoryUnit, MemoryValue};
+use crate::codegen::{MemoryUnit, MemoryValue};
 use crate::parser::ast::ASTType;
 use crate::type_check::typed_ast::ASTTypedType;
 
@@ -116,103 +114,6 @@ impl Statics {
         (label_allocation, label_memory)
     }
 
-    pub fn generate_code(&mut self, backend: &dyn Backend) -> (String, String) {
-        let mut data = String::new();
-        let mut bss = String::new();
-
-        let mut code = String::new();
-
-        if !self.statics.is_empty() {
-            let mut keys: Vec<&String> = self.statics.keys().collect();
-            // sorted for test purposes
-            keys.sort();
-
-            for id in keys.iter() {
-                let mut def = String::new();
-                def.push_str(&id.pad_to_width(50));
-
-                match self.statics.get(*id).unwrap() {
-                    MemoryValue::StringValue(s) => {
-                        def.push_str("db    ");
-
-                        let mut result = "'".to_string();
-
-                        // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
-                        for c in s.replace("\\n", "\n").replace("\\t", "\t").chars() {
-                            if c.is_ascii_control() {
-                                result.push_str(&format!("',{},'", c as u32));
-                            } else {
-                                result.push(c)
-                            }
-                        }
-
-                        result.push_str("', 0h");
-
-                        def.push_str(&result);
-
-                        CodeGen::add(&mut data, &def, None, true);
-                    }
-                    MemoryValue::I32Value(i) => {
-                        def.push_str("dd    ");
-                        def.push_str(&format!("{}", i));
-                        CodeGen::add(&mut data, &def, None, true);
-                    }
-                    Mem(len, unit) => {
-                        match unit {
-                            MemoryUnit::Bytes => def.push_str("resb "),
-                            MemoryUnit::Words => def.push_str("resd "),
-                        }
-                        def.push_str(&format!("{}", len));
-                        CodeGen::add(&mut bss, &def, None, true);
-                    }
-                    MemoryValue::RefToLabel(name) => {
-                        def.push_str(&format!("dd    {name}"));
-                        CodeGen::add(&mut data, &def, None, true);
-                    }
-                }
-            }
-        }
-
-        for (_, (key, value_key)) in self.strings_map.iter() {
-            // TODO _0
-            CodeGen::add(
-                &mut code,
-                &format!("$call(addStaticStringToHeap_0, {value_key})"),
-                None,
-                true,
-            );
-
-            CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
-        }
-
-        for (label_allocation, label_memory) in self.static_allocation.iter() {
-            // TODO _0
-            CodeGen::add(
-                &mut code,
-                &format!("$call(addStaticAllocation_0, {label_allocation}, {label_memory})"),
-                None,
-                true,
-            );
-        }
-
-        for (label, (descr_label, value)) in self.heap.iter() {
-            // TODO _0
-            CodeGen::add(
-                &mut code,
-                &format!("$call(addHeap_0, {label}, {descr_label}: str, {value})"),
-                None,
-                true,
-            );
-        }
-
-        let mut declarations = String::new();
-        declarations.push_str("SECTION .data\n");
-        declarations.push_str(&data);
-        declarations.push_str("SECTION .bss\n");
-        declarations.push_str(&bss);
-        (declarations, code)
-    }
-
     pub fn get(&self, key: &str) -> Option<&MemoryValue> {
         self.statics.get(key)
     }
@@ -233,5 +134,21 @@ impl Statics {
         let descr_key = self.add_str(descr);
         self.insert(label.to_owned(), MemoryValue::I32Value(0));
         self.heap.insert(label.to_owned(), (descr_key, value));
+    }
+
+    pub fn statics(&self) -> &LinkedHashMap<String, MemoryValue> {
+        &self.statics
+    }
+
+    pub fn strings_map(&self) -> &LinkedHashMap<String, (String, String)> {
+        &self.strings_map
+    }
+
+    pub fn static_allocation(&self) -> &Vec<(String, String)> {
+        &self.static_allocation
+    }
+
+    pub fn heap(&self) -> &LinkedHashMap<String, (String, i32)> {
+        &self.heap
     }
 }
