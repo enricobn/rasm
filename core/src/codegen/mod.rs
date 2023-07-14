@@ -377,19 +377,6 @@ impl<'a> CodeGen<'a> {
             &self.module,
         );
 
-        /*
-        let code = evaluator.translate(
-            self.backend,
-            &mut temp_statics,
-            None,
-            &code,
-            self.dereference,
-            false,
-            &self.module,
-        );
-
-         */
-
         CodeGen::add(&mut asm, &code, None, true);
 
         // command line arguments

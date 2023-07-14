@@ -1,8 +1,20 @@
 Doing
 ------
+- move all asm code to backend
 
 Next
 -----
+- separate core library (shipped with the compiler) from stdlib (an external library that must be used as a dependency)
+- Unit type in the compiler
+- cannot ignore a return value from a function:
+    // This is an invalid code
+    add(10, 10);
+    ...
+
+    // This is a valid code
+    println(10);
+    ...
+- cannot use .someFunction without parenthesis if the function does not return anything
 - private functions
 - optimize
   - can a recursive function's lambda space be reused?
@@ -12,18 +24,15 @@ Next
 - allocator
   - check for size >= allocated and use shrink
   - try to pack consecutive free "slots"
-- move all asm code to backend
 - TextMacro:
     - is it possible to use TextMacro in standard functions? (but for what?)
     - is it possible to inline the functions called with TextMacro?
 - game of life: if we don't pass a number, it should run until no cells are alive
 - type check
   - use Result
-- libraries
-  - the include files should be searched relative to "current folder"/"stdlib folder", plus the current folder, and it can
-    be overridden with an environment var with a list of folders, separated by colon
-  - ??? add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
-    or add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
+- backend
+  - add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
+  - add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
 - delete asm, object and executable file before compile
 - I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
@@ -33,9 +42,10 @@ Next
   - if there are more lambda in a call, all share the same lambda space (but not the address to the function), now it's duplicated:
     - I can create only one lambda space, then I can pass, the address to the real function and the address to the lambda space, to the lambda,
       or a single pointer to a "structure" where the first word is the pointer to the function and the second the pointer to the lambda space
-- rename asm to native
+- rename asm as native
 - user should not define native functions?
-- some functions from the std library should not be called (tag with internal?), for example malloc, memcopy
+- some functions from the std library should not be called (tag with internal?), for example malloc, memcopy.
+  I don't think so in asm (native) code
 - optimize fibonacci
     - backend for 32 and 64 bit
     - move more code as possible from codegen to function_call_parameters

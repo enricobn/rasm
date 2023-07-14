@@ -174,12 +174,10 @@ impl Statics {
         }
 
         for (_, (key, value_key)) in self.strings_map.iter() {
-            CodeGen::add(&mut code, &format!("push dword {value_key}"), None, true);
-            // TODO
-            CodeGen::add(&mut code, "call addStaticStringToHeap_0", None, true);
+            // TODO _0
             CodeGen::add(
                 &mut code,
-                &format!("add {},{}", backend.stack_pointer(), backend.word_len()),
+                &format!("$call(addStaticStringToHeap_0, {value_key})"),
                 None,
                 true,
             );
@@ -188,6 +186,7 @@ impl Statics {
         }
 
         for (label_allocation, label_memory) in self.static_allocation.iter() {
+            // TODO _0
             CodeGen::add(
                 &mut code,
                 &format!("$call(addStaticAllocation_0, {label_allocation}, {label_memory})"),
@@ -197,6 +196,7 @@ impl Statics {
         }
 
         for (label, (descr_label, value)) in self.heap.iter() {
+            // TODO _0
             CodeGen::add(
                 &mut code,
                 &format!("$call(addHeap_0, {label}, {descr_label}: str, {value})"),
