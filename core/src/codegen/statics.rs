@@ -116,7 +116,7 @@ impl Statics {
         (label_allocation, label_memory)
     }
 
-    pub fn generate_code(&mut self, backend: &dyn Backend) -> (String, String, String) {
+    pub fn generate_code(&mut self, backend: &dyn Backend) -> (String, String) {
         let mut data = String::new();
         let mut bss = String::new();
 
@@ -205,7 +205,12 @@ impl Statics {
             );
         }
 
-        (data, bss, code)
+        let mut declarations = String::new();
+        declarations.push_str("SECTION .data\n");
+        declarations.push_str(&data);
+        declarations.push_str("SECTION .bss\n");
+        declarations.push_str(&bss);
+        (declarations, code)
     }
 
     pub fn get(&self, key: &str) -> Option<&MemoryValue> {

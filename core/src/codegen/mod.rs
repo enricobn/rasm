@@ -295,18 +295,12 @@ impl<'a> CodeGen<'a> {
         self.statics.insert("_ESC".into(), I32Value(27));
         self.statics.insert("_for_nprint".into(), Mem(20, Bytes));
 
-        asm.push_str("SECTION .data\n");
+        let (declarations, code) = self.statics.generate_code(self.backend.borrow());
 
-        let (data, bss, code) = self.statics.generate_code(self.backend.borrow());
+        asm.push_str(&declarations);
 
-        asm.push_str(&data);
-
-        CodeGen::add(&mut asm, "section .bss", None, true);
-        asm.push_str(&bss);
-
-        CodeGen::add(&mut asm, "SECTION .text", None, true);
+        CodeGen::add(&mut asm, "SECTION .text", None, false);
         CodeGen::add(&mut asm, "global  main", None, true);
-        CodeGen::add(&mut asm, "", None, true);
         CodeGen::add(&mut asm, "main:", None, false);
 
         if self.debug_asm {
