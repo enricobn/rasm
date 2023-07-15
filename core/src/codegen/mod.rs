@@ -299,10 +299,6 @@ impl<'a> CodeGen<'a> {
 
         asm.push_str(&declarations);
 
-        CodeGen::add(&mut asm, "SECTION .text", None, false);
-        CodeGen::add(&mut asm, "global  main", None, true);
-        CodeGen::add(&mut asm, "main:", None, false);
-
         if self.debug_asm {
             CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
         }

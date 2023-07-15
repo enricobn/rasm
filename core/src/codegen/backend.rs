@@ -973,6 +973,9 @@ impl Backend for BackendNasm386 {
         declarations.push_str(&data);
         declarations.push_str("SECTION .bss\n");
         declarations.push_str(&bss);
+        declarations.push_str("SECTION .text\n");
+        CodeGen::add(&mut declarations, "global  main", None, true);
+        declarations.push_str("main:\n");
         (declarations, code)
     }
 }
