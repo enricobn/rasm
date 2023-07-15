@@ -1712,17 +1712,15 @@ impl<'a> CodeGen<'a> {
         after.insert(0, call_parameters.after().join("\n"));
 
         if inline {
-            CodeGen::add(
+            self.backend.add_comment(
                 before,
-                &format!("; end inlining function {}", function_call.function_name),
-                None,
+                &format!("end inlining function {}", function_call.function_name),
                 true,
             );
         } else {
-            CodeGen::add(
+            self.backend.add_comment(
                 before,
-                &format!("; end calling function {}", function_call.function_name),
-                None,
+                &format!("end calling function {}", function_call.function_name),
                 true,
             );
         }

@@ -131,6 +131,8 @@ pub trait Backend: RefUnwindSafe {
     fn debug_asm(&self) -> bool;
 
     fn generate_statics_code(&self, statics: &Statics) -> (String, String);
+
+    fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
 }
 
 enum Linker {
@@ -973,6 +975,10 @@ impl Backend for BackendNasm386 {
         CodeGen::add(&mut declarations, "global  main", None, true);
         declarations.push_str("main:\n");
         (declarations, code)
+    }
+
+    fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
+        CodeGen::add(out, &format!("; {comment}"), None, indent);
     }
 }
 
