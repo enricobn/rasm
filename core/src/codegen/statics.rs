@@ -30,7 +30,7 @@ pub struct ConstTypedEntry {
     pub ast_typed_type: ASTTypedType,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Statics {
     id: usize,
     statics: LinkedHashMap<String, MemoryValue>,

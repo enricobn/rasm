@@ -1436,16 +1436,12 @@ impl<'a> CodeGen<'a> {
                         //after.insert(0, af.join("\n"));
                         call_parameters.add_on_top_of_after(&af.join("\n"));
 
-                        let mut statics = self.statics.clone();
-
                         call_parameters.add_function_call(
                             &self.module,
                             &format!("{param_name} = {} : {}", &call.function_name, call.index),
                             param_type.clone(),
-                            &mut statics,
+                            &mut self.statics,
                         );
-
-                        self.statics = statics;
 
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
