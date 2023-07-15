@@ -9,7 +9,6 @@ pub enum MemoryValue {
     StringValue(String),
     I32Value(i32),
     Mem(usize, MemoryUnit),
-    RefToLabel(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

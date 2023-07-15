@@ -4,6 +4,7 @@ Doing
 
 Next
 -----
+- rename const to "let global" or "global let" or "let static" or "static let"
 - separate core library (shipped with the compiler) from stdlib (an external library that must be used as a dependency)
 - Unit type in the compiler
 - cannot ignore a return value from a function:

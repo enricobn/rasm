@@ -928,10 +928,6 @@ impl Backend for BackendNasm386 {
                         def.push_str(&format!("{}", len));
                         CodeGen::add(&mut bss, &def, None, true);
                     }
-                    MemoryValue::RefToLabel(name) => {
-                        def.push_str(&format!("dd    {name}"));
-                        CodeGen::add(&mut data, &def, None, true);
-                    }
                 }
             }
         }
