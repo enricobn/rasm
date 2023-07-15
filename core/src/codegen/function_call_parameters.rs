@@ -4,9 +4,10 @@ use log::debug;
 use crate::codegen::backend::Backend;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
-use crate::codegen::statics::Statics;
+use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::val_context::TypedValContext;
-use crate::codegen::{CodeGen, MemoryUnit, MemoryValue, TypedValKind};
+use crate::codegen::{CodeGen, TypedValKind};
+use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -325,7 +326,7 @@ impl<'a> FunctionCallParameters<'a> {
                         &format!("reference to parameter {name}"),
                     );
 
-                    println!("  offset_to_stack {offset_to_stack}");
+                    debug_i!("  offset_to_stack {offset_to_stack}");
 
                     // we save the previous value in the stack
                     Self::indirect_mov(

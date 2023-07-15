@@ -14,11 +14,11 @@ use lambda::{LambdaCall, LambdaSpace};
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::stack::{StackEntryType, StackVals};
+use crate::codegen::statics::MemoryUnit::{Bytes, Words};
+use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::val_context::{TypedValContext, ValContext};
-use crate::codegen::MemoryUnit::{Bytes, Words};
-use crate::codegen::MemoryValue::{I32Value, Mem};
 use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType};
 use crate::transformations::enrich_module;
@@ -65,20 +65,6 @@ pub struct CodeGen<'a> {
     debug_asm: bool,
     dereference: bool,
     type_conversion_context: TypeConversionContext,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MemoryValue {
-    StringValue(String),
-    I32Value(i32),
-    Mem(usize, MemoryUnit),
-    RefToLabel(String),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MemoryUnit {
-    Bytes,
-    Words,
 }
 
 #[derive(Clone, Debug)]
@@ -280,11 +266,14 @@ impl<'a> CodeGen<'a> {
             Mem(self.lambda_space_size, Bytes),
         );
 
-        self.statics
-            .insert("_reusable_heap_table".into(), Mem(16 * 1024 * 1024, Bytes));
+        let reusable_heap_table_size = 16 * 1024 * 1024;
+        self.statics.insert(
+            "_reusable_heap_table".into(),
+            Mem(reusable_heap_table_size, Bytes),
+        );
         self.statics.insert(
             "_reusable_heap_table_size".into(),
-            I32Value(16 * 1024 * 1024),
+            I32Value(reusable_heap_table_size as i32),
         );
         self.statics
             .insert("_reusable_heap_table_next".into(), I32Value(0));

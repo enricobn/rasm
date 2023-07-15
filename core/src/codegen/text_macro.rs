@@ -1268,9 +1268,8 @@ mod tests {
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::backend::BackendNasm386;
-    use crate::codegen::statics::Statics;
+    use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
-    use crate::codegen::MemoryValue;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::typed_ast::{

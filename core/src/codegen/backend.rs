@@ -10,11 +10,11 @@ use pad::PadStr;
 
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
-use crate::codegen::statics::Statics;
+use crate::codegen::statics::MemoryValue::Mem;
+use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider};
 use crate::codegen::val_context::ValContext;
-use crate::codegen::MemoryValue::Mem;
-use crate::codegen::{CodeGen, MemoryUnit, MemoryValue, TypedValKind, ValKind};
+use crate::codegen::{CodeGen, TypedValKind, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind, ValueType};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;

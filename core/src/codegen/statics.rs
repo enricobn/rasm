@@ -1,9 +1,22 @@
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::MemoryValue::Mem;
-use crate::codegen::{MemoryUnit, MemoryValue};
+use crate::codegen::statics::MemoryValue::Mem;
 use crate::parser::ast::ASTType;
 use crate::type_check::typed_ast::ASTTypedType;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MemoryValue {
+    StringValue(String),
+    I32Value(i32),
+    Mem(usize, MemoryUnit),
+    RefToLabel(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MemoryUnit {
+    Bytes,
+    Words,
+}
 
 #[derive(Clone, Debug)]
 pub struct ConstEntry {
