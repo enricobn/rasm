@@ -133,6 +133,8 @@ pub trait Backend: RefUnwindSafe {
     fn generate_statics_code(&self, statics: &Statics) -> (String, String);
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
+
+    fn strip_ifdef(&self, code: &str, def: &str) -> String;
 }
 
 enum Linker {
@@ -979,6 +981,32 @@ impl Backend for BackendNasm386 {
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
         CodeGen::add(out, &format!("; {comment}"), None, indent);
+    }
+
+    fn strip_ifdef(&self, code: &str, def: &str) -> String {
+        let mut result = String::new();
+        let owned = code.to_owned();
+
+        let mut state = 0;
+
+        for line in owned.lines() {
+            if line.trim() == "%endif" && state == 1 {
+                state = 0;
+                continue;
+            } else if line.trim().contains(&format!("%ifdef {def}")) {
+                if state == 1 {
+                    panic!();
+                }
+                state = 1;
+            }
+
+            if state == 0 {
+                result.push_str(line);
+                result.push('\n');
+            }
+        }
+
+        result
     }
 }
 
