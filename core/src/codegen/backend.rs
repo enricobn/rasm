@@ -135,6 +135,24 @@ pub trait Backend: RefUnwindSafe {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
 
     fn strip_ifdef(&self, code: &str, def: &str) -> String;
+
+    fn call_function_simple(&self, out: &mut String, function_name: &str);
+
+    fn call_function(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(&str, Option<&str>)],
+        comment: Option<&str>,
+    );
+
+    fn call_function_owned(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(String, Option<String>)],
+        comment: Option<&str>,
+    );
 }
 
 enum Linker {
@@ -1007,6 +1025,74 @@ impl Backend for BackendNasm386 {
         }
 
         result
+    }
+
+    fn call_function_simple(&self, out: &mut String, function_name: &str) {
+        CodeGen::add(out, &format!("call    {}", function_name), None, true);
+    }
+
+    fn call_function(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(&str, Option<&str>)],
+        comment: Option<&str>,
+    ) {
+        if let Some(c) = comment {
+            self.add_comment(out, c, true);
+        }
+
+        for (arg, comment) in args.iter().rev() {
+            CodeGen::add(
+                out,
+                &format!("push {} {arg}", self.word_size()),
+                None, //*comment,
+                true,
+            );
+        }
+        CodeGen::add(out, &format!("call    {}", function_name), None, true);
+        CodeGen::add(
+            out,
+            &format!(
+                "add  {}, {}",
+                self.stack_pointer(),
+                self.word_len() * args.len()
+            ),
+            None,
+            true,
+        );
+    }
+
+    fn call_function_owned(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(String, Option<String>)],
+        comment: Option<&str>,
+    ) {
+        if let Some(c) = comment {
+            self.add_comment(out, c, true);
+        }
+
+        for (arg, comment) in args.iter().rev() {
+            CodeGen::add(
+                out,
+                &format!("push {} {arg}", self.word_size()),
+                None, //*comment,
+                true,
+            );
+        }
+        CodeGen::add(out, &format!("call    {}", function_name), None, true);
+        CodeGen::add(
+            out,
+            &format!(
+                "add  {}, {}",
+                self.stack_pointer(),
+                self.word_len() * args.len()
+            ),
+            None,
+            true,
+        );
     }
 }
 

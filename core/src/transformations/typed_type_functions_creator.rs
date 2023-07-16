@@ -83,26 +83,15 @@ fn create_free_body(
     if !type_def.is_ref {
         return String::new();
     }
-    let ws = backend.word_size();
-    let wl = backend.word_len();
 
     let mut result = String::new();
     let descr = format!("type {}", type_def.name);
 
-    CodeGen::add(&mut result, "", Some(&descr), true);
-    CodeGen::add(&mut result, &format!("push  {ws} $descr"), None, true);
-    CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
-    CodeGen::add(
+    backend.call_function(
         &mut result,
-        &format!("call  {asm_function_name}_0"),
-        None,
-        true,
-    );
-    CodeGen::add(
-        &mut result,
-        &format!("add  {},{}", backend.stack_pointer(), wl * 2),
-        None,
-        true,
+        &format!("{asm_function_name}_0"),
+        &[("$address", None), ("$descr", None)],
+        Some(&descr),
     );
 
     if type_has_references(type_def) {
@@ -138,35 +127,13 @@ fn loop_vec(
     CodeGen::add(&mut result, "push  ebx", None, true);
     CodeGen::add(&mut result, "push  ecx", None, true);
 
-    CodeGen::add(
+    backend.call_function(
         &mut result,
-        &format!("push  {} {generic_n}", backend.word_size()),
+        &format!("{}References_0", type_def.original_name),
+        &[("$address", None), (&format!("{generic_n}"), None)],
         None,
-        true,
     );
-    CodeGen::add(
-        &mut result,
-        &format!("push  {} $address", backend.word_size()),
-        None,
-        true,
-    );
-    // TODO References_0
-    CodeGen::add(
-        &mut result,
-        &format!("call  {}References_0", type_def.original_name),
-        None,
-        true,
-    );
-    CodeGen::add(
-        &mut result,
-        &format!(
-            "add   {},{}",
-            backend.stack_pointer(),
-            backend.word_len() * 2
-        ),
-        None,
-        true,
-    );
+
     CodeGen::add(
         &mut result,
         &format!("mov   {} ebx, [eax]", backend.word_size()),

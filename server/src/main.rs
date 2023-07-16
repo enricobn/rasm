@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use axum::extract::{Query, State};
 use axum::response::Html;
-use axum::{routing::get, Json, Router};
+use axum::{routing::get, Router};
 use clap::{Arg, Command};
 use log::info;
 use serde::Deserialize;

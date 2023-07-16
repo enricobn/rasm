@@ -1071,23 +1071,16 @@ impl<'a> FunctionCallParameters<'a> {
         let label = statics.add_str("lambda space");
         CodeGen::add(out, "; lambda space allocation", None, true);
 
-        CodeGen::add(out, &format!("push    dword [{label}]",), None, true);
-
-        CodeGen::add(
+        backend.call_function(
             out,
-            &format!("push    dword {}", slots * backend.word_len()),
+            "malloc_0",
+            &[
+                (&format!("{}", slots * backend.word_len()), None),
+                (&format!("[{label}]"), None),
+            ],
             None,
-            true,
         );
 
-        CodeGen::add(out, "call malloc_0", None, true);
-
-        CodeGen::add(
-            out,
-            &format!("add    esp, {}", 2 * backend.word_len()),
-            None,
-            true,
-        );
         CodeGen::add(
             out,
             &format!("mov    dword {register_to_store_result},eax",),
@@ -1102,47 +1095,6 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_on_top_of_after(&mut self, s: &str) {
         self.after.insert(0, s.into());
-    }
-
-    fn mem_copy_words(&mut self, source: &str, dest: &str, slots: usize, comment: Option<&str>) {
-        CodeGen::add(
-            &mut self.before,
-            &format!(
-                "push {} {}",
-                self.backend.pointer_size(),
-                slots * self.backend.word_len()
-            ),
-            comment,
-            true,
-        );
-        CodeGen::add(
-            &mut self.before,
-            &format!("push {} {}", self.backend.pointer_size(), dest),
-            comment,
-            true,
-        );
-        CodeGen::add(
-            &mut self.before,
-            &format!("push {} {}", self.backend.pointer_size(), source),
-            comment,
-            true,
-        );
-        // TODO $call
-        CodeGen::add(&mut self.before, "call memcopy_0", comment, true);
-        self.restore_stack(3, comment);
-    }
-
-    fn restore_stack(&mut self, slots: usize, comment: Option<&str>) {
-        CodeGen::add(
-            &mut self.before,
-            &format!(
-                "add {},{}",
-                self.backend.stack_pointer(),
-                slots * self.backend.word_len()
-            ),
-            comment,
-            true,
-        );
     }
 
     fn indirect_mov(

@@ -1130,7 +1130,6 @@ pub trait ParserTrait {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use std::path::Path;
 
     use linked_hash_map::LinkedHashMap;

@@ -85,20 +85,11 @@ fn create_free_body(
 
     let key = statics.add_str(&descr);
 
-    CodeGen::add(&mut result, "", Some(&descr), true);
-    CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
-    CodeGen::add(&mut result, &format!("push  {ws} $address"), None, true);
-    CodeGen::add(
+    backend.call_function(
         &mut result,
-        &format!("call  {asm_function_name}_0"),
-        None,
-        true,
-    );
-    CodeGen::add(
-        &mut result,
-        &format!("add  {},{}", backend.stack_pointer(), wl * 2),
-        None,
-        true,
+        &format!("{asm_function_name}_0"),
+        &[("$address", None), (&format!("[{key}]"), None)],
+        Some(&descr),
     );
 
     if enum_has_references(enum_def, module) {

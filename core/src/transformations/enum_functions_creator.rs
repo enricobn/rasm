@@ -274,15 +274,6 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
 
          */
 
-        for (i, param) in variant.parameters.iter().enumerate() {
-            CodeGen::add(
-                &mut body,
-                &format!("push {} [eax + {}]", word_size, (i + 1) * word_len),
-                Some(&format!("param {}", param.name)),
-                true,
-            );
-        }
-
         CodeGen::add(&mut body, &format!("mov ebx,${}", variant.name), None, true);
         CodeGen::add(
             &mut body,
@@ -290,15 +281,18 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
             None,
             true,
         );
-        CodeGen::add(&mut body, "push ebx", None, true);
-        CodeGen::add(&mut body, "call [ebx]", None, true);
 
-        CodeGen::add(
-            &mut body,
-            &format!("add {}, {}", sp, (variant.parameters.len() + 1) * word_len),
-            None,
-            true,
-        );
+        let mut args = Vec::new();
+        args.push(("ebx".to_owned(), None));
+
+        for (i, param) in variant.parameters.iter().enumerate() {
+            args.push((
+                format!("[eax + {}]", (variant.parameters.len() - i) * word_len),
+                Some(format!("param {}", param.name)),
+            ));
+        }
+
+        backend.call_function_owned(&mut body, "[ebx]", &args, None);
 
         CodeGen::add(&mut body, "jmp .end", None, true);
         CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, false);

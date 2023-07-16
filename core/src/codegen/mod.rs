@@ -355,25 +355,17 @@ impl<'a> CodeGen<'a> {
 
         CodeGen::add(&mut asm, &code, None, true);
 
-        // command line arguments
-        CodeGen::add(
+        self.backend.call_function(
             &mut asm,
-            &format!("push   {}", self.backend.stack_pointer()),
-            Some("command line arguments"),
-            true,
-        );
-        CodeGen::add(&mut asm, "push    _rasm_args", None, true);
-        // TODO
-        CodeGen::add(&mut asm, "call    createCmdLineArguments_0", None, true);
-        CodeGen::add(
-            &mut asm,
-            &format!(
-                "add   {},{}",
-                self.backend.stack_pointer(),
-                2 * self.backend.word_len()
-            ),
+            "createCmdLineArguments_0",
+            &[
+                ("_rasm_args", None),
+                (
+                    &self.backend.stack_pointer(),
+                    Some("command line arguments"),
+                ),
+            ],
             None,
-            true,
         );
 
         CodeGen::add(&mut asm, "", None, true);
@@ -392,12 +384,11 @@ impl<'a> CodeGen<'a> {
         self.backend.function_end(&mut asm, false);
 
         if self.print_memory_info {
-            Self::print_memory_info(&mut asm);
+            self.print_memory_info(&mut asm);
         }
 
-        CodeGen::add(&mut asm, "push   dword 0", None, true);
-        // TODO
-        CodeGen::add(&mut asm, "call   exitMain_0", None, true);
+        self.backend
+            .call_function(&mut asm, "exitMain_0", &[("0", None)], None);
 
         asm.push_str(&self.definitions);
 
@@ -756,9 +747,10 @@ impl<'a> CodeGen<'a> {
         )
     }
 
-    fn print_memory_info(asm: &mut String) {
-        CodeGen::add(asm, "call   printAllocated_0", None, true);
-        CodeGen::add(asm, "call   printTableSlotsAllocated_0", None, true);
+    fn print_memory_info(&self, asm: &mut String) {
+        self.backend.call_function_simple(asm, "printAllocated_0");
+        self.backend
+            .call_function_simple(asm, "printTableSlotsAllocated_0");
     }
 
     fn create_all_functions(&mut self) {
@@ -827,10 +819,9 @@ impl<'a> CodeGen<'a> {
 
         let mut lambda_calls = Vec::new();
 
-        CodeGen::add(
+        self.backend.add_comment(
             &mut self.definitions,
-            &format!("; function {}", function_def),
-            None,
+            &format!("function {}", function_def),
             false,
         );
         CodeGen::add(
@@ -864,15 +855,6 @@ impl<'a> CodeGen<'a> {
                 Some("The address to the lambda space for inline lambda param"),
                 true,
             );
-            /*
-            CodeGen::add(
-                &mut self.definitions,
-                "mov   dword edx, [edx]",
-                Some("lambda space address"),
-                true,
-            );
-
-             */
         }
 
         let mut context = TypedValContext::new(Some(parent_context));
@@ -1327,37 +1309,26 @@ impl<'a> CodeGen<'a> {
         stack_vals: &StackVals,
         after: &mut Vec<String>,
     ) -> Vec<LambdaCall> {
-        /*
-        let parent_def_description = if let Some(pd) = parent_def {
-            &pd.name
-        } else {
-            "main"
-        };
-
-         */
-
         let mut lambda_calls = Vec::new();
 
         CodeGen::add_empty_line(before);
 
         if inline {
-            CodeGen::add(
+            self.backend.add_comment(
                 before,
                 &format!(
-                    "; inlining function {}, added to stack {}",
+                    "inlining function {}, added to stack {}",
                     function_call.function_name, added_to_stack
                 ),
-                None,
                 true,
             );
         } else {
-            CodeGen::add(
+            self.backend.add_comment(
                 before,
                 &format!(
-                    "; calling function {}, added to stack {}",
+                    "calling function {}, added to stack {}",
                     function_call.function_name, added_to_stack
                 ),
-                None,
                 true,
             );
         }
@@ -1578,30 +1549,15 @@ impl<'a> CodeGen<'a> {
                     Some("address to the \"lambda space\""),
                     true,
                 );
-                CodeGen::add(
+
+                self.backend.call_function(
                     before,
-                    &format!("push {} eax", self.backend.pointer_size()),
-                    Some("address to the \"lambda space\""),
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    "call [eax]",
+                    "[eax]",
+                    &[("eax", Some("address to the \"lambda space\""))],
                     Some(&format!(
                         "Calling function {} : {}",
                         function_call.function_name, function_call.index
                     )),
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    &format!(
-                        "add  {}, {}",
-                        self.backend.stack_pointer(),
-                        self.backend.word_len()
-                    ),
-                    None,
-                    true,
                 );
             } else if let Some(kind) = context.get(&function_call.function_name) {
                 let index = match kind {
@@ -1617,15 +1573,15 @@ impl<'a> CodeGen<'a> {
                     }
                 };
 
-                CodeGen::add(
+                self.backend.add_comment(
                     before,
-                    "",
-                    Some(&format!(
+                    &format!(
                         "calling lambda parameter reference to {}",
                         &function_call.function_name
-                    )),
+                    ),
                     true,
                 );
+
                 CodeGen::add(
                     before,
                     &format!(
@@ -1643,30 +1599,14 @@ impl<'a> CodeGen<'a> {
                     true,
                 );
                 // we add the address to the "lambda space" as the last parameter to the lambda
-                CodeGen::add(
+                self.backend.call_function(
                     before,
-                    &format!("push {} eax", self.backend.pointer_size()),
-                    Some("address to the \"lambda space\""),
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    "call [eax]",
+                    "[eax]",
+                    &[("eax", Some("address to the \"lambda space\""))],
                     Some(&format!(
                         "Calling function {} : {}",
                         function_call.function_name, function_call.index
                     )),
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    &format!(
-                        "add  {}, {}",
-                        self.backend.stack_pointer(),
-                        self.backend.word_len()
-                    ),
-                    None,
-                    true,
                 );
             } else {
                 panic!(
@@ -1675,15 +1615,16 @@ impl<'a> CodeGen<'a> {
                 );
             }
         } else {
-            CodeGen::add(
+            self.backend.add_comment(
                 before,
-                &format!("call    {}", address_to_call),
-                Some(&format!(
+                &format!(
                     "Calling function {} : {}",
                     function_call.function_name, function_call.index
-                )),
+                ),
                 true,
             );
+
+            self.backend.call_function_simple(before, &address_to_call);
         }
 
         if call_parameters.to_remove_from_stack() > 0 {

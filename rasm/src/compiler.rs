@@ -8,10 +8,7 @@ use log::info;
 use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::backend::BackendNasm386;
 use rasm_core::codegen::CodeGen;
-use rasm_core::lexer::Lexer;
-use rasm_core::parser::Parser;
 use rasm_core::project::project::RasmProject;
-use rasm_core::transformations::enrich_module;
 
 pub struct Compiler {
     project: RasmProject,
