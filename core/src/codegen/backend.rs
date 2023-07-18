@@ -153,6 +153,15 @@ pub trait Backend: RefUnwindSafe {
         args: &[(String, Option<String>)],
         comment: Option<&str>,
     );
+
+    fn indirect_mov(
+        &self,
+        out: &mut String,
+        source: &str,
+        dest: &str,
+        temporary_register: &str,
+        comment: Option<&str>,
+    );
 }
 
 enum Linker {
@@ -1091,6 +1100,38 @@ impl Backend for BackendNasm386 {
                 self.word_len() * args.len()
             ),
             None,
+            true,
+        );
+    }
+
+    fn indirect_mov(
+        &self,
+        out: &mut String,
+        source: &str,
+        dest: &str,
+        temporary_register: &str,
+        comment: Option<&str>,
+    ) {
+        CodeGen::add(
+            out,
+            &format!(
+                "mov  {} {}, [{}]",
+                self.word_size(),
+                temporary_register,
+                source
+            ),
+            comment,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!(
+                "mov  {} [{}], {}",
+                self.word_size(),
+                dest,
+                temporary_register
+            ),
+            comment,
             true,
         );
     }

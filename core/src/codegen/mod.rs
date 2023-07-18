@@ -510,55 +510,30 @@ impl<'a> CodeGen<'a> {
 
                 let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
 
+                CodeGen::add(&mut self.body, "push ebx", None, true);
+
                 if is_const {
                     let key = self
                         .statics
                         .add_typed_const(name.to_owned(), typed_type.clone());
 
-                    CodeGen::add(
+                    self.backend.indirect_mov(
                         &mut self.body,
-                        "push ebx",
+                        &label,
+                        &key,
+                        "ebx",
                         Some(&format!("const {name} string value")),
-                        true,
-                    );
-
-                    CodeGen::add(
-                        &mut self.body,
-                        &format!("mov {ws} ebx, [{label}]"),
-                        Some(&format!("const {name} string value")),
-                        true,
-                    );
-
-                    CodeGen::add(
-                        &mut self.body,
-                        &format!("mov {ws} [{key}], ebx"),
-                        Some(&format!("const {name} string value")),
-                        true,
-                    );
-
-                    CodeGen::add(
-                        &mut self.body,
-                        "pop ebx",
-                        Some(&format!("const {name} string value")),
-                        true,
                     );
                 } else {
-                    CodeGen::add(before, "push   ebx", None, true);
-
-                    CodeGen::add(before, &format!("mov {ws} ebx, [{label}]",), Some(""), true);
-
-                    CodeGen::add(
+                    self.backend.indirect_mov(
                         before,
-                        &format!(
-                            "mov {ws} [{bp} + {}], ebx",
-                            -(address_relative_to_bp as i32),
-                        ),
-                        Some(""),
-                        true,
+                        &label,
+                        &format!("{bp} + {}", -(address_relative_to_bp as i32),),
+                        "ebx",
+                        None,
                     );
-
-                    CodeGen::add(before, "pop   ebx", None, true);
                 }
+                CodeGen::add(before, "pop   ebx", None, true);
                 (
                     typed_type,
                     (String::new(), vec![], vec![]),

@@ -329,8 +329,7 @@ impl<'a> FunctionCallParameters<'a> {
                     debug_i!("  offset_to_stack {offset_to_stack}");
 
                     // we save the previous value in the stack
-                    Self::indirect_mov(
-                        self.backend,
+                    self.backend.indirect_mov(
                         &mut self.before,
                         &format!("{label_memory} + {}", (i + 2) * wl),
                         &format!("{} - {}", sbp, offset_to_stack * wl),
@@ -339,8 +338,7 @@ impl<'a> FunctionCallParameters<'a> {
                     );
 
                     // then we restore it
-                    Self::indirect_mov(
-                        self.backend,
+                    self.backend.indirect_mov(
                         &mut after,
                         &format!("{} - {}", sbp, offset_to_stack * wl),
                         &format!("{label_memory} + {}", (i + 2) * wl),
@@ -368,8 +366,7 @@ impl<'a> FunctionCallParameters<'a> {
                                 .unwrap() as i32)
                         }
                     };
-                    Self::indirect_mov(
-                        self.backend,
+                    self.backend.indirect_mov(
                         &mut self.before,
                         &format!("{}+{}", sbp, relative_address * wl as i32),
                         &format!("ecx + {}", (i + 2) * wl),
@@ -378,8 +375,7 @@ impl<'a> FunctionCallParameters<'a> {
                     );
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
-                        Self::indirect_mov(
-                            self.backend,
+                        self.backend.indirect_mov(
                             &mut self.before,
                             &format!("eax + {}", (parent_index + 2) * wl),
                             &format!("ecx + {}", (i + 2) * wl),
@@ -777,8 +773,7 @@ impl<'a> FunctionCallParameters<'a> {
                     true,
                 );
                 let to_remove_from_stack = self.to_remove_from_stack();
-                Self::indirect_mov(
-                    self.backend,
+                self.backend.indirect_mov(
                     &mut self.before,
                     source,
                     &format!(
@@ -842,8 +837,7 @@ impl<'a> FunctionCallParameters<'a> {
                     true,
                 );
                 let to_remove_from_stack = self.to_remove_from_stack();
-                Self::indirect_mov(
-                    self.backend,
+                self.backend.indirect_mov(
                     &mut self.before,
                     &format!("edx + {}", (lambda_space_index + 2) * word_len),
                     &format!(
@@ -1095,37 +1089,5 @@ impl<'a> FunctionCallParameters<'a> {
 
     pub fn add_on_top_of_after(&mut self, s: &str) {
         self.after.insert(0, s.into());
-    }
-
-    fn indirect_mov(
-        backend: &dyn Backend,
-        out: &mut String,
-        source: &str,
-        dest: &str,
-        temporary_register: &str,
-        comment: Option<&str>,
-    ) {
-        CodeGen::add(
-            out,
-            &format!(
-                "mov  {} {}, [{}]",
-                backend.word_size(),
-                temporary_register,
-                source
-            ),
-            comment,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!(
-                "mov  {} [{}], {}",
-                backend.word_size(),
-                dest,
-                temporary_register
-            ),
-            comment,
-            true,
-        );
     }
 }
