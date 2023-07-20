@@ -3,7 +3,7 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::lambda::LambdaSpace;
-use crate::codegen::stack::{StackEntryType, StackVals};
+use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{CodeGen, TypedValKind};
@@ -314,17 +314,9 @@ impl<'a> FunctionCallParameters<'a> {
 
             let mut after = String::new();
 
-            if optimize {
-                CodeGen::add(&mut after, "push ebx", None, true);
-                println!("create lambda {}", def.name);
-            }
-
             context.iter().for_each(|(name, kind)| {
                 if optimize {
-                    let offset_to_stack = self.stack_vals.reserve(
-                        StackEntryType::LocalVal,
-                        &format!("reference to parameter {name}"),
-                    );
+                    let offset_to_stack = self.stack_vals.reserve_local_val(name);
 
                     debug_i!("  offset_to_stack {offset_to_stack}");
 
@@ -360,10 +352,7 @@ impl<'a> FunctionCallParameters<'a> {
                     let relative_address = match kind {
                         TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
                         TypedValKind::LetRef(_, _) => {
-                            -(self
-                                .stack_vals
-                                .find_relative_to_bp(StackEntryType::LetVal, name)
-                                .unwrap() as i32)
+                            -(self.stack_vals.find_local_val_relative_to_bp(name).unwrap() as i32)
                         }
                     };
                     self.backend.indirect_mov(
@@ -409,10 +398,6 @@ impl<'a> FunctionCallParameters<'a> {
                 deref_function = deref_function_def.name.clone();
 
                 lambda_space.add_ref_function(deref_function_def);
-            }
-
-            if optimize {
-                CodeGen::add(&mut after, "pop ebx", None, true);
             }
 
             if !after.is_empty() {
@@ -499,11 +484,17 @@ impl<'a> FunctionCallParameters<'a> {
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
+        stack_vals: &StackVals,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
+            self.add_val_from_lambda_space(
+                &original_param_name,
+                lambda_space_index,
+                indent,
+                stack_vals.find_tmp_register("lambda_space_address"),
+            );
         } else {
             self.add_val_from_parameter(
                 original_param_name,
@@ -525,6 +516,7 @@ impl<'a> FunctionCallParameters<'a> {
         ast_index: &ASTIndex,
         module: &ASTTypedModule,
         statics: &mut Statics,
+        stack_vals: &StackVals,
     ) {
         self.debug_and_before(
             &format!("adding let val {val_name} original_param_name {original_param_name}"),
@@ -532,7 +524,12 @@ impl<'a> FunctionCallParameters<'a> {
         );
 
         if let Some(lambda_space_index) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.add_val_from_lambda_space(&original_param_name, lambda_space_index, indent);
+            self.add_val_from_lambda_space(
+                &original_param_name,
+                lambda_space_index,
+                indent,
+                stack_vals.find_tmp_register("lambda_space_address"),
+            );
             /*
             if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type, module) {
                 let src = format!("[edx + {}]", lambda_space_index * self.backend.word_len());
@@ -810,12 +807,17 @@ impl<'a> FunctionCallParameters<'a> {
         original_param_name: &str,
         lambda_space_index: usize,
         indent: usize,
+        lambda_tmp_register: Option<String>,
     ) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
         let word_len = self.backend.word_len();
 
-        let src = format!("[edx + {}]", (lambda_space_index + 2) * word_len);
+        let src = if let Some(ref register) = lambda_tmp_register {
+            format!("[{register} + {}]", (lambda_space_index + 2) * word_len)
+        } else {
+            panic!()
+        };
 
         if self.inline {
             self.has_inline_lambda_param = true;
@@ -837,17 +839,22 @@ impl<'a> FunctionCallParameters<'a> {
                     true,
                 );
                 let to_remove_from_stack = self.to_remove_from_stack();
-                self.backend.indirect_mov(
-                    &mut self.before,
-                    &format!("edx + {}", (lambda_space_index + 2) * word_len),
-                    &format!(
-                        "{} + {}",
-                        self.backend.stack_pointer(),
-                        (to_remove_from_stack + 1) * self.backend.word_len()
-                    ),
-                    "ebx",
-                    None,
-                );
+
+                if let Some(register) = lambda_tmp_register {
+                    self.backend.indirect_mov(
+                        &mut self.before,
+                        &format!("{register} + {}", (lambda_space_index + 2) * word_len),
+                        &format!(
+                            "{} + {}",
+                            self.backend.stack_pointer(),
+                            (to_remove_from_stack + 1) * self.backend.word_len()
+                        ),
+                        "ebx",
+                        None,
+                    );
+                } else {
+                    panic!()
+                }
                 CodeGen::add(&mut self.before, "pop  ebx", None, true);
 
                 /*
@@ -997,7 +1004,7 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn push_to_scope_stack(&mut self, what: &str) -> usize {
-        let pos = self.stack_vals.reserve(StackEntryType::LocalVal, what) * self.backend.word_len();
+        let pos = self.stack_vals.reserve_local_val(what) * self.backend.word_len();
         CodeGen::add(&mut self.before, "; scope push", None, true);
         if what.contains('[') {
             CodeGen::add(&mut self.before, "push    ebx", None, true);

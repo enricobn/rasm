@@ -1,16 +1,19 @@
 use std::cell::RefCell;
 
-#[derive(Debug, PartialEq, Eq)]
+use crate::codegen::backend::Backend;
+use crate::codegen::CodeGen;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StackEntryType {
-    LetVal,
     LocalVal,
-    Other,
+    TmpRegister(String),
+    ReturnRegister,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StackEntry {
-    entry_type: StackEntryType,
-    desc: String,
+    pub entry_type: StackEntryType,
+    pub desc: String,
 }
 
 #[derive(Debug)]
@@ -25,13 +28,64 @@ impl StackVals {
         }
     }
 
-    pub fn reserve(&self, entry_type: StackEntryType, desc: &str) -> usize {
+    pub fn reserve_local_val(&self, desc: &str) -> usize {
         self.reserved_slots.borrow_mut().push(StackEntry {
-            entry_type,
-            desc: desc.to_string(),
+            entry_type: StackEntryType::LocalVal,
+            desc: desc.to_owned(),
         });
         // debug!("stack {:?}", self);
-        self.len_of_all()
+        self.len_of_local_vals()
+    }
+
+    pub fn reserve_return_register(&self, out: &mut String) {
+        CodeGen::add(out, "push eax", Some("return register"), true);
+
+        self.reserved_slots.borrow_mut().push(StackEntry {
+            entry_type: StackEntryType::ReturnRegister,
+            desc: "return_register".to_owned(),
+        });
+    }
+
+    pub fn reserve_tmp_register(
+        &self,
+        out: &mut String,
+        backend: &dyn Backend,
+        desc: &str,
+    ) -> String {
+        let tmp_registers = backend
+            .tmp_registers()
+            .iter()
+            .cloned()
+            .filter(|it| !self.tmp_registers().contains(it))
+            .collect::<Vec<_>>();
+
+        if let Some(register) = tmp_registers.first() {
+            CodeGen::add(out, &format!("push {}", register), Some(desc), true);
+
+            self.reserved_slots.borrow_mut().push(StackEntry {
+                entry_type: StackEntryType::TmpRegister(register.clone()),
+                desc: desc.to_owned(),
+            });
+            register.clone()
+        } else {
+            panic!("No more registers available");
+        }
+    }
+
+    fn tmp_registers(&self) -> Vec<String> {
+        self.reserved_slots
+            .borrow()
+            .iter()
+            .cloned()
+            .filter(|it| matches!(it.entry_type, StackEntryType::TmpRegister(_)))
+            .map(|it| {
+                if let StackEntryType::TmpRegister(register) = it.entry_type {
+                    register.clone()
+                } else {
+                    panic!();
+                }
+            })
+            .collect()
     }
 
     pub fn len_of_all(&self) -> usize {
@@ -42,7 +96,7 @@ impl StackVals {
         self.reserved_slots
             .borrow()
             .iter()
-            .filter(|it| !matches!(it.entry_type, StackEntryType::Other))
+            .filter(|it| matches!(it.entry_type, StackEntryType::LocalVal))
             .count()
     }
 
@@ -50,18 +104,20 @@ impl StackVals {
         self.reserved_slots.borrow_mut().clear();
     }
 
-    pub fn find_relative_to_bp(&self, entry_type: StackEntryType, desc: &str) -> Option<usize> {
+    pub fn find_local_val_relative_to_bp(&self, desc: &str) -> Option<usize> {
         let mut result = 0;
         let mut found = false;
         for entry in self.reserved_slots.borrow().iter() {
-            if !found {
-                result += 1;
-            }
-            if entry.entry_type == entry_type && entry.desc == desc {
-                if found {
-                    panic!("{desc}");
-                } else {
-                    found = true;
+            if entry.entry_type == StackEntryType::LocalVal {
+                if !found {
+                    result += 1;
+                }
+                if entry.desc == desc {
+                    if found {
+                        panic!("{desc}");
+                    } else {
+                        found = true;
+                    }
                 }
             }
         }
@@ -72,35 +128,51 @@ impl StackVals {
             Some(result)
         }
     }
+
+    pub fn find_tmp_register(&self, desc: &str) -> Option<String> {
+        let mut result = None;
+        for entry in self.reserved_slots.borrow().iter() {
+            if let StackEntryType::TmpRegister(ref register) = entry.entry_type {
+                if entry.desc == desc {
+                    if result.is_some() {
+                        panic!("{desc}");
+                    } else {
+                        result = Some(register.clone())
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    pub fn reserved_slots(&self) -> &RefCell<Vec<StackEntry>> {
+        &self.reserved_slots
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::stack::{StackEntryType, StackVals};
+    use std::collections::HashSet;
+
+    use crate::codegen::backend::BackendNasm386;
+    use crate::codegen::stack::StackVals;
 
     #[test]
     fn find_relative_to_bp() {
-        let stack = StackVals::new();
-        assert_eq!(1, stack.reserve(StackEntryType::LetVal, "val1"));
-        assert_eq!(2, stack.reserve(StackEntryType::LetVal, "val2"));
-        assert_eq!(3, stack.reserve(StackEntryType::LocalVal, "ref1"));
-        assert_eq!(4, stack.reserve(StackEntryType::LetVal, "val3"));
+        let mut out = String::new();
 
-        assert_eq!(
-            Some(1),
-            stack.find_relative_to_bp(StackEntryType::LetVal, "val1")
-        );
-        assert_eq!(
-            Some(2),
-            stack.find_relative_to_bp(StackEntryType::LetVal, "val2")
-        );
-        assert_eq!(
-            Some(3),
-            stack.find_relative_to_bp(StackEntryType::LocalVal, "ref1")
-        );
-        assert_eq!(
-            Some(4),
-            stack.find_relative_to_bp(StackEntryType::LetVal, "val3")
-        );
+        let stack = StackVals::new();
+        assert_eq!(1, stack.reserve_local_val("val1"));
+        stack.reserve_return_register(&mut out);
+        assert_eq!(2, stack.reserve_local_val("val2"));
+        let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
+        stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register");
+        assert_eq!(3, stack.reserve_local_val("ref1"));
+        assert_eq!(4, stack.reserve_local_val("val3"));
+
+        assert_eq!(Some(1), stack.find_local_val_relative_to_bp("val1"));
+        assert_eq!(Some(2), stack.find_local_val_relative_to_bp("val2"));
+        assert_eq!(Some(3), stack.find_local_val_relative_to_bp("ref1"));
+        assert_eq!(Some(4), stack.find_local_val_relative_to_bp("val3"));
     }
 }

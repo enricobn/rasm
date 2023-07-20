@@ -9,7 +9,7 @@ use log::{debug, info};
 use pad::PadStr;
 
 use crate::codegen::lambda::LambdaSpace;
-use crate::codegen::stack::StackVals;
+use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider};
@@ -104,9 +104,9 @@ pub trait Backend: RefUnwindSafe {
 
     fn function_preamble(&self, out: &mut String);
 
-    fn restore_stack(&self, stack: &StackVals, out: &mut String);
+    fn restore(&self, stack: &StackVals, out: &mut String);
 
-    fn reserve_stack(&self, stack: &StackVals, out: &mut String);
+    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String);
 
     fn function_end(&self, out: &mut String, add_return: bool);
 
@@ -162,6 +162,8 @@ pub trait Backend: RefUnwindSafe {
         temporary_register: &str,
         comment: Option<&str>,
     );
+
+    fn tmp_registers(&self) -> Vec<String>;
 }
 
 enum Linker {
@@ -815,15 +817,33 @@ impl Backend for BackendNasm386 {
         CodeGen::add(out, &format!("mov     {},{}", bp, sp), None, true);
     }
 
-    fn restore_stack(&self, stack: &StackVals, out: &mut String) {
-        if stack.len_of_local_vals() > 0 {
+    fn restore(&self, stack: &StackVals, out: &mut String) {
+        let mut local_vals = 0;
+        for entry in stack.reserved_slots().borrow().iter().rev() {
+            match entry.entry_type {
+                StackEntryType::LocalVal => {
+                    local_vals += 1;
+                }
+                StackEntryType::TmpRegister(ref register) => {
+                    CodeGen::add(
+                        out,
+                        &format!("pop {register}"),
+                        Some(&format!("restoring {}", entry.desc)),
+                        true,
+                    );
+                }
+                StackEntryType::ReturnRegister => {
+                    CodeGen::add_empty_line(out);
+                    CodeGen::add(out, "pop eax", Some("restoring return register"), true);
+                }
+            }
+        }
+
+        if local_vals > 0 {
             let sp = self.stack_pointer();
             CodeGen::add(
                 out,
-                &format!(
-                    "\nadd   {sp}, {}",
-                    stack.len_of_local_vals() * self.word_len()
-                ),
+                &format!("\nadd   {sp}, {}", local_vals * self.word_len()),
                 Some("restore stack local vals (let)"),
                 true,
             );
@@ -831,7 +851,7 @@ impl Backend for BackendNasm386 {
         }
     }
 
-    fn reserve_stack(&self, stack: &StackVals, out: &mut String) {
+    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {
         if stack.len_of_local_vals() > 0 {
             let sp = self.stack_pointer();
             CodeGen::add(
@@ -1134,6 +1154,10 @@ impl Backend for BackendNasm386 {
             comment,
             true,
         );
+    }
+
+    fn tmp_registers(&self) -> Vec<String> {
+        vec!["edx".to_owned(), "ecx".to_owned(), "ebx".to_owned()]
     }
 }
 

@@ -13,7 +13,7 @@ use lambda::{LambdaCall, LambdaSpace};
 
 use crate::codegen::backend::Backend;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
-use crate::codegen::stack::{StackEntryType, StackVals};
+use crate::codegen::stack::StackVals;
 use crate::codegen::statics::MemoryUnit::{Bytes, Words};
 use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::Statics;
@@ -372,14 +372,14 @@ impl<'a> CodeGen<'a> {
 
         self.backend.function_preamble(&mut asm);
 
-        self.backend.reserve_stack(&stack, &mut asm);
+        self.backend.reserve_local_vals(&stack, &mut asm);
 
         let body = self.body.clone();
         let new_body = self.translate_body(&body);
 
         asm.push_str(&new_body);
 
-        self.backend.restore_stack(&stack, &mut asm);
+        self.backend.restore(&stack, &mut asm);
 
         self.backend.function_end(&mut asm, false);
 
@@ -410,7 +410,7 @@ impl<'a> CodeGen<'a> {
         let wl = self.backend.word_len();
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
-        let address_relative_to_bp = stack.reserve(StackEntryType::LetVal, name) * wl;
+        let address_relative_to_bp = stack.reserve_local_val(name) * wl;
         let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
@@ -549,9 +549,8 @@ impl<'a> CodeGen<'a> {
                             format!("par {val_name}"),
                         ),
                         TypedValKind::LetRef(_i, def) => {
-                            let relative_to_bp_found = stack
-                                .find_relative_to_bp(StackEntryType::LetVal, val_name)
-                                .unwrap();
+                            let relative_to_bp_found =
+                                stack.find_local_val_relative_to_bp(val_name).unwrap();
                             let index_in_context = -(relative_to_bp_found as i32);
                             (index_in_context, def.clone(), format!("let {val_name}"))
                         }
@@ -806,24 +805,24 @@ impl<'a> CodeGen<'a> {
             false,
         );
 
-        self.backend.function_preamble(&mut self.definitions);
-        if function_def.return_type.is_none() {
-            CodeGen::add(&mut self.definitions, "push   eax", None, true);
-        }
-
         let mut before = String::new();
 
+        self.backend.function_preamble(&mut self.definitions);
+
+        let stack = StackVals::new();
+
+        if function_def.return_type.is_none() {
+            stack.reserve_return_register(&mut before);
+        }
+
         if is_lambda {
+            let register =
+                stack.reserve_tmp_register(&mut before, self.backend, "lambda_space_address");
+
             CodeGen::add(
-                &mut self.definitions,
-                "push   edx",
-                Some("lambda space address"),
-                true,
-            );
-            CodeGen::add(
-                &mut self.definitions,
+                &mut before,
                 &format!(
-                    "mov     edx, [{}+{}]",
+                    "mov     {register}, [{}+{}]",
                     self.backend.stack_base_pointer(),
                     self.backend.word_len() * 2
                 ),
@@ -851,19 +850,6 @@ impl<'a> CodeGen<'a> {
             );
             context.insert_par(par.name.clone(), i, par.clone());
             i += 1;
-        }
-
-        let stack = StackVals::new();
-
-        if is_lambda {
-            stack.reserve(StackEntryType::Other, "push edx for lambda space");
-        }
-
-        if function_def.return_type.is_none() {
-            stack.reserve(
-                StackEntryType::Other,
-                "push eax for no return type functions",
-            );
         }
 
         let mut after = String::new();
@@ -1061,7 +1047,8 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        self.backend.reserve_stack(&stack, &mut self.definitions);
+        self.backend
+            .reserve_local_vals(&stack, &mut self.definitions);
 
         self.definitions.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
@@ -1070,20 +1057,7 @@ impl<'a> CodeGen<'a> {
 
         self.definitions.push_str(&after);
 
-        self.backend.restore_stack(&stack, &mut self.definitions);
-
-        if is_lambda {
-            CodeGen::add(
-                &mut self.definitions,
-                "pop   edx",
-                Some("lambda space address"),
-                true,
-            );
-        }
-
-        if function_def.return_type.is_none() {
-            CodeGen::add(&mut self.definitions, "\npop   eax", None, true);
-        }
+        self.backend.restore(&stack, &mut self.definitions);
 
         self.backend.function_end(&mut self.definitions, true);
 
@@ -1179,7 +1153,7 @@ impl<'a> CodeGen<'a> {
                 TypedValKind::LetRef(index, ast_type) => {
                     // TODO I think it's not really needed because every index I put here, it works...
                     let index_relative_to_bp = match stack_vals
-                        .find_relative_to_bp(StackEntryType::LetVal, &function_call.function_name)
+                        .find_local_val_relative_to_bp(&function_call.function_name)
                     {
                         None => *index as i32 + 2,
                         Some(index_in_stack) => -(index_in_stack as i32),
@@ -1504,7 +1478,11 @@ impl<'a> CodeGen<'a> {
             if let Some(address) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                CodeGen::add(before, "mov eax, edx", None, true);
+                if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
+                    CodeGen::add(before, &format!("mov eax, {address}"), None, true);
+                } else {
+                    panic!()
+                }
                 // we add the address to the "lambda space" as the last parameter of the lambda
                 CodeGen::add(
                     before,
@@ -1539,10 +1517,7 @@ impl<'a> CodeGen<'a> {
                     TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
                     TypedValKind::LetRef(_, _) => {
                         let relative_to_bp_found = stack_vals
-                            .find_relative_to_bp(
-                                StackEntryType::LetVal,
-                                &function_call.function_name,
-                            )
+                            .find_local_val_relative_to_bp(&function_call.function_name)
                             .unwrap();
                         -(relative_to_bp_found as i32)
                     }
@@ -1667,12 +1642,12 @@ impl<'a> CodeGen<'a> {
                         *index,
                         lambda_space_opt,
                         *indent,
+                        stack_vals,
                     );
                 }
 
                 TypedValKind::LetRef(_index, ast_typed_type) => {
-                    let index_in_context =
-                        stack_vals.find_relative_to_bp(StackEntryType::LetVal, val_name);
+                    let index_in_context = stack_vals.find_local_val_relative_to_bp(val_name);
 
                     call_parameters.add_let_val_ref(
                         param_name.into(),
@@ -1684,6 +1659,7 @@ impl<'a> CodeGen<'a> {
                         ast_index,
                         &self.module,
                         &mut self.statics,
+                        stack_vals,
                     )
                 }
             }
