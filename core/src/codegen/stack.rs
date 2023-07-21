@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::CodeGen;
@@ -52,14 +53,16 @@ impl StackVals {
         backend: &dyn Backend,
         desc: &str,
     ) -> String {
-        let tmp_registers = backend
+        let self_tmp_registers = self.tmp_registers();
+
+        let available_tmp_registers = backend
             .tmp_registers()
             .iter()
             .cloned()
-            .filter(|it| !self.tmp_registers().contains(it))
+            .filter(|it| !self_tmp_registers.contains(it))
             .collect::<Vec<_>>();
 
-        if let Some(register) = tmp_registers.first() {
+        if let Some(register) = available_tmp_registers.first() {
             CodeGen::add(out, &format!("push {}", register), Some(desc), true);
 
             self.reserved_slots.borrow_mut().push(StackEntry {
@@ -72,7 +75,24 @@ impl StackVals {
         }
     }
 
-    fn tmp_registers(&self) -> Vec<String> {
+    pub fn release_tmp_register(&self, out: &mut String, desc: &str) {
+        if let Some(register) = self.find_tmp_register(desc) {
+            CodeGen::add(out, &format!("pop {}", register), Some(desc), true);
+
+            let new_reserved_slots = self
+                .reserved_slots
+                .borrow()
+                .iter()
+                .filter(|it| it.desc != desc)
+                .cloned()
+                .collect::<Vec<_>>();
+            self.reserved_slots.replace(new_reserved_slots);
+        } else {
+            panic!("Cannot find temp register {desc}");
+        }
+    }
+
+    fn tmp_registers(&self) -> HashSet<String> {
         self.reserved_slots
             .borrow()
             .iter()
@@ -80,7 +100,7 @@ impl StackVals {
             .filter(|it| matches!(it.entry_type, StackEntryType::TmpRegister(_)))
             .map(|it| {
                 if let StackEntryType::TmpRegister(register) = it.entry_type {
-                    register.clone()
+                    register
                 } else {
                     panic!();
                 }

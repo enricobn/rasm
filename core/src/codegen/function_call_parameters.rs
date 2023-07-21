@@ -493,7 +493,7 @@ impl<'a> FunctionCallParameters<'a> {
                 &original_param_name,
                 lambda_space_index,
                 indent,
-                stack_vals.find_tmp_register("lambda_space_address"),
+                stack_vals,
             );
         } else {
             self.add_val_from_parameter(
@@ -501,6 +501,7 @@ impl<'a> FunctionCallParameters<'a> {
                 ast_typed_type,
                 index_in_context as i32 + 2,
                 indent,
+                stack_vals,
             );
         }
     }
@@ -528,7 +529,7 @@ impl<'a> FunctionCallParameters<'a> {
                 &original_param_name,
                 lambda_space_index,
                 indent,
-                stack_vals.find_tmp_register("lambda_space_address"),
+                stack_vals,
             );
             /*
             if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type, module) {
@@ -552,6 +553,7 @@ impl<'a> FunctionCallParameters<'a> {
                     .unwrap_or_else(|| panic!("cannot find index for {val_name} : {ast_index}"))
                     as i32),
                 indent,
+                stack_vals,
             );
             /*
             if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type, module) {
@@ -729,6 +731,7 @@ impl<'a> FunctionCallParameters<'a> {
         ast_typed_type: &ASTTypedType,
         index_relative_to_bp: i32,
         indent: usize,
+        stack_vals: &StackVals,
     ) {
         self.debug_and_before(
             &format!("param {original_param_name}, index_relative_to_bp {index_relative_to_bp}"),
@@ -763,12 +766,8 @@ impl<'a> FunctionCallParameters<'a> {
                     true,
                 );
             } else {
-                CodeGen::add(
-                    &mut self.before,
-                    &format!("push  {} ebx", self.backend.word_size()),
-                    None,
-                    true,
-                );
+                let tmp_register =
+                    stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_for_move");
                 let to_remove_from_stack = self.to_remove_from_stack();
                 self.backend.indirect_mov(
                     &mut self.before,
@@ -778,7 +777,7 @@ impl<'a> FunctionCallParameters<'a> {
                         self.backend.stack_pointer(),
                         (to_remove_from_stack + 1) * self.backend.word_len()
                     ),
-                    "ebx",
+                    &tmp_register,
                     None,
                 );
 
@@ -796,7 +795,7 @@ impl<'a> FunctionCallParameters<'a> {
 
                  */
 
-                CodeGen::add(&mut self.before, "pop  ebx", None, true);
+                stack_vals.release_tmp_register(&mut self.before, "tmp_for_move");
             }
             self.parameter_added_to_stack();
         }
@@ -807,13 +806,13 @@ impl<'a> FunctionCallParameters<'a> {
         original_param_name: &str,
         lambda_space_index: usize,
         indent: usize,
-        lambda_tmp_register: Option<String>,
+        stack_vals: &StackVals,
     ) {
         self.debug_and_before(&format!("add_lambda_param_from_lambda_space, original_param_name {original_param_name}, lambda_space_index {lambda_space_index}"), indent);
 
         let word_len = self.backend.word_len();
 
-        let src = if let Some(ref register) = lambda_tmp_register {
+        let src = if let Some(ref register) = stack_vals.find_tmp_register("lambda_space_address") {
             format!("[{register} + {}]", (lambda_space_index + 2) * word_len)
         } else {
             panic!()
@@ -831,44 +830,25 @@ impl<'a> FunctionCallParameters<'a> {
                     None,
                     true,
                 );
-            } else {
-                CodeGen::add(
-                    &mut self.before,
-                    &format!("push  {} ebx", self.backend.word_size()),
-                    None,
-                    true,
-                );
+            } else if let Some(register) = stack_vals.find_tmp_register("lambda_space_address") {
+                let tmp_register =
+                    stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_for_move");
                 let to_remove_from_stack = self.to_remove_from_stack();
 
-                if let Some(register) = lambda_tmp_register {
-                    self.backend.indirect_mov(
-                        &mut self.before,
-                        &format!("{register} + {}", (lambda_space_index + 2) * word_len),
-                        &format!(
-                            "{} + {}",
-                            self.backend.stack_pointer(),
-                            (to_remove_from_stack + 1) * self.backend.word_len()
-                        ),
-                        "ebx",
-                        None,
-                    );
-                } else {
-                    panic!()
-                }
-                CodeGen::add(&mut self.before, "pop  ebx", None, true);
-
-                /*
-                TODO it seems to work, but probably it's not needed
-                if let Some(name) = CodeGen::get_reference_type_name(ast_typed_type) {
-                    self.add_code_for_reference_type(
-                        module,
-                        &name,
-                        &src,
-                        &format!("from lambda space {original_param_name} : {ast_index}"),
-                        statics,
-                    );
-                }
-                 */
+                self.backend.indirect_mov(
+                    &mut self.before,
+                    &format!("{register} + {}", (lambda_space_index + 2) * word_len),
+                    &format!(
+                        "{} + {}",
+                        self.backend.stack_pointer(),
+                        (to_remove_from_stack + 1) * self.backend.word_len()
+                    ),
+                    &tmp_register,
+                    None,
+                );
+                stack_vals.release_tmp_register(&mut self.before, "tmp_for_move");
+            } else {
+                panic!()
             }
 
             self.parameter_added_to_stack();

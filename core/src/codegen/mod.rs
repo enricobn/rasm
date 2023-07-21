@@ -1475,7 +1475,7 @@ impl<'a> CodeGen<'a> {
                 panic!("Only asm can be inlined, for now...");
             }
         } else if is_lambda {
-            if let Some(address) =
+            if let Some(index_in_lambda_space) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
                 if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
@@ -1486,27 +1486,33 @@ impl<'a> CodeGen<'a> {
                 // we add the address to the "lambda space" as the last parameter of the lambda
                 CodeGen::add(
                     before,
-                    &format!("add eax, {}", (address + 2) * self.backend.word_len()),
-                    Some("address to the allocation table of the \"lambda space\""),
+                    &format!(
+                        "add eax, {}",
+                        (index_in_lambda_space + 2) * self.backend.word_len()
+                    ),
+                    Some("address to the pointer to the allocation table of the lambda to call"),
                     true,
                 );
                 CodeGen::add(
                     before,
                     "mov eax, [eax]",
-                    Some("address to the \"lambda space\""),
+                    Some("address of the allocation table of the function to call"),
                     true,
                 );
                 CodeGen::add(
                     before,
                     "mov eax, [eax]",
-                    Some("address to the \"lambda space\""),
+                    Some("address to the \"lambda space\" of the function to call"),
                     true,
                 );
 
                 self.backend.call_function(
                     before,
                     "[eax]",
-                    &[("eax", Some("address to the \"lambda space\""))],
+                    &[(
+                        "eax",
+                        Some("address to the \"lambda space\" of the function to call"),
+                    )],
                     Some(&format!(
                         "Calling function {} : {}",
                         function_call.function_name, function_call.index
