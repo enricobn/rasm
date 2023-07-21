@@ -78,15 +78,9 @@ impl StackVals {
     pub fn release_tmp_register(&self, out: &mut String, desc: &str) {
         if let Some(register) = self.find_tmp_register(desc) {
             CodeGen::add(out, &format!("pop {}", register), Some(desc), true);
-
-            let new_reserved_slots = self
-                .reserved_slots
-                .borrow()
-                .iter()
-                .filter(|it| it.desc != desc)
-                .cloned()
-                .collect::<Vec<_>>();
-            self.reserved_slots.replace(new_reserved_slots);
+            self.reserved_slots
+                .borrow_mut()
+                .retain(|it| it.desc != desc);
         } else {
             panic!("Cannot find temp register {desc}");
         }

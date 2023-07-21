@@ -186,6 +186,7 @@ impl<'a> FunctionCallParameters<'a> {
         comment: Option<&str>,
         statics: &mut Statics,
         module: &mut ASTTypedModule,
+        stack_vals: &StackVals,
     ) -> LambdaSpace {
         let sbp = self.backend.stack_base_pointer();
         let sp = self.backend.stack_pointer();
@@ -211,11 +212,10 @@ impl<'a> FunctionCallParameters<'a> {
         let mut add_ref_function = "addRef_0".to_owned();
         let mut deref_function = "deref_0".to_owned();
 
-        CodeGen::add(
+        let lambda_space_address = stack_vals.reserve_tmp_register(
             &mut self.before,
-            &format!("push  {} ecx", self.backend.word_size()),
-            comment,
-            true,
+            self.backend,
+            "this_lambda_space_address",
         );
 
         /*
@@ -235,10 +235,13 @@ impl<'a> FunctionCallParameters<'a> {
                 true,
             );
 
-            // we put in ecx the address of the lambda space
+            // we put in lambda_space_address register the address of the lambda space
             CodeGen::add(
                 &mut self.before,
-                &format!("mov  {} ecx, {label_memory}", self.backend.word_size()),
+                &format!(
+                    "mov  {} {lambda_space_address}, {label_memory}",
+                    self.backend.word_size()
+                ),
                 comment,
                 true,
             );
@@ -266,7 +269,10 @@ impl<'a> FunctionCallParameters<'a> {
                 // we put in ecx the address of the lambda space
                 CodeGen::add(
                     &mut self.before,
-                    &format!("mov  {} ecx, {label_memory}", self.backend.word_size()),
+                    &format!(
+                        "mov  {} {lambda_space_address}, {label_memory}",
+                        self.backend.word_size()
+                    ),
                     comment,
                     true,
                 );
@@ -274,7 +280,7 @@ impl<'a> FunctionCallParameters<'a> {
                 Self::allocate_lambda_space(
                     self.backend,
                     &mut self.before,
-                    "ecx",
+                    &lambda_space_address,
                     num_of_values_in_context + 3,
                     statics,
                 );
@@ -282,21 +288,23 @@ impl<'a> FunctionCallParameters<'a> {
                 // we save the allocation table address of the lambda space in the stack
                 CodeGen::add(
                     &mut self.before,
-                    &format!("push  {} ecx", self.backend.word_size()),
+                    &format!("push  {} {lambda_space_address}", self.backend.word_size()),
                     comment,
                     true,
                 );
 
-                // we put in ecx the address of the lambda space
-                CodeGen::add(&mut self.before, "mov    dword ecx, [ecx]", None, true);
+                // we put in lambda_space_address register the address of the lambda space
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("mov    dword {lambda_space_address}, [{lambda_space_address}]"),
+                    None,
+                    true,
+                );
             }
 
-            CodeGen::add(
-                &mut self.before,
-                &format!("push  {} ebx", self.backend.word_size()),
-                comment,
-                true,
-            );
+            let tmp_register =
+                stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_register");
+
             CodeGen::add(
                 &mut self.before,
                 &format!("push  {} eax", self.backend.word_size()),
@@ -325,7 +333,7 @@ impl<'a> FunctionCallParameters<'a> {
                         &mut self.before,
                         &format!("{label_memory} + {}", (i + 2) * wl),
                         &format!("{} - {}", sbp, offset_to_stack * wl),
-                        "ebx",
+                        &tmp_register,
                         Some(&format!("saving context parameter {} in the stack", name)),
                     );
 
@@ -334,7 +342,7 @@ impl<'a> FunctionCallParameters<'a> {
                         &mut after,
                         &format!("{} - {}", sbp, offset_to_stack * wl),
                         &format!("{label_memory} + {}", (i + 2) * wl),
-                        "ebx",
+                        &tmp_register,
                         Some(&format!(
                             "reload the parameter {} from the stack to the lambda context",
                             name
@@ -358,8 +366,8 @@ impl<'a> FunctionCallParameters<'a> {
                     self.backend.indirect_mov(
                         &mut self.before,
                         &format!("{}+{}", sbp, relative_address * wl as i32),
-                        &format!("ecx + {}", (i + 2) * wl),
-                        "ebx",
+                        &format!("{lambda_space_address} + {}", (i + 2) * wl),
+                        &tmp_register,
                         Some(&format!("context parameter {}", name)),
                     );
                 } else if let Some(pls) = parent_lambda_space {
@@ -367,8 +375,8 @@ impl<'a> FunctionCallParameters<'a> {
                         self.backend.indirect_mov(
                             &mut self.before,
                             &format!("eax + {}", (parent_index + 2) * wl),
-                            &format!("ecx + {}", (i + 2) * wl),
-                            "ebx",
+                            &format!("{lambda_space_address} + {}", (i + 2) * wl),
+                            &tmp_register,
                             Some(&format!("context parameter from parent {}", name)),
                         );
                     } else {
@@ -405,43 +413,56 @@ impl<'a> FunctionCallParameters<'a> {
             }
 
             CodeGen::add(&mut self.before, "pop   eax", None, true);
-            CodeGen::add(&mut self.before, "pop   ebx", comment, true);
+            stack_vals.release_tmp_register(&mut self.before, "tmp_register");
         }
 
         CodeGen::add(
             &mut self.before,
-            &format!("mov {} [ecx], {}", ptrs, def.name),
+            &format!("mov {} [{lambda_space_address}], {}", ptrs, def.name),
             None,
             true,
         );
 
         CodeGen::add(
             &mut self.before,
-            &format!("mov {} [ecx + {wl}], {add_ref_function}", ws),
+            &format!(
+                "mov {} [{lambda_space_address} + {wl}], {add_ref_function}",
+                ws
+            ),
             None,
             true,
         );
         CodeGen::add(
             &mut self.before,
-            &format!("mov {} [ecx + 2 * {wl}], {deref_function}", ws),
+            &format!(
+                "mov {} [{lambda_space_address} + 2 * {wl}], {deref_function}",
+                ws
+            ),
             None,
             true,
         );
 
+        // I reuse the lambda_space_address register to store the allocation table address of the lambda space
+        CodeGen::add(
+            &mut self.before,
+            &format!("pop   {lambda_space_address}"),
+            None,
+            true,
+        );
         if self.immediate {
-            // the allocation table address of the lambda space
-            CodeGen::add(&mut self.before, "pop   ecx", None, true);
-            CodeGen::add(&mut self.before, &format!("mov {ws} eax, ecx"), None, true);
+            CodeGen::add(
+                &mut self.before,
+                &format!("mov {ws} eax, {lambda_space_address}"),
+                None,
+                true,
+            );
         } else {
-            // the allocation table address of the lambda space
-            CodeGen::add(&mut self.before, "pop   ecx", None, true);
-
             // + 1 due to push ecx
             let to_remove_from_stack = self.to_remove_from_stack();
             CodeGen::add(
                 &mut self.before,
                 &format!(
-                    "mov {} [{} + {}], ecx",
+                    "mov {} [{} + {}], {lambda_space_address}",
                     ws,
                     sp,
                     (to_remove_from_stack + 1) * wl
@@ -453,9 +474,13 @@ impl<'a> FunctionCallParameters<'a> {
 
         if !context.is_empty() && !optimize && self.dereference {
             // we don't need a "deep" reference / dereference here
-            self.backend
-                .call_add_ref_simple(&mut self.before, "ecx", "lambda space", statics);
-            let pos = self.push_to_scope_stack("ecx");
+            self.backend.call_add_ref_simple(
+                &mut self.before,
+                &lambda_space_address,
+                "lambda space",
+                statics,
+            );
+            let pos = self.push_to_scope_stack(&lambda_space_address);
 
             let mut result = String::new();
             CodeGen::add(&mut result, "; scope pop", None, true);
@@ -469,7 +494,7 @@ impl<'a> FunctionCallParameters<'a> {
             self.after.insert(0, result);
         }
 
-        CodeGen::add(&mut self.before, "pop  ecx", comment, true);
+        stack_vals.release_tmp_register(&mut self.before, "this_lambda_space_address");
 
         self.parameter_added_to_stack();
 
@@ -1050,8 +1075,6 @@ impl<'a> FunctionCallParameters<'a> {
         statics: &mut Statics,
     ) {
         let label = statics.add_str("lambda space");
-        CodeGen::add(out, "; lambda space allocation", None, true);
-
         backend.call_function(
             out,
             "malloc_0",
@@ -1059,7 +1082,7 @@ impl<'a> FunctionCallParameters<'a> {
                 (&format!("{}", slots * backend.word_len()), None),
                 (&format!("[{label}]"), None),
             ],
-            None,
+            Some("lambda space allocation"),
         );
 
         CodeGen::add(
