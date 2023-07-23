@@ -123,11 +123,9 @@ fn loadHighScores() -> Vec<HighScore> {
 
 fn printHighScores(highScores: Vec<HighScore>) {
     forEach(highScores, { highScore ->
-        let score = score(highScore);
-        let time = time(highScore);
-        print("high score ", score);
+        print("high score ", highScore.score);
         print(", ");
-        println(time);
+        println(highScore.time);
     });
 }
 
@@ -135,16 +133,11 @@ fn writeHighScores(highScores: Vec<HighScore>) {
     let file = createFile("scores.txt");
 
     forEach(highScores, { it ->
-        let score = score(it);
-        let time = time(it);
-        let sec = sec(time);
-        let nano = nano(time);
-
-        print(file, score)
+        print(file, it.score)
         .or(print(file, ","))
-        .or(print(file, sec))
+        .or(print(file, it.time.sec))
         .or(print(file, ","))
-        .or(println(file, nano))
+        .or(println(file, it.time.nano))
         .run({ error ->
             println(error);
             exitMain(1);
@@ -155,11 +148,9 @@ fn writeHighScores(highScores: Vec<HighScore>) {
 }
 
 fn print(highScore: HighScore) {
-    let score = score(highScore);
-    let time = time(highScore);
-    print(score);
+    print(highScore.score);
     print(", ");
-    println(time);
+    println(highScore.time);
 }
 
 fn splitToList(s: str, separator: str) -> List<str> {
