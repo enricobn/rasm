@@ -14,6 +14,7 @@ linked-hash-map.workspace = true
 log.workspace = true
 pad.workspace = true
 pathdiff.workspace = true
+rayon.workspace = true
 regex.workspace = true
 serde_derive.workspace = true
 serde.workspace = true

@@ -1,3 +1,12 @@
+/*
+parse ended in 52.676426ms
+type check ended in 85.511785ms
+code generation ended in 29.629203ms
+assembler ended in 190.640759ms
+linker ended in 28.583952ms
+finished in 390.393136ms
+*/
+
 enum GameResult {
     Play(state: GameState),
     End(score: i32)

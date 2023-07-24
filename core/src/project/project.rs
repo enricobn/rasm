@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use log::info;
 use pathdiff::diff_paths;
+use rayon::prelude::*;
 use serde::Deserialize;
 use toml::map::Map;
 use toml::{Table, Value};
@@ -83,13 +84,17 @@ impl RasmProject {
 
         let mut module = self.get_simple_module(true);
 
-        for dependency in self.get_all_dependencies() {
-            info!("including dependency {}", dependency.to_str().unwrap());
+        self.get_all_dependencies()
+            .into_par_iter()
+            .map(|dependency| {
+                info!("including dependency {}", dependency.to_str().unwrap());
 
-            let dependency_project = RasmProject::new(dependency);
-            let dep_module = dependency_project.get_simple_module(false);
-            module.add(dep_module);
-        }
+                let dependency_project = RasmProject::new(dependency);
+                dependency_project.get_simple_module(false)
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|project_module| module.add(project_module));
 
         module
     }
@@ -99,43 +104,47 @@ impl RasmProject {
             Self::module_from_file(&PathBuf::from(&self.main_src_file().unwrap()))
         } else {
             let mut module = ASTModule::new();
-            for entry in WalkDir::new(self.source_folder())
+            WalkDir::new(self.source_folder())
                 .into_iter()
+                .collect::<Vec<_>>()
+                .into_par_iter()
                 .filter_map(Result::ok)
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
-            {
-                let path = entry.path();
-                info!("including file {}", path.to_str().unwrap());
+                .map(|entry| {
+                    let path = entry.path();
+                    info!("including file {}", path.to_str().unwrap());
 
-                let entry_module = Self::module_from_file(&path.canonicalize().unwrap());
+                    let entry_module = Self::module_from_file(&path.canonicalize().unwrap());
 
-                let has_body = !entry_module.body.is_empty();
+                    let has_body = !entry_module.body.is_empty();
 
-                if body {
-                    if path.canonicalize().unwrap()
-                        == self.main_src_file().unwrap().canonicalize().unwrap()
-                    {
-                        if !has_body {
+                    if body {
+                        if path.canonicalize().unwrap()
+                            == self.main_src_file().unwrap().canonicalize().unwrap()
+                        {
+                            if !has_body {
+                                panic!(
+                                    "Main file should have a body, but {} has not a body",
+                                    path.to_str().unwrap()
+                                );
+                            }
+                        } else if has_body {
                             panic!(
-                                "Main file should have a body, but {} has not a body",
-                                path.to_str().unwrap()
+                                "Only main file should have a body, but {} has a body",
+                                path.to_str().unwrap(),
                             );
                         }
                     } else if has_body {
                         panic!(
                             "Only main file should have a body, but {} has a body",
-                            path.to_str().unwrap(),
+                            path.to_str().unwrap()
                         );
                     }
-                } else if has_body {
-                    panic!(
-                        "Only main file should have a body, but {} has a body",
-                        path.to_str().unwrap()
-                    );
-                }
-
-                module.add(entry_module);
-            }
+                    entry_module
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .for_each(|entry_module| module.add(entry_module));
             module
         }
     }
