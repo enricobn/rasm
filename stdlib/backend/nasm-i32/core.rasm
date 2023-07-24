@@ -5,9 +5,11 @@ asm exitMain(status: i32) /{
     push    dword $status
     call    exit
     %else
+    push    dword ebx
     mov     ebx, $status    ; Arg one: the status
     mov     eax, 1          ; Syscall number: 1
     int     0x80
+    pop     ebx
     %endif
 }/
 
