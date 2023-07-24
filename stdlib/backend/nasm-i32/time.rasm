@@ -19,6 +19,9 @@ asm now() -> TimeVal /{
     pop     ecx
 }/
 
+/**
+    returns the elapsed time in nanoseconds
+*/
 fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
     let secA = sec(actual);
     let nanoA = nano(actual);
@@ -29,12 +32,10 @@ fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
 }
 
 fn print(timeVal: TimeVal) {
-    let sec = sec(timeVal);
-    let nano = nano(timeVal);
     print("sec=");
-    print(sec);
+    print(timeVal.sec);
     print(" nano=");
-    print(nano);
+    print(timeVal.nano);
 }
 
 fn less(t1: TimeVal, t2: TimeVal) -> bool {
@@ -58,16 +59,12 @@ fn eq(t1: TimeVal, t2: TimeVal) -> bool {
 }
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
-// TODO use TimeVal
-asm sleep(sec: i32, nsec: i32) -> i32 /{
+asm sleep(timeVal: TimeVal) -> i32 /{
     push ebx
     push ecx
-    mov dword eax,$sec
-    mov dword [tv_sec], eax
-    mov dword eax,$nsec
-    mov dword [tv_usec], eax
+    mov dword ebx,$timeVal
+    mov dword ebx,[ebx]
     mov eax, 162
-    mov ebx, timeval
     mov ecx, 0
     int 0x80
     pop ecx
