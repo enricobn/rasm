@@ -82,15 +82,19 @@ impl RasmProject {
     pub fn get_module(&self) -> ASTModule {
         info!("Reading project {:?}", self);
 
-        let mut module = self.get_simple_module(true);
+        let mut module = ASTModule::new();
+
+        self.get_modules(true)
+            .into_iter()
+            .for_each(|m| module.add(m));
 
         self.get_all_dependencies()
             .into_par_iter()
-            .map(|dependency| {
+            .flat_map_iter(|dependency| {
                 info!("including dependency {}", dependency.to_str().unwrap());
 
                 let dependency_project = RasmProject::new(dependency);
-                dependency_project.get_simple_module(false)
+                dependency_project.get_modules(false)
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -99,11 +103,12 @@ impl RasmProject {
         module
     }
 
-    fn get_simple_module(&self, body: bool) -> ASTModule {
+    fn get_modules(&self, body: bool) -> Vec<ASTModule> {
         if self.from_file {
-            Self::module_from_file(&PathBuf::from(&self.main_src_file().unwrap()))
+            vec![Self::module_from_file(&PathBuf::from(
+                &self.main_src_file().unwrap(),
+            ))]
         } else {
-            let mut module = ASTModule::new();
             WalkDir::new(self.source_folder())
                 .into_iter()
                 .collect::<Vec<_>>()
@@ -143,9 +148,6 @@ impl RasmProject {
                     entry_module
                 })
                 .collect::<Vec<_>>()
-                .into_iter()
-                .for_each(|entry_module| module.add(entry_module));
-            module
         }
     }
 
