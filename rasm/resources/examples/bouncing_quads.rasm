@@ -1,0 +1,124 @@
+include "sdl/sdl.rasm"
+include "breakout/fps.rasm"
+
+struct Model {
+    quads: Vec<Quad>,
+    fps: FPS,
+    font: SDLFont
+}
+
+struct Quad {
+    x: f32,
+    y: f32,
+    xDir: XDirection,
+    yDir: YDirection
+}
+
+const WIDTH = 1024;
+const HEIGHT = 768;
+const QUADWIDTH = 10;
+const BLACK = SDLColor(0, 0, 0, 255);
+const WHITE = SDLColor(255, 255, 255, 255);
+const RED = SDLColor(255, 0, 0, 255);
+const GREEN = SDLColor(0, 255, 0, 255);
+const BLUE = SDLColor(0, 0, 255, 255);
+const YELLOW = SDLColor(255, 255, 0, 255);
+
+sdlInit();
+sdlTTFInit();
+
+let font = sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/DejaVuSerif.ttf"), 24);
+
+let initialModel = Model(vecRange(0, 10000).map({ it ->
+        let x = tof32(random(WIDTH));
+        let y = tof32(random(HEIGHT));
+        let xDir = if(random(2).eq(0), XDirection::Right(), XDirection::Left());
+        let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
+        Quad(x, y, xDir, yDir);
+    }),
+    FPS(0, now(), 0), font);
+
+let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
+let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
+
+sdlLoop(ren, initialModel,
+    { event, model -> update(event, model);},
+    { sdlRen, model -> render(sdlRen, model);}
+);
+
+fn update(event: Option<KeyEvent>, model: Model) -> Model {
+    model.quads(model.quads.map({ quad -> quad.update;})).fps(model.fps.update);
+}
+
+fn update(quad: Quad) -> Quad {
+    let px = update(quad.x, quad.xDir);
+    let py = update(quad.y, quad.yDir);
+    quad
+        .x(px.first)
+        .xDir(px.second)
+        .y(py.first)
+        .yDir(py.second);
+}
+
+fn update(x: f32, xDir: XDirection) -> Pair<f32, XDirection> {
+    let newX = x.move(xDir, 1.0);
+
+    if (x.greater(WIDTH),
+        { -> Pair(tof32(WIDTH), xDir.flip);},
+        { -> if(x.less(0), Pair(tof32(0), xDir.flip), Pair(newX, xDir));});
+}
+
+fn update(y: f32, yDir: YDirection) -> Pair<f32, YDirection> {
+    let newY = y.move(yDir, 1.0);
+
+    if (y.greater(HEIGHT),
+        { -> Pair(tof32(HEIGHT), yDir.flip);},
+        { -> if(y.less(0), Pair(tof32(0), yDir.flip), Pair(newY, yDir));});
+}
+
+fn render(ren: SDLRenderer, model: Model) {
+    sdlSetRenderDrawColor(ren, BLACK);
+    sdlRenderClear(ren);
+
+    sdlSetRenderDrawColor(ren, WHITE);
+
+    model.quads.forEach({quad ->
+        sdlRenderFillRect(ren, SDLRect(quad.x.toi32(0), quad.y.toi32(0), QUADWIDTH, QUADWIDTH));
+    });
+
+    let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), GREEN);
+    render(ren, fpsText, SDLRect(400, 2, 100, 24));
+    release(fpsText);
+
+    sdlRenderPresent(ren);
+}
+
+enum XDirection {
+    Left,
+    Right
+}
+
+fn flip(xDir: XDirection) -> XDirection {
+    match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
+}
+
+fn move(x: f32, xDir: XDirection, diff: f32) -> f32 {
+    match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
+}
+
+enum YDirection {
+    Up,
+    Down
+}
+
+fn flip(yDir: YDirection) -> YDirection {
+    match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
+}
+
+fn move(y: f32, yDir: YDirection, diff: f32) -> f32 {
+    match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
+}
+
+fn toi32(f: f32, default: i32) -> i32 {
+    getOrElse(toi32(f), default);
+}
