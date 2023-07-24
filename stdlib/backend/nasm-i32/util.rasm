@@ -1,0 +1,23 @@
+asm random() -> i32 /{
+    $call(malloc, 4, "random")
+    push    dword ebx
+    push    dword ecx
+    push    dword edx
+
+    mov     dword edx, 0          ; flags
+    mov     dword ecx, 4          ; bytes
+    mov     dword ebx, eax
+    mov     dword ebx, [ebx]      ; mem address
+    mov     eax, 0x163            ; Syscall number
+    int     0x80
+    mov     dword eax,[ebx]
+    pop edx
+    pop ecx
+    pop ebx
+}/
+
+fn random(max: i32) -> i32 {
+    let r = random();
+    let rp = if(r.less(0), negate(r), r);
+    rp.sub(rp.div(max).mul(max));
+}
