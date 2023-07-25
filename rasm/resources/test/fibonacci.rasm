@@ -16,29 +16,26 @@
 println(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
-    if(lessOrEqual(n, 1),n,{ ->
-        add(fib(add(n,-1)), fib(add(n,-2)));
+    if(lessOrEqual(n, 1), n, { ->
+        add(fib(add(n, -1)), fib(add(n, -2)));
     });
 }
 
 /*
 asm ff(n: i32) -> i32 /{
     push    ebx
-    mov     eax,$n
+
+    mov     eax, $n
     cmp     eax, 1
     jbe     .end
 
     sub     eax, 1
-    push    eax
-    call    ff
-    add     esp, 4
-    mov     ebx,eax
+    $call(ff, eax)
+    mov     ebx, eax
 
-    mov     eax,$n
-    sub     eax,2
-    push    eax
-    call    ff
-    add     esp, 4
+    mov     eax, $n
+    sub     eax, 2
+    $call(ff, eax)
     add     eax, ebx
 .end:
     pop     ebx
