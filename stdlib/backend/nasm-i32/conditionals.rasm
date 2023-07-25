@@ -49,33 +49,40 @@ inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
 }/
 
 /**
-    false = 0 true = any other value
+    false = 0 true = 1
+    it's a branch less implementation
 
-    ATTENTION: it is not short circuit, it always evaluates both arguments before calling the function,
-    if you need a short circuit then use if function
-    false = 0 true = any other value
+    ATTENTION: it is not short circuit, it always evaluates both arguments,
+    if you need a short circuit then use the version with lambda
 **/
-inline asm if<T>(cond: bool, vtrue: T, vfalse: T) -> T /{
-    mov     eax,$cond
-    cmp     eax, 0
-    jz      $+10
-    mov     eax, $vtrue
-    jmp     $+11
-    nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
-    nop
-    nop
-    mov     eax, $vfalse
-    nop     ; nops are used because it's inlined and $vfalse could be an immediate value or an address so we don't know where to jump exactly...
-    nop
-    nop
+inline asm if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
+    push  ebx
+    push  edx
+
+    mov   dword eax, $cond
+    imul  dword eax, $trueVal
+    mov   dword ebx, $cond
+    xor   dword ebx, 1
+    imul  dword ebx, $falseVal
+    add   dword eax, ebx
+
+    pop   edx
+    pop   ebx
 }/
+
+/**
+    ATTENTION: it is not short circuit, it always evaluates both arguments,
+    if you need a short circuit then use the version with lambda
+**/
+fn if<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueElse: T) -> T {
+    if(cond, trueValue, if(elseIfCond, valueElseIf, valueElse));
+}
 
 /**
     false = 0 true = any other value
 
-    ATTENTION: the true branch is not short circuit, it is always evaluated before calling the function,
-    if you need a full short circuit then use the if function
-    false = 0 true = any other value
+    ATTENTION: it is not completely short circuit, the true value is always evaluated,
+    if you need a short circuit then use if function with lambda
 **/
 inline asm if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
