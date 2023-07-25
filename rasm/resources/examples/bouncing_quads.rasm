@@ -62,7 +62,9 @@ fn update(x: i32, xDir: XDirection) -> Pair<i32, XDirection> {
 
     if (x.greater(WIDTH),
         Pair(WIDTH, xDir.flip),
-        if(x.less(0), Pair(0, xDir.flip), Pair(newX, xDir)));
+        x.less(0),
+        Pair(0, xDir.flip),
+        Pair(newX, xDir));
 }
 
 fn update(y: i32, yDir: YDirection) -> Pair<i32, YDirection> {
@@ -70,7 +72,9 @@ fn update(y: i32, yDir: YDirection) -> Pair<i32, YDirection> {
 
     if (y.greater(HEIGHT),
         Pair(HEIGHT, yDir.flip),
-        if(y.less(0), Pair(0, yDir.flip), Pair(newY, yDir)));
+        y.less(0),
+        Pair(0, yDir.flip),
+        Pair(newY, yDir));
 }
 
 fn render(ren: SDLRenderer, model: Model) {
