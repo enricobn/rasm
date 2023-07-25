@@ -1,5 +1,6 @@
 include "sdl/sdl.rasm"
 include "breakout/fps.rasm"
+include "breakout/direction.rasm"
 
 struct Model {
     quads: Vec<Quad>,
@@ -8,8 +9,8 @@ struct Model {
 }
 
 struct Quad {
-    x: f32,
-    y: f32,
+    x: i32,
+    y: i32,
     xDir: XDirection,
     yDir: YDirection
 }
@@ -27,11 +28,11 @@ const YELLOW = SDLColor(255, 255, 0, 255);
 sdlInit();
 sdlTTFInit();
 
-let font = sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/DejaVuSerif.ttf"), 24);
+let font = sdlErrorIfNull(sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
 
 let initialModel = Model(vecRange(0, 10000).map({ it ->
-        let x = tof32(random(WIDTH));
-        let y = tof32(random(HEIGHT));
+        let x = random(WIDTH);
+        let y = random(HEIGHT);
         let xDir = if(random(2).eq(0), XDirection::Right(), XDirection::Left());
         let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
         Quad(x, y, xDir, yDir);
@@ -53,27 +54,23 @@ fn update(event: Option<KeyEvent>, model: Model) -> Model {
 fn update(quad: Quad) -> Quad {
     let px = update(quad.x, quad.xDir);
     let py = update(quad.y, quad.yDir);
-    quad
-        .x(px.first)
-        .xDir(px.second)
-        .y(py.first)
-        .yDir(py.second);
+    Quad(px.first, py.first, px.second, py.second);
 }
 
-fn update(x: f32, xDir: XDirection) -> Pair<f32, XDirection> {
-    let newX = x.move(xDir, 1.0);
+fn update(x: i32, xDir: XDirection) -> Pair<i32, XDirection> {
+    let newX = x.move(xDir, 1);
 
     if (x.greater(WIDTH),
-        { -> Pair(tof32(WIDTH), xDir.flip);},
-        { -> if(x.less(0), Pair(tof32(0), xDir.flip), Pair(newX, xDir));});
+        Pair(WIDTH, xDir.flip),
+        if(x.less(0), Pair(0, xDir.flip), Pair(newX, xDir)));
 }
 
-fn update(y: f32, yDir: YDirection) -> Pair<f32, YDirection> {
-    let newY = y.move(yDir, 1.0);
+fn update(y: i32, yDir: YDirection) -> Pair<i32, YDirection> {
+    let newY = y.move(yDir, 1);
 
     if (y.greater(HEIGHT),
-        { -> Pair(tof32(HEIGHT), yDir.flip);},
-        { -> if(y.less(0), Pair(tof32(0), yDir.flip), Pair(newY, yDir));});
+        Pair(HEIGHT, yDir.flip),
+        if(y.less(0), Pair(0, yDir.flip), Pair(newY, yDir)));
 }
 
 fn render(ren: SDLRenderer, model: Model) {
@@ -83,7 +80,7 @@ fn render(ren: SDLRenderer, model: Model) {
     sdlSetRenderDrawColor(ren, WHITE);
 
     model.quads.forEach({quad ->
-        sdlRenderFillRect(ren, SDLRect(quad.x.toi32(0), quad.y.toi32(0), QUADWIDTH, QUADWIDTH));
+        sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
     });
 
     let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), GREEN);
@@ -91,34 +88,4 @@ fn render(ren: SDLRenderer, model: Model) {
     release(fpsText);
 
     sdlRenderPresent(ren);
-}
-
-enum XDirection {
-    Left,
-    Right
-}
-
-fn flip(xDir: XDirection) -> XDirection {
-    match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
-}
-
-fn move(x: f32, xDir: XDirection, diff: f32) -> f32 {
-    match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
-}
-
-enum YDirection {
-    Up,
-    Down
-}
-
-fn flip(yDir: YDirection) -> YDirection {
-    match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
-}
-
-fn move(y: f32, yDir: YDirection, diff: f32) -> f32 {
-    match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
-}
-
-fn toi32(f: f32, default: i32) -> i32 {
-    getOrElse(toi32(f), default);
 }
