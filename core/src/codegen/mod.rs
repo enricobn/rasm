@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::collections::HashSet;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
@@ -983,6 +984,7 @@ impl<'a> CodeGen<'a> {
                                             &mut self.statics,
                                             &mut self.module,
                                             &stack,
+                                            false,
                                         );
 
                                         before.push_str(&parameters.before());
@@ -1415,6 +1417,21 @@ impl<'a> CodeGen<'a> {
 
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
+                        let function_def = self
+                            .module
+                            .functions_by_name
+                            .get(&function_call.function_name)
+                            .unwrap();
+
+                        let optimize = function_def.return_type.is_none()
+                            || CodeGen::can_optimize_lambda_space(function_def.return_type.as_ref().unwrap(), &self.module)
+                            /*|| CodeGen::get_reference_type_name(
+                                function_def.return_type.as_ref().unwrap(),
+                                &self.module,
+                            )
+                            
+                                                         .is_none()*/;
+
                         let lambda_space = call_parameters.add_lambda(
                             &def,
                             lambda_space_opt,
@@ -1423,6 +1440,7 @@ impl<'a> CodeGen<'a> {
                             &mut self.statics,
                             &mut self.module,
                             stack_vals,
+                            optimize,
                         );
 
                         // I add the parameters of the lambda itself
@@ -1732,6 +1750,69 @@ impl<'a> CodeGen<'a> {
                 }
             }
             _ => None,
+        }
+    }
+
+    pub fn can_optimize_lambda_space(
+        lambda_return_type: &ASTTypedType,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> bool {
+        let mut already_checked = HashSet::new();
+        Self::can_optimize_lambda_space_(
+            lambda_return_type,
+            type_def_provider,
+            &mut already_checked,
+        )
+    }
+
+    fn can_optimize_lambda_space_(
+        lambda_return_type: &ASTTypedType,
+        type_def_provider: &dyn TypeDefProvider,
+        already_checked: &mut HashSet<String>,
+    ) -> bool {
+        match lambda_return_type {
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
+            ASTTypedType::Enum { name } => {
+                if already_checked.contains(name) {
+                    return true;
+                }
+
+                already_checked.insert(name.to_owned());
+
+                if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
+                    e.variants
+                        .iter()
+                        .flat_map(|it| it.parameters.iter())
+                        .all(|it| {
+                            Self::can_optimize_lambda_space_(
+                                &it.ast_type,
+                                type_def_provider,
+                                already_checked,
+                            )
+                        })
+                } else {
+                    panic!();
+                }
+            }
+            ASTTypedType::Struct { name } => {
+                if already_checked.contains(name) {
+                    return true;
+                }
+
+                already_checked.insert(name.to_owned());
+                if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
+                    s.properties.iter().all(|it| {
+                        Self::can_optimize_lambda_space_(
+                            &it.ast_type,
+                            type_def_provider,
+                            already_checked,
+                        )
+                    })
+                } else {
+                    panic!()
+                }
+            }
+            _ => true,
         }
     }
 

@@ -19,6 +19,12 @@
 // 138332 table slots allocated
 //
 // real    0m28,633s
+//
+// optimized lambda space allocation (in stack)
+// 481240 bytes allocated
+// 125766 table slots allocated
+//
+// real    0m12,196s
 
 include "gameoflife_common.rasm"
 include "gameoflife_common_list.rasm"

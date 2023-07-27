@@ -818,11 +818,11 @@ impl Backend for BackendNasm386 {
     }
 
     fn restore(&self, stack: &StackVals, out: &mut String) {
-        let mut local_vals = 0;
+        let mut local_vals_words = 0;
         for entry in stack.reserved_slots().borrow().iter().rev() {
             match entry.entry_type {
                 StackEntryType::LocalVal => {
-                    local_vals += 1;
+                    local_vals_words += 1;
                 }
                 StackEntryType::TmpRegister(ref register) => {
                     CodeGen::add(
@@ -836,14 +836,17 @@ impl Backend for BackendNasm386 {
                     CodeGen::add_empty_line(out);
                     CodeGen::add(out, "pop eax", Some("restoring return register"), true);
                 }
+                StackEntryType::LocalFakeAllocation(size) => {
+                    local_vals_words += size;
+                }
             }
         }
 
-        if local_vals > 0 {
+        if local_vals_words > 0 {
             let sp = self.stack_pointer();
             CodeGen::add(
                 out,
-                &format!("\nadd   {sp}, {}", local_vals * self.word_len()),
+                &format!("\nadd   {sp}, {}", local_vals_words * self.word_len()),
                 Some("restore stack local vals (let)"),
                 true,
             );
@@ -999,7 +1002,10 @@ impl Backend for BackendNasm386 {
             // TODO _0
             CodeGen::add(
                 &mut code,
-                &format!("$call(addStaticAllocation_0, {label_allocation}, {label_memory})"),
+                &format!(
+                    "$call(addStaticAllocation_0, {label_allocation}, {label_memory}, {})",
+                    self.word_len()
+                ),
                 None,
                 true,
             );

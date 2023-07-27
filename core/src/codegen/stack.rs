@@ -9,6 +9,7 @@ pub enum StackEntryType {
     LocalVal,
     TmpRegister(String),
     ReturnRegister,
+    LocalFakeAllocation(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,15 @@ impl StackVals {
     pub fn reserve_local_val(&self, desc: &str) -> usize {
         self.reserved_slots.borrow_mut().push(StackEntry {
             entry_type: StackEntryType::LocalVal,
+            desc: desc.to_owned(),
+        });
+        // debug!("stack {:?}", self);
+        self.len_of_local_vals()
+    }
+
+    pub fn reserve_local_space(&self, desc: &str, words: usize) -> usize {
+        self.reserved_slots.borrow_mut().push(StackEntry {
+            entry_type: StackEntryType::LocalFakeAllocation(words),
             desc: desc.to_owned(),
         });
         // debug!("stack {:?}", self);
@@ -103,15 +113,29 @@ impl StackVals {
     }
 
     pub fn len_of_all(&self) -> usize {
-        self.reserved_slots.borrow().len()
+        self.reserved_slots
+            .borrow()
+            .iter()
+            .map(|it| match it.entry_type {
+                StackEntryType::TmpRegister(_) => 1,
+                StackEntryType::LocalFakeAllocation(size) => size,
+                StackEntryType::LocalVal => 1,
+                StackEntryType::ReturnRegister => 1,
+            })
+            .sum()
     }
 
     pub fn len_of_local_vals(&self) -> usize {
         self.reserved_slots
             .borrow()
             .iter()
-            .filter(|it| matches!(it.entry_type, StackEntryType::LocalVal))
-            .count()
+            .map(|it| match it.entry_type {
+                StackEntryType::TmpRegister(_) => 0,
+                StackEntryType::LocalFakeAllocation(size) => size,
+                StackEntryType::LocalVal => 1,
+                StackEntryType::ReturnRegister => 0,
+            })
+            .sum()
     }
 
     pub fn remove_all(&self) {
@@ -122,15 +146,24 @@ impl StackVals {
         let mut result = 0;
         let mut found = false;
         for entry in self.reserved_slots.borrow().iter() {
-            if entry.entry_type == StackEntryType::LocalVal {
-                if !found {
-                    result += 1;
+            match entry.entry_type {
+                StackEntryType::LocalVal => {
+                    if !found {
+                        result += 1;
+                    }
+                    if entry.desc == desc {
+                        if found {
+                            panic!("{desc}");
+                        } else {
+                            found = true;
+                        }
+                    }
                 }
-                if entry.desc == desc {
-                    if found {
-                        panic!("{desc}");
-                    } else {
-                        found = true;
+                StackEntryType::TmpRegister(_) => {}
+                StackEntryType::ReturnRegister => {}
+                StackEntryType::LocalFakeAllocation(size) => {
+                    if !found {
+                        result += size;
                     }
                 }
             }
@@ -182,11 +215,12 @@ mod tests {
         let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
         stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register");
         assert_eq!(3, stack.reserve_local_val("ref1"));
-        assert_eq!(4, stack.reserve_local_val("val3"));
+        assert_eq!(6, stack.reserve_local_space("spc", 3));
+        assert_eq!(7, stack.reserve_local_val("val3"));
 
         assert_eq!(Some(1), stack.find_local_val_relative_to_bp("val1"));
         assert_eq!(Some(2), stack.find_local_val_relative_to_bp("val2"));
         assert_eq!(Some(3), stack.find_local_val_relative_to_bp("ref1"));
-        assert_eq!(Some(4), stack.find_local_val_relative_to_bp("val3"));
+        assert_eq!(Some(7), stack.find_local_val_relative_to_bp("val3"));
     }
 }

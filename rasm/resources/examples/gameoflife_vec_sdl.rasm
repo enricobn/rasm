@@ -16,6 +16,13 @@
 // 88686 table slots allocated
 //
 //real    0m2,121s
+//
+// optimized lambda space allocation (in stack)
+// 507712 bytes allocated
+// 88302 table slots allocated
+//
+// real    0m1,803s
+
 
 include "sdl/sdl.rasm"
 

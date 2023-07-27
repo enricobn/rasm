@@ -7,7 +7,6 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{CodeGen, TypedValKind};
-use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -187,16 +186,13 @@ impl<'a> FunctionCallParameters<'a> {
         statics: &mut Statics,
         module: &mut ASTTypedModule,
         stack_vals: &StackVals,
+        optimize: bool,
     ) -> LambdaSpace {
         let sbp = self.backend.stack_base_pointer();
         let sp = self.backend.stack_pointer();
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let ptrs = self.backend.pointer_size();
-        // TODO we should try to understand if we can optimize using a static lambda context and reusing
-        //  the values, it should not be done if the lambda is returned or put in a "container", but
-        //  how can we do it?
-        let optimize = false;
 
         let mut references = self.body_references_to_context(&def.body, context);
         references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
@@ -220,7 +216,7 @@ impl<'a> FunctionCallParameters<'a> {
 
         /*
            If the context is empty, we optimize, using a static allocation.
-           We cannot use "as is" when there are values in the context, because the same lambda can be used recursively,
+           We cannot do that when there are values in the context, because the same lambda can be used recursively,
            so the values of the previous recursion are overridden.
         */
         if context.is_empty() {
@@ -248,32 +244,71 @@ impl<'a> FunctionCallParameters<'a> {
         } else {
             let num_of_values_in_context = context.iter().count();
 
-            let mut label_memory = String::new();
-
             if optimize {
-                let (label_allocation, lm) = statics.insert_static_allocation(MemoryValue::Mem(
-                    num_of_values_in_context + 3,
-                    MemoryUnit::Words,
-                ));
+                let tmp_register =
+                    stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_register");
+
+                let address_relative_to_bp_for_lambda_allocation =
+                    stack_vals.reserve_local_space("optimized lambda space", 5);
+                let address_relative_to_bp_for_lambda_space = stack_vals
+                    .reserve_local_space("optimized lambda space", num_of_values_in_context + 3);
+
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("mov dword {lambda_space_address},{sbp}"),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut self.before,
+                    &format!(
+                        "sub dword {lambda_space_address},{}",
+                        address_relative_to_bp_for_lambda_allocation * wl
+                    ),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut self.before,
+                    &format!("mov dword {tmp_register},{sbp}"),
+                    None,
+                    true,
+                );
+                CodeGen::add(
+                    &mut self.before,
+                    &format!(
+                        "sub dword {tmp_register},{}",
+                        address_relative_to_bp_for_lambda_space * wl
+                    ),
+                    None,
+                    true,
+                );
+                self.backend.call_function(
+                    &mut self.before,
+                    "addStaticAllocation_0",
+                    &[
+                        (&lambda_space_address, None),
+                        (&tmp_register, None),
+                        (&format!("{}", (num_of_values_in_context + 3) * wl), None),
+                    ],
+                    None,
+                );
+
+                stack_vals.release_tmp_register(&mut self.before, "tmp_register");
 
                 // we save the allocation table address of the lambda space in the stack
                 CodeGen::add(
                     &mut self.before,
-                    &format!("push  {} {label_allocation}", self.backend.word_size()),
+                    &format!("push  {} {lambda_space_address}", self.backend.word_size()),
                     comment,
                     true,
                 );
 
-                label_memory = lm;
-
-                // we put in ecx the address of the lambda space
+                // we put in lambda_space_address register the address of the lambda space
                 CodeGen::add(
                     &mut self.before,
-                    &format!(
-                        "mov  {} {lambda_space_address}, {label_memory}",
-                        self.backend.word_size()
-                    ),
-                    comment,
+                    &format!("mov    dword {lambda_space_address}, [{lambda_space_address}]"),
+                    None,
                     true,
                 );
             } else {
@@ -305,51 +340,11 @@ impl<'a> FunctionCallParameters<'a> {
             let tmp_register =
                 stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_register");
 
-            CodeGen::add(
-                &mut self.before,
-                &format!("push  {} eax", self.backend.word_size()),
-                comment,
-                true,
-            );
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov   {} eax, [{sbp} + {}]", ws, 2 * wl),
-                None,
-                true,
-            );
+            let mut need_eax = false;
 
             let mut i = 1;
 
-            let mut after = String::new();
-
             context.iter().for_each(|(name, kind)| {
-                if optimize {
-                    let offset_to_stack = self.stack_vals.reserve_local_val(name);
-
-                    debug_i!("  offset_to_stack {offset_to_stack}");
-
-                    // we save the previous value in the stack
-                    self.backend.indirect_mov(
-                        &mut self.before,
-                        &format!("{label_memory} + {}", (i + 2) * wl),
-                        &format!("{} - {}", sbp, offset_to_stack * wl),
-                        &tmp_register,
-                        Some(&format!("saving context parameter {} in the stack", name)),
-                    );
-
-                    // then we restore it
-                    self.backend.indirect_mov(
-                        &mut after,
-                        &format!("{} - {}", sbp, offset_to_stack * wl),
-                        &format!("{label_memory} + {}", (i + 2) * wl),
-                        &tmp_register,
-                        Some(&format!(
-                            "reload the parameter {} from the stack to the lambda context",
-                            name
-                        )),
-                    );
-                }
-
                 let already_in_parent = if let Some(parent_lambda) = parent_lambda_space {
                     parent_lambda.is_in_context(name)
                 } else {
@@ -372,6 +367,21 @@ impl<'a> FunctionCallParameters<'a> {
                     );
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
+                        if !need_eax {
+                            CodeGen::add(
+                                &mut self.before,
+                                &format!("push  {} eax", self.backend.word_size()),
+                                comment,
+                                true,
+                            );
+                            CodeGen::add(
+                                &mut self.before,
+                                &format!("mov   {} eax, [{sbp} + {}]", ws, 2 * wl),
+                                None,
+                                true,
+                            );
+                            need_eax = true;
+                        }
                         self.backend.indirect_mov(
                             &mut self.before,
                             &format!("eax + {}", (parent_index + 2) * wl),
@@ -408,11 +418,9 @@ impl<'a> FunctionCallParameters<'a> {
                 lambda_space.add_ref_function(deref_function_def);
             }
 
-            if !after.is_empty() {
-                self.after.push(after);
+            if need_eax {
+                CodeGen::add(&mut self.before, "pop   eax", None, true);
             }
-
-            CodeGen::add(&mut self.before, "pop   eax", None, true);
             stack_vals.release_tmp_register(&mut self.before, "tmp_register");
         }
 
@@ -774,8 +782,7 @@ impl<'a> FunctionCallParameters<'a> {
         let src: String = format!("[{source}]");
 
         if self.inline {
-            self.parameters_values
-                .insert(original_param_name, src.clone());
+            self.parameters_values.insert(original_param_name, src);
             // TODO add ref?
         } else {
             let type_size = self
