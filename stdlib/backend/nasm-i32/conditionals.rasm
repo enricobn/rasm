@@ -100,7 +100,7 @@ inline asm if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     add     dword esp, 4
 }/
 
-/** TODO it should be a bool
+/**
  *  a  <= b
  *  false = 0 true = 1
  **/
@@ -112,7 +112,7 @@ inline asm lessOrEqual(a: i32, b: i32) -> bool /{
     mov     eax,0 ; false
 }/
 
-/** TODO it should be a bool
+/**
  *  a  < b
  *  false = 0 true = 1
  **/
@@ -124,7 +124,7 @@ inline asm less(a: i32, b: i32) -> bool /{
     mov     eax,0 ; false
 }/
 
-/** TODO it should be a bool
+/**
  *  a  <= b
  *  false = 0 true = 1
  **/
