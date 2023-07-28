@@ -909,10 +909,6 @@ impl<'a> FunctionCallParameters<'a> {
                     par.name,
                     par_value
                 );
-                result.push_str(&format!(
-                    ";found parameter {}, value: {}\n",
-                    par.name, par_value
-                ));
                 substitutions.push((par.name.clone(), par_value.clone()));
                 continue;
             }
@@ -923,10 +919,6 @@ impl<'a> FunctionCallParameters<'a> {
                 par.name,
                 self.parameters_values
             );
-            result.push_str(&format!(
-                ";cannot find parameter {} in parameters_values {:?} we take it from stack\n",
-                par.name, self.parameters_values
-            ));
 
             let relative_address = if self.inline {
                 debug!(
@@ -936,12 +928,6 @@ impl<'a> FunctionCallParameters<'a> {
                     self.to_remove_from_stack(),
                     to_remove_from_stack
                 );
-                result.push_str(&format!(
-                    ";i {}, self.to_remove_from_stack {}, to_remove_from_stack {}\n",
-                    i,
-                    self.to_remove_from_stack(),
-                    to_remove_from_stack
-                ));
                 format!(
                     "{}-({})-{}",
                     (i - self.to_remove_from_stack() as i32) * word_len,

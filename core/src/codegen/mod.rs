@@ -379,6 +379,7 @@ impl<'a> CodeGen<'a> {
         let new_body = self.translate_body(&body);
 
         asm.push_str(&new_body);
+        asm.push('\n');
 
         self.backend.restore(&stack, &mut asm);
 
@@ -1059,6 +1060,7 @@ impl<'a> CodeGen<'a> {
         ));
 
         self.definitions.push_str(&after);
+        self.definitions.push('\n');
 
         self.backend.restore(&stack, &mut self.definitions);
 
@@ -1424,13 +1426,10 @@ impl<'a> CodeGen<'a> {
                             .unwrap();
 
                         let optimize = function_def.return_type.is_none()
-                            || CodeGen::can_optimize_lambda_space(function_def.return_type.as_ref().unwrap(), &self.module)
-                            /*|| CodeGen::get_reference_type_name(
+                            || CodeGen::can_optimize_lambda_space(
                                 function_def.return_type.as_ref().unwrap(),
                                 &self.module,
-                            )
-                            
-                                                         .is_none()*/;
+                            );
 
                         let lambda_space = call_parameters.add_lambda(
                             &def,
@@ -1491,6 +1490,7 @@ impl<'a> CodeGen<'a> {
                     added_to_stack,
                     indent,
                 ));
+                before.push('\n');
             } else {
                 panic!("Only asm can be inlined, for now...");
             }
@@ -1641,8 +1641,6 @@ impl<'a> CodeGen<'a> {
                 true,
             );
         }
-        CodeGen::add_empty_line(before);
-
         lambda_calls
     }
 

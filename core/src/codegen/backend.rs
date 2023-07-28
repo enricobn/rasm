@@ -846,7 +846,7 @@ impl Backend for BackendNasm386 {
             let sp = self.stack_pointer();
             CodeGen::add(
                 out,
-                &format!("\nadd   {sp}, {}", local_vals_words * self.word_len()),
+                &format!("add   {sp}, {}", local_vals_words * self.word_len()),
                 Some("restore stack local vals (let)"),
                 true,
             );
@@ -873,7 +873,7 @@ impl Backend for BackendNasm386 {
 
     fn function_end(&self, out: &mut String, add_return: bool) {
         let bp = self.stack_base_pointer();
-        CodeGen::add(out, &format!("\npop     {}", bp), None, true);
+        CodeGen::add(out, &format!("pop     {}", bp), None, true);
         if add_return {
             CodeGen::add(out, "ret", None, true);
         }
