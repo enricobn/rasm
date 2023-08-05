@@ -31,6 +31,8 @@ impl StackVals {
     }
 
     pub fn reserve_local_val(&self, desc: &str) -> usize {
+        self.check_desc(desc);
+
         self.reserved_slots.borrow_mut().push(StackEntry {
             entry_type: StackEntryType::LocalVal,
             desc: desc.to_owned(),
@@ -40,6 +42,8 @@ impl StackVals {
     }
 
     pub fn reserve_local_space(&self, desc: &str, words: usize) -> usize {
+        self.check_desc(desc);
+
         self.reserved_slots.borrow_mut().push(StackEntry {
             entry_type: StackEntryType::LocalFakeAllocation(words),
             desc: desc.to_owned(),
@@ -49,6 +53,8 @@ impl StackVals {
     }
 
     pub fn reserve_return_register(&self, out: &mut String) {
+        self.check_desc("return_register");
+
         CodeGen::add(out, "push eax", Some("return register"), true);
 
         self.reserved_slots.borrow_mut().push(StackEntry {
@@ -63,6 +69,8 @@ impl StackVals {
         backend: &dyn Backend,
         desc: &str,
     ) -> String {
+        self.check_desc(desc);
+
         let self_tmp_registers = self.tmp_registers();
 
         let available_tmp_registers = backend
@@ -85,8 +93,31 @@ impl StackVals {
         }
     }
 
+    fn check_desc(&self, desc: &str) {
+        if self
+            .reserved_slots
+            .borrow()
+            .iter()
+            .any(|it| it.desc == desc)
+        {
+            panic!("Duplicated desc: {desc}");
+        }
+    }
+
     pub fn release_tmp_register(&self, out: &mut String, desc: &str) {
-        if let Some(register) = self.find_tmp_register(desc) {
+        let mut register_o = None;
+        for entry in self.reserved_slots.borrow().iter().rev() {
+            if let StackEntryType::TmpRegister(ref r) = entry.entry_type {
+                if entry.desc == desc {
+                    register_o = Some(r.to_owned());
+                    break;
+                } else {
+                    panic!("Expected {desc} but got {}", entry.desc);
+                }
+            }
+        }
+
+        if let Some(register) = register_o {
             CodeGen::add(out, &format!("pop {}", register), Some(desc), true);
             self.reserved_slots
                 .borrow_mut()
