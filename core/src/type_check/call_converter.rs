@@ -1115,18 +1115,46 @@ fn get_called_function(
             None
         }
     } else {
-        let all_not_generic = candidate_functions
+        // we want to find the unique function that has the max number of non generic parameters
+        // TODO I don't really like the code, refactor it
+        let max_not_generic = candidate_functions
             .iter()
-            .filter(|it| {
+            .map(|it| {
                 it.parameters
                     .iter()
-                    .all(|p| !matches!(p.ast_type, ASTType::Generic(_)))
+                    .filter(|p| !matches!(p.ast_type, ASTType::Generic(_)))
+                    .count()
             })
-            .collect::<Vec<_>>();
+            .max();
 
-        if all_not_generic.len() == 1 {
-            all_not_generic.first().copied().cloned()
+        let result = if let Some(max) = max_not_generic {
+            if max > 0 {
+                let candidate_functions = candidate_functions
+                    .iter()
+                    .filter(|it| {
+                        it.parameters
+                            .iter()
+                            .filter(|p| !matches!(p.ast_type, ASTType::Generic(_)))
+                            .count()
+                            == max
+                    })
+                    .collect::<Vec<_>>();
+                if candidate_functions.len() == 1 {
+                    candidate_functions.first().copied().cloned()
+                } else {
+                    // there are more functions with the same number of non generic parameters
+                    None
+                }
+            } else {
+                // there are no functions with non generic parameters
+                None
+            }
         } else {
+            // we have no candidate functions
+            None
+        };
+
+        if result.is_none() {
             panic!(
                 "Cannot find one single function for {call} but {:?}: {}",
                 candidate_functions
@@ -1136,6 +1164,8 @@ fn get_called_function(
                 call.index
             );
         }
+
+        result
     };
 
     dedent!();
