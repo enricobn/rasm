@@ -94,6 +94,8 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
 .ok:
     add     ecx, 1
     $call(malloc, ecx, " for substr")
+    $addRef(eax: str)
+    push    eax
     mov     dword ecx,[eax]
 
     mov     dword ebx, $s
@@ -103,6 +105,8 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
     $call(memcopy, ebx, ecx, $len)
 
     $call(Option::Some, eax: str)
+    pop     ebx
+    $deref(ebx: str)
 .end:
     pop ecx
     pop ebx
