@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
@@ -12,6 +14,8 @@ use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
+
+static COUNT: AtomicUsize = AtomicUsize::new(0);
 
 pub struct FunctionCallParameters<'a> {
     parameters: Vec<ASTTypedParameterDef>,
@@ -248,10 +252,21 @@ impl<'a> FunctionCallParameters<'a> {
                 let tmp_register =
                     stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_register");
 
-                let address_relative_to_bp_for_lambda_allocation =
-                    stack_vals.reserve_local_space("optimized lambda space", 5);
-                let address_relative_to_bp_for_lambda_space = stack_vals
-                    .reserve_local_space("optimized lambda space", num_of_values_in_context + 3);
+                let address_relative_to_bp_for_lambda_allocation = stack_vals.reserve_local_space(
+                    &format!(
+                        "optimized_lambda_space_{}",
+                        COUNT.fetch_add(1, Ordering::Relaxed)
+                    ),
+                    5,
+                );
+
+                let address_relative_to_bp_for_lambda_space = stack_vals.reserve_local_space(
+                    &format!(
+                        "optimized_lambda_space_mem_{}",
+                        COUNT.fetch_add(1, Ordering::Relaxed)
+                    ),
+                    num_of_values_in_context + 3,
+                );
 
                 CodeGen::add(
                     &mut self.before,
@@ -1002,7 +1017,11 @@ impl<'a> FunctionCallParameters<'a> {
     }
 
     fn push_to_scope_stack(&mut self, what: &str) -> usize {
-        let pos = self.stack_vals.reserve_local_val(what) * self.backend.word_len();
+        let pos = self.stack_vals.reserve_local_val(&format!(
+            "scope_stack_{}",
+            COUNT.fetch_add(1, Ordering::Relaxed)
+        )) * self.backend.word_len();
+
         CodeGen::add(&mut self.before, "; scope push", None, true);
         if what.contains('[') {
             CodeGen::add(&mut self.before, "push    ebx", None, true);
