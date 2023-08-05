@@ -2,11 +2,17 @@ Doing
 ------
 - move all asm code to backend
 
-Next
+Major
 -----
+- change the lambda syntax to be like rust ( |p1,p2| { } ) or fn(p1,p2) -> {}
 - rename const to "let global" or "global let" or "let static" or "static let"
 - separate core library (shipped with the compiler) from stdlib (an external library that must be used as a dependency)
-- Unit type in the compiler
+- List library
+- SDL library
+- install library
+  - in ~/.rasm/repository/library-name/library-version
+- library from http (https)
+- Unit type: ()
 - cannot ignore a return value from a function:
     // This is an invalid code
     add(10, 10);
@@ -15,10 +21,29 @@ Next
     // This is a valid code
     println(10);
     ...
+    - check for unused parameters, let and static let
 - cannot use .someFunction without parenthesis if the function does not return anything
-- private functions
+- visibility
+  - private
+  - readonly
+    - structs
+        - cannot call constructor
+        - cannot call setters
+  - opaque
+    - structs
+      - cannot call constructor
+      - cannot call setters
+      - cannot call getters
 - optimize
   - can a recursive function's lambda space be reused?
+- native
+  - rename asm to native
+  - let specify attributes for native like native(nasmi386, linux)
+- threads
+- create and use Result in standard library
+- standardize compiler errors with source
+
+MINOR
 - Vec
   - vecFilter and vecFoldL dereference
   - vecFilter shrink (add a shrink function that shrinks allocated memory)
@@ -31,34 +56,20 @@ Next
 - game of life: if we don't pass a number, it should run until no cells are alive
 - type check
   - use Result
-- backend
-  - add a new keyword architecture "", for example "i386", to include the subsequent code only if the architecture matches,
-  - add a second parameter to include for specifying the architecture, so for example include "asm386.rasm", "i386"
 - delete asm, object and executable file before compile
-- I think include messes up reporting error line (probably it has been fixed, check it)
 - error if there's a function named the same way as a lambda parameter (or give precedence to parameter?)
-- optimize the copy of the parent lambda space: do not create parameters that are overridden by parent memcopy
 - test inner lambda that get a value from a parent lambda parameter
 - optimize memory for lambda space:
   - if there are more lambda in a call, all share the same lambda space (but not the address to the function), now it's duplicated:
-    - I can create only one lambda space, then I can pass, the address to the real function and the address to the lambda space, to the lambda,
+    - I can create only one lambda space, then I can pass the address to the real function and the address to the lambda space, to the lambda,
       or a single pointer to a "structure" where the first word is the pointer to the function and the second the pointer to the lambda space
-- rename asm as native
-- user should not define native functions?
-- some functions from the std library should not be called (tag with internal?), for example malloc, memcopy.
-  I don't think so in asm (native) code
-- optimize fibonacci
-    - backend for 32 and 64 bit
-    - move more code as possible from codegen to function_call_parameters
 - refactor codegen lambda parameters: it's too complex
 - I would like to have some namespace for functions, to be xx.yy.zz::function_name
 - I can close an already closed TokensGroup (make a test)
-- safe command line arguments (use Option?)
 - add command line arguments to the compiler:
   - to print the syntax tree
   - to print memory allocation
   - to debug asm
   - to run the program
-- rename lambda to closure?
-- line errors in codegen
-- threads
+- rename lambda to closure
+- more on error source in codegen
