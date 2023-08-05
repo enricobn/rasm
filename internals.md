@@ -28,8 +28,8 @@ which is 0 for the first variant, 1 for the second and so on, the there is the l
 **Alloc**
 
 _allocation_table:
-0        4                                             8     12
-address, allocated (false = 0 true = any other value), size, ref count
+0        4                                             8     12         16
+address, allocated (false = 0 true = any other value), size, ref count, reusable table 
 
 initial value
 "the address of the fist location" 0 MAX_MEMORY 0
