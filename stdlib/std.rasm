@@ -22,9 +22,13 @@ fn print<T>(prefix: str, o: T) {
     print(o);
 }
 
-fn println<T>(prefix: str, o: T) {
-    print(prefix);
-    println(o);
+fn println<T1,T2>(file: File, o1: T1, o2: T2) {
+    print(file, o1);
+    println(file, o2);
+}
+
+fn println<T1,T2>(o1: T1, o2: T2) {
+    println(STDOut(), o1, o2);
 }
 
 // TODO do it in asm

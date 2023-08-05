@@ -156,16 +156,16 @@ fn writeHighScores(highScores: Vec<HighScore>) {
     sysClose(file);
 }
 
-fn print(highScore: HighScore) {
-    print(highScore.score);
-    print(", ");
-    println(highScore.time);
+fn print(file: File, highScore: HighScore) -> Option<IOError> {
+    print(file, highScore.score)
+    .or(print(file, ", "))
+    .or(println(file, highScore.time));
 }
 
 fn splitToList(s: str, separator: str) -> List<str> {
     let chars = listEnumerate(chars(s));
 
-    let separatorIndex = findChar(chars, separator);
+    let separatorIndex = chars.indexOf(separator);
 
     match(separatorIndex,
         { index ->
@@ -185,11 +185,9 @@ fn splitToList(s: str, separator: str) -> List<str> {
     );
 }
 
-fn findChar(chars: List<EnumerateEntry<str>>, c: str) -> Option<i32> {
-    let o = first(filter(chars, { it ->
-        let currentChar = value(it);
-        eq(currentChar, c);
-    }));
-
-    match(o, { entry -> Option::Some(index(entry));}, { -> Option::None();});
+fn indexOf<T>(list: List<EnumerateEntry<T>>, what: T) -> Option<i32> {
+    list
+        .filter({ entry -> entry.value.eq(what); })
+        .first
+        .map({ entry -> entry.index;});
 }
