@@ -139,13 +139,13 @@ fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
 fn struct_setter_body(backend: &dyn Backend, i: usize) -> String {
     let ws = backend.word_size();
     // TODO for now it does not work
-    let optimize_clone = false;
+    let optimize_copy = false;
 
     let mut body = String::new();
     CodeGen::add(&mut body, "push   ebx", None, true);
     CodeGen::add(&mut body, "push   ecx", None, true);
 
-    if optimize_clone {
+    if optimize_copy {
         CodeGen::add(&mut body, &format!("mov    {ws} eax,$receiver"), None, true);
         CodeGen::add(
             &mut body,
@@ -158,9 +158,9 @@ fn struct_setter_body(backend: &dyn Backend, i: usize) -> String {
         CodeGen::add(&mut body, "je     .noClone", None, true);
     }
 
-    CodeGen::add(&mut body, "$call(clone,$receiver)", None, true);
+    CodeGen::add(&mut body, "$call(copy,$receiver)", None, true);
 
-    if optimize_clone {
+    if optimize_copy {
         CodeGen::add(&mut body, "jmp    .set", None, false);
         CodeGen::add(&mut body, ".noClone:", None, false);
         CodeGen::add(&mut body, "$call(println,\"optimized setter\")", None, true);

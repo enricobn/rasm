@@ -87,7 +87,7 @@ asm malloc(size: i32, descr: str) -> i32 /{
     $call(print, eax)
     $call(print, ", size ")
     $call(println, [eax + 8])
-    $call(checkAddress,eax)
+    ; $call(checkAddress,eax)
     %endif
 
     $call(removeFromReused,ecx)
@@ -555,7 +555,7 @@ asm memContains(startAddress: i32, len: i32, what: i32) /{
     pop     eax
 }/
 
-asm clone<T>(o: T) -> T /{
+asm copy<T>(o: T) -> T /{
     push    ebx
     push    ecx
 
