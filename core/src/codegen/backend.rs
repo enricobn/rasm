@@ -311,6 +311,7 @@ impl BackendNasm386 {
             return_type: None,
             generic_types: LinkedHashMap::new(),
             inline: false,
+            index: ASTIndex::none(),
         })
     }
 }
@@ -404,6 +405,7 @@ impl Backend for BackendNasm386 {
 
                 let mut gcc_command = Command::new("gcc");
                 gcc_command
+                    //.arg("-Wstack-usage=16384")
                     .arg("-m32")
                     .arg("-gdwarf")
                     //.arg("-static")

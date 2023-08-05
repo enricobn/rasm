@@ -33,6 +33,7 @@ pub struct ASTTypedFunctionDef {
     pub body: ASTTypedFunctionBody,
     pub inline: bool,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTTypedFunctionDef {
@@ -50,6 +51,7 @@ impl Display for ASTTypedFunctionDef {
 pub struct ASTTypedLambdaDef {
     pub parameter_names: Vec<(String, ASTIndex)>,
     pub body: Vec<ASTTypedStatement>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTTypedLambdaDef {
@@ -1430,6 +1432,7 @@ pub fn function_def(
             .map(|it| parameter_def(conv_context, it, &format!("function {}", def.name)))
             .collect(),
         generic_types: generic_types.clone(),
+        index: def.index.clone(),
     };
 
     match &typed_function_def.body {
@@ -1624,6 +1627,7 @@ fn lambda_def(conv_context: &mut ConvContext, lambda_def: &ASTLambdaDef) -> ASTT
             .iter()
             .map(|it| statement(conv_context, it))
             .collect(),
+        index: lambda_def.index.clone(),
     }
 }
 

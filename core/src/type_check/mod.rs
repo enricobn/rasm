@@ -919,6 +919,7 @@ fn convert_lambda(
         Some(ASTLambdaDef {
             body: new_body,
             parameter_names: lambda.parameter_names.clone(),
+            index: lambda.index.clone(),
         })
     } else {
         debug_i!("lambda type nothing converted");

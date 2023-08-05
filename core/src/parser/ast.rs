@@ -48,6 +48,7 @@ impl Display for ASTFunctionDef {
 pub struct ASTLambdaDef {
     pub parameter_names: Vec<(String, ASTIndex)>,
     pub body: Vec<ASTStatement>,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTLambdaDef {

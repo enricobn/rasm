@@ -565,6 +565,7 @@ impl Parser {
             self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
                 parameter_names,
                 body: Vec::new(),
+                index: self.get_index(0).unwrap(),
             }));
             let fake_function_def = ASTFunctionDef {
                 original_name: String::new(),

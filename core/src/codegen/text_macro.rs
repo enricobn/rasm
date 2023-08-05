@@ -1370,6 +1370,7 @@ mod tests {
             generic_types: LinkedHashMap::new(),
             return_type: None,
             inline: false,
+            index: ASTIndex::none(),
         };
 
         let result = TextMacroEvaluator::new().translate(
@@ -1404,6 +1405,7 @@ mod tests {
             generic_types: LinkedHashMap::new(),
             return_type: None,
             inline: false,
+            index: ASTIndex::none(),
         };
 
         let result = TextMacroEvaluator::new().translate(
@@ -1455,6 +1457,7 @@ mod tests {
             generic_types: LinkedHashMap::new(),
             return_type: None,
             inline: false,
+            index: ASTIndex::none(),
         };
 
         let macros = TextMacroEvaluator::new().get_macros(

@@ -795,6 +795,13 @@ impl<'a> CodeGen<'a> {
 
         let mut lambda_calls = Vec::new();
 
+        if function_def.index.file_name.is_some() {
+            self.backend.add_comment(
+                &mut self.definitions,
+                &format!("{}", function_def.index),
+                false,
+            );
+        }
         self.backend.add_comment(
             &mut self.definitions,
             &format!("function {}", function_def),
@@ -961,6 +968,7 @@ impl<'a> CodeGen<'a> {
                                             ),
                                             inline: false,
                                             generic_types: LinkedHashMap::new(),
+                                            index: lambda_def.index.clone(),
                                         };
 
                                         self.id += 1;
@@ -1413,6 +1421,7 @@ impl<'a> CodeGen<'a> {
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                             inline: false,
                             generic_types: LinkedHashMap::new(),
+                            index: lambda_def.index.clone(),
                         };
 
                         self.id += 1;

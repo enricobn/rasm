@@ -65,6 +65,7 @@ fn create_free(
         inline: false,
         return_type: None,
         generic_types: LinkedHashMap::new(),
+        index: ASTIndex::none(),
     };
 
     debug!("created function {function_def}");
