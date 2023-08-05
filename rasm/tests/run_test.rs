@@ -400,6 +400,10 @@ fn test_showimage() {
     compile_example("resources/examples/showimage.rasm", true);
 }
 
+fn test_bouncing_quads() {
+    compile_example("resources/examples/bouncing_quads.rasm", true);
+}
+
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
