@@ -1,13 +1,14 @@
 inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+18
+    jz      $+19
     mov     eax, $ftrue     ; ftrue points to the lambda space
     mov     dword eax,[eax]
     push    eax             ; the address to the lambda space is the last argument of every lambda
     call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
-    jmp     $+18
+    jmp     $+20
+    nop
     nop
     nop
     nop
@@ -16,6 +17,7 @@ inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     push    eax
     call    [eax]           ; false value
     add     esp, 4
+    nop
     nop
     nop
     nop
@@ -28,13 +30,14 @@ fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond: bool, fElseIf: fn() -> T, ffa
 inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+18
+    jz      $+19
     mov     eax, $ftrue     ; ftrue points to the lambda space
     mov     dword eax,[eax]
     push    eax             ; the address to the lambda space is the last argument of every lambda
     call    [eax]           ; in the first 4 bytes of the lambda space there is the address of the lambda function to call
     add     esp, 4
-    jmp     $+18
+    jmp     $+20
+    nop
     nop
     nop
     nop
@@ -43,6 +46,7 @@ inline asm ifRun(cond: bool, ftrue: fn() -> (), ffalse: fn() -> ()) /{
     push    eax
     call    [eax]           ; false value
     add     esp, 4
+    nop
     nop
     nop
     nop
@@ -87,10 +91,11 @@ fn if<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueElse: 
 inline asm if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
-    jz      $+10
+    jz      $+11
     mov     eax, $vtrue
-    jmp     $+16
+    jmp     $+18
     nop     ; nops are used because it's inlined and $vtrue could be an immediate value or an address so we don't know where to jump exactly...
+    nop
     nop
     nop
     mov     eax, $ffalse
@@ -98,6 +103,8 @@ inline asm if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     push    eax
     call    [eax]
     add     dword esp, 4
+    nop
+    nop
 }/
 
 /**
