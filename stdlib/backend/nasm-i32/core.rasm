@@ -572,13 +572,13 @@ asm copy<T>(o: T) -> T /{
 
 asm addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
     push    ebx
-    mov     dword ebx, $labelMemory
 
+    mov     dword ebx, $labelMemory
     mov     dword eax, $labelAllocation
     mov     dword [eax], ebx
     mov     dword [eax + 4], 1      ; allocated flag
     mov     dword ebx, $size
-    mov     dword [eax + 8], ebx  ; size
+    mov     dword [eax + 8], ebx    ; size
     mov     dword [eax + 12], 1     ; count
     mov     dword [eax + 16], 0     ; reusable table
 
