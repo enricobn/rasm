@@ -26,6 +26,9 @@
 //
 // real    0m12,196s
 
+// more on optimized lambda space allocation (in stack)
+// real    0m11,322s
+
 include "gameoflife_common.rasm"
 include "gameoflife_common_list.rasm"
 

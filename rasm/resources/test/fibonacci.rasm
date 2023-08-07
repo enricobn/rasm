@@ -15,6 +15,10 @@
 // optimized lambda space allocation (in stack)
 //
 // real    0m2,526s
+//
+// more on optimized lambda space allocation (in stack)
+//
+// real    0m1,966s
 
 println(fib(atoi(argv(1))));
 
