@@ -249,16 +249,14 @@ impl<'a> FunctionCallParameters<'a> {
             let num_of_values_in_context = context.iter().count();
 
             if optimize {
-                Self::allocate_lambda_space_in_stack(
-                    self.backend,
+                self.backend.allocate_lambda_space_in_stack(
                     &mut self.before,
                     &lambda_space_address,
                     stack_vals,
                     num_of_values_in_context + 3,
                 );
             } else {
-                Self::allocate_lambda_space(
-                    self.backend,
+                self.backend.allocate_lambda_space(
                     &mut self.before,
                     &lambda_space_address,
                     num_of_values_in_context + 3,
@@ -1007,122 +1005,6 @@ impl<'a> FunctionCallParameters<'a> {
             statics,
         ));
         result
-    }
-
-    fn allocate_lambda_space(
-        backend: &dyn Backend,
-        out: &mut String,
-        register_to_store_result: &str,
-        slots: usize,
-        statics: &mut Statics,
-    ) {
-        let label = statics.add_str("lambda space");
-        backend.call_function(
-            out,
-            "malloc_0",
-            &[
-                (&format!("{}", slots * backend.word_len()), None),
-                (&format!("[{label}]"), None),
-            ],
-            Some("lambda space allocation"),
-        );
-
-        CodeGen::add(
-            out,
-            &format!("mov    dword {register_to_store_result},eax",),
-            None,
-            true,
-        );
-    }
-
-    fn allocate_lambda_space_in_stack(
-        backend: &dyn Backend,
-        out: &mut String,
-        register_to_store_result: &str,
-        stack_vals: &StackVals,
-        slots: usize,
-    ) {
-        let sbp = backend.stack_base_pointer();
-
-        let tmp_register = stack_vals.reserve_tmp_register(out, backend, "tmp_register");
-
-        let address_relative_to_bp_for_lambda_allocation = stack_vals.reserve_local_space(
-            &format!(
-                "optimized_lambda_space_{}",
-                COUNT.fetch_add(1, Ordering::Relaxed)
-            ),
-            5,
-        );
-
-        let address_relative_to_bp_for_lambda_space = stack_vals.reserve_local_space(
-            &format!(
-                "optimized_lambda_space_mem_{}",
-                COUNT.fetch_add(1, Ordering::Relaxed)
-            ),
-            slots,
-        );
-
-        CodeGen::add(
-            out,
-            &format!("mov dword {register_to_store_result},{sbp}"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!(
-                "sub dword {register_to_store_result},{}",
-                address_relative_to_bp_for_lambda_allocation * backend.word_len()
-            ),
-            None,
-            true,
-        );
-        CodeGen::add(out, &format!("mov dword {tmp_register},{sbp}"), None, true);
-        CodeGen::add(
-            out,
-            &format!(
-                "sub dword {tmp_register},{}",
-                address_relative_to_bp_for_lambda_space * backend.word_len()
-            ),
-            None,
-            true,
-        );
-
-        CodeGen::add(
-            out,
-            &format!("mov     dword [{register_to_store_result}], {tmp_register}"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!("mov     dword [{register_to_store_result} + 4], 1"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!(
-                "mov     dword [{register_to_store_result} + 8], {}",
-                slots * backend.word_len()
-            ),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!("mov     dword [{register_to_store_result} + 12], 1"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!("mov     dword [{register_to_store_result} + 16], 0"),
-            None,
-            true,
-        );
-
-        stack_vals.release_tmp_register(out, "tmp_register");
     }
 
     pub fn push(&mut self, s: &str) {

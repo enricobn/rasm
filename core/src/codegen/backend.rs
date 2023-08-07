@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
@@ -24,6 +25,8 @@ use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
     BuiltinTypedTypeKind, DefaultFunctionCall,
 };
+
+static COUNT: AtomicUsize = AtomicUsize::new(0);
 
 pub trait Backend: RefUnwindSafe {
     fn address_from_base_pointer(&self, index: i8) -> String;
@@ -164,6 +167,22 @@ pub trait Backend: RefUnwindSafe {
     );
 
     fn tmp_registers(&self) -> Vec<String>;
+
+    fn allocate_lambda_space(
+        &self,
+        out: &mut String,
+        register_to_store_result: &str,
+        slots: usize,
+        statics: &mut Statics,
+    );
+
+    fn allocate_lambda_space_in_stack(
+        &self,
+        out: &mut String,
+        register_to_store_result: &str,
+        stack_vals: &StackVals,
+        slots: usize,
+    );
 }
 
 enum Linker {
@@ -1166,6 +1185,122 @@ impl Backend for BackendNasm386 {
 
     fn tmp_registers(&self) -> Vec<String> {
         vec!["edx".to_owned(), "ecx".to_owned(), "ebx".to_owned()]
+    }
+
+    fn allocate_lambda_space(
+        &self,
+        out: &mut String,
+        register_to_store_result: &str,
+        slots: usize,
+        statics: &mut Statics,
+    ) {
+        let label = statics.add_str("lambda space");
+        self.call_function(
+            out,
+            "malloc_0",
+            &[
+                (&format!("{}", slots * self.word_len()), None),
+                (&format!("[{label}]"), None),
+            ],
+            Some("lambda space allocation"),
+        );
+
+        CodeGen::add(
+            out,
+            &format!("mov    dword {register_to_store_result},eax",),
+            None,
+            true,
+        );
+    }
+
+    fn allocate_lambda_space_in_stack(
+        &self,
+        out: &mut String,
+        register_to_store_result: &str,
+        stack_vals: &StackVals,
+        slots: usize,
+    ) {
+        let sbp = self.stack_base_pointer();
+
+        let tmp_register = stack_vals.reserve_tmp_register(out, self, "tmp_register");
+
+        let address_relative_to_bp_for_lambda_allocation = stack_vals.reserve_local_space(
+            &format!(
+                "optimized_lambda_space_{}",
+                COUNT.fetch_add(1, Ordering::Relaxed)
+            ),
+            5,
+        );
+
+        let address_relative_to_bp_for_lambda_space = stack_vals.reserve_local_space(
+            &format!(
+                "optimized_lambda_space_mem_{}",
+                COUNT.fetch_add(1, Ordering::Relaxed)
+            ),
+            slots,
+        );
+
+        CodeGen::add(
+            out,
+            &format!("mov dword {register_to_store_result},{sbp}"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!(
+                "sub dword {register_to_store_result},{}",
+                address_relative_to_bp_for_lambda_allocation * self.word_len()
+            ),
+            None,
+            true,
+        );
+        CodeGen::add(out, &format!("mov dword {tmp_register},{sbp}"), None, true);
+        CodeGen::add(
+            out,
+            &format!(
+                "sub dword {tmp_register},{}",
+                address_relative_to_bp_for_lambda_space * self.word_len()
+            ),
+            None,
+            true,
+        );
+
+        CodeGen::add(
+            out,
+            &format!("mov     dword [{register_to_store_result}], {tmp_register}"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!("mov     dword [{register_to_store_result} + 4], 1"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!(
+                "mov     dword [{register_to_store_result} + 8], {}",
+                slots * self.word_len()
+            ),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!("mov     dword [{register_to_store_result} + 12], 1"),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!("mov     dword [{register_to_store_result} + 16], 0"),
+            None,
+            true,
+        );
+
+        stack_vals.release_tmp_register(out, "tmp_register");
     }
 }
 
