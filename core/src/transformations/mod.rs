@@ -25,6 +25,6 @@ pub fn enrich_module(
 ) {
     add_rasm_resource_folder(module, resource_path);
     enum_functions_creator(backend, module, statics);
-    struct_functions_creator(backend, module, statics);
+    struct_functions_creator(backend, module);
     str_functions_creator(module);
 }

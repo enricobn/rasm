@@ -3,18 +3,13 @@ use std::ops::Deref;
 use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::backend::Backend;
-use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
     ASTParameterDef, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
-pub fn struct_functions_creator(
-    backend: &dyn Backend,
-    module: &mut ASTModule,
-    statics: &mut Statics,
-) {
+pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
     for struct_def in &module.structs.clone() {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
@@ -43,13 +38,8 @@ pub fn struct_functions_creator(
             .collect();
 
         for (i, property_def) in struct_def.properties.iter().enumerate() {
-            let property_functions = create_functions_for_struct_get_property(
-                backend,
-                struct_def,
-                property_def,
-                i,
-                statics,
-            );
+            let property_functions =
+                create_functions_for_struct_get_property(backend, struct_def, property_def, i);
 
             for f in property_functions {
                 module.add_function(f);
@@ -80,74 +70,62 @@ fn struct_constructor_body(backend: &dyn Backend, struct_def: &ASTStructDef) -> 
     let ws = backend.word_size();
     let wl = backend.word_len();
     let mut body = String::new();
-    CodeGen::add(&mut body, "push ebx", None, true);
-
     let descr = if backend.debug_asm() {
         format!(" for {}", struct_def.name)
     } else {
         String::new()
     };
 
-    CodeGen::add(
+    CodeGen::add_rows(
         &mut body,
-        &format!(
-            "$call(malloc, {}, \"{}\")",
-            struct_def.properties.len() * wl,
-            descr
-        ),
+        vec![
+            "push ebx",
+            &format!(
+                "$call(malloc, {}, \"{}\")",
+                struct_def.properties.len() * wl,
+                descr
+            ),
+            &format!("push {ws} eax"),
+            &format!("mov {ws} eax, [eax]"),
+        ],
         None,
         true,
     );
-    //CodeGen::add(&mut body, &format!("add esp,{}", wl), None, true);
-    CodeGen::add(&mut body, &format!("push {ws} eax"), None, true);
-    CodeGen::add(&mut body, &format!("mov {ws} eax, [eax]"), None, true);
+
     for (i, par) in struct_def.properties.iter().enumerate() {
-        CodeGen::add(
+        CodeGen::add_rows(
             &mut body,
-            &format!("mov   ebx, ${}", par.name),
+            vec![
+                &format!("mov   ebx, ${}", par.name),
+                &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * wl),
+            ],
             Some(&format!("property {}", par.name)),
             true,
         );
-        CodeGen::add(
-            &mut body,
-            &format!("mov {}  [eax + {}], ebx", backend.pointer_size(), i * wl),
-            None,
-            true,
-        );
     }
-    CodeGen::add(&mut body, "pop   eax", None, true);
-    CodeGen::add(&mut body, "pop   ebx", None, true);
+    CodeGen::add_rows(&mut body, vec!["pop   eax", "pop   ebx"], None, true);
     body
 }
 
 fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
     let mut body = String::new();
-    CodeGen::add(&mut body, "push ebx", None, true);
-    CodeGen::add(
+    CodeGen::add_rows(
         &mut body,
-        &format!("mov   {} ebx, $v", backend.word_size()),
+        vec![
+            "push ebx",
+            &format!("mov   {} ebx, $v", backend.word_size()),
+            &format!("mov   {} ebx, [ebx]", backend.word_size()),
+            &format!(
+                "mov {}  eax, [ebx + {}]",
+                backend.pointer_size(),
+                i * backend.word_len()
+            ),
+            "pop   ebx",
+        ],
         None,
         true,
     );
-    // the address points to the heap table
-    CodeGen::add(
-        &mut body,
-        &format!("mov   {} ebx, [ebx]", backend.word_size()),
-        None,
-        true,
-    );
-    //CodeGen::add(&mut body, "mov   ebx, $v", None, true);
-    CodeGen::add(
-        &mut body,
-        &format!(
-            "mov {}  eax, [ebx + {}]",
-            backend.pointer_size(),
-            i * backend.word_len()
-        ),
-        None,
-        true,
-    );
-    CodeGen::add(&mut body, "pop   ebx", None, true);
+
     body
 }
 
@@ -175,62 +153,6 @@ fn struct_lambda_property_rasm_body(name: &str, parameters: &[ASTType]) -> Vec<A
             index: ASTIndex::none(),
         })),
     ]
-}
-
-fn struct_lambda_property_body(
-    backend: &dyn Backend,
-    i: usize,
-    parameters: &Vec<ASTType>,
-    statics: &mut Statics,
-) -> String {
-    let ws = backend.word_size();
-    let wl = backend.word_len();
-    let sp = backend.stack_pointer();
-
-    let mut body = String::new();
-
-    CodeGen::add_rows(&mut body, vec!["push ebx", "push ecx"], None, true);
-
-    for i in (0..parameters.len()).rev() {
-        CodeGen::add(&mut body, &format!("push {ws} $p{i}"), None, true);
-    }
-
-    CodeGen::add_rows(
-        &mut body,
-        vec![
-            &format!("push  {ws} $v"),
-            &format!("mov   {ws} ebx, $v"),
-            &format!("mov   {ws} ebx, [ebx]"),
-            &format!("mov   {ws} ecx, [ebx + {}]", i * wl),
-        ],
-        None,
-        true,
-    );
-    /*
-    backend.call_add_ref(
-        &mut body,
-        "ecx",
-        "_fn",
-        "reference to lambda",
-        &DummyTypeDefProvider::new(),
-        statics,
-    );
-
-     */
-    CodeGen::add_rows(
-        &mut body,
-        vec![
-            &format!("mov   {ws} ecx, [ecx]"),
-            "push  ecx",
-            "call  [ecx]",
-            &format!("add {ws} {sp},{}", (parameters.len() + 2) * wl),
-        ],
-        None,
-        true,
-    );
-    CodeGen::add_rows(&mut body, vec!["pop ecx", "pop ebx"], None, true);
-
-    body
 }
 
 fn struct_setter_body(backend: &dyn Backend, i: usize) -> String {
@@ -294,7 +216,6 @@ fn create_functions_for_struct_get_property(
     struct_def: &ASTStructDef,
     property_def: &ASTStructPropertyDef,
     i: usize,
-    statics: &mut Statics,
 ) -> Vec<ASTFunctionDef> {
     let param_types: Vec<ASTType> = struct_def
         .type_parameters
@@ -336,7 +257,7 @@ fn create_functions_for_struct_get_property(
         let body = struct_lambda_property_rasm_body(name, parameters);
 
         vec![
-            create_function_for_struct_property_getter(
+            create_function_for_struct_get_property(
                 backend,
                 struct_def,
                 property_def,
@@ -357,7 +278,7 @@ fn create_functions_for_struct_get_property(
             },
         ]
     } else {
-        vec![create_function_for_struct_property_getter(
+        vec![create_function_for_struct_get_property(
             backend,
             struct_def,
             property_def,
@@ -368,7 +289,7 @@ fn create_functions_for_struct_get_property(
     }
 }
 
-fn create_function_for_struct_property_getter(
+fn create_function_for_struct_get_property(
     backend: &dyn Backend,
     struct_def: &ASTStructDef,
     property_def: &ASTStructPropertyDef,
