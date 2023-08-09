@@ -30,10 +30,8 @@ let l = Loop(
 loop(0, Model(0, 0), l);
 
 fn loop<T>(time: i32, model: T, l: Loop<T>) {
-    let update = update(l);
-    let render = render(l);
-    let result = update(time, model);
-    run(result, { newModel -> render(newModel); loop(add(time, 1), newModel, l);}, { -> });
+    let result = l.update(time, model);
+    run(result, { newModel -> l.render(newModel); loop(add(time, 1), newModel, l);}, { -> });
 }
 
 fn NoneModel() -> Option<Model> {

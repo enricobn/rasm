@@ -70,6 +70,23 @@ if 0 I set allocated to 0 (false)
 - the addRef algorithm  
   TODO
 
+**Functions created by the compiler**
+
+*Structs*  
+for each property:
+for a lambda property:  
+[property] that takes the Struct and the parameters to the lambda then "executes" the lambda  
+[property]Fn that takes the Struct then returns the property value (the lambda)
+for not a lambda property:
+[property] that takes the Struct then returns the property value
+for all properties
+[property] that takes the Struct and the new value of the property then returns a copy of the Struct with the new property value
+
+*Enums* 
+TODO
+
+
+
 
 
 

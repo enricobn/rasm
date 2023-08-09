@@ -13,7 +13,8 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
-use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeDefProvider};
+use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{CodeGen, TypedValKind, ValKind};
 use crate::debug_i;
@@ -1309,8 +1310,8 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::codegen::backend::{Backend, BackendNasm386};
+    use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
-    use crate::utils::tests::DummyTypeDefProvider;
 
     #[test]
     fn called_functions() {

@@ -3,7 +3,7 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TypeDefProvider;
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::CodeGen;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast::{

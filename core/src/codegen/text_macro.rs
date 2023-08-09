@@ -9,6 +9,7 @@ use regex::Regex;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::CodeGen;
 use crate::debug_i;
 use crate::lexer::tokens::Token;
@@ -16,41 +17,10 @@ use crate::lexer::Lexer;
 use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
-use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef,
-    BuiltinTypedTypeKind,
-};
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind};
 
 thread_local! {
     static COUNT : RefCell<usize> = RefCell::new(0);
-}
-
-pub trait TypeDefProvider {
-    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef>;
-    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef>;
-    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
-    fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef>;
-    fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef>;
-    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
-    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType>;
-
-    fn get_type_from_typed_type_name(&self, typed_type_to_find: &str) -> Option<ASTType> {
-        if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
-            Some(t.ast_type.clone())
-        } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {
-            Some(t.ast_type.clone())
-        } else {
-            self.get_type_def_by_name(typed_type_to_find)
-                .map(|t| t.ast_type.clone())
-        }
-    }
-
-    fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType>;
-    fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType>;
-
-    fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef>;
-
-    fn name(&self) -> String;
 }
 
 #[derive(Debug, Clone)]
@@ -1270,13 +1240,13 @@ mod tests {
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
+    use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
-    use crate::utils::tests::DummyTypeDefProvider;
 
     #[test]
     fn call() {

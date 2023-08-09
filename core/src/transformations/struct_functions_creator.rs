@@ -1,13 +1,20 @@
+use std::ops::Deref;
+
 use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::backend::Backend;
+use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTParameterDef, ASTStructDef,
-    ASTStructPropertyDef, ASTType,
+    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
-pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
+pub fn struct_functions_creator(
+    backend: &dyn Backend,
+    module: &mut ASTModule,
+    statics: &mut Statics,
+) {
     for struct_def in &module.structs.clone() {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
@@ -36,9 +43,17 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             .collect();
 
         for (i, property_def) in struct_def.properties.iter().enumerate() {
-            let property_function =
-                create_function_for_struct_get_property(backend, struct_def, property_def, i);
-            module.add_function(property_function);
+            let property_functions = create_functions_for_struct_get_property(
+                backend,
+                struct_def,
+                property_def,
+                i,
+                statics,
+            );
+
+            for f in property_functions {
+                module.add_function(f);
+            }
 
             let property_setter_function =
                 create_function_for_struct_set_property(backend, struct_def, property_def, i);
@@ -136,6 +151,88 @@ fn struct_property_body(backend: &dyn Backend, i: usize) -> String {
     body
 }
 
+fn struct_lambda_property_rasm_body(name: &str, parameters: &[ASTType]) -> Vec<ASTStatement> {
+    vec![
+        ASTStatement::LetStatement(
+            "_f".to_owned(),
+            ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
+                original_function_name: format!("{name}Fn"),
+                function_name: format!("{name}Fn"),
+                parameters: vec![ASTExpression::ValueRef("v".to_owned(), ASTIndex::none())],
+                index: ASTIndex::none(),
+            }),
+            false,
+            ASTIndex::none(),
+        ),
+        ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
+            original_function_name: "_f".to_owned(),
+            function_name: "_f".to_owned(),
+            parameters: parameters
+                .iter()
+                .enumerate()
+                .map(|(index, it)| ASTExpression::ValueRef(format!("p{index}"), ASTIndex::none()))
+                .collect(),
+            index: ASTIndex::none(),
+        })),
+    ]
+}
+
+fn struct_lambda_property_body(
+    backend: &dyn Backend,
+    i: usize,
+    parameters: &Vec<ASTType>,
+    statics: &mut Statics,
+) -> String {
+    let ws = backend.word_size();
+    let wl = backend.word_len();
+    let sp = backend.stack_pointer();
+
+    let mut body = String::new();
+
+    CodeGen::add_rows(&mut body, vec!["push ebx", "push ecx"], None, true);
+
+    for i in (0..parameters.len()).rev() {
+        CodeGen::add(&mut body, &format!("push {ws} $p{i}"), None, true);
+    }
+
+    CodeGen::add_rows(
+        &mut body,
+        vec![
+            &format!("push  {ws} $v"),
+            &format!("mov   {ws} ebx, $v"),
+            &format!("mov   {ws} ebx, [ebx]"),
+            &format!("mov   {ws} ecx, [ebx + {}]", i * wl),
+        ],
+        None,
+        true,
+    );
+    /*
+    backend.call_add_ref(
+        &mut body,
+        "ecx",
+        "_fn",
+        "reference to lambda",
+        &DummyTypeDefProvider::new(),
+        statics,
+    );
+
+     */
+    CodeGen::add_rows(
+        &mut body,
+        vec![
+            &format!("mov   {ws} ecx, [ecx]"),
+            "push  ecx",
+            "call  [ecx]",
+            &format!("add {ws} {sp},{}", (parameters.len() + 2) * wl),
+        ],
+        None,
+        true,
+    );
+    CodeGen::add_rows(&mut body, vec!["pop ecx", "pop ebx"], None, true);
+
+    body
+}
+
 fn struct_setter_body(backend: &dyn Backend, i: usize) -> String {
     let ws = backend.word_size();
     // TODO for now it does not work
@@ -192,22 +289,96 @@ fn struct_setter_body(backend: &dyn Backend, i: usize) -> String {
     body
 }
 
-fn create_function_for_struct_get_property(
+fn create_functions_for_struct_get_property(
     backend: &dyn Backend,
     struct_def: &ASTStructDef,
     property_def: &ASTStructPropertyDef,
     i: usize,
-) -> ASTFunctionDef {
-    let param_types = struct_def
+    statics: &mut Statics,
+) -> Vec<ASTFunctionDef> {
+    let param_types: Vec<ASTType> = struct_def
         .type_parameters
         .iter()
         .map(|it| ASTType::Generic(it.into()))
         .collect();
 
     let name = &property_def.name;
+
+    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+        parameters,
+        ref return_type,
+    }) = &property_def.ast_type
+    {
+        let mut f_parameters = vec![ASTParameterDef {
+            name: "v".into(),
+            ast_type: ASTType::Custom {
+                name: struct_def.name.clone(),
+                param_types: param_types.clone(),
+                index: ASTIndex::none(),
+            },
+            ast_index: ASTIndex::none(),
+        }];
+
+        let mut lambda_parameters = parameters
+            .iter()
+            .enumerate()
+            .map(|(index, ast_type)| ASTParameterDef {
+                name: format!("p{index}"),
+                ast_type: ast_type.clone(),
+                ast_index: ASTIndex::none(),
+            })
+            .collect::<Vec<_>>();
+
+        f_parameters.append(&mut lambda_parameters);
+
+        let lambda_return_type = return_type.as_ref().map(|it| it.deref().clone());
+
+        let body = struct_lambda_property_rasm_body(name, parameters);
+
+        vec![
+            create_function_for_struct_property_getter(
+                backend,
+                struct_def,
+                property_def,
+                i,
+                param_types,
+                format!("{name}Fn"),
+            ),
+            ASTFunctionDef {
+                original_name: name.clone(),
+                name: name.clone(),
+                parameters: f_parameters,
+                return_type: lambda_return_type.clone(),
+                body: ASTFunctionBody::RASMBody(body),
+                generic_types: struct_def.type_parameters.clone(),
+                inline: false,
+                resolved_generic_types: LinkedHashMap::new(),
+                index: property_def.index.clone(),
+            },
+        ]
+    } else {
+        vec![create_function_for_struct_property_getter(
+            backend,
+            struct_def,
+            property_def,
+            i,
+            param_types,
+            name.to_owned(),
+        )]
+    }
+}
+
+fn create_function_for_struct_property_getter(
+    backend: &dyn Backend,
+    struct_def: &ASTStructDef,
+    property_def: &ASTStructPropertyDef,
+    i: usize,
+    param_types: Vec<ASTType>,
+    name: String,
+) -> ASTFunctionDef {
     ASTFunctionDef {
         original_name: name.clone(),
-        name: name.clone(),
+        name,
         parameters: vec![ASTParameterDef {
             name: "v".into(),
             ast_type: ASTType::Custom {

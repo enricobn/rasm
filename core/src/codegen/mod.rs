@@ -18,7 +18,8 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::MemoryUnit::{Bytes, Words};
 use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{TextMacroEvaluator, TypeDefProvider};
+use crate::codegen::text_macro::TextMacroEvaluator;
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
 use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType};
@@ -44,6 +45,7 @@ pub mod lambda;
 pub mod stack;
 pub mod statics;
 pub mod text_macro;
+pub mod typedef_provider;
 pub mod val_context;
 
 /// It's a constant that will be replaced by the code generator with the size (in bytes)
@@ -1707,6 +1709,14 @@ impl<'a> CodeGen<'a> {
         }
     }
 
+    pub fn add_rows(out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
+        if let Some(cm) = comment {
+            Self::add(out, "", comment, indent);
+        }
+        for row in code {
+            Self::add(out, row, None, indent);
+        }
+    }
     pub fn add(out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
         if code.is_empty() {
             out.push('\n');
