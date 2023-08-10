@@ -386,12 +386,19 @@ fn createSDLText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) ->
 }
 
 fn render(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
-    sdlRenderText(ren, texture(text), rect);
+    sdlRenderText(ren, text.texture, rect);
+}
+
+fn renderAndRelease(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
+    let texture = text.texture;
+    sdlRenderText(ren, texture, rect);
+    sdlDestroyTexture(texture);
+    sdlFreeSurface(text.surface);
 }
 
 fn release(text: SDLText) {
-    release(texture(text));
-    release(surface(text));
+    release(text.texture);
+    release(text.surface);
 }
 
 fn release(texture: SDLTexture) {

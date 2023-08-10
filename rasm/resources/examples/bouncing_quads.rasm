@@ -15,6 +15,7 @@ struct Quad {
     yDir: YDirection
 }
 
+const QUADS = 10000;
 const WIDTH = 1024;
 const HEIGHT = 768;
 const QUADWIDTH = 10;
@@ -29,7 +30,7 @@ sdlInit();
 sdlTTFInit();
 
 let font = sdlErrorIfNull(sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
-let quads = vecRange(0, 10000).map({ it ->
+let quads = vecRange(0, QUADS).map({ it ->
                     let x = random(WIDTH);
                     let y = random(HEIGHT);
                     let xDir = if(random(2).eq(0), XDirection::Right(), XDirection::Left());
@@ -87,8 +88,7 @@ fn render(ren: SDLRenderer, model: Model) {
     });
 
     let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), GREEN);
-    render(ren, fpsText, SDLRect(400, 2, 100, 24));
-    release(fpsText);
+    renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
 
     sdlRenderPresent(ren);
 }

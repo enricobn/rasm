@@ -16,8 +16,7 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
     let font = resources.font;
 
     let title = createSDLText(ren, font, "Rasm BREAKOUT", GREEN);
-    render(ren, title, SDLRect(380, 200, 200, 24));
-    release(title);
+    renderAndRelease(ren, title, SDLRect(380, 200, 200, 24));
 
     let highScores = take(sort(highScores(menuState), { h1, h2 ->
         let s1 = score(h1);
@@ -44,11 +43,9 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
         let sScore = padLeft(toString(score), 10);
         let scoreText = createSDLText(ren, font, sScore, color);
         let y = add(300, mul(index, 30));
-        render(ren, scoreText, SDLRect(380, y, mul(slen(sScore), 24), 24));
-        release(scoreText);
+        renderAndRelease(ren, scoreText, SDLRect(380, y, mul(slen(sScore), 24), 24));
     });
 
     let footer = createSDLText(ren, font, "Press SPACE to start", RED);
-    render(ren, footer, SDLRect(380, 700, 200, 24));
-    release(footer);
+    renderAndRelease(ren, footer, SDLRect(380, 700, 200, 24));
 }

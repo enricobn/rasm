@@ -107,16 +107,13 @@ fn render(ren: SDLRenderer, resources: Resources, world: World, fps: i32) {
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
     let scoreText = createSDLText(ren, font, add("Score: ", toString(world.score)), GREEN);
-    render(ren, scoreText, SDLRect(2, 2, 100, 24));
-    release(scoreText);
+    renderAndRelease(ren, scoreText, SDLRect(2, 2, 100, 24));
 
     let livesText = createSDLText(ren, font, add("Lives: ", toString(world.lives)), GREEN);
-    render(ren, livesText, SDLRect(200, 2, 100, 24));
-    release(livesText);
+    renderAndRelease(ren, livesText, SDLRect(200, 2, 100, 24));
 
     let fpsText = createSDLText(ren, font, add("FPS: ", toString(fps)), GREEN);
-    render(ren, fpsText, SDLRect(400, 2, 100, 24));
-    release(fpsText);
+    renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
 }
 
 fn toi32(f: f32, default: i32) -> i32 {
