@@ -184,6 +184,8 @@ pub trait Backend: RefUnwindSafe {
         stack_vals: &StackVals,
         slots: usize,
     );
+
+    fn push_to_scope_stack(&self, out: &mut String, what: &str, stack_vals: &StackVals) -> usize;
 }
 
 enum Linker {
@@ -1302,6 +1304,49 @@ impl Backend for BackendNasm386 {
         );
 
         stack_vals.release_tmp_register(out, "tmp_register");
+    }
+
+    fn push_to_scope_stack(&self, out: &mut String, what: &str, stack_vals: &StackVals) -> usize {
+        let pos = stack_vals.reserve_local_val(&format!(
+            "scope_stack_{}",
+            COUNT.fetch_add(1, Ordering::Relaxed)
+        )) * self.word_len();
+
+        CodeGen::add(out, "; scope push", None, true);
+        if what.contains('[') {
+            CodeGen::add(out, "push    ebx", None, true);
+            CodeGen::add(
+                out,
+                &format!("mov     {} ebx, {what}", self.word_size(),),
+                None,
+                true,
+            );
+            CodeGen::add(
+                out,
+                &format!(
+                    "mov     {} [{} - {}], ebx",
+                    self.word_size(),
+                    self.stack_base_pointer(),
+                    pos
+                ),
+                None,
+                true,
+            );
+            CodeGen::add(out, "pop    ebx", None, true);
+        } else {
+            CodeGen::add(
+                out,
+                &format!(
+                    "mov     {} [{} - {}], {what}",
+                    self.word_size(),
+                    self.stack_base_pointer(),
+                    pos
+                ),
+                None,
+                true,
+            );
+        }
+        pos
     }
 }
 

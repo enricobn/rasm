@@ -15,8 +15,6 @@ use crate::type_check::typed_ast::{
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
 
-static COUNT: AtomicUsize = AtomicUsize::new(0);
-
 pub struct FunctionCallParameters<'a> {
     parameters: Vec<ASTTypedParameterDef>,
     parameters_added: usize,
@@ -165,7 +163,9 @@ impl<'a> FunctionCallParameters<'a> {
         if self.dereference {
             self.backend
                 .call_add_ref(&mut self.before, source, name, descr, module, statics);
-            let pos = self.push_to_scope_stack(source);
+            let pos = self
+                .backend
+                .push_to_scope_stack(&mut self.before, source, self.stack_vals);
 
             self.after.insert(
                 0,
@@ -431,7 +431,11 @@ impl<'a> FunctionCallParameters<'a> {
                 "lambda space",
                 statics,
             );
-            let pos = self.push_to_scope_stack(&lambda_space_address);
+            let pos = self.backend.push_to_scope_stack(
+                &mut self.before,
+                &lambda_space_address,
+                self.stack_vals,
+            );
 
             let mut result = String::new();
             CodeGen::add(&mut result, "; scope pop", None, true);
@@ -728,15 +732,10 @@ impl<'a> FunctionCallParameters<'a> {
             self.parameters_values.insert(original_param_name, src);
             // TODO add ref?
         } else {
-            let type_size = self
-                .backend
-                .type_size(ast_typed_type)
-                .unwrap_or_else(|| panic!("Unsupported type size: {:?}", ast_typed_type));
-
             if self.immediate {
                 CodeGen::add(
                     &mut self.before,
-                    &format!("mov {} eax, {src}", type_size),
+                    &format!("mov {} eax, {src}", self.backend.word_size()),
                     None,
                     true,
                 );
@@ -942,49 +941,6 @@ impl<'a> FunctionCallParameters<'a> {
         let mut after = self.after.clone();
         result.append(&mut after);
         result
-    }
-
-    fn push_to_scope_stack(&mut self, what: &str) -> usize {
-        let pos = self.stack_vals.reserve_local_val(&format!(
-            "scope_stack_{}",
-            COUNT.fetch_add(1, Ordering::Relaxed)
-        )) * self.backend.word_len();
-
-        CodeGen::add(&mut self.before, "; scope push", None, true);
-        if what.contains('[') {
-            CodeGen::add(&mut self.before, "push    ebx", None, true);
-            CodeGen::add(
-                &mut self.before,
-                &format!("mov     {} ebx, {what}", self.backend.word_size(),),
-                None,
-                true,
-            );
-            CodeGen::add(
-                &mut self.before,
-                &format!(
-                    "mov     {} [{} - {}], ebx",
-                    self.backend.word_size(),
-                    self.backend.stack_base_pointer(),
-                    pos
-                ),
-                None,
-                true,
-            );
-            CodeGen::add(&mut self.before, "pop    ebx", None, true);
-        } else {
-            CodeGen::add(
-                &mut self.before,
-                &format!(
-                    "mov     {} [{} - {}], {what}",
-                    self.backend.word_size(),
-                    self.backend.stack_base_pointer(),
-                    pos
-                ),
-                None,
-                true,
-            );
-        }
-        pos
     }
 
     fn pop_from_scope_stack_and_deref(
