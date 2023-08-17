@@ -256,6 +256,19 @@ fn create_functions_for_struct_get_property(
 
         let body = struct_lambda_property_rasm_body(name, parameters);
 
+        /*
+        print!("lambda get property {name}(");
+        for param in f_parameters.iter() {
+            print!("{param},");
+        }
+        println!(") -> {:?}", lambda_return_type);
+
+        for stmt in body.iter() {
+            println!("  {stmt}");
+        }
+
+         */
+
         vec![
             create_function_for_struct_get_property(
                 backend,
@@ -305,7 +318,7 @@ fn create_function_for_struct_get_property(
             ast_type: ASTType::Custom {
                 name: struct_def.name.clone(),
                 param_types,
-                // TODO for now here's no source fo generated functions
+                // TODO for now here's no source for generated functions
                 index: ASTIndex::none(),
             },
             ast_index: ASTIndex::none(),
