@@ -433,6 +433,9 @@ impl FunctionsContainer {
                             ASTType::Builtin(_) => filter_type == parameter_type,
                             ASTType::Generic(_) => true,
                             ASTType::Custom { .. } => false,
+                            ASTType::Unit => {
+                                panic!("Paramneters cannot have unit type.");
+                            }
                         },
                     },
                     ASTType::Generic(filter_generic_type) => {
@@ -481,7 +484,13 @@ impl FunctionsContainer {
                                         )
                                     })
                             }
+                            ASTType::Unit => {
+                                panic!("Parameters cannot have unit type");
+                            }
                         }
+                    }
+                    ASTType::Unit => {
+                        panic!("Parameters cannot have unit type");
                     }
                 }
             }

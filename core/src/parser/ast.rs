@@ -102,6 +102,7 @@ pub enum ASTType {
         #[derivative(Hash = "ignore")]
         index: ASTIndex,
     },
+    Unit,
 }
 
 impl Display for ASTType {
@@ -146,6 +147,7 @@ impl Display for ASTType {
                     f.write_str(&format!("{name}<{}>", pars.join(",")))
                 }
             }
+            ASTType::Unit => f.write_str("()"),
         }
     }
 }

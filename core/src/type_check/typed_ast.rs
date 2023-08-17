@@ -99,6 +99,7 @@ pub enum ASTTypedType {
     Enum { name: String },
     Struct { name: String },
     Type { name: String },
+    Unit,
 }
 
 impl Display for ASTTypedType {
@@ -132,6 +133,7 @@ impl Display for ASTTypedType {
             ASTTypedType::Enum { name } => f.write_str(&name.to_string()),
             ASTTypedType::Struct { name } => f.write_str(&name.to_string()),
             ASTTypedType::Type { name } => f.write_str(&name.to_string()),
+            ASTTypedType::Unit => f.write_str("()"),
         }
     }
 }
@@ -373,6 +375,7 @@ impl TypeDefProvider for ASTTypedModule {
                 param_types: _,
                 index: _,
             } => name == type_to_find,
+            ASTType::Unit => false,
         })
         .cloned()
     }
@@ -562,6 +565,7 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
                 param_types: _,
                 index: _,
             } => name == type_to_find,
+            ASTType::Unit => false,
         })
         .cloned()
     }
@@ -1598,6 +1602,7 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
             param_types: Vec::new(),
             index: ASTIndex::none(),
         },
+        ASTTypedType::Unit => ASTType::Unit,
     }
 }
 
@@ -1813,6 +1818,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                 panic!("Cannot find custom type {name}. {message}");
             }
         }
+        ASTType::Unit => ASTTypedType::Unit,
     }
 }
 
@@ -1946,6 +1952,9 @@ impl DefaultFunctionCall {
                         param_types: _,
                         index: _,
                     } => ASTExpression::Any(it.clone()),
+                    ASTType::Unit => {
+                        panic!("Parameters cannot have unit type");
+                    }
                 })
                 .collect(),
             index: ASTIndex::none(),

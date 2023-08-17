@@ -422,6 +422,7 @@ impl TextMacroEvaluator {
             ASTTypedType::Type { name } => type_def_provider
                 .get_type_from_typed_type_name(name)
                 .unwrap(),
+            ASTTypedType::Unit => ASTType::Unit,
         }
     }
 

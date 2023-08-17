@@ -10,6 +10,7 @@ pub enum EnhancedType {
         name: String,
         param_types: Vec<EnhancedType>,
     },
+    Unit,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -140,6 +141,7 @@ impl EnhancedFunctionDefTransformer {
                     .map(|it| self.transform_type(it, generic_types_map))
                     .collect(),
             },
+            ASTType::Unit => EnhancedType::Unit,
         }
     }
 

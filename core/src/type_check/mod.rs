@@ -378,6 +378,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
             result.dedup();
             result
         }
+        ASTType::Unit => Vec::new(),
     };
 }
 
@@ -409,6 +410,7 @@ fn is_generic_type(ast_type: &ASTType) -> bool {
             ASTType::Generic(name) => true,
             _ => is_generic_type(it),
         }),
+        ASTType::Unit => false,
     };
 }
 
@@ -818,6 +820,7 @@ fn resolve_generic_types_from_effective_type(
                 .into());
             }
         },
+        ASTType::Unit => {}
     }
 
     debug_i!("result {}", result.my_to_string());
@@ -1007,6 +1010,7 @@ fn substitute(
                 }
             })
         }
+        ASTType::Unit => None,
     };
 
     if let Some(r) = &result {
