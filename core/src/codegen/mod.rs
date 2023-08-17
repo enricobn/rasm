@@ -1673,7 +1673,6 @@ impl<'a> CodeGen<'a> {
                     call_parameters.add_parameter_ref(
                         param_name.into(),
                         val_name,
-                        &par.ast_type,
                         *index,
                         lambda_space_opt,
                         *indent,
@@ -1687,14 +1686,11 @@ impl<'a> CodeGen<'a> {
                     call_parameters.add_let_val_ref(
                         param_name.into(),
                         val_name,
-                        ast_typed_type,
                         index_in_context,
                         lambda_space_opt,
                         *indent,
-                        ast_index,
-                        &self.module,
-                        &mut self.statics,
                         stack_vals,
+                        ast_index,
                     )
                 }
             }

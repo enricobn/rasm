@@ -612,7 +612,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
-        dereference: bool,
+        _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         debug_i!("translate macro fun {:?}", _function_def);
@@ -835,10 +835,10 @@ impl TextMacroEval for PrintRefMacro {
     fn eval_macro(
         &mut self,
         backend: &dyn Backend,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
-        dereference: bool,
+        _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let result = match parameters.get(0) {

@@ -1,5 +1,8 @@
 use std::collections::HashSet;
 
+use log::debug;
+
+use crate::debug_i;
 use crate::parser::ast::{
     ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTStatement, ASTStructDef, ASTType,
     ASTTypeDef,
@@ -44,6 +47,9 @@ impl EnhancedASTModule {
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
         self.functions_by_name.find_function(name)
     }
+    pub fn find_function_by_original_name(&self, name: &str) -> Option<&ASTFunctionDef> {
+        self.functions_by_name.find_function_by_original_name(name)
+    }
 
     pub fn find_call(
         &self,
@@ -67,6 +73,7 @@ impl EnhancedASTModule {
         parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<Option<ASTType>>,
     ) -> Vec<ASTFunctionDef> {
+        debug_i!("find call vec for module");
         self.functions_by_name.find_call_vec(
             call,
             parameter_types_filter,
