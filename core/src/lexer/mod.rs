@@ -19,6 +19,7 @@ enum LexStatus {
     Comment,
     Numeric,
     String,
+    StringEscape,
     WhiteSpace,
     Char,
 }
@@ -83,7 +84,7 @@ impl Lexer {
         }
     }
 
-    fn get_punctuation(actual: &str, c: char) -> Option<TokenKind> {
+    fn get_punctuation(&self, actual: &str, c: char) -> Option<TokenKind> {
         let mut string: String = actual.into();
         string.push(c);
 
@@ -101,10 +102,11 @@ impl Lexer {
     }
 
     fn panic(&self, message: &str) -> ! {
-        panic!(
-            "{message} : {}",
-            ASTIndex::new(self.file_name.clone(), self.row, self.column)
-        )
+        panic!("{message} : {}", self.get_index())
+    }
+
+    fn get_index(&self) -> ASTIndex {
+        ASTIndex::new(self.file_name.clone(), self.row, self.column)
     }
 }
 
@@ -137,7 +139,13 @@ impl Iterator for Lexer {
             match status {
                 LexStatus::None => {
                     if actual == "//" || actual == "/*" {
-                        actual.push(c);
+                        // TODO empty one line comment
+                        if c == '\n' {
+                            self.row += 1;
+                            self.column = 0;
+                        } else {
+                            actual.push(c);
+                        }
                         status = LexStatus::Comment;
                     } else if c == '\n' {
                         let token = self.some_token(TokenKind::EndOfLine);
@@ -150,7 +158,7 @@ impl Iterator for Lexer {
                     } else if actual == "/" && c == '{' {
                         actual.clear();
                         status = LexStatus::AsmBlock;
-                    } else if let Some(punctuation) = Lexer::get_punctuation(&actual, c) {
+                    } else if let Some(punctuation) = self.get_punctuation(&actual, c) {
                         let token = self.some_token(punctuation);
                         self.column += 1;
                         self.index += 1;
@@ -182,19 +190,21 @@ impl Iterator for Lexer {
                             "unknown char '{}' ({}) : {} ***",
                             c,
                             c.escape_debug(),
-                            ASTIndex::new(self.file_name.clone(), self.row, self.column)
+                            self.get_index()
                         );
                     }
                 }
                 LexStatus::WhiteSpace => {
-                    if c.is_whitespace() {
+                    if c != '\n' && c.is_whitespace() {
                         actual.push(c);
                     } else {
                         return self.some_token(TokenKind::WhiteSpaces(actual));
                     }
                 }
                 LexStatus::String => {
-                    if c == '"' {
+                    if c == '\\' {
+                        status = LexStatus::StringEscape;
+                    } else if c == '"' {
                         let token = self.some_token(TokenKind::StringLiteral(actual));
                         self.index += 1;
                         self.column += 1;
@@ -202,6 +212,15 @@ impl Iterator for Lexer {
                     } else {
                         actual.push(c);
                     }
+                }
+                LexStatus::StringEscape => {
+                    if c == '"' {
+                        actual.push(c);
+                    } else {
+                        actual.push('\\');
+                        actual.push(c);
+                    }
+                    status = LexStatus::String;
                 }
                 LexStatus::Char => {
                     if c == '\'' {
@@ -246,6 +265,10 @@ impl Iterator for Lexer {
                         }
                     } else if actual.starts_with("/*") {
                         if actual.ends_with("*/") {
+                            if c == '\n' {
+                                self.row += 1;
+                                self.column = 0;
+                            }
                             let token = self.some_token(TokenKind::MultiLineComment(actual));
                             return token;
                         } else if c == '\n' {
@@ -278,7 +301,7 @@ impl Iterator for Lexer {
         }
 
         if !actual.is_empty() {
-            debug!("Do you have missed something? {}", actual);
+            debug!("Do you missed something? {}", actual);
         }
 
         None
@@ -411,7 +434,7 @@ mod tests {
         assert_eq!(
             vec![
                 Comment("// test6.rasm file".into()),
-                MultiLineComment("/*\n   A multi\n   line comment\n */".into()),
+                MultiLineComment("/*   A multi\n   line comment\n */".into()),
             ],
             lst
         );
@@ -439,6 +462,12 @@ mod tests {
             ],
             lst
         );
+    }
+
+    #[test]
+    fn test13() {
+        let lexer = Lexer::from_file(Path::new("resources/test/test13.rasm")).unwrap();
+        lexer.for_each(|it| println!("{:?}", it));
     }
 
     /*

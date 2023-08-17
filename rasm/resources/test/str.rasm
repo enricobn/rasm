@@ -19,3 +19,5 @@ println(toString(9999));
 
 println(padLeft("Hello", 10));
 println(-10);
+println("a'a");
+println("a\"a");
