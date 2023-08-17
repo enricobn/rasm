@@ -27,10 +27,10 @@ enum LexStatus {
 #[derive(Clone)]
 pub struct Lexer {
     file_name: Option<PathBuf>,
-    source: String,
     index: usize,
     row: usize,
     column: usize,
+    chars: Vec<char>,
 }
 
 impl Lexer {
@@ -51,10 +51,10 @@ impl Lexer {
     pub fn new(source: String, file_name: Option<PathBuf>) -> Self {
         Self {
             file_name,
-            source,
             index: 0,
             row: 1,
             column: 1,
+            chars: source.chars().collect::<Vec<_>>(),
         }
     }
 
@@ -117,16 +117,11 @@ impl Iterator for Lexer {
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut actual = String::new();
-        let mut chars = self.source.chars();
-        if self.index > 0 {
-            // TODO optimize, I don't like that
-            chars.nth(self.index - 1);
-        }
         let mut status = LexStatus::None;
         let mut exit = false;
         loop {
-            let c = if let Some(a_char) = chars.next() {
-                a_char
+            let c = if let Some(a_char) = self.chars.get(self.index) {
+                *a_char
             } else if exit {
                 break;
             } else {
@@ -198,6 +193,7 @@ impl Iterator for Lexer {
                     if c != '\n' && c.is_whitespace() {
                         actual.push(c);
                     } else {
+                        //self.chars.next_back();
                         return self.some_token(TokenKind::WhiteSpaces(actual));
                     }
                 }
@@ -240,8 +236,10 @@ impl Iterator for Lexer {
                     if c.is_alphanumeric() {
                         actual.push(c);
                     } else if let Some(keyword) = KeywordKind::from_name(&actual) {
+                        //self.chars.next_back();
                         return self.some_token(keyword);
                     } else {
+                        //self.chars.next_back();
                         return self.some_token(TokenKind::AlphaNumeric(actual));
                     }
                 }
@@ -249,6 +247,7 @@ impl Iterator for Lexer {
                     if c.is_numeric() {
                         actual.push(c);
                     } else {
+                        //self.chars.next_back();
                         return self.some_token(TokenKind::Number(actual));
                     }
                 }
@@ -269,8 +268,8 @@ impl Iterator for Lexer {
                                 self.row += 1;
                                 self.column = 0;
                             }
-                            let token = self.some_token(TokenKind::MultiLineComment(actual));
-                            return token;
+                            //self.chars.next_back();
+                            return self.some_token(TokenKind::MultiLineComment(actual));
                         } else if c == '\n' {
                             self.row += 1;
                             self.column = 0;
@@ -285,6 +284,7 @@ impl Iterator for Lexer {
                         let token = self.some_token(TokenKind::AsmBLock(
                             actual.split_at(actual.len() - 2).0.into(),
                         ));
+                        //self.chars.next_back();
                         return token;
                     } else if c == '\n' {
                         self.row += 1;

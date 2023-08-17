@@ -1,10 +1,10 @@
 /*
-parse ended in 22.908299ms
-type check ended in 95.019435ms
-code generation ended in 28.847997ms
-assembler ended in 188.026855ms
-linker ended in 30.249945ms
-finished in 368.244265ms
+parse ended in 11.347163ms
+type check ended in 87.284773ms
+code generation ended in 30.556844ms
+assembler ended in 185.226611ms
+linker ended in 34.471721ms
+finished in 351.85742ms
 */
 
 enum GameResult {
