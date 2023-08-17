@@ -467,7 +467,9 @@ mod tests {
     #[test]
     fn test13() {
         let lexer = Lexer::from_file(Path::new("resources/test/test13.rasm")).unwrap();
-        lexer.for_each(|it| println!("{:?}", it));
+        let vec = lexer.collect::<Vec<_>>();
+        assert_eq!(vec.get(3).unwrap().kind, KeyWord(KeywordKind::Fn));
+        assert_eq!(vec.get(3).unwrap().row, 2);
     }
 
     /*
