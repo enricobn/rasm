@@ -129,6 +129,20 @@ impl FunctionsContainer {
         }
     }
 
+    pub fn find_function_by_original_name(&self, name: &str) -> Option<&ASTFunctionDef> {
+        let found = self.functions_by_name.get(name);
+
+        if let Some(f) = found {
+            if f.len() > 1 {
+                None
+            } else {
+                f.first()
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn find_call(
         &self,
         function_name: &str,
@@ -218,6 +232,7 @@ impl FunctionsContainer {
                 } else {
                     let mut resolved_generic_types = LinkedHashMap::new();
                     let lambda = |it: &&ASTFunctionDef| {
+                        debug_i!("verifying function {it}");
                         if filter_only_on_name && it.name == call.function_name {
                             return true;
                         }
@@ -257,6 +272,10 @@ impl FunctionsContainer {
                     functions.iter().filter(lambda).cloned().collect::<Vec<_>>()
                 }
             } else {
+                debug_i!(
+                    "cannot find a function with name {}",
+                    call.original_function_name
+                );
                 vec![]
             };
 
@@ -322,15 +341,22 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
     ) -> bool {
         let result = if parameter_types.len() != parameter_types_filter.len() {
+            debug_i!("not matching parameter length");
             false
         } else {
             zip(parameter_types.iter(), parameter_types_filter.iter()).all(
                 |(parameter_type, parameter_type_filter)| {
-                    Self::almost_same_type(
+                    let result = Self::almost_same_type(
                         parameter_type,
                         parameter_type_filter,
                         resolved_generic_types,
-                    )
+                    );
+
+                    if !result {
+                        debug_i!("Not matching parameter {parameter_type}");
+                    }
+
+                    result
                 },
             )
         };

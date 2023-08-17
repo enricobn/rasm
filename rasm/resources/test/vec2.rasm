@@ -1,0 +1,13 @@
+let s1 = S1(Vec());
+let s2 = S2(Vec());
+
+println(s1.vec);
+println(s2.vec);
+
+struct S1 {
+    vec: Vec<str>
+}
+
+struct S2 {
+    vec: Vec<i32>
+}

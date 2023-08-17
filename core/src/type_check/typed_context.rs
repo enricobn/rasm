@@ -34,6 +34,10 @@ impl TypeConversionContext {
         self.functions_by_name.find_function(name)
     }
 
+    pub fn find_function_by_original_name(&self, name: &str) -> Option<&ASTFunctionDef> {
+        self.functions_by_name.find_function_by_original_name(name)
+    }
+
     pub fn len(&self) -> usize {
         self.functions_by_name.len()
     }

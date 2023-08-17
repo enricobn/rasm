@@ -879,6 +879,20 @@ fn get_called_function(
     indent!();
     let mut function_def_from_module = false;
 
+    if let Some(function_def) = module.find_function_by_original_name(&call.original_function_name)
+    {
+        if function_def.generic_types.is_empty() {
+            if let Some(function_in_context) = typed_context
+                .borrow()
+                .find_function_by_original_name(&call.original_function_name)
+            {
+                return Ok(Some((function_in_context.clone(), false)));
+            } else {
+                return Ok(Some((function_def.clone().clone(), true)));
+            }
+        }
+    }
+
     let call_parameters_types = call
         .parameters
         .iter()
@@ -941,15 +955,22 @@ fn get_called_function(
         typed_context.borrow().debug_i();
         module.debug_i();
         return Err(format!(
-            "Cannot find function for {call} with filters {} with return type {:?} in: {}",
+            "Cannot find function for {call} with filters {} with return type {} in: {}",
             SliceDisplay(&call_parameters_types),
-            expected_return_type,
+            OptionOptionDisplay(expected_return_type),
             call.index
         )
         .into());
     }
 
     let function_def = if candidate_functions.len() == 1 {
+        /*
+        println!(
+            "call {call} expected {} from_module {function_def_from_module}",
+            OptionOptionDisplay(expected_return_type)
+        );
+
+         */
         candidate_functions.get(0).cloned()
     } else if call_parameters_types
         .iter()
