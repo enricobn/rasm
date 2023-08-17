@@ -186,6 +186,17 @@ pub trait Backend: RefUnwindSafe {
     );
 
     fn push_to_scope_stack(&self, out: &mut String, what: &str, stack_vals: &StackVals) -> usize;
+
+    fn set_return_value(&self, out: &mut String, what: &str);
+
+    fn populate_lambda_space(
+        &self,
+        out: &mut String,
+        lambda_space_address: &str,
+        function_name: &str,
+        add_ref_function: &str,
+        deref_function: &str,
+    );
 }
 
 enum Linker {
@@ -976,10 +987,16 @@ impl Backend for BackendNasm386 {
                     MemoryValue::StringValue(s) => {
                         def.push_str("db    ");
 
-                        let mut result = "'".to_string();
+                        let mut result = "'".to_owned();
 
                         // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
-                        for c in s.replace("\\n", "\n").replace("\\t", "\t").chars() {
+                        for c in s
+                            .replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("'", "',39,'")
+                            //.replace("\\\"", "\"")
+                            .chars()
+                        {
                             if c.is_ascii_control() {
                                 result.push_str(&format!("',{},'", c as u32));
                             } else {
@@ -1102,6 +1119,9 @@ impl Backend for BackendNasm386 {
         }
 
         for (arg, comment) in args.iter().rev() {
+            if let Some(c) = comment {
+                self.add_comment(out, c, true);
+            }
             CodeGen::add(
                 out,
                 &format!("push {} {arg}", self.word_size()),
@@ -1134,6 +1154,9 @@ impl Backend for BackendNasm386 {
         }
 
         for (arg, comment) in args.iter().rev() {
+            if let Some(c) = comment {
+                self.add_comment(out, c, true);
+            }
             CodeGen::add(
                 out,
                 &format!("push {} {arg}", self.word_size()),
@@ -1347,6 +1370,53 @@ impl Backend for BackendNasm386 {
             );
         }
         pos
+    }
+
+    fn set_return_value(&self, out: &mut String, what: &str) {
+        CodeGen::add(
+            out,
+            &format!("mov {} eax, {what}", self.word_size()),
+            None,
+            true,
+        );
+    }
+
+    fn populate_lambda_space(
+        &self,
+        out: &mut String,
+        lambda_space_address: &str,
+        function_name: &str,
+        add_ref_function: &str,
+        deref_function: &str,
+    ) {
+        let ws = self.word_size();
+        let wl = self.word_len();
+
+        CodeGen::add(
+            out,
+            &format!("mov {} [{lambda_space_address}], {}", ws, function_name),
+            None,
+            true,
+        );
+
+        CodeGen::add(
+            out,
+            &format!(
+                "mov {} [{lambda_space_address} + {wl}], {add_ref_function}",
+                ws
+            ),
+            None,
+            true,
+        );
+        CodeGen::add(
+            out,
+            &format!(
+                "mov {} [{lambda_space_address} + 2 * {wl}], {deref_function}",
+                ws
+            ),
+            None,
+            true,
+        );
     }
 }
 
