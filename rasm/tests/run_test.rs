@@ -35,6 +35,11 @@ fn test_conditionals() {
 }
 
 #[test]
+fn test_conditionals2() {
+    run_test("conditionals2", Vec::new(), "Some(first),Some(first),Some(first),\nSome(second),Some(second),Some(second),\nSome(third),Some(third),Some(third),\n");
+}
+
+#[test]
 fn test_mc91() {
     run_test("mc91", Vec::new(), "91\n");
 }
@@ -195,7 +200,7 @@ fn test_str() {
     run_test(
         "str",
         Vec::new(),
-        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n9999\n     Hello\n-10\n",
+        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n9999\n     Hello\n-10\na'a\na\"a\n",
     );
 }
 
@@ -240,6 +245,11 @@ fn test_vec() {
         vec![],
         "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n1,2,\n",
     );
+}
+
+#[test]
+fn test_vec2() {
+    run_test("vec2", vec![], "\n\n");
 }
 
 #[test]

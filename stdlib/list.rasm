@@ -40,12 +40,12 @@ fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
     match(l, { head,tail -> add(count(tail, predicate), if(predicate(head), 1, 0)); }, { -> 0; });
 }
 
-fn listAddLeft<T>(l: List<T>, value: T) -> List<T> {
+fn insert<T>(l: List<T>, value: T) -> List<T> {
     List::Full(value, l);
 }
 
-fn listAddRight<T>(l: List<T>, value: T) -> List<T> {
-    match(l, { head, tail -> List::Full(head, listAddRight(tail, value));}, { -> List::Full(value, List::Empty());});
+fn push<T>(l: List<T>, value: T) -> List<T> {
+    match(l, { head, tail -> List::Full(head, push(tail, value));}, { -> List::Full(value, List::Empty());});
 }
 
 fn listOf<T>(v: T) -> List<T> {

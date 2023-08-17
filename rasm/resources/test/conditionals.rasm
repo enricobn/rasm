@@ -1,6 +1,3 @@
-//False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n
-
-
 ifRun(false,{ -> println("True");},{ -> println("False");});
 
 ifRun(true,{ -> println("True");},{ -> println("False");});
@@ -38,6 +35,3 @@ assertFalse(and(false, true));
 assert(and(true, true));
 assert(not(false));
 assertFalse(not(true));
-
-
-

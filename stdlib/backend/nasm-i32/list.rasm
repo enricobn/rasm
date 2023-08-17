@@ -40,7 +40,7 @@ asm lines(s: str) -> List<str> /{
     mov     dword [ebp -4], eax
     $addRef(eax: List<str>, "for lines")
     $addRef(ebx: str, "for lines")
-    $call(listAddRight, eax: List<str>, ebx: str)
+    $call(push, eax: List<str>, ebx: str)
     inc dword [ebp -8]
     push    dword ebx
     $deref([ebp -4]: List<str>, "for lines")
@@ -68,7 +68,7 @@ asm lines(s: str) -> List<str> /{
     mov     dword [ebp -4], eax
     $addRef(eax: List<str>, "for lines")
     $addRef(ebx: str, "for lines")
-    $call(listAddRight, eax: List<str>, ebx: str)
+    $call(push, eax: List<str>, ebx: str)
     inc dword [ebp -8]
     push    dword ebx
     $deref([ebp -4]: List<str>, "for lines")
@@ -117,7 +117,7 @@ asm chars(s: str) -> List<str> /{
     pop     eax
     $addRef(eax: List<str>, "for chars")
     $addRef(edx: str, "for chars")
-    $call(listAddRight, eax: List<str>, edx: str)
+    $call(push, eax: List<str>, edx: str)
     inc ebx
     inc ecx
     jmp .loop
