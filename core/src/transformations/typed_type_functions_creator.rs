@@ -63,7 +63,7 @@ fn create_free(
         ],
         body,
         inline: false,
-        return_type: None,
+        return_type: ASTTypedType::Unit,
         generic_types: LinkedHashMap::new(),
         index: ASTIndex::none(),
     };

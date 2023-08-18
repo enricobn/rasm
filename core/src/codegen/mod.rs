@@ -429,8 +429,8 @@ impl<'a> CodeGen<'a> {
                             return_type,
                         }) = &typed_type
                         {
-                            if let Some(rt) = return_type {
-                                rt.deref().clone()
+                            if return_type.deref() != &ASTTypedType::Unit {
+                                return_type.deref().clone()
                             } else {
                                 panic!(
                                     "Expected a return type from lambda but got None: {}",
@@ -462,8 +462,7 @@ impl<'a> CodeGen<'a> {
                             .get(&call.function_name.replace("::", "_"))
                             .unwrap()
                             .return_type
-                            .clone()
-                            .unwrap(),
+                            .clone(),
                         self.call_function(
                             call,
                             context,
@@ -481,8 +480,7 @@ impl<'a> CodeGen<'a> {
             ASTTypedExpression::Value(value_type, index) => {
                 let value = self.backend.value_to_string(value_type);
                 let typed_type =
-                    get_type_of_typed_expression(&self.module, context, expr, None, &self.statics)
-                        .unwrap();
+                    get_type_of_typed_expression(&self.module, context, expr, None, &self.statics);
 
                 if is_const {
                     let key = self
@@ -934,15 +932,13 @@ impl<'a> CodeGen<'a> {
                                     );
                                 }
                                 ASTTypedExpression::Lambda(lambda_def) => {
-                                    if let Some(ASTTypedType::Builtin(
-                                        BuiltinTypedTypeKind::Lambda {
-                                            parameters,
-                                            return_type,
-                                        },
-                                    )) = &function_def.return_type
+                                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                        parameters,
+                                        return_type,
+                                    }) = &function_def.return_type
                                     {
-                                        let rt = if let Some(rt) = return_type {
-                                            rt.deref().clone()
+                                        let rt = if return_type.deref() != &ASTTypedType::Unit {
+                                            return_type.deref().clone()
                                         } else {
                                             panic!(
                                                 "Expected a return type from lambda but got None"
@@ -964,7 +960,7 @@ impl<'a> CodeGen<'a> {
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                             name: format!("lambda{}", self.id),
                                             parameters: lambda_parameters, // parametrs are calculated later
-                                            return_type: Some(rt),
+                                            return_type: rt,
                                             body: ASTTypedFunctionBody::RASMBody(
                                                 lambda_def.clone().body,
                                             ),
@@ -1413,7 +1409,7 @@ impl<'a> CodeGen<'a> {
                             panic!("Lambda parameters do not match definition");
                         }
 
-                        let rt = return_type.map(|r| r.deref().clone());
+                        let rt = return_type.deref().clone();
 
                         let mut def = ASTTypedFunctionDef {
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
@@ -1438,7 +1434,7 @@ impl<'a> CodeGen<'a> {
 
                         let optimize = function_def.return_type.is_none()
                             || CodeGen::can_optimize_lambda_space(
-                                function_def.return_type.as_ref().unwrap(),
+                                &function_def.return_type,
                                 &self.module,
                             );
 

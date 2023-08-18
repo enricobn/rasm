@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
+use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
@@ -30,7 +31,7 @@ use crate::{debug_i, dedent, indent};
 pub struct ASTTypedFunctionDef {
     pub name: String,
     pub parameters: Vec<ASTTypedParameterDef>,
-    pub return_type: Option<ASTTypedType>,
+    pub return_type: ASTTypedType,
     pub body: ASTTypedFunctionBody,
     pub inline: bool,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
@@ -41,8 +42,8 @@ impl Display for ASTTypedFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
         f.write_str(&format!("{}({})", self.name, pars.join(",")))?;
-        if let Some(rt) = &self.return_type {
-            f.write_str(&format!(" -> {}", rt))?;
+        if self.return_type != ASTTypedType::Unit {
+            f.write_str(&format!(" -> {}", self.return_type))?;
         }
         Ok(())
     }
@@ -89,7 +90,7 @@ pub enum BuiltinTypedTypeKind {
     F32,
     Lambda {
         parameters: Vec<ASTTypedType>,
-        return_type: Option<Box<ASTTypedType>>,
+        return_type: Box<ASTTypedType>,
     },
 }
 
@@ -100,6 +101,12 @@ pub enum ASTTypedType {
     Struct { name: String },
     Type { name: String },
     Unit,
+}
+
+impl ASTTypedType {
+    pub fn is_none(&self) -> bool {
+        self == &ASTTypedType::Unit
+    }
 }
 
 impl Display for ASTTypedType {
@@ -117,8 +124,8 @@ impl Display for ASTTypedType {
                 } => {
                     let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
 
-                    let formatted_return_type = if let Some(rt) = return_type {
-                        format!("{}", *rt)
+                    let formatted_return_type = if return_type.deref() != &ASTTypedType::Unit {
+                        format!("{}", return_type)
                     } else {
                         "()".into()
                     };
@@ -1075,7 +1082,7 @@ fn verify_statement(
                             return_type,
                         }) = &parameter_ref.ast_type
                         {
-                            return_type.clone().map(|it| *it)
+                            return_type.deref().clone()
                         } else {
                             panic!()
                         }
@@ -1087,7 +1094,7 @@ fn verify_statement(
                             return_type,
                         }) = &ast_type
                         {
-                            return_type.clone().map(|it| *it)
+                            return_type.deref().clone()
                         } else {
                             panic!()
                         }
@@ -1096,20 +1103,22 @@ fn verify_statement(
                     };
 
                 if *is_const {
-                    statics.add_typed_const(name.to_owned(), ast_typed_type.unwrap());
-                } else {
-                    context.insert_let(name.clone(), ast_typed_type.unwrap(), None);
-                }
-            } else if let Some(ast_typed_type) =
-                get_type_of_typed_expression(module, context, e, None, statics)
-            {
-                if *is_const {
                     statics.add_typed_const(name.to_owned(), ast_typed_type);
                 } else {
                     context.insert_let(name.clone(), ast_typed_type, None);
                 }
             } else {
-                panic!("unsupported let")
+                let ast_typed_type =
+                    get_type_of_typed_expression(module, context, e, None, statics);
+                if ast_typed_type != ASTTypedType::Unit {
+                    if *is_const {
+                        statics.add_typed_const(name.to_owned(), ast_typed_type);
+                    } else {
+                        context.insert_let(name.clone(), ast_typed_type, None);
+                    }
+                } else {
+                    panic!("unsupported let")
+                }
             }
 
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
@@ -1177,7 +1186,7 @@ fn verify_function_call(
         let par = parameters_types.get(i).unwrap().clone();
         debug!("par type {par}");
         assert_eq!(
-            get_type_of_typed_expression(module, context, expr, Some(&par), statics).unwrap(),
+            get_type_of_typed_expression(module, context, expr, Some(&par), statics),
             par,
             "expression {:?}",
             expr
@@ -1191,12 +1200,10 @@ pub fn get_type_of_typed_expression(
     expr: &ASTTypedExpression,
     ast_type: Option<&ASTTypedType>,
     statics: &Statics,
-) -> Option<ASTTypedType> {
+) -> ASTTypedType {
     debug!("get_type_of_typed_expression {expr} {:?}", ast_type);
     match expr {
-        ASTTypedExpression::StringLiteral(_) => {
-            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
-        }
+        ASTTypedExpression::StringLiteral(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
             debug!("function call expression");
 
@@ -1219,7 +1226,7 @@ pub fn get_type_of_typed_expression(
                     return_type,
                 }) = &par.ast_type
                 {
-                    return_type.clone().map(|it| it.as_ref().clone())
+                    return_type.as_ref().clone()
                 } else {
                     panic!("expected lambda, found: {}", &par.ast_type);
                 }
@@ -1229,11 +1236,11 @@ pub fn get_type_of_typed_expression(
         }
         ASTTypedExpression::ValueRef(name, _) => {
             if let Some(TypedValKind::ParameterRef(_, par)) = context.get(name) {
-                Some(par.ast_type.clone())
+                par.ast_type.clone()
             } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(name) {
-                Some(ast_type.clone())
+                ast_type.clone()
             } else if let Some(entry) = statics.get_typed_const(name) {
-                Some(entry.ast_typed_type.clone())
+                entry.ast_typed_type.clone()
             } else {
                 panic!(
                     "Unknown val {name} context: {:?} statics: {:?}",
@@ -1242,7 +1249,7 @@ pub fn get_type_of_typed_expression(
                 );
             }
         }
-        ASTTypedExpression::Value(val_type, _) => Some(val_type.to_typed_type()),
+        ASTTypedExpression::Value(val_type, _) => val_type.to_typed_type(),
         ASTTypedExpression::Lambda(lambda_def) => {
             let mut context = TypedValContext::new(Some(context));
 
@@ -1291,24 +1298,25 @@ pub fn get_type_of_typed_expression(
                                     )
                                 })
                                 .return_type
-                                .clone()
-                                .unwrap();
+                                .clone();
                             if *is_const {
                                 panic!("const not allowed here")
                             } else {
                                 context.insert_let(name.clone(), ast_typed_type, None);
                             }
                             verify_function_call(module, &context, call, statics);
-                        } else if let Some(ast_typed_type) =
-                            get_type_of_typed_expression(module, &context, e, None, statics)
-                        {
-                            if *is_const {
-                                panic!("const not allowed here");
-                            } else {
-                                context.insert_let(name.clone(), ast_typed_type, None);
-                            }
                         } else {
-                            panic!("unsupported let")
+                            let ast_typed_type =
+                                get_type_of_typed_expression(module, &context, e, None, statics);
+                            if ast_typed_type != ASTTypedType::Unit {
+                                if *is_const {
+                                    panic!("const not allowed here");
+                                } else {
+                                    context.insert_let(name.clone(), ast_typed_type, None);
+                                }
+                            } else {
+                                panic!("unsupported let")
+                            }
                         }
                     }
                 }
@@ -1324,28 +1332,30 @@ pub fn get_type_of_typed_expression(
                     }
                 }
             } else {
-                None
+                ASTTypedType::Unit
             };
 
-            if let Some(t) = return_type {
-                let rt = real_return_type
-                    .clone()
-                    .unwrap_or_else(|| panic!("expected {:?}, but got None", t));
-                assert_eq!(t.as_ref(), &rt, "expression {:?}", expr)
-            } else if let Some(rrt) = real_return_type {
+            if return_type.deref() != &ASTTypedType::Unit {
+                assert_eq!(
+                    return_type.deref(),
+                    &real_return_type,
+                    "expression {:?}",
+                    expr
+                )
+            } else if real_return_type != ASTTypedType::Unit {
                 if let Some(index) = lambda_def.body.iter().last().and_then(|it| it.get_index()) {
-                    panic!("Expected no return type but got {rrt} : {index}");
+                    panic!("Expected no return type but got {real_return_type} : {index}");
                 } else {
-                    panic!("Expected no return type but got {rrt}");
+                    panic!("Expected no return type but got {real_return_type}");
                 }
             }
 
-            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters: parameters.clone(),
-                return_type: real_return_type.map(Box::new),
-            }))
+                return_type: Box::new(real_return_type),
+            })
         }
-        ASTTypedExpression::Any(ast_type) => Some(ast_type.clone()),
+        ASTTypedExpression::Any(ast_type) => ast_type.clone(),
     }
 }
 
@@ -1420,16 +1430,17 @@ pub fn function_def(
         generic_types.insert(name.into(), typed_type);
     }
 
+    let function_return_type = def.return_type.clone().map(|it| {
+        typed_type(
+            conv_context,
+            &it,
+            &format!("function {} return type", def.name),
+        )
+    });
     let mut typed_function_def = ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(conv_context, &def.body),
-        return_type: def.return_type.clone().map(|it| {
-            typed_type(
-                conv_context,
-                &it,
-                &format!("function {} return type", def.name),
-            )
-        }),
+        return_type: function_return_type.unwrap_or(ASTTypedType::Unit),
         inline: def.inline,
         parameters: def
             .parameters
@@ -1582,9 +1593,11 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
                 return_type,
             } => ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters: parameters.iter().map(type_to_untyped_type).collect(),
-                return_type: return_type
-                    .clone()
-                    .map(|it| Box::new(type_to_untyped_type(&it))),
+                return_type: if return_type.deref() == &ASTTypedType::Unit {
+                    None
+                } else {
+                    Some(Box::new(type_to_untyped_type(return_type.deref())))
+                },
             }),
         },
         ASTTypedType::Enum { name } => ASTType::Custom {
@@ -1766,13 +1779,16 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                         )
                     })
                     .collect(),
-                return_type: return_type.clone().map(|it| {
-                    Box::new(typed_type(
-                        conv_context,
-                        &it,
-                        &(message.to_owned() + ", lambda return type"),
-                    ))
-                }),
+                return_type: return_type
+                    .clone()
+                    .map(|it| {
+                        Box::new(typed_type(
+                            conv_context,
+                            &it,
+                            &(message.to_owned() + ", lambda return type"),
+                        ))
+                    })
+                    .unwrap_or(Box::new(ASTTypedType::Unit)),
             }),
         },
         ASTType::Generic(p) => {

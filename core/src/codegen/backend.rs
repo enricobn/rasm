@@ -341,7 +341,7 @@ impl BackendNasm386 {
             name: name.to_owned(),
             parameters,
             body: ASTTypedFunctionBody::ASMBody(body),
-            return_type: None,
+            return_type: ASTTypedType::Unit,
             generic_types: LinkedHashMap::new(),
             inline: false,
             index: ASTIndex::none(),

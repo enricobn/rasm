@@ -408,9 +408,15 @@ impl TextMacroEvaluator {
                         .iter()
                         .map(|it| Self::typed_type_to_type(it, type_def_provider))
                         .collect::<Vec<_>>(),
-                    return_type: return_type.clone().map(|it| {
-                        Box::new(Self::typed_type_to_type(it.borrow(), type_def_provider))
-                    }),
+                    return_type: {
+                        let ast_type =
+                            Self::typed_type_to_type(return_type.borrow(), type_def_provider);
+                        if ast_type == ASTType::Unit {
+                            None
+                        } else {
+                            Some(Box::new(ast_type))
+                        }
+                    },
                 }),
             },
             ASTTypedType::Enum { name } => type_def_provider
@@ -1339,7 +1345,7 @@ mod tests {
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
-            return_type: None,
+            return_type: ASTTypedType::Unit,
             inline: false,
             index: ASTIndex::none(),
         };
@@ -1374,7 +1380,7 @@ mod tests {
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
-            return_type: None,
+            return_type: ASTTypedType::Unit,
             inline: false,
             index: ASTIndex::none(),
         };
@@ -1426,7 +1432,7 @@ mod tests {
             }],
             body: ASTTypedFunctionBody::ASMBody("".into()),
             generic_types: LinkedHashMap::new(),
-            return_type: None,
+            return_type: ASTTypedType::Unit,
             inline: false,
             index: ASTIndex::none(),
         };
