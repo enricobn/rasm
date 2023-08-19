@@ -71,7 +71,7 @@ impl EnhancedASTModule {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: Vec<TypeFilter>,
-        return_type_filter: Option<Option<ASTType>>,
+        return_type_filter: Option<ASTType>,
     ) -> Vec<ASTFunctionDef> {
         debug_i!("find call vec for module");
         self.functions_by_name.find_call_vec(

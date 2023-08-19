@@ -408,15 +408,10 @@ impl TextMacroEvaluator {
                         .iter()
                         .map(|it| Self::typed_type_to_type(it, type_def_provider))
                         .collect::<Vec<_>>(),
-                    return_type: {
-                        let ast_type =
-                            Self::typed_type_to_type(return_type.borrow(), type_def_provider);
-                        if ast_type == ASTType::Unit {
-                            None
-                        } else {
-                            Some(Box::new(ast_type))
-                        }
-                    },
+                    return_type: Box::new(Self::typed_type_to_type(
+                        return_type.borrow(),
+                        type_def_provider,
+                    )),
                 }),
             },
             ASTTypedType::Enum { name } => type_def_provider

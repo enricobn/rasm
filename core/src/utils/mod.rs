@@ -12,13 +12,6 @@ pub fn format_option<T: Display>(o: &Option<T>) -> String {
     }
 }
 
-pub fn format_option_option<T: Display>(o: &Option<Option<T>>) -> String {
-    match o {
-        None => "None".into(),
-        Some(v) => format!("Some({})", format_option(v)),
-    }
-}
-
 pub struct OptionDisplay<'a, T: 'a>(pub &'a Option<T>);
 
 impl<'a, T: fmt::Display + 'a> fmt::Display for OptionDisplay<'a, T> {

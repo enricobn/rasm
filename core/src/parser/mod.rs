@@ -15,7 +15,7 @@ use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTStructDef, ASTTypeDef, ValueType,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::generic_types_matcher;
@@ -260,7 +260,7 @@ impl Parser {
                             TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
                         {
                             self.i = next_i;
-                            def.return_type = Some(ast_type);
+                            def.return_type = ast_type;
 
                             self.set_parser_data(ParserData::FunctionDef(def), 0);
 
@@ -392,7 +392,7 @@ impl Parser {
                     name,
                     parameters: Vec::new(),
                     body: RASMBody(Vec::new()),
-                    return_type: None,
+                    return_type: ASTType::Unit,
                     inline: false,
                     generic_types,
                     resolved_generic_types: LinkedHashMap::new(),
@@ -410,7 +410,7 @@ impl Parser {
                     name,
                     parameters: Vec::new(),
                     body: ASMBody("".into()),
-                    return_type: None,
+                    return_type: ASTType::Unit,
                     inline,
                     generic_types: param_types,
                     resolved_generic_types: LinkedHashMap::new(),
@@ -572,7 +572,7 @@ impl Parser {
                 name: String::new(),
                 parameters: Vec::new(),
                 body: RASMBody(Vec::new()),
-                return_type: None,
+                return_type: ASTType::Unit,
                 inline: false,
                 generic_types: Vec::new(),
                 resolved_generic_types: LinkedHashMap::new(),
@@ -713,9 +713,9 @@ impl Parser {
                     TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
                 {
                     self.i = next_i;
-                    def.return_type = Some(ast_type.clone());
+                    def.return_type = ast_type.clone();
                 } else {
-                    def.return_type = None
+                    def.return_type = ASTType::Unit
                 }
                 let l = self.parser_data.len();
                 self.parser_data[l - 1] = ParserData::FunctionDef(def);
@@ -1224,7 +1224,7 @@ mod tests {
             name: "p".into(),
             body: ASTFunctionBody::RASMBody(Vec::new()),
             parameters: Vec::new(),
-            return_type: None,
+            return_type: ASTType::Unit,
             inline: false,
             generic_types: vec!["T".into(), "T1".into()],
             resolved_generic_types: LinkedHashMap::new(),
@@ -1240,10 +1240,7 @@ mod tests {
         let module = parse("resources/test/test12.rasm");
 
         let f_def = module.functions.first().unwrap();
-        assert_eq!(
-            f_def.return_type,
-            Some(ASTType::Builtin(BuiltinTypeKind::I32))
-        );
+        assert_eq!(f_def.return_type, ASTType::Builtin(BuiltinTypeKind::I32));
     }
 
     fn parse(source: &str) -> ASTModule {

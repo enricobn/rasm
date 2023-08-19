@@ -35,11 +35,11 @@ pub fn enum_functions_creator(
             module,
             &enum_def,
             "match",
-            Some(ASTType::Generic("_T".into())),
+            ASTType::Generic("_T".into()),
             Some("_T".into()),
         );
 
-        create_match_like_function(backend, module, &enum_def, "run", None, None);
+        create_match_like_function(backend, module, &enum_def, "run", ASTType::Unit, None);
     }
 }
 
@@ -48,7 +48,7 @@ fn create_match_like_function(
     module: &mut ASTModule,
     enum_def: &&ASTEnumDef,
     name: &str,
-    return_type: Option<ASTType>,
+    return_type: ASTType,
     extra_generic: Option<String>,
 ) {
     let body = enum_match_body(name, backend, enum_def);
@@ -71,7 +71,7 @@ fn create_match_like_function(
     }];
     for variant in enum_def.variants.iter() {
         let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-            return_type: return_type.clone().map(Box::new),
+            return_type: Box::new(return_type.clone()),
             parameters: variant
                 .parameters
                 .iter()
@@ -123,7 +123,7 @@ fn create_constructors(
             // TODO for now here's no source fo generated functions
             index: ASTIndex::none(),
         };
-        let return_type = Some(ast_type);
+        let return_type = ast_type;
         let descr = if debug_asm {
             format!(" for {}::{}", enum_def.name, variant.name)
         } else {

@@ -104,7 +104,7 @@ pub enum ASTTypedType {
 }
 
 impl ASTTypedType {
-    pub fn is_none(&self) -> bool {
+    pub fn is_unit(&self) -> bool {
         self == &ASTTypedType::Unit
     }
 }
@@ -1430,17 +1430,15 @@ pub fn function_def(
         generic_types.insert(name.into(), typed_type);
     }
 
-    let function_return_type = def.return_type.clone().map(|it| {
-        typed_type(
-            conv_context,
-            &it,
-            &format!("function {} return type", def.name),
-        )
-    });
+    let function_return_type = typed_type(
+        conv_context,
+        &def.return_type,
+        &format!("function {} return type", def.name),
+    );
     let mut typed_function_def = ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(conv_context, &def.body),
-        return_type: function_return_type.unwrap_or(ASTTypedType::Unit),
+        return_type: function_return_type,
         inline: def.inline,
         parameters: def
             .parameters
@@ -1593,10 +1591,10 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
                 return_type,
             } => ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters: parameters.iter().map(type_to_untyped_type).collect(),
-                return_type: if return_type.deref() == &ASTTypedType::Unit {
-                    None
+                return_type: if return_type.deref().is_unit() {
+                    Box::new(ASTType::Unit)
                 } else {
-                    Some(Box::new(type_to_untyped_type(return_type.deref())))
+                    Box::new(type_to_untyped_type(return_type.deref()))
                 },
             }),
         },
@@ -1779,16 +1777,11 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                         )
                     })
                     .collect(),
-                return_type: return_type
-                    .clone()
-                    .map(|it| {
-                        Box::new(typed_type(
-                            conv_context,
-                            &it,
-                            &(message.to_owned() + ", lambda return type"),
-                        ))
-                    })
-                    .unwrap_or(Box::new(ASTTypedType::Unit)),
+                return_type: Box::new(typed_type(
+                    conv_context,
+                    &return_type,
+                    &(message.to_owned() + ", lambda return type"),
+                )),
             }),
         },
         ASTType::Generic(p) => {

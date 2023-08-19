@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::ops::Deref;
 use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
@@ -12,7 +13,7 @@ pub struct ASTFunctionDef {
     pub original_name: String,
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
-    pub return_type: Option<ASTType>,
+    pub return_type: ASTType,
     pub body: ASTFunctionBody,
     pub inline: bool,
     pub generic_types: Vec<String>,
@@ -28,8 +29,8 @@ impl Display for ASTFunctionDef {
             format!("<{}>", self.generic_types.join(","))
         };
 
-        let rt = if let Some(rt) = &self.return_type {
-            format!("{}", rt)
+        let rt = if self.return_type != ASTType::Unit {
+            format!("{}", self.return_type)
         } else {
             "()".into()
         };
@@ -85,7 +86,7 @@ pub enum BuiltinTypeKind {
     String,
     Lambda {
         parameters: Vec<ASTType>,
-        return_type: Option<Box<ASTType>>,
+        return_type: Box<ASTType>,
     },
 }
 
@@ -105,6 +106,12 @@ pub enum ASTType {
     Unit,
 }
 
+impl ASTType {
+    pub fn is_unit(&self) -> bool {
+        self == &ASTType::Unit
+    }
+}
+
 impl Display for ASTType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -120,8 +127,8 @@ impl Display for ASTType {
                 } => {
                     let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
 
-                    let formatted_return_type = if let Some(rt) = return_type {
-                        format!("{}", *rt)
+                    let formatted_return_type = if return_type.deref() != &ASTType::Unit {
+                        format!("{}", return_type)
                     } else {
                         "()".into()
                     };
@@ -447,13 +454,13 @@ pub struct ASTTypeDef {
     pub index: ASTIndex,
 }
 
-pub fn lambda(return_type: Option<Box<ASTType>>) -> ASTType {
+pub fn lambda(return_type: ASTType) -> ASTType {
     ASTType::Builtin(BuiltinTypeKind::Lambda {
         parameters: Vec::new(),
-        return_type,
+        return_type: Box::new(return_type),
     })
 }
 
 pub fn lambda_unit() -> ASTType {
-    lambda(None)
+    lambda(ASTType::Unit)
 }

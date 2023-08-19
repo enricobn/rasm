@@ -175,19 +175,19 @@ impl<'a> TypeParser<'a> {
                 self.parser.get_token_kind_n(n + 1),
             ) {
                 n += 2;
-                None
+                ASTType::Unit
             } else if let Some((t, next_i)) =
                 self.try_parse_ast_type_rec(n, context_param_types, rec + 1)
             {
                 n = next_i - self.parser.get_i();
-                Some(Box::new(t))
+                t
             } else {
                 self.parser.panic("Error parsing fn type parameter");
             };
 
             (
                 Builtin(BuiltinTypeKind::Lambda {
-                    return_type,
+                    return_type: Box::new(return_type),
                     parameters,
                 }),
                 self.parser.get_i() + n,
@@ -226,13 +226,13 @@ mod tests {
     #[test]
     fn test_lambda1() {
         let parse_result = try_parse("fn(i32,str) -> i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(I32), Builtin(String)], return_type: Some(Builtin(I32)) }), 8))");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(I32), Builtin(String)], return_type: Builtin(I32) }), 8))");
     }
 
     #[test]
     fn test_lambda2() {
         let parse_result = try_parse("fn(fn() -> (),str) -> i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: None }), Builtin(String)], return_type: Some(Builtin(I32)) }), 13))");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: Unit }), Builtin(String)], return_type: Builtin(I32) }), 13))");
     }
 
     #[test]

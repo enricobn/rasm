@@ -820,7 +820,7 @@ impl<'a> CodeGen<'a> {
 
         let stack = StackVals::new();
 
-        if function_def.return_type.is_none() {
+        if function_def.return_type.is_unit() {
             stack.reserve_return_register(&mut before);
         }
 
@@ -1432,7 +1432,7 @@ impl<'a> CodeGen<'a> {
                             .get(&function_call.function_name)
                             .unwrap();
 
-                        let optimize = function_def.return_type.is_none()
+                        let optimize = function_def.return_type.is_unit()
                             || CodeGen::can_optimize_lambda_space(
                                 &function_def.return_type,
                                 &self.module,

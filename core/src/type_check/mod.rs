@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::panic;
 
 use linked_hash_map::LinkedHashMap;
@@ -73,7 +74,7 @@ fn convert_body(
     type_conversion_context: &RefCell<TypeConversionContext>,
     context: &ValContext,
     body: &Vec<ASTStatement>,
-    return_type: &Option<ASTType>,
+    return_type: &ASTType,
     statics: &Statics,
 ) -> Result<Option<Vec<ASTStatement>>, TypeCheckError> {
     debug_i!("converting body return type {:?}", return_type);
@@ -86,7 +87,7 @@ fn convert_body(
         .map(|(index, it)| {
             debug_i!("convertin statement {it} {:?}", return_type);
 
-            let converted_statement = if index == body.len() - 1 && return_type.is_some() {
+            let converted_statement = if index == body.len() - 1 && !return_type.is_unit() {
                 convert_last_statement_in_body(
                     module,
                     it,
@@ -230,8 +231,7 @@ fn convert_statement(
                             .find_function(&call.function_name)
                             .unwrap_or_else(|| panic!("{} : {}", &call.function_name, &call.index))
                             .return_type
-                            .clone()
-                            .unwrap();
+                            .clone();
 
                         if *is_const {
                             statics.add_const(name.clone(), ast_type);
@@ -247,8 +247,7 @@ fn convert_statement(
                             .find_function(&call.function_name)
                             .unwrap_or_else(|| panic!("{} : {}", &call.function_name, &call.index))
                             .return_type
-                            .clone()
-                            .unwrap();
+                            .clone();
 
                         if *is_const {
                             statics.add_const(name.to_owned(), ast_type);
@@ -270,8 +269,7 @@ fn convert_statement(
                             .find_function(&new_call.function_name)
                             .unwrap()
                             .return_type
-                            .clone()
-                            .unwrap();
+                            .clone();
 
                         if *is_const {
                             statics.add_const(name.to_owned(), ast_type);
@@ -349,8 +347,8 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
             } => {
                 let mut par_types: Vec<String> =
                     parameters.iter().flat_map(get_generic_types).collect();
-                if let Some(rt) = return_type {
-                    par_types.append(&mut get_generic_types(rt.as_ref()));
+                if !return_type.is_unit() {
+                    par_types.append(&mut get_generic_types(return_type.deref()));
                 }
                 par_types.sort();
                 par_types.dedup();
@@ -395,8 +393,8 @@ fn is_generic_type(ast_type: &ASTType) -> bool {
                 return_type,
             } => {
                 let mut par_types: bool = parameters.iter().any(is_generic_type);
-                if let Some(rt) = return_type {
-                    par_types = par_types || is_generic_type(rt.as_ref());
+                if !return_type.is_unit() {
+                    par_types = par_types || is_generic_type(return_type.deref());
                 }
                 par_types
             }
@@ -491,7 +489,7 @@ fn convert_last_statement_in_body(
     statement: &ASTStatement,
     context: &ValContext,
     typed_context: &RefCell<TypeConversionContext>,
-    return_type: Option<ASTType>,
+    return_type: ASTType,
     backend: &dyn Backend,
     statics: &Statics,
 ) -> Result<Option<ASTStatement>, TypeCheckError> {
@@ -519,7 +517,7 @@ fn convert_last_expr_in_body(
     expr: &ASTExpression,
     context: &ValContext,
     typed_context: &RefCell<TypeConversionContext>,
-    return_type: Option<ASTType>,
+    return_type: ASTType,
     backend: &dyn Backend,
     statics: &Statics,
 ) -> Result<Option<ASTExpression>, TypeCheckError> {
@@ -532,7 +530,7 @@ fn convert_last_expr_in_body(
 
     let result = match expr {
         ASTFunctionCallExpression(call) => {
-            if let Some(ast_type) = &return_type {
+            if !&return_type.is_unit() {
                 let result =
                     match CallConverter::new(module, context, typed_context, backend, statics)
                         .convert_call(call, Some(return_type))?
@@ -554,7 +552,7 @@ fn convert_last_expr_in_body(
         ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(lambda_def) => {
             let resolved_generic_types = LinkedHashMap::new();
-            let rt = return_type.unwrap();
+            let rt = return_type;
             let context =
                 get_context_from_lambda(context, lambda_def, &rt, &resolved_generic_types)?;
             convert_lambda(
@@ -700,9 +698,9 @@ fn get_type_of_expression(
                     debug_i!("par {par_name}: {:?}", lambda_val_context.get(par_name));
                 }
             }
-            if lamda_return_type.is_some() {
+            if let Some(lrt) = lamda_return_type {
                 Ok(Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    return_type: lamda_return_type.map(Box::new),
+                    return_type: Box::new(lrt),
                     parameters: lambda_def
                         .parameter_names
                         .iter()
@@ -740,49 +738,58 @@ fn resolve_generic_types_from_effective_type(
     indent!();
 
     match generic_type {
-        ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::String => {}
-            BuiltinTypeKind::I32 => {}
-            BuiltinTypeKind::Bool => {}
-            BuiltinTypeKind::Char => {}
-            BuiltinTypeKind::F32 => {}
-            BuiltinTypeKind::Lambda {
-                parameters: p_parameters,
-                return_type: p_return_type,
-            } => match effective_type {
-                ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    parameters: e_parameters,
-                    return_type: e_return_type,
-                }) => {
-                    for (i, p_p) in p_parameters.iter().enumerate() {
-                        let e_p = e_parameters.get(i).unwrap();
-                        let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
+        ASTType::Builtin(kind) => {
+            match kind {
+                BuiltinTypeKind::String => {}
+                BuiltinTypeKind::I32 => {}
+                BuiltinTypeKind::Bool => {}
+                BuiltinTypeKind::Char => {}
+                BuiltinTypeKind::F32 => {}
+                BuiltinTypeKind::Lambda {
+                    parameters: p_parameters,
+                    return_type: p_return_type,
+                } => match effective_type {
+                    ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters: e_parameters,
+                        return_type: e_return_type,
+                    }) => {
+                        for (i, p_p) in p_parameters.iter().enumerate() {
+                            let e_p = e_parameters.get(i).unwrap();
+                            let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                             .map_err(|e| format!("{} in lambda param gen type {generic_type}eff. type {effective_type}", e))?;
+
+                            result.extend(inner_result.into_iter());
+                        }
+
+                        /*
+                        for p_t in p_return_type {
+                            if let Some(e_t) = e_return_type {
+                                let inner_result = resolve_generic_types_from_effective_type(p_t, e_t)
+                                    .map_err(|e| format!("{} in return type gen type {generic_type}eff. type {effective_type}", e))?;
+
+                                result.extend(inner_result.into_iter());
+                            } else {
+                                dedent!();
+                                if let ASTType::Generic(p) = p_t.as_ref() {
+                                    return Err(format!("Found generic type {p} that is (). For now we cannot handle it").into());
+                                }
+                                return Err("Expected some type but got None".into());
+                            }
+                        }
+
+                         */
+                        let inner_result = resolve_generic_types_from_effective_type(p_return_type, e_return_type)
+                        .map_err(|e| format!("{} in return type gen type {generic_type}eff. type {effective_type}", e))?;
 
                         result.extend(inner_result.into_iter());
                     }
-
-                    for p_t in p_return_type {
-                        if let Some(e_t) = e_return_type {
-                            let inner_result = resolve_generic_types_from_effective_type(p_t, e_t)
-                                .map_err(|e| format!("{} in return type gen type {generic_type}eff. type {effective_type}", e))?;
-
-                            result.extend(inner_result.into_iter());
-                        } else {
-                            dedent!();
-                            if let ASTType::Generic(p) = p_t.as_ref() {
-                                return Err(format!("Found generic type {p} that is (). For now we cannot handle it").into());
-                            }
-                            return Err("Expected some type but got None".into());
-                        }
+                    _ => {
+                        dedent!();
+                        return Err("unmatched types".into());
                     }
-                }
-                _ => {
-                    dedent!();
-                    return Err("unmatched types".into());
-                }
-            },
-        },
+                },
+            }
+        }
         ASTType::Generic(p) => {
             debug_i!("resolved generic type {p} to {effective_type}");
             result.insert(p.clone(), effective_type.clone());
@@ -899,14 +906,10 @@ fn convert_lambda(
 
     debug_i!("return type {:?}", return_type);
 
-    let rt = if let Some(rt) = return_type {
-        if let Some(srt) = substitute(rt.as_ref(), resolved_generic_types) {
-            Some(srt)
-        } else {
-            Some(rt.as_ref().clone())
-        }
+    let rt = if let Some(srt) = substitute(return_type.deref(), resolved_generic_types) {
+        srt
     } else {
-        None
+        return_type.deref().clone()
     };
 
     let result = if let Some(new_body) = convert_body(
@@ -957,14 +960,13 @@ fn substitute(
                     }
                 };
 
-                let new_return_type = return_type.clone().map(|it| {
-                    if let Some(new_t) = substitute(&it, resolved_param_types) {
+                let new_return_type =
+                    if let Some(new_t) = substitute(&return_type, resolved_param_types) {
                         something_substituted = true;
                         Box::new(new_t)
                     } else {
-                        it
-                    }
-                });
+                        return_type.clone()
+                    };
 
                 if something_substituted {
                     Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -1108,12 +1110,12 @@ mod tests {
     fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), TypeCheckError> {
         let generic_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
-            return_type: Some(Box::new(generic("T"))),
+            return_type: Box::new(generic("T")),
         });
 
         let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
-            return_type: Some(Box::new(i32())),
+            return_type: Box::new(i32()),
         });
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
@@ -1130,12 +1132,12 @@ mod tests {
     fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), TypeCheckError> {
         let generic_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
-            return_type: Some(Box::new(generic("T"))),
+            return_type: Box::new(generic("T")),
         });
 
         let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters: vec![i32()],
-            return_type: Some(Box::new(generic("T"))),
+            return_type: Box::new(generic("T")),
         });
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
@@ -1190,7 +1192,7 @@ mod tests {
                 ast_index: ASTIndex::none(),
             }],
             inline: false,
-            return_type: None,
+            return_type: ASTType::Unit,
             generic_types: vec!["T".into()],
             resolved_generic_types: LinkedHashMap::new(),
             original_name: "consume".into(),

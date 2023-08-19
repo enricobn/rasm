@@ -22,7 +22,7 @@ pub enum EnhancedBuiltinTypeKind {
     String,
     Lambda {
         parameters: Vec<EnhancedType>,
-        return_type: Option<Box<EnhancedType>>,
+        return_type: Box<EnhancedType>,
     },
 }
 
@@ -75,7 +75,7 @@ pub struct EnhancedFunctionDef {
     pub original_name: String,
     pub name: String,
     pub parameters: Vec<EnhancedASTParameterDef>,
-    pub return_type: Option<EnhancedType>,
+    pub return_type: EnhancedType,
     pub body: EnhancedFunctionBody,
     pub inline: bool,
 }
@@ -107,10 +107,7 @@ impl EnhancedFunctionDefTransformer {
             parameters,
             // TODO
             body: EnhancedFunctionBody::RASMBody(Vec::new()),
-            return_type: function_def
-                .return_type
-                .clone()
-                .map(|it| self.transform_type(&it, &generic_types_map)),
+            return_type: self.transform_type(&function_def.return_type, &generic_types_map),
             inline: function_def.inline,
         }
     }
@@ -164,9 +161,7 @@ impl EnhancedFunctionDefTransformer {
                     .iter()
                     .map(|it| self.transform_type(it, generic_types_map))
                     .collect(),
-                return_type: return_type
-                    .clone()
-                    .map(|it| Box::new(self.transform_type(&it, generic_types_map))),
+                return_type: Box::new(self.transform_type(&return_type, generic_types_map)),
             },
         }
     }

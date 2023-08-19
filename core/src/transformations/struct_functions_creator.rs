@@ -23,7 +23,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             // TODO for now here's no source fo generated functions
             index: ASTIndex::none(),
         };
-        let return_type = Some(ast_type);
+        let return_type = ast_type;
         let body_str = struct_constructor_body(backend, struct_def);
         let body = ASTFunctionBody::ASMBody(body_str);
 
@@ -252,7 +252,7 @@ fn create_functions_for_struct_get_property(
 
         f_parameters.append(&mut lambda_parameters);
 
-        let lambda_return_type = return_type.as_ref().map(|it| it.deref().clone());
+        let lambda_return_type = return_type.deref().clone();
 
         let body = struct_lambda_property_rasm_body(name, parameters);
 
@@ -323,7 +323,7 @@ fn create_function_for_struct_get_property(
             },
             ast_index: ASTIndex::none(),
         }],
-        return_type: Some(property_def.ast_type.clone()),
+        return_type: property_def.ast_type.clone(),
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
         generic_types: struct_def.type_parameters.clone(),
         inline: true,
@@ -366,7 +366,7 @@ fn create_function_for_struct_set_property(
                 ast_index: ASTIndex::none(),
             },
         ],
-        return_type: Some(ast_type),
+        return_type: ast_type,
         body: ASTFunctionBody::ASMBody(struct_setter_body(backend, i)),
         generic_types: struct_def.type_parameters.clone(),
         inline: false,

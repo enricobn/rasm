@@ -106,9 +106,7 @@ impl ReferenceFinder {
             Self::process_type(module, &par.ast_type, &mut result);
         }
 
-        if let Some(r) = &function.return_type {
-            Self::process_type(module, r, &mut result);
-        }
+        Self::process_type(module, &function.return_type, &mut result);
 
         if let ASTFunctionBody::RASMBody(statements) = &function.body {
             Self::process_statements(
@@ -196,11 +194,7 @@ impl ReferenceFinder {
                     .collect();
                 let functions = functions_container.find_call_vec(call, filters, None, false);
                 if functions.len() == 1 {
-                    if let Some(ast_type) = &functions.first().unwrap().return_type {
-                        TypeFilter::Exact(ast_type.clone())
-                    } else {
-                        TypeFilter::Any
-                    }
+                    TypeFilter::Exact(functions.first().unwrap().return_type.clone())
                 } else {
                     TypeFilter::Any
                 }

@@ -17,6 +17,7 @@
  */
 
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::panic;
 
 use linked_hash_map::LinkedHashMap;
@@ -39,7 +40,7 @@ use crate::type_check::call_converter::ConvertCallResult::{
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_context::TypeConversionContext;
-use crate::utils::OptionOptionDisplay;
+use crate::utils::OptionDisplay;
 use crate::utils::SliceDisplay;
 use crate::{debug_i, dedent, indent, type_check};
 
@@ -78,7 +79,7 @@ impl<'a> CallConverter<'a> {
     pub fn convert_call(
         &self,
         call: &ASTFunctionCall,
-        expected_return_type: Option<Option<ASTType>>,
+        expected_return_type: Option<ASTType>,
     ) -> Result<ConvertCallResult, TypeCheckError> {
         debug_i!(
             "converting call {}: {} expected return type: {:?}",
@@ -117,15 +118,18 @@ impl<'a> CallConverter<'a> {
 
         let mut resolved_generic_types = function_def.resolved_generic_types.clone();
 
-        let expected_return_type = if let Some(Some(ret)) = expected_return_type {
+        let expected_return_type = if let Some(ret) = expected_return_type {
             if !type_check::is_generic_type(&ret) {
-                if let Some(ref return_type) = function_def.return_type {
+                if function_def.return_type != ASTType::Unit {
                     let generic_types_from_effective_type =
-                        type_check::resolve_generic_types_from_effective_type(return_type, &ret)?;
+                        type_check::resolve_generic_types_from_effective_type(
+                            &function_def.return_type,
+                            &ret,
+                        )?;
 
                     resolved_generic_types.extend(generic_types_from_effective_type);
 
-                    Some(Some(ret))
+                    Some(ret)
                 } else {
                     panic!();
                 }
@@ -297,18 +301,18 @@ impl<'a> CallConverter<'a> {
         let new_return_type = if let Some(er) = expected_return_type {
             er
         } else {
-            function_def.return_type.clone().map(|it| {
-                let t = if let Some(new_t) = type_check::substitute(&it, &resolved_generic_types) {
-                    debug_i!("converted return type {new_t}");
-                    something_converted = true;
-                    new_t
-                } else {
-                    it.clone()
-                };
+            let t = if let Some(new_t) =
+                type_check::substitute(&function_def.return_type, &resolved_generic_types)
+            {
+                debug_i!("converted return type {new_t}");
+                something_converted = true;
+                new_t
+            } else {
+                function_def.return_type.clone()
+            };
 
-                remaining_generic_types.append(&mut type_check::get_generic_types(&t));
-                t
-            })
+            remaining_generic_types.append(&mut type_check::get_generic_types(&t));
+            t
         };
 
         remaining_generic_types.sort();
@@ -447,7 +451,7 @@ impl<'a> CallConverter<'a> {
                 par.ast_type.clone()
             };
         let expected_return_type = if !type_check::is_generic_type(&par_type) {
-            Some(Some(par_type.clone()))
+            Some(par_type.clone())
         } else {
             None
         };
@@ -470,10 +474,10 @@ impl<'a> CallConverter<'a> {
                     panic!("Cannot find function {}", ast_function_call.function_name)
                 });
 
-            if let Some(rt) = &inner_function_def.return_type {
+            if !&inner_function_def.return_type.is_unit() {
                 // the generic types of the inner function are not the same of the this function
-                let result_type = if !type_check::is_generic_type(rt) {
-                    inner_function_def.return_type.clone().unwrap()
+                let result_type = if !type_check::is_generic_type(&inner_function_def.return_type) {
+                    inner_function_def.return_type.clone()
                 } else {
                     par.clone().ast_type
                 };
@@ -497,6 +501,7 @@ impl<'a> CallConverter<'a> {
                     ASTExpression::ASTFunctionCallExpression(ast_function_call.clone())
                 );
 
+                /*
                 if let Some(rt) = &inner_function_def.return_type {
                     update(
                         rt,
@@ -507,19 +512,22 @@ impl<'a> CallConverter<'a> {
                         &mut converted_expressions,
                     )?;
                 } else {
-                    converted_parameters.push(par.clone());
-                    converted_expressions.push(ASTFunctionCallExpression(ast_function_call));
-                }
+
+                 */
+                converted_parameters.push(par.clone());
+                converted_expressions.push(ASTFunctionCallExpression(ast_function_call));
+                //}
             }
         } else if type_check::is_generic_type(&par.ast_type) {
             if let Some(inner_function_def) = typed_context_ptr.find_function(&call.function_name) {
-                if let Some(rt) = &inner_function_def.return_type {
+                if !&inner_function_def.return_type.is_unit() {
                     // the generic types of the inner function are not the same of the this function
-                    let result_type = if !type_check::is_generic_type(rt) {
-                        inner_function_def.return_type.clone().unwrap()
-                    } else {
-                        par.clone().ast_type
-                    };
+                    let result_type =
+                        if !type_check::is_generic_type(&inner_function_def.return_type) {
+                            inner_function_def.return_type.clone()
+                        } else {
+                            par.clone().ast_type
+                        };
                     debug_i!("calling update for ASTFunctionCallExpression");
                     debug_i!(
                         "expression {}",
@@ -616,11 +624,13 @@ impl<'a> CallConverter<'a> {
                 parameters: _lambda_parameters,
                 return_type, // TODO I cannot convert the return type at this stage
             }) => {
-                if let Some(rt) = return_type {
-                    if let Some(new_t) = type_check::substitute(rt, &resolved_generic_types) {
+                if !return_type.is_unit() {
+                    if let Some(new_t) =
+                        type_check::substitute(&return_type, &resolved_generic_types)
+                    {
                         debug_i!("lambda something converted in return type new {new_t}");
                         something_converted = true;
-                        Some(new_t)
+                        new_t
                     } else if let Some(last) = effective_lambda.body.last() {
                         for statement in effective_lambda.body.iter() {
                             if let ASTStatement::LetStatement(name, expr, is_const, let_index) =
@@ -645,30 +655,27 @@ impl<'a> CallConverter<'a> {
                             }
                         }
 
-                        let result_type = type_check::get_type_of_statement(
+                        if let Some(result_type) = type_check::get_type_of_statement(
                             self.module,
                             &context,
                             last,
                             self.typed_context,
                             self.backend,
                             self.statics,
-                        )?;
-
-                        // the generic types of the expression do not belong to this
-                        if result_type
-                            .clone()
-                            .map(|it| !type_check::is_generic_type(&it))
-                            .unwrap_or(true)
-                        {
-                            result_type
+                        )? {
+                            if !type_check::is_generic_type(&result_type) {
+                                result_type
+                            } else {
+                                return_type.deref().clone()
+                            }
                         } else {
-                            Some(rt.as_ref().clone())
+                            return_type.deref().clone()
                         }
                     } else {
-                        Some(rt.as_ref().clone())
+                        return_type.deref().clone()
                     }
                 } else {
-                    None
+                    ASTType::Unit
                 }
             }
             _ => {
@@ -696,7 +703,7 @@ impl<'a> CallConverter<'a> {
                 .collect();
             something_converted = update(
                 &ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    return_type: new_return_type.map(Box::new),
+                    return_type: Box::new(new_return_type),
                     parameters: new_parameters,
                 }),
                 ASTExpression::Lambda(effective_lambda),
@@ -788,7 +795,7 @@ pub fn get_type_of_call(
             parameters: _,
         }) = &par.ast_type
         {
-            return Ok(return_type.clone().map(|it| it.as_ref().clone()));
+            return Ok(Some(return_type.deref().clone()));
         }
     }
 
@@ -801,7 +808,7 @@ pub fn get_type_of_call(
         _,
     )) = context.get(&call.function_name)
     {
-        return Ok(return_type.clone().map(|it| it.as_ref().clone()));
+        return Ok(Some(return_type.deref().clone()));
     }
 
     if let Some((function, _)) = get_called_function(
@@ -815,9 +822,9 @@ pub fn get_type_of_call(
         false,
         statics,
     )? {
-        if let Some(return_type) = function.return_type {
-            if !type_check::is_generic_type(&return_type) {
-                Ok(Some(return_type))
+        if !function.return_type.is_unit() {
+            if !type_check::is_generic_type(&function.return_type) {
+                Ok(Some(function.return_type))
             } else {
                 let convert_call_result =
                     CallConverter::new(module, context, typed_context, backend, statics)
@@ -835,16 +842,16 @@ pub fn get_type_of_call(
                         false,
                         statics,
                     )? {
-                        Ok(function.return_type)
+                        Ok(Some(function.return_type))
                     } else {
-                        Ok(Some(return_type))
+                        Ok(Some(function.return_type))
                     }
                 } else {
-                    Ok(Some(return_type))
+                    Ok(Some(function.return_type))
                 }
             }
         } else {
-            Ok(None)
+            Ok(Some(ASTType::Unit))
         }
     } else {
         Ok(None)
@@ -856,7 +863,7 @@ fn get_called_function(
     context: &ValContext,
     call: &ASTFunctionCall,
     typed_context: &RefCell<TypeConversionContext>,
-    expected_return_type: &Option<Option<ASTType>>,
+    expected_return_type: &Option<ASTType>,
     backend: &dyn Backend,
     verify_function: Option<&ASTFunctionDef>,
     only_from_module: bool,
@@ -868,12 +875,12 @@ fn get_called_function(
         }
         debug_i!(
             "verifying function {f} for {call} return type {}",
-            OptionOptionDisplay(expected_return_type)
+            OptionDisplay(expected_return_type)
         );
     } else {
         debug_i!(
             "trying to find function for {call} return type {}",
-            OptionOptionDisplay(expected_return_type)
+            OptionDisplay(expected_return_type)
         );
     }
     indent!();
@@ -957,7 +964,7 @@ fn get_called_function(
         return Err(format!(
             "Cannot find function for {call} with filters {} with return type {} in: {}",
             SliceDisplay(&call_parameters_types),
-            OptionOptionDisplay(expected_return_type),
+            OptionDisplay(expected_return_type),
             call.index
         )
         .into());

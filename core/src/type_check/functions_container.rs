@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::zip;
+use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -7,7 +8,7 @@ use log::debug;
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind,
 };
-use crate::utils::{format_option_option, SliceDisplay};
+use crate::utils::{OptionDisplay, SliceDisplay};
 use crate::{debug_i, dedent, indent};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -175,11 +176,11 @@ impl FunctionsContainer {
                     verify_params
                         && match return_type_filter {
                             None => true,
-                            Some(None) => it.return_type.is_none(),
+                            Some(None) => it.return_type.is_unit(),
                             Some(ref rt) => match rt {
-                                None => it.return_type.is_none(),
+                                None => it.return_type.is_unit(),
                                 Some(t) => Self::almost_same_type(
-                                    &it.return_type.clone().unwrap(),
+                                    &it.return_type,
                                     &TypeFilter::Exact(t.clone()),
                                     &mut resolved_generic_types,
                                 ),
@@ -214,12 +215,12 @@ impl FunctionsContainer {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: Vec<TypeFilter>,
-        return_type_filter: Option<Option<ASTType>>,
+        return_type_filter: Option<ASTType>,
         filter_only_on_name: bool,
     ) -> Vec<ASTFunctionDef> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
-            format_option_option(&return_type_filter),
+            OptionDisplay(&return_type_filter),
             SliceDisplay(&parameter_types_filter)
         );
         let result =
@@ -248,25 +249,17 @@ impl FunctionsContainer {
                         verify_params
                             && match return_type_filter {
                                 None => true,
-                                Some(None) => it.return_type.is_none(),
-                                Some(ref rt) => match rt {
-                                    None => it.return_type.is_none(),
-                                    Some(t) => {
-                                        if let Some(parameter_return_type) = &it.return_type {
-                                            if matches!(t, ASTType::Generic(_)) {
-                                                true
-                                            } else {
-                                                Self::almost_same_type(
-                                                    parameter_return_type,
-                                                    &TypeFilter::Exact(t.clone()),
-                                                    &mut resolved_generic_types,
-                                                )
-                                            }
-                                        } else {
-                                            false
-                                        }
+                                Some(ref rt) => {
+                                    if matches!(rt, ASTType::Generic(_)) {
+                                        true
+                                    } else {
+                                        Self::almost_same_type(
+                                            &it.return_type,
+                                            &TypeFilter::Exact(rt.clone()),
+                                            &mut resolved_generic_types,
+                                        )
                                     }
-                                },
+                                }
                             }
                     };
                     functions.iter().filter(lambda).cloned().collect::<Vec<_>>()
@@ -364,19 +357,15 @@ impl FunctionsContainer {
     }
 
     pub fn almost_same_return_type(
-        actual_return_type: &Option<ASTType>,
-        expected_return_type: &Option<ASTType>,
+        actual_return_type: &ASTType,
+        expected_return_type: &ASTType,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
     ) -> bool {
-        if let Some(art) = actual_return_type {
-            if let Some(ert) = expected_return_type {
-                Self::almost_same_type(art, &TypeFilter::Exact(ert.clone()), resolved_generic_types)
-            } else {
-                false
-            }
-        } else {
-            expected_return_type.is_none()
-        }
+        Self::almost_same_type(
+            actual_return_type,
+            &TypeFilter::Exact(expected_return_type.clone()),
+            resolved_generic_types,
+        )
     }
 
     pub fn almost_same_type(
@@ -413,17 +402,11 @@ impl FunctionsContainer {
                                         )
                                     });
 
-                                let return_type_same = match filter_rt {
-                                    None => a_rt.is_none(),
-                                    Some(filter_rt1) => match a_rt {
-                                        None => false,
-                                        Some(a_rt1) => Self::almost_same_type(
-                                            a_rt1,
-                                            &TypeFilter::Exact(*filter_rt1.clone()),
-                                            resolved_generic_types,
-                                        ),
-                                    },
-                                };
+                                let return_type_same = Self::almost_same_type(
+                                    a_rt,
+                                    &TypeFilter::Exact(filter_rt.deref().clone()),
+                                    resolved_generic_types,
+                                );
 
                                 parameter_same && return_type_same
                             }
@@ -485,12 +468,14 @@ impl FunctionsContainer {
                                     })
                             }
                             ASTType::Unit => {
-                                panic!("Parameters cannot have unit type");
+                                debug_i!("Parameters cannot have unit type");
+                                false
                             }
                         }
                     }
                     ASTType::Unit => {
-                        panic!("Parameters cannot have unit type");
+                        debug_i!("Parameters cannot have unit type");
+                        false
                     }
                 }
             }
@@ -727,7 +712,7 @@ mod tests {
             }],
             inline: false,
             resolved_generic_types: LinkedHashMap::new(),
-            return_type: Some(ASTType::Builtin(BuiltinTypeKind::String)),
+            return_type: ASTType::Builtin(BuiltinTypeKind::String),
             original_name: name.into(),
             index: ASTIndex::none(),
         }
@@ -752,7 +737,7 @@ mod tests {
             ],
             inline: false,
             resolved_generic_types: LinkedHashMap::new(),
-            return_type: Some(ASTType::Builtin(param_kind)),
+            return_type: ASTType::Builtin(param_kind),
             original_name: "add".into(),
             index: ASTIndex::none(),
         }

@@ -70,7 +70,7 @@ impl TypeConversionContext {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: Vec<TypeFilter>,
-        return_type_filter: Option<Option<ASTType>>,
+        return_type_filter: Option<ASTType>,
     ) -> Vec<ASTFunctionDef> {
         self.functions_by_name
             .find_call_vec(call, parameter_types_filter, return_type_filter, true)
@@ -89,7 +89,7 @@ impl TypeConversionContext {
 mod tests {
     use linked_hash_map::LinkedHashMap;
 
-    use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTIndex};
+    use crate::parser::ast::{ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTType};
     use crate::type_check::typed_context::TypeConversionContext;
 
     #[test]
@@ -126,7 +126,7 @@ mod tests {
             name: name.into(),
             body: ASTFunctionBody::ASMBody("".into()),
             parameters: Vec::new(),
-            return_type: None,
+            return_type: ASTType::Unit,
             inline: false,
             generic_types: Vec::new(),
             resolved_generic_types: LinkedHashMap::new(),
