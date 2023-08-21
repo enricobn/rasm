@@ -39,7 +39,7 @@ pub fn enum_functions_creator(
             Some("_T".into()),
         );
 
-        create_match_like_function(backend, module, &enum_def, "run", ASTType::Unit, None);
+        //create_match_like_function(backend, module, &enum_def, "run", ASTType::Unit, None);
     }
 }
 

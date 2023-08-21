@@ -268,6 +268,7 @@ impl Iterator for Lexer {
                                 self.row += 1;
                                 self.column = 0;
                             }
+                            self.index += 1;
                             //self.chars.next_back();
                             return self.some_token(TokenKind::MultiLineComment(actual));
                         } else if c == '\n' {

@@ -113,7 +113,7 @@ fn render(ren: SDLRenderer, state: State) {
     let resources = resources(state);
     let stage = stage(state);
 
-    run(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
+    match(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
 
     sdlRenderPresent(ren);
 }

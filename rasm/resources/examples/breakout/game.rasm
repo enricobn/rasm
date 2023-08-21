@@ -84,7 +84,7 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
 }
 
 fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
-    run(gameState.stage, { -> }, { ->
+    match(gameState.stage, { -> }, { ->
         render(ren, resources, gameState.world, gameState.fps.fps);
     });
 }

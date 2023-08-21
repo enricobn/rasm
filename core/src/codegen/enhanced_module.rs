@@ -102,4 +102,8 @@ impl EnhancedASTModule {
     pub fn debug_i(&self) {
         self.functions_by_name.debug_i("module");
     }
+
+    pub fn check_duplicate_functions(&self) {
+        self.functions_by_name.check_duplicate_functions();
+    }
 }

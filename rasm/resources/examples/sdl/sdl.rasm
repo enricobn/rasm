@@ -255,7 +255,7 @@ fn sdlSingleLoop<CTX,MODEL>(ctx: CTX, model: MODEL, updateFun: fn(Option<KeyEven
     // printRef(world);
     let event = keyEvent();
 
-    run(event, { keyEvent ->
+    match(event, { keyEvent ->
         let key = key(keyEvent);
         ifRun(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
     }, { -> });

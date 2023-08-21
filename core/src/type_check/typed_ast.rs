@@ -20,6 +20,7 @@ use crate::parser::ast::{
 };
 use crate::type_check::call_converter::CallConverter;
 use crate::type_check::call_converter::ConvertCallResult::*;
+use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::{
     convert_function_def, convert_statement, get_new_native_call, substitute, TypeConversionContext,
@@ -876,6 +877,9 @@ pub fn convert_to_typed_module(
 
     let mut body = module.body.clone();
 
+    // TODO enable?
+    // module.check_duplicate_functions();
+
     let mut count = 0;
 
     loop {
@@ -896,6 +900,8 @@ pub fn convert_to_typed_module(
         for statement in body {
             debug_i!("converting statement {statement}");
             indent!();
+            let mut call_stack = CallStack::new();
+
             let statement_converted = convert_statement(
                 module,
                 &mut context,
@@ -904,6 +910,7 @@ pub fn convert_to_typed_module(
                 statement,
                 backend,
                 statics,
+                &mut call_stack,
             );
 
             if statement_converted {
@@ -926,15 +933,33 @@ pub fn convert_to_typed_module(
                 continue;
             }
             debug_i!("converting function {new_function_def}");
-            let converted_function = if let Some(function_converted) = convert_function_def(
+            let converted_function_def = match convert_function_def(
                 backend,
                 module,
                 &cloned_typed_context,
                 new_function_def,
                 statics,
-            )
-            .unwrap()
-            {
+            ) {
+                // HENRY remove?
+                Ok(ce) => ce,
+                Err(err) => {
+                    println!("{}", err);
+
+                    let calls = find_calls(&new_function_def.name, &cloned_typed_context, &body);
+
+                    if calls.is_empty() {
+                        println!("Cannot find calls for {}", new_function_def.name);
+                    } else {
+                        println!("Found calls for {}:", new_function_def.name);
+                        for index in calls {
+                            println!("{index}");
+                        }
+                    }
+                    panic!();
+                }
+            };
+
+            let converted_function = if let Some(function_converted) = converted_function_def {
                 somethin_converted = true;
                 function_converted
             } else {
@@ -1028,6 +1053,65 @@ pub fn convert_to_typed_module(
     info!("verify end");
 
     (result, new_typed_context.into_inner())
+}
+
+fn find_calls(
+    name: &str,
+    typed_context: &RefCell<TypeConversionContext>,
+    body: &[ASTStatement],
+) -> Vec<ASTIndex> {
+    let mut result = Vec::new();
+
+    result.append(&mut find_calls_in_statements(name, body));
+
+    for f in typed_context.borrow().functions() {
+        match &f.body {
+            RASMBody(b) => {
+                result.append(&mut find_calls_in_statements(name, b));
+            }
+            ASMBody(_) => {}
+        }
+    }
+
+    result
+}
+
+fn find_calls_in_statements(name: &str, body: &[ASTStatement]) -> Vec<ASTIndex> {
+    let mut result = Vec::new();
+
+    for st in body.iter() {
+        let e = match st {
+            ASTStatement::Expression(e) => e,
+            ASTStatement::LetStatement(_, e, _, _) => e,
+        };
+
+        result.append(&mut find_calls_in_expression(name, e));
+    }
+    result
+}
+
+fn find_calls_in_expression(name: &str, expr: &ASTExpression) -> Vec<ASTIndex> {
+    let mut result = Vec::new();
+
+    match expr {
+        ASTExpression::StringLiteral(_) => {}
+        ASTExpression::ASTFunctionCallExpression(call) => {
+            if call.function_name == name {
+                result.push(call.index.clone());
+            }
+            for p in call.parameters.iter() {
+                result.append(&mut find_calls_in_expression(name, p));
+            }
+        }
+        ASTExpression::ValueRef(_, _) => {}
+        ASTExpression::Value(_, _) => {}
+        ASTExpression::Lambda(def) => {
+            result.append(&mut find_calls_in_statements(name, &def.body));
+        }
+        ASTExpression::Any(_) => {}
+    }
+
+    result
 }
 
 fn verify(module: &ASTTypedModule, statics: &mut Statics) {
@@ -1371,9 +1455,13 @@ fn add_default_function(
 
     let call = function_call.to_call();
 
-    match CallConverter::new(module, &context, typed_context, backend, statics)
-        .convert_call(&call, None)
-    {
+    let mut call_stack = CallStack::new();
+
+    match CallConverter::new(module, &context, typed_context, backend, statics).convert_call(
+        &call,
+        None,
+        &mut call_stack,
+    ) {
         Err(e) => {
             panic!(
                 "Error converting mandatory function {} : {e}",
@@ -1449,6 +1537,8 @@ pub fn function_def(
         index: def.index.clone(),
     };
 
+    let mut call_stack = CallStack::new();
+
     match &typed_function_def.body {
         ASTTypedFunctionBody::RASMBody(_) => {}
         ASTTypedFunctionBody::ASMBody(body) => {
@@ -1514,51 +1604,52 @@ pub fn function_def(
                             .map(|it| it.name.clone())
                     };
 
-                    let function_name = if let Some(function_name) = function_def_name_opt {
-                        function_name
-                        //     TODO when SomethingConverted?
-                    } else {
-                        let function_call = it.to_call();
-
-                        if let Ok(Converted(new_call)) = CallConverter::new(
-                            module,
-                            &ValContext::new(None),
-                            typed_context,
-                            backend,
-                            statics,
-                        )
-                        .convert_call(&function_call, None)
-                        {
-                            debug_i!("new_call {:?}", new_call);
-                            new_call.function_name
+                    let function_name =
+                        if let Some(function_name) = function_def_name_opt {
+                            function_name
+                            //     TODO when SomethingConverted?
                         } else {
-                            let function_def_opt = module.find_call(
-                                &it.name,
-                                &it.name,
-                                call_parameters_types.clone(),
-                                None,
-                            );
+                            let function_call = it.to_call();
 
-                            if let Some(functiond_def) = function_def_opt {
-                                if let Some(rf) = typed_context
-                                    .borrow_mut()
-                                    .try_add_new(&it.name, functiond_def)
-                                {
-                                    rf.name
-                                } else {
-                                    panic!("cannot find {}", function_call);
-                                }
+                            if let Ok(Converted(new_call)) = CallConverter::new(
+                                module,
+                                &ValContext::new(None),
+                                typed_context,
+                                backend,
+                                statics,
+                            )
+                            .convert_call(&function_call, None, &mut call_stack)
+                            {
+                                debug_i!("new_call {:?}", new_call);
+                                new_call.function_name
                             } else {
-                                module.debug_i();
-                                panic!(
-                                    "cannot find {} {}: {}",
-                                    function_call,
-                                    SliceDisplay(&call_parameters_types),
-                                    function_call.index
+                                let function_def_opt = module.find_call(
+                                    &it.name,
+                                    &it.name,
+                                    call_parameters_types.clone(),
+                                    None,
                                 );
+
+                                if let Some(functiond_def) = function_def_opt {
+                                    if let Some(rf) = typed_context
+                                        .borrow_mut()
+                                        .try_add_new(&it.name, functiond_def)
+                                    {
+                                        rf.name
+                                    } else {
+                                        panic!("cannot find {}", function_call);
+                                    }
+                                } else {
+                                    module.debug_i();
+                                    panic!(
+                                        "cannot find {} {}: {}",
+                                        function_call,
+                                        SliceDisplay(&call_parameters_types),
+                                        function_call.index
+                                    );
+                                }
                             }
-                        }
-                    };
+                        };
 
                     debug_i!("found function for native call {function_name} ");
 

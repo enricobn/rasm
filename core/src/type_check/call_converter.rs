@@ -37,6 +37,7 @@ use crate::parser::ast::{
 use crate::type_check::call_converter::ConvertCallResult::{
     Converted, NothingToConvert, SomethingConverted,
 };
+use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_context::TypeConversionContext;
@@ -80,6 +81,7 @@ impl<'a> CallConverter<'a> {
         &self,
         call: &ASTFunctionCall,
         expected_return_type: Option<ASTType>,
+        call_stack: &mut CallStack,
     ) -> Result<ConvertCallResult, TypeCheckError> {
         debug_i!(
             "converting call {}: {} expected return type: {:?}",
@@ -106,6 +108,7 @@ impl<'a> CallConverter<'a> {
             None,
             false,
             self.statics,
+            call_stack,
         )?
         .unwrap_or_else(|| {
             self.typed_context.borrow().debug_i();
@@ -120,19 +123,15 @@ impl<'a> CallConverter<'a> {
 
         let expected_return_type = if let Some(ret) = expected_return_type {
             if !type_check::is_generic_type(&ret) {
-                if function_def.return_type != ASTType::Unit {
-                    let generic_types_from_effective_type =
-                        type_check::resolve_generic_types_from_effective_type(
-                            &function_def.return_type,
-                            &ret,
-                        )?;
+                let generic_types_from_effective_type =
+                    type_check::resolve_generic_types_from_effective_type(
+                        &function_def.return_type,
+                        &ret,
+                    )?;
 
-                    resolved_generic_types.extend(generic_types_from_effective_type);
+                resolved_generic_types.extend(generic_types_from_effective_type);
 
-                    Some(ret)
-                } else {
-                    panic!();
-                }
+                Some(ret)
             } else {
                 None
             }
@@ -167,6 +166,7 @@ impl<'a> CallConverter<'a> {
                         &mut converted_parameters,
                         &par,
                         lambda,
+                        call_stack,
                     )? || something_converted_in_loop
                 }
                 ASTExpression::StringLiteral(_) => {
@@ -189,6 +189,7 @@ impl<'a> CallConverter<'a> {
                         expr,
                         &par,
                         &call,
+                        call_stack,
                     )? || something_converted_in_loop
                 }
                 ASTExpression::ValueRef(v, _) => {
@@ -441,6 +442,7 @@ impl<'a> CallConverter<'a> {
         expr: &ASTExpression,
         par: &ASTParameterDef,
         call: &ASTFunctionCall,
+        call_stack: &mut CallStack,
     ) -> Result<bool, TypeCheckError> {
         let mut something_converted = false;
 
@@ -456,7 +458,7 @@ impl<'a> CallConverter<'a> {
             None
         };
 
-        let convert_call_result = self.convert_call(call, expected_return_type)?;
+        let convert_call_result = self.convert_call(call, expected_return_type, call_stack)?;
 
         if let SomethingConverted = convert_call_result {
             debug_i!("something partially converted in call {call}");
@@ -553,6 +555,7 @@ impl<'a> CallConverter<'a> {
                     None,
                     self.backend,
                     self.statics,
+                    call_stack,
                 ) {
                     something_converted = update(
                         &ast_type,
@@ -585,6 +588,7 @@ impl<'a> CallConverter<'a> {
         converted_parameters: &mut Vec<ASTParameterDef>,
         par: &ASTParameterDef,
         lambda: &ASTLambdaDef,
+        call_stack: &mut CallStack,
     ) -> Result<bool, TypeCheckError> {
         let mut something_converted = false;
 
@@ -611,6 +615,7 @@ impl<'a> CallConverter<'a> {
             resolved_generic_types,
             self.backend,
             self.statics,
+            call_stack,
         )? {
             debug_i!("lambda something converted");
             something_converted = true;
@@ -644,6 +649,7 @@ impl<'a> CallConverter<'a> {
                                     None,
                                     self.backend,
                                     self.statics,
+                                    call_stack,
                                 )?
                                 .unwrap();
 
@@ -662,6 +668,7 @@ impl<'a> CallConverter<'a> {
                             self.typed_context,
                             self.backend,
                             self.statics,
+                            call_stack,
                         )? {
                             if !type_check::is_generic_type(&result_type) {
                                 result_type
@@ -788,6 +795,7 @@ pub fn get_type_of_call(
     typed_context: &RefCell<TypeConversionContext>,
     backend: &dyn Backend,
     statics: &Statics,
+    call_stack: &mut CallStack,
 ) -> Result<Option<ASTType>, TypeCheckError> {
     if let Some(ValKind::ParameterRef(_i, par)) = context.get(&call.function_name) {
         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -821,6 +829,7 @@ pub fn get_type_of_call(
         None,
         false,
         statics,
+        call_stack,
     )? {
         if !function.return_type.is_unit() {
             if !type_check::is_generic_type(&function.return_type) {
@@ -828,7 +837,7 @@ pub fn get_type_of_call(
             } else {
                 let convert_call_result =
                     CallConverter::new(module, context, typed_context, backend, statics)
-                        .convert_call(call, None)?;
+                        .convert_call(call, None, call_stack)?;
 
                 if let Converted(new_call) = convert_call_result {
                     if let Some((function, _)) = get_called_function(
@@ -841,6 +850,7 @@ pub fn get_type_of_call(
                         None,
                         false,
                         statics,
+                        call_stack,
                     )? {
                         Ok(Some(function.return_type))
                     } else {
@@ -868,6 +878,7 @@ fn get_called_function(
     verify_function: Option<&ASTFunctionDef>,
     only_from_module: bool,
     statics: &Statics,
+    call_stack: &mut CallStack,
 ) -> Result<Option<(ASTFunctionDef, bool)>, TypeCheckError> {
     if let Some(f) = verify_function {
         if f.parameters.len() != call.parameters.len() {
@@ -893,12 +904,16 @@ fn get_called_function(
                 .borrow()
                 .find_function_by_original_name(&call.original_function_name)
             {
+                dedent!();
                 return Ok(Some((function_in_context.clone(), false)));
             } else {
+                dedent!();
                 return Ok(Some((function_def.clone().clone(), true)));
             }
         }
     }
+
+    call_stack.push(format!("{} {}", call, call.index));
 
     let call_parameters_types = call
         .parameters
@@ -923,15 +938,44 @@ fn get_called_function(
                 lambda.as_ref(),
                 backend,
                 statics,
+                call_stack,
             )? {
                 Some(ast_type) => Ok(TypeFilter::Exact(ast_type)),
                 None => {
-                    if matches!(it, ASTExpression::Lambda(_)) {
-                        Ok(TypeFilter::Lambda)
+                    if matches!(it, ASTExpression::Lambda(def)) {
+                        Ok(TypeFilter::Lambda(0))
                     } else {
                         Ok(TypeFilter::Any)
                     }
-                }
+                } /* HENRY
+                  Some(ast_type) => {
+                      if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                          parameters,
+                          return_type,
+                      }) = &ast_type
+                      {
+                          if parameters.iter().any(is_generic_type)
+                              || is_generic_type(return_type.deref())
+                          {
+                              Ok(TypeFilter::Lambda(parameters.len()))
+                          } else {
+                              Ok(TypeFilter::Exact(ast_type))
+                          }
+                      } else if is_generic_type(&ast_type) {
+                          Ok(TypeFilter::Any)
+                      } else {
+                          Ok(TypeFilter::Exact(ast_type))
+                      }
+                  }
+                  None => {
+                      if let ASTExpression::Lambda(def) = it {
+                          Ok(TypeFilter::Lambda(def.parameter_names.len()))
+                      } else {
+                          Ok(TypeFilter::Any)
+                      }
+                  }
+
+                   */
             }
         })
         .collect::<Result<Vec<_>, TypeCheckError>>()?;
@@ -961,11 +1005,20 @@ fn get_called_function(
     if candidate_functions.is_empty() {
         typed_context.borrow().debug_i();
         module.debug_i();
+        call_stack.pop();
+        dedent!();
         return Err(format!(
-            "Cannot find function for {call} with filters {} with return type {} in: {}",
+            "Cannot find function for {call} with filters {} with return type {} in: \n{}\n{}",
             SliceDisplay(&call_parameters_types),
             OptionDisplay(expected_return_type),
-            call.index
+            call.index,
+            call_stack
+                .stack()
+                .iter()
+                .rev()
+                .map(|it| it.as_str())
+                .collect::<Vec<_>>()
+                .join("\n")
         )
         .into());
     }
@@ -981,7 +1034,7 @@ fn get_called_function(
         candidate_functions.get(0).cloned()
     } else if call_parameters_types
         .iter()
-        .any(|it| matches!(it, TypeFilter::Any))
+        .any(|it| matches!(it, TypeFilter::Any) || matches!(it, TypeFilter::Lambda(_)))
     {
         let mut found_function_def = None;
         for f_def in candidate_functions {
@@ -996,7 +1049,7 @@ fn get_called_function(
                 .map(|(i, filter)| {
                     debug_i!("filter {i} {}", filter);
                     match filter {
-                        TypeFilter::Any | TypeFilter::Lambda => {
+                        TypeFilter::Any | TypeFilter::Lambda(_) => {
                             let par = f_def.parameters.get(i).unwrap();
                             let expr = call.parameters.get(i).unwrap();
                             debug_i!("found None filter for {par}");
@@ -1006,7 +1059,7 @@ fn get_called_function(
                                     parameters: _,
                                     return_type: _,
                                 }) => match expr {
-                                    ASTExpression::Lambda(_lambda_def) => {
+                                    ASTExpression::Lambda(lambda_def) => {
                                         if let Some(la) = type_check::get_type_of_expression(
                                             module,
                                             context,
@@ -1015,10 +1068,11 @@ fn get_called_function(
                                             Some(&par.ast_type),
                                             backend,
                                             statics,
+                                            call_stack,
                                         )? {
                                             Ok(TypeFilter::Exact(la))
                                         } else {
-                                            Ok(TypeFilter::Lambda)
+                                            Ok(TypeFilter::Lambda(lambda_def.parameter_names.len()))
                                         }
                                     }
                                     _ => {
@@ -1035,6 +1089,7 @@ fn get_called_function(
                                         Some(&par.ast_type),
                                         backend,
                                         statics,
+                                        call_stack,
                                     )? {
                                         Ok(TypeFilter::Exact(la))
                                     } else {
@@ -1196,10 +1251,29 @@ fn get_called_function(
         result
     };
 
-    dedent!();
     if let Some(fd) = function_def {
         debug_i!("found function def {fd}");
 
+        //println!("found function def {fd}");
+        if fd.original_name == "print"
+            && call_parameters_types.get(1).map_or(false, |it| match it {
+                TypeFilter::Exact(t) => match t {
+                    ASTType::Custom {
+                        name,
+                        param_types,
+                        index,
+                    } => name == "File",
+                    _ => false,
+                },
+                TypeFilter::Any => false,
+                TypeFilter::Lambda(_) => false,
+                TypeFilter::NotALambda => false,
+            })
+        {
+            println!("found function def {fd}");
+        }
+
+        // HENRY "&& !only_from_module && !function_def_from_module" was commented
         if verify_function.is_none() && !only_from_module && !function_def_from_module {
             if let Some((f, new_function_def_from_module)) = get_called_function(
                 module,
@@ -1211,15 +1285,17 @@ fn get_called_function(
                 Some(&fd),
                 false,
                 statics,
+                call_stack,
             )? {
                 if f != fd {
                     // TODO it's really a guess...
+                    call_stack.pop();
                     return Ok(Some((f, new_function_def_from_module)));
                     //return Err(format!("different function {f} {fd}").into());
                 }
             } else {
                 // panic!("invalid function");
-                return get_called_function(
+                let result1 = get_called_function(
                     module,
                     context,
                     call,
@@ -1229,13 +1305,19 @@ fn get_called_function(
                     None,
                     true,
                     statics,
+                    call_stack,
                 );
+                call_stack.pop();
+                return result1;
             }
         }
-
+        call_stack.pop();
+        dedent!();
         Ok(Some((fd, function_def_from_module)))
     } else {
         debug_i!("cannot find function");
+        call_stack.pop();
+        dedent!();
         Ok(None)
     }
 

@@ -21,7 +21,7 @@ pub struct FunctionsContainer {
 pub enum TypeFilter {
     Exact(ASTType),
     Any,
-    Lambda,
+    Lambda(usize),
     NotALambda,
 }
 
@@ -30,7 +30,7 @@ impl Display for TypeFilter {
         match self {
             TypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
             TypeFilter::Any => write!(f, "Any"),
-            TypeFilter::Lambda => write!(f, "Lambda"),
+            TypeFilter::Lambda(size) => write!(f, "Lambda({size})"),
             TypeFilter::NotALambda => write!(f, "Not a lambda"),
         }
     }
@@ -468,18 +468,39 @@ impl FunctionsContainer {
                                     })
                             }
                             ASTType::Unit => {
-                                debug_i!("Parameters cannot have unit type");
+                                //panic!("Parameters cannot have unit type");
                                 false
                             }
                         }
                     }
-                    ASTType::Unit => {
-                        debug_i!("Parameters cannot have unit type");
-                        false
-                    }
+                    ASTType::Unit => match parameter_type {
+                        ASTType::Builtin(_) => false,
+                        ASTType::Generic(name) => {
+                            if let Some(gt) = resolved_generic_types.get(name) {
+                                gt.is_unit()
+                            } else {
+                                resolved_generic_types.insert(name.to_owned(), ASTType::Unit);
+                                true
+                            }
+                        }
+                        ASTType::Custom { .. } => false,
+                        ASTType::Unit => false, //panic!("Parameters cannot have unit type"),
+                    },
                 }
             }
-            TypeFilter::Lambda => {
+            TypeFilter::Lambda(len) => {
+                /* HENRY
+                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type: _,
+                }) = parameter_type
+                {
+                    len == &parameters.len()
+                } else {
+                    false
+                }
+
+                 */
                 matches!(
                     parameter_type,
                     ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
@@ -524,6 +545,33 @@ impl FunctionsContainer {
             debug_i!("{x}");
         }
         dedent!();
+    }
+
+    pub fn check_duplicate_functions(&self) {
+        for (_name, functions) in self.functions_by_name.iter() {
+            if functions.len() > 1 {
+                for function in functions.iter() {
+                    for other_function in functions.iter() {
+                        if function.name != other_function.name {
+                            if function.parameters.len() == other_function.parameters.len() {
+                                if zip(&function.parameters, &other_function.parameters).all(
+                                    |(a, b)| {
+                                        a.ast_type == b.ast_type
+                                            || matches!(a.ast_type, ASTType::Generic(_))
+                                                && matches!(b.ast_type, ASTType::Generic(_))
+                                    },
+                                ) {
+                                    panic!(
+                                        "Duplicate function signature {} {}",
+                                        function.index, other_function.index
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -6,3 +6,4 @@ time RUST_LOG=info RUST_BACKTRACE=full cargo run --release rasm/resources/exampl
 time RUST_LOG=info RUST_BACKTRACE=full cargo run --release rasm/resources/examples/gameoflife_vec_sdl.rasm gameoflife_vec_sdl
 time RUST_LOG=info RUST_BACKTRACE=full cargo run --release rasm/resources/examples/showimage.rasm showimage
 time RUST_LOG=info RUST_BACKTRACE=full cargo run --release rasm/resources/examples/bouncing_quads.rasm bouncing_quads
+time RUST_LOG=info RUST_BACKTRACE=full cargo run --release rasm/resources/test/fibonacci.rasm fibonacci

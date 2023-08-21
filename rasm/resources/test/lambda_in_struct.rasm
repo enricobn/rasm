@@ -31,7 +31,7 @@ loop(0, Model(0, 0), l);
 
 fn loop<T>(time: i32, model: T, l: Loop<T>) {
     let result = l.update(time, model);
-    run(result, { newModel -> l.render(newModel); loop(add(time, 1), newModel, l);}, { -> });
+    match(result, { newModel -> l.render(newModel); loop(add(time, 1), newModel, l);}, { -> });
 }
 
 fn NoneModel() -> Option<Model> {

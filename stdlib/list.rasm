@@ -6,10 +6,10 @@ enum List<T> {
 }
 
 fn print<T>(l: List<T>) {
-    run(l,
+    match(l,
         { head,tail ->
             print(head);
-            run(tail, { head1,tail1 -> print(",");}, { -> });
+            match(tail, { head1,tail1 -> print(",");}, { -> });
             print(tail);
         }, { -> });
 }
@@ -28,7 +28,7 @@ fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
 }
 
 fn forEach<T>(l: List<T>, f: fn(T) -> ()) {
-    run(l, { head,tail -> f(head); forEach(tail, f); }, { -> });
+    match(l, { head,tail -> f(head); forEach(tail, f); }, { -> });
 }
 
 /** false = 0 true = 1 **/
@@ -86,9 +86,9 @@ fn println<T>(l: List<T>, printFunction: fn(T) -> ()) {
 }
 
 fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
-    run(l, { head,tail ->
+    match(l, { head,tail ->
         printFunction(head);
-        run(tail, { head1,tail1 -> print(","); }, { -> });
+        match(tail, { head1,tail1 -> print(","); }, { -> });
         print(tail, printFunction);
     }, { -> });
 }

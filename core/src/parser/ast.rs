@@ -127,16 +127,10 @@ impl Display for ASTType {
                 } => {
                     let pars: Vec<String> = parameters.iter().map(|it| format!("{it}")).collect();
 
-                    let formatted_return_type = if return_type.deref() != &ASTType::Unit {
-                        format!("{}", return_type)
-                    } else {
-                        "()".into()
-                    };
-
                     f.write_str(&format!(
                         "fn ({}) -> {}",
                         pars.join(","),
-                        formatted_return_type
+                        return_type.deref()
                     ))
                 }
             },

@@ -8,7 +8,7 @@ fn toList<T>(o: Option<T>) -> List<T> {
 }
 
 fn print<T>(o: Option<T>) {
-    run(o, { v -> print("Some("); print(v); print(")");}, { -> print("None");});
+    match(o, { v -> print("Some("); print(v); print(")");}, { -> print("None");});
 }
 
 fn getOrElse<T>(o: Option<T>, default: T) -> T {
@@ -16,7 +16,7 @@ fn getOrElse<T>(o: Option<T>, default: T) -> T {
 }
 
 fn run<T>(o: Option<T>, f: fn(T) -> ()) {
-    run(o, f, { -> });
+    match(o, f, { -> });
 }
 
 fn map<T,T1>(o: Option<T>, f: fn(T) -> T1) -> Option<T1> {
@@ -37,4 +37,11 @@ fn or<T>(o: Option<T>, o1: Option<T>) -> Option<T> {
 
 fn orElse<T>(o: Option<T>, f: fn() -> Option<T>) -> Option<T> {
     match(o, { v -> o; }, f);
+}
+
+inline asm toUnit<T>(o: Option<T>) /{
+}/
+
+fn isSome<T>(o: Option<T>) -> bool {
+    o.match({ v -> true; }, { -> false; });
 }

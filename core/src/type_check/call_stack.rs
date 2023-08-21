@@ -16,29 +16,23 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::fmt::{Display, Formatter};
-
-#[derive(Debug)]
-pub struct TypeCheckError {
-    pub message: String,
+pub struct CallStack {
+    stack: Vec<String>,
 }
 
-impl Display for TypeCheckError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        //let bt = Backtrace::new();
-        //println!("{:?}", bt);
-        f.write_str(&format!("{}", &self.message))
+impl CallStack {
+    pub fn new() -> Self {
+        Self { stack: Vec::new() }
     }
-}
-
-impl From<&str> for TypeCheckError {
-    fn from(s: &str) -> Self {
-        TypeCheckError { message: s.into() }
+    pub fn stack(&self) -> &Vec<String> {
+        &self.stack
     }
-}
 
-impl From<String> for TypeCheckError {
-    fn from(s: String) -> Self {
-        TypeCheckError { message: s }
+    pub fn push(&mut self, message: String) {
+        self.stack.push(message);
+    }
+
+    pub fn pop(&mut self) {
+        assert!(self.stack.pop().is_some());
     }
 }

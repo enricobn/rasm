@@ -6,7 +6,7 @@ enum Test {
 printOption(Option::Some("a value"));
 printOption(Option::None());
 
-run(
+match(
     Test::T2(10, Option::Some("a value")),
     { v1, v2, o ->
         println("T1");
@@ -20,5 +20,5 @@ run(
    });
 
 fn printOption(o: Option<str>) {
-    run(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
+    match(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
 }

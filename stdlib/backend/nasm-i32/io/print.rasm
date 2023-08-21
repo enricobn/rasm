@@ -6,16 +6,16 @@ inline asm STDOut() -> File /{
  * Prints a new line to standard output.
  */
 fn println() {
-    println(STDOut());
+    println(STDOut()).toUnit();
 }
 
 fn print<T>(v: T) {
-    print(STDOut(), v);
+    print(STDOut(), v).toUnit();
 }
 
 fn println<T>(file: File, v: T) -> Option<IOError> {
-    print(file, v);
-    println(file);
+    print(file, v)
+    .or(println(file));
 }
 
 /**

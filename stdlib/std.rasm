@@ -22,13 +22,13 @@ fn print<T>(prefix: str, o: T) {
     print(o);
 }
 
-fn println<T1,T2>(file: File, o1: T1, o2: T2) {
-    print(file, o1);
-    println(file, o2);
+fn println<T1,T2>(file: File, o1: T1, o2: T2) -> Option<IOError>{
+    print(file, o1)
+        .or(println(file, o2));
 }
 
 fn println<T1,T2>(o1: T1, o2: T2) {
-    println(STDOut(), o1, o2);
+    println(STDOut(), o1, o2).toUnit();
 }
 
 // TODO do it in asm
@@ -77,7 +77,7 @@ enum Compare {
 }
 
 fn print(c: Compare) {
-    run(c, { -> print("Less");}, { -> print("Equal");}, { -> print("Greater");});
+    match(c, { -> print("Less");}, { -> print("Equal");}, { -> print("Greater");});
 }
 
 fn toString(error: IOError) -> str {

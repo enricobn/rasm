@@ -112,11 +112,11 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
     pop ebx
 }/
 
-/*
+/**
  *  returns the offset (in bytes, not chars) of the next char
  *  given an offset from the start of the string.
  *  It is used to handle UTF-8 encoding
- */
+ **/
 asm nextChar(s: str, offset: i32) -> i32 /{
     mov     eax,$offset
 
@@ -207,6 +207,6 @@ fn add<T1,T2,T3,T4>(a: T1, b: T2, c: T3, d: T4) -> str {
     add(add(toString(a), toString(b)), add(toString(c), toString(d)));
 }
 
-fn print<T>(file: File, s: T) {
+fn print<T>(file: File, s: T) -> Option<IOError> {
     print(file, toString(s));
 }

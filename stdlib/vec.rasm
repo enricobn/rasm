@@ -19,8 +19,10 @@ fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
     forEach(v, { n -> printFunction(n); print(",");});
 }
 
-fn print<T>(file: File, v: Vec<T>) {
-    forEach(v, { n -> print(file, n); print(",");});
+fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
+    let v1 = map(v, { n -> print(file, n).or(print(file, ","));});
+    let errors = v1.filter({ o -> o.isSome; });
+    errors.first.match({ o -> o;} { -> IOError("Cannot happen");});
 }
 
 fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
