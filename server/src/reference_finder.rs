@@ -199,7 +199,7 @@ impl ReferenceFinder {
                     TypeFilter::Any
                 }
             }
-            ASTExpression::Lambda(def) => TypeFilter::Lambda(0), // HENRY
+            ASTExpression::Lambda(def) => TypeFilter::Lambda(def.parameter_names.len()),
             ASTExpression::StringLiteral(_) => {
                 TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::String))
             }

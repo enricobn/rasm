@@ -942,8 +942,8 @@ fn get_called_function(
             )? {
                 Some(ast_type) => Ok(TypeFilter::Exact(ast_type)),
                 None => {
-                    if matches!(it, ASTExpression::Lambda(def)) {
-                        Ok(TypeFilter::Lambda(0))
+                    if let ASTExpression::Lambda(def) = it {
+                        Ok(TypeFilter::Lambda(def.parameter_names.len()))
                     } else {
                         Ok(TypeFilter::Any)
                     }

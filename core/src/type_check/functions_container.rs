@@ -489,7 +489,6 @@ impl FunctionsContainer {
                 }
             }
             TypeFilter::Lambda(len) => {
-                /* HENRY
                 if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                     parameters,
                     return_type: _,
@@ -499,12 +498,6 @@ impl FunctionsContainer {
                 } else {
                     false
                 }
-
-                 */
-                matches!(
-                    parameter_type,
-                    ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
-                )
             }
             TypeFilter::NotALambda => !matches!(
                 parameter_type,
