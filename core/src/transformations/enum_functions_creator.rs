@@ -300,13 +300,14 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
     CodeGen::add(
         &mut body,
         &format!(
-            "$call(print,\"{}::{}, invalid value \")",
+            "$call(print, 1:File, \"{}::{}, invalid value \")",
             enum_def.name, name
         ),
         None,
         false,
     );
-    CodeGen::add(&mut body, "$call(println,[eax])", None, false);
+    CodeGen::add(&mut body, "$call(print, 1:File, [eax])", None, false);
+    CodeGen::add(&mut body, "$call(print, 1:File, \"\\n\")", None, false);
     CodeGen::add(&mut body, ".end:", None, false);
     CodeGen::add(&mut body, "pop ebx", None, true);
 

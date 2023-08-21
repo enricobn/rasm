@@ -1,6 +1,6 @@
 asm printAddress<T>(message: str, address: T) /{
-    $call(print, $message)
-    $call(println, $address: i32)
+    $call(print, 1:File, $message)
+    $call(println, 1:File, $address: i32)
 }/
 
 asm printRef<T>(o: T) /{
