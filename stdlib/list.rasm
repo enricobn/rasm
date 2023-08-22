@@ -182,3 +182,26 @@ fn map3<T,T1>(list: List<T>, fun: fn(T,T,T) -> T1) -> Option<T1> {
         }, { -> Option::None();});
     }, { -> Option::None();});
 }
+
+fn pop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
+    list.match(
+        { head, tail ->
+            tail.match(
+                { head1, tail1 ->
+                    let popped = pop(tail);
+                    Pair(popped.first, List::Full(head, popped.second));
+                },
+                { -> Pair(Option::Some(head), tail);}
+            );
+        },
+        { -> Pair(Option::None(), list);}
+    );
+}
+
+fn replace<T>(list: List<T>, new: T) -> Pair<Option<T>, List<T>> {
+    let current = list.pop();
+    current.first.match(
+        { v -> Pair(Option::Some(v), current.second.push(new));},
+        { -> Pair(Option::None(), list); }
+    );
+}

@@ -1,0 +1,5 @@
+let list = listOf("10", "20", "25");
+println(list.pop.first);
+println(list.pop.second);
+println(list.replace("30").first);
+println(list.replace("30").second);

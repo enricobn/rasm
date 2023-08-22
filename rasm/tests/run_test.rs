@@ -383,6 +383,15 @@ fn test_error_handling1() {
     );
 }
 
+#[test]
+fn list_pop_replace() {
+    run_test(
+        "list_pop_replace",
+        Vec::new(),
+        "Some(25)\n10,20\nSome(25)\n10,20,30\n",
+    );
+}
+
 // Compile tests
 
 #[test]
