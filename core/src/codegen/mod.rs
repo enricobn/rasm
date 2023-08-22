@@ -479,8 +479,13 @@ impl<'a> CodeGen<'a> {
             }
             ASTTypedExpression::Value(value_type, index) => {
                 let value = self.backend.value_to_string(value_type);
-                let typed_type =
-                    get_type_of_typed_expression(&self.module, context, expr, None, &self.statics);
+                let typed_type = get_type_of_typed_expression(
+                    &self.module,
+                    context,
+                    expr,
+                    None,
+                    &mut self.statics,
+                );
 
                 if is_const {
                     let key = self
