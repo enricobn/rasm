@@ -1132,6 +1132,37 @@ fn verify(module: &ASTTypedModule, statics: &mut Statics) {
             for statement in expressions.iter() {
                 verify_statement(module, &mut context, statement, statics)
             }
+            let real_return_type = if let Some(last) = expressions.iter().last() {
+                match last {
+                    ASTTypedStatement::Expression(e) => get_type_of_typed_expression(
+                        module,
+                        &context,
+                        e,
+                        Some(&function_def.return_type),
+                        statics,
+                    ),
+                    ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
+                        get_type_of_typed_expression(
+                            module,
+                            &context,
+                            e,
+                            Some(&ASTTypedType::Unit),
+                            statics,
+                        )
+                    }
+                }
+            } else {
+                ASTTypedType::Unit
+            };
+
+            //if return_type.deref() != &ASTTypedType::Unit {
+            //println!("&function_def.return_type {}", &function_def.return_type);
+            //println!("&real_return_type {}", &real_return_type);
+            assert_eq!(
+                &function_def.return_type, &real_return_type,
+                "function {} {}",
+                function_def, function_def.index
+            );
         }
     }
 }
@@ -1141,6 +1172,7 @@ fn verify_statement(
     context: &mut TypedValContext,
     statement: &ASTTypedStatement,
     statics: &mut Statics,
+    //    expected_return_type: Option<ASTTypedType>
 ) {
     match statement {
         ASTTypedStatement::Expression(e) => {
@@ -1150,6 +1182,7 @@ fn verify_statement(
         }
         ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+                verify_function_call(module, context, call, statics);
                 let ast_typed_type =
                     if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
                         function_def.return_type.clone()
@@ -1216,7 +1249,7 @@ fn verify_function_call(
     module: &ASTTypedModule,
     context: &TypedValContext,
     call: &ASTTypedFunctionCall,
-    statics: &Statics,
+    statics: &mut Statics,
 ) {
     debug!("verify_function_call {call}");
 
@@ -1283,7 +1316,7 @@ pub fn get_type_of_typed_expression(
     context: &TypedValContext,
     expr: &ASTTypedExpression,
     ast_type: Option<&ASTTypedType>,
-    statics: &Statics,
+    statics: &mut Statics,
 ) -> ASTTypedType {
     debug!("get_type_of_typed_expression {expr} {:?}", ast_type);
     match expr {
@@ -1314,8 +1347,23 @@ pub fn get_type_of_typed_expression(
                 } else {
                     panic!("expected lambda, found: {}", &par.ast_type);
                 }
+            } else if let Some(TypedValKind::LetRef(_, t)) = context.get(&call.function_name) {
+                debug!("found function in context");
+
+                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                    parameters: _,
+                    return_type,
+                }) = &t
+                {
+                    return_type.as_ref().clone()
+                } else {
+                    panic!("expected lambda, found: {}", &t);
+                }
             } else {
-                panic!("Cannot find function {}", &call.function_name);
+                panic!(
+                    "Cannot find function {} : {}",
+                    &call.function_name, call.index
+                );
             }
         }
         ASTTypedExpression::ValueRef(name, _) => {
@@ -1339,7 +1387,7 @@ pub fn get_type_of_typed_expression(
 
             let (parameters, return_type) = match ast_type {
                 None => {
-                    panic!()
+                    panic!("Error in lambda {}", lambda_def.index);
                 }
                 Some(t) => match t {
                     ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -1360,6 +1408,8 @@ pub fn get_type_of_typed_expression(
             }
 
             for statement in lambda_def.body.iter() {
+                verify_statement(module, &mut context, statement, statics);
+                /*
                 match statement {
                     ASTTypedStatement::Expression(e) => {
                         if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
@@ -1404,12 +1454,14 @@ pub fn get_type_of_typed_expression(
                         }
                     }
                 }
+
+                 */
             }
 
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
                 match last {
                     ASTTypedStatement::Expression(e) => {
-                        get_type_of_typed_expression(module, &context, e, None, statics)
+                        get_type_of_typed_expression(module, &context, e, ast_type, statics)
                     }
                     ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
                         get_type_of_typed_expression(module, &context, e, None, statics)
@@ -1419,13 +1471,14 @@ pub fn get_type_of_typed_expression(
                 ASTTypedType::Unit
             };
 
-            if return_type.deref() != &ASTTypedType::Unit {
-                assert_eq!(
-                    return_type.deref(),
-                    &real_return_type,
-                    "expression {:?}",
-                    expr
-                )
+            //if return_type.deref() != &ASTTypedType::Unit {
+            assert_eq!(
+                return_type.deref(),
+                &real_return_type,
+                "expression {:?}",
+                expr
+            );
+            /*
             } else if real_return_type != ASTTypedType::Unit {
                 if let Some(index) = lambda_def.body.iter().last().and_then(|it| it.get_index()) {
                     panic!("Expected no return type but got {real_return_type} : {index}");
@@ -1433,6 +1486,8 @@ pub fn get_type_of_typed_expression(
                     panic!("Expected no return type but got {real_return_type}");
                 }
             }
+
+             */
 
             ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters: parameters.clone(),
