@@ -708,21 +708,25 @@ impl Parser {
                 self.panic("Expected to be inside a function def");
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
-            if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                if let Some((ref ast_type, next_i)) =
-                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
-                {
-                    self.i = next_i;
-                    def.return_type = ast_type.clone();
-                } else {
-                    def.return_type = ASTType::Unit
-                }
-                let l = self.parser_data.len();
-                self.parser_data[l - 1] = ParserData::FunctionDef(def);
+            if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) =
+                self.get_token_kind_n(1)
+            {
+                self.i += 1;
+            } else if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
+                self.get_token_kind_n(1)
+            {
+                self.i += 1;
+            } else if let Some(TokenKind::AsmBLock(body)) = self.get_token_kind_n(1) {
                 self.i += 1;
             } else {
-                self.panic("Expected to be inside a function def");
-            };
+                panic!(
+                    "Expected return type or block : {}",
+                    self.get_index(1).unwrap()
+                );
+            }
+        } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
+            self.state.push(ParserState::FunctionDefReturnType);
+            self.i += 1;
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open) = token.kind {
             self.state.push(ParserState::FunctionBody);
             self.state.push(ParserState::Statement);
@@ -739,9 +743,6 @@ impl Parser {
             }
         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             self.state.push(ParserState::FunctionDefParameter);
-            self.i += 1;
-        } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
-            self.state.push(ParserState::FunctionDefReturnType);
             self.i += 1;
         } else if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
             self.functions.push(def);
