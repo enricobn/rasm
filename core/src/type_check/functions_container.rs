@@ -417,7 +417,8 @@ impl FunctionsContainer {
                             ASTType::Generic(_) => true,
                             ASTType::Custom { .. } => false,
                             ASTType::Unit => {
-                                panic!("Paramneters cannot have unit type.");
+                                // TODO index
+                                panic!("Parameters cannot have unit type.");
                             }
                         },
                     },
