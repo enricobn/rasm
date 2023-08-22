@@ -388,6 +388,17 @@ impl<'a> CallConverter<'a> {
             dedent!();
             return Ok(NothingToConvert);
         }
+        assert!(
+            FunctionsContainer::almost_same_type(
+                &new_return_type,
+                &TypeFilter::Exact(function_def.return_type.clone()),
+                &mut LinkedHashMap::new(),
+            ),
+            "Expected return type {}, but got {new_return_type} : {} {}",
+            function_def.return_type,
+            call.index,
+            function_def.index
+        );
 
         let new_function_def = ASTFunctionDef {
             original_name: function_def.original_name.clone(),
