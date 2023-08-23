@@ -1,8 +1,7 @@
-use linked_hash_map::LinkedHashMap;
-
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTParameterDef, ASTType, BuiltinTypeKind,
 };
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
 pub fn str_functions_creator(module: &mut ASTModule) {
     let body = ASTFunctionBody::ASMBody("$call(deref, $s:i32, \"String\")".into());
@@ -19,7 +18,7 @@ pub fn str_functions_creator(module: &mut ASTModule) {
         inline: false,
         return_type: ASTType::Unit,
         generic_types: Vec::new(),
-        resolved_generic_types: LinkedHashMap::new(),
+        resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
     };
 
@@ -40,7 +39,7 @@ pub fn str_functions_creator(module: &mut ASTModule) {
         inline: false,
         return_type: ASTType::Unit,
         generic_types: Vec::new(),
-        resolved_generic_types: LinkedHashMap::new(),
+        resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
     };
 

@@ -22,6 +22,7 @@ use crate::type_check::call_converter::CallConverter;
 use crate::type_check::call_converter::ConvertCallResult::*;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::TypeFilter::Exact;
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::{
     convert_function_def, convert_statement, get_new_native_call, substitute, TypeConversionContext,
 };
@@ -618,7 +619,7 @@ impl<'a> ConvContext<'a> {
                     .unwrap();
 
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = LinkedHashMap::new();
+                let mut generic_to_type = ResolvedGenericTypes::new();
                 for (i, p) in enum_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(p.clone(), cloned_param_types.get(i).unwrap().clone());
                 }
@@ -691,7 +692,7 @@ impl<'a> ConvContext<'a> {
                     .unwrap();
 
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = LinkedHashMap::new();
+                let mut generic_to_type = ResolvedGenericTypes::new();
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(
                         p.clone(),
@@ -943,19 +944,7 @@ pub fn convert_to_typed_module(
                 // HENRY remove?
                 Ok(ce) => ce,
                 Err(err) => {
-                    println!("{}", err);
-
-                    let calls = find_calls(&new_function_def.name, &cloned_typed_context, &body);
-
-                    if calls.is_empty() {
-                        println!("Cannot find calls for {}", new_function_def.name);
-                    } else {
-                        println!("Found calls for {}:", new_function_def.name);
-                        for index in calls {
-                            println!("{index}");
-                        }
-                    }
-                    panic!();
+                    panic!("{err}");
                 }
             };
 
@@ -1300,13 +1289,17 @@ fn verify_function_call(
         };
 
     for (i, expr) in call.parameters.iter().enumerate() {
-        let par = parameters_types.get(i).unwrap().clone();
-        debug!("par type {par}");
+        let par_type = parameters_types.get(i).unwrap().clone();
+        let typed_type =
+            get_type_of_typed_expression(module, context, expr, Some(&par_type), statics);
+        debug!(
+            "expected {par_type}, got {typed_type} in {call} : {} for parameter {i}",
+            call.index
+        );
         assert_eq!(
-            get_type_of_typed_expression(module, context, expr, Some(&par), statics),
-            par,
-            "expression {:?}",
-            expr
+            typed_type, par_type,
+            "expected {par_type}, but got {typed_type} expression in call {} for parameter {i}",
+            call.index
         );
     }
 }
@@ -1409,53 +1402,6 @@ pub fn get_type_of_typed_expression(
 
             for statement in lambda_def.body.iter() {
                 verify_statement(module, &mut context, statement, statics);
-                /*
-                match statement {
-                    ASTTypedStatement::Expression(e) => {
-                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                            verify_function_call(module, &context, call, statics);
-                        }
-                    }
-                    ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
-                        if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                            let ast_typed_type = module
-                                .functions_by_name
-                                .get(&call.function_name.replace("::", "_"))
-                                .unwrap_or_else(|| {
-                                    module
-                                        .functions_by_name
-                                        .iter()
-                                        .for_each(|it| println!("{}/{}", it.0, it.1.name));
-                                    panic!(
-                                        "cannot find function {} : {}",
-                                        call.function_name, call.index
-                                    )
-                                })
-                                .return_type
-                                .clone();
-                            if *is_const {
-                                panic!("const not allowed here")
-                            } else {
-                                context.insert_let(name.clone(), ast_typed_type, None);
-                            }
-                            verify_function_call(module, &context, call, statics);
-                        } else {
-                            let ast_typed_type =
-                                get_type_of_typed_expression(module, &context, e, None, statics);
-                            if ast_typed_type != ASTTypedType::Unit {
-                                if *is_const {
-                                    panic!("const not allowed here");
-                                } else {
-                                    context.insert_let(name.clone(), ast_typed_type, None);
-                                }
-                            } else {
-                                panic!("unsupported let")
-                            }
-                        }
-                    }
-                }
-
-                 */
             }
 
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
@@ -1472,22 +1418,19 @@ pub fn get_type_of_typed_expression(
             };
 
             //if return_type.deref() != &ASTTypedType::Unit {
+            /*
+            println!(
+                "expected return type {}, got {real_return_type} in {lambda_def}",
+                return_type
+            );
+
+             */
             assert_eq!(
                 return_type.deref(),
                 &real_return_type,
                 "expression {:?}",
                 expr
             );
-            /*
-            } else if real_return_type != ASTTypedType::Unit {
-                if let Some(index) = lambda_def.body.iter().last().and_then(|it| it.get_index()) {
-                    panic!("Expected no return type but got {real_return_type} : {index}");
-                } else {
-                    panic!("Expected no return type but got {real_return_type}");
-                }
-            }
-
-             */
 
             ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters: parameters.clone(),
@@ -1538,7 +1481,7 @@ fn add_default_function(
 fn struct_property(
     conv_context: &mut ConvContext,
     property: &ASTStructPropertyDef,
-    generic_to_type: &LinkedHashMap<String, ASTType>,
+    generic_to_type: &ResolvedGenericTypes,
 ) -> ASTTypedStructPropertyDef {
     if let Some(new_type) = substitute(&property.ast_type, generic_to_type) {
         ASTTypedStructPropertyDef {
@@ -1820,7 +1763,7 @@ fn statement(conv_context: &mut ConvContext, it: &ASTStatement) -> ASTTypedState
 fn enum_variant(
     conv_context: &mut ConvContext,
     variant: &ASTEnumVariantDef,
-    generic_to_type: &LinkedHashMap<String, ASTType>,
+    generic_to_type: &ResolvedGenericTypes,
     enum_type: &ASTType,
     enum_typed_type: &ASTTypedType,
     message: &str,

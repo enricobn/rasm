@@ -1,4 +1,3 @@
-use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::Backend;
@@ -8,6 +7,7 @@ use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule,
     ASTParameterDef, ASTType, BuiltinTypeKind,
 };
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
 pub fn enum_functions_creator(
     backend: &dyn Backend,
@@ -99,7 +99,7 @@ fn create_match_like_function(
         return_type,
         generic_types: param_types,
         // TODO calculate, even if I don't know if it's useful
-        resolved_generic_types: LinkedHashMap::new(),
+        resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
     };
 
@@ -152,7 +152,7 @@ fn create_constructors(
             return_type,
             generic_types: enum_def.type_parameters.clone(),
             // TODO calculate, even if I don't know if it is useful
-            resolved_generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
             index: variant.index.clone(),
         };
 

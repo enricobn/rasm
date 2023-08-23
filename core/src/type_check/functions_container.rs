@@ -571,8 +571,6 @@ impl FunctionsContainer {
 
 #[cfg(test)]
 mod tests {
-    use linked_hash_map::LinkedHashMap;
-
     use crate::parser::ast::ASTFunctionBody::ASMBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType,
@@ -580,6 +578,7 @@ mod tests {
     };
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
+    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
     #[test]
     fn test() {
@@ -753,7 +752,7 @@ mod tests {
                 ast_index: ASTIndex::none(),
             }],
             inline: false,
-            resolved_generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
             return_type: ASTType::Builtin(BuiltinTypeKind::String),
             original_name: name.into(),
             index: ASTIndex::none(),
@@ -778,7 +777,7 @@ mod tests {
                 },
             ],
             inline: false,
-            resolved_generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
             return_type: ASTType::Builtin(param_kind),
             original_name: "add".into(),
             index: ASTIndex::none(),

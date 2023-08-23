@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::panic;
 
-use linked_hash_map::LinkedHashMap;
 use log::{debug, log_enabled, Level};
 
 use call_converter::ConvertCallResult::{Converted, NothingToConvert, SomethingConverted};
@@ -22,12 +21,14 @@ use crate::parser::ast::{
 use crate::parser::ast::{ASTStatement, MyToString};
 use crate::type_check::call_converter::CallConverter;
 use crate::type_check::call_stack::CallStack;
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::{debug_i, dedent, indent};
 
 mod call_converter;
 pub mod call_stack;
 pub mod functions_container;
+pub mod resolved_generic_types;
 pub mod type_check_error;
 pub mod typed_ast;
 pub mod typed_context;
@@ -119,6 +120,9 @@ fn convert_body(
                     Some(ASTType::Unit),
                 )
             };
+
+            let converted_statement: Result<Option<ASTStatement>, TypeCheckError> =
+                converted_statement.map_err(|e| format!("{e} in {it} : {}", it.get_index()).into());
 
             let new_statement = match converted_statement? {
                 Some(new_expr) => {
@@ -586,7 +590,7 @@ fn convert_last_expr_in_body(
 
         ASTExpression::Value(_, _index) => None,
         ASTExpression::Lambda(lambda_def) => {
-            let resolved_generic_types = LinkedHashMap::new();
+            let resolved_generic_types = ResolvedGenericTypes::new();
             let rt = return_type;
             let context =
                 get_context_from_lambda(context, lambda_def, &rt, &resolved_generic_types)?;
@@ -694,8 +698,13 @@ fn get_type_of_expression(
         ASTExpression::Any(ast_type) => Ok(Some(ast_type.clone())),
         ASTExpression::Lambda(lambda_def) => {
             let mut lambda_val_context = if let Some(lambda_type) = lambda {
-                get_context_from_lambda(context, lambda_def, lambda_type, &LinkedHashMap::new())
-                    .unwrap()
+                get_context_from_lambda(
+                    context,
+                    lambda_def,
+                    lambda_type,
+                    &ResolvedGenericTypes::new(),
+                )
+                .unwrap()
             } else {
                 if !lambda_def.parameter_names.is_empty() {
                     return Ok(None);
@@ -793,8 +802,8 @@ fn get_type_of_expression(
 fn resolve_generic_types_from_effective_type(
     generic_type: &ASTType,
     effective_type: &ASTType,
-) -> Result<LinkedHashMap<String, ASTType>, TypeCheckError> {
-    let mut result: LinkedHashMap<String, ASTType> = LinkedHashMap::new();
+) -> Result<ResolvedGenericTypes, TypeCheckError> {
+    let mut result = ResolvedGenericTypes::new();
 
     if generic_type == effective_type || !is_generic_type(generic_type) {
         return Ok(result);
@@ -824,7 +833,7 @@ fn resolve_generic_types_from_effective_type(
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                             .map_err(|e| format!("{} in lambda param gen type {generic_type}eff. type {effective_type}", e))?;
 
-                            result.extend(inner_result.into_iter());
+                            result.extend(inner_result);
                         }
 
                         /*
@@ -847,7 +856,7 @@ fn resolve_generic_types_from_effective_type(
                         let inner_result = resolve_generic_types_from_effective_type(p_return_type, e_return_type)
                         .map_err(|e| format!("{} in return type gen type {generic_type}eff. type {effective_type}", e))?;
 
-                        result.extend(inner_result.into_iter());
+                        result.extend(inner_result);
                     }
                     _ => {
                         dedent!();
@@ -880,7 +889,7 @@ fn resolve_generic_types_from_effective_type(
                     let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                         .map_err(|e|format!("{}\nin custom type gen type {generic_type} eff type {effective_type}", e.message))?;
 
-                    result.extend(inner_result.into_iter());
+                    result.extend(inner_result);
                 }
             }
             ASTType::Generic(_) => {}
@@ -905,7 +914,7 @@ fn get_context_from_lambda(
     context: &ValContext,
     lambda: &ASTLambdaDef,
     lambda_type: &ASTType,
-    resolved_param_types: &LinkedHashMap<String, ASTType>,
+    resolved_param_types: &ResolvedGenericTypes,
 ) -> Result<ValContext, TypeCheckError> {
     let mut context = ValContext::new(Some(context));
 
@@ -949,7 +958,7 @@ fn convert_lambda(
     lambda: &ASTLambdaDef,
     context: &ValContext,
     typed_context: &RefCell<TypeConversionContext>,
-    resolved_generic_types: &LinkedHashMap<String, ASTType>,
+    resolved_generic_types: &ResolvedGenericTypes,
     backend: &dyn Backend,
     statics: &Statics,
     call_stack: &mut CallStack,
@@ -1005,10 +1014,7 @@ fn convert_lambda(
     Ok(result)
 }
 
-fn substitute(
-    ast_type: &ASTType,
-    resolved_param_types: &LinkedHashMap<String, ASTType>,
-) -> Option<ASTType> {
+fn substitute(ast_type: &ASTType, resolved_param_types: &ResolvedGenericTypes) -> Option<ASTType> {
     if !is_generic_type(ast_type) {
         return None;
     }
@@ -1091,7 +1097,7 @@ fn substitute(
 
 fn substitute_types(
     types: &[ASTType],
-    resolved_param_types: &LinkedHashMap<String, ASTType>,
+    resolved_param_types: &ResolvedGenericTypes,
 ) -> Option<Vec<ASTType>> {
     let mut something_substituted = false;
     let new_types = types
@@ -1117,8 +1123,6 @@ fn substitute_types(
 mod tests {
     use std::collections::HashSet;
 
-    use linked_hash_map::LinkedHashMap;
-
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
@@ -1128,6 +1132,7 @@ mod tests {
         ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::type_check::resolve_generic_types_from_effective_type;
+    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::{
         convert_to_typed_module, ASTTypedExpression, ASTTypedStatement,
@@ -1143,7 +1148,7 @@ mod tests {
         let effective_type = i32();
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = LinkedHashMap::new();
+        let mut expected_result = ResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1166,7 +1171,7 @@ mod tests {
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = LinkedHashMap::new();
+        let mut expected_result = ResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1188,7 +1193,7 @@ mod tests {
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = LinkedHashMap::new();
+        let mut expected_result = ResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1210,7 +1215,7 @@ mod tests {
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = LinkedHashMap::new();
+        let mut expected_result = ResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -1262,7 +1267,7 @@ mod tests {
             inline: false,
             return_type: ASTType::Unit,
             generic_types: vec!["T".into()],
-            resolved_generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: "consume".into(),
             index: ASTIndex::none(),
         };

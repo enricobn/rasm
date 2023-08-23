@@ -1,13 +1,12 @@
 use std::ops::Deref;
 
-use linked_hash_map::LinkedHashMap;
-
 use crate::codegen::backend::Backend;
 use crate::codegen::CodeGen;
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
     ASTParameterDef, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
 pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
     for struct_def in &module.structs.clone() {
@@ -59,7 +58,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             return_type,
             generic_types: struct_def.type_parameters.clone(),
             // TODO calculate, even if I don't know if it is useful
-            resolved_generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
             index: struct_def.index.clone(),
         };
         module.add_function(function_def);
@@ -286,7 +285,7 @@ fn create_functions_for_struct_get_property(
                 body: ASTFunctionBody::RASMBody(body),
                 generic_types: struct_def.type_parameters.clone(),
                 inline: false,
-                resolved_generic_types: LinkedHashMap::new(),
+                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: property_def.index.clone(),
             },
         ]
@@ -327,7 +326,7 @@ fn create_function_for_struct_get_property(
         body: ASTFunctionBody::ASMBody(struct_property_body(backend, i)),
         generic_types: struct_def.type_parameters.clone(),
         inline: true,
-        resolved_generic_types: LinkedHashMap::new(),
+        resolved_generic_types: ResolvedGenericTypes::new(),
         index: property_def.index.clone(),
     }
 }
@@ -370,7 +369,7 @@ fn create_function_for_struct_set_property(
         body: ASTFunctionBody::ASMBody(struct_setter_body(backend, i)),
         generic_types: struct_def.type_parameters.clone(),
         inline: false,
-        resolved_generic_types: LinkedHashMap::new(),
+        resolved_generic_types: ResolvedGenericTypes::new(),
         index: struct_def.index.clone(),
     }
 }

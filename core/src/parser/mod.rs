@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
-use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -24,6 +23,7 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::utils::SliceDisplay;
 
 mod asm_def_parser;
@@ -395,7 +395,7 @@ impl Parser {
                     return_type: ASTType::Unit,
                     inline: false,
                     generic_types,
-                    resolved_generic_types: LinkedHashMap::new(),
+                    resolved_generic_types: ResolvedGenericTypes::new(),
                     index: self.get_index(next_i - self.i).unwrap(),
                 }));
             self.state.push(ParserState::FunctionDef);
@@ -413,7 +413,7 @@ impl Parser {
                     return_type: ASTType::Unit,
                     inline,
                     generic_types: param_types,
-                    resolved_generic_types: LinkedHashMap::new(),
+                    resolved_generic_types: ResolvedGenericTypes::new(),
                     index: self.get_index(next_i - self.i).unwrap(),
                 }));
             self.state.push(ParserState::FunctionDef);
@@ -575,7 +575,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline: false,
                 generic_types: Vec::new(),
-                resolved_generic_types: LinkedHashMap::new(),
+                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: ASTIndex::none(),
             };
             self.parser_data
@@ -1134,14 +1134,13 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
-    use linked_hash_map::LinkedHashMap;
-
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement, ASTType,
         BuiltinTypeKind, ValueType,
     };
     use crate::parser::Parser;
+    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1228,7 +1227,7 @@ mod tests {
             return_type: ASTType::Unit,
             inline: false,
             generic_types: vec!["T".into(), "T1".into()],
-            resolved_generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: "p".into(),
             index: ASTIndex::new(None, 1, 12),
         };

@@ -39,6 +39,7 @@ use crate::type_check::call_converter::ConvertCallResult::{
 };
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::utils::OptionDisplay;
@@ -122,7 +123,9 @@ impl<'a> CallConverter<'a> {
         let mut resolved_generic_types = function_def.resolved_generic_types.clone();
 
         let expected_return_type = if let Some(ret) = expected_return_type {
-            if !type_check::is_generic_type(&ret) {
+            if !type_check::is_generic_type(&ret)
+                && type_check::is_generic_type(&function_def.return_type)
+            {
                 let generic_types_from_effective_type =
                     type_check::resolve_generic_types_from_effective_type(
                         &function_def.return_type,
@@ -299,8 +302,8 @@ impl<'a> CallConverter<'a> {
             }
         }
 
-        let new_return_type = if let Some(er) = expected_return_type {
-            er
+        let new_return_type = if let Some(er) = &expected_return_type {
+            er.clone()
         } else {
             let t = if let Some(new_t) =
                 type_check::substitute(&function_def.return_type, &resolved_generic_types)
@@ -348,6 +351,10 @@ impl<'a> CallConverter<'a> {
                         .borrow_mut()
                         .try_add_new(&call.original_function_name, &function_def)
                     {
+                        if &call.original_function_name == "Pair" {
+                            println!("added new function {f} from {function_def}");
+                        }
+
                         debug_i!("function added or different name {f}");
                         let mut function_call = call.clone();
                         function_call.function_name = f.name;
@@ -404,13 +411,27 @@ impl<'a> CallConverter<'a> {
             original_name: function_def.original_name.clone(),
             name: function_def.name.clone(),
             parameters,
-            return_type: new_return_type,
+            return_type: new_return_type.clone(),
             body: function_def.body.clone(),
             generic_types: remaining_generic_types,
             inline: function_def.inline,
             resolved_generic_types: resolved_generic_types.clone(),
             index: function_def.index.clone(),
         };
+
+        /*
+        if function_def.original_name == "Pair" {
+            println!(
+                "Expected return type {}, but got {new_return_type} : {} {}",
+                function_def.return_type, call.index, function_def.index
+            );
+            println!("function_def {function_def}");
+            if let Some(er) = &expected_return_type {
+                println!("expected_return_type {er}");
+            }
+        }
+
+         */
 
         let result = if let Some(f) = self
             .typed_context
@@ -447,7 +468,7 @@ impl<'a> CallConverter<'a> {
 
     fn convert_call_expr(
         &self,
-        mut resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
+        mut resolved_generic_types: &mut ResolvedGenericTypes,
         mut converted_expressions: &mut Vec<ASTExpression>,
         mut converted_parameters: &mut Vec<ASTParameterDef>,
         expr: &ASTExpression,
@@ -594,7 +615,7 @@ impl<'a> CallConverter<'a> {
 
     fn convert_lambda_expr(
         &self,
-        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
+        resolved_generic_types: &mut ResolvedGenericTypes,
         converted_expressions: &mut Vec<ASTExpression>,
         converted_parameters: &mut Vec<ASTParameterDef>,
         par: &ASTParameterDef,
@@ -743,7 +764,7 @@ fn update(
     result_type: &ASTType,
     expr: ASTExpression,
     par: &ASTParameterDef,
-    resolved_param_types: &mut LinkedHashMap<String, ASTType>,
+    resolved_param_types: &mut ResolvedGenericTypes,
     parameters: &mut Vec<ASTParameterDef>,
     expressions: &mut Vec<ASTExpression>,
 ) -> Result<bool, TypeCheckError> {
@@ -758,6 +779,10 @@ fn update(
             .map_err(|e| format!("{} in update par {par} result_type {result_type}", e))?;
 
     let len_before = resolved_param_types.len();
+
+    if let Some(err) = resolved_param_types.check(&generic_types_from_effective_type) {
+        return Err(err.into());
+    }
 
     resolved_param_types.extend(generic_types_from_effective_type.clone());
 

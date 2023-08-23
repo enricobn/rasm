@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +18,7 @@ pub struct ASTFunctionDef {
     pub body: ASTFunctionBody,
     pub inline: bool,
     pub generic_types: Vec<String>,
-    pub resolved_generic_types: LinkedHashMap<String, ASTType>,
+    pub resolved_generic_types: ResolvedGenericTypes,
     pub index: ASTIndex,
 }
 
@@ -286,6 +287,19 @@ pub enum ASTExpression {
     Any(ASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 
+impl ASTExpression {
+    pub fn get_index(&self) -> ASTIndex {
+        match self {
+            ASTExpression::StringLiteral(_) => ASTIndex::none(),
+            ASTExpression::ASTFunctionCallExpression(call) => call.index.clone(),
+            ASTExpression::ValueRef(_, index) => index.clone(),
+            ASTExpression::Value(_, index) => index.clone(),
+            ASTExpression::Lambda(def) => def.index.clone(),
+            ASTExpression::Any(_) => ASTIndex::none(),
+        }
+    }
+}
+
 impl Display for ASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -312,6 +326,15 @@ impl Display for ASTExpression {
 pub enum ASTStatement {
     Expression(ASTExpression),
     LetStatement(String, ASTExpression, bool, ASTIndex),
+}
+
+impl ASTStatement {
+    pub fn get_index(&self) -> ASTIndex {
+        match self {
+            ASTStatement::Expression(expr) => expr.get_index(),
+            ASTStatement::LetStatement(_, _, _, index) => index.clone(),
+        }
+    }
 }
 
 impl Display for ASTStatement {
