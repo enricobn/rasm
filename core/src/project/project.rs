@@ -162,7 +162,12 @@ impl RasmProject {
                             let path_buf = self
                                 .from_relative_to_root(Path::new(path))
                                 .canonicalize()
-                                .unwrap_or_else(|_| panic!("error canonicalizing {path}"));
+                                .unwrap_or_else(|_| {
+                                    panic!(
+                                        "error canonicalizing {path}, root {}",
+                                        self.source_folder().to_str().unwrap()
+                                    )
+                                });
                             result.push(path_buf.clone());
                             let dependency_project = RasmProject::new(path_buf);
                             result.append(&mut dependency_project.get_all_dependencies());
