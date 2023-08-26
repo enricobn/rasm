@@ -1,0 +1,14 @@
+doJob().println;
+doJobErr().println;
+
+fn print<T>(result: Result<T, str>) {
+    result.match({ ok -> print("ok");}, { err -> print("err: ", err); });
+}
+
+fn doJob() -> Result<i32, str> {
+    Result::Ok(0);
+}
+
+fn doJobErr() -> Result<(), str> {
+    Result::Error("An error");
+}

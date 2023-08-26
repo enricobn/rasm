@@ -209,7 +209,7 @@ fn convert_statement(
 
                 match converted_call {
                     Err(e) => {
-                        panic!("{e} expression: {}", expr);
+                        panic!("{e} expression {} : {}", expr, expr.get_index());
                     }
                     Ok(NothingToConvert) => new_body.push(statement),
                     Ok(SomethingConverted) => {
@@ -487,6 +487,7 @@ fn convert_statement_in_body(
             result
         }
     }
+    .map_err(|err| format!("{err} : {}", statement.get_index()).into())
 }
 
 fn convert_expr_in_body(
@@ -556,6 +557,7 @@ fn convert_last_statement_in_body(
         )
         .into()),
     }
+    .map_err(|err| format!("{err} : {}", statement.get_index()).into())
 }
 
 fn convert_last_expr_in_body(

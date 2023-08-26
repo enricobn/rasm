@@ -18,6 +18,18 @@ linker ended in 34.723392ms
 finished in 408.42347ms
 */
 
+/*
+refactoring, using Result for type check
+
+parse ended in 11.007671ms
+type check ended in 193.246476ms
+code generation ended in 34.639543ms
+assembler ended in 188.135923ms
+linker ended in 36.746701ms
+finished in 471.147908ms
+
+*/
+
 enum GameResult {
     Play(state: GameState),
     End(score: i32)

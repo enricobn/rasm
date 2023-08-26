@@ -23,6 +23,7 @@ use crate::type_check::call_converter::ConvertCallResult::*;
 use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{
     convert_function_def, convert_statement, get_new_native_call, substitute, TypeConversionContext,
 };
@@ -807,7 +808,7 @@ pub fn convert_to_typed_module(
     debug_asm: bool,
     print_allocation: bool,
     printl_module: bool,
-    mandatory_functions: Vec<DefaultFunctionCall>,
+    mandatory_functions: Vec<DefaultFunction>,
     backend: &dyn Backend,
     statics: &mut Statics,
     dereference: bool,
@@ -821,31 +822,31 @@ pub fn convert_to_typed_module(
     });
 
     let default_functions = &mut vec![
-        DefaultFunctionCall::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        DefaultFunctionCall::new_1("exitMain", BuiltinTypeKind::I32),
-        DefaultFunctionCall::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        DefaultFunctionCall::new_3(
+        DefaultFunction::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_1("exitMain", BuiltinTypeKind::I32),
+        DefaultFunction::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_3(
             "memcopy",
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
         ),
-        DefaultFunctionCall::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        DefaultFunctionCall::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
-        DefaultFunctionCall::new_2(
+        DefaultFunction::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
+        DefaultFunction::new_2(
             "createCmdLineArguments",
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
         ),
-        DefaultFunctionCall::new_1("str_addRef", BuiltinTypeKind::String),
-        DefaultFunctionCall::new_1("str_deref", BuiltinTypeKind::String),
-        DefaultFunctionCall::new_3(
+        DefaultFunction::new_1("str_addRef", BuiltinTypeKind::String),
+        DefaultFunction::new_1("str_deref", BuiltinTypeKind::String),
+        DefaultFunction::new_3(
             "addStaticAllocation",
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
         ),
-        DefaultFunctionCall::new_3(
+        DefaultFunction::new_3(
             "addHeap",
             BuiltinTypeKind::I32,
             BuiltinTypeKind::I32,
@@ -855,8 +856,8 @@ pub fn convert_to_typed_module(
 
     if print_allocation {
         default_functions.append(&mut vec![
-            DefaultFunctionCall::new_0("printAllocated"),
-            DefaultFunctionCall::new_0("printTableSlotsAllocated"),
+            DefaultFunction::new_0("printAllocated"),
+            DefaultFunction::new_0("printTableSlotsAllocated"),
         ])
     }
 
@@ -965,7 +966,8 @@ pub fn convert_to_typed_module(
                     &cloned_typed_context,
                     statics,
                     dereference,
-                ),
+                )
+                .expect(&format!("Error converting {converted_function}")),
             );
         }
 
@@ -1443,7 +1445,7 @@ pub fn get_type_of_typed_expression(
 
 fn add_default_function(
     module: &EnhancedASTModule,
-    function_call: DefaultFunctionCall,
+    function_call: DefaultFunction,
     mandatory: bool,
     typed_context: &RefCell<TypeConversionContext>,
     backend: &dyn Backend,
@@ -1504,7 +1506,7 @@ pub fn function_def(
     typed_context: &RefCell<TypeConversionContext>,
     statics: &mut Statics,
     dereference: bool,
-) -> ASTTypedFunctionDef {
+) -> Result<ASTTypedFunctionDef, TypeCheckError> {
     if !def.generic_types.is_empty() {
         panic!("function def has generics: {def}");
     }
@@ -1567,7 +1569,7 @@ pub fn function_def(
 
             let mut lines = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
-            backend
+            for (m, it) in backend
                 .called_functions(
                     Some(&typed_function_def),
                     &new_body,
@@ -1575,86 +1577,92 @@ pub fn function_def(
                     conv_context,
                 )
                 .iter()
-                .for_each(|(m, it)| {
-                    debug_i!(
-                        "native call to {:?}, in {}, generic types {:?}",
-                        it,
-                        typed_function_def.name,
-                        &generic_types
-                    );
+            {
+                debug_i!(
+                    "native call to {:?}, in {}, generic types {:?}",
+                    it,
+                    typed_function_def.name,
+                    &generic_types
+                );
 
-                    let call_parameters_types = it
-                        .param_types
-                        .iter()
-                        .map(|it| {
-                            if let Some(subst) = substitute(it, &def.resolved_generic_types) {
-                                Exact(subst)
-                            } else {
-                                Exact(it.clone())
-                            }
-                        })
-                        .collect::<Vec<_>>();
-
-                    let function_def_name_opt = {
-                        typed_context
-                            .borrow()
-                            .find_call(&it.name, &it.name, call_parameters_types.clone(), None)
-                            .map(|it| it.name.clone())
-                    };
-
-                    let function_name =
-                        if let Some(function_name) = function_def_name_opt {
-                            function_name
-                            //     TODO when SomethingConverted?
+                let call_parameters_types = it
+                    .param_types
+                    .iter()
+                    .map(|it| {
+                        if let Some(subst) = substitute(it, &def.resolved_generic_types) {
+                            Exact(subst)
                         } else {
-                            let function_call = it.to_call();
+                            Exact(it.clone())
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
-                            if let Ok(Converted(new_call)) = CallConverter::new(
-                                module,
-                                &ValContext::new(None),
-                                typed_context,
-                                backend,
-                                statics,
-                            )
-                            .convert_call(&function_call, None, &mut call_stack)
+                let function_def_name_opt = {
+                    typed_context
+                        .borrow()
+                        .find_call(
+                            &it.name,
+                            &it.name,
+                            call_parameters_types.clone(),
+                            None,
+                            &it.index(&typed_function_def.index),
+                        )?
+                        .map(|it| it.name.clone())
+                };
+
+                let function_name = if let Some(function_name) = function_def_name_opt {
+                    function_name
+                    //     TODO when SomethingConverted?
+                } else {
+                    let function_call = it.to_call(def);
+
+                    if let Ok(Converted(new_call)) = CallConverter::new(
+                        module,
+                        &ValContext::new(None),
+                        typed_context,
+                        backend,
+                        statics,
+                    )
+                    .convert_call(&function_call, None, &mut call_stack)
+                    {
+                        debug_i!("new_call {:?}", new_call);
+                        new_call.function_name
+                    } else {
+                        let function_def_opt = module.find_call(
+                            &it.name,
+                            &it.name,
+                            call_parameters_types.clone(),
+                            None,
+                            &function_call.index,
+                        )?;
+
+                        if let Some(functiond_def) = function_def_opt {
+                            if let Some(rf) = typed_context
+                                .borrow_mut()
+                                .try_add_new(&it.name, &functiond_def)
                             {
-                                debug_i!("new_call {:?}", new_call);
-                                new_call.function_name
+                                rf.name
                             } else {
-                                let function_def_opt = module.find_call(
-                                    &it.name,
-                                    &it.name,
-                                    call_parameters_types.clone(),
-                                    None,
-                                );
-
-                                if let Some(functiond_def) = function_def_opt {
-                                    if let Some(rf) = typed_context
-                                        .borrow_mut()
-                                        .try_add_new(&it.name, functiond_def)
-                                    {
-                                        rf.name
-                                    } else {
-                                        panic!("cannot find {}", function_call);
-                                    }
-                                } else {
-                                    module.debug_i();
-                                    panic!(
-                                        "cannot find {} {}: {}",
-                                        function_call,
-                                        SliceDisplay(&call_parameters_types),
-                                        function_call.index
-                                    );
-                                }
+                                panic!("cannot find {}", function_call);
                             }
-                        };
-
-                    debug_i!("found function for native call {function_name} ");
-
-                    if it.name != function_name {
-                        lines[it.i] = get_new_native_call(m, &function_name);
+                        } else {
+                            module.debug_i();
+                            panic!(
+                                "cannot find {} {}: {}",
+                                function_call,
+                                SliceDisplay(&call_parameters_types),
+                                function_call.index
+                            );
+                        }
                     }
-                });
+                };
+
+                debug_i!("found function for native call {function_name} ");
+
+                if it.name != function_name {
+                    lines[it.i] = get_new_native_call(m, &function_name);
+                }
+            }
 
             new_body = lines.join("\n");
 
@@ -1664,7 +1672,7 @@ pub fn function_def(
         }
     }
 
-    typed_function_def
+    Ok(typed_function_def)
 }
 
 pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
@@ -1967,6 +1975,16 @@ pub struct DefaultFunctionCall {
     pub i: usize,
 }
 
+impl Display for DefaultFunctionCall {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "{}({})",
+            self.name,
+            SliceDisplay(&self.param_types)
+        ))
+    }
+}
+
 impl DefaultFunctionCall {
     pub fn new(name: &str, param_types: Vec<ASTType>, i: usize) -> Self {
         Self {
@@ -1976,11 +1994,35 @@ impl DefaultFunctionCall {
         }
     }
 
+    pub fn index(&self, function_def_index: &ASTIndex) -> ASTIndex {
+        let mut index = function_def_index.clone();
+        index.row = self.i;
+        index.column = 0;
+        index
+    }
+
+    pub fn to_call(&self, function_def: &ASTFunctionDef) -> ASTFunctionCall {
+        let mut call = DefaultFunction {
+            name: self.name.clone(),
+            param_types: self.param_types.clone(),
+        }
+        .to_call();
+        call.index = self.index(&function_def.index);
+        call
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DefaultFunction {
+    pub name: String,
+    pub param_types: Vec<ASTType>,
+}
+
+impl DefaultFunction {
     pub fn new_0(name: &str) -> Self {
         Self {
             name: name.into(),
             param_types: vec![],
-            i: 0,
         }
     }
 
@@ -1988,7 +2030,6 @@ impl DefaultFunctionCall {
         Self {
             name: name.into(),
             param_types: vec![ASTType::Builtin(kind)],
-            i: 0,
         }
     }
 
@@ -1996,7 +2037,6 @@ impl DefaultFunctionCall {
         Self {
             name: name.into(),
             param_types: vec![ASTType::Builtin(kind1), ASTType::Builtin(kind2)],
-            i: 0,
         }
     }
 
@@ -2013,7 +2053,6 @@ impl DefaultFunctionCall {
                 ASTType::Builtin(kind2),
                 ASTType::Builtin(kind3),
             ],
-            i: 0,
         }
     }
 
@@ -2056,21 +2095,6 @@ impl DefaultFunctionCall {
                 })
                 .collect(),
             index: ASTIndex::none(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypedFunctionCall {
-    pub name: String,
-    pub param_types: Vec<ASTTypedType>,
-}
-
-impl TypedFunctionCall {
-    pub fn new(name: &str, param_types: Vec<ASTTypedType>) -> Self {
-        Self {
-            name: name.into(),
-            param_types,
         }
     }
 }

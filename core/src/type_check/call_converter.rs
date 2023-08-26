@@ -31,8 +31,8 @@ use crate::codegen::val_context::ValContext;
 use crate::codegen::ValKind;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
-    ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef, ASTStatement,
-    ASTType, BuiltinTypeKind,
+    ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTParameterDef,
+    ASTStatement, ASTType, BuiltinTypeKind,
 };
 use crate::type_check::call_converter::ConvertCallResult::{
     Converted, NothingToConvert, SomethingConverted,
@@ -400,7 +400,8 @@ impl<'a> CallConverter<'a> {
                 &new_return_type,
                 &TypeFilter::Exact(function_def.return_type.clone()),
                 &mut LinkedHashMap::new(),
-            ),
+                &ASTIndex::none()
+            )?,
             "Expected return type {}, but got {new_return_type} : {} {}",
             function_def.return_type,
             call.index,
@@ -1023,7 +1024,7 @@ fn get_called_function(
             call,
             call_parameters_types.clone(),
             expected_return_type.clone(),
-        )
+        )?
     };
 
     if candidate_functions.is_empty() {
@@ -1033,7 +1034,7 @@ fn get_called_function(
             call,
             call_parameters_types.clone(),
             expected_return_type.clone(),
-        );
+        )?;
     } else {
         debug_i!("candidate_functions {}", SliceDisplay(&candidate_functions));
     }
@@ -1167,7 +1168,7 @@ fn get_called_function(
                 call,
                 new_call_parameters_types.clone(),
                 expected_return_type.clone(),
-            );
+            )?;
 
             if new_function_def_opt.is_empty() {
                 function_def_from_module = true;
@@ -1175,7 +1176,7 @@ fn get_called_function(
                     call,
                     new_call_parameters_types.clone(),
                     expected_return_type.clone(),
-                );
+                )?;
             }
 
             if new_function_def_opt.len() == 1 {
@@ -1206,13 +1207,19 @@ fn get_called_function(
             let mut resolved_generic_types = LinkedHashMap::new();
             candidate_functions = candidate_functions
                 .into_iter()
-                .filter(|it| {
+                .map(|it| {
                     FunctionsContainer::almost_same_return_type(
                         &it.return_type,
                         ex,
                         &mut resolved_generic_types,
+                        &call.index,
                     )
+                    .map(|v| (it, v))
                 })
+                .filter(|it| it.as_ref().map(|r| r.1).unwrap_or(true))
+                .collect::<Result<Vec<_>, TypeCheckError>>()?
+                .into_iter()
+                .map(|(f, valid)| f)
                 .collect::<Vec<_>>();
         }
         if candidate_functions.len() > 1 {
@@ -1349,7 +1356,7 @@ fn get_called_function(
         }
         call_stack.pop();
         dedent!();
-        Ok(Some((fd, function_def_from_module)))
+        Ok(Some((fd.clone(), function_def_from_module)))
     } else {
         debug_i!("cannot find function");
         call_stack.pop();

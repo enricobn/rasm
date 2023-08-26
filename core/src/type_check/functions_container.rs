@@ -6,8 +6,9 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTType, BuiltinTypeKind,
+    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind,
 };
+use crate::type_check::type_check_error::TypeCheckError;
 use crate::utils::{OptionDisplay, SliceDisplay};
 use crate::{debug_i, dedent, indent};
 
@@ -63,7 +64,12 @@ impl FunctionsContainer {
         }
         // let original_name = &function_def.original_name;
         debug!("trying to add new function {function_def}");
-        // println!("trying to add new function {function_def} {original_name}");
+
+        for par in function_def.parameters.iter() {
+            if matches!(par.ast_type, ASTType::Unit) {
+                panic!("Parameters cannot have unit type.");
+            }
+        }
 
         if let Some(same_name_functions) = self.functions_by_name.get_mut(original_name) {
             if let Some(already_present) = same_name_functions.iter().find(|it| {
@@ -149,9 +155,10 @@ impl FunctionsContainer {
         function_name: &str,
         original_function_name: &str,
         parameter_types_filter: Vec<TypeFilter>,
-        return_type_filter: Option<Option<ASTType>>,
+        return_type_filter: Option<ASTType>,
         filter_on_name: bool,
-    ) -> Option<&ASTFunctionDef> {
+        index: &ASTIndex,
+    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -159,39 +166,18 @@ impl FunctionsContainer {
                     SliceDisplay(&parameter_types_filter)
                 );
             } else {
-                let mut resolved_generic_types = LinkedHashMap::new();
-                let lambda = |it: &&ASTFunctionDef| {
-                    if filter_on_name && it.name == function_name {
-                        return true;
-                    }
-                    let verify_params = Self::almost_same_parameters_types(
-                        &it.parameters
-                            .iter()
-                            .map(|it| it.ast_type.clone())
-                            .collect::<Vec<ASTType>>(),
-                        &parameter_types_filter,
-                        &mut resolved_generic_types,
-                    );
-
-                    verify_params
-                        && match return_type_filter {
-                            None => true,
-                            Some(None) => it.return_type.is_unit(),
-                            Some(ref rt) => match rt {
-                                None => it.return_type.is_unit(),
-                                Some(t) => Self::almost_same_type(
-                                    &it.return_type,
-                                    &TypeFilter::Exact(t.clone()),
-                                    &mut resolved_generic_types,
-                                ),
-                            },
-                        }
-                };
-                let matching_functions = functions.iter().filter(lambda).collect::<Vec<_>>();
+                let matching_functions = Self::find_call_vec_1(
+                    function_name,
+                    &parameter_types_filter,
+                    return_type_filter,
+                    filter_on_name,
+                    index,
+                    functions,
+                )?;
 
                 let count = matching_functions.len();
                 if count == 0 {
-                    None
+                    Ok(None)
                 } else if count > 1 {
                     let f_descs = matching_functions
                         .iter()
@@ -203,12 +189,73 @@ impl FunctionsContainer {
                         SliceDisplay(&parameter_types_filter)
                     );
                 } else {
-                    matching_functions.first().cloned()
+                    Ok(matching_functions.first().cloned())
                 }
             }
         } else {
-            None
+            Ok(None)
         }
+    }
+
+    fn find_call_vec_1(
+        function_name: &str,
+        parameter_types_filter: &Vec<TypeFilter>,
+        return_type_filter: Option<ASTType>,
+        filter_on_name: bool,
+        index: &ASTIndex,
+        functions: &Vec<ASTFunctionDef>,
+    ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
+        let mut resolved_generic_types = LinkedHashMap::new();
+        let lambda = |it: &ASTFunctionDef| {
+            debug_i!("testing function {it}");
+            indent!();
+            if filter_on_name && it.name == function_name {
+                dedent!();
+                return Ok((it.clone(), true));
+            }
+            let result = Self::almost_same_parameters_types(
+                &it.parameters
+                    .iter()
+                    .map(|it| it.ast_type.clone())
+                    .collect::<Vec<ASTType>>(),
+                parameter_types_filter,
+                &mut resolved_generic_types,
+                &it.index,
+            )
+            .and_then(|verify_params| {
+                if !verify_params {
+                    Ok((it.clone(), false))
+                } else {
+                    match return_type_filter {
+                        None => Ok(true),
+                        Some(ref rt) => {
+                            if matches!(rt, ASTType::Generic(_)) {
+                                Ok(true)
+                            } else {
+                                Self::almost_same_return_type(
+                                    &it.return_type,
+                                    rt,
+                                    &mut resolved_generic_types,
+                                    index,
+                                )
+                            }
+                        }
+                    }
+                    .map(|b| (it.clone(), b))
+                }
+            });
+            dedent!();
+            result
+        };
+        let matching_functions = functions
+            .iter()
+            .map(lambda)
+            .collect::<Result<Vec<_>, TypeCheckError>>()?
+            .into_iter()
+            .filter(|(_, v)| *v)
+            .map(|it| it.0.clone())
+            .collect::<Vec<_>>();
+        Ok(matching_functions)
     }
 
     pub fn find_call_vec(
@@ -217,7 +264,7 @@ impl FunctionsContainer {
         parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         filter_only_on_name: bool,
-    ) -> Vec<ASTFunctionDef> {
+    ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
             OptionDisplay(&return_type_filter),
@@ -231,9 +278,19 @@ impl FunctionsContainer {
                         SliceDisplay(&parameter_types_filter)
                     );
                 } else {
+                    Self::find_call_vec_1(
+                        &call.function_name,
+                        &parameter_types_filter,
+                        return_type_filter,
+                        filter_only_on_name,
+                        &ASTIndex::none(),
+                        functions,
+                    )
+                    /*
                     let mut resolved_generic_types = LinkedHashMap::new();
                     let lambda = |it: &&ASTFunctionDef| {
                         debug_i!("verifying function {it}");
+                        //println!("verifying function {it} in {call}");
                         if filter_only_on_name && it.name == call.function_name {
                             return true;
                         }
@@ -244,6 +301,7 @@ impl FunctionsContainer {
                                 .collect::<Vec<ASTType>>(),
                             &parameter_types_filter,
                             &mut resolved_generic_types,
+                            &call.index,
                         );
 
                         verify_params
@@ -253,26 +311,31 @@ impl FunctionsContainer {
                                     if matches!(rt, ASTType::Generic(_)) {
                                         true
                                     } else {
-                                        Self::almost_same_type(
+                                        Self::almost_same_return_type(
                                             &it.return_type,
-                                            &TypeFilter::Exact(rt.clone()),
+                                            &rt.clone(),
                                             &mut resolved_generic_types,
+                                            &call.index,
                                         )
                                     }
                                 }
                             }
                     };
                     functions.iter().filter(lambda).cloned().collect::<Vec<_>>()
+
+                     */
                 }
             } else {
                 debug_i!(
                     "cannot find a function with name {}",
                     call.original_function_name
                 );
-                vec![]
+                Ok(vec![])
             };
 
-        debug_i!("Found functions {}", SliceDisplay(&result));
+        if let Ok(r) = &result {
+            debug_i!("Found functions: {}", SliceDisplay(r));
+        }
 
         result
     }
@@ -281,7 +344,7 @@ impl FunctionsContainer {
         &self,
         name: String,
         parameter_types_filter: Vec<ASTType>,
-    ) -> Option<&ASTFunctionDef> {
+    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(&name) {
             if functions.is_empty() {
                 panic!(
@@ -291,9 +354,9 @@ impl FunctionsContainer {
             } else {
                 let mut resolved_generic_types = LinkedHashMap::new();
 
-                let lambda = |it: &&ASTFunctionDef| {
+                let lambda = |it: &ASTFunctionDef| {
                     if it.name != name {
-                        false
+                        Ok((it.clone(), false))
                     } else {
                         Self::almost_same_parameters_types(
                             &it.parameters
@@ -305,26 +368,35 @@ impl FunctionsContainer {
                                 .map(|it| TypeFilter::Exact(it.clone()))
                                 .collect(),
                             &mut resolved_generic_types,
+                            &it.index,
                         )
+                        .map(|b| (it.clone(), b))
                     }
                 };
 
-                let result = functions.iter().filter(lambda).collect::<Vec<_>>();
+                let result = functions
+                    .iter()
+                    .map(lambda)
+                    .collect::<Result<Vec<_>, TypeCheckError>>()?
+                    .into_iter()
+                    .filter(|(f, b)| *b)
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
 
                 let count = result.len();
                 if count == 0 {
-                    None
+                    Ok(None)
                 } else if count > 1 {
                     panic!(
                         "found more than one function for {name} filter {:?}",
                         parameter_types_filter
                     );
                 } else {
-                    result.first().cloned()
+                    Ok(result.first().cloned())
                 }
             }
         } else {
-            None
+            Ok(None)
         }
     }
 
@@ -332,39 +404,56 @@ impl FunctionsContainer {
         parameter_types: &Vec<ASTType>,
         parameter_types_filter: &Vec<TypeFilter>,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-    ) -> bool {
+        index: &ASTIndex,
+    ) -> Result<bool, TypeCheckError> {
         let result = if parameter_types.len() != parameter_types_filter.len() {
             debug_i!("not matching parameter length");
             false
         } else {
-            zip(parameter_types.iter(), parameter_types_filter.iter()).all(
-                |(parameter_type, parameter_type_filter)| {
-                    let result = Self::almost_same_type(
-                        parameter_type,
-                        parameter_type_filter,
-                        resolved_generic_types,
-                    );
-
-                    if !result {
-                        debug_i!("Not matching parameter {parameter_type}");
-                    }
-
-                    result
-                },
-            )
+            Self::match_parameters(
+                parameter_types,
+                parameter_types_filter,
+                resolved_generic_types,
+                index,
+            )?
         };
-        result
+        Ok(result)
+    }
+
+    fn match_parameters(
+        parameter_types: &[ASTType],
+        parameter_types_filter: &[TypeFilter],
+        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
+        index: &ASTIndex,
+    ) -> Result<bool, TypeCheckError> {
+        let result = zip(parameter_types.iter(), parameter_types_filter.iter())
+            .map(|(parameter_type, parameter_type_filter)| {
+                Self::almost_same_type(
+                    parameter_type,
+                    parameter_type_filter,
+                    resolved_generic_types,
+                    index,
+                )
+            })
+            .collect::<Result<Vec<bool>, TypeCheckError>>()?
+            .iter()
+            .all(|it| *it);
+        debug_i!("match_parameters: {result}");
+        Ok(result)
     }
 
     pub fn almost_same_return_type(
         actual_return_type: &ASTType,
         expected_return_type: &ASTType,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-    ) -> bool {
-        Self::almost_same_type(
+        index: &ASTIndex,
+    ) -> Result<bool, TypeCheckError> {
+        Self::almost_same_type_internal(
             actual_return_type,
             &TypeFilter::Exact(expected_return_type.clone()),
             resolved_generic_types,
+            index,
+            true,
         )
     }
 
@@ -372,16 +461,31 @@ impl FunctionsContainer {
         parameter_type: &ASTType,
         parameter_type_filter: &TypeFilter,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-    ) -> bool {
-        debug_i!(
-            "almost_same_type {parameter_type} filter {}",
-            &parameter_type_filter
-        );
-        match parameter_type_filter {
-            TypeFilter::Any => true,
+        index: &ASTIndex,
+    ) -> Result<bool, TypeCheckError> {
+        Self::almost_same_type_internal(
+            parameter_type,
+            parameter_type_filter,
+            resolved_generic_types,
+            index,
+            false,
+        )
+    }
+    fn almost_same_type_internal(
+        parameter_type: &ASTType,
+        parameter_type_filter: &TypeFilter,
+        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
+        index: &ASTIndex,
+        return_type: bool,
+    ) -> Result<bool, TypeCheckError> {
+        debug_i!("almost_same_type {parameter_type} filter {parameter_type_filter} return_type: {return_type}");
+        indent!();
+        let result: bool = match parameter_type_filter {
+            TypeFilter::Any => Ok::<bool, TypeCheckError>(true),
             TypeFilter::Exact(filter_type) => {
                 if filter_type == parameter_type {
-                    return true;
+                    dedent!();
+                    return Ok(true);
                 }
                 match filter_type {
                     ASTType::Builtin(filter_kind) => match filter_kind {
@@ -393,52 +497,70 @@ impl FunctionsContainer {
                                 parameters: a_p,
                                 return_type: a_rt,
                             }) => {
+                                debug_i!("filter_ps {}", SliceDisplay(filter_ps));
+                                debug_i!("a_p {}", SliceDisplay(a_p));
+
                                 let parameter_same = filter_ps.len() == a_p.len()
-                                    && zip(filter_ps, a_p).all(|(filter_type, a)| {
-                                        Self::almost_same_type(
-                                            a,
-                                            &TypeFilter::Exact(filter_type.clone()),
-                                            resolved_generic_types,
-                                        )
-                                    });
+                                    && zip(filter_ps, a_p)
+                                        .map(|(filter_type, a)| {
+                                            Self::almost_same_type_internal(
+                                                a,
+                                                &TypeFilter::Exact(filter_type.clone()),
+                                                resolved_generic_types,
+                                                index,
+                                                return_type,
+                                            )
+                                        })
+                                        .collect::<Result<Vec<_>, TypeCheckError>>()?
+                                        .into_iter()
+                                        .all(|it| it);
 
-                                let return_type_same = Self::almost_same_type(
+                                let return_type_same = Self::almost_same_return_type(
                                     a_rt,
-                                    &TypeFilter::Exact(filter_rt.deref().clone()),
+                                    &filter_rt.deref().clone(),
                                     resolved_generic_types,
-                                );
+                                    index,
+                                )?;
 
-                                parameter_same && return_type_same
+                                Ok(parameter_same && return_type_same)
                             }
-                            _ => false,
+                            _ => Ok(false),
                         },
-                        _ => match parameter_type {
-                            ASTType::Builtin(_) => filter_type == parameter_type,
-                            ASTType::Generic(_) => true,
-                            ASTType::Custom { .. } => false,
-                            ASTType::Unit => {
-                                // TODO index
-                                panic!("Parameters cannot have unit type.");
-                            }
-                        },
+                        _ => {
+                            debug_i!("parameter type {parameter_type}");
+                            let r = match parameter_type {
+                                ASTType::Builtin(_) => filter_type == parameter_type,
+                                ASTType::Generic(_) => true,
+                                ASTType::Custom { .. } => false,
+                                ASTType::Unit => {
+                                    if return_type {
+                                        false
+                                    } else {
+                                        return Self::unit_type_is_not_allowed_here(index);
+                                    }
+                                }
+                            };
+                            Ok(r)
+                        }
                     },
                     ASTType::Generic(filter_generic_type) => {
                         let already_resolved_o = resolved_generic_types.get(filter_generic_type);
+                        debug_i!("already_resolved {}", OptionDisplay(&already_resolved_o));
                         match parameter_type {
                             ASTType::Generic(_parameter_generic_type) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Generic : the context
-                                true
+                                Ok(true)
                             }
                             _ => {
                                 if let Some(already_resolved) = already_resolved_o {
-                                    already_resolved == parameter_type
+                                    Ok(already_resolved == parameter_type)
                                 } else {
                                     resolved_generic_types.insert(
                                         filter_generic_type.clone(),
                                         parameter_type.clone(),
                                     );
-                                    true
+                                    Ok(true)
                                 }
                             }
                         }
@@ -449,43 +571,58 @@ impl FunctionsContainer {
                         index: _,
                     } => {
                         match parameter_type {
-                            ASTType::Builtin(_) => false,
-                            ASTType::Generic(_) => true, // TODO
+                            ASTType::Builtin(_) => Ok(false),
+                            ASTType::Generic(_) => Ok(true), // TODO
                             ASTType::Custom {
                                 param_types,
                                 name: type_name,
                                 index: _,
-                            } => {
-                                type_name == expected_type_name
-                                    && param_types.len() == expected_param_types.len()
-                                    && param_types.iter().enumerate().all(|(i, pt)| {
-                                        Self::almost_same_type(
+                            } => Ok(type_name == expected_type_name
+                                && param_types.len() == expected_param_types.len()
+                                && param_types
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, pt)| {
+                                        Self::almost_same_type_internal(
                                             pt,
                                             &TypeFilter::Exact(
                                                 expected_param_types.get(i).unwrap().clone(),
                                             ),
                                             resolved_generic_types,
+                                            index,
+                                            false,
                                         )
                                     })
-                            }
+                                    .collect::<Result<Vec<_>, TypeCheckError>>()?
+                                    .into_iter()
+                                    .all(|it| it)),
                             ASTType::Unit => {
-                                //panic!("Parameters cannot have unit type");
-                                false
+                                if !return_type {
+                                    return Self::unit_type_is_not_allowed_here(index);
+                                } else {
+                                    Ok(false)
+                                }
                             }
                         }
                     }
                     ASTType::Unit => match parameter_type {
-                        ASTType::Builtin(_) => false,
+                        ASTType::Builtin(_) => Ok(false),
                         ASTType::Generic(name) => {
                             if let Some(gt) = resolved_generic_types.get(name) {
-                                gt.is_unit()
+                                Ok(gt.is_unit())
                             } else {
                                 resolved_generic_types.insert(name.to_owned(), ASTType::Unit);
-                                true
+                                Ok(true)
                             }
                         }
-                        ASTType::Custom { .. } => false,
-                        ASTType::Unit => false, //panic!("Parameters cannot have unit type"),
+                        ASTType::Custom { .. } => Ok(false),
+                        ASTType::Unit => {
+                            if return_type {
+                                Ok(false)
+                            } else {
+                                return Self::unit_type_is_not_allowed_here(index);
+                            }
+                        }
                     },
                 }
             }
@@ -495,16 +632,24 @@ impl FunctionsContainer {
                     return_type: _,
                 }) = parameter_type
                 {
-                    len == &parameters.len()
+                    Ok(len == &parameters.len())
                 } else {
-                    false
+                    Ok(false)
                 }
             }
-            TypeFilter::NotALambda => !matches!(
+            TypeFilter::NotALambda => Ok(!matches!(
                 parameter_type,
                 ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
-            ),
-        }
+            )),
+        }?;
+        debug_i!("almost same: {result}");
+        dedent!();
+        Ok(result)
+    }
+
+    fn unit_type_is_not_allowed_here(index: &ASTIndex) -> Result<bool, TypeCheckError> {
+        //Err(format!("Unit type is not allowed here: {index}").into())
+        Ok(false)
     }
 
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
@@ -732,9 +877,10 @@ mod tests {
             ],
             None,
             false,
+            &ASTIndex::none(),
         );
 
-        assert!(result.is_some());
+        assert!(result.unwrap().is_some());
     }
 
     fn create_function(

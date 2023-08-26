@@ -4,10 +4,11 @@ use log::debug;
 
 use crate::debug_i;
 use crate::parser::ast::{
-    ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTModule, ASTStatement, ASTStructDef, ASTType,
-    ASTTypeDef,
+    ASTEnumDef, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement, ASTStructDef,
+    ASTType, ASTTypeDef,
 };
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Clone)]
 pub struct EnhancedASTModule {
@@ -56,14 +57,16 @@ impl EnhancedASTModule {
         function_name: &str,
         original_function_name: &str,
         parameter_types_filter: Vec<TypeFilter>,
-        return_type_filter: Option<Option<ASTType>>,
-    ) -> Option<&ASTFunctionDef> {
+        return_type_filter: Option<ASTType>,
+        index: &ASTIndex,
+    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
         self.functions_by_name.find_call(
             function_name,
             original_function_name,
             parameter_types_filter,
             return_type_filter,
             false,
+            index,
         )
     }
 
@@ -72,7 +75,7 @@ impl EnhancedASTModule {
         call: &ASTFunctionCall,
         parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
-    ) -> Vec<ASTFunctionDef> {
+    ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
         debug_i!("find call vec for module");
         self.functions_by_name.find_call_vec(
             call,
@@ -86,7 +89,7 @@ impl EnhancedASTModule {
         &self,
         name: String,
         parameter_types_filter: Vec<ASTType>,
-    ) -> Option<&ASTFunctionDef> {
+    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
         self.functions_by_name
             .find_default_call(name, parameter_types_filter)
     }

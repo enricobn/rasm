@@ -192,7 +192,9 @@ impl ReferenceFinder {
                         Self::get_filter_of_expression(it, reference_context, functions_container)
                     })
                     .collect();
-                let functions = functions_container.find_call_vec(call, filters, None, false);
+                let functions = functions_container
+                    .find_call_vec(call, filters, None, false)
+                    .unwrap();
                 if functions.len() == 1 {
                     TypeFilter::Exact(functions.first().unwrap().return_type.clone())
                 } else {
@@ -269,8 +271,9 @@ impl ReferenceFinder {
                     })
                     .collect();
 
-                let functions =
-                    functions_container.find_call_vec(call, filters.clone(), None, false);
+                let functions = functions_container
+                    .find_call_vec(call, filters.clone(), None, false)
+                    .unwrap();
 
                 if functions.len() == 1 {
                     result.push(SelectableItem::new(

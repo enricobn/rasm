@@ -392,6 +392,11 @@ fn list_pop_replace() {
     );
 }
 
+#[test]
+fn result() {
+    run_test("result", Vec::new(), "ok\nerr: An error\n");
+}
+
 // Compile tests
 
 #[test]

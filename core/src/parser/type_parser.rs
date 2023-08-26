@@ -1,6 +1,6 @@
 use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
-use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
+use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Generic};
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::parser::ParserTrait;
@@ -75,6 +75,14 @@ impl<'a> TypeParser<'a> {
                 }
             } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
                 Some(self.parse_fn(n + 1, context_generic_types, rec))
+            } else if matches!(
+                kind,
+                TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)
+            ) && matches!(
+                self.parser.get_token_kind_n(n + 1),
+                Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close))
+            ) {
+                Some((ASTType::Unit, next_i + 1))
             } else {
                 None
             }
@@ -113,7 +121,10 @@ impl<'a> TypeParser<'a> {
                     next_i = inner_next_i;
                     inner_n = next_i - self.parser.get_i();
                 } else {
-                    panic!("Error parsing type");
+                    panic!(
+                        "Error parsing type: {}",
+                        self.parser.get_index(inner_n).unwrap()
+                    );
                 }
             }
             Some((types, next_i))

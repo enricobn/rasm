@@ -27,7 +27,7 @@ impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         //let bt = Backtrace::new();
         //println!("{:?}", bt);
-        f.write_str(&format!("{}", &self.message))
+        f.write_str(&self.message)
     }
 }
 

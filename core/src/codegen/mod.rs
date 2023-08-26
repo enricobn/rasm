@@ -704,7 +704,8 @@ impl<'a> CodeGen<'a> {
                     .collect();
                 if let Some(new_function_def) = self
                     .type_conversion_context
-                    .find_call(&it.name, &it.name, filter, None)
+                    .find_call(&it.name, &it.name, filter, None, &ASTIndex::none())
+                    .expect(&format!("Error finding {it}"))
                 {
                     debug_i!("converted to {new_function_def}");
                     if it.name != new_function_def.name {
