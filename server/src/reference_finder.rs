@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+use std::io;
 use std::path::PathBuf;
 
 use log::warn;
@@ -26,7 +28,7 @@ impl ReferenceFinder {
 
         let selectable_items = Self::get_selectable_items(module, &functions_container);
 
-        //println!("selectable_items {:?}", selectable_items);
+        //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
         Self {
             selectable_items,
@@ -34,11 +36,11 @@ impl ReferenceFinder {
         }
     }
 
-    pub fn find(&self, index: &ASTIndex) -> Vec<ASTIndex> {
+    pub fn find(&self, index: &ASTIndex) -> Result<Vec<ASTIndex>, io::Error> {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
-            if selectable_item.matches(index) {
+            if selectable_item.matches(index)? {
                 //println!("found {:?}", selectable_item);
                 result.push(selectable_item.point_to.clone());
             }
@@ -48,7 +50,7 @@ impl ReferenceFinder {
             }
         }
 
-        result
+        Ok(result)
     }
 
     fn get_selectable_items(
@@ -343,31 +345,64 @@ pub struct SelectableItem {
     point_to: ASTIndex,
 }
 
+impl Display for SelectableItem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let file_name = if self.min.file_name != self.max.file_name {
+            String::new()
+        } else {
+            self.min
+                .file_name
+                .as_ref()
+                .and_then(|it| it.to_str().map(|s| format!("file:///{s}")))
+                .unwrap_or("".to_owned())
+        };
+
+        f.write_str(&format!(
+            "{file_name} {}:{}-{}:{} {}",
+            self.min.row, self.min.column, self.max.row, self.max.column, self.point_to
+        ))
+    }
+}
+
 impl SelectableItem {
     pub fn new(min: ASTIndex, max: ASTIndex, point_to: ASTIndex) -> Self {
         SelectableItem { min, max, point_to }
     }
 
-    pub fn matches(&self, index: &ASTIndex) -> bool {
-        index.row == self.min.row
+    pub fn matches(&self, index: &ASTIndex) -> Result<bool, io::Error> {
+        Ok(index.row == self.min.row
             && index.row == self.max.row
             && index.column >= self.min.column
             && index.column <= self.max.column
-            && Self::path_matches(&index.file_name, &self.min.file_name)
-            && Self::path_matches(&index.file_name, &self.max.file_name)
+            && Self::path_matches(&index.file_name, &self.min.file_name)?
+            && Self::path_matches(&index.file_name, &self.max.file_name)?)
     }
 
-    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> bool {
+    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> Result<bool, io::Error> {
         if let Some(p1) = op1 {
             if let Some(p2) = op2 {
                 if p1.file_name() != p2.file_name() {
-                    return false;
+                    return Ok(false);
                 }
-                return p1.canonicalize().unwrap() == p2.canonicalize().unwrap();
+                let p1_canon = p1.canonicalize().map_err(|it| {
+                    io::Error::new(
+                        it.kind(),
+                        format!("Error canonilizing {}", p1.as_os_str().to_str().unwrap()),
+                    )
+                })?;
+
+                let p2_canon = p2.canonicalize().map_err(|it| {
+                    io::Error::new(
+                        it.kind(),
+                        format!("Error canonilizing {}", p2.as_os_str().to_str().unwrap()),
+                    )
+                })?;
+
+                return Ok(p1_canon == p2_canon);
             }
         }
 
-        false
+        Ok(false)
     }
 }
 
@@ -376,7 +411,7 @@ mod tests {
     use std::collections::HashSet;
     use std::env;
     use std::io::Write;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use env_logger::Builder;
 
@@ -405,24 +440,9 @@ mod tests {
 
     #[test]
     fn simple() {
-        init();
-        env::set_var("RASM_STDLIB", "../../stdlib");
+        let finder = get_reference_finder("resources/simple.rasm");
+
         let file_name = Path::new("resources/simple.rasm");
-
-        let project = RasmProject::new(file_name.to_path_buf());
-
-        let mut statics = Statics::new();
-        let mut module = project.get_module();
-
-        enrich_module(
-            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
-
-        let finder = ReferenceFinder::new(&module);
-
         finder.selectable_items.iter().for_each(|it| {
             if it.min.file_name == Some(file_name.to_path_buf()) {
                 println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
@@ -430,37 +450,25 @@ mod tests {
         });
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,)),
+            finder
+                .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
+                .unwrap(),
             vec![ASTIndex::new(Some(file_name.to_path_buf()), 1, 10)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 15,)),
+            finder
+                .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 15,))
+                .unwrap(),
             vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 21)]
         );
     }
 
     #[test]
     fn types() {
-        init();
-        let stdlib = "../../stdlib";
-        env::set_var("RASM_STDLIB", stdlib);
+        let finder = get_reference_finder("resources/types.rasm");
+
         let file_name = Path::new("resources/types.rasm");
-
-        let project = RasmProject::new(file_name.to_path_buf());
-
-        let mut statics = Statics::new();
-        let mut module = project.get_module();
-
-        enrich_module(
-            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
-
-        let finder = ReferenceFinder::new(&module);
-
         let source_file = Path::new(&file_name);
 
         finder.selectable_items.iter().for_each(|it| {
@@ -469,24 +477,77 @@ mod tests {
             }
         });
 
+        let project = RasmProject::new(file_name.to_path_buf());
+
         let stdlib_path = project
-            .from_relative_to_root(Path::new(stdlib))
+            .from_relative_to_root(Path::new("../../stdlib"))
             .canonicalize()
             .unwrap();
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,)),
+            finder
+                .find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,))
+                .unwrap(),
             vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 5)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 17, 23,)),
+            finder
+                .find(&ASTIndex::new(Some(source_file.to_path_buf()), 17, 23,))
+                .unwrap(),
             vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 7)]
         );
 
         assert_eq!(
-            finder.find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,)),
+            finder
+                .find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,))
+                .unwrap(),
             vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 5)]
         );
+    }
+
+    #[test]
+    fn xml() {
+        let reference_finder = get_reference_finder("/home/enrico/development/rasm/xmllib");
+        let found = reference_finder
+            .find(&ASTIndex::new(
+                Some(PathBuf::from(
+                    "/home/enrico/development/rasm/xmllib/src/xml.rasm",
+                )),
+                115,
+                51,
+            ))
+            .unwrap();
+
+        assert_eq!(
+            vec!(ASTIndex::new(
+                Some(PathBuf::from(
+                    "/home/enrico/development/rasm/xmllib/src/xml.rasm",
+                )),
+                26,
+                5,
+            )),
+            found
+        );
+    }
+
+    fn get_reference_finder(source: &str) -> ReferenceFinder {
+        init();
+        env::set_var("RASM_STDLIB", "../../stdlib");
+        let file_name = Path::new(source);
+
+        let project = RasmProject::new(file_name.to_path_buf());
+
+        let mut statics = Statics::new();
+        let mut module = project.get_module();
+
+        enrich_module(
+            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
+            project.resource_folder(),
+            &mut statics,
+            &mut module,
+        );
+
+        ReferenceFinder::new(&module)
     }
 }

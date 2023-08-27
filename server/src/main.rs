@@ -177,7 +177,7 @@ async fn file(
                 row: it.row,
                 column: it.column,
             };
-            let vec = state.finder.find(&index);
+            let vec = state.finder.find(&index).unwrap();
             let name = format!("_{}_{}", it.row, it.column);
             if vec.len() > 0 {
                 if let Some(file_name) = &vec.first().cloned().and_then(|it| it.file_name) {
