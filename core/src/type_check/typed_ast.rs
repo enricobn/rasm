@@ -821,47 +821,7 @@ pub fn convert_to_typed_module(
         add_default_function(module, it, true, &new_typed_context, backend, statics)
     });
 
-    let default_functions = &mut vec![
-        DefaultFunction::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        DefaultFunction::new_1("exitMain", BuiltinTypeKind::I32),
-        DefaultFunction::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        DefaultFunction::new_3(
-            "memcopy",
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-        ),
-        DefaultFunction::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-        DefaultFunction::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
-        DefaultFunction::new_2(
-            "createCmdLineArguments",
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-        ),
-        DefaultFunction::new_1("str_addRef", BuiltinTypeKind::String),
-        DefaultFunction::new_1("str_deref", BuiltinTypeKind::String),
-        DefaultFunction::new_3(
-            "addStaticAllocation",
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-        ),
-        DefaultFunction::new_3(
-            "addHeap",
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-            BuiltinTypeKind::I32,
-        ),
-    ];
-
-    if print_allocation {
-        default_functions.append(&mut vec![
-            DefaultFunction::new_0("printAllocated"),
-            DefaultFunction::new_0("printTableSlotsAllocated"),
-        ])
-    }
-
-    default_functions.sort_by(|a, b| a.name.cmp(&b.name));
+    let default_functions = get_default_functions(print_allocation);
     //default_functions.dedup_by(|a, b| a.name == b.name);
 
     for it in default_functions {
@@ -1044,6 +1004,51 @@ pub fn convert_to_typed_module(
     info!("verify end");
 
     (result, new_typed_context.into_inner())
+}
+
+pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
+    let mut default_functions = vec![
+        DefaultFunction::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_1("exitMain", BuiltinTypeKind::I32),
+        DefaultFunction::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_3(
+            "memcopy",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+        DefaultFunction::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
+        DefaultFunction::new_2(
+            "createCmdLineArguments",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+        DefaultFunction::new_1("str_addRef", BuiltinTypeKind::String),
+        DefaultFunction::new_1("str_deref", BuiltinTypeKind::String),
+        DefaultFunction::new_3(
+            "addStaticAllocation",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+        DefaultFunction::new_3(
+            "addHeap",
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+            BuiltinTypeKind::I32,
+        ),
+    ];
+
+    if print_allocation {
+        default_functions.append(&mut vec![
+            DefaultFunction::new_0("printAllocated"),
+            DefaultFunction::new_0("printTableSlotsAllocated"),
+        ])
+    }
+
+    default_functions.sort_by(|a, b| a.name.cmp(&b.name));
+    default_functions
 }
 
 fn find_calls(

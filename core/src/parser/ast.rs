@@ -174,6 +174,12 @@ pub struct ASTStructPropertyDef {
     pub index: ASTIndex,
 }
 
+impl Display for ASTStructPropertyDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}: {}", self.name, self.ast_type))
+    }
+}
+
 impl ASTParameterDef {
     pub fn new(name: &str, ast_type: ASTType, ast_index: ASTIndex) -> ASTParameterDef {
         ASTParameterDef {
@@ -426,6 +432,18 @@ pub struct ASTEnumDef {
     pub index: ASTIndex,
 }
 
+impl Display for ASTEnumDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let variants = self
+            .variants
+            .iter()
+            .map(|it| format!("  {it}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        f.write_str(&format!("enum {} {{\n{variants}\n}}", self.name))
+    }
+}
+
 impl ASTEnumDef {
     pub fn variant_function_name(&self, variant: &ASTEnumVariantDef) -> String {
         let mut result = String::new();
@@ -463,12 +481,30 @@ pub struct ASTStructDef {
     pub index: ASTIndex,
 }
 
+impl Display for ASTStructDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pars = self
+            .properties
+            .iter()
+            .map(|it| format!("{it}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        f.write_str(&format!("struct {}({pars})", self.name))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTTypeDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub is_ref: bool,
     pub index: ASTIndex,
+}
+
+impl Display for ASTTypeDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("type {}", self.name))
+    }
 }
 
 pub fn lambda(return_type: ASTType) -> ASTType {

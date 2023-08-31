@@ -26,6 +26,25 @@ pub enum TypeFilter {
     NotALambda,
 }
 
+impl TypeFilter {
+    pub fn almost_equal(&self, ast_type: &ASTType) -> bool {
+        match self {
+            TypeFilter::Exact(f_type) => f_type == ast_type,
+            TypeFilter::Any => true,
+            TypeFilter::Lambda(n) => match ast_type {
+                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                }) => &parameters.len() == n,
+                _ => false,
+            },
+            TypeFilter::NotALambda => {
+                !matches!(ast_type, ASTType::Builtin(BuiltinTypeKind::Lambda { .. }))
+            }
+        }
+    }
+}
+
 impl Display for TypeFilter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -134,6 +153,13 @@ impl FunctionsContainer {
         } else {
             found.first().cloned()
         }
+    }
+
+    pub fn has_function(&self, original_name: &str, name: &str) -> bool {
+        self.functions_by_name
+            .get(original_name)
+            .map(|it| it.iter().any(|function_def| &function_def.name == name))
+            .unwrap_or(false)
     }
 
     pub fn find_function_by_original_name(&self, name: &str) -> Option<&ASTFunctionDef> {
@@ -261,7 +287,7 @@ impl FunctionsContainer {
     pub fn find_call_vec(
         &self,
         call: &ASTFunctionCall,
-        parameter_types_filter: Vec<TypeFilter>,
+        parameter_types_filter: &Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         filter_only_on_name: bool,
     ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {

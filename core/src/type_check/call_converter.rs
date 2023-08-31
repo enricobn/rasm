@@ -153,8 +153,8 @@ impl<'a> CallConverter<'a> {
         for (i, expr) in call_parameters.iter().enumerate() {
             let par = function_parameters.get(i).unwrap_or_else(|| {
                 panic!(
-                    "Cannot find parameter {i} when calling function {} effective function {}",
-                    &function_def.name, call.function_name
+                    "Cannot find parameter {i} when calling function {} effective function {} : {}",
+                    &function_def.name, call.function_name, call.index
                 )
             });
 
@@ -1022,7 +1022,7 @@ fn get_called_function(
     } else {
         typed_context.borrow().find_call_vec(
             call,
-            call_parameters_types.clone(),
+            &call_parameters_types,
             expected_return_type.clone(),
         )?
     };
@@ -1030,11 +1030,8 @@ fn get_called_function(
     if candidate_functions.is_empty() {
         debug_i!("No function from context");
         function_def_from_module = true;
-        candidate_functions = module.find_call_vec(
-            call,
-            call_parameters_types.clone(),
-            expected_return_type.clone(),
-        )?;
+        candidate_functions =
+            module.find_call_vec(call, &call_parameters_types, expected_return_type.clone())?;
     } else {
         debug_i!("candidate_functions {}", SliceDisplay(&candidate_functions));
     }
@@ -1166,7 +1163,7 @@ fn get_called_function(
             );
             let mut new_function_def_opt = typed_context.borrow().find_call_vec(
                 call,
-                new_call_parameters_types.clone(),
+                &new_call_parameters_types,
                 expected_return_type.clone(),
             )?;
 
@@ -1174,7 +1171,7 @@ fn get_called_function(
                 function_def_from_module = true;
                 new_function_def_opt = module.find_call_vec(
                     call,
-                    new_call_parameters_types.clone(),
+                    &new_call_parameters_types,
                     expected_return_type.clone(),
                 )?;
             }

@@ -72,7 +72,7 @@ impl TypeConversionContext {
     pub fn find_call_vec(
         &self,
         call: &ASTFunctionCall,
-        parameter_types_filter: Vec<TypeFilter>,
+        parameter_types_filter: &Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
     ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
         self.functions_by_name
