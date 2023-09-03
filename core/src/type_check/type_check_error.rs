@@ -20,25 +20,43 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct TypeCheckError {
-    pub message: String,
+    messages: Vec<String>,
+}
+
+impl TypeCheckError {
+    pub fn new(message: String) -> Self {
+        TypeCheckError {
+            messages: vec![message],
+        }
+    }
+
+    pub fn add(self, message: String) -> Self {
+        let mut result = self.messages.clone();
+        result.push(message);
+        TypeCheckError { messages: result }
+    }
 }
 
 impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         //let bt = Backtrace::new();
         //println!("{:?}", bt);
-        f.write_str(&self.message)
+        for message in self.messages.iter() {
+            f.write_str(message)?;
+            f.write_str("\n")?;
+        }
+        Ok(())
     }
 }
 
 impl From<&str> for TypeCheckError {
     fn from(s: &str) -> Self {
-        TypeCheckError { message: s.into() }
+        TypeCheckError::new(s.into())
     }
 }
 
 impl From<String> for TypeCheckError {
     fn from(s: String) -> Self {
-        TypeCheckError { message: s }
+        TypeCheckError::new(s)
     }
 }

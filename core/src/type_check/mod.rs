@@ -801,7 +801,7 @@ fn get_type_of_expression(
     result
 }
 
-fn resolve_generic_types_from_effective_type(
+pub fn resolve_generic_types_from_effective_type(
     generic_type: &ASTType,
     effective_type: &ASTType,
 ) -> Result<ResolvedGenericTypes, TypeCheckError> {
@@ -875,35 +875,37 @@ fn resolve_generic_types_from_effective_type(
             name: p_name,
             param_types: p_param_types,
             index: _,
-        } => match effective_type {
-            ASTType::Custom {
-                name: e_name,
-                param_types: e_param_types,
-                index: _,
-            } => {
-                if p_name != e_name {
+        } => {
+            match effective_type {
+                ASTType::Custom {
+                    name: e_name,
+                    param_types: e_param_types,
+                    index: _,
+                } => {
+                    if p_name != e_name {
+                        dedent!();
+                        return Err(format!("unmatched custom type name {p_name} {e_name}").into());
+                    }
+
+                    for (i, p_p) in p_param_types.iter().enumerate() {
+                        let e_p = e_param_types.get(i).unwrap();
+                        let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
+                        .map_err(|e| e.add(format!("in custom type gen type {generic_type} eff type {effective_type}")))?;
+
+                        result.extend(inner_result);
+                    }
+                }
+                ASTType::Generic(_) => {}
+                _ => {
                     dedent!();
-                    return Err(format!("unmatched custom type name {p_name} {e_name}").into());
-                }
-
-                for (i, p_p) in p_param_types.iter().enumerate() {
-                    let e_p = e_param_types.get(i).unwrap();
-                    let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
-                        .map_err(|e|format!("{}\nin custom type gen type {generic_type} eff type {effective_type}", e.message))?;
-
-                    result.extend(inner_result);
+                    return Err(format!(
+                        "unmatched types generic type: {:?}, effective type: {:?}",
+                        generic_type, effective_type
+                    )
+                    .into());
                 }
             }
-            ASTType::Generic(_) => {}
-            _ => {
-                dedent!();
-                return Err(format!(
-                    "unmatched types generic type: {:?}, effective type: {:?}",
-                    generic_type, effective_type
-                )
-                .into());
-            }
-        },
+        }
         ASTType::Unit => {}
     }
 
@@ -1016,7 +1018,10 @@ fn convert_lambda(
     Ok(result)
 }
 
-fn substitute(ast_type: &ASTType, resolved_param_types: &ResolvedGenericTypes) -> Option<ASTType> {
+pub fn substitute(
+    ast_type: &ASTType,
+    resolved_param_types: &ResolvedGenericTypes,
+) -> Option<ASTType> {
     if !is_generic_type(ast_type) {
         return None;
     }

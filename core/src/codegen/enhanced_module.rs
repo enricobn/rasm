@@ -98,8 +98,16 @@ impl EnhancedASTModule {
         self.functions_by_name.functions()
     }
 
+    pub fn functions_mut(&mut self) -> Vec<&mut ASTFunctionDef> {
+        self.functions_by_name.functions_mut()
+    }
+
     pub fn funcion_desc(&self) -> Vec<String> {
         self.functions_by_name.functions_desc()
+    }
+
+    pub fn functions_owned(self) -> Vec<ASTFunctionDef> {
+        self.functions_by_name.functions_owned()
     }
 
     pub fn debug_i(&self) {

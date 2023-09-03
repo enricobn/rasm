@@ -685,6 +685,20 @@ impl FunctionsContainer {
             .collect()
     }
 
+    pub fn functions_mut(&mut self) -> Vec<&mut ASTFunctionDef> {
+        self.functions_by_name
+            .iter_mut()
+            .flat_map(|it| it.1.iter_mut())
+            .collect()
+    }
+
+    pub fn functions_owned(self) -> Vec<ASTFunctionDef> {
+        self.functions_by_name
+            .into_iter()
+            .flat_map(|it| it.1.into_iter())
+            .collect()
+    }
+
     pub fn len(&self) -> usize {
         self.functions_by_name.iter().map(|it| it.1.len()).sum()
     }
