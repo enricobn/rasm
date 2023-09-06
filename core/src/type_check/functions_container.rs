@@ -18,16 +18,23 @@ pub struct FunctionsContainer {
 }
 
 // TODO
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TypeFilter {
     Exact(ASTType),
     Any,
-    Lambda(usize),
+    Lambda(usize, Option<Box<TypeFilter>>),
     NotALambda,
 }
 
 impl TypeFilter {
-    pub fn almost_equal(&self, ast_type: &ASTType) -> bool {
+    pub fn almost_equal(&self, ast_type: &ASTType) -> Result<bool, TypeCheckError> {
+        FunctionsContainer::almost_same_type(
+            ast_type,
+            self,
+            &mut LinkedHashMap::new(),
+            &ASTIndex::none(),
+        )
+        /*
         match self {
             TypeFilter::Exact(f_type) => f_type == ast_type,
             TypeFilter::Any => true,
@@ -42,6 +49,8 @@ impl TypeFilter {
                 !matches!(ast_type, ASTType::Builtin(BuiltinTypeKind::Lambda { .. }))
             }
         }
+
+         */
     }
 }
 
@@ -50,7 +59,9 @@ impl Display for TypeFilter {
         match self {
             TypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
             TypeFilter::Any => write!(f, "Any"),
-            TypeFilter::Lambda(size) => write!(f, "Lambda({size})"),
+            TypeFilter::Lambda(size, type_filter) => {
+                write!(f, "Lambda({size}, {})", OptionDisplay(type_filter))
+            }
             TypeFilter::NotALambda => write!(f, "Not a lambda"),
         }
     }
@@ -128,7 +139,7 @@ impl FunctionsContainer {
             .functions_by_name
             .get_mut(&function_def.original_name)
             .unwrap_or_else(|| panic!("Cannot find {}", function_def.name));
-        for mut f_def in functions.iter_mut() {
+        for f_def in functions.iter_mut() {
             if f_def.name == function_def.name {
                 f_def.body = body;
                 return f_def.clone();
@@ -174,6 +185,10 @@ impl FunctionsContainer {
         } else {
             None
         }
+    }
+
+    pub fn find_functions_by_original_name(&self, name: &str) -> Option<&Vec<ASTFunctionDef>> {
+        self.functions_by_name.get(name)
     }
 
     pub fn find_call(
@@ -229,16 +244,20 @@ impl FunctionsContainer {
         return_type_filter: Option<ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
-        functions: &Vec<ASTFunctionDef>,
+        functions: &[ASTFunctionDef],
     ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
-        let mut resolved_generic_types = LinkedHashMap::new();
         let lambda = |it: &ASTFunctionDef| {
-            debug_i!("testing function {it}");
+            debug_i!(
+                "testing function {it}, filters {}, return type {}",
+                SliceDisplay(parameter_types_filter),
+                OptionDisplay(&return_type_filter)
+            );
             indent!();
             if filter_on_name && it.name == function_name {
                 dedent!();
                 return Ok((it.clone(), true));
             }
+            let mut resolved_generic_types = LinkedHashMap::new();
             let result = Self::almost_same_parameters_types(
                 &it.parameters
                     .iter()
@@ -306,7 +325,7 @@ impl FunctionsContainer {
                 } else {
                     Self::find_call_vec_1(
                         &call.function_name,
-                        &parameter_types_filter,
+                        parameter_types_filter,
                         return_type_filter,
                         filter_only_on_name,
                         &ASTIndex::none(),
@@ -652,7 +671,7 @@ impl FunctionsContainer {
                     },
                 }
             }
-            TypeFilter::Lambda(len) => {
+            TypeFilter::Lambda(len, _) => {
                 if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                     parameters,
                     return_type: _,

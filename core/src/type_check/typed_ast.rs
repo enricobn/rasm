@@ -886,7 +886,7 @@ pub fn convert_to_typed_module(
 
         body = new_body;
 
-        new_typed_context.borrow().debug_i();
+        new_typed_context.borrow().debug_i("context");
 
         let cloned_typed_context = new_typed_context.clone();
 
@@ -972,6 +972,7 @@ pub fn convert_to_typed_module(
                     backend,
                     statics,
                     Some(it.1),
+                    None,
                     body,
                     dereference,
                     true,
@@ -982,6 +983,7 @@ pub fn convert_to_typed_module(
                     backend,
                     statics,
                     Some(it.1),
+                    None,
                     &new_body,
                     dereference,
                     false,
@@ -994,6 +996,130 @@ pub fn convert_to_typed_module(
     result.functions_by_name = functions_by_name;
 
     if printl_module {
+        print_typed_module(&result);
+    }
+
+    info!("verify");
+
+    verify(&result, statics);
+
+    info!("verify end");
+
+    (result, new_typed_context.into_inner())
+}
+
+pub fn convert_to_typed_module_2(
+    module: &EnhancedASTModule,
+    type_conversion_context: TypeConversionContext,
+    debug_asm: bool,
+    print_allocation: bool,
+    print_module: bool,
+    //mandatory_functions: Vec<DefaultFunction>,
+    backend: &dyn Backend,
+    statics: &mut Statics,
+    dereference: bool,
+) -> (ASTTypedModule, TypeConversionContext) {
+    let mut conv_context = ConvContext::new(module);
+    let mut new_typed_context = RefCell::new(type_conversion_context);
+    /*
+       mandatory_functions.into_iter().for_each(|it| {
+           add_default_function(module, it, true, &new_typed_context, backend, statics)
+       });
+
+       let default_functions = get_default_functions(print_allocation);
+       //default_functions.dedup_by(|a, b| a.name == b.name);
+
+       for it in default_functions {
+           add_default_function(
+               module,
+               it.clone(),
+               false,
+               &new_typed_context,
+               backend,
+               statics,
+           )
+       }
+
+    */
+
+    let mut functions_by_name = LinkedHashMap::new();
+
+    // TODO enable?
+    // module.check_duplicate_functions();
+
+    new_typed_context.borrow().debug_i("context");
+
+    let cloned_typed_context = new_typed_context.clone();
+
+    for new_function_def in new_typed_context.borrow().functions().into_iter() {
+        if functions_by_name.contains_key(&new_function_def.name) {
+            continue;
+        }
+
+        let converted_function = new_function_def.clone();
+
+        functions_by_name.insert(
+            new_function_def.name.clone(),
+            function_def(
+                &mut conv_context,
+                &converted_function,
+                backend,
+                module,
+                &cloned_typed_context,
+                statics,
+                dereference,
+            )
+            .expect(&format!("Error converting {converted_function}")),
+        );
+    }
+
+    let mut result = ASTTypedModule {
+        body: module
+            .body
+            .iter()
+            .map(|it| statement(&mut conv_context, it))
+            .collect(),
+        structs: conv_context.struct_defs,
+        enums: conv_context.enum_defs,
+        functions_by_name: LinkedHashMap::new(),
+        types: conv_context.type_defs,
+    };
+
+    let mut evaluator = TextMacroEvaluator::new();
+
+    functions_by_name
+        .iter_mut()
+        .for_each(|it| match &it.1.body {
+            ASTTypedFunctionBody::RASMBody(_) => {}
+            ASTTypedFunctionBody::ASMBody(body) => {
+                let new_body = evaluator.translate(
+                    backend,
+                    statics,
+                    Some(it.1),
+                    None,
+                    body,
+                    dereference,
+                    true,
+                    &result,
+                );
+
+                let new_body = evaluator.translate(
+                    backend,
+                    statics,
+                    Some(it.1),
+                    None,
+                    &new_body,
+                    dereference,
+                    false,
+                    &result,
+                );
+                it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
+            }
+        });
+
+    result.functions_by_name = functions_by_name;
+
+    if print_module {
         print_typed_module(&result);
     }
 
@@ -1448,7 +1574,7 @@ pub fn get_type_of_typed_expression(
     }
 }
 
-fn add_default_function(
+pub fn add_default_function(
     module: &EnhancedASTModule,
     function_call: DefaultFunction,
     mandatory: bool,
@@ -1566,6 +1692,7 @@ pub fn function_def(
                 backend,
                 statics,
                 Some(&typed_function_def),
+                None,
                 body,
                 dereference,
                 true,
@@ -1577,6 +1704,7 @@ pub fn function_def(
             for (m, it) in backend
                 .called_functions(
                     Some(&typed_function_def),
+                    None,
                     &new_body,
                     &val_context,
                     conv_context,
@@ -1603,16 +1731,21 @@ pub fn function_def(
                     .collect::<Vec<_>>();
 
                 let function_def_name_opt = {
-                    typed_context
-                        .borrow()
-                        .find_call(
-                            &it.name,
-                            &it.name,
-                            call_parameters_types.clone(),
-                            None,
-                            &it.index(&typed_function_def.index),
-                        )?
-                        .map(|it| it.name.clone())
+                    if let Some(f) = typed_context.borrow().find_function(&it.name) {
+                        Some(f.name.clone())
+                    } else {
+                        typed_context
+                            .borrow()
+                            .find_call(
+                                &it.name,
+                                &it.name,
+                                call_parameters_types.clone(),
+                                None,
+                                true,
+                                &it.index(&typed_function_def.index),
+                            )?
+                            .map(|it| it.name.clone())
+                    }
                 };
 
                 let function_name = if let Some(function_name) = function_def_name_opt {
@@ -1641,10 +1774,10 @@ pub fn function_def(
                             &function_call.index,
                         )?;
 
-                        if let Some(functiond_def) = function_def_opt {
+                        if let Some(function_def) = function_def_opt {
                             if let Some(rf) = typed_context
                                 .borrow_mut()
-                                .try_add_new(&it.name, &functiond_def)
+                                .try_add_new(&it.name, &function_def)
                             {
                                 rf.name
                             } else {
@@ -1652,6 +1785,9 @@ pub fn function_def(
                             }
                         } else {
                             module.debug_i();
+
+                            typed_context.borrow().debug_i("context");
+
                             panic!(
                                 "cannot find {} {}: {}",
                                 function_call,
@@ -2001,7 +2137,7 @@ impl DefaultFunctionCall {
 
     pub fn index(&self, function_def_index: &ASTIndex) -> ASTIndex {
         let mut index = function_def_index.clone();
-        index.row = self.i;
+        index.row += self.i;
         index.column = 0;
         index
     }

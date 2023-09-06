@@ -350,6 +350,7 @@ impl<'a> CodeGen<'a> {
             self.backend,
             &mut temp_statics,
             None,
+            None,
             &code,
             self.dereference,
             false,
@@ -682,18 +683,19 @@ impl<'a> CodeGen<'a> {
             self.backend,
             &mut self.statics,
             None,
+            None,
             body,
             self.dereference,
             true,
             &self.module,
         );
 
-        self.type_conversion_context.debug_i();
+        self.type_conversion_context.debug_i("context");
 
         let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
         self.backend
-            .called_functions(None, &new_body, &val_context, &self.module)
+            .called_functions(None, None, &new_body, &val_context, &self.module)
             .iter()
             .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);
@@ -704,7 +706,7 @@ impl<'a> CodeGen<'a> {
                     .collect();
                 if let Some(new_function_def) = self
                     .type_conversion_context
-                    .find_call(&it.name, &it.name, filter, None, &ASTIndex::none())
+                    .find_call(&it.name, &it.name, filter, None, true, &ASTIndex::none())
                     .expect(&format!("Error finding {it}"))
                 {
                     debug_i!("converted to {new_function_def}");
@@ -721,6 +723,7 @@ impl<'a> CodeGen<'a> {
         TextMacroEvaluator::new().translate(
             self.backend,
             &mut self.statics,
+            None,
             None,
             &lines.join("\n"),
             self.dereference,

@@ -47,6 +47,8 @@ impl ValContext {
         ast_type: ASTType,
         ast_index: &ASTIndex,
     ) -> Option<ValKind> {
+        debug_i!("adding let val {key} of type {ast_type} to context");
+
         let result = self.value_to_address.insert(
             key.clone(),
             ValKind::LetRef(self.let_index, ast_type, ast_index.clone()),
@@ -55,7 +57,6 @@ impl ValContext {
         if result.is_some() {
             panic!("already added {key}: {}", ast_index);
         }
-        debug_i!("added let val {key} to context");
         result
     }
 

@@ -397,7 +397,7 @@ fn get_generic_types(ast_type: &ASTType) -> Vec<String> {
     };
 }
 
-fn is_generic_type(ast_type: &ASTType) -> bool {
+pub fn is_generic_type(ast_type: &ASTType) -> bool {
     return match ast_type {
         ASTType::Builtin(kind) => match kind {
             BuiltinTypeKind::String => false,
@@ -868,8 +868,15 @@ pub fn resolve_generic_types_from_effective_type(
             }
         }
         ASTType::Generic(p) => {
-            debug_i!("resolved generic type {p} to {effective_type}");
-            result.insert(p.clone(), effective_type.clone());
+            let ignore = if let ASTType::Generic(p1) = effective_type {
+                p == p1
+            } else {
+                false
+            };
+            if !ignore {
+                debug_i!("resolved generic type {p} to {effective_type}");
+                result.insert(p.clone(), effective_type.clone());
+            }
         }
         ASTType::Custom {
             name: p_name,
@@ -1042,7 +1049,7 @@ pub fn substitute(
                 };
 
                 let new_return_type =
-                    if let Some(new_t) = substitute(&return_type, resolved_param_types) {
+                    if let Some(new_t) = substitute(return_type, resolved_param_types) {
                         something_substituted = true;
                         Box::new(new_t)
                     } else {

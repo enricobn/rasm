@@ -144,9 +144,9 @@ impl Display for ASTType {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
                 if pars.is_empty() {
-                    f.write_str(name)
+                    f.write_str(&format!("Custom({name})"))
                 } else {
-                    f.write_str(&format!("{name}<{}>", pars.join(",")))
+                    f.write_str(&format!("Custom({name})<{}>", pars.join(",")))
                 }
             }
             ASTType::Unit => f.write_str("()"),

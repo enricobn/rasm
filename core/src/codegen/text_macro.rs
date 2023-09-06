@@ -14,9 +14,11 @@ use crate::codegen::CodeGen;
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
-use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+use crate::type_check::substitute;
 use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind};
 
 thread_local! {
@@ -97,7 +99,8 @@ impl TextMacroEvaluator {
         &mut self,
         backend: &dyn Backend,
         statics: &mut Statics,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
         body: &str,
         dereference: bool,
         pre_macro: bool,
@@ -122,14 +125,19 @@ impl TextMacroEvaluator {
 
                 let text_macro = TextMacro {
                     name: name.into(),
-                    parameters: self.parse_params(parameters, function_def, type_def_provider),
+                    parameters: self.parse_params(
+                        parameters,
+                        typed_function_def,
+                        function_def,
+                        type_def_provider,
+                    ),
                 };
 
                 if let Some(s) = self.eval_macro(
                     backend,
                     statics,
                     &text_macro,
-                    function_def,
+                    typed_function_def,
                     dereference,
                     pre_macro,
                     type_def_provider,
@@ -153,7 +161,8 @@ impl TextMacroEvaluator {
     fn parse_params(
         &self,
         s: &str,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Vec<MacroParam> {
         let mut result = Vec::new();
@@ -171,7 +180,12 @@ impl TextMacroEvaluator {
             match state {
                 State::Standard => {
                     if c == ',' {
-                        let param = self.get_param(&actual_param, function_def, type_def_provider);
+                        let param = self.get_param(
+                            &actual_param,
+                            typed_function_def,
+                            function_def,
+                            type_def_provider,
+                        );
 
                         result.push(param);
 
@@ -206,7 +220,12 @@ impl TextMacroEvaluator {
         match state {
             State::None => {}
             State::Standard => {
-                let param = self.get_param(&actual_param, function_def, type_def_provider);
+                let param = self.get_param(
+                    &actual_param,
+                    typed_function_def,
+                    function_def,
+                    type_def_provider,
+                );
                 result.push(param);
             }
             State::StringLiteral => {
@@ -220,20 +239,64 @@ impl TextMacroEvaluator {
     fn get_param(
         &self,
         actual_param: &str,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> MacroParam {
         let p = actual_param.trim();
 
+        let context_generic_types = if let Some(f) = function_def {
+            let mut result = f.generic_types.clone();
+            for (name, t) in f.resolved_generic_types.iter() {
+                if !result.contains(name) {
+                    result.push(name.clone());
+                }
+            }
+            result
+        } else {
+            Vec::new()
+        };
+
         if let Some(name) = p.strip_prefix('$') {
-            match function_def {
-                None => panic!("Cannot resolve reference without a function {p}"),
+            match typed_function_def {
+                None => match function_def {
+                    None => {
+                        panic!("Cannot resolve reference without a function {p}")
+                    }
+                    Some(f) => {
+                        let (par_name, par_type, par_typed_type) = self.parse_typed_argument(
+                            name,
+                            None,
+                            type_def_provider,
+                            &context_generic_types,
+                            &f.resolved_generic_types,
+                        );
+
+                        if let Some(par_type) = f
+                            .parameters
+                            .iter()
+                            .find(|par| par.name == par_name)
+                            .map(|it| it.ast_type.clone())
+                        {
+                            MacroParam::Ref(format!("${par_name}"), Some(par_type), None)
+                        } else {
+                            panic!("Cannot find parameter {name}");
+                        }
+                    }
+                },
                 Some(f) => {
-                    let par_typed_type = function_def
-                        .and_then(|it| it.parameters.iter().find(|par| par.name == name))
+                    let par_typed_type = f
+                        .parameters
+                        .iter()
+                        .find(|par| par.name == name)
                         .map(|it| it.ast_type.clone());
-                    let (par_name, par_type, par_typed_type) =
-                        self.parse_typed_argument(name, par_typed_type, type_def_provider);
+                    let (par_name, par_type, par_typed_type) = self.parse_typed_argument(
+                        name,
+                        par_typed_type,
+                        type_def_provider,
+                        &context_generic_types,
+                        &ResolvedGenericTypes::new(),
+                    );
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         panic!("Cannot find parameter {par_name}");
                     } else {
@@ -242,21 +305,31 @@ impl TextMacroEvaluator {
                 }
             }
         } else {
-            let (par_name, par_type, par_typed_type) =
-                self.parse_typed_argument(p, None, type_def_provider);
+            let (par_name, par_type, par_typed_type) = if let Some(f) = function_def {
+                self.parse_typed_argument(
+                    p,
+                    None,
+                    type_def_provider,
+                    &context_generic_types,
+                    &f.resolved_generic_types,
+                )
+            } else {
+                self.parse_typed_argument(
+                    p,
+                    None,
+                    type_def_provider,
+                    &context_generic_types,
+                    &ResolvedGenericTypes::new(),
+                )
+            };
 
             if let Some(ast_type) = &par_type {
                 MacroParam::Plain(
                     par_name,
                     par_type.clone(),
                     par_typed_type.or_else(|| {
-                        Self::resolve_type(
-                            ast_type,
-                            function_def.unwrap_or_else(|| {
-                                panic!("ref unspecified function for {actual_param}")
-                            }),
-                            type_def_provider,
-                        )
+                        typed_function_def
+                            .and_then(|it| Self::resolve_type(ast_type, it, type_def_provider))
                     }),
                 )
             } else {
@@ -334,6 +407,8 @@ impl TextMacroEvaluator {
         p: &str,
         typed_type: Option<ASTTypedType>,
         type_def_provider: &dyn TypeDefProvider,
+        context_generic_types: &[String],
+        resolved_generic_types: &ResolvedGenericTypes,
     ) -> (String, Option<ASTType>, Option<ASTTypedType>) {
         // TODO the check of :: is a trick since function names could have ::, try to do it better
         let (par_name, par_type, par_typed_type) = if p.contains(':') && !p.contains("::") {
@@ -367,17 +442,28 @@ impl TextMacroEvaluator {
 
                 let type_parser = TypeParser::new(&parser);
 
-                match type_parser.try_parse_ast_type(0, &[]) {
+                match type_parser.try_parse_ast_type(0, context_generic_types) {
                     None => {
                         panic!("Unsupported type {par_type_name}")
                     }
-                    Some((ast_type, _)) => (
-                        par_name,
-                        Some(ast_type),
-                        type_def_provider
-                            .get_typed_type_def_from_type_name(par_type_name)
-                            .map(|it| it.ast_typed_type),
-                    ),
+                    Some((ast_type, _)) => {
+                        let t = if let ASTType::Generic(name) = &ast_type {
+                            if let Some(t) = substitute(&ast_type, resolved_generic_types) {
+                                t
+                            } else {
+                                ast_type
+                            }
+                        } else {
+                            ast_type
+                        };
+                        (
+                            par_name,
+                            Some(t),
+                            type_def_provider
+                                .get_typed_type_def_from_type_name(par_type_name)
+                                .map(|it| it.ast_typed_type),
+                        )
+                    }
                 }
             }
         } else if let Some(t) = &typed_type {
@@ -459,7 +545,8 @@ impl TextMacroEvaluator {
     pub fn get_macros(
         &self,
         backend: &dyn Backend,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Vec<(TextMacro, usize)> {
@@ -479,7 +566,12 @@ impl TextMacroEvaluator {
 
                 let text_macro = TextMacro {
                     name: name.into(),
-                    parameters: self.parse_params(parameters, function_def, type_def_provider),
+                    parameters: self.parse_params(
+                        parameters,
+                        typed_function_def,
+                        function_def,
+                        type_def_provider,
+                    ),
                 };
 
                 result.push((text_macro, i));
@@ -1288,6 +1380,7 @@ mod tests {
             &backend,
             &mut statics,
             None,
+            None,
             "a line\n$call(nprint,10)\nanother line\n",
             true,
             false,
@@ -1308,6 +1401,7 @@ mod tests {
         let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            None,
             None,
             "a line\n$call(println, \"Hello, world\")\nanother line\n",
             true,
@@ -1349,6 +1443,7 @@ mod tests {
             &backend,
             &mut statics,
             Some(&function_def),
+            None,
             "a line\n$call(println, $s)\nanother line\n",
             true,
             false,
@@ -1384,6 +1479,7 @@ mod tests {
             &backend,
             &mut statics,
             Some(&function_def),
+            None,
             "a line\n$ccall(printf, $s)\nanother line\n",
             true,
             false,
@@ -1404,6 +1500,7 @@ mod tests {
         let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            None,
             None,
             "mov     eax, 1          ; $call(any)",
             true,
@@ -1435,6 +1532,7 @@ mod tests {
         let macros = TextMacroEvaluator::new().get_macros(
             &backend,
             Some(&function_def),
+            None,
             "$call(slen, $s)",
             &DummyTypeDefProvider::new(),
         );
@@ -1457,6 +1555,7 @@ mod tests {
         let result = TextMacroEvaluator::new().translate(
             &backend,
             &mut statics,
+            None,
             None,
             "$call(List_0_addRef,eax:List_0)",
             true,

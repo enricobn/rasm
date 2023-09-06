@@ -52,6 +52,24 @@ impl EnhancedASTModule {
         self.functions_by_name.find_function_by_original_name(name)
     }
 
+    pub fn find_precise_function(
+        &self,
+        original_name: &str,
+        name: &str,
+    ) -> Option<&ASTFunctionDef> {
+        self.functions_by_name
+            .find_functions_by_original_name(original_name)
+            .and_then(|it| {
+                let found = it.iter().filter(|it| it.name == name).collect::<Vec<_>>();
+
+                if found.len() == 1 {
+                    found.first().cloned()
+                } else {
+                    None
+                }
+            })
+    }
+
     pub fn find_call(
         &self,
         function_name: &str,

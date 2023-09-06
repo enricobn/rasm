@@ -1,7 +1,8 @@
-use crate::parser::ast::{ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType};
-use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
-use crate::type_check::type_check_error::TypeCheckError;
+use crate::type_check::functions_container::FunctionsContainer;
 
+pub type TypeConversionContext = FunctionsContainer;
+
+/*
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeConversionContext {
     functions_by_name: FunctionsContainer,
@@ -21,6 +22,11 @@ impl TypeConversionContext {
     ) -> Option<ASTFunctionDef> {
         self.functions_by_name
             .try_add_new(original_name, function_def)
+    }
+
+    pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {
+        self.functions_by_name
+            .add_function(original_name, function_def)
     }
 
     pub fn replace_body(
@@ -87,6 +93,8 @@ impl TypeConversionContext {
         self.functions_by_name.debug_i("context");
     }
 }
+
+ */
 
 #[cfg(test)]
 mod tests {

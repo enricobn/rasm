@@ -16,9 +16,12 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::fmt::{Display, Formatter};
+
 use linked_hash_map::{Iter, LinkedHashMap};
 
 use crate::parser::ast::{ASTType, MyToString};
+use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGenericTypes {
@@ -36,13 +39,18 @@ impl ResolvedGenericTypes {
         self.map.get(key)
     }
 
-    pub fn extend(&mut self, other: ResolvedGenericTypes) {
+    pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), TypeCheckError> {
         for (key, t) in other.iter() {
             if let Some(et) = self.get(key) {
-                assert_eq!(t, et);
+                if t != et {
+                    return Err(TypeCheckError::from(format!(
+                        "Already resolved generic {key}, prev {et}, actual {t}"
+                    )));
+                }
             }
         }
         self.map.extend(other.map);
+        Ok(())
     }
 
     pub fn check(&self, other: &ResolvedGenericTypes) -> Option<String> {
@@ -73,6 +81,17 @@ impl ResolvedGenericTypes {
 
     pub fn contains_key(&self, key: &String) -> bool {
         self.map.contains_key(key)
+    }
+}
+
+impl Display for ResolvedGenericTypes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = self
+            .iter()
+            .map(|it| format!("{}={}", it.0, it.1))
+            .collect::<Vec<_>>()
+            .join(",");
+        f.write_str(&s)
     }
 }
 

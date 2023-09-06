@@ -18,7 +18,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{CodeGen, TypedValKind, ValKind};
 use crate::debug_i;
-use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind, ValueType};
+use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind, ValueType};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
@@ -65,7 +65,8 @@ pub trait Backend: RefUnwindSafe {
     /// returns: Vec<String>
     fn called_functions(
         &self,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
@@ -505,7 +506,8 @@ impl Backend for BackendNasm386 {
     /// returns: Vec<String>
     fn called_functions(
         &self,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
@@ -515,9 +517,15 @@ impl Backend for BackendNasm386 {
         // TODO I don't like to create it
         let evaluator = TextMacroEvaluator::new();
 
-        for (m, i) in evaluator.get_macros(self, function_def, body, type_def_provider) {
+        for (m, i) in evaluator.get_macros(
+            self,
+            typed_function_def,
+            function_def,
+            body,
+            type_def_provider,
+        ) {
             if m.name == "call" {
-                debug_i!("found call macro {:?}", m);
+                debug_i!("found call macro {m}");
                 let types = m
                     .parameters
                     .iter()
@@ -546,7 +554,7 @@ impl Backend for BackendNasm386 {
 
                         match &ast_type {
                             ASTType::Generic(name) => {
-                                if let Some(f) = function_def {
+                                if let Some(f) = typed_function_def {
                                     let t = type_def_provider
                                         .get_type_from_typed_type(
                                             f.generic_types.get(name).unwrap(),
@@ -564,7 +572,7 @@ impl Backend for BackendNasm386 {
                                 param_types: _,
                                 index: _,
                             } => {
-                                let result = if let Some(f) = function_def {
+                                let result = if let Some(f) = typed_function_def {
                                     if let Some(t) = f.generic_types.get(name) {
                                         Self::get_type_from_typed_type(t, type_def_provider)
                                             .unwrap_or_else(|| panic!("name {name} t {t}"))
@@ -1435,6 +1443,7 @@ mod tests {
         assert_eq!(
             sut.called_functions(
                 None,
+                None,
                 "$call(something)",
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
@@ -1454,6 +1463,7 @@ mod tests {
         assert!(sut
             .called_functions(
                 None,
+                None,
                 "mov    eax, 1; $call(something)",
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
@@ -1470,6 +1480,7 @@ mod tests {
 
         assert!(sut
             .called_functions(
+                None,
                 None,
                 "call something",
                 &ValContext::new(None),

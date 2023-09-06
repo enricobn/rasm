@@ -187,7 +187,7 @@ impl ReferenceFinder {
     ) -> TypeFilter {
         match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
-                let filters = call
+                let filters = &call
                     .parameters
                     .iter()
                     .map(|it| {
@@ -203,7 +203,7 @@ impl ReferenceFinder {
                     TypeFilter::Any
                 }
             }
-            ASTExpression::Lambda(def) => TypeFilter::Lambda(def.parameter_names.len()),
+            ASTExpression::Lambda(def) => TypeFilter::Lambda(def.parameter_names.len(), None),
             ASTExpression::StringLiteral(_) => {
                 TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::String))
             }
@@ -274,7 +274,7 @@ impl ReferenceFinder {
                     .collect();
 
                 let functions = functions_container
-                    .find_call_vec(call, filters.clone(), None, false)
+                    .find_call_vec(call, &filters, None, false)
                     .unwrap();
 
                 if functions.len() == 1 {

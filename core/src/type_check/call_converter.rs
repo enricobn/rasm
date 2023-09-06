@@ -112,7 +112,7 @@ impl<'a> CallConverter<'a> {
             call_stack,
         )?
         .unwrap_or_else(|| {
-            self.typed_context.borrow().debug_i();
+            self.typed_context.borrow().debug_i("context");
             self.module.debug_i();
             panic!(
                 "Cannot find function {}: {}",
@@ -351,10 +351,6 @@ impl<'a> CallConverter<'a> {
                         .borrow_mut()
                         .try_add_new(&call.original_function_name, &function_def)
                     {
-                        if &call.original_function_name == "Pair" {
-                            println!("added new function {f} from {function_def}");
-                        }
-
                         debug_i!("function added or different name {f}");
                         let mut function_call = call.clone();
                         function_call.function_name = f.name;
@@ -625,13 +621,12 @@ impl<'a> CallConverter<'a> {
     ) -> Result<bool, TypeCheckError> {
         let mut something_converted = false;
 
-        let lambda_type = if let Some(new_type) =
-            type_check::substitute(&par.ast_type, &resolved_generic_types)
-        {
-            new_type
-        } else {
-            par.ast_type.clone()
-        };
+        let lambda_type =
+            if let Some(new_type) = type_check::substitute(&par.ast_type, resolved_generic_types) {
+                new_type
+            } else {
+                par.ast_type.clone()
+            };
         let mut context = type_check::get_context_from_lambda(
             self.context,
             lambda,
@@ -980,7 +975,7 @@ fn get_called_function(
                 Some(ast_type) => Ok(TypeFilter::Exact(ast_type)),
                 None => {
                     if let ASTExpression::Lambda(def) = it {
-                        Ok(TypeFilter::Lambda(def.parameter_names.len()))
+                        Ok(TypeFilter::Lambda(def.parameter_names.len(), None))
                     } else {
                         Ok(TypeFilter::Any)
                     }
@@ -1024,6 +1019,7 @@ fn get_called_function(
             call,
             &call_parameters_types,
             expected_return_type.clone(),
+            true,
         )?
     };
 
@@ -1037,7 +1033,7 @@ fn get_called_function(
     }
 
     if candidate_functions.is_empty() {
-        typed_context.borrow().debug_i();
+        typed_context.borrow().debug_i("context");
         module.debug_i();
         call_stack.pop();
         dedent!();
@@ -1068,7 +1064,7 @@ fn get_called_function(
         candidate_functions.get(0).cloned()
     } else if call_parameters_types
         .iter()
-        .any(|it| matches!(it, TypeFilter::Any) || matches!(it, TypeFilter::Lambda(_)))
+        .any(|it| matches!(it, TypeFilter::Any) || matches!(it, TypeFilter::Lambda(_, _)))
     {
         let mut found_function_def = None;
         for f_def in candidate_functions {
@@ -1083,7 +1079,7 @@ fn get_called_function(
                 .map(|(i, filter)| {
                     debug_i!("filter {i} {}", filter);
                     match filter {
-                        TypeFilter::Any | TypeFilter::Lambda(_) => {
+                        TypeFilter::Any | TypeFilter::Lambda(_, _) => {
                             let par = f_def.parameters.get(i).unwrap();
                             let expr = call.parameters.get(i).unwrap();
                             debug_i!("found None filter for {par}");
@@ -1106,7 +1102,10 @@ fn get_called_function(
                                         )? {
                                             Ok(TypeFilter::Exact(la))
                                         } else {
-                                            Ok(TypeFilter::Lambda(lambda_def.parameter_names.len()))
+                                            Ok(TypeFilter::Lambda(
+                                                lambda_def.parameter_names.len(),
+                                                None,
+                                            ))
                                         }
                                     }
                                     _ => {
@@ -1165,6 +1164,7 @@ fn get_called_function(
                 call,
                 &new_call_parameters_types,
                 expected_return_type.clone(),
+                true,
             )?;
 
             if new_function_def_opt.is_empty() {
@@ -1306,7 +1306,7 @@ fn get_called_function(
                     _ => false,
                 },
                 TypeFilter::Any => false,
-                TypeFilter::Lambda(_) => false,
+                TypeFilter::Lambda(_, _) => false,
                 TypeFilter::NotALambda => false,
             })
         {
