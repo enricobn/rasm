@@ -90,12 +90,16 @@ impl TypeCheck {
             if let Some(f) = module.find_precise_function(&call.function_name, &call.function_name)
             {
                 // TODO check error
+                let mut def = f.clone();
+
+                def.name = self.new_function_name(&call);
+
                 self.type_conversion_context
-                    .add_function(call.function_name.clone(), f.clone());
+                    .add_function(call.function_name.clone(), def.clone());
 
                 self.module
                     .functions_by_name
-                    .add_function(call.function_name, f.clone());
+                    .add_function(call.function_name, def);
             } else {
                 return Err(TypeCheckError::from(format!(
                     "Cannot find default function {}",
@@ -148,6 +152,20 @@ impl TypeCheck {
         }
 
         Ok((self.module, self.type_conversion_context))
+    }
+
+    fn new_function_name(&self, call: &ASTFunctionCall) -> String {
+        let count = self
+            .module
+            .functions_by_name
+            .count_by_original_name(&call.original_function_name);
+
+        let new_function_name = format!(
+            "{}_{}",
+            call.original_function_name.replace("::", "_"),
+            count
+        );
+        new_function_name
     }
 
     fn transform_statement(
@@ -611,11 +629,7 @@ impl TypeCheck {
 
         debug_i!("found valid function {new_function_def}");
 
-        let new_function_name = format!(
-            "{}_{}",
-            new_function_def.original_name,
-            self.module.functions_by_name.len()
-        );
+        let new_function_name = self.new_function_name(call);
         new_function_def.name = new_function_name.clone();
 
         if !new_function_def.generic_types.is_empty() {
@@ -758,7 +772,7 @@ impl TypeCheck {
 
             // TODO check error
             self.type_conversion_context.add_function(
-                new_function_def.original_name.clone(),
+                call.original_function_name.clone(),
                 new_function_def.clone(),
             );
 
@@ -1100,7 +1114,7 @@ impl TypeCheck {
                         }
                     }
                 }
-                info!("lambda return type {}", OptionDisplay(&return_type));
+                debug_i!("lambda return type {}", OptionDisplay(&return_type));
                 TypeFilter::Lambda(def.parameter_names.len(), return_type)
             }
             ASTExpression::Any(t) => TypeFilter::Exact(t.clone()),
@@ -1203,7 +1217,7 @@ mod tests {
     use crate::transformations::enrich_module;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
-    use crate::type_check::typed_ast::{convert_to_typed_module_2, get_default_functions};
+    use crate::type_check::typed_ast::{convert_to_typed_module, get_default_functions};
 
     #[test]
     pub fn fibonacci() {
@@ -1233,7 +1247,7 @@ mod tests {
         let default_functions = get_default_functions(false);
         //resolved_module.print();
 
-        let typed_module = convert_to_typed_module_2(
+        let typed_module = convert_to_typed_module(
             &module,
             false,
             mandatory_functions,

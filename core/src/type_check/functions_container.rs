@@ -187,6 +187,16 @@ impl FunctionsContainer {
         }
     }
 
+    pub fn count_by_original_name(&self, name: &str) -> usize {
+        let found = self.functions_by_name.get(name);
+
+        if let Some(f) = found {
+            f.len()
+        } else {
+            0
+        }
+    }
+
     pub fn find_functions_by_original_name(&self, name: &str) -> Option<&Vec<ASTFunctionDef>> {
         self.functions_by_name.get(name)
     }

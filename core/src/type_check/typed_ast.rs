@@ -804,7 +804,7 @@ impl<'a> ConvContext<'a> {
     }
 }
 
-pub fn convert_to_typed_module(
+pub fn convert_to_typed_module_old(
     module: &EnhancedASTModule,
     print_module: bool,
     mandatory_functions: Vec<DefaultFunction>,
@@ -1007,7 +1007,7 @@ pub fn convert_to_typed_module(
     (result, new_typed_context.into_inner())
 }
 
-pub fn convert_to_typed_module_2(
+pub fn convert_to_typed_module(
     original_module: &EnhancedASTModule,
     print_module: bool,
     mandatory_functions: Vec<DefaultFunction>,
