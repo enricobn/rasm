@@ -28,14 +28,13 @@ use crate::codegen::typedef_provider::DummyTypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::ValKind;
 use crate::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTParameterDef,
+    ASTStatement, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
-use crate::type_check::typed_ast::get_default_functions;
+use crate::type_check::typed_ast::DefaultFunction;
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{is_generic_type, resolve_generic_types_from_effective_type, substitute};
 use crate::utils::{OptionDisplay, SliceDisplay};
@@ -68,18 +67,19 @@ impl TypeCheck {
 
     pub fn type_check(
         mut self,
-        ast_module: ASTModule,
+        module: EnhancedASTModule,
         backend: &dyn Backend,
         mut statics: &mut Statics,
+        default_functions: Vec<DefaultFunction>,
+        mandatory_functions: Vec<DefaultFunction>,
     ) -> Result<(OutputModule, TypeConversionContext), TypeCheckError> {
         //let finder = ModuleFinder::new(ast_module);
 
         let mut val_context = ValContext::new(None);
 
-        let mut default_functions = get_default_functions(false); // TODO print_allocation
+        let mut default_functions = default_functions; // TODO print_allocation
 
-        let module = EnhancedASTModule::new(ast_module);
-        default_functions.extend(type_mandatory_functions(&module));
+        default_functions.extend(mandatory_functions);
 
         self.module = module.clone();
         self.module.functions_by_name = FunctionsContainer::new();
@@ -1196,13 +1196,15 @@ mod tests {
     use env_logger::Builder;
 
     use crate::codegen::backend::BackendNasm386;
+    use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::ASTModule;
     use crate::project::project::RasmProject;
     use crate::transformations::enrich_module;
+    use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
-    use crate::type_check::typed_ast::convert_to_typed_module_2;
+    use crate::type_check::typed_ast::{convert_to_typed_module_2, get_default_functions};
 
     #[test]
     pub fn fibonacci() {
@@ -1227,8 +1229,17 @@ mod tests {
 
         let type_check = TypeCheck::new();
 
-        let (resolved_module, type_conversion_context) =
-            type_check.type_check(module, &backend, &mut statics)?;
+        let module = EnhancedASTModule::new(module);
+
+        let mandatory_functions = type_mandatory_functions(&module);
+
+        let (resolved_module, type_conversion_context) = type_check.type_check(
+            module,
+            &backend,
+            &mut statics,
+            get_default_functions(false),
+            mandatory_functions,
+        )?;
 
         //resolved_module.print();
 
