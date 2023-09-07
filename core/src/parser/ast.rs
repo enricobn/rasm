@@ -146,7 +146,7 @@ impl Display for ASTType {
                 if pars.is_empty() {
                     f.write_str(&format!("Custom({name})"))
                 } else {
-                    f.write_str(&format!("Custom({name})<{}>", pars.join(",")))
+                    f.write_str(&format!("Custom({name}<{}>)", pars.join(",")))
                 }
             }
             ASTType::Unit => f.write_str("()"),

@@ -835,7 +835,7 @@ pub fn resolve_generic_types_from_effective_type(
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                             .map_err(|e| format!("{} in lambda param gen type {generic_type}eff. type {effective_type}", e))?;
 
-                            result.extend(inner_result);
+                            result.extend(inner_result)?;
                         }
 
                         /*
@@ -858,7 +858,7 @@ pub fn resolve_generic_types_from_effective_type(
                         let inner_result = resolve_generic_types_from_effective_type(p_return_type, e_return_type)
                         .map_err(|e| format!("{} in return type gen type {generic_type}eff. type {effective_type}", e))?;
 
-                        result.extend(inner_result);
+                        result.extend(inner_result)?;
                     }
                     _ => {
                         dedent!();

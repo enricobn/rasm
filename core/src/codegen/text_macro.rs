@@ -272,7 +272,9 @@ impl TextMacroEvaluator {
                             &f.resolved_generic_types,
                         );
 
-                        if let Some(par_type) = f
+                        if let Some(t) = par_type {
+                            MacroParam::Ref(format!("${par_name}"), Some(t), None)
+                        } else if let Some(par_type) = f
                             .parameters
                             .iter()
                             .find(|par| par.name == par_name)
@@ -1335,8 +1337,11 @@ mod tests {
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
+    };
     use crate::parser::type_parser::TypeParser;
+    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
@@ -1566,6 +1571,41 @@ mod tests {
         assert_eq!(
             result,
             "; call macro, calling List_0_addRef\n    push dword eax\n    call List_0_addRef\n    add esp, 4\n"
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn translate_ref_to_par_overridden() {
+        let backend = backend();
+
+        let function_def = ASTFunctionDef {
+            name: "aFun".into(),
+            original_name: "aFun".into(),
+            parameters: vec![ASTParameterDef {
+                name: "s".into(),
+                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_index: ASTIndex::none(),
+            }],
+            body: ASTFunctionBody::ASMBody("".into()),
+            generic_types: Vec::new(),
+            return_type: ASTType::Unit,
+            inline: false,
+            index: ASTIndex::none(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+        };
+
+        let result = TextMacroEvaluator::new().get_macros(
+            &backend,
+            None,
+            Some(&function_def),
+            "$call(List_0_addRef,$s:i32)",
+            &DummyTypeDefProvider::new(),
+        );
+
+        assert_eq!(
+            &format!("{:?}", result),
+            "[(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)] }, 0)]"
         );
     }
 

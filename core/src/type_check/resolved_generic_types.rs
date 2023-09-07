@@ -82,6 +82,10 @@ impl ResolvedGenericTypes {
     pub fn contains_key(&self, key: &String) -> bool {
         self.map.contains_key(key)
     }
+
+    pub fn keys(&self) -> Vec<String> {
+        self.map.keys().cloned().collect()
+    }
 }
 
 impl Display for ResolvedGenericTypes {
