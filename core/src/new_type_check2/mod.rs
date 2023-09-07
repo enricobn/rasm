@@ -67,7 +67,7 @@ impl TypeCheck {
 
     pub fn type_check(
         mut self,
-        module: EnhancedASTModule,
+        module: &EnhancedASTModule,
         backend: &dyn Backend,
         mut statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
@@ -1198,7 +1198,6 @@ mod tests {
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::ASTModule;
     use crate::project::project::RasmProject;
     use crate::transformations::enrich_module;
@@ -1227,30 +1226,21 @@ mod tests {
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
         let (module, backend, mut statics) = to_ast_module(project);
 
-        let type_check = TypeCheck::new();
-
         let module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&module);
 
-        let (resolved_module, type_conversion_context) = type_check.type_check(
-            module,
-            &backend,
-            &mut statics,
-            get_default_functions(false),
-            mandatory_functions,
-        )?;
-
+        let default_functions = get_default_functions(false);
         //resolved_module.print();
 
         let typed_module = convert_to_typed_module_2(
-            &resolved_module,
-            type_conversion_context,
+            &module,
             false,
-            //mandatory_functions,
+            mandatory_functions,
             &backend,
             &mut statics,
             true,
+            default_functions,
         );
 
         //print_typed_module(&typed_module.0);

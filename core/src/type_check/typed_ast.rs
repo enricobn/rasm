@@ -12,6 +12,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::TypedValKind;
+use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
@@ -1007,14 +1008,27 @@ pub fn convert_to_typed_module(
 }
 
 pub fn convert_to_typed_module_2(
-    module: &EnhancedASTModule,
-    type_conversion_context: TypeConversionContext,
+    original_module: &EnhancedASTModule,
     print_module: bool,
+    mandatory_functions: Vec<DefaultFunction>,
     backend: &dyn Backend,
     statics: &mut Statics,
     dereference: bool,
+    default_functions: Vec<DefaultFunction>,
 ) -> (ASTTypedModule, TypeConversionContext) {
-    let mut conv_context = ConvContext::new(module);
+    let type_check = TypeCheck::new();
+
+    let (module, type_conversion_context) = type_check
+        .type_check(
+            original_module,
+            backend,
+            statics,
+            default_functions,
+            mandatory_functions,
+        )
+        .unwrap();
+
+    let mut conv_context = ConvContext::new(&module);
     let mut new_typed_context = RefCell::new(type_conversion_context);
     /*
        mandatory_functions.into_iter().for_each(|it| {
@@ -1059,7 +1073,7 @@ pub fn convert_to_typed_module_2(
                 &mut conv_context,
                 &converted_function,
                 backend,
-                module,
+                &module,
                 &cloned_typed_context,
                 statics,
                 dereference,
