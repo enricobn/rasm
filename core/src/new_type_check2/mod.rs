@@ -547,7 +547,7 @@ impl TypeCheck {
                     let non_generic_types: usize = f
                         .parameters
                         .iter()
-                        .map(|it| if is_generic_type(&it.ast_type) { 0 } else { 1 })
+                        .map(|it| Self::generic_type_coeff(&it.ast_type))
                         .sum();
                     new_expressions_filters = filters;
 
@@ -586,12 +586,23 @@ impl TypeCheck {
                     //SliceDisplay(&original_functions)
                 )));
             } else if valid_functions.len() > 1 {
-                let max = valid_functions.iter().map(|it| it.1).max().unwrap();
+                let max = valid_functions.iter().map(|it| it.1).min().unwrap();
 
-                let valid_functions = valid_functions
+                let mut valid_functions = valid_functions
                     .iter()
                     .filter(|it| it.1 == max)
                     .collect::<Vec<_>>();
+
+                /*if valid_functions.len() > 1 {
+                    // TODO
+                    let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
+                    valid_functions.retain(|it| {
+                        self.transform_function(module, statics, &it.0, &backend)
+                            .is_ok()
+                    });
+                }
+
+                 */
 
                 if valid_functions.is_empty() {
                     // I think it should not happen
@@ -783,6 +794,33 @@ impl TypeCheck {
 
         dedent!();
         Ok(new_call)
+    }
+
+    ///
+    /// return a coefficient that is higher for how the type is generic
+    ///
+    fn generic_type_coeff(ast_type: &ASTType) -> usize {
+        Self::generic_type_coeff_internal(ast_type, usize::MAX / 100)
+    }
+
+    fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
+        if is_generic_type(&ast_type) {
+            match ast_type {
+                ASTType::Builtin(_) => 0,
+                ASTType::Generic(_) => coeff,
+                ASTType::Custom {
+                    name,
+                    param_types,
+                    index,
+                } => param_types
+                    .iter()
+                    .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
+                    .sum(),
+                ASTType::Unit => 0,
+            }
+        } else {
+            0
+        }
     }
 
     fn resolve_generic_types_for_function(
@@ -1212,7 +1250,8 @@ mod tests {
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::parser::ast::ASTModule;
+    use crate::new_type_check2::TypeCheck;
+    use crate::parser::ast::{ASTIndex, ASTModule, ASTType, BuiltinTypeKind};
     use crate::project::project::RasmProject;
     use crate::transformations::enrich_module;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
@@ -1237,6 +1276,45 @@ mod tests {
         test_project(project).unwrap_or_else(|e| panic!("{e}"))
     }
 
+    #[test]
+    pub fn test_generic_type_coeff() {
+        assert_eq!(
+            usize::MAX / 100,
+            TypeCheck::generic_type_coeff(&ASTType::Generic("".to_owned()))
+        );
+    }
+
+    #[test]
+    pub fn test_generic_type_coeff_1() {
+        assert_eq!(
+            0,
+            TypeCheck::generic_type_coeff(&ASTType::Builtin(BuiltinTypeKind::I32))
+        );
+    }
+
+    #[test]
+    pub fn test_generic_type_coeff_2() {
+        assert_eq!(
+            0,
+            TypeCheck::generic_type_coeff(&ASTType::Custom {
+                param_types: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
+                name: "".to_owned(),
+                index: ASTIndex::none()
+            },)
+        );
+    }
+
+    #[test]
+    pub fn test_generic_type_coeff_3() {
+        assert_eq!(
+            usize::MAX / 100 / 100,
+            TypeCheck::generic_type_coeff(&ASTType::Custom {
+                param_types: vec![ASTType::Generic("".to_owned())],
+                name: "".to_owned(),
+                index: ASTIndex::none()
+            },)
+        );
+    }
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
         let (module, backend, mut statics) = to_ast_module(project);
 
