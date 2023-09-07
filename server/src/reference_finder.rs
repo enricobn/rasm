@@ -9,6 +9,7 @@ use rasm_core::parser::ast::{
     ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
 use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::utils::SliceDisplay;
 
 use crate::reference_context::ReferenceContext;
@@ -161,31 +162,40 @@ impl ReferenceFinder {
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         functions_container: &FunctionsContainer,
-    ) {
+    ) -> Result<(), TypeCheckError> {
         for stmt in statements {
             if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
                 let filter =
-                    Self::get_filter_of_expression(expr, reference_context, functions_container);
+                    Self::get_filter_of_expression(expr, reference_context, functions_container)?;
                 reference_context.add(name.clone(), index.clone(), filter.clone());
                 if *is_const {
                     reference_static_context.add(name.clone(), index.clone(), filter);
                 }
             }
-            result.append(&mut Self::get_selectable_items_stmt(
+
+            match Self::get_selectable_items_stmt(
                 stmt,
                 reference_context,
                 module,
                 functions_container,
-            ));
+            ) {
+                Ok(mut inner) => {
+                    result.append(&mut inner);
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                }
+            }
         }
+        Ok(())
     }
 
     fn get_filter_of_expression(
         expr: &ASTExpression,
         reference_context: &ReferenceContext,
         functions_container: &FunctionsContainer,
-    ) -> TypeFilter {
-        match expr {
+    ) -> Result<TypeFilter, TypeCheckError> {
+        let result = match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
                 let filters = &call
                     .parameters
@@ -193,10 +203,8 @@ impl ReferenceFinder {
                     .map(|it| {
                         Self::get_filter_of_expression(it, reference_context, functions_container)
                     })
-                    .collect();
-                let functions = functions_container
-                    .find_call_vec(call, filters, None, false)
-                    .unwrap();
+                    .collect::<Result<Vec<_>, TypeCheckError>>()?;
+                let functions = functions_container.find_call_vec(call, filters, None, false)?;
                 if functions.len() == 1 {
                     TypeFilter::Exact(functions.first().unwrap().return_type.clone())
                 } else {
@@ -209,12 +217,16 @@ impl ReferenceFinder {
             }
             ASTExpression::ValueRef(name, index) => reference_context
                 .get(name)
-                .unwrap_or_else(|| panic!("cannot find ref to '{name}' : {index}"))
+                .ok_or_else(|| {
+                    TypeCheckError::from(format!("cannot find ref to '{name}' : {index}"))
+                })?
                 .filter
                 .clone(),
             ASTExpression::Value(value_type, index) => TypeFilter::Exact(value_type.to_type()),
             ASTExpression::Any(ast_type) => TypeFilter::Exact(ast_type.clone()),
-        }
+        };
+
+        Ok(result)
     }
 
     fn get_selectable_items_stmt(
@@ -222,7 +234,7 @@ impl ReferenceFinder {
         reference_context: &mut ReferenceContext,
         module: &ASTModule,
         functions_container: &FunctionsContainer,
-    ) -> Vec<SelectableItem> {
+    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
             ASTStatement::Expression(expr) => Self::get_selectable_items_expr(
                 expr,
@@ -244,7 +256,7 @@ impl ReferenceFinder {
         reference_context: &mut ReferenceContext,
         module: &ASTModule,
         functions_container: &FunctionsContainer,
-    ) -> Vec<SelectableItem> {
+    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
             ASTExpression::StringLiteral(_) => {}
@@ -254,12 +266,19 @@ impl ReferenceFinder {
                     .parameters
                     .iter()
                     .flat_map(|it| {
-                        Self::get_selectable_items_expr(
+                        match Self::get_selectable_items_expr(
                             it,
                             reference_context,
                             module,
                             functions_container,
-                        )
+                        ) {
+                            Ok(inner) => inner,
+                            Err(e) => {
+                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!("{e}");
+                                Vec::new()
+                            }
+                        }
                         .into_iter()
                     })
                     .collect::<Vec<_>>();
@@ -271,7 +290,7 @@ impl ReferenceFinder {
                     .map(|it| {
                         Self::get_filter_of_expression(it, reference_context, functions_container)
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
                 let functions = functions_container
                     .find_call_vec(call, &filters, None, false)
@@ -322,7 +341,7 @@ impl ReferenceFinder {
             }
             ASTExpression::Any(_) => {}
         }
-        result
+        Ok(result)
     }
 
     fn get_enum(module: &ASTModule, name: &String) -> Option<ASTEnumDef> {
@@ -507,25 +526,27 @@ mod tests {
     }
 
     #[test]
-    fn xml() {
-        let reference_finder = get_reference_finder("/home/enrico/development/rasm/xmllib");
+    fn breakout() {
+        let reference_finder = get_reference_finder("../rasm/resources/examples/breakout");
         let found = reference_finder
             .find(&ASTIndex::new(
                 Some(PathBuf::from(
-                    "/home/enrico/development/rasm/xmllib/src/xml.rasm",
+                    "../rasm/resources/examples/breakout/breakout.rasm",
                 )),
-                115,
-                51,
+                128,
+                34,
             ))
             .unwrap();
 
         assert_eq!(
             vec!(ASTIndex::new(
-                Some(PathBuf::from(
-                    "/home/enrico/development/rasm/xmllib/src/xml.rasm",
-                )),
-                26,
-                5,
+                Some(
+                    PathBuf::from("../rasm/resources/examples/breakout/breakout.rasm",)
+                        .canonicalize()
+                        .unwrap()
+                ),
+                42,
+                7,
             )),
             found
         );
