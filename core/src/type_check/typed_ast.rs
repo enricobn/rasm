@@ -805,13 +805,12 @@ impl<'a> ConvContext<'a> {
 
 pub fn convert_to_typed_module(
     module: &EnhancedASTModule,
-    debug_asm: bool,
-    print_allocation: bool,
-    printl_module: bool,
+    print_module: bool,
     mandatory_functions: Vec<DefaultFunction>,
     backend: &dyn Backend,
     statics: &mut Statics,
     dereference: bool,
+    default_functions: Vec<DefaultFunction>,
 ) -> (ASTTypedModule, TypeConversionContext) {
     let mut conv_context = ConvContext::new(module);
     let type_conversion_context = TypeConversionContext::new();
@@ -821,7 +820,6 @@ pub fn convert_to_typed_module(
         add_default_function(module, it, true, &new_typed_context, backend, statics)
     });
 
-    let default_functions = get_default_functions(print_allocation);
     //default_functions.dedup_by(|a, b| a.name == b.name);
 
     for it in default_functions {
@@ -995,7 +993,7 @@ pub fn convert_to_typed_module(
 
     result.functions_by_name = functions_by_name;
 
-    if printl_module {
+    if print_module {
         print_typed_module(&result);
     }
 
@@ -1011,10 +1009,7 @@ pub fn convert_to_typed_module(
 pub fn convert_to_typed_module_2(
     module: &EnhancedASTModule,
     type_conversion_context: TypeConversionContext,
-    debug_asm: bool,
-    print_allocation: bool,
     print_module: bool,
-    //mandatory_functions: Vec<DefaultFunction>,
     backend: &dyn Backend,
     statics: &mut Statics,
     dereference: bool,

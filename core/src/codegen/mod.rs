@@ -31,9 +31,9 @@ use crate::transformations::typed_type_functions_creator::typed_type_functions_c
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
-    convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
-    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use crate::type_check::typed_context::TypeConversionContext;
 use crate::utils::OptionDisplay;
@@ -109,7 +109,6 @@ impl<'a> CodeGen<'a> {
         let (typed_module, type_conversion_context) = Self::get_typed_module(
             backend,
             module,
-            debug_asm,
             print_memory_info,
             dereference,
             print_module,
@@ -139,7 +138,6 @@ impl<'a> CodeGen<'a> {
     pub fn get_typed_module(
         backend: &dyn Backend,
         module: ASTModule,
-        debug_asm: bool,
         print_memory_info: bool,
         dereference: bool,
         print_module: bool,
@@ -148,16 +146,16 @@ impl<'a> CodeGen<'a> {
         let enhanced_module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
+        let default_functions = get_default_functions(print_memory_info);
 
         let (mut typed_module, type_conversion_context) = convert_to_typed_module(
             &enhanced_module,
-            debug_asm,
-            print_memory_info,
             print_module,
             mandatory_functions,
             backend,
             statics,
             dereference,
+            default_functions,
         );
         typed_enum_functions_creator(backend, &mut typed_module, statics);
         typed_struct_functions_creator(backend, &mut typed_module, statics);

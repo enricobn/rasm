@@ -1299,12 +1299,11 @@ mod tests {
         let (new_module, _) = convert_to_typed_module(
             &EnhancedASTModule::new(module),
             false,
-            false,
-            false,
             Vec::new(),
             &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
             &mut Statics::new(),
             true,
+            Vec::new(),
         );
 
         let par = if let Some(ASTTypedStatement::Expression(

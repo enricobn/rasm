@@ -1236,8 +1236,6 @@ mod tests {
             &resolved_module,
             type_conversion_context,
             false,
-            false,
-            false,
             //mandatory_functions,
             &backend,
             &mut statics,
