@@ -1026,7 +1026,9 @@ pub fn convert_to_typed_module(
             default_functions,
             mandatory_functions,
         )
-        .unwrap();
+        .unwrap_or_else(|e| {
+            panic!("{e}");
+        });
 
     let mut conv_context = ConvContext::new(&module);
     let mut new_typed_context = RefCell::new(type_conversion_context);

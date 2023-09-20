@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::collections::HashMap;
 use std::iter::zip;
 use std::ops::Deref;
 
@@ -45,6 +46,8 @@ type OutputModule = EnhancedASTModule;
 pub struct TypeCheck {
     module: OutputModule,
     pub type_conversion_context: TypeConversionContext,
+    stack: Vec<String>,
+    functions_stack: HashMap<String, Vec<String>>,
 }
 
 impl TypeCheck {
@@ -62,6 +65,8 @@ impl TypeCheck {
         Self {
             module: typed_module,
             type_conversion_context: TypeConversionContext::new(),
+            stack: vec![],
+            functions_stack: Default::default(),
         }
     }
 
@@ -125,15 +130,22 @@ impl TypeCheck {
 
         let mut cloned_module = self.module.clone();
 
-        while true {
+        loop {
             info!("Type check loop {}", self.module.functions().len());
             for function in cloned_module.functions_mut() {
+                if let Some(stack) = self.functions_stack.get(&function.name) {
+                    self.stack = stack.clone();
+                    //println!("  {}", self.stack.join("\n  "))
+                } else {
+                    self.stack.clear();
+                }
                 let new_body = self
-                    .transform_function(&module, &mut statics, function, backend)
+                    .transform_function(module, statics, function, backend)
                     .map_err(|it| {
-                        TypeCheckError::from(format!(
-                            "{} converting function {function} : {}",
-                            it, function.index
+                        it.add(format!(
+                            "transforming function {function} : {}\n{}",
+                            function.index,
+                            self.functions_stack.get(&function.name).unwrap().join("\n")
                         ))
                     })?;
 
@@ -301,6 +313,7 @@ impl TypeCheck {
             })?;
 
          */
+        self.stack.push(format!("{}", call.index));
 
         let filters = call
             .parameters
@@ -579,6 +592,7 @@ impl TypeCheck {
             }
 
             if valid_functions.is_empty() {
+                self.stack.pop();
                 dedent!();
                 return Err(TypeCheckError::from(format!(
                     "call {call} : {}\ncannot find a valid function",
@@ -605,6 +619,7 @@ impl TypeCheck {
                  */
 
                 if valid_functions.is_empty() {
+                    self.stack.pop();
                     // I think it should not happen
                     dedent!();
                     return Err(TypeCheckError::from(format!(
@@ -613,6 +628,7 @@ impl TypeCheck {
                         //SliceDisplay(&original_functions)
                     )));
                 } else if valid_functions.len() > 1 {
+                    self.stack.pop();
                     dedent!();
                     return Err(TypeCheckError::from(format!(
                         "call {call} : {}\nfound more than one valid function {}",
@@ -628,6 +644,7 @@ impl TypeCheck {
 
             //}
         } else {
+            self.stack.pop();
             dedent!();
             return Err(TypeCheckError::from(format!(
                 "call {call} : {}\ncannot find function for filters {}",
@@ -713,6 +730,7 @@ impl TypeCheck {
                     p.ast_type = new_t;
                 }
                 if is_generic_type(&p.ast_type) {
+                    self.stack.pop();
                     dedent!();
                     return Err(TypeCheckError::from(format!(
                         "Unresolved generic type {} : {resolved_generic_types}",
@@ -727,6 +745,7 @@ impl TypeCheck {
             }
 
             if is_generic_type(&new_function_def.return_type) {
+                self.stack.pop();
                 dedent!();
                 return Err(TypeCheckError::from(format!(
                     "Unresolved generic return type {}, expected return type {}",
@@ -790,6 +809,8 @@ impl TypeCheck {
             self.module
                 .functions_by_name
                 .add_function(new_function_def.original_name.clone(), new_function_def);
+            self.functions_stack
+                .insert(new_call.function_name.clone(), self.stack.clone());
         }
 
         dedent!();
