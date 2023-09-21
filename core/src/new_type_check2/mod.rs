@@ -191,17 +191,10 @@ impl TypeCheck {
     ) -> Result<ASTStatement, TypeCheckError> {
         match statement {
             ASTStatement::Expression(e) => self
-                .transform_expression(
-                    module,
-                    e,
-                    val_context,
-                    statics,
-                    expected_return_type,
-                    expected_return_type,
-                )
+                .transform_expression(module, e, val_context, statics, expected_return_type)
                 .map(ASTStatement::Expression),
             ASTStatement::LetStatement(name, e, is_const, index) => self
-                .transform_expression(module, e, val_context, statics, None, None)
+                .transform_expression(module, e, val_context, statics, None)
                 .map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const, index.clone())),
         }
     }
@@ -213,7 +206,6 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
-        expected_return_type: Option<&ASTType>,
     ) -> Result<ASTExpression, TypeCheckError> {
         match expression {
             ASTExpression::StringLiteral(s) => Ok(expression.clone()),
@@ -223,14 +215,7 @@ impl TypeCheck {
             ASTExpression::ValueRef(name, index) => Ok(expression.clone()),
             ASTExpression::Value(value_type, index) => Ok(expression.clone()),
             ASTExpression::Lambda(lambda_def) => self
-                .transform_lambda_def(
-                    module,
-                    lambda_def,
-                    val_context,
-                    statics,
-                    expected_type,
-                    expected_return_type,
-                )
+                .transform_lambda_def(module, lambda_def, val_context, statics, expected_type)
                 .map(ASTExpression::Lambda),
             ASTExpression::Any(ast_type) => self
                 .transform_ast_type(module, ast_type)
@@ -238,9 +223,8 @@ impl TypeCheck {
         }
         .map_err(|it| {
             it.add(format!(
-                "converting expression {expression}, expected_type {}, expected_return_type {} : {}",
+                "converting expression {expression}, expected_type {} : {}",
                 OptionDisplay(&expected_type),
-                OptionDisplay(&expected_return_type),
                 expression.get_index()
             ))
         })
@@ -496,7 +480,6 @@ impl TypeCheck {
                                 val_context,
                                 statics,
                                 Some(&param_type),
-                                None,
                             )?;
 
                             let t = cloned_self.type_of_expression(
@@ -766,7 +749,6 @@ impl TypeCheck {
                         val_context,
                         statics,
                         Some(&param.ast_type),
-                        None,
                     )
                 })
                 .collect::<Result<Vec<_>, TypeCheckError>>()
@@ -1225,7 +1207,6 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
-        expected_return_type: Option<&ASTType>,
     ) -> Result<ASTLambdaDef, TypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
@@ -1233,19 +1214,7 @@ impl TypeCheck {
 
         Self::add_lambda_parameters_to_val_context(lambda_def, &expected_type, &mut val_context)?;
 
-        let ert = if let Some(ert) = expected_return_type {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                parameters,
-                return_type,
-            }) = ert
-            {
-                Ok(Some(return_type.deref()))
-            } else {
-                Err(TypeCheckError::from(format!(
-                    "Expected lambda but got {ert}"
-                )))
-            }
-        } else if let Some(et) = expected_type {
+        let ert = if let Some(et) = expected_type {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters,
                 return_type,
