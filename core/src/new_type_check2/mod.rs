@@ -43,7 +43,6 @@ use crate::utils::{OptionDisplay, SliceDisplay};
 type InputModule = EnhancedASTModule;
 type OutputModule = EnhancedASTModule;
 
-#[derive(Clone)]
 pub struct TypeCheck {
     module: OutputModule,
     pub type_conversion_context: TypeConversionContext,
@@ -391,14 +390,12 @@ impl TypeCheck {
             .find_call_vec(call, &filters, None)
             .map_err(|it| format!("{} converting call {call} : {}", it, call.index))?;
 
-        let (mut new_function_def, new_self) = if !original_functions.is_empty() {
+        let mut new_function_def = if !original_functions.is_empty() {
             let mut valid_functions = Vec::new();
 
             for function in original_functions {
                 debug_i!("verifying function {function}");
                 indent!();
-
-                let mut cloned_self = self.clone();
 
                 let mut fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
                 let mut inverse_fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
@@ -474,7 +471,7 @@ impl TypeCheck {
                             debug_i!("real expression : {expr}");
                             debug_i!("real type of expression : {param_type}");
 
-                            let e = cloned_self.transform_expression(
+                            let e = self.transform_expression(
                                 module,
                                 &expr,
                                 val_context,
@@ -482,7 +479,7 @@ impl TypeCheck {
                                 Some(&param_type),
                             )?;
 
-                            let t = cloned_self.type_of_expression(
+                            let t = self.type_of_expression(
                                 module,
                                 &e,
                                 val_context,
@@ -563,7 +560,7 @@ impl TypeCheck {
                         .collect::<Vec<_>>();
                     f.generic_types = new_generic_type;
 
-                    valid_functions.push((f, non_generic_types, cloned_self));
+                    valid_functions.push((f, non_generic_types));
                     debug_i!("it's valid with non_generic_types {non_generic_types}");
                 }
                 dedent!();
@@ -615,11 +612,11 @@ impl TypeCheck {
                     )));
                 } else {
                     let x = valid_functions.first().unwrap().clone().clone();
-                    (x.0.clone(), x.2)
+                    x.0.clone()
                 }
             } else {
                 let x = valid_functions.first().unwrap().clone().clone();
-                (x.0.clone(), x.2)
+                x.0.clone()
             }
 
             //}
@@ -636,8 +633,6 @@ impl TypeCheck {
         };
 
         debug_i!("found valid function {new_function_def}");
-
-        self.copy_from(new_self);
 
         let new_function_name = self.new_function_name(call);
         new_function_def.name = new_function_name.clone();
@@ -796,13 +791,6 @@ impl TypeCheck {
 
         dedent!();
         Ok(new_call)
-    }
-
-    fn copy_from(&mut self, new_self: TypeCheck) {
-        self.module = new_self.module;
-        self.stack = new_self.stack;
-        self.functions_stack = new_self.functions_stack;
-        self.type_conversion_context = new_self.type_conversion_context;
     }
 
     ///
@@ -1032,6 +1020,7 @@ impl TypeCheck {
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 }
 
+                /*
                 if let Some(f) =
                     module.find_precise_function(&call.original_function_name, &call.function_name)
                 {
@@ -1039,12 +1028,12 @@ impl TypeCheck {
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 }
 
-                let mut cloned_self = self.clone();
+                 */
 
                 if let Ok(transformed_call) =
-                    cloned_self.transform_call(module, call, val_context, statics, expected_type)
+                    self.transform_call(module, call, val_context, statics, expected_type)
                 {
-                    if let Some(f) = cloned_self
+                    if let Some(f) = self
                         .module
                         .find_precise_function(
                             &transformed_call.original_function_name,
@@ -1052,7 +1041,6 @@ impl TypeCheck {
                         )
                         .cloned()
                     {
-                        self.copy_from(cloned_self);
                         dedent!();
                         return Ok(TypeFilter::Exact(f.return_type.clone()));
                     }
