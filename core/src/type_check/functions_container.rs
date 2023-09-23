@@ -243,14 +243,14 @@ impl FunctionsContainer {
         }
     }
 
-    fn find_call_vec_1<'a, 'b>(
+    fn find_call_vec_1<'a>(
         function_name: &str,
-        parameter_types_filter: &'a Vec<TypeFilter>,
+        parameter_types_filter: &Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
-        functions: &'b [ASTFunctionDef],
-    ) -> Result<Vec<&'b ASTFunctionDef>, TypeCheckError> {
+        functions: &'a [ASTFunctionDef],
+    ) -> Result<Vec<&'a ASTFunctionDef>, TypeCheckError> {
         let lambda = |it: &&ASTFunctionDef| {
             debug_i!(
                 "testing function {it}, filters {}, return type {}",
@@ -264,10 +264,10 @@ impl FunctionsContainer {
             }
             let mut resolved_generic_types = LinkedHashMap::new();
             let result = Self::almost_same_parameters_types(
-                &it.parameters
+                it.parameters
                     .iter()
-                    .map(|it| it.ast_type.clone())
-                    .collect::<Vec<ASTType>>(),
+                    .map(|it| &it.ast_type)
+                    .collect::<Vec<_>>(),
                 parameter_types_filter,
                 &mut resolved_generic_types,
                 &it.index,
@@ -402,10 +402,10 @@ impl FunctionsContainer {
                         Ok((it.clone(), false))
                     } else {
                         Self::almost_same_parameters_types(
-                            &it.parameters
+                            it.parameters
                                 .iter()
-                                .map(|it| it.ast_type.clone())
-                                .collect::<Vec<ASTType>>(),
+                                .map(|it| &it.ast_type)
+                                .collect::<Vec<_>>(),
                             &parameter_types_filter
                                 .iter()
                                 .map(|it| TypeFilter::Exact(it.clone()))
@@ -444,7 +444,7 @@ impl FunctionsContainer {
     }
 
     fn almost_same_parameters_types(
-        parameter_types: &Vec<ASTType>,
+        parameter_types: Vec<&ASTType>,
         parameter_types_filter: &Vec<TypeFilter>,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
@@ -464,7 +464,7 @@ impl FunctionsContainer {
     }
 
     fn match_parameters(
-        parameter_types: &[ASTType],
+        parameter_types: Vec<&ASTType>,
         parameter_types_filter: &[TypeFilter],
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
