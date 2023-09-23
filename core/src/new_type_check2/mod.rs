@@ -107,17 +107,6 @@ impl TypeCheck {
                     call.function_name
                 )));
             }
-
-            /*
-            self.transform_call(
-                &module,
-                &call,
-                &mut val_context,
-                &mut statics,
-                None,
-            )?;
-
-             */
         }
 
         let new_body =
@@ -144,13 +133,20 @@ impl TypeCheck {
                     .unwrap()
                     .clone();
 
+                /*
+                if function_name.starts_with("Option_match") {
+                    println!("converting function {}", function_name);
+                }
+
+                 */
+
                 let new_body = self
                     .transform_function(module, statics, &function, backend)
                     .map_err(|it| {
                         it.add(format!(
                             "transforming function {function} : {}\n{}",
                             function.index,
-                            self.functions_stack.get(&function.name).unwrap().join("\n")
+                            self.stack.join("\n")
                         ))
                     })?;
 
@@ -223,7 +219,7 @@ impl TypeCheck {
         }
         .map_err(|it| {
             it.add(format!(
-                "converting expression {expression}, expected_type {} : {}",
+                "converting expression, expected_type {} : {}",
                 OptionDisplay(&expected_type),
                 expression.get_index()
             ))
@@ -257,11 +253,6 @@ impl TypeCheck {
                 .module
                 .functions_by_name
                 .has_function(&call.original_function_name, &call.function_name);
-        /*call.original_function_name != call.function_name
-        || self
-            .module
-            .functions_by_name
-            .has_function(&call.original_function_name, &call.function_name);*/
 
         if already_converted {
             debug_i!("already converted");
@@ -274,30 +265,6 @@ impl TypeCheck {
             return Ok(call.clone());
         }
 
-        /*
-        if let Some(v) = val_context.get(&call.function_name) {
-            match v {
-                ValKind::ParameterRef(_, par) => {}
-                ValKind::LetRef(_, t, index) => {}
-            }
-        }
-
-         */
-
-        /*
-        let new_expressions: Vec<ASTExpression> = call
-            .parameters
-            .iter()
-            .map(|it| self.transform_expression(module, it, val_context, statics, None))
-            .collect::<Result<Vec<_>, TypeCheckError>>()
-            .map_err(|it| {
-                format!(
-                    "{} converting expressions in call {call} : {}",
-                    it, call.index
-                )
-            })?;
-
-         */
         self.stack.push(format!("{}", call.index));
 
         let filters = call
@@ -306,88 +273,14 @@ impl TypeCheck {
             .map(|it| self.type_of_expression(module, it, val_context, statics, None))
             .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
-        /*
-        let filters = {
-            let not_converted_filters = call
-                .parameters
-                .iter()
-                .map(|it| self.type_of_expression(module, it, val_context, statics))
-                .collect::<Result<Vec<_>, TypeCheckError>>()?;
-
-            let all_exact = not_converted_filters
-                .iter()
-                .all(|it| matches!(it, TypeFilter::Exact(_)));
-
-            if all_exact {
-                debug_i!("all exact");
-                not_converted_filters
-            } else {
-                let new_expressions: Vec<ASTExpression> = call
-                    .parameters
-                    .iter()
-                    .map(|it| self.transform_expression(module, it, val_context, statics))
-                    .collect::<Result<Vec<_>, TypeCheckError>>()
-                    .map_err(|it| {
-                        format!(
-                            "{} converting expressions in call {call} : {}",
-                            it, call.index
-                        )
-                    })?;
-
-                new_expressions
-                    .iter()
-                    .map(|it| self.type_of_expression(module, it, val_context, statics))
-                    .collect::<Result<Vec<_>, TypeCheckError>>()?
-            }
-        };
-
-         */
-
         let mut new_call = call.clone();
 
-        /*
-        let converted_functions = self
-            .module
-            .find_call_vec(call, &filters, None)
-            .map_err(|it| format!("{} converting call {call} : {}", it, call.index))?;
-
-
-        match converted_functions.len().cmp(&1usize) {
-            Ordering::Less => {}
-            Ordering::Equal => {
-                debug_i!("found converted function");
-                let new_expressions: Vec<ASTExpression> = call
-                    .parameters
-                    .iter()
-                    .map(|it| self.transform_expression(module, it, val_context, statics))
-                    .collect::<Result<Vec<_>, TypeCheckError>>()
-                    .map_err(|it| {
-                        format!(
-                            "{} converting expressions in call {call} : {}",
-                            it, call.index
-                        )
-                    })?;
-                new_call.parameters = new_expressions;
-                new_call.function_name = converted_functions.first().unwrap().name.clone();
-                dedent!();
-                return Ok(new_call);
-            }
-            Ordering::Greater => {
-                dedent!();
-                return Err(TypeCheckError::from(format!(
-                    "Found more than one function for {call} : {}",
-                    call.index
-                )));
-            }
-        }
-
-        debug_i!("cannot find a converted function");
-
-         */
-
-        let original_functions = module
-            .find_call_vec(call, &filters, None)
-            .map_err(|it| format!("{} converting call {call} : {}", it, call.index))?;
+        let original_functions = module.find_call_vec(call, &filters, None).map_err(|it| {
+            it.add(format!(
+                "converting call {} : {}",
+                call.original_function_name, call.index
+            ))
+        })?;
 
         let (mut new_function_def, mut new_expressions_filters) = if !original_functions.is_empty()
         {
@@ -400,18 +293,15 @@ impl TypeCheck {
                 &filters,
                 original_functions,
             )?
-
-            //}
         } else {
             self.stack.pop();
             dedent!();
             return Err(TypeCheckError::from(format!(
-                "call {call} : {}\ncannot find function for filters {}",
+                "call {} : {}\ncannot find function for filters {}",
+                call.original_function_name,
                 call.index,
                 SliceDisplay(&filters)
             )));
-            //        } else {
-            //            original_functions.first().unwrap().clone()
         };
 
         debug_i!("found valid function {new_function_def}");
@@ -475,13 +365,7 @@ impl TypeCheck {
                                 new_function_def.return_type
                             ))
                         })?;
-                } /*else if !is_generic_type(&new_function_def.return_type) {
-                      resolved_generic_types.extend(resolve_generic_types_from_effective_type(
-                          rt,
-                          &new_function_def.return_type,
-                      )?)?;
-                  }
-                  */
+                }
             }
 
             for p in new_function_def.parameters.iter_mut() {
@@ -530,10 +414,10 @@ impl TypeCheck {
                 })
                 .collect::<Result<Vec<_>, TypeCheckError>>()
                 .map_err(|it| {
-                    format!(
-                        "{} converting expressions in call {call} : {}",
-                        it, call.index
-                    )
+                    it.add(format!(
+                        "converting expressions in call {} : {}",
+                        call.original_function_name, call.index
+                    ))
                 })?;
 
         new_call.parameters = new_expressions;
@@ -567,6 +451,7 @@ impl TypeCheck {
         }
 
         dedent!();
+        self.stack.pop();
         Ok(new_call)
     }
 
@@ -582,6 +467,8 @@ impl TypeCheck {
     ) -> Result<(ASTFunctionDef, Vec<TypeFilter>), TypeCheckError> {
         let mut valid_functions = Vec::new();
         let mut new_expressions_filters = filters.clone();
+
+        let mut errors = Vec::new();
 
         for function in original_functions {
             debug_i!("verifying function {function}");
@@ -723,7 +610,8 @@ impl TypeCheck {
                 .into_iter()
                 .collect::<Result<Vec<_>, TypeCheckError>>();
 
-            if let Err(e) = &filters {
+            if let Err(e) = filters {
+                errors.push(e.clone());
                 debug_i!("ignored function due to {e}");
                 dedent!();
                 continue;
@@ -785,8 +673,10 @@ impl TypeCheck {
             self.stack.pop();
             dedent!();
             Err(TypeCheckError::from(format!(
-                "call {call} : {}\ncannot find a valid function",
+                "call {} : {}\ncannot find a valid function\n{}",
+                call.original_function_name,
                 call.index,
+                SliceDisplay(&errors.iter().map(|it| format!("{it}")).collect::<Vec<_>>())
             )))
         } else if valid_functions.len() > 1 {
             let max = valid_functions.iter().map(|it| it.1).min().unwrap();
