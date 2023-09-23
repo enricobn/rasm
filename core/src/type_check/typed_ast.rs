@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
@@ -12,6 +11,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::TypedValKind;
+use crate::debug_i;
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
@@ -19,17 +19,13 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
-use crate::type_check::call_converter::CallConverter;
-use crate::type_check::call_converter::ConvertCallResult::*;
 use crate::type_check::call_stack::CallStack;
+use crate::type_check::functions_container::FunctionsContainer;
 use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
-use crate::type_check::{
-    convert_function_def, convert_statement, get_new_native_call, substitute, TypeConversionContext,
-};
+use crate::type_check::{get_new_native_call, substitute};
 use crate::utils::{find_one, SliceDisplay};
-use crate::{debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -804,209 +800,6 @@ impl<'a> ConvContext<'a> {
     }
 }
 
-pub fn convert_to_typed_module_old(
-    module: &EnhancedASTModule,
-    print_module: bool,
-    mandatory_functions: Vec<DefaultFunction>,
-    backend: &dyn Backend,
-    statics: &mut Statics,
-    dereference: bool,
-    default_functions: Vec<DefaultFunction>,
-) -> (ASTTypedModule, TypeConversionContext) {
-    let mut conv_context = ConvContext::new(module);
-    let type_conversion_context = TypeConversionContext::new();
-    let mut new_typed_context = RefCell::new(type_conversion_context);
-
-    mandatory_functions.into_iter().for_each(|it| {
-        add_default_function(module, it, true, &new_typed_context, backend, statics)
-    });
-
-    //default_functions.dedup_by(|a, b| a.name == b.name);
-
-    for it in default_functions {
-        add_default_function(
-            module,
-            it.clone(),
-            false,
-            &new_typed_context,
-            backend,
-            statics,
-        )
-    }
-
-    let mut functions_by_name = LinkedHashMap::new();
-
-    let mut body = module.body.clone();
-
-    // TODO enable?
-    // module.check_duplicate_functions();
-
-    let mut count = 0;
-
-    loop {
-        info!("type check loop {count}");
-
-        if count > 100 {
-            panic!()
-        }
-
-        indent!();
-
-        let mut somethin_converted = false;
-
-        let mut new_body = Vec::new();
-
-        let mut context = ValContext::new(None);
-
-        for statement in body {
-            debug_i!("converting statement {statement}");
-            indent!();
-            let mut call_stack = CallStack::new();
-
-            let statement_converted = convert_statement(
-                module,
-                &mut context,
-                &new_typed_context,
-                &mut new_body,
-                statement,
-                backend,
-                statics,
-                &mut call_stack,
-            );
-
-            if statement_converted {
-                debug_i!("statement converted");
-            } else {
-                debug_i!("statement NOT converted");
-            }
-            somethin_converted |= statement_converted;
-            dedent!();
-        }
-
-        body = new_body;
-
-        new_typed_context.borrow().debug_i("context");
-
-        let cloned_typed_context = new_typed_context.clone();
-
-        for new_function_def in new_typed_context.borrow().functions().into_iter() {
-            if functions_by_name.contains_key(&new_function_def.name) {
-                continue;
-            }
-            debug_i!("converting function {new_function_def}");
-            let converted_function_def = match convert_function_def(
-                backend,
-                module,
-                &cloned_typed_context,
-                new_function_def,
-                statics,
-            ) {
-                // HENRY remove?
-                Ok(ce) => ce,
-                Err(err) => {
-                    panic!("{err}");
-                }
-            };
-
-            let converted_function = if let Some(function_converted) = converted_function_def {
-                somethin_converted = true;
-                function_converted
-            } else {
-                new_function_def.clone()
-            };
-
-            functions_by_name.insert(
-                new_function_def.name.clone(),
-                function_def(
-                    &mut conv_context,
-                    &converted_function,
-                    backend,
-                    module,
-                    &cloned_typed_context,
-                    statics,
-                    dereference,
-                )
-                .expect(&format!("Error converting {converted_function}")),
-            );
-        }
-
-        if somethin_converted
-            || new_typed_context.borrow().len() != cloned_typed_context.borrow().len()
-        {
-            debug_i!(
-                "old vs new {} {}",
-                new_typed_context.borrow().len(),
-                cloned_typed_context.borrow().len()
-            );
-
-            new_typed_context = cloned_typed_context;
-            count += 1;
-            dedent!();
-            continue;
-        } else {
-            dedent!();
-            break;
-        }
-    }
-
-    let mut result = ASTTypedModule {
-        body: body
-            .iter()
-            .map(|it| statement(&mut conv_context, it))
-            .collect(),
-        structs: conv_context.struct_defs,
-        enums: conv_context.enum_defs,
-        functions_by_name: LinkedHashMap::new(),
-        types: conv_context.type_defs,
-    };
-
-    let mut evaluator = TextMacroEvaluator::new();
-
-    functions_by_name
-        .iter_mut()
-        .for_each(|it| match &it.1.body {
-            ASTTypedFunctionBody::RASMBody(_) => {}
-            ASTTypedFunctionBody::ASMBody(body) => {
-                let new_body = evaluator.translate(
-                    backend,
-                    statics,
-                    Some(it.1),
-                    None,
-                    body,
-                    dereference,
-                    true,
-                    &result,
-                );
-
-                let new_body = evaluator.translate(
-                    backend,
-                    statics,
-                    Some(it.1),
-                    None,
-                    &new_body,
-                    dereference,
-                    false,
-                    &result,
-                );
-                it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
-            }
-        });
-
-    result.functions_by_name = functions_by_name;
-
-    if print_module {
-        print_typed_module(&result);
-    }
-
-    info!("verify");
-
-    verify(&result, statics);
-
-    info!("verify end");
-
-    (result, new_typed_context.into_inner())
-}
-
 pub fn convert_to_typed_module(
     original_module: &EnhancedASTModule,
     print_module: bool,
@@ -1015,10 +808,10 @@ pub fn convert_to_typed_module(
     statics: &mut Statics,
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
-) -> (ASTTypedModule, TypeConversionContext) {
+) -> ASTTypedModule {
     let type_check = TypeCheck::new();
 
-    let (module, type_conversion_context) = type_check
+    let module = type_check
         .type_check(
             original_module,
             backend,
@@ -1031,38 +824,13 @@ pub fn convert_to_typed_module(
         });
 
     let mut conv_context = ConvContext::new(&module);
-    let mut new_typed_context = RefCell::new(type_conversion_context);
-    /*
-       mandatory_functions.into_iter().for_each(|it| {
-           add_default_function(module, it, true, &new_typed_context, backend, statics)
-       });
-
-       let default_functions = get_default_functions(print_allocation);
-       //default_functions.dedup_by(|a, b| a.name == b.name);
-
-       for it in default_functions {
-           add_default_function(
-               module,
-               it.clone(),
-               false,
-               &new_typed_context,
-               backend,
-               statics,
-           )
-       }
-
-    */
 
     let mut functions_by_name = LinkedHashMap::new();
 
     // TODO enable?
     // module.check_duplicate_functions();
 
-    new_typed_context.borrow().debug_i("context");
-
-    let cloned_typed_context = new_typed_context.clone();
-
-    for new_function_def in new_typed_context.borrow().functions().into_iter() {
+    for new_function_def in module.functions().into_iter() {
         if functions_by_name.contains_key(&new_function_def.name) {
             continue;
         }
@@ -1076,11 +844,10 @@ pub fn convert_to_typed_module(
                 &converted_function,
                 backend,
                 &module,
-                &cloned_typed_context,
                 statics,
                 dereference,
             )
-            .expect(&format!("Error converting {converted_function}")),
+            .unwrap_or_else(|_| panic!("Error converting {converted_function}")),
         );
     }
 
@@ -1140,7 +907,7 @@ pub fn convert_to_typed_module(
 
     info!("verify end");
 
-    (result, new_typed_context.into_inner())
+    result
 }
 
 pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
@@ -1190,14 +957,14 @@ pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
 
 fn find_calls(
     name: &str,
-    typed_context: &RefCell<TypeConversionContext>,
+    typed_context: &FunctionsContainer,
     body: &[ASTStatement],
 ) -> Vec<ASTIndex> {
     let mut result = Vec::new();
 
     result.append(&mut find_calls_in_statements(name, body));
 
-    for f in typed_context.borrow().functions() {
+    for f in typed_context.functions() {
         match &f.body {
             RASMBody(b) => {
                 result.append(&mut find_calls_in_statements(name, b));
@@ -1585,43 +1352,6 @@ pub fn get_type_of_typed_expression(
     }
 }
 
-pub fn add_default_function(
-    module: &EnhancedASTModule,
-    function_call: DefaultFunction,
-    mandatory: bool,
-    typed_context: &RefCell<TypeConversionContext>,
-    backend: &dyn Backend,
-    statics: &Statics,
-) {
-    let context = ValContext::new(None);
-
-    let call = function_call.to_call();
-
-    let mut call_stack = CallStack::new();
-
-    match CallConverter::new(module, &context, typed_context, backend, statics).convert_call(
-        &call,
-        None,
-        &mut call_stack,
-    ) {
-        Err(e) => {
-            panic!(
-                "Error converting mandatory function {} : {e}",
-                function_call.name
-            );
-        }
-        Ok(NothingToConvert) => {
-            debug_i!("no new call for default function {call}");
-        }
-        Ok(SomethingConverted) => {
-            debug_i!("something converted, but not entirely for default function {call}");
-        }
-        Ok(Converted(new_call)) => {
-            debug_i!("new call {new_call} for default function {call}");
-        }
-    }
-}
-
 fn struct_property(
     conv_context: &mut ConvContext,
     property: &ASTStructPropertyDef,
@@ -1645,7 +1375,6 @@ pub fn function_def(
     def: &ASTFunctionDef,
     backend: &dyn Backend,
     module: &EnhancedASTModule,
-    typed_context: &RefCell<TypeConversionContext>,
     statics: &mut Statics,
     dereference: bool,
 ) -> Result<ASTTypedFunctionDef, TypeCheckError> {
@@ -1742,11 +1471,11 @@ pub fn function_def(
                     .collect::<Vec<_>>();
 
                 let function_def_name_opt = {
-                    if let Some(f) = typed_context.borrow().find_function(&it.name) {
+                    if let Some(f) = module.find_function(&it.name) {
                         Some(f.name.clone())
                     } else {
-                        typed_context
-                            .borrow()
+                        module
+                            .functions_by_name
                             .find_call(
                                 &it.name,
                                 &it.name,
@@ -1765,48 +1494,12 @@ pub fn function_def(
                 } else {
                     let function_call = it.to_call(def);
 
-                    if let Ok(Converted(new_call)) = CallConverter::new(
-                        module,
-                        &ValContext::new(None),
-                        typed_context,
-                        backend,
-                        statics,
-                    )
-                    .convert_call(&function_call, None, &mut call_stack)
-                    {
-                        debug_i!("new_call {:?}", new_call);
-                        new_call.function_name
-                    } else {
-                        let function_def_opt = module.find_call(
-                            &it.name,
-                            &it.name,
-                            call_parameters_types.clone(),
-                            None,
-                            &function_call.index,
-                        )?;
-
-                        if let Some(function_def) = function_def_opt {
-                            if let Some(rf) = typed_context
-                                .borrow_mut()
-                                .try_add_new(&it.name, &function_def)
-                            {
-                                rf.name
-                            } else {
-                                panic!("cannot find {}", function_call);
-                            }
-                        } else {
-                            module.debug_i();
-
-                            typed_context.borrow().debug_i("context");
-
-                            panic!(
-                                "cannot find {} {}: {}",
-                                function_call,
-                                SliceDisplay(&call_parameters_types),
-                                function_call.index
-                            );
-                        }
-                    }
+                    panic!(
+                        "cannot find {} {}: {}",
+                        function_call,
+                        SliceDisplay(&call_parameters_types),
+                        function_call.index
+                    );
                 };
 
                 debug_i!("found function for native call {function_name} ");

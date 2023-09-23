@@ -459,9 +459,9 @@ mod tests {
 
     #[test]
     fn simple() {
-        let finder = get_reference_finder("resources/simple.rasm");
+        let finder = get_reference_finder("resources/test/simple.rasm");
 
-        let file_name = Path::new("resources/simple.rasm");
+        let file_name = Path::new("resources/test/simple.rasm");
         finder.selectable_items.iter().for_each(|it| {
             if it.min.file_name == Some(file_name.to_path_buf()) {
                 println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
@@ -485,9 +485,9 @@ mod tests {
 
     #[test]
     fn types() {
-        let finder = get_reference_finder("resources/types.rasm");
+        let finder = get_reference_finder("resources/test/types.rasm");
 
-        let file_name = Path::new("resources/types.rasm");
+        let file_name = Path::new("resources/test/types.rasm");
         let source_file = Path::new(&file_name);
 
         finder.selectable_items.iter().for_each(|it| {
@@ -499,7 +499,7 @@ mod tests {
         let project = RasmProject::new(file_name.to_path_buf());
 
         let stdlib_path = project
-            .from_relative_to_root(Path::new("../../stdlib"))
+            .from_relative_to_root(Path::new("../../../stdlib"))
             .canonicalize()
             .unwrap();
 
@@ -526,26 +526,24 @@ mod tests {
     }
 
     #[test]
-    fn breakout() {
-        let reference_finder = get_reference_finder("../rasm/resources/examples/breakout");
-        let found = reference_finder
+    fn types_1() {
+        let finder = get_reference_finder("resources/test/types.rasm");
+
+        let file_name = Path::new("resources/test/types.rasm");
+        let source_file = Path::new(&file_name);
+
+        let found = finder
             .find(&ASTIndex::new(
-                Some(PathBuf::from(
-                    "../rasm/resources/examples/breakout/breakout.rasm",
-                )),
-                128,
-                34,
+                Some(PathBuf::from("resources/test/types.rasm")),
+                25,
+                31,
             ))
             .unwrap();
 
         assert_eq!(
             vec!(ASTIndex::new(
-                Some(
-                    PathBuf::from("../rasm/resources/examples/breakout/breakout.rasm",)
-                        .canonicalize()
-                        .unwrap()
-                ),
-                42,
+                Some(PathBuf::from("resources/test/types.rasm",)),
+                1,
                 7,
             )),
             found
@@ -554,7 +552,7 @@ mod tests {
 
     fn get_reference_finder(source: &str) -> ReferenceFinder {
         init();
-        env::set_var("RASM_STDLIB", "../../stdlib");
+        env::set_var("RASM_STDLIB", "../../../stdlib");
         let file_name = Path::new(source);
 
         let project = RasmProject::new(file_name.to_path_buf());

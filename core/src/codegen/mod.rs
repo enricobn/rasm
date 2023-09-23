@@ -28,14 +28,12 @@ use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
-use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
-use crate::type_check::typed_context::TypeConversionContext;
 use crate::utils::OptionDisplay;
 
 pub mod backend;
@@ -67,7 +65,6 @@ pub struct CodeGen<'a> {
     lambda_space_size: usize,
     debug_asm: bool,
     dereference: bool,
-    type_conversion_context: TypeConversionContext,
 }
 
 #[derive(Clone, Debug)]
@@ -106,7 +103,7 @@ impl<'a> CodeGen<'a> {
         let mut module = module;
         enrich_module(backend, resource_path, &mut statics, &mut module);
 
-        let (typed_module, type_conversion_context) = Self::get_typed_module(
+        let typed_module = Self::get_typed_module(
             backend,
             module,
             print_memory_info,
@@ -131,7 +128,6 @@ impl<'a> CodeGen<'a> {
             lambda_space_size,
             debug_asm,
             dereference,
-            type_conversion_context,
         }
     }
 
@@ -142,13 +138,13 @@ impl<'a> CodeGen<'a> {
         dereference: bool,
         print_module: bool,
         statics: &mut Statics,
-    ) -> (ASTTypedModule, TypeConversionContext) {
+    ) -> ASTTypedModule {
         let enhanced_module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
         let default_functions = get_default_functions(print_memory_info);
 
-        let (mut typed_module, type_conversion_context) = convert_to_typed_module(
+        let mut typed_module = convert_to_typed_module(
             &enhanced_module,
             print_module,
             mandatory_functions,
@@ -160,7 +156,7 @@ impl<'a> CodeGen<'a> {
         typed_enum_functions_creator(backend, &mut typed_module, statics);
         typed_struct_functions_creator(backend, &mut typed_module, statics);
         typed_type_functions_creator(backend, &mut typed_module, statics);
-        (typed_module, type_conversion_context)
+        typed_module
     }
 
     pub fn get_std_lib_path() -> String {
@@ -688,8 +684,6 @@ impl<'a> CodeGen<'a> {
             &self.module,
         );
 
-        self.type_conversion_context.debug_i("context");
-
         let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
         self.backend
@@ -697,16 +691,7 @@ impl<'a> CodeGen<'a> {
             .iter()
             .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);
-                let filter = it
-                    .param_types
-                    .iter()
-                    .map(|ast_type| Exact(ast_type.clone()))
-                    .collect();
-                if let Some(new_function_def) = self
-                    .type_conversion_context
-                    .find_call(&it.name, &it.name, filter, None, true, &ASTIndex::none())
-                    .expect(&format!("Error finding {it}"))
-                {
+                if let Some(new_function_def) = self.module.functions_by_name.get(&it.name) {
                     debug_i!("converted to {new_function_def}");
                     if it.name != new_function_def.name {
                         lines[it.i] = get_new_native_call(m, &new_function_def.name);

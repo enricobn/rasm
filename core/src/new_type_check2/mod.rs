@@ -36,7 +36,6 @@ use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_ast::DefaultFunction;
-use crate::type_check::typed_context::TypeConversionContext;
 use crate::type_check::{is_generic_type, resolve_generic_types_from_effective_type, substitute};
 use crate::utils::{OptionDisplay, SliceDisplay};
 
@@ -45,7 +44,6 @@ type OutputModule = EnhancedASTModule;
 
 pub struct TypeCheck {
     module: OutputModule,
-    type_conversion_context: TypeConversionContext,
     stack: Vec<String>,
     functions_stack: HashMap<String, Vec<String>>,
 }
@@ -64,7 +62,6 @@ impl TypeCheck {
 
         Self {
             module: typed_module,
-            type_conversion_context: TypeConversionContext::new(),
             stack: vec![],
             functions_stack: Default::default(),
         }
@@ -74,10 +71,10 @@ impl TypeCheck {
         mut self,
         module: &EnhancedASTModule,
         backend: &dyn Backend,
-        mut statics: &mut Statics,
+        statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
-    ) -> Result<(OutputModule, TypeConversionContext), TypeCheckError> {
+    ) -> Result<OutputModule, TypeCheckError> {
         //let finder = ModuleFinder::new(ast_module);
 
         let mut val_context = ValContext::new(None);
@@ -99,9 +96,6 @@ impl TypeCheck {
 
                 let new_function_name = self.new_function_name(&call);
                 def.name = new_function_name.clone();
-
-                self.type_conversion_context
-                    .add_function(call.function_name.clone(), def.clone());
 
                 self.module
                     .functions_by_name
@@ -160,9 +154,6 @@ impl TypeCheck {
                         ))
                     })?;
 
-                self.type_conversion_context
-                    .replace_body(&function, new_body.clone());
-
                 self.module
                     .functions_by_name
                     .replace_body(&function, new_body);
@@ -173,7 +164,7 @@ impl TypeCheck {
             }
         }
 
-        Ok((self.module, self.type_conversion_context))
+        Ok(self.module)
     }
 
     fn new_function_name(&self, call: &ASTFunctionCall) -> String {
@@ -458,67 +449,6 @@ impl TypeCheck {
                       */
                 }
 
-                /*
-
-                let filters: Result<Vec<TypeFilter>, TypeCheckError> =
-                    zip(call.parameters.iter(), f.parameters.iter())
-                        .map(|(expr, param)| {
-                            debug_i!("expr {expr}");
-                            // TODO optimize
-                            let expr = if let ASTExpression::Any(t) = expr {
-                                ASTExpression::Any(
-                                    substitute(t, &fake_resolved_generic_types_for_f)
-                                        .unwrap_or(t.clone()),
-                                )
-                            } else {
-                                expr.clone()
-                            };
-
-                            // TODO optimize
-                            let param_type =
-                                substitute(&param.ast_type, &fake_resolved_generic_types_for_f)
-                                    .unwrap_or(param.ast_type.clone());
-                            let param_type = substitute(&param_type, &resolved_generic_types)
-                                .unwrap_or(param_type.clone());
-                            debug_i!("real expression : {expr}");
-                            debug_i!("real type of expression : {param_type}");
-
-                            let e = self.transform_expression(
-                                module,
-                                &expr,
-                                val_context,
-                                statics,
-                                Some(&param_type),
-                            )?;
-
-                            let t = self.type_of_expression(
-                                module,
-                                &e,
-                                val_context,
-                                statics,
-                                Some(&param_type),
-                            )?;
-                            if let TypeFilter::Exact(et) = &t {
-                                resolved_generic_types.extend(
-                                    resolve_generic_types_from_effective_type(&param_type, et)?,
-                                )?;
-                            }
-                            debug_i!("filter {t}");
-                            Ok(t)
-                        })
-                        .collect::<Result<Vec<_>, TypeCheckError>>();
-                //.map_err(|it| it.add(format!("converting expressions verifying {f}")));
-
-                                if let Err(e) = &filters {
-                    debug_i!("ignored function due to {e}");
-                    dedent!();
-                    continue;
-                }
-
-                let filters = filters?;
-
-                 */
-
                 let mut filters: Vec<Result<TypeFilter, TypeCheckError>> = Vec::new();
                 let mut something_resolved = true;
 
@@ -718,11 +648,11 @@ impl TypeCheck {
                         SliceDisplay(&valid_functions.iter().map(|it| &it.0).collect::<Vec<_>>())
                     )));
                 } else {
-                    let x = valid_functions.first().unwrap().clone().clone();
+                    let x = valid_functions.first().unwrap();
                     x.0.clone()
                 }
             } else {
-                let x = valid_functions.first().unwrap().clone().clone();
+                let x = valid_functions.first().unwrap();
                 x.0.clone()
             }
 
@@ -884,11 +814,6 @@ impl TypeCheck {
             debug_i!("adding new function {}", new_function_def);
 
             // TODO check error
-            self.type_conversion_context.add_function(
-                call.original_function_name.clone(),
-                new_function_def.clone(),
-            );
-
             self.module
                 .functions_by_name
                 .add_function(new_function_def.original_name.clone(), new_function_def);

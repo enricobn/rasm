@@ -21,3 +21,7 @@ fn doSomething(value: AStruct) {
 fn doSomething(value: Vec<i32>) {
     println("aVec");
 }
+
+fn doSomething(value: Vec<AStruct>) {
+    println("aStruct");
+}

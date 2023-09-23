@@ -130,22 +130,9 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn replace_body(
-        &mut self,
-        function_def: &ASTFunctionDef,
-        body: ASTFunctionBody,
-    ) -> ASTFunctionDef {
-        let functions = self
-            .functions_by_name
-            .get_mut(&function_def.original_name)
-            .unwrap_or_else(|| panic!("Cannot find {}", function_def.name));
-        for f_def in functions.iter_mut() {
-            if f_def.name == function_def.name {
-                f_def.body = body;
-                return f_def.clone();
-            }
-        }
-        panic!("Cannot find {}", function_def.name)
+    pub fn replace_body(&mut self, function_def: &ASTFunctionDef, body: ASTFunctionBody) {
+        let function = self.get_function(&function_def.name);
+        function.body = body;
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
@@ -164,6 +151,14 @@ impl FunctionsContainer {
         } else {
             found.first().cloned()
         }
+    }
+
+    pub fn get_function(&mut self, name: &str) -> &mut ASTFunctionDef {
+        self.functions_by_name
+            .iter_mut()
+            .flat_map(|it| it.1.iter_mut())
+            .find(|it| it.name == name || it.name == name.replace("::", "_"))
+            .unwrap()
     }
 
     pub fn has_function(&self, original_name: &str, name: &str) -> bool {
@@ -787,8 +782,8 @@ impl FunctionsContainer {
 mod tests {
     use crate::parser::ast::ASTFunctionBody::ASMBody;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType,
-        BuiltinTypeKind, ValueType,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
+        ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
@@ -950,6 +945,51 @@ mod tests {
         );
 
         assert!(result.unwrap().is_some());
+    }
+
+    #[test]
+    fn test_5() {
+        let mut functions_container = FunctionsContainer::new();
+
+        functions_container.try_add_new("aFun", &simple_function_def("aFun"));
+
+        assert!(functions_container
+            .try_add_new("f", &simple_function_def("newFun"))
+            .is_some());
+        assert!(functions_container
+            .try_add_new("ff", &simple_function_def("anotherNewFun"))
+            .is_some());
+
+        assert!(functions_container.find_function("aFun_0").is_some());
+        assert!(functions_container.find_function("newFun_0").is_some());
+        assert!(functions_container
+            .find_function("anotherNewFun_0")
+            .is_some());
+
+        assert_eq!(
+            functions_container
+                .functions()
+                .iter()
+                .map(|it| it.name.clone())
+                .collect::<Vec<String>>(),
+            vec!["aFun_0", "newFun_0", "anotherNewFun_0"]
+        );
+
+        assert_eq!(functions_container.len(), 3);
+    }
+
+    fn simple_function_def(name: &str) -> ASTFunctionDef {
+        ASTFunctionDef {
+            name: name.into(),
+            body: ASTFunctionBody::ASMBody("".into()),
+            parameters: Vec::new(),
+            return_type: ASTType::Unit,
+            inline: false,
+            generic_types: Vec::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            original_name: name.into(),
+            index: ASTIndex::none(),
+        }
     }
 
     fn create_function(
