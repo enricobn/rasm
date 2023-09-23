@@ -385,272 +385,21 @@ impl TypeCheck {
 
          */
 
-        let mut new_expressions_filters = filters.clone();
-
         let original_functions = module
             .find_call_vec(call, &filters, None)
             .map_err(|it| format!("{} converting call {call} : {}", it, call.index))?;
 
-        let mut new_function_def = if !original_functions.is_empty() {
-            let mut valid_functions = Vec::new();
-
-            for function in original_functions {
-                debug_i!("verifying function {function}");
-                indent!();
-
-                let mut fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
-                let mut inverse_fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
-                let mut fake_generic_types_for_f = Vec::new();
-
-                let mut f = if function.generic_types.is_empty() {
-                    function.clone()
-                } else {
-                    for (i, name) in function.generic_types.iter().enumerate() {
-                        let new_name = format!("{name}__{i}");
-                        fake_resolved_generic_types_for_f
-                            .insert(name.clone(), ASTType::Generic(new_name.clone()));
-                        inverse_fake_resolved_generic_types_for_f
-                            .insert(new_name.clone(), ASTType::Generic(name.clone()));
-                        fake_generic_types_for_f.push(new_name);
-                    }
-
-                    let mut result = function.clone();
-
-                    Self::resolve_generic_types_for_function(
-                        &mut result,
-                        &fake_resolved_generic_types_for_f,
-                    );
-
-                    result.generic_types = fake_generic_types_for_f;
-
-                    result
-                };
-
-                let mut resolved_generic_types = ResolvedGenericTypes::new();
-
-                if let Some(rt) = expected_return_type {
-                    if !is_generic_type(rt) {
-                        if let Ok(result) =
-                            resolve_generic_types_from_effective_type(&f.return_type, rt)
-                        {
-                            resolved_generic_types.extend(result).map_err(|e| {
-                                e.add(format!(
-                                    "resolving generic type {} with {rt}",
-                                    f.return_type
-                                ))
-                            })?;
-                        }
-                    } /*else if !is_generic_type(&new_function_def.return_type) {
-                          resolved_generic_types.extend(resolve_generic_types_from_effective_type(
-                              rt,
-                              &new_function_def.return_type,
-                          )?)?;
-                      }
-                      */
-                }
-
-                let mut filters: Vec<Result<TypeFilter, TypeCheckError>> = Vec::new();
-                let mut something_resolved = true;
-
-                let mut count = 0;
-                while something_resolved {
-                    debug_i!("calculating filters loop {count}");
-                    indent!();
-                    count += 1;
-                    something_resolved = false;
-                    filters = zip(call.parameters.iter(), f.parameters.iter())
-                        .map(|(expr, param)| {
-                            let resolved_count = resolved_generic_types.len();
-                            debug_i!("expr {expr}");
-                            // TODO optimize
-                            let expr = if let ASTExpression::Any(t) = expr {
-                                ASTExpression::Any(
-                                    substitute(t, &fake_resolved_generic_types_for_f)
-                                        .unwrap_or(t.clone()),
-                                )
-                            } else {
-                                expr.clone()
-                            };
-
-                            // TODO optimize
-                            let param_type =
-                                substitute(&param.ast_type, &fake_resolved_generic_types_for_f)
-                                    .unwrap_or(param.ast_type.clone());
-                            let param_type = substitute(&param_type, &resolved_generic_types)
-                                .unwrap_or(param_type.clone());
-                            debug_i!("real expression : {expr}");
-                            debug_i!("real type of expression : {param_type}");
-
-                            let e = self.transform_expression(
-                                module,
-                                &expr,
-                                val_context,
-                                statics,
-                                Some(&param_type),
-                            )?;
-
-                            let t = self.type_of_expression(
-                                module,
-                                &e,
-                                val_context,
-                                statics,
-                                Some(&param_type),
-                            )?;
-                            if let TypeFilter::Exact(et) = &t {
-                                if !is_generic_type(et) {
-                                    resolved_generic_types.extend(
-                                        resolve_generic_types_from_effective_type(&param_type, et)?,
-                                    )?;
-                                }
-                            } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
-                                if let TypeFilter::Exact(et) = lrt.deref() {
-                                    if !is_generic_type(et) {
-                                        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                            parameters,
-                                            return_type,
-                                        }) = &param_type
-                                        {
-                                            resolved_generic_types.extend(
-                                                resolve_generic_types_from_effective_type(
-                                                    return_type.deref(),
-                                                    et,
-                                                )?,
-                                            )?;
-                                        }
-                                    }
-                                }
-                            }
-                            if resolved_count != resolved_generic_types.len() {
-                                something_resolved = true;
-                            }
-                            debug_i!("filter {t}");
-                            Ok(t)
-                        })
-                        .collect();
-                    dedent!();
-                }
-
-                let filters = filters
-                    .into_iter()
-                    .collect::<Result<Vec<_>, TypeCheckError>>();
-
-                if let Err(e) = &filters {
-                    debug_i!("ignored function due to {e}");
-                    dedent!();
-                    continue;
-                }
-
-                let filters = filters?;
-
-                /*
-                debug_i!("with new expressions: {}", SliceDisplay(&new_expressions));
-
-                let filters = zip(new_expressions.iter(), f.parameters.iter())
-                    .map(|(it, p)| {
-                        self.type_of_expression(module, it, val_context, statics, Some(&p.ast_type))
-                    })
-                    .collect::<Result<Vec<_>, TypeCheckError>>()?;
-
-                 */
-
-                debug_i!("with filters: {}", SliceDisplay(&filters));
-
-                let mut valid = zip(f.parameters.iter(), filters.iter())
-                    .all(|(p, f)| f.almost_equal(&p.ast_type).unwrap());
-
-                if valid {
-                    if let Some(rt) = expected_return_type {
-                        //let rt = substitute(rt, &resolved_generic_types).unwrap_or(rt.clone());
-                        valid = valid
-                            && TypeFilter::Exact(rt.clone())
-                                .almost_equal(&f.return_type)
-                                .unwrap_or(false);
-                    }
-                }
-
-                if valid {
-                    let non_generic_types: usize = f
-                        .parameters
-                        .iter()
-                        .map(|it| Self::generic_type_coeff(&it.ast_type))
-                        .sum();
-                    new_expressions_filters = filters;
-
-                    Self::resolve_generic_types_for_function(
-                        &mut f,
-                        &inverse_fake_resolved_generic_types_for_f,
-                    );
-                    let new_generic_type = f
-                        .generic_types
-                        .iter()
-                        .filter(|it| inverse_fake_resolved_generic_types_for_f.contains_key(it))
-                        .map(|it| {
-                            if let Some(ASTType::Generic(g)) =
-                                inverse_fake_resolved_generic_types_for_f.get(it)
-                            {
-                                g
-                            } else {
-                                panic!("It should not happen");
-                            }
-                        })
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    f.generic_types = new_generic_type;
-
-                    valid_functions.push((f, non_generic_types));
-                    debug_i!("it's valid with non_generic_types {non_generic_types}");
-                }
-                dedent!();
-            }
-
-            if valid_functions.is_empty() {
-                self.stack.pop();
-                dedent!();
-                return Err(TypeCheckError::from(format!(
-                    "call {call} : {}\ncannot find a valid function",
-                    call.index,
-                    //SliceDisplay(&original_functions)
-                )));
-            } else if valid_functions.len() > 1 {
-                let max = valid_functions.iter().map(|it| it.1).min().unwrap();
-
-                let valid_functions = valid_functions
-                    .into_iter()
-                    .filter(|it| it.1 == max)
-                    .collect::<Vec<_>>();
-
-                /*if valid_functions.len() > 1 {
-                    // TODO
-                    let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
-                    valid_functions.retain(|it| {
-                        self.transform_function(module, statics, &it.0, &backend)
-                            .is_ok()
-                    });
-                }
-
-                 */
-
-                if valid_functions.is_empty() {
-                    self.stack.pop();
-                    // I think it should not happen
-                    dedent!();
-                    return Err(TypeCheckError::from(format!(
-                        "call {call} : {}\ncannot find a valid function",
-                        call.index,
-                    )));
-                } else if valid_functions.len() > 1 {
-                    self.stack.pop();
-                    dedent!();
-                    return Err(TypeCheckError::from(format!(
-                        "call {call} : {}\nfound more than one valid function {}",
-                        call.index,
-                        SliceDisplay(&valid_functions.iter().map(|it| &it.0).collect::<Vec<_>>())
-                    )));
-                }
-                valid_functions[0].0.clone()
-            } else {
-                valid_functions[0].0.clone()
-            }
+        let (mut new_function_def, mut new_expressions_filters) = if !original_functions.is_empty()
+        {
+            self.get_valid_function(
+                module,
+                call,
+                val_context,
+                statics,
+                expected_return_type,
+                &filters,
+                original_functions,
+            )?
 
             //}
         } else {
@@ -819,6 +568,255 @@ impl TypeCheck {
 
         dedent!();
         Ok(new_call)
+    }
+
+    fn get_valid_function(
+        &mut self,
+        module: &InputModule,
+        call: &ASTFunctionCall,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        expected_return_type: Option<&ASTType>,
+        filters: &Vec<TypeFilter>,
+        original_functions: Vec<&ASTFunctionDef>,
+    ) -> Result<(ASTFunctionDef, Vec<TypeFilter>), TypeCheckError> {
+        let mut valid_functions = Vec::new();
+        let mut new_expressions_filters = filters.clone();
+
+        for function in original_functions {
+            debug_i!("verifying function {function}");
+            indent!();
+
+            let mut fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
+            let mut inverse_fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
+            let mut fake_generic_types_for_f = Vec::new();
+
+            let mut f = if function.generic_types.is_empty() {
+                function.clone()
+            } else {
+                for (i, name) in function.generic_types.iter().enumerate() {
+                    let new_name = format!("{name}__{i}");
+                    fake_resolved_generic_types_for_f
+                        .insert(name.clone(), ASTType::Generic(new_name.clone()));
+                    inverse_fake_resolved_generic_types_for_f
+                        .insert(new_name.clone(), ASTType::Generic(name.clone()));
+                    fake_generic_types_for_f.push(new_name);
+                }
+
+                let mut result = function.clone();
+
+                Self::resolve_generic_types_for_function(
+                    &mut result,
+                    &fake_resolved_generic_types_for_f,
+                );
+
+                result.generic_types = fake_generic_types_for_f;
+
+                result
+            };
+
+            let mut resolved_generic_types = ResolvedGenericTypes::new();
+
+            if let Some(rt) = expected_return_type {
+                if !is_generic_type(rt) {
+                    if let Ok(result) =
+                        resolve_generic_types_from_effective_type(&f.return_type, rt)
+                    {
+                        resolved_generic_types.extend(result).map_err(|e| {
+                            e.add(format!(
+                                "resolving generic type {} with {rt}",
+                                f.return_type
+                            ))
+                        })?;
+                    }
+                } /*else if !is_generic_type(&new_function_def.return_type) {
+                      resolved_generic_types.extend(resolve_generic_types_from_effective_type(
+                          rt,
+                          &new_function_def.return_type,
+                      )?)?;
+                  }
+                  */
+            }
+
+            let mut filters: Vec<Result<TypeFilter, TypeCheckError>> = Vec::new();
+            let mut something_resolved = true;
+
+            let mut count = 0;
+            while something_resolved {
+                debug_i!("calculating filters loop {count}");
+                indent!();
+                count += 1;
+                something_resolved = false;
+                filters = zip(call.parameters.iter(), f.parameters.iter())
+                    .map(|(expr, param)| {
+                        let resolved_count = resolved_generic_types.len();
+                        debug_i!("expr {expr}");
+                        // TODO optimize
+                        let expr = if let ASTExpression::Any(t) = expr {
+                            ASTExpression::Any(
+                                substitute(t, &fake_resolved_generic_types_for_f)
+                                    .unwrap_or(t.clone()),
+                            )
+                        } else {
+                            expr.clone()
+                        };
+
+                        // TODO optimize
+                        let param_type =
+                            substitute(&param.ast_type, &fake_resolved_generic_types_for_f)
+                                .unwrap_or(param.ast_type.clone());
+                        let param_type = substitute(&param_type, &resolved_generic_types)
+                            .unwrap_or(param_type.clone());
+                        debug_i!("real expression : {expr}");
+                        debug_i!("real type of expression : {param_type}");
+
+                        let e = self.transform_expression(
+                            module,
+                            &expr,
+                            val_context,
+                            statics,
+                            Some(&param_type),
+                        )?;
+
+                        let t = self.type_of_expression(
+                            module,
+                            &e,
+                            val_context,
+                            statics,
+                            Some(&param_type),
+                        )?;
+                        if let TypeFilter::Exact(et) = &t {
+                            if !is_generic_type(et) {
+                                resolved_generic_types.extend(
+                                    resolve_generic_types_from_effective_type(&param_type, et)?,
+                                )?;
+                            }
+                        } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
+                            if let TypeFilter::Exact(et) = lrt.deref() {
+                                if !is_generic_type(et) {
+                                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                        parameters,
+                                        return_type,
+                                    }) = &param_type
+                                    {
+                                        resolved_generic_types.extend(
+                                            resolve_generic_types_from_effective_type(
+                                                return_type.deref(),
+                                                et,
+                                            )?,
+                                        )?;
+                                    }
+                                }
+                            }
+                        }
+                        if resolved_count != resolved_generic_types.len() {
+                            something_resolved = true;
+                        }
+                        debug_i!("filter {t}");
+                        Ok(t)
+                    })
+                    .collect();
+                dedent!();
+            }
+
+            let filters = filters
+                .into_iter()
+                .collect::<Result<Vec<_>, TypeCheckError>>();
+
+            if let Err(e) = &filters {
+                debug_i!("ignored function due to {e}");
+                dedent!();
+                continue;
+            }
+
+            let filters = filters?;
+
+            debug_i!("with filters: {}", SliceDisplay(&filters));
+
+            let mut valid = zip(f.parameters.iter(), filters.iter())
+                .all(|(p, f)| f.almost_equal(&p.ast_type).unwrap());
+
+            if valid {
+                if let Some(rt) = expected_return_type {
+                    //let rt = substitute(rt, &resolved_generic_types).unwrap_or(rt.clone());
+                    valid = valid
+                        && TypeFilter::Exact(rt.clone())
+                            .almost_equal(&f.return_type)
+                            .unwrap_or(false);
+                }
+            }
+
+            if valid {
+                let non_generic_types: usize = f
+                    .parameters
+                    .iter()
+                    .map(|it| Self::generic_type_coeff(&it.ast_type))
+                    .sum();
+                new_expressions_filters = filters;
+
+                Self::resolve_generic_types_for_function(
+                    &mut f,
+                    &inverse_fake_resolved_generic_types_for_f,
+                );
+                let new_generic_type = f
+                    .generic_types
+                    .iter()
+                    .filter(|it| inverse_fake_resolved_generic_types_for_f.contains_key(it))
+                    .map(|it| {
+                        if let Some(ASTType::Generic(g)) =
+                            inverse_fake_resolved_generic_types_for_f.get(it)
+                        {
+                            g
+                        } else {
+                            panic!("It should not happen");
+                        }
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                f.generic_types = new_generic_type;
+
+                valid_functions.push((f, non_generic_types));
+                debug_i!("it's valid with non_generic_types {non_generic_types}");
+            }
+            dedent!();
+        }
+
+        if valid_functions.is_empty() {
+            self.stack.pop();
+            dedent!();
+            Err(TypeCheckError::from(format!(
+                "call {call} : {}\ncannot find a valid function",
+                call.index,
+            )))
+        } else if valid_functions.len() > 1 {
+            let max = valid_functions.iter().map(|it| it.1).min().unwrap();
+
+            let mut valid_functions = valid_functions
+                .into_iter()
+                .filter(|it| it.1 == max)
+                .collect::<Vec<_>>();
+
+            if valid_functions.is_empty() {
+                self.stack.pop();
+                // I think it should not happen
+                dedent!();
+                return Err(TypeCheckError::from(format!(
+                    "call {call} : {}\ncannot find a valid function",
+                    call.index,
+                )));
+            } else if valid_functions.len() > 1 {
+                self.stack.pop();
+                dedent!();
+                return Err(TypeCheckError::from(format!(
+                    "call {call} : {}\nfound more than one valid function {}",
+                    call.index,
+                    SliceDisplay(&valid_functions.iter().map(|it| &it.0).collect::<Vec<_>>())
+                )));
+            }
+            Ok((valid_functions.remove(0).0, new_expressions_filters))
+        } else {
+            Ok((valid_functions.remove(0).0, new_expressions_filters))
+        }
     }
 
     ///
