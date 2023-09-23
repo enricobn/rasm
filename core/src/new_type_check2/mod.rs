@@ -474,30 +474,10 @@ impl TypeCheck {
             debug_i!("verifying function {function}");
             indent!();
 
-            let mut fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
-            let mut inverse_fake_resolved_generic_types_for_f = ResolvedGenericTypes::new();
-            let mut fake_generic_types_for_f = Vec::new();
-
             let mut f = if function.generic_types.is_empty() {
                 function.clone()
             } else {
-                for (i, name) in function.generic_types.iter().enumerate() {
-                    let new_name = format!("{name}__{i}");
-                    fake_resolved_generic_types_for_f
-                        .insert(name.clone(), ASTType::Generic(new_name.clone()));
-                    inverse_fake_resolved_generic_types_for_f
-                        .insert(new_name.clone(), ASTType::Generic(name.clone()));
-                    fake_generic_types_for_f.push(new_name);
-                }
-
                 let mut result = function.clone();
-
-                Self::resolve_generic_types_for_function(
-                    &mut result,
-                    &fake_resolved_generic_types_for_f,
-                );
-
-                result.generic_types = fake_generic_types_for_f;
 
                 result
             };
@@ -540,18 +520,13 @@ impl TypeCheck {
                         debug_i!("expr {expr}");
                         // TODO optimize
                         let expr = if let ASTExpression::Any(t) = expr {
-                            ASTExpression::Any(
-                                substitute(t, &fake_resolved_generic_types_for_f)
-                                    .unwrap_or(t.clone()),
-                            )
+                            ASTExpression::Any(t.clone())
                         } else {
                             expr.clone()
                         };
 
                         // TODO optimize
-                        let param_type =
-                            substitute(&param.ast_type, &fake_resolved_generic_types_for_f)
-                                .unwrap_or(param.ast_type.clone());
+                        let param_type = param.ast_type.clone();
                         let param_type = substitute(&param_type, &resolved_generic_types)
                             .unwrap_or(param_type.clone());
                         debug_i!("real expression : {expr}");
@@ -641,27 +616,6 @@ impl TypeCheck {
                     .map(|it| Self::generic_type_coeff(&it.ast_type))
                     .sum();
                 new_expressions_filters = filters;
-
-                Self::resolve_generic_types_for_function(
-                    &mut f,
-                    &inverse_fake_resolved_generic_types_for_f,
-                );
-                let new_generic_type = f
-                    .generic_types
-                    .iter()
-                    .filter(|it| inverse_fake_resolved_generic_types_for_f.contains_key(it))
-                    .map(|it| {
-                        if let Some(ASTType::Generic(g)) =
-                            inverse_fake_resolved_generic_types_for_f.get(it)
-                        {
-                            g
-                        } else {
-                            panic!("It should not happen");
-                        }
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-                f.generic_types = new_generic_type;
 
                 valid_functions.push((f, non_generic_types));
                 debug_i!("it's valid with non_generic_types {non_generic_types}");

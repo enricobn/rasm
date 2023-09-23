@@ -43,7 +43,7 @@ finished in 1.177244801s
 /*
 new type check
 
-type check ended in 556.051804ms
+type check ended in 505.669127ms
 */
 
 enum GameResult {
