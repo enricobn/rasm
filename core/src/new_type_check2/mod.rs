@@ -403,7 +403,7 @@ impl TypeCheck {
                 let mut fake_generic_types_for_f = Vec::new();
 
                 let mut f = if function.generic_types.is_empty() {
-                    function
+                    function.clone()
                 } else {
                     for (i, name) in function.generic_types.iter().enumerate() {
                         let new_name = format!("{name}__{i}");
@@ -614,8 +614,8 @@ impl TypeCheck {
             } else if valid_functions.len() > 1 {
                 let max = valid_functions.iter().map(|it| it.1).min().unwrap();
 
-                let mut valid_functions = valid_functions
-                    .iter()
+                let valid_functions = valid_functions
+                    .into_iter()
                     .filter(|it| it.1 == max)
                     .collect::<Vec<_>>();
 
@@ -637,7 +637,6 @@ impl TypeCheck {
                     return Err(TypeCheckError::from(format!(
                         "call {call} : {}\ncannot find a valid function",
                         call.index,
-                        //SliceDisplay(&original_functions)
                     )));
                 } else if valid_functions.len() > 1 {
                     self.stack.pop();
@@ -647,13 +646,10 @@ impl TypeCheck {
                         call.index,
                         SliceDisplay(&valid_functions.iter().map(|it| &it.0).collect::<Vec<_>>())
                     )));
-                } else {
-                    let x = valid_functions.first().unwrap();
-                    x.0.clone()
                 }
+                valid_functions[0].0.clone()
             } else {
-                let x = valid_functions.first().unwrap();
-                x.0.clone()
+                valid_functions[0].0.clone()
             }
 
             //}

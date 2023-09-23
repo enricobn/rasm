@@ -204,7 +204,7 @@ impl FunctionsContainer {
         return_type_filter: Option<ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
-    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<&ASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -243,15 +243,15 @@ impl FunctionsContainer {
         }
     }
 
-    fn find_call_vec_1(
+    fn find_call_vec_1<'a, 'b>(
         function_name: &str,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &'a Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
-        functions: &[ASTFunctionDef],
-    ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
-        let lambda = |it: &ASTFunctionDef| {
+        functions: &'b [ASTFunctionDef],
+    ) -> Result<Vec<&'b ASTFunctionDef>, TypeCheckError> {
+        let lambda = |it: &&ASTFunctionDef| {
             debug_i!(
                 "testing function {it}, filters {}, return type {}",
                 SliceDisplay(parameter_types_filter),
@@ -260,7 +260,7 @@ impl FunctionsContainer {
             indent!();
             if filter_on_name && it.name == function_name {
                 dedent!();
-                return Ok((it.clone(), true));
+                return true;
             }
             let mut resolved_generic_types = LinkedHashMap::new();
             let result = Self::almost_same_parameters_types(
@@ -274,7 +274,7 @@ impl FunctionsContainer {
             )
             .and_then(|verify_params| {
                 if !verify_params {
-                    Ok((it.clone(), false))
+                    Ok(false)
                 } else {
                     match return_type_filter {
                         None => Ok(true),
@@ -291,20 +291,13 @@ impl FunctionsContainer {
                             }
                         }
                     }
-                    .map(|b| (it.clone(), b))
                 }
-            });
+            })
+            .unwrap_or(false);
             dedent!();
             result
         };
-        let matching_functions = functions
-            .iter()
-            .map(lambda)
-            .collect::<Result<Vec<_>, TypeCheckError>>()?
-            .into_iter()
-            .filter(|(_, v)| *v)
-            .map(|it| it.0.clone())
-            .collect::<Vec<_>>();
+        let matching_functions = functions.iter().filter(lambda).collect::<Vec<_>>();
         Ok(matching_functions)
     }
 
@@ -314,7 +307,7 @@ impl FunctionsContainer {
         parameter_types_filter: &Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         filter_only_on_name: bool,
-    ) -> Result<Vec<ASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Vec<&ASTFunctionDef>, TypeCheckError> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
             OptionDisplay(&return_type_filter),
