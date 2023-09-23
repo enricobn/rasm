@@ -45,7 +45,7 @@ type OutputModule = EnhancedASTModule;
 
 pub struct TypeCheck {
     module: OutputModule,
-    pub type_conversion_context: TypeConversionContext,
+    type_conversion_context: TypeConversionContext,
     stack: Vec<String>,
     functions_stack: HashMap<String, Vec<String>>,
 }
@@ -97,14 +97,16 @@ impl TypeCheck {
                 // TODO check error
                 let mut def = f.clone();
 
-                def.name = self.new_function_name(&call);
+                let new_function_name = self.new_function_name(&call);
+                def.name = new_function_name.clone();
 
                 self.type_conversion_context
                     .add_function(call.function_name.clone(), def.clone());
 
                 self.module
                     .functions_by_name
-                    .add_function(call.function_name, def);
+                    .add_function(call.function_name.clone(), def);
+                self.functions_stack.insert(new_function_name, vec![]);
             } else {
                 return Err(TypeCheckError::from(format!(
                     "Cannot find default function {}",
@@ -132,12 +134,12 @@ impl TypeCheck {
 
         loop {
             info!("Type check loop {}", self.module.functions().len());
+
             for function in cloned_module.functions_mut() {
-                if let Some(stack) = self.functions_stack.get(&function.name) {
+                if let Some(stack) = self.functions_stack.remove(&function.name) {
                     self.stack = stack.clone();
-                    //println!("  {}", self.stack.join("\n  "))
                 } else {
-                    self.stack.clear();
+                    continue;
                 }
                 let new_body = self
                     .transform_function(module, statics, function, backend)
@@ -869,7 +871,7 @@ impl TypeCheck {
             new_call.function_name = converted_functions.first().unwrap().name.clone();
             debug_i!("already added function {}", new_call.function_name);
         } else {
-            new_call.function_name = new_function_name;
+            new_call.function_name = new_function_name.clone();
 
             debug_i!("adding new function {}", new_function_def);
 
@@ -883,7 +885,7 @@ impl TypeCheck {
                 .functions_by_name
                 .add_function(new_function_def.original_name.clone(), new_function_def);
             self.functions_stack
-                .insert(new_call.function_name.clone(), self.stack.clone());
+                .insert(new_function_name, self.stack.clone());
         }
 
         dedent!();
