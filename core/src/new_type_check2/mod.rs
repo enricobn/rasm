@@ -448,6 +448,8 @@ impl TypeCheck {
                       */
                 }
 
+                /*
+
                 let filters: Result<Vec<TypeFilter>, TypeCheckError> =
                     zip(call.parameters.iter(), f.parameters.iter())
                         .map(|(expr, param)| {
@@ -496,6 +498,101 @@ impl TypeCheck {
                         })
                         .collect::<Result<Vec<_>, TypeCheckError>>();
                 //.map_err(|it| it.add(format!("converting expressions verifying {f}")));
+
+                                if let Err(e) = &filters {
+                    debug_i!("ignored function due to {e}");
+                    dedent!();
+                    continue;
+                }
+
+                let filters = filters?;
+
+                 */
+
+                let mut filters: Vec<Result<TypeFilter, TypeCheckError>> = Vec::new();
+                let mut something_resolved = true;
+
+                let mut count = 0;
+                while something_resolved {
+                    debug_i!("calculating filters loop {count}");
+                    indent!();
+                    count += 1;
+                    something_resolved = false;
+                    filters = zip(call.parameters.iter(), f.parameters.iter())
+                        .map(|(expr, param)| {
+                            let resolved_count = resolved_generic_types.len();
+                            debug_i!("expr {expr}");
+                            // TODO optimize
+                            let expr = if let ASTExpression::Any(t) = expr {
+                                ASTExpression::Any(
+                                    substitute(t, &fake_resolved_generic_types_for_f)
+                                        .unwrap_or(t.clone()),
+                                )
+                            } else {
+                                expr.clone()
+                            };
+
+                            // TODO optimize
+                            let param_type =
+                                substitute(&param.ast_type, &fake_resolved_generic_types_for_f)
+                                    .unwrap_or(param.ast_type.clone());
+                            let param_type = substitute(&param_type, &resolved_generic_types)
+                                .unwrap_or(param_type.clone());
+                            debug_i!("real expression : {expr}");
+                            debug_i!("real type of expression : {param_type}");
+
+                            let e = self.transform_expression(
+                                module,
+                                &expr,
+                                val_context,
+                                statics,
+                                Some(&param_type),
+                            )?;
+
+                            let t = self.type_of_expression(
+                                module,
+                                &e,
+                                val_context,
+                                statics,
+                                Some(&param_type),
+                            )?;
+                            if let TypeFilter::Exact(et) = &t {
+                                if !is_generic_type(et) {
+                                    resolved_generic_types.extend(
+                                        resolve_generic_types_from_effective_type(&param_type, et)?,
+                                    )?;
+                                }
+                            } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
+                                if let TypeFilter::Exact(et) = lrt.deref() {
+                                    if !is_generic_type(et) {
+                                        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                            parameters,
+                                            return_type,
+                                        }) = &param_type
+                                        {
+                                            resolved_generic_types.extend(
+                                                resolve_generic_types_from_effective_type(
+                                                    return_type.deref(),
+                                                    et,
+                                                )?,
+                                            )?;
+                                        }
+                                    }
+                                }
+                            }
+                            if resolved_count != resolved_generic_types.len() {
+                                something_resolved = true;
+                            }
+                            debug_i!("filter {t}");
+                            Ok(t)
+                        })
+                        .collect();
+                    dedent!();
+                }
+
+                let filters = filters
+                    .into_iter()
+                    .collect::<Result<Vec<_>, TypeCheckError>>();
 
                 if let Err(e) = &filters {
                     debug_i!("ignored function due to {e}");
@@ -1247,13 +1344,10 @@ impl TypeCheck {
                     );
                 }
             } else {
-                /*
                 return Err(TypeCheckError::from(format!(
                     "Expecting lambda but got {}",
                     OptionDisplay(&expected_type)
                 )));
-
-                 */
             }
         }
         Ok(())
@@ -1275,8 +1369,8 @@ mod tests {
     use crate::codegen::val_context::ValContext;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
-        ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
+        ASTModule, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::project::project::RasmProject;
     use crate::transformations::enrich_module;
@@ -1345,6 +1439,7 @@ mod tests {
 
     #[test]
     pub fn test_add() {
+        init();
         let mut check = TypeCheck::new();
 
         let mut module = EnhancedASTModule::new(ASTModule::new());
@@ -1388,6 +1483,119 @@ mod tests {
             parameters: vec![
                 ASTExpression::ASTFunctionCallExpression(inner_call.clone()),
                 ASTExpression::ASTFunctionCallExpression(inner_call.clone()),
+            ],
+            index: ASTIndex::none(),
+        };
+
+        let mut val_context = ValContext::new(None);
+        let mut statics = Statics::new();
+
+        let transformed_call = check
+            .transform_call(&module, &call, &mut val_context, &mut statics, None)
+            .unwrap();
+
+        println!("{transformed_call}");
+        check.module.print();
+    }
+
+    #[test]
+    pub fn test_option_none() {
+        init();
+
+        let mut check = TypeCheck::new();
+
+        let mut module = EnhancedASTModule::new(ASTModule::new());
+        let option_t = ASTType::Custom {
+            name: "Option".to_owned(),
+            param_types: vec![ASTType::Generic("T".to_owned())],
+            index: ASTIndex::none(),
+        };
+
+        let function_def = ASTFunctionDef {
+            original_name: "orElse".to_string(),
+            name: "orElse".to_string(),
+            parameters: vec![
+                ASTParameterDef {
+                    name: "v1".to_string(),
+                    ast_type: option_t.clone(),
+                    ast_index: ASTIndex::none(),
+                },
+                ASTParameterDef {
+                    name: "v2".to_string(),
+                    ast_type: ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        return_type: Box::new(option_t.clone()),
+                        parameters: vec![],
+                    }),
+                    ast_index: ASTIndex::none(),
+                },
+            ],
+            return_type: option_t.clone(),
+            body: ASTFunctionBody::ASMBody("".to_owned()),
+            inline: false,
+            generic_types: vec!["T".to_owned()],
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+        };
+        module.add_function("orElse".to_owned(), function_def);
+
+        let function_def = ASTFunctionDef {
+            original_name: "Option::None".to_string(),
+            name: "Option::None".to_string(),
+            parameters: vec![],
+            return_type: option_t.clone(),
+            body: ASTFunctionBody::ASMBody("".to_owned()),
+            inline: false,
+            generic_types: vec!["T".to_owned()],
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+        };
+        module.add_function("Option::None".to_owned(), function_def);
+
+        let function_def = ASTFunctionDef {
+            original_name: "Option::Some".to_string(),
+            name: "Option::Some".to_string(),
+            parameters: vec![ASTParameterDef {
+                name: "v1".to_string(),
+                ast_type: ASTType::Generic("T".to_owned()),
+                ast_index: ASTIndex::none(),
+            }],
+            return_type: option_t.clone(),
+            body: ASTFunctionBody::ASMBody("".to_owned()),
+            inline: false,
+            generic_types: vec!["T".to_owned()],
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+        };
+        module.add_function("Option::Some".to_owned(), function_def);
+
+        module.print();
+
+        let call_to_none = ASTFunctionCall {
+            original_function_name: "Option::None".to_string(),
+            function_name: "Option::None".to_string(),
+            parameters: vec![],
+            index: ASTIndex::none(),
+        };
+
+        let call_to_some = ASTFunctionCall {
+            original_function_name: "Option::Some".to_string(),
+            function_name: "Option::Some".to_string(),
+            parameters: vec![ASTExpression::Value(ValueType::I32(10), ASTIndex::none())],
+            index: ASTIndex::none(),
+        };
+
+        let call = ASTFunctionCall {
+            original_function_name: "orElse".to_string(),
+            function_name: "orElse".to_string(),
+            parameters: vec![
+                ASTExpression::ASTFunctionCallExpression(call_to_none.clone()),
+                ASTExpression::Lambda(ASTLambdaDef {
+                    body: vec![ASTStatement::Expression(
+                        ASTExpression::ASTFunctionCallExpression(call_to_some),
+                    )],
+                    parameter_names: vec![],
+                    index: ASTIndex::none(),
+                }),
             ],
             index: ASTIndex::none(),
         };
