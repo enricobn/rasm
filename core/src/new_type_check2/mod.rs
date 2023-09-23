@@ -130,19 +130,28 @@ impl TypeCheck {
             self.transform_statements(&module, &module.body, &mut val_context, statics, None)?;
         self.module.body = new_body;
 
-        let mut cloned_module = self.module.clone();
-
         loop {
-            info!("Type check loop {}", self.module.functions().len());
+            let functions_len = self.module.functions().len();
+            info!("Type check loop {}", functions_len);
 
-            for function in cloned_module.functions_mut() {
-                if let Some(stack) = self.functions_stack.remove(&function.name) {
+            let new_function_names = self.functions_stack.keys().cloned().collect::<Vec<_>>();
+
+            for function_name in new_function_names {
+                if let Some(stack) = self.functions_stack.remove(&function_name) {
                     self.stack = stack.clone();
                 } else {
                     continue;
                 }
+
+                let function = self
+                    .module
+                    .functions_by_name
+                    .find_function(&function_name)
+                    .unwrap()
+                    .clone();
+
                 let new_body = self
-                    .transform_function(module, statics, function, backend)
+                    .transform_function(module, statics, &function, backend)
                     .map_err(|it| {
                         it.add(format!(
                             "transforming function {function} : {}\n{}",
@@ -152,17 +161,16 @@ impl TypeCheck {
                     })?;
 
                 self.type_conversion_context
-                    .replace_body(function, new_body.clone());
+                    .replace_body(&function, new_body.clone());
 
                 self.module
                     .functions_by_name
-                    .replace_body(function, new_body);
+                    .replace_body(&function, new_body);
             }
 
-            if cloned_module.functions().len() == self.module.functions().len() {
+            if self.module.functions().len() == functions_len {
                 break;
             }
-            cloned_module = self.module.clone();
         }
 
         Ok((self.module, self.type_conversion_context))
