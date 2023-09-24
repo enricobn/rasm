@@ -75,8 +75,6 @@ impl TypeCheck {
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
     ) -> Result<OutputModule, TypeCheckError> {
-        //let finder = ModuleFinder::new(ast_module);
-
         let mut val_context = ValContext::new(None);
 
         let mut default_functions = default_functions; // TODO print_allocation
@@ -202,16 +200,13 @@ impl TypeCheck {
         expected_type: Option<&ASTType>,
     ) -> Result<ASTExpression, TypeCheckError> {
         match expression {
-            ASTExpression::StringLiteral(s) => Ok(expression.clone()),
             ASTExpression::ASTFunctionCallExpression(call) => self
                 .transform_call(module, call, val_context, statics, expected_type)
                 .map(ASTExpression::ASTFunctionCallExpression),
-            ASTExpression::ValueRef(name, index) => Ok(expression.clone()),
-            ASTExpression::Value(value_type, index) => Ok(expression.clone()),
             ASTExpression::Lambda(lambda_def) => self
                 .transform_lambda_def(module, lambda_def, val_context, statics, expected_type)
                 .map(ASTExpression::Lambda),
-            ASTExpression::Any(ast_type) => Ok(expression.clone()),
+            _ => Ok(expression.clone()),
         }
         .map_err(|it| {
             it.add(format!(
@@ -235,13 +230,8 @@ impl TypeCheck {
             OptionDisplay(&expected_return_type)
         );
         indent!();
-        let already_converted = call.function_name.contains('_')
-            || self
-                .module
-                .functions_by_name
-                .has_function(&call.original_function_name, &call.function_name);
 
-        if already_converted {
+        if call.function_name.contains('_') {
             debug_i!("already converted");
             dedent!();
             return Ok(call.clone());
@@ -262,15 +252,16 @@ impl TypeCheck {
 
         let mut new_call = call.clone();
 
-        let original_functions = module.find_call_vec(call, &filters, None).map_err(|it| {
-            it.add(format!(
-                "converting call {} : {}",
-                call.original_function_name, call.index
-            ))
-        })?;
+        let original_functions = module
+            .find_call_vec(call, &filters, expected_return_type.cloned())
+            .map_err(|it| {
+                it.add(format!(
+                    "converting call {} : {}",
+                    call.original_function_name, call.index
+                ))
+            })?;
 
-        let (mut new_function_def, mut new_expressions_filters) = if !original_functions.is_empty()
-        {
+        let (mut new_function_def, new_expressions_filters) = if !original_functions.is_empty() {
             self.get_valid_function(
                 module,
                 call,

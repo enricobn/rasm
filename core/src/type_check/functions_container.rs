@@ -164,7 +164,7 @@ impl FunctionsContainer {
     pub fn has_function(&self, original_name: &str, name: &str) -> bool {
         self.functions_by_name
             .get(original_name)
-            .map(|it| it.iter().any(|function_def| &function_def.name == name))
+            .map(|it| it.iter().any(|function_def| function_def.name == name))
             .unwrap_or(false)
     }
 
@@ -257,11 +257,13 @@ impl FunctionsContainer {
                 SliceDisplay(parameter_types_filter),
                 OptionDisplay(&return_type_filter)
             );
-            indent!();
             if filter_on_name && it.name == function_name {
-                dedent!();
                 return true;
             }
+            if parameter_types_filter.len() != it.parameters.len() {
+                return false;
+            }
+            indent!();
             let mut resolved_generic_types = LinkedHashMap::new();
             let result = Self::almost_same_parameters_types(
                 it.parameters
@@ -670,6 +672,7 @@ impl FunctionsContainer {
                 }
             }
             TypeFilter::Lambda(len, _) => {
+                // TODO return type
                 if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                     parameters,
                     return_type: _,
