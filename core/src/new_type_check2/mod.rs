@@ -83,8 +83,12 @@ impl TypeCheck {
 
         default_functions.extend(mandatory_functions);
 
-        self.module = module.clone();
+        self.module.types = module.types.clone();
+        self.module.enums = module.enums.clone();
+        self.module.structs = module.structs.clone();
         self.module.functions_by_name = FunctionsContainer::new();
+        self.module.externals = module.externals.clone();
+        self.module.requires = module.requires.clone();
 
         for default_function in default_functions {
             let call = default_function.to_call();
@@ -110,7 +114,7 @@ impl TypeCheck {
         }
 
         let new_body =
-            self.transform_statements(&module, &module.body, &mut val_context, statics, None)?;
+            self.transform_statements(module, &module.body, &mut val_context, statics, None)?;
         self.module.body = new_body;
 
         loop {
@@ -121,7 +125,7 @@ impl TypeCheck {
 
             for function_name in new_function_names {
                 if let Some(stack) = self.functions_stack.remove(&function_name) {
-                    self.stack = stack.clone();
+                    self.stack = stack;
                 } else {
                     continue;
                 }
