@@ -133,14 +133,7 @@ impl TypeCheck {
                     .unwrap()
                     .clone();
 
-                /*
-                if function_name.starts_with("Option_match") {
-                    println!("converting function {}", function_name);
-                }
-
-                 */
-
-                let new_body = self
+                if let Some(new_body) = self
                     .transform_function(module, statics, &function, backend)
                     .map_err(|it| {
                         it.add(format!(
@@ -148,11 +141,12 @@ impl TypeCheck {
                             function.index,
                             self.stack.join("\n")
                         ))
-                    })?;
-
-                self.module
-                    .functions_by_name
-                    .replace_body(&function, new_body);
+                    })?
+                {
+                    self.module
+                        .functions_by_name
+                        .replace_body(&function, new_body);
+                }
             }
 
             if self.module.functions().len() == functions_len {
@@ -213,9 +207,7 @@ impl TypeCheck {
             ASTExpression::Lambda(lambda_def) => self
                 .transform_lambda_def(module, lambda_def, val_context, statics, expected_type)
                 .map(ASTExpression::Lambda),
-            ASTExpression::Any(ast_type) => self
-                .transform_ast_type(module, ast_type)
-                .map(ASTExpression::Any),
+            ASTExpression::Any(ast_type) => Ok(expression.clone()),
         }
         .map_err(|it| {
             it.add(format!(
@@ -224,15 +216,6 @@ impl TypeCheck {
                 expression.get_index()
             ))
         })
-    }
-
-    fn transform_ast_type(
-        &mut self,
-        module: &InputModule,
-        ast_type: &ASTType,
-    ) -> Result<ASTType, TypeCheckError> {
-        // TODO
-        Ok(ast_type.clone())
     }
 
     fn transform_call(
@@ -474,35 +457,21 @@ impl TypeCheck {
             debug_i!("verifying function {function}");
             indent!();
 
-            let mut f = if function.generic_types.is_empty() {
-                function.clone()
-            } else {
-                let mut result = function.clone();
-
-                result
-            };
-
             let mut resolved_generic_types = ResolvedGenericTypes::new();
 
             if let Some(rt) = expected_return_type {
                 if !is_generic_type(rt) {
                     if let Ok(result) =
-                        resolve_generic_types_from_effective_type(&f.return_type, rt)
+                        resolve_generic_types_from_effective_type(&function.return_type, rt)
                     {
                         resolved_generic_types.extend(result).map_err(|e| {
                             e.add(format!(
                                 "resolving generic type {} with {rt}",
-                                f.return_type
+                                function.return_type
                             ))
                         })?;
                     }
-                } /*else if !is_generic_type(&new_function_def.return_type) {
-                      resolved_generic_types.extend(resolve_generic_types_from_effective_type(
-                          rt,
-                          &new_function_def.return_type,
-                      )?)?;
-                  }
-                  */
+                }
             }
 
             let mut filters: Vec<Result<TypeFilter, TypeCheckError>> = Vec::new();
@@ -514,27 +483,20 @@ impl TypeCheck {
                 indent!();
                 count += 1;
                 something_resolved = false;
-                filters = zip(call.parameters.iter(), f.parameters.iter())
+                filters = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
                         let resolved_count = resolved_generic_types.len();
                         debug_i!("expr {expr}");
-                        // TODO optimize
-                        let expr = if let ASTExpression::Any(t) = expr {
-                            ASTExpression::Any(t.clone())
-                        } else {
-                            expr.clone()
-                        };
 
                         // TODO optimize
-                        let param_type = param.ast_type.clone();
-                        let param_type = substitute(&param_type, &resolved_generic_types)
-                            .unwrap_or(param_type.clone());
+                        let param_type = substitute(&param.ast_type, &resolved_generic_types)
+                            .unwrap_or(param.ast_type.clone());
                         debug_i!("real expression : {expr}");
                         debug_i!("real type of expression : {param_type}");
 
                         let e = self.transform_expression(
                             module,
-                            &expr,
+                            expr,
                             val_context,
                             statics,
                             Some(&param_type),
@@ -557,9 +519,9 @@ impl TypeCheck {
                             if let TypeFilter::Exact(et) = lrt.deref() {
                                 if !is_generic_type(et) {
                                     if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                        parameters,
+                                        parameters: _,
                                         return_type,
-                                    }) = &param_type
+                                    }) = param_type
                                     {
                                         resolved_generic_types.extend(
                                             resolve_generic_types_from_effective_type(
@@ -596,7 +558,7 @@ impl TypeCheck {
 
             debug_i!("with filters: {}", SliceDisplay(&filters));
 
-            let mut valid = zip(f.parameters.iter(), filters.iter())
+            let mut valid = zip(function.parameters.iter(), filters.iter())
                 .all(|(p, f)| f.almost_equal(&p.ast_type).unwrap());
 
             if valid {
@@ -604,20 +566,20 @@ impl TypeCheck {
                     //let rt = substitute(rt, &resolved_generic_types).unwrap_or(rt.clone());
                     valid = valid
                         && TypeFilter::Exact(rt.clone())
-                            .almost_equal(&f.return_type)
+                            .almost_equal(&function.return_type)
                             .unwrap_or(false);
                 }
             }
 
             if valid {
-                let non_generic_types: usize = f
+                let non_generic_types: usize = function
                     .parameters
                     .iter()
                     .map(|it| Self::generic_type_coeff(&it.ast_type))
                     .sum();
                 new_expressions_filters = filters;
 
-                valid_functions.push((f, non_generic_types));
+                valid_functions.push((function.clone(), non_generic_types));
                 debug_i!("it's valid with non_generic_types {non_generic_types}");
             }
             dedent!();
@@ -721,7 +683,7 @@ impl TypeCheck {
         statics: &mut Statics,
         new_function_def: &ASTFunctionDef,
         backend: &dyn Backend,
-    ) -> Result<ASTFunctionBody, TypeCheckError> {
+    ) -> Result<Option<ASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
             "generic_types {}",
@@ -747,12 +709,9 @@ impl TypeCheck {
                     statics,
                     Some(&new_function_def.return_type),
                 )?;
-                ASTFunctionBody::RASMBody(new_statements)
+                Some(ASTFunctionBody::RASMBody(new_statements))
             }
             ASTFunctionBody::ASMBody(asm_body) => {
-                let mut lines: Vec<String> =
-                    asm_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
-
                 let type_def_provider = DummyTypeDefProvider::new();
                 let called_functions = backend.called_functions(
                     None,
@@ -762,22 +721,26 @@ impl TypeCheck {
                     &type_def_provider,
                 );
 
-                for (m, f) in called_functions.iter() {
-                    let call = f.to_call(new_function_def);
-                    let new_call =
-                        self.transform_call(module, &call, &mut val_context, statics, None)?;
-                    debug_i!("old line {}", lines[f.i]);
+                if called_functions.is_empty() {
+                    None
+                } else {
+                    let mut lines: Vec<String> =
+                        asm_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
-                    let new_line = lines[f.i].replace(&call.function_name, &new_call.function_name);
-                    debug_i!("new line {}", new_line);
-                    lines[f.i] = new_line;
+                    for (m, f) in called_functions.iter() {
+                        let call = f.to_call(new_function_def);
+                        let new_call =
+                            self.transform_call(module, &call, &mut val_context, statics, None)?;
+                        debug_i!("old line {}", lines[f.i]);
+
+                        let new_line =
+                            lines[f.i].replace(&call.function_name, &new_call.function_name);
+                        debug_i!("new line {}", new_line);
+                        lines[f.i] = new_line;
+                    }
+
+                    Some(ASTFunctionBody::ASMBody(lines.join("\n")))
                 }
-
-                // TODO optimize if no transformations
-
-                ASTFunctionBody::ASMBody(lines.join("\n"))
-
-                //new_function_def.body.clone()
             }
         };
         dedent!();
@@ -878,8 +841,6 @@ impl TypeCheck {
                             return Err("It should not happen!!!".into());
                         }
                     };
-
-                    //return Ok(call.clone());
                 }
 
                 if let Some(f) = self
@@ -889,16 +850,6 @@ impl TypeCheck {
                     dedent!();
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 }
-
-                /*
-                if let Some(f) =
-                    module.find_precise_function(&call.original_function_name, &call.function_name)
-                {
-                    dedent!();
-                    return Ok(TypeFilter::Exact(f.return_type.clone()));
-                }
-
-                 */
 
                 if let Ok(transformed_call) =
                     self.transform_call(module, call, val_context, statics, expected_type)
@@ -915,29 +866,6 @@ impl TypeCheck {
                         return Ok(TypeFilter::Exact(f.return_type.clone()));
                     }
                 }
-
-                /*
-                // I cannot go deep in determining the type
-                if expected_type.is_none() {
-                    dedent!();
-                    return Ok(TypeFilter::Any);
-                }
-
-                if let Ok(new_call) =
-                    self.transform_call(module, call, val_context, statics, expected_type)
-                {
-                    if let Some(function) = self.module.find_precise_function(
-                        &new_call.original_function_name,
-                        &new_call.function_name,
-                    ) {
-                        let result = TypeFilter::Exact(function.return_type.clone());
-                        debug_i!("found from converted functions: {result}");
-                        dedent!();
-                        return Ok(result);
-                    }
-                }
-
-                 */
 
                 let filters = call
                     .parameters
@@ -1025,13 +953,6 @@ impl TypeCheck {
                         } else {
                             dedent!();
                             return Ok(TypeFilter::Lambda(def.parameter_names.len(), None));
-                            /*
-                            return Err(TypeCheckError::from(format!(
-                                "Cannot determine type of {expr}, got {} : {index}",
-                                type_of_expr
-                            )));
-
-                             */
                         }
                     }
 
@@ -1119,7 +1040,7 @@ impl TypeCheck {
             } else {
                 return Err(TypeCheckError::from(format!(
                     "Expecting lambda but got {}",
-                    OptionDisplay(&expected_type)
+                    OptionDisplay(expected_type)
                 )));
             }
         }

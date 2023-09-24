@@ -9,9 +9,8 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::{TypedValContext, ValContext};
+use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
-use crate::debug_i;
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
@@ -19,12 +18,10 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
-use crate::type_check::call_stack::CallStack;
 use crate::type_check::functions_container::FunctionsContainer;
-use crate::type_check::functions_container::TypeFilter::Exact;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+use crate::type_check::substitute;
 use crate::type_check::type_check_error::TypeCheckError;
-use crate::type_check::{get_new_native_call, substitute};
 use crate::utils::{find_one, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1408,6 +1405,7 @@ pub fn function_def(
         index: def.index.clone(),
     };
 
+    /*
     let mut call_stack = CallStack::new();
 
     match &typed_function_def.body {
@@ -1505,6 +1503,7 @@ pub fn function_def(
                 debug_i!("found function for native call {function_name} ");
 
                 if it.name != function_name {
+                    println!("substituted native call");
                     lines[it.i] = get_new_native_call(m, &function_name);
                 }
             }
@@ -1515,7 +1514,11 @@ pub fn function_def(
                 typed_function_def.body = ASTTypedFunctionBody::ASMBody(new_body);
             }
         }
+
+
     }
+
+     */
 
     Ok(typed_function_def)
 }
