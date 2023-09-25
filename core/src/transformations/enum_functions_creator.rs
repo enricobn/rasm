@@ -216,7 +216,7 @@ fn enum_parametric_variant_constructor_body(
 
 fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> String {
     let word_len = backend.word_len();
-    let sp = backend.stack_pointer();
+    let _sp = backend.stack_pointer();
     let word_size = backend.word_size();
     let mut body = String::new();
 

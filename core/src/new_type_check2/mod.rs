@@ -509,10 +509,10 @@ impl TypeCheck {
                     )
                 )));
             }
-            let (valid_function, x, resolved_generic_types) = dis_valid_functions.remove(0);
+            let (valid_function, _x, resolved_generic_types) = dis_valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types))
         } else {
-            let (valid_function, x, resolved_generic_types) = valid_functions.remove(0);
+            let (valid_function, _x, resolved_generic_types) = valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types))
         }
     }
@@ -522,7 +522,7 @@ impl TypeCheck {
         module: &InputModule,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        mut resolved_generic_types: &mut ResolvedGenericTypes,
+        resolved_generic_types: &mut ResolvedGenericTypes,
         expr: &ASTExpression,
         param_type: &ASTType,
     ) -> Result<TypeFilter, TypeCheckError> {
@@ -565,9 +565,9 @@ impl TypeCheck {
                 ASTType::Builtin(_) => 0,
                 ASTType::Generic(_) => coeff,
                 ASTType::Custom {
-                    name,
+                    name: _,
                     param_types,
-                    index,
+                    index: _,
                 } => param_types
                     .iter()
                     .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
@@ -654,7 +654,7 @@ impl TypeCheck {
                     let mut lines: Vec<String> =
                         asm_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
-                    for (m, f) in called_functions.iter() {
+                    for (_m, f) in called_functions.iter() {
                         let call = f.to_call(new_function_def);
                         let new_call =
                             self.transform_call(module, &call, &mut val_context, statics, None)?;
@@ -754,7 +754,7 @@ impl TypeCheck {
                     if let Some(v) = val_context.get(&call.function_name) {
                         let lambda = match v {
                             ValKind::ParameterRef(_, p) => p.ast_type.clone(),
-                            ValKind::LetRef(_, t, index) => t.clone(),
+                            ValKind::LetRef(_, t, _index) => t.clone(),
                         };
 
                         dedent!();
@@ -830,7 +830,7 @@ impl TypeCheck {
                         )));
                     }
                 }
-                Some(ValKind::LetRef(_, t, index)) => TypeFilter::Exact(t.clone()),
+                Some(ValKind::LetRef(_, t, _index)) => TypeFilter::Exact(t.clone()),
                 Some(ValKind::ParameterRef(_, par)) => {
                     // TODO I must convert the type
                     TypeFilter::Exact(par.ast_type.clone())
@@ -922,7 +922,7 @@ impl TypeCheck {
 
         let ert = if let Some(et) = expected_type {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                parameters,
+                parameters: _,
                 return_type,
             }) = et
             {
@@ -950,7 +950,7 @@ impl TypeCheck {
         if !lambda_def.parameter_names.is_empty() {
             if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters,
-                return_type,
+                return_type: _,
             })) = expected_type
             {
                 for ((name, index), t) in zip(lambda_def.parameter_names.iter(), parameters.iter())

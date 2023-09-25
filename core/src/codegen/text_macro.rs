@@ -247,7 +247,7 @@ impl TextMacroEvaluator {
 
         let context_generic_types = if let Some(f) = function_def {
             let mut result = f.generic_types.clone();
-            for (name, t) in f.resolved_generic_types.iter() {
+            for (name, _t) in f.resolved_generic_types.iter() {
                 if !result.contains(name) {
                     result.push(name.clone());
                 }
@@ -264,7 +264,7 @@ impl TextMacroEvaluator {
                         panic!("Cannot resolve reference without a function {p}")
                     }
                     Some(f) => {
-                        let (par_name, par_type, par_typed_type) = self.parse_typed_argument(
+                        let (par_name, par_type, _par_typed_type) = self.parse_typed_argument(
                             name,
                             None,
                             type_def_provider,
@@ -449,7 +449,7 @@ impl TextMacroEvaluator {
                         panic!("Unsupported type {par_type_name}")
                     }
                     Some((ast_type, _)) => {
-                        let t = if let ASTType::Generic(name) = &ast_type {
+                        let t = if let ASTType::Generic(_name) = &ast_type {
                             if let Some(t) = substitute(&ast_type, resolved_generic_types) {
                                 t
                             } else {

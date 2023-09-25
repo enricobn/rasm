@@ -21,7 +21,7 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
         .parameters
         .iter()
         .enumerate()
-        .filter(|(i, p)| *i > 0)
+        .filter(|(i, _p)| *i > 0)
         .map(|(_, it)| match it {
             MacroParam::Plain(value, ast_type, _) => match ast_type {
                 None => value.to_string(),
@@ -76,13 +76,13 @@ pub fn is_generic_type(ast_type: &ASTType) -> bool {
                 par_types
             }
         },
-        ASTType::Generic(p) => true,
+        ASTType::Generic(_p) => true,
         ASTType::Custom {
             name: _,
             param_types: pt,
             index: _,
         } => pt.iter().any(|it| match it {
-            ASTType::Generic(name) => true,
+            ASTType::Generic(_name) => true,
             _ => is_generic_type(it),
         }),
         ASTType::Unit => false,
@@ -277,8 +277,8 @@ pub fn substitute(
                 let new_index = if new_param_types.is_empty() {
                     index.clone()
                 } else if let Some(ASTType::Custom {
-                    name,
-                    param_types,
+                    name: _,
+                    param_types: _,
                     index: ast_index,
                 }) = new_param_types.last()
                 {

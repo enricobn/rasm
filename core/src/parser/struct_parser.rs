@@ -94,7 +94,8 @@ impl<'a> StructParser<'a> {
                 let parser = *type_result.get(i).unwrap();
                 let type_parser = TypeParser::new(parser);
                 let token = parameters_tokens.get(i).unwrap().clone();
-                if let Some((ast_type, next_i)) = type_parser.try_parse_ast_type(0, generic_types) {
+                if let Some((ast_type, _next_i)) = type_parser.try_parse_ast_type(0, generic_types)
+                {
                     parameters.push(ASTStructPropertyDef {
                         name: token.alpha().unwrap(),
                         ast_type,

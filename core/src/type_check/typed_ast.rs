@@ -209,8 +209,8 @@ impl ASTTypedExpression {
             ASTTypedExpression::ASTFunctionCallExpression(call) => Some(call.index.clone()),
             ASTTypedExpression::ValueRef(_, index) => Some(index.clone()),
             ASTTypedExpression::Value(_, index) => Some(index.clone()),
-            ASTTypedExpression::Lambda(lambda) => None,
-            ASTTypedExpression::Any(t) => None,
+            ASTTypedExpression::Lambda(_lambda) => None,
+            ASTTypedExpression::Any(_t) => None,
         }
     }
 }
@@ -593,7 +593,7 @@ impl<'a> ConvContext<'a> {
         }
     }
 
-    pub fn add_enum(&mut self, enum_type: &ASTType, enum_def: &ASTEnumDef) -> ASTTypedType {
+    pub fn add_enum(&mut self, enum_type: &ASTType, _enum_def: &ASTEnumDef) -> ASTTypedType {
         debug!("add_enum {enum_type}");
         self.count += 1;
         if self.count > 100 {
@@ -1370,10 +1370,10 @@ fn struct_property(
 pub fn function_def(
     conv_context: &mut ConvContext,
     def: &ASTFunctionDef,
-    backend: &dyn Backend,
-    module: &EnhancedASTModule,
-    statics: &mut Statics,
-    dereference: bool,
+    _backend: &dyn Backend,
+    _module: &EnhancedASTModule,
+    _statics: &mut Statics,
+    _dereference: bool,
 ) -> Result<ASTTypedFunctionDef, TypeCheckError> {
     if !def.generic_types.is_empty() {
         panic!("function def has generics: {def}");
@@ -1391,7 +1391,7 @@ pub fn function_def(
         &def.return_type,
         &format!("function {} return type", def.name),
     );
-    let mut typed_function_def = ASTTypedFunctionDef {
+    let typed_function_def = ASTTypedFunctionDef {
         name: def.name.clone(),
         body: body(conv_context, &def.body),
         return_type: function_return_type,

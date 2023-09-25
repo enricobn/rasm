@@ -420,7 +420,7 @@ impl Parser {
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
         } else if let Some((resource, next_i)) = self.try_parse_include() {
-            let mut source_file = path.with_file_name(&resource);
+            let source_file = path.with_file_name(&resource);
             info!("include {}", source_file.to_str().unwrap());
 
             self.included_files.insert(source_file.clone());
@@ -631,7 +631,7 @@ impl Parser {
     fn process_function_def_parameter(&mut self, token: &Token) {
         if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
             if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
-                let n = next_i - self.i;
+                let _n = next_i - self.i;
                 self.i = next_i;
                 if let Some((ast_type, next_i)) =
                     TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
@@ -716,7 +716,7 @@ impl Parser {
                 self.get_token_kind_n(1)
             {
                 self.i += 1;
-            } else if let Some(TokenKind::AsmBLock(body)) = self.get_token_kind_n(1) {
+            } else if let Some(TokenKind::AsmBLock(_body)) = self.get_token_kind_n(1) {
                 self.i += 1;
             } else {
                 panic!(

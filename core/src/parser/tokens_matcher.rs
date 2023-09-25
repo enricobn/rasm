@@ -227,8 +227,8 @@ where
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(token) = parser.get_token_n(n) {
             //println!("TokenMatcher match_tokens n {} token {:?}", n, token);
-            if let Some(kind) = self.match_token(&token.kind) {
-                let values = if let Some(value) = token.alpha() {
+            if let Some(_kind) = self.match_token(&token.kind) {
+                let values = if let Some(_value) = token.alpha() {
                     vec![token.clone()]
                 } else {
                     vec![]

@@ -96,7 +96,7 @@ fn create_free_body(
     );
 
     if type_has_references(type_def) {
-        for (i, (generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate() {
+        for (i, (_generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate() {
             if let Some(name) = CodeGen::get_reference_type_name(generic_type_def, module) {
                 let descr = "$descr";
                 let call_deref = if function_name == "deref" {

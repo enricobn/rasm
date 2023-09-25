@@ -428,7 +428,7 @@ impl FunctionsContainer {
                     .map(lambda)
                     .collect::<Result<Vec<_>, TypeCheckError>>()?
                     .into_iter()
-                    .filter(|(f, b)| *b)
+                    .filter(|(_f, b)| *b)
                     .map(|it| it.0)
                     .collect::<Vec<_>>();
 
@@ -697,7 +697,7 @@ impl FunctionsContainer {
         Ok(result)
     }
 
-    fn unit_type_is_not_allowed_here(index: &ASTIndex) -> Result<bool, TypeCheckError> {
+    fn unit_type_is_not_allowed_here(_index: &ASTIndex) -> Result<bool, TypeCheckError> {
         //Err(format!("Unit type is not allowed here: {index}").into())
         Ok(false)
     }

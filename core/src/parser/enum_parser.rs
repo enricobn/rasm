@@ -187,7 +187,7 @@ impl Display for ParameterMatcher {
 
 impl TokensMatcherTrait for ParameterMatcher {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
-        if let Some(TokenKind::AlphaNumeric(name)) = parser.get_token_kind_n(n) {
+        if let Some(TokenKind::AlphaNumeric(_name)) = parser.get_token_kind_n(n) {
             if let Some(TokenKind::Punctuation(PunctuationKind::Colon)) =
                 parser.get_token_kind_n(n + 1)
             {

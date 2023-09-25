@@ -147,7 +147,7 @@ fn struct_lambda_property_rasm_body(name: &str, parameters: &[ASTType]) -> Vec<A
             parameters: parameters
                 .iter()
                 .enumerate()
-                .map(|(index, it)| ASTExpression::ValueRef(format!("p{index}"), ASTIndex::none()))
+                .map(|(index, _it)| ASTExpression::ValueRef(format!("p{index}"), ASTIndex::none()))
                 .collect(),
             index: ASTIndex::none(),
         })),

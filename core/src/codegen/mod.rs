@@ -1657,7 +1657,7 @@ impl<'a> CodeGen<'a> {
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
-                TypedValKind::ParameterRef(index, par) => {
+                TypedValKind::ParameterRef(index, _par) => {
                     call_parameters.add_parameter_ref(
                         param_name.into(),
                         val_name,
@@ -1668,7 +1668,7 @@ impl<'a> CodeGen<'a> {
                     );
                 }
 
-                TypedValKind::LetRef(_index, ast_typed_type) => {
+                TypedValKind::LetRef(_index, _ast_typed_type) => {
                     let index_in_context = stack_vals.find_local_val_relative_to_bp(val_name);
 
                     call_parameters.add_let_val_ref(
@@ -1694,7 +1694,7 @@ impl<'a> CodeGen<'a> {
     }
 
     pub fn add_rows(out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
-        if let Some(cm) = comment {
+        if let Some(_cm) = comment {
             Self::add(out, "", comment, indent);
         }
         for row in code {
