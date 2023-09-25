@@ -443,13 +443,18 @@ impl TypeCheck {
             let mut something_resolved = true;
 
             let mut count = 0;
-            while something_resolved {
+            let mut valid = true;
+            while something_resolved & valid {
                 debug_i!("calculating filters loop {count}");
                 indent!();
                 count += 1;
                 something_resolved = false;
+
                 filters = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
+                        if !valid {
+                            return Ok(TypeFilter::Any);
+                        }
                         let resolved_count = resolved_generic_types.len();
                         debug_i!("expr {expr}");
 
@@ -459,49 +464,21 @@ impl TypeCheck {
                         debug_i!("real expression : {expr}");
                         debug_i!("real type of expression : {param_type}");
 
-                        let e = self.transform_expression(
+                        let t = self.get_filter(
                             module,
+                            val_context,
+                            statics,
+                            &mut resolved_generic_types,
                             expr,
-                            val_context,
-                            statics,
-                            Some(&param_type),
+                            &param_type,
                         )?;
-
-                        let t = self.type_of_expression(
-                            module,
-                            &e,
-                            val_context,
-                            statics,
-                            Some(&param_type),
-                        )?;
-                        if let TypeFilter::Exact(et) = &t {
-                            if !is_generic_type(et) {
-                                resolved_generic_types.extend(
-                                    resolve_generic_types_from_effective_type(&param_type, et)?,
-                                )?;
-                            }
-                        } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
-                            if let TypeFilter::Exact(et) = lrt.deref() {
-                                if !is_generic_type(et) {
-                                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                        parameters: _,
-                                        return_type,
-                                    }) = param_type
-                                    {
-                                        resolved_generic_types.extend(
-                                            resolve_generic_types_from_effective_type(
-                                                return_type.deref(),
-                                                et,
-                                            )?,
-                                        )?;
-                                    }
-                                }
-                            }
-                        }
                         if resolved_count != resolved_generic_types.len() {
                             something_resolved = true;
                         }
                         debug_i!("filter {t}");
+                        if !t.almost_equal(&param_type)? {
+                            valid = false
+                        }
                         Ok(t)
                     })
                     .collect();
@@ -522,9 +499,6 @@ impl TypeCheck {
             let filters = filters?;
 
             debug_i!("with filters: {}", SliceDisplay(&filters));
-
-            let mut valid = zip(function.parameters.iter(), filters.iter())
-                .all(|(p, f)| f.almost_equal(&p.ast_type).unwrap());
 
             if valid {
                 if let Some(rt) = expected_return_type {
@@ -560,14 +534,14 @@ impl TypeCheck {
                 SliceDisplay(&errors.iter().map(|it| format!("{it}")).collect::<Vec<_>>())
             )))
         } else if valid_functions.len() > 1 {
-            let max = valid_functions.iter().map(|it| it.1).min().unwrap();
+            let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
-            let mut valid_functions = valid_functions
+            let mut dis_valid_functions = valid_functions
                 .into_iter()
-                .filter(|it| it.1 == max)
+                .filter(|it| it.1 == min)
                 .collect::<Vec<_>>();
 
-            if valid_functions.is_empty() {
+            if dis_valid_functions.is_empty() {
                 self.stack.pop();
                 // I think it should not happen
                 dedent!();
@@ -575,19 +549,59 @@ impl TypeCheck {
                     "call {call} : {}\ncannot find a valid function",
                     call.index,
                 )));
-            } else if valid_functions.len() > 1 {
+            } else if dis_valid_functions.len() > 1 {
                 self.stack.pop();
                 dedent!();
                 return Err(TypeCheckError::from(format!(
                     "call {call} : {}\nfound more than one valid function {}",
                     call.index,
-                    SliceDisplay(&valid_functions.iter().map(|it| &it.0).collect::<Vec<_>>())
+                    SliceDisplay(
+                        &dis_valid_functions
+                            .iter()
+                            .map(|it| &it.0)
+                            .collect::<Vec<_>>()
+                    )
                 )));
             }
-            Ok((valid_functions.remove(0).0, new_expressions_filters))
+            Ok((dis_valid_functions.remove(0).0, new_expressions_filters))
         } else {
             Ok((valid_functions.remove(0).0, new_expressions_filters))
         }
+    }
+
+    fn get_filter(
+        &mut self,
+        module: &InputModule,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        mut resolved_generic_types: &mut ResolvedGenericTypes,
+        expr: &ASTExpression,
+        param_type: &ASTType,
+    ) -> Result<TypeFilter, TypeCheckError> {
+        let e = self.transform_expression(module, expr, val_context, statics, Some(&param_type))?;
+
+        let t = self.type_of_expression(module, &e, val_context, statics, Some(&param_type))?;
+        if let TypeFilter::Exact(et) = &t {
+            if !is_generic_type(et) {
+                resolved_generic_types
+                    .extend(resolve_generic_types_from_effective_type(&param_type, et)?)?;
+            }
+        } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
+            if let TypeFilter::Exact(et) = lrt.deref() {
+                if !is_generic_type(et) {
+                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters: _,
+                        return_type,
+                    }) = param_type
+                    {
+                        resolved_generic_types.extend(
+                            resolve_generic_types_from_effective_type(return_type.deref(), et)?,
+                        )?;
+                    }
+                }
+            }
+        }
+        Ok(t)
     }
 
     ///
