@@ -192,8 +192,12 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn find_functions_by_original_name(&self, name: &str) -> Option<&Vec<ASTFunctionDef>> {
-        self.functions_by_name.get(name)
+    pub fn find_functions_by_original_name(&self, name: &str) -> &[ASTFunctionDef] {
+        if let Some(functions) = self.functions_by_name.get(name) {
+            functions
+        } else {
+            &[]
+        }
     }
 
     pub fn find_call(

@@ -118,6 +118,11 @@ pub fn resolve_generic_types_from_effective_type(
                         parameters: e_parameters,
                         return_type: e_return_type,
                     }) => {
+                        if e_parameters.len() != p_parameters.len() {
+                            return Err(TypeCheckError::new(
+                                "Invalid parameters count.".to_owned(),
+                            ));
+                        }
                         for (i, p_p) in p_parameters.iter().enumerate() {
                             let e_p = e_parameters.get(i).unwrap();
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)

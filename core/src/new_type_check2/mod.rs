@@ -244,43 +244,8 @@ impl TypeCheck {
 
         self.stack.push(format!("{}", call.index));
 
-        let filters = call
-            .parameters
-            .iter()
-            .map(|it| self.type_of_expression(module, it, val_context, statics, None))
-            .collect::<Result<Vec<_>, TypeCheckError>>()?;
-
-        let mut new_call = call.clone();
-
-        let original_functions = module
-            .find_call_vec(call, &filters, expected_return_type.cloned())
-            .map_err(|it| {
-                it.add(format!(
-                    "converting call {} : {}",
-                    call.original_function_name, call.index
-                ))
-            })?;
-
-        let (mut new_function_def, new_expressions_filters) = if !original_functions.is_empty() {
-            self.get_valid_function(
-                module,
-                call,
-                val_context,
-                statics,
-                expected_return_type,
-                &filters,
-                original_functions,
-            )?
-        } else {
-            self.stack.pop();
-            dedent!();
-            return Err(TypeCheckError::from(format!(
-                "call {} : {}\ncannot find function for filters {}",
-                call.original_function_name,
-                call.index,
-                SliceDisplay(&filters)
-            )));
-        };
+        let (mut new_function_def, new_expressions_filters) =
+            self.get_valid_function(module, call, val_context, statics, expected_return_type)?;
 
         debug_i!("found valid function {new_function_def}");
 
@@ -293,10 +258,7 @@ impl TypeCheck {
             for (f, p) in zip(
                 new_expressions_filters.iter(),
                 new_function_def.parameters.iter(),
-            )
-            .collect::<Vec<_>>()
-            .iter()
-            {
+            ) {
                 match f {
                     TypeFilter::Exact(t) => {
                         resolved_generic_types
@@ -398,6 +360,7 @@ impl TypeCheck {
                     ))
                 })?;
 
+        let mut new_call = call.clone();
         new_call.parameters = new_expressions;
 
         let filters = new_function_def
@@ -440,13 +403,16 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
-        filters: &Vec<TypeFilter>,
-        original_functions: Vec<&ASTFunctionDef>,
     ) -> Result<(ASTFunctionDef, Vec<TypeFilter>), TypeCheckError> {
         let mut valid_functions = Vec::new();
-        let mut new_expressions_filters = filters.clone();
+        let mut new_expressions_filters = Vec::new();
 
         let mut errors = Vec::new();
+
+        let original_functions = module
+            .find_functions_by_original_name(&call.original_function_name)
+            .iter()
+            .filter(|it| it.parameters.len() == call.parameters.len());
 
         for function in original_functions {
             debug_i!("verifying function {function}");
@@ -455,6 +421,10 @@ impl TypeCheck {
             let mut resolved_generic_types = ResolvedGenericTypes::new();
 
             if let Some(rt) = expected_return_type {
+                if !TypeFilter::Exact(function.return_type.clone()).almost_equal(rt)? {
+                    dedent!();
+                    continue;
+                }
                 if !is_generic_type(rt) {
                     if let Ok(result) =
                         resolve_generic_types_from_effective_type(&function.return_type, rt)
