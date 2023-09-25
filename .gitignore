@@ -1,2 +1,5 @@
 target/
 /.idea/
+/.swp
+/local/
+/.vscode/launch.json
