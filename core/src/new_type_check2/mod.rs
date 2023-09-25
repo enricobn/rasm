@@ -476,6 +476,10 @@ impl TypeCheck {
                 SliceDisplay(&errors.iter().map(|it| format!("{it}")).collect::<Vec<_>>())
             )))
         } else if valid_functions.len() > 1 {
+            // we must disambiguate.
+            // For now we get the function that has the minimal generic coefficient, if there's only one with that coefficient.
+            // The coefficient is the sum of the parameter's type generic coefficient, the coefficient
+            // of <T> is more generic than Option<T> that is more generic than Option<List<T>>
             let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
             let mut dis_valid_functions = valid_functions
@@ -556,7 +560,7 @@ impl TypeCheck {
     }
 
     fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
-        if is_generic_type(&ast_type) {
+        if is_generic_type(ast_type) {
             match ast_type {
                 ASTType::Builtin(_) => 0,
                 ASTType::Generic(_) => coeff,
