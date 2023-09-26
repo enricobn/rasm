@@ -906,10 +906,6 @@ impl Parser {
         self.tokens.get(self.i + 1)
     }
 
-    fn next_token2(&self) -> Option<&Token> {
-        self.tokens.get(self.i + 2)
-    }
-
     fn before_last_parser_data(&self) -> Option<ParserData> {
         let i = self.parser_data.len();
         if i > 1 {

@@ -579,31 +579,6 @@ impl TypeCheck {
         }
     }
 
-    fn resolve_generic_types_for_function(
-        result: &mut ASTFunctionDef,
-        resolved_generic_types: &ResolvedGenericTypes,
-    ) {
-        let new_parameters = result
-            .parameters
-            .iter()
-            .map(|it| {
-                if let Some(new_t) = substitute(&it.ast_type, resolved_generic_types) {
-                    let mut new_parameter = it.clone();
-                    new_parameter.ast_type = new_t;
-                    new_parameter
-                } else {
-                    it.clone()
-                }
-            })
-            .collect::<Vec<_>>();
-
-        result.parameters = new_parameters;
-
-        if let Some(new_t) = substitute(&result.return_type, resolved_generic_types) {
-            result.return_type = new_t;
-        }
-    }
-
     fn transform_function(
         &mut self,
         module: &InputModule,
