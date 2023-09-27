@@ -26,6 +26,35 @@ impl EnhancedASTModule {
         let mut container = FunctionsContainer::new();
 
         module.functions.into_iter().for_each(|it| {
+            /*
+               let similar_functions = container
+                   .find_functions_by_original_name(&it.original_name)
+                   .iter()
+                   .filter(|function| {
+                       it.parameters.len() == function.parameters.len()
+                           && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
+                           TypeFilter::Exact(p1.ast_type.clone())
+                               .almost_equal(&p2.ast_type)
+                               .unwrap()
+                       })
+                   })
+                   .collect::<Vec<_>>();
+               if !similar_functions.is_empty() {
+                   let coeff : usize = TypeCheck::function_generic_coeff(&it);
+                   if similar_functions.iter().filter(|function| TypeCheck::function_generic_coeff(function) == coeff).count() > 0 {
+                       panic!(
+                           "function {it} has the same signature of other generic functions : {}\nsimilar functions:\n{}",
+                           it.index,
+                           similar_functions
+                               .iter()
+                               .map(|it| format!("{it} : {}", it.index))
+                               .collect::<Vec<_>>()
+                               .join("\n")
+                       );
+                   }
+               }
+
+            */
             container.add_function(it.original_name.clone(), it);
         });
 
