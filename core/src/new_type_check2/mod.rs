@@ -450,11 +450,7 @@ impl TypeCheck {
             }
 
             if valid {
-                let generic_types_coeff: usize = function
-                    .parameters
-                    .iter()
-                    .map(|it| Self::generic_type_coeff(&it.ast_type))
-                    .sum();
+                let generic_types_coeff: usize = Self::function_generic_coeff(function);
 
                 valid_functions.push((
                     function.clone(),
@@ -517,6 +513,14 @@ impl TypeCheck {
         }
     }
 
+    pub fn function_generic_coeff(function: &ASTFunctionDef) -> usize {
+        function
+            .parameters
+            .iter()
+            .map(|it| Self::generic_type_coeff(&it.ast_type))
+            .sum()
+    }
+
     fn get_filter(
         &mut self,
         module: &InputModule,
@@ -555,7 +559,7 @@ impl TypeCheck {
     ///
     /// return a coefficient that is higher for how the type is generic
     ///
-    fn generic_type_coeff(ast_type: &ASTType) -> usize {
+    pub fn generic_type_coeff(ast_type: &ASTType) -> usize {
         Self::generic_type_coeff_internal(ast_type, usize::MAX / 100)
     }
 
