@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 use std::io;
-use std::path::PathBuf;
 
 use log::warn;
 
@@ -41,7 +40,7 @@ impl ReferenceFinder {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
-            if selectable_item.matches(index)? {
+            if index.between(&selectable_item.min, &selectable_item.max)? {
                 //println!("found {:?}", selectable_item);
                 result.push(selectable_item.point_to.clone());
             }
@@ -52,6 +51,17 @@ impl ReferenceFinder {
         }
 
         Ok(result)
+    }
+
+    pub fn completion(&self, index: &ASTIndex) -> Result<Vec<(String, ASTIndex)>, io::Error> {
+        for selectable_item in self.selectable_items.iter() {
+            if index.between(&selectable_item.min, &selectable_item.max)? {
+                if let Some(ref expr) = selectable_item.expr {
+                    return Ok(vec![(format!("{expr}"), expr.get_index())]);
+                }
+            }
+        }
+        Ok(Vec::new())
     }
 
     fn get_selectable_items(
@@ -147,11 +157,11 @@ impl ReferenceFinder {
     ) {
         let min = index.mv(-(name.len() as i32));
         if let Some(def) = Self::get_enum(module, name) {
-            result.push(SelectableItem::new(min, index.clone(), def.index));
+            result.push(SelectableItem::new(min, index.clone(), def.index, None));
         } else if let Some(def) = Self::get_struct(module, name) {
-            result.push(SelectableItem::new(min, index.clone(), def.index));
+            result.push(SelectableItem::new(min, index.clone(), def.index, None));
         } else if let Some(def) = Self::get_type(module, name) {
-            result.push(SelectableItem::new(min, index.clone(), def.index));
+            result.push(SelectableItem::new(min, index.clone(), def.index, None));
         }
     }
 
@@ -301,6 +311,7 @@ impl ReferenceFinder {
                         call.index.mv(-(call.function_name.len() as i32)),
                         call.index.clone(),
                         functions.first().unwrap().index.clone(),
+                        Some(expr.clone()),
                     ));
                 } else {
                     warn!(
@@ -317,6 +328,7 @@ impl ReferenceFinder {
                         index.mv(-(name.len() as i32)),
                         index.clone(),
                         v.index.clone(),
+                        Some(expr.clone()),
                     ));
                 }
             }
@@ -362,6 +374,7 @@ pub struct SelectableItem {
     min: ASTIndex,
     max: ASTIndex,
     point_to: ASTIndex,
+    expr: Option<ASTExpression>,
 }
 
 impl Display for SelectableItem {
@@ -384,44 +397,18 @@ impl Display for SelectableItem {
 }
 
 impl SelectableItem {
-    pub fn new(min: ASTIndex, max: ASTIndex, point_to: ASTIndex) -> Self {
-        SelectableItem { min, max, point_to }
-    }
-
-    pub fn matches(&self, index: &ASTIndex) -> Result<bool, io::Error> {
-        Ok(index.row == self.min.row
-            && index.row == self.max.row
-            && index.column >= self.min.column
-            && index.column <= self.max.column
-            && Self::path_matches(&index.file_name, &self.min.file_name)?
-            && Self::path_matches(&index.file_name, &self.max.file_name)?)
-    }
-
-    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> Result<bool, io::Error> {
-        if let Some(p1) = op1 {
-            if let Some(p2) = op2 {
-                if p1.file_name() != p2.file_name() {
-                    return Ok(false);
-                }
-                let p1_canon = p1.canonicalize().map_err(|it| {
-                    io::Error::new(
-                        it.kind(),
-                        format!("Error canonilizing {}", p1.as_os_str().to_str().unwrap()),
-                    )
-                })?;
-
-                let p2_canon = p2.canonicalize().map_err(|it| {
-                    io::Error::new(
-                        it.kind(),
-                        format!("Error canonilizing {}", p2.as_os_str().to_str().unwrap()),
-                    )
-                })?;
-
-                return Ok(p1_canon == p2_canon);
-            }
+    pub fn new(
+        min: ASTIndex,
+        max: ASTIndex,
+        point_to: ASTIndex,
+        expr: Option<ASTExpression>,
+    ) -> Self {
+        SelectableItem {
+            min,
+            max,
+            point_to,
+            expr,
         }
-
-        Ok(false)
     }
 }
 
@@ -441,21 +428,6 @@ mod tests {
     use rasm_core::transformations::enrich_module;
 
     use crate::reference_finder::ReferenceFinder;
-
-    fn init() {
-        Builder::from_default_env()
-            .format(|buf, record| {
-                writeln!(
-                    buf,
-                    "{} [{}] - {}",
-                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
-                    record.level(),
-                    record.args()
-                )
-            })
-            .try_init()
-            .unwrap_or(());
-    }
 
     #[test]
     fn simple() {
@@ -568,5 +540,20 @@ mod tests {
         );
 
         ReferenceFinder::new(&module)
+    }
+
+    fn init() {
+        Builder::from_default_env()
+            .format(|buf, record| {
+                writeln!(
+                    buf,
+                    "{} [{}] - {}",
+                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
+                    record.level(),
+                    record.args()
+                )
+            })
+            .try_init()
+            .unwrap_or(());
     }
 }

@@ -15,9 +15,9 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::parser::ast::ASTType;
+use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef,
+    ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
 pub trait TypeDefProvider {
@@ -27,7 +27,23 @@ pub trait TypeDefProvider {
     fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef>;
     fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef>;
     fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef>;
-    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType>;
+    fn get_type_from_custom_typed_type(&self, typed_type_to_find: &ASTTypedType)
+        -> Option<ASTType>;
+
+    fn get_type_from_typed_type(&self, ast_typed_type: &ASTTypedType) -> Option<ASTType> {
+        match ast_typed_type {
+            ASTTypedType::Builtin(kind) => match kind {
+                BuiltinTypedTypeKind::String => Some(ASTType::Builtin(BuiltinTypeKind::String)),
+                BuiltinTypedTypeKind::I32 => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+                BuiltinTypedTypeKind::Bool => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
+                BuiltinTypedTypeKind::Char => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
+                BuiltinTypedTypeKind::F32 => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                BuiltinTypedTypeKind::Lambda { .. } => todo!(),
+            },
+            ASTTypedType::Unit => Some(ASTType::Unit),
+            _ => self.get_type_from_custom_typed_type(ast_typed_type),
+        }
+    }
 
     fn get_type_from_typed_type_name(&self, typed_type_to_find: &str) -> Option<ASTType> {
         if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
@@ -76,7 +92,10 @@ impl TypeDefProvider for DummyTypeDefProvider {
         None
     }
 
-    fn get_type_from_typed_type(&self, _typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+    fn get_type_from_custom_typed_type(
+        &self,
+        _typed_type_to_find: &ASTTypedType,
+    ) -> Option<ASTType> {
         None
     }
 

@@ -384,7 +384,7 @@ impl TextMacroEvaluator {
                                     }
                                 },
                                 _ => type_def_provider
-                                    .get_type_from_typed_type(&typed_type)
+                                    .get_type_from_custom_typed_type(&typed_type)
                                     .unwrap(),
                             }
                         } else {
@@ -1103,7 +1103,7 @@ impl PrintRefMacro {
                 ) {
                     Some(ASTType::Builtin(BuiltinTypeKind::String))
                 } else {
-                    type_def_provider.get_type_from_typed_type(&p.ast_type)
+                    type_def_provider.get_type_from_custom_typed_type(&p.ast_type)
                 };
                 if ast_type_o.is_some() {
                     let par_result = self.print_ref(
@@ -1172,7 +1172,7 @@ impl PrintRefMacro {
                         ) {
                             Some(ASTType::Builtin(BuiltinTypeKind::String))
                         } else {
-                            type_def_provider.get_type_from_typed_type(&par.ast_type)
+                            type_def_provider.get_type_from_custom_typed_type(&par.ast_type)
                         };
 
                         let par_result = self.print_ref(
@@ -1432,6 +1432,7 @@ mod tests {
 
         let function_def = ASTTypedFunctionDef {
             name: "aFun".into(),
+            original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
@@ -1468,6 +1469,7 @@ mod tests {
 
         let function_def = ASTTypedFunctionDef {
             name: "aFun".into(),
+            original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
@@ -1522,6 +1524,7 @@ mod tests {
 
         let function_def = ASTTypedFunctionDef {
             name: "aFun".into(),
+            original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),

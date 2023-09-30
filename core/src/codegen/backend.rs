@@ -245,23 +245,6 @@ impl BackendNasm386 {
             + ((array[3] as u32) << 24)
     }
 
-    fn get_type_from_typed_type(
-        ast_typed_type: &ASTTypedType,
-        type_def_provider: &dyn TypeDefProvider,
-    ) -> Option<ASTType> {
-        match ast_typed_type {
-            ASTTypedType::Builtin(kind) => match kind {
-                BuiltinTypedTypeKind::String => Some(ASTType::Builtin(BuiltinTypeKind::String)),
-                BuiltinTypedTypeKind::I32 => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
-                BuiltinTypedTypeKind::Bool => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
-                BuiltinTypedTypeKind::Char => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
-                BuiltinTypedTypeKind::F32 => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
-                BuiltinTypedTypeKind::Lambda { .. } => todo!(),
-            },
-            _ => type_def_provider.get_type_from_typed_type(ast_typed_type),
-        }
-    }
-
     fn create_lambda_add_ref_like_function(
         &self,
         lambda_space: &LambdaSpace,
@@ -340,6 +323,7 @@ impl BackendNasm386 {
 
         Some(ASTTypedFunctionDef {
             name: name.to_owned(),
+            original_name: name.to_owned(),
             parameters,
             body: ASTTypedFunctionBody::ASMBody(body),
             return_type: ASTTypedType::Unit,
@@ -556,7 +540,7 @@ impl Backend for BackendNasm386 {
                             ASTType::Generic(name) => {
                                 if let Some(f) = typed_function_def {
                                     let t = type_def_provider
-                                        .get_type_from_typed_type(
+                                        .get_type_from_custom_typed_type(
                                             f.generic_types.get(name).unwrap(),
                                         )
                                         .unwrap();
@@ -574,7 +558,8 @@ impl Backend for BackendNasm386 {
                             } => {
                                 let result = if let Some(f) = typed_function_def {
                                     if let Some(t) = f.generic_types.get(name) {
-                                        Self::get_type_from_typed_type(t, type_def_provider)
+                                        type_def_provider
+                                            .get_type_from_typed_type(t)
                                             .unwrap_or_else(|| panic!("name {name} t {t}"))
                                     } else if let Some(t) =
                                         type_def_provider.get_type_from_typed_type_name(name)

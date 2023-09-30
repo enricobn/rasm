@@ -27,6 +27,7 @@ use crate::utils::{find_one, SliceDisplay};
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
     pub name: String,
+    pub original_name: String,
     pub parameters: Vec<ASTTypedParameterDef>,
     pub return_type: ASTTypedType,
     pub body: ASTTypedFunctionBody,
@@ -180,6 +181,7 @@ impl ASTTypedParameterDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionCall {
     pub function_name: String,
+    pub original_function_name: String,
     pub parameters: Vec<ASTTypedExpression>,
     pub index: ASTIndex,
 }
@@ -199,7 +201,6 @@ pub enum ASTTypedExpression {
     ValueRef(String, ASTIndex),
     Value(ValueType, ASTIndex),
     Lambda(ASTTypedLambdaDef),
-    Any(ASTTypedType),
 }
 
 impl ASTTypedExpression {
@@ -210,7 +211,6 @@ impl ASTTypedExpression {
             ASTTypedExpression::ValueRef(_, index) => Some(index.clone()),
             ASTTypedExpression::Value(_, index) => Some(index.clone()),
             ASTTypedExpression::Lambda(_lambda) => None,
-            ASTTypedExpression::Any(_t) => None,
         }
     }
 }
@@ -232,7 +232,6 @@ impl Display for ASTTypedExpression {
                 ValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
-            ASTTypedExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
         }
     }
 }
@@ -298,7 +297,10 @@ impl TypeDefProvider for ASTTypedModule {
         find_one(self.types.iter(), |it| it.name == name)
     }
 
-    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+    fn get_type_from_custom_typed_type(
+        &self,
+        typed_type_to_find: &ASTTypedType,
+    ) -> Option<ASTType> {
         if let Some(e) = find_one(self.enums.iter(), |it| {
             &it.ast_typed_type == typed_type_to_find
         }) {
@@ -446,6 +448,7 @@ pub struct ASTTypedStructDef {
     pub properties: Vec<ASTTypedStructPropertyDef>,
     pub ast_type: ASTType,
     pub ast_typed_type: ASTTypedType,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTTypedStructDef {
@@ -468,6 +471,7 @@ pub struct ASTTypedTypeDef {
     pub is_ref: bool,
     pub ast_type: ASTType,
     pub ast_typed_type: ASTTypedType,
+    pub index: ASTIndex,
 }
 
 impl Display for ASTTypedTypeDef {
@@ -518,7 +522,10 @@ impl<'a> TypeDefProvider for ConvContext<'a> {
         find_one(self.type_defs.iter(), |it| it.name.starts_with(name))
     }
 
-    fn get_type_from_typed_type(&self, typed_type_to_find: &ASTTypedType) -> Option<ASTType> {
+    fn get_type_from_custom_typed_type(
+        &self,
+        typed_type_to_find: &ASTTypedType,
+    ) -> Option<ASTType> {
         if let Some((ast_type, _ast_typed_type)) = self
             .enums
             .iter()
@@ -719,6 +726,7 @@ impl<'a> ConvContext<'a> {
                     properties,
                     ast_type: struct_type.clone(),
                     ast_typed_type: struct_typed_type.clone(),
+                    index: struct_def.index.clone(),
                 });
 
                 struct_typed_type
@@ -780,6 +788,7 @@ impl<'a> ConvContext<'a> {
                     is_ref,
                     ast_type: ast_type.clone(),
                     ast_typed_type: type_typed_type.clone(),
+                    index: type_def.index.clone(),
                 });
 
                 self.types.insert(ast_type.clone(), type_typed_type.clone());
@@ -805,20 +814,16 @@ pub fn convert_to_typed_module(
     statics: &mut Statics,
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
-) -> ASTTypedModule {
+) -> Result<ASTTypedModule, TypeCheckError> {
     let type_check = TypeCheck::new();
 
-    let module = type_check
-        .type_check(
-            original_module,
-            backend,
-            statics,
-            default_functions,
-            mandatory_functions,
-        )
-        .unwrap_or_else(|e| {
-            panic!("{e}");
-        });
+    let module = type_check.type_check(
+        original_module,
+        backend,
+        statics,
+        default_functions,
+        mandatory_functions,
+    )?;
 
     let mut conv_context = ConvContext::new(&module);
 
@@ -844,7 +849,7 @@ pub fn convert_to_typed_module(
                 statics,
                 dereference,
             )
-            .unwrap_or_else(|_| panic!("Error converting {converted_function}")),
+            .or_else(|it| Err(it.add(format!("Error converting {converted_function}"))))?,
         );
     }
 
@@ -904,7 +909,7 @@ pub fn convert_to_typed_module(
 
     info!("verify end");
 
-    result
+    Ok(result)
 }
 
 pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
@@ -1345,7 +1350,6 @@ pub fn get_type_of_typed_expression(
                 return_type: Box::new(real_return_type),
             })
         }
-        ASTTypedExpression::Any(ast_type) => ast_type.clone(),
     }
 }
 
@@ -1393,6 +1397,7 @@ pub fn function_def(
     );
     let typed_function_def = ASTTypedFunctionDef {
         name: def.name.clone(),
+        original_name: def.original_name.clone(),
         body: body(conv_context, &def.body),
         return_type: function_return_type,
         inline: def.inline,
@@ -1573,11 +1578,9 @@ fn expression(conv_context: &mut ConvContext, expression: &ASTExpression) -> AST
             ASTTypedExpression::Value(val_type.clone(), index.clone())
         }
         ASTExpression::Lambda(l) => ASTTypedExpression::Lambda(lambda_def(conv_context, l)),
-        ASTExpression::Any(ast_type) => ASTTypedExpression::Any(typed_type(
-            conv_context,
-            ast_type,
-            &format!("Any({ast_type})"),
-        )),
+        ASTExpression::Any(_ast_type) => {
+            panic!("cannot handle Any type");
+        }
     }
 }
 
@@ -1675,6 +1678,7 @@ fn function_call(
 ) -> ASTTypedFunctionCall {
     ASTTypedFunctionCall {
         function_name: function_call.function_name.clone(),
+        original_function_name: function_call.original_function_name.clone(),
         parameters: function_call
             .parameters
             .iter()

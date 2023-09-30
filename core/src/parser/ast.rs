@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::io;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -236,6 +237,42 @@ impl ASTIndex {
             row: self.row,
             column: (self.column as i32 + offset) as usize,
         }
+    }
+
+    pub fn between(&self, min: &ASTIndex, max: &ASTIndex) -> io::Result<bool> {
+        Ok(self.row == min.row
+            && self.row == max.row
+            && self.column >= min.column
+            && self.column <= max.column
+            && Self::path_matches(&self.file_name, &min.file_name)?
+            && Self::path_matches(&self.file_name, &max.file_name)?)
+    }
+
+    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> io::Result<bool> {
+        if let Some(p1) = op1 {
+            if let Some(p2) = op2 {
+                if p1.file_name() != p2.file_name() {
+                    return Ok(false);
+                }
+                let p1_canon = p1.canonicalize().map_err(|it| {
+                    io::Error::new(
+                        it.kind(),
+                        format!("Error canonilizing {}", p1.as_os_str().to_str().unwrap()),
+                    )
+                })?;
+
+                let p2_canon = p2.canonicalize().map_err(|it| {
+                    io::Error::new(
+                        it.kind(),
+                        format!("Error canonilizing {}", p2.as_os_str().to_str().unwrap()),
+                    )
+                })?;
+
+                return Ok(p1_canon == p2_canon);
+            }
+        }
+
+        Ok(false)
     }
 }
 

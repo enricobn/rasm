@@ -497,7 +497,8 @@ mod tests {
             &mut Statics::new(),
             true,
             Vec::new(),
-        );
+        )
+        .unwrap();
 
         let par = if let Some(ASTTypedStatement::Expression(
             ASTTypedExpression::ASTFunctionCallExpression(e),

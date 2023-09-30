@@ -578,7 +578,6 @@ impl<'a> FunctionCallParameters<'a> {
                         .into_iter()
                 })
                 .collect(),
-            ASTTypedExpression::Any(_) => Vec::new(),
         }
     }
 
@@ -634,7 +633,6 @@ impl<'a> FunctionCallParameters<'a> {
                 .body
                 .iter()
                 .any(|it| self.statement_reads_from_context(it, context)),
-            ASTTypedExpression::Any(_) => false,
         }
     }
 

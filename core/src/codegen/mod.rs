@@ -29,6 +29,7 @@ use crate::transformations::typed_enum_functions_creator::typed_enum_functions_c
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::get_new_native_call;
+use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
@@ -110,7 +111,10 @@ impl<'a> CodeGen<'a> {
             dereference,
             print_module,
             &mut statics,
-        );
+        )
+        .unwrap_or_else(|e| {
+            panic!("{e}");
+        });
 
         info!("type check ended in {:?}", start.elapsed());
 
@@ -138,7 +142,7 @@ impl<'a> CodeGen<'a> {
         dereference: bool,
         print_module: bool,
         statics: &mut Statics,
-    ) -> ASTTypedModule {
+    ) -> Result<ASTTypedModule, TypeCheckError> {
         let enhanced_module = EnhancedASTModule::new(module);
 
         let mandatory_functions = type_mandatory_functions(&enhanced_module);
@@ -152,11 +156,11 @@ impl<'a> CodeGen<'a> {
             statics,
             dereference,
             default_functions,
-        );
+        )?;
         typed_enum_functions_creator(backend, &mut typed_module, statics);
         typed_struct_functions_creator(backend, &mut typed_module, statics);
         typed_type_functions_creator(backend, &mut typed_module, statics);
-        typed_module
+        Ok(typed_module)
     }
 
     pub fn get_std_lib_path() -> String {
@@ -948,9 +952,11 @@ impl<'a> CodeGen<'a> {
                                         })
                                         .collect::<Vec<_>>();
 
+                                        let name = format!("lambda{}", self.id);
                                         let def = ASTTypedFunctionDef {
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
-                                            name: format!("lambda{}", self.id),
+                                            name: name.clone(),
+                                            original_name: name,
                                             parameters: lambda_parameters, // parametrs are calculated later
                                             return_type: rt,
                                             body: ASTTypedFunctionBody::RASMBody(
@@ -1010,7 +1016,6 @@ impl<'a> CodeGen<'a> {
                                         true,
                                     );
                                 }
-                                ASTTypedExpression::Any(_) => panic!(),
                             }
                         }
                         ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
@@ -1403,9 +1408,11 @@ impl<'a> CodeGen<'a> {
 
                         let rt = return_type.deref().clone();
 
+                        let name = format!("lambda{}", self.id);
                         let mut def = ASTTypedFunctionDef {
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
-                            name: format!("lambda{}", self.id),
+                            name: name.clone(),
+                            original_name: name,
                             parameters: Vec::new(), // parametrs are calculated later
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
@@ -1463,7 +1470,6 @@ impl<'a> CodeGen<'a> {
 
                         lambda_calls.push(lambda_call);
                     }
-                    ASTTypedExpression::Any(_) => panic!(),
                 }
             }
         }

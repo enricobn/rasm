@@ -49,6 +49,7 @@ fn create_free(
 
     let function_def = ASTTypedFunctionDef {
         name: fun_name.clone(),
+        original_name: fun_name.clone(),
         parameters: vec![
             ASTTypedParameterDef {
                 name: "address".into(),
