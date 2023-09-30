@@ -26,7 +26,7 @@ impl ReferenceFinder {
             functions_container.add_function(it.original_name.clone(), it.clone());
         });
 
-        let selectable_items = Self::get_selectable_items(module, &functions_container);
+        let selectable_items = Self::get_selectable_items(module, &functions_container).unwrap();
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
@@ -67,7 +67,7 @@ impl ReferenceFinder {
     fn get_selectable_items(
         module: &ASTModule,
         functions_container: &FunctionsContainer,
-    ) -> Vec<SelectableItem> {
+    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
 
@@ -80,7 +80,7 @@ impl ReferenceFinder {
             &mut reference_context,
             &mut reference_static_context,
             functions_container,
-        );
+        )?;
 
         result.append(
             &mut module
@@ -93,11 +93,12 @@ impl ReferenceFinder {
                         functions_container,
                         &reference_static_context,
                     )
+                    .unwrap_or(Vec::new())
                 })
                 .collect(),
         );
 
-        result
+        Ok(result)
     }
 
     fn get_selectable_items_fn(
@@ -105,7 +106,7 @@ impl ReferenceFinder {
         module: &ASTModule,
         functions_container: &FunctionsContainer,
         reference_static_context: &ReferenceContext,
-    ) -> Vec<SelectableItem> {
+    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
 
         let mut val_context = ReferenceContext::new(Some(reference_static_context));
@@ -129,10 +130,10 @@ impl ReferenceFinder {
                 &mut val_context,
                 &mut ReferenceContext::new(None),
                 functions_container,
-            );
+            )?;
         }
 
-        result
+        Ok(result)
     }
 
     fn process_type(module: &ASTModule, ast_type: &ASTType, result: &mut Vec<SelectableItem>) {
@@ -175,8 +176,12 @@ impl ReferenceFinder {
     ) -> Result<(), TypeCheckError> {
         for stmt in statements {
             if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
-                let filter =
-                    Self::get_filter_of_expression(expr, reference_context, functions_container)?;
+                let filter = Self::get_filter_of_expression(
+                    expr,
+                    reference_context,
+                    reference_static_context,
+                    functions_container,
+                )?;
                 reference_context.add(name.clone(), index.clone(), filter.clone());
                 if *is_const {
                     reference_static_context.add(name.clone(), index.clone(), filter);
@@ -186,6 +191,7 @@ impl ReferenceFinder {
             match Self::get_selectable_items_stmt(
                 stmt,
                 reference_context,
+                reference_static_context,
                 module,
                 functions_container,
             ) {
@@ -203,6 +209,7 @@ impl ReferenceFinder {
     fn get_filter_of_expression(
         expr: &ASTExpression,
         reference_context: &ReferenceContext,
+        reference_static_context: &ReferenceContext,
         functions_container: &FunctionsContainer,
     ) -> Result<TypeFilter, TypeCheckError> {
         let result = match expr {
@@ -211,7 +218,12 @@ impl ReferenceFinder {
                     .parameters
                     .iter()
                     .map(|it| {
-                        Self::get_filter_of_expression(it, reference_context, functions_container)
+                        Self::get_filter_of_expression(
+                            it,
+                            reference_context,
+                            reference_static_context,
+                            functions_container,
+                        )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
                 let functions = functions_container.find_call_vec(call, filters, None, false)?;
@@ -227,6 +239,7 @@ impl ReferenceFinder {
             }
             ASTExpression::ValueRef(name, index) => reference_context
                 .get(name)
+                .or_else(|| reference_static_context.get(name))
                 .ok_or_else(|| {
                     TypeCheckError::from(format!("cannot find ref to '{name}' : {index}"))
                 })?
@@ -242,6 +255,7 @@ impl ReferenceFinder {
     fn get_selectable_items_stmt(
         stmt: &ASTStatement,
         reference_context: &mut ReferenceContext,
+        reference_static_context: &mut ReferenceContext,
         module: &ASTModule,
         functions_container: &FunctionsContainer,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
@@ -249,12 +263,14 @@ impl ReferenceFinder {
             ASTStatement::Expression(expr) => Self::get_selectable_items_expr(
                 expr,
                 reference_context,
+                reference_static_context,
                 module,
                 functions_container,
             ),
             ASTStatement::LetStatement(name, expr, _, index) => Self::get_selectable_items_expr(
                 expr,
                 reference_context,
+                reference_static_context,
                 module,
                 functions_container,
             ),
@@ -264,6 +280,7 @@ impl ReferenceFinder {
     fn get_selectable_items_expr(
         expr: &ASTExpression,
         reference_context: &mut ReferenceContext,
+        reference_static_context: &mut ReferenceContext,
         module: &ASTModule,
         functions_container: &FunctionsContainer,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
@@ -279,6 +296,7 @@ impl ReferenceFinder {
                         match Self::get_selectable_items_expr(
                             it,
                             reference_context,
+                            reference_static_context,
                             module,
                             functions_container,
                         ) {
@@ -298,7 +316,12 @@ impl ReferenceFinder {
                     .parameters
                     .iter()
                     .map(|it| {
-                        Self::get_filter_of_expression(it, reference_context, functions_container)
+                        Self::get_filter_of_expression(
+                            it,
+                            reference_context,
+                            reference_static_context,
+                            functions_container,
+                        )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
@@ -348,7 +371,7 @@ impl ReferenceFinder {
                     &mut lambda_context,
                     &mut ReferenceContext::new(None),
                     functions_container,
-                );
+                )?;
                 result.append(&mut lambda_result);
             }
             ASTExpression::Any(_) => {}
