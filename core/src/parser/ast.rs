@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 use std::hash::Hash;
 use std::io;
 use std::ops::Deref;
@@ -145,9 +145,9 @@ impl Display for ASTType {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
                 if pars.is_empty() {
-                    f.write_str(&format!("Custom({name})"))
+                    f.write_str(name)
                 } else {
-                    f.write_str(&format!("Custom({name}<{}>)", pars.join(",")))
+                    f.write_str(&format!("{name}<{}>", pars.join(",")))
                 }
             }
             ASTType::Unit => f.write_str("()"),
@@ -553,4 +553,25 @@ pub fn lambda(return_type: ASTType) -> ASTType {
 
 pub fn lambda_unit() -> ASTType {
     lambda(ASTType::Unit)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+
+    #[test]
+    fn display() {
+        let inner_type = ASTType::Custom {
+            name: "Option".to_owned(),
+            param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
+            index: ASTIndex::none(),
+        };
+
+        let ast_type = ASTType::Custom {
+            name: "List".to_owned(),
+            param_types: vec![inner_type],
+            index: ASTIndex::none(),
+        };
+        assert_eq!(format!("{ast_type}"), "List<Option<str>>");
+    }
 }
