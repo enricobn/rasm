@@ -24,7 +24,7 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
-use rasm_core::parser::ast::{ASTIndex, ASTModule};
+use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
 use rasm_core::project::project::RasmProject;
 use rasm_core::transformations::enrich_module;
 use rasm_core::type_check::functions_container::TypeFilter;
@@ -159,7 +159,7 @@ impl CompletionService {
     pub fn get_type(
         &self,
         index: &ASTIndex,
-    ) -> io::Result<Option<(ASTTypedType, Option<ASTIndex>)>> {
+    ) -> io::Result<Option<(ASTTypedType, Option<ASTType>, Option<ASTIndex>)>> {
         match self.get_completable_item(index)? {
             CompletableItemResult::Found(item) => {
                 let index = match &item.ast_typed_type {
@@ -184,7 +184,12 @@ impl CompletionService {
                         .map(|it| it.index.clone()),
                     ASTTypedType::Unit => None,
                 };
-                Ok(Some((item.ast_typed_type, index)))
+
+                let ast_type = self
+                    .typed_module
+                    .get_type_from_typed_type(&item.ast_typed_type);
+
+                Ok(Some((item.ast_typed_type.clone(), ast_type, index)))
             }
             CompletableItemResult::NotFound(_) => Ok(None),
         }
