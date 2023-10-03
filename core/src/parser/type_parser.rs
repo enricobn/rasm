@@ -18,7 +18,7 @@ impl<'a> TypeParser<'a> {
         &self,
         n: usize,
         context_generic_types: &[String],
-    ) -> Option<(ASTType, usize)> {
+    ) -> Result<Option<(ASTType, usize)>, String> {
         self.try_parse_ast_type_rec(n, context_generic_types, 0)
     }
 
@@ -27,11 +27,11 @@ impl<'a> TypeParser<'a> {
         n: usize,
         context_generic_types: &[String],
         rec: usize,
-    ) -> Option<(ASTType, usize)> {
-        if let Some((ast_type, next_i)) = self.try_parse(n, context_generic_types, rec) {
-            return Some((ast_type, next_i));
+    ) -> Result<Option<(ASTType, usize)>, String> {
+        if let Some((ast_type, next_i)) = self.try_parse(n, context_generic_types, rec)? {
+            return Ok(Some((ast_type, next_i)));
         }
-        None
+        Ok(None)
     }
 
     fn try_parse(
@@ -39,8 +39,8 @@ impl<'a> TypeParser<'a> {
         n: usize,
         context_generic_types: &[String],
         rec: usize,
-    ) -> Option<(ASTType, usize)> {
-        if let Some(kind) = self.parser.get_token_kind_n(n) {
+    ) -> Result<Option<(ASTType, usize)>, String> {
+        let result = if let Some(kind) = self.parser.get_token_kind_n(n) {
             let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::AlphaNumeric(type_name) = kind {
                 if type_name == "i32" {
@@ -57,7 +57,7 @@ impl<'a> TypeParser<'a> {
                     Some((Generic(type_name.into()), next_i))
                 } else {
                     let (param_types, next_i) = if let Some((param_types, next_i)) =
-                        self.try_parse_parameter_types(n + 1, context_generic_types, rec)
+                        self.try_parse_parameter_types(n + 1, context_generic_types, rec)?
                     {
                         (param_types, next_i)
                     } else {
@@ -68,13 +68,13 @@ impl<'a> TypeParser<'a> {
                         Custom {
                             name: type_name.into(),
                             param_types,
-                            index: self.parser.get_index(n).unwrap(),
+                            index: self.parser.get_index(n),
                         },
                         next_i,
                     ))
                 }
             } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
-                Some(self.parse_fn(n + 1, context_generic_types, rec))
+                Some(self.parse_fn(n + 1, context_generic_types, rec)?)
             } else if matches!(
                 kind,
                 TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)
@@ -88,7 +88,9 @@ impl<'a> TypeParser<'a> {
             }
         } else {
             None
-        }
+        };
+
+        Ok(result)
     }
 
     fn try_parse_parameter_types(
@@ -96,12 +98,15 @@ impl<'a> TypeParser<'a> {
         n: usize,
         context_param_types: &[String],
         rec: usize,
-    ) -> Option<(Vec<ASTType>, usize)> {
+    ) -> Result<Option<(Vec<ASTType>, usize)>, String> {
         let mut types = Vec::new();
         let mut next_i = self.parser.get_i() + n + 1;
 
         if rec > 10 {
-            panic!()
+            return Err(format!(
+                "Probable recursion parsing parameter type: {}",
+                self.parser.get_index(n)
+            ));
         }
 
         if let Some(TokenKind::Bracket(BracketKind::Angle, Open)) = self.parser.get_token_kind_n(n)
@@ -115,21 +120,21 @@ impl<'a> TypeParser<'a> {
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = kind {
                     inner_n += 1;
                 } else if let Some((ast_type, inner_next_i)) =
-                    self.try_parse_ast_type(inner_n, context_param_types)
+                    self.try_parse_ast_type(inner_n, context_param_types)?
                 {
                     types.push(ast_type);
                     next_i = inner_next_i;
                     inner_n = next_i - self.parser.get_i();
                 } else {
-                    panic!(
+                    return Err(format!(
                         "Error parsing type: {}",
-                        self.parser.get_index(inner_n).unwrap()
-                    );
+                        self.parser.get_index(inner_n)
+                    ));
                 }
             }
-            Some((types, next_i))
+            Ok(Some((types, next_i)))
         } else {
-            None
+            Ok(None)
         }
     }
 
@@ -138,12 +143,15 @@ impl<'a> TypeParser<'a> {
         out_n: usize,
         context_param_types: &[String],
         rec: usize,
-    ) -> (ASTType, usize) {
+    ) -> Result<(ASTType, usize), String> {
         let mut n = out_n;
         let mut parameters = Vec::new();
 
         if rec > 10 {
-            panic!();
+            return Err(format!(
+                "Probable recursion parsing function : {}",
+                self.parser.get_index(n)
+            ));
         }
 
         if let Some(TokenKind::Bracket(Round, Open)) = self.parser.get_token_kind_n(n) {
@@ -160,13 +168,16 @@ impl<'a> TypeParser<'a> {
                 }
 
                 if let Some((t, next_i)) =
-                    self.try_parse_ast_type_rec(n, context_param_types, rec + 1)
+                    self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
                 {
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
                     continue;
                 } else {
-                    self.parser.panic("Error parsing fn type parameter");
+                    return Err(format!(
+                        "Error parsing fn type parameter: {}",
+                        self.parser.get_index(n)
+                    ));
                 }
             }
 
@@ -175,7 +186,10 @@ impl<'a> TypeParser<'a> {
             {
                 n += 1;
             } else {
-                self.parser.panic("Error parsing fn type: expected -> ");
+                return Err(format!(
+                    "Error parsing fn type, expected '->': {}",
+                    self.parser.get_index(n)
+                ));
             }
 
             let return_type = if let (
@@ -188,23 +202,29 @@ impl<'a> TypeParser<'a> {
                 n += 2;
                 ASTType::Unit
             } else if let Some((t, next_i)) =
-                self.try_parse_ast_type_rec(n, context_param_types, rec + 1)
+                self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
             {
                 n = next_i - self.parser.get_i();
                 t
             } else {
-                self.parser.panic("Error parsing fn type parameter");
+                return Err(format!(
+                    "Error parsing fn type parameter: {}",
+                    self.parser.get_index(n)
+                ));
             };
 
-            (
+            Ok((
                 Builtin(BuiltinTypeKind::Lambda {
                     return_type: Box::new(return_type),
                     parameters,
                 }),
                 self.parser.get_i() + n,
-            )
+            ))
         } else {
-            self.parser.panic("Error parsing fn type: expected (");
+            return Err(format!(
+                "Error parsing fn type parameter, expected '(': {}",
+                self.parser.get_index(n)
+            ));
         }
     }
 }
@@ -314,6 +334,6 @@ mod tests {
 
         let sut = TypeParser::new(&parser);
 
-        sut.try_parse(0, context, 0)
+        sut.try_parse(0, context, 0).unwrap()
     }
 }

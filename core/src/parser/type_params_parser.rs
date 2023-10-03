@@ -10,7 +10,7 @@ impl<'a> TypeParamsParser<'a> {
         Self { parser }
     }
 
-    pub fn try_parse(&self, n: usize) -> Option<(Vec<String>, usize)> {
+    pub fn try_parse(&self, n: usize) -> Result<Option<(Vec<String>, usize)>, String> {
         if let Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)) =
             self.parser.get_token_kind_n(n)
         {
@@ -25,22 +25,29 @@ impl<'a> TypeParamsParser<'a> {
                     } else if let TokenKind::AlphaNumeric(type_name) = kind {
                         types.push(type_name.to_string());
                     } else {
-                        self.parser.panic(&format!(
-                            "expected a generic type or a comma, found {:?}",
-                            kind
+                        return Err(format!(
+                            "expected a generic type or a comma, found {:?}: {}",
+                            kind,
+                            self.parser.get_index(0)
                         ));
                     }
                 } else {
-                    self.parser.panic("error getting generic types");
+                    return Err(format!(
+                        "error getting generic types: {}",
+                        self.parser.get_index(0)
+                    ));
                 }
                 j += 1;
             }
             if types.is_empty() {
-                self.parser.panic("cannot find generic types");
+                return Err(format!(
+                    "cannot find generic types: {}",
+                    self.parser.get_index(0)
+                ));
             }
-            return Some((types, self.parser.get_i() + j + 1));
+            return Ok(Some((types, self.parser.get_i() + j + 1)));
         }
-        None
+        Ok(None)
     }
 }
 
@@ -62,6 +69,6 @@ mod tests {
 
         let sut = TypeParamsParser::new(&parser);
 
-        sut.try_parse(0)
+        sut.try_parse(0).unwrap()
     }
 }

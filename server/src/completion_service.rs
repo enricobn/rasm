@@ -74,7 +74,7 @@ pub struct CompletionService {
 
 impl CompletionService {
     pub fn new(project: &RasmProject) -> Result<Self, TypeCheckError> {
-        let mut module = project.get_module();
+        let (mut module, errors) = project.get_module();
 
         let mut statics = Statics::new();
         let backend = BackendNasm386::new(module.requires.clone(), module.externals.clone(), false);

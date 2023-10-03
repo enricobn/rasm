@@ -619,13 +619,15 @@ impl TypeCheck {
             }
             ASTFunctionBody::ASMBody(asm_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
-                let called_functions = backend.called_functions(
-                    None,
-                    Some(new_function_def),
-                    asm_body,
-                    &val_context,
-                    &type_def_provider,
-                );
+                let called_functions = backend
+                    .called_functions(
+                        None,
+                        Some(new_function_def),
+                        asm_body,
+                        &val_context,
+                        &type_def_provider,
+                    )
+                    .map_err(|it| TypeCheckError::new(it))?;
 
                 if called_functions.is_empty() {
                     None
@@ -1286,7 +1288,7 @@ mod tests {
 
     fn to_ast_module(project: RasmProject) -> (ASTModule, BackendNasm386, Statics) {
         let mut statics = Statics::new();
-        let mut module = project.get_module();
+        let (mut module, _) = project.get_module();
 
         let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
 

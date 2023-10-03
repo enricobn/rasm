@@ -70,7 +70,7 @@ pub trait Backend: RefUnwindSafe {
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> Vec<(TextMacro, DefaultFunctionCall)>;
+    ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
 
@@ -495,7 +495,7 @@ impl Backend for BackendNasm386 {
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> Vec<(TextMacro, DefaultFunctionCall)> {
+    ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
         let mut result = Vec::new();
 
         // TODO I don't like to create it
@@ -507,10 +507,10 @@ impl Backend for BackendNasm386 {
             function_def,
             body,
             type_def_provider,
-        ) {
+        )? {
             if m.name == "call" {
                 debug_i!("found call macro {m}");
-                let types = m
+                let types: Vec<ASTType> = m
                     .parameters
                     .iter()
                     .skip(1)
@@ -544,11 +544,11 @@ impl Backend for BackendNasm386 {
                                             f.generic_types.get(name).unwrap(),
                                         )
                                         .unwrap();
-                                    println!("Function specified, found type {:?} for {name}", t);
-                                    t
+                                    debug_i!("Function specified, found type {:?} for {name}", t);
+                                    Ok(t)
                                 } else {
-                                    println!("Function not specified, cannot find type {name}");
-                                    ast_type.clone()
+                                    debug_i!("Function not specified, cannot find type {name}");
+                                    Ok(ast_type.clone())
                                 }
                             }
                             ASTType::Custom {
@@ -560,36 +560,36 @@ impl Backend for BackendNasm386 {
                                     if let Some(t) = f.generic_types.get(name) {
                                         type_def_provider
                                             .get_type_from_typed_type(t)
-                                            .unwrap_or_else(|| panic!("name {name} t {t}"))
+                                            .ok_or(format!("name {name} t {t}"))
                                     } else if let Some(t) =
                                         type_def_provider.get_type_from_typed_type_name(name)
                                     {
-                                        t
+                                        Ok(t)
                                     } else {
-                                        ast_type.clone()
+                                        Ok(ast_type.clone())
                                     }
                                 } else {
-                                    ast_type.clone()
+                                    Ok(ast_type.clone())
                                 };
 
                                 result
                             }
-                            _ => ast_type,
+                            _ => Ok(ast_type),
                         }
                     })
-                    .collect();
+                    .collect::<Result<Vec<ASTType>, String>>()?;
 
                 let function_name =
                     if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
                         function_name
                     } else {
-                        panic!("Error getting the function name");
+                        return Err(format!("Cannot find function : {i}"));
                     };
 
                 result.push((m.clone(), DefaultFunctionCall::new(function_name, types, i)));
             }
         }
-        result
+        Ok(result)
     }
 
     fn remove_comments_from_line(&self, line: String) -> String {
@@ -1433,6 +1433,7 @@ mod tests {
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
             )
+            .unwrap()
             .get(0)
             .unwrap()
             .1
@@ -1453,6 +1454,7 @@ mod tests {
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
             )
+            .unwrap()
             .is_empty());
     }
 
@@ -1471,6 +1473,7 @@ mod tests {
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
             )
+            .unwrap()
             .is_empty());
     }
 }

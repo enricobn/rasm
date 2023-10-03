@@ -79,14 +79,18 @@ impl RasmProject {
         )
     }
 
-    pub fn get_module(&self) -> ASTModule {
+    pub fn get_module(&self) -> (ASTModule, Vec<String>) {
         info!("Reading project {:?}", self);
 
         let mut module = ASTModule::new();
+        let mut errors = Vec::new();
 
         self.get_modules(true)
             .into_iter()
-            .for_each(|m| module.add(m));
+            .for_each(|project_module| match project_module {
+                Ok(m) => module.add(m),
+                Err(e) => errors.push(e),
+            });
 
         self.get_all_dependencies()
             .into_par_iter()
@@ -98,12 +102,15 @@ impl RasmProject {
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .for_each(|project_module| module.add(project_module));
+            .for_each(|project_module| match project_module {
+                Ok(m) => module.add(m),
+                Err(e) => errors.push(e),
+            });
 
-        module
+        (module, errors)
     }
 
-    fn get_modules(&self, body: bool) -> Vec<ASTModule> {
+    fn get_modules(&self, body: bool) -> Vec<Result<ASTModule, String>> {
         if self.from_file {
             vec![Self::module_from_file(&PathBuf::from(
                 &self.main_src_file().unwrap(),
@@ -119,33 +126,33 @@ impl RasmProject {
                     let path = entry.path();
                     info!("including file {}", path.to_str().unwrap());
 
-                    let entry_module = Self::module_from_file(&path.canonicalize().unwrap());
+                    Self::module_from_file(&path.canonicalize().unwrap()).and_then(|entry_module| {
+                        let has_body = !entry_module.body.is_empty();
 
-                    let has_body = !entry_module.body.is_empty();
-
-                    if body {
-                        if path.canonicalize().unwrap()
-                            == self.main_src_file().unwrap().canonicalize().unwrap()
-                        {
-                            if !has_body {
-                                panic!(
-                                    "Main file should have a body, but {} has not a body",
-                                    path.to_str().unwrap()
-                                );
+                        if body {
+                            if path.canonicalize().unwrap()
+                                == self.main_src_file().unwrap().canonicalize().unwrap()
+                            {
+                                if !has_body {
+                                    return Err(format!(
+                                        "Main file should have a body, but {} has not a body",
+                                        path.to_str().unwrap()
+                                    ));
+                                }
+                            } else if has_body {
+                                return Err(format!(
+                                    "Only main file should have a body, but {} has a body",
+                                    path.to_str().unwrap(),
+                                ));
                             }
                         } else if has_body {
-                            panic!(
+                            return Err(format!(
                                 "Only main file should have a body, but {} has a body",
-                                path.to_str().unwrap(),
-                            );
+                                path.to_str().unwrap()
+                            ));
                         }
-                    } else if has_body {
-                        panic!(
-                            "Only main file should have a body, but {} has a body",
-                            path.to_str().unwrap()
-                        );
-                    }
-                    entry_module
+                        Ok(entry_module)
+                    })
                 })
                 .collect::<Vec<_>>()
         }
@@ -189,7 +196,7 @@ impl RasmProject {
         result
     }
 
-    fn module_from_file(main_file: &PathBuf) -> ASTModule {
+    fn module_from_file(main_file: &PathBuf) -> Result<ASTModule, String> {
         let main_path = Path::new(&main_file);
         match Lexer::from_file(main_path) {
             Ok(lexer) => {

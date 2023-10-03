@@ -72,7 +72,7 @@ impl ServerState {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let mut module = project.get_module();
+        let (mut module, errors) = project.get_module();
 
         enrich_module(
             backend,

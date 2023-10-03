@@ -553,7 +553,7 @@ mod tests {
         let project = RasmProject::new(file_name.to_path_buf());
 
         let mut statics = Statics::new();
-        let mut module = project.get_module();
+        let (mut module, errors) = project.get_module();
 
         enrich_module(
             &BackendNasm386::new(HashSet::new(), HashSet::new(), false),

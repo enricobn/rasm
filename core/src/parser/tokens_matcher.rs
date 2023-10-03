@@ -186,10 +186,6 @@ impl ParserTrait for TokensMatcherResult {
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.tokens.get(n)
     }
-
-    fn panic(&self, message: &str) -> ! {
-        panic!("{}", message);
-    }
 }
 
 #[derive(Debug, Clone)]

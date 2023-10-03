@@ -26,7 +26,7 @@ impl Compiler {
 
         let debug_asm = false;
 
-        let module = self.project.get_module();
+        let (module, errors) = self.project.get_module();
         info!("parse ended in {:?}", start.elapsed());
 
         let backend =

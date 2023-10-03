@@ -41,23 +41,26 @@ impl EnumParser {
         })
     }
 
-    pub fn try_parse_enum(&self, parser: &dyn ParserTrait) -> Option<(ASTEnumDef, usize)> {
+    pub fn try_parse_enum(
+        &self,
+        parser: &dyn ParserTrait,
+    ) -> Result<Option<(ASTEnumDef, usize)>, String> {
         if let Some((token, type_parameters, next_i)) = self.try_parse(parser) {
             if let Some((variants, next_i)) =
-                self.parse_variants(parser, &type_parameters, next_i - parser.get_i())
+                self.parse_variants(parser, &type_parameters, next_i - parser.get_i())?
             {
-                return Some((
+                return Ok(Some((
                     ASTEnumDef {
                         name: token.alpha().unwrap(),
                         type_parameters,
                         variants,
-                        index: parser.get_index(0).unwrap(),
+                        index: parser.get_index(0),
                     },
                     next_i,
-                ));
+                )));
             }
         }
-        None
+        Ok(None)
     }
 
     pub fn parse_variants(
@@ -65,7 +68,7 @@ impl EnumParser {
         parser: &dyn ParserTrait,
         type_parameters: &[String],
         n: usize,
-    ) -> Option<(Vec<ASTEnumVariantDef>, usize)> {
+    ) -> Result<Option<(Vec<ASTEnumVariantDef>, usize)>, String> {
         //println!("parse_variants n {}", n);
         let mut enum_variants_matcher = TokensMatcher::default();
         enum_variants_matcher.add_matcher(EnumParser::variant_matcher(
@@ -97,8 +100,8 @@ impl EnumParser {
 
                     let type_result = result.group_results("parameter_type");
 
-                    let parameters = if parameters_tokens.is_empty() {
-                        Vec::new()
+                    let parameters: Result<Vec<ASTParameterDef>, String> = if parameters_tokens.is_empty() {
+                        Ok(Vec::new())
                     } else {
                         let mut parameters = Vec::new();
                         for i in 0..parameters_tokens.len() {
@@ -106,7 +109,7 @@ impl EnumParser {
                             let parser = *type_result.get(i).unwrap();
                             let type_parser = TypeParser::new(parser);
                             if let Some((ast_type, _)) =
-                                type_parser.try_parse_ast_type(0, type_parameters)
+                                type_parser.try_parse_ast_type(0, type_parameters)?
                             {
                                 if let Some(token) = parameters_tokens.get(i) {
                                     parameters.push(ASTParameterDef {
@@ -115,33 +118,33 @@ impl EnumParser {
                                         ast_index: token.index(),
                                     });
                                 } else {
-                                    parser.panic(&format!(
+                                    return Err(parser.wrap_error(&format!(
                                         "Cannot parse type for enum variant, unexpected token {:?}:",
                                         parameters_tokens.get(i)
-                                    ));
+                                    )));
                                 }
                             } else {
-                                parser.panic(&format!(
+                                return Err(parser.wrap_error(&format!(
                                     "Cannot parse type for enum variant {:?}:",
                                     name_token
-                                ));
+                                )));
                             }
                         }
-                        parameters
+                        Ok(parameters)
                     };
 
-                    ASTEnumVariantDef {
+                    Ok(ASTEnumVariantDef {
                         name: name_token.alpha().unwrap(),
-                        parameters,
+                        parameters: parameters?,
                         index: name_token.index(),
-                    }
+                    })
                 })
-                .collect();
+                .collect::<Result<Vec<ASTEnumVariantDef>, String>>();
 
             //println!("parse_variants next_n: {}", variants_result.next_n());
-            Some((variants, parser.get_i() + variants_result.next_n()))
+            Ok(Some((variants?, parser.get_i() + variants_result.next_n())))
         } else {
-            None
+            Ok(None)
         }
     }
 
@@ -193,8 +196,10 @@ impl TokensMatcherTrait for ParameterMatcher {
             {
                 let type_parser = TypeParser::new(parser);
                 // I don't care of type since who evaluates this resul gets only the tokens
-                if let Some((_ast_type, next_i)) =
-                    type_parser.try_parse_ast_type(n + 2, &self.context_generic_types)
+                if let Some((_ast_type, next_i)) = type_parser
+                    .try_parse_ast_type(n + 2, &self.context_generic_types)
+                    .unwrap()
+                // TODO error handling
                 {
                     let next_n = next_i - parser.get_i();
 
@@ -598,7 +603,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.try_parse_enum(&parser)
+        sut.try_parse_enum(&parser).unwrap()
     }
 
     fn parse_variants(
@@ -610,7 +615,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.parse_variants(&parser, type_parameters, n)
+        sut.parse_variants(&parser, type_parameters, n).unwrap()
     }
 
     fn try_parse_variant(source: &str, type_parameters: &[String]) -> Option<TokensMatcherResult> {

@@ -867,35 +867,39 @@ pub fn convert_to_typed_module(
 
     let mut evaluator = TextMacroEvaluator::new();
 
-    functions_by_name
-        .iter_mut()
-        .for_each(|it| match &it.1.body {
+    for (name, function) in functions_by_name.iter_mut() {
+        match &function.body {
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::ASMBody(body) => {
-                let new_body = evaluator.translate(
-                    backend,
-                    statics,
-                    Some(it.1),
-                    None,
-                    body,
-                    dereference,
-                    true,
-                    &result,
-                );
+                let new_body = evaluator
+                    .translate(
+                        backend,
+                        statics,
+                        Some(function),
+                        None,
+                        body,
+                        dereference,
+                        true,
+                        &result,
+                    )
+                    .map_err(|it| TypeCheckError::from(it.clone()))?;
 
-                let new_body = evaluator.translate(
-                    backend,
-                    statics,
-                    Some(it.1),
-                    None,
-                    &new_body,
-                    dereference,
-                    false,
-                    &result,
-                );
-                it.1.body = ASTTypedFunctionBody::ASMBody(new_body);
+                let new_body = evaluator
+                    .translate(
+                        backend,
+                        statics,
+                        Some(function),
+                        None,
+                        &new_body,
+                        dereference,
+                        false,
+                        &result,
+                    )
+                    .map_err(|it| TypeCheckError::from(it.clone()))?;
+                function.body = ASTTypedFunctionBody::ASMBody(new_body);
             }
-        });
+        }
+    }
 
     result.functions_by_name = functions_by_name;
 

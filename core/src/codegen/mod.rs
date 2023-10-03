@@ -344,16 +344,18 @@ impl<'a> CodeGen<'a> {
         let mut temp_statics = Statics::new();
         let mut evaluator = TextMacroEvaluator::new();
 
-        let code = evaluator.translate(
-            self.backend,
-            &mut temp_statics,
-            None,
-            None,
-            &code,
-            self.dereference,
-            false,
-            &self.module,
-        );
+        let code = evaluator
+            .translate(
+                self.backend,
+                &mut temp_statics,
+                None,
+                None,
+                &code,
+                self.dereference,
+                false,
+                &self.module,
+            )
+            .unwrap();
 
         CodeGen::add(&mut asm, &code, None, true);
 
@@ -377,7 +379,7 @@ impl<'a> CodeGen<'a> {
         self.backend.reserve_local_vals(&stack, &mut asm);
 
         let body = self.body.clone();
-        let new_body = self.translate_body(&body);
+        let new_body = self.translate_body(&body).unwrap();
 
         asm.push_str(&new_body);
         asm.push('\n');
@@ -674,7 +676,7 @@ impl<'a> CodeGen<'a> {
         new_lambda_calls
     }
 
-    fn translate_body(&mut self, body: &str) -> String {
+    fn translate_body(&mut self, body: &str) -> Result<String, String> {
         let val_context = ValContext::new(None);
 
         let new_body = TextMacroEvaluator::new().translate(
@@ -686,12 +688,12 @@ impl<'a> CodeGen<'a> {
             self.dereference,
             true,
             &self.module,
-        );
+        )?;
 
         let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
         self.backend
-            .called_functions(None, None, &new_body, &val_context, &self.module)
+            .called_functions(None, None, &new_body, &val_context, &self.module)?
             .iter()
             .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);

@@ -105,7 +105,7 @@ impl TextMacroEvaluator {
         dereference: bool,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
+    ) -> Result<String, String> {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
         let mut result = Vec::new();
@@ -130,7 +130,7 @@ impl TextMacroEvaluator {
                         typed_function_def,
                         function_def,
                         type_def_provider,
-                    ),
+                    )?,
                 };
 
                 if let Some(s) = self.eval_macro(
@@ -155,7 +155,7 @@ impl TextMacroEvaluator {
             new_body.push('\n');
         }
 
-        new_body
+        Ok(new_body)
     }
 
     fn parse_params(
@@ -164,7 +164,7 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> Vec<MacroParam> {
+    ) -> Result<Vec<MacroParam>, String> {
         let mut result = Vec::new();
 
         enum State {
@@ -185,7 +185,7 @@ impl TextMacroEvaluator {
                             typed_function_def,
                             function_def,
                             type_def_provider,
-                        );
+                        )?;
 
                         result.push(param);
 
@@ -225,7 +225,7 @@ impl TextMacroEvaluator {
                     typed_function_def,
                     function_def,
                     type_def_provider,
-                );
+                )?;
                 result.push(param);
             }
             State::StringLiteral => {
@@ -233,7 +233,7 @@ impl TextMacroEvaluator {
             }
         }
 
-        result
+        Ok(result)
     }
 
     fn get_param(
@@ -242,7 +242,7 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> MacroParam {
+    ) -> Result<MacroParam, String> {
         let p = actual_param.trim();
 
         let context_generic_types = if let Some(f) = function_def {
@@ -270,17 +270,21 @@ impl TextMacroEvaluator {
                             type_def_provider,
                             &context_generic_types,
                             &f.resolved_generic_types,
-                        );
+                        )?;
 
                         if let Some(t) = par_type {
-                            MacroParam::Ref(format!("${par_name}"), Some(t), None)
+                            Ok(MacroParam::Ref(format!("${par_name}"), Some(t), None))
                         } else if let Some(par_type) = f
                             .parameters
                             .iter()
                             .find(|par| par.name == par_name)
                             .map(|it| it.ast_type.clone())
                         {
-                            MacroParam::Ref(format!("${par_name}"), Some(par_type), None)
+                            Ok(MacroParam::Ref(
+                                format!("${par_name}"),
+                                Some(par_type),
+                                None,
+                            ))
                         } else {
                             panic!("Cannot find parameter {name}");
                         }
@@ -298,11 +302,15 @@ impl TextMacroEvaluator {
                         type_def_provider,
                         &context_generic_types,
                         &ResolvedGenericTypes::new(),
-                    );
+                    )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
-                        panic!("Cannot find parameter {par_name}");
+                        Err("Cannot find parameter {par_name}".to_owned())
                     } else {
-                        MacroParam::Ref(format!("${par_name}"), par_type, par_typed_type)
+                        Ok(MacroParam::Ref(
+                            format!("${par_name}"),
+                            par_type,
+                            par_typed_type,
+                        ))
                     }
                 }
             }
@@ -314,7 +322,7 @@ impl TextMacroEvaluator {
                     type_def_provider,
                     &context_generic_types,
                     &f.resolved_generic_types,
-                )
+                )?
             } else {
                 self.parse_typed_argument(
                     p,
@@ -322,20 +330,24 @@ impl TextMacroEvaluator {
                     type_def_provider,
                     &context_generic_types,
                     &ResolvedGenericTypes::new(),
-                )
+                )?
             };
 
             if let Some(ast_type) = &par_type {
-                MacroParam::Plain(
+                Ok(MacroParam::Plain(
                     par_name,
                     par_type.clone(),
                     par_typed_type.or_else(|| {
                         typed_function_def
                             .and_then(|it| Self::resolve_type(ast_type, it, type_def_provider))
                     }),
-                )
+                ))
             } else {
-                MacroParam::Plain(par_name, par_type.clone(), par_typed_type)
+                Ok(MacroParam::Plain(
+                    par_name,
+                    par_type.clone(),
+                    par_typed_type,
+                ))
             }
         }
     }
@@ -411,7 +423,7 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
         context_generic_types: &[String],
         resolved_generic_types: &ResolvedGenericTypes,
-    ) -> (String, Option<ASTType>, Option<ASTTypedType>) {
+    ) -> Result<(String, Option<ASTType>, Option<ASTTypedType>), String> {
         // TODO the check of :: is a trick since function names could have ::, try to do it better
         let (par_name, par_type, par_typed_type) = if p.contains(':') && !p.contains("::") {
             let vec = p.split(':').collect::<Vec<_>>();
@@ -444,7 +456,7 @@ impl TextMacroEvaluator {
 
                 let type_parser = TypeParser::new(&parser);
 
-                match type_parser.try_parse_ast_type(0, context_generic_types) {
+                match type_parser.try_parse_ast_type(0, context_generic_types)? {
                     None => {
                         panic!("Unsupported type {par_type_name}")
                     }
@@ -474,7 +486,7 @@ impl TextMacroEvaluator {
         } else {
             (p, None, typed_type)
         };
-        (par_name.into(), par_type, par_typed_type)
+        Ok((par_name.into(), par_type, par_typed_type))
     }
 
     fn typed_type_to_type(
@@ -551,7 +563,7 @@ impl TextMacroEvaluator {
         function_def: Option<&ASTFunctionDef>,
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> Vec<(TextMacro, usize)> {
+    ) -> Result<Vec<(TextMacro, usize)>, String> {
         let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
 
         let mut result = Vec::new();
@@ -573,14 +585,13 @@ impl TextMacroEvaluator {
                         typed_function_def,
                         function_def,
                         type_def_provider,
-                    ),
+                    )?,
                 };
 
                 result.push((text_macro, i));
             }
         }
-
-        result
+        Ok(result)
     }
 }
 
@@ -604,10 +615,6 @@ impl ParserTrait for TypeParserHelper {
 
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.type_tokens.get(n)
-    }
-
-    fn panic(&self, message: &str) -> ! {
-        panic!("{message}")
     }
 }
 
@@ -1381,16 +1388,18 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new().translate(
-            &backend,
-            &mut statics,
-            None,
-            None,
-            "a line\n$call(nprint,10)\nanother line\n",
-            true,
-            false,
-            &DummyTypeDefProvider::new(),
-        );
+        let result = TextMacroEvaluator::new()
+            .translate(
+                &backend,
+                &mut statics,
+                None,
+                None,
+                "a line\n$call(nprint,10)\nanother line\n",
+                true,
+                false,
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         assert_eq!(
             result,
@@ -1403,16 +1412,18 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new().translate(
-            &backend,
-            &mut statics,
-            None,
-            None,
-            "a line\n$call(println, \"Hello, world\")\nanother line\n",
-            true,
-            false,
-            &DummyTypeDefProvider::new(),
-        );
+        let result = TextMacroEvaluator::new()
+            .translate(
+                &backend,
+                &mut statics,
+                None,
+                None,
+                "a line\n$call(println, \"Hello, world\")\nanother line\n",
+                true,
+                false,
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         assert_eq!(
             statics.get("_sv_0"),
@@ -1445,16 +1456,18 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = TextMacroEvaluator::new().translate(
-            &backend,
-            &mut statics,
-            Some(&function_def),
-            None,
-            "a line\n$call(println, $s)\nanother line\n",
-            true,
-            false,
-            &DummyTypeDefProvider::new(),
-        );
+        let result = TextMacroEvaluator::new()
+            .translate(
+                &backend,
+                &mut statics,
+                Some(&function_def),
+                None,
+                "a line\n$call(println, $s)\nanother line\n",
+                true,
+                false,
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         assert_eq!(
             result,
@@ -1482,16 +1495,18 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = TextMacroEvaluator::new().translate(
-            &backend,
-            &mut statics,
-            Some(&function_def),
-            None,
-            "a line\n$ccall(printf, $s)\nanother line\n",
-            true,
-            false,
-            &DummyTypeDefProvider::new(),
-        );
+        let result = TextMacroEvaluator::new()
+            .translate(
+                &backend,
+                &mut statics,
+                Some(&function_def),
+                None,
+                "a line\n$ccall(printf, $s)\nanother line\n",
+                true,
+                false,
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         assert_eq!(
             result,
@@ -1504,16 +1519,18 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new().translate(
-            &backend,
-            &mut statics,
-            None,
-            None,
-            "mov     eax, 1          ; $call(any)",
-            true,
-            false,
-            &DummyTypeDefProvider::new(),
-        );
+        let result = TextMacroEvaluator::new()
+            .translate(
+                &backend,
+                &mut statics,
+                None,
+                None,
+                "mov     eax, 1          ; $call(any)",
+                true,
+                false,
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         assert_eq!(result, "mov     eax, 1          ; $call(any)");
     }
@@ -1537,13 +1554,15 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let macros = TextMacroEvaluator::new().get_macros(
-            &backend,
-            Some(&function_def),
-            None,
-            "$call(slen, $s)",
-            &DummyTypeDefProvider::new(),
-        );
+        let macros = TextMacroEvaluator::new()
+            .get_macros(
+                &backend,
+                Some(&function_def),
+                None,
+                "$call(slen, $s)",
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         let (m, i) = macros.get(0).unwrap();
         let param = m.parameters.get(1).unwrap();
@@ -1560,16 +1579,18 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new().translate(
-            &backend,
-            &mut statics,
-            None,
-            None,
-            "$call(List_0_addRef,eax:List_0)",
-            true,
-            false,
-            &DummyTypeDefProvider::new(),
-        );
+        let result = TextMacroEvaluator::new()
+            .translate(
+                &backend,
+                &mut statics,
+                None,
+                None,
+                "$call(List_0_addRef,eax:List_0)",
+                true,
+                false,
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
 
         assert_eq!(
             result,
@@ -1617,7 +1638,7 @@ mod tests {
         let parser = TypeParserHelper::new(None, "List<str>");
         let type_parser = TypeParser::new(&parser);
 
-        match type_parser.try_parse_ast_type(0, &[]) {
+        match type_parser.try_parse_ast_type(0, &[]).unwrap() {
             None => panic!("Unsupported type"),
             Some((ast_type, _)) => assert_eq!(
                 ast_type,

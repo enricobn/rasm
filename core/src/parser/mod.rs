@@ -167,7 +167,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, path: &Path) -> ASTModule {
+    pub fn parse(&mut self, path: &Path) -> Result<ASTModule, String> {
         self.body = Vec::new();
         self.functions = Vec::new();
         self.i = 0;
@@ -181,11 +181,7 @@ impl Parser {
         while self.i <= self.tokens.len() {
             count += 1;
             if count > 10000 {
-                if let Some(index) = self.get_index(0) {
-                    panic!("error at : {}", index);
-                } else {
-                    panic!("{:?}", self.state);
-                }
+                return Err(format!("error at : {}", self.get_index(0)));
             }
             let token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -206,7 +202,7 @@ impl Parser {
                             original_function_name: function_name.clone(),
                             function_name,
                             parameters: vec![expr],
-                            index: self.get_index(0).unwrap(),
+                            index: self.get_index(0),
                         };
                         self.parser_data.push(ParserData::FunctionCall(call));
                         self.state.push(ParserState::FunctionCall);
@@ -220,7 +216,7 @@ impl Parser {
                             original_function_name: name.clone(),
                             function_name: name.clone(),
                             parameters: vec![expr],
-                            index: self.get_index(0).unwrap(),
+                            index: self.get_index(0),
                         };
                         self.parser_data
                             .push(ParserData::Expression(ASTFunctionCallExpression(call)));
@@ -232,7 +228,7 @@ impl Parser {
 
             match self.get_state() {
                 None => {
-                    if self.process_none(path, &token) {
+                    if self.process_none(path, &token)? {
                         continue;
                     } else {
                         break;
@@ -257,7 +253,7 @@ impl Parser {
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
                         if let Some((ast_type, next_i)) =
-                            TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
+                            TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)?
                         {
                             self.i = next_i;
                             def.return_type = ast_type;
@@ -268,14 +264,14 @@ impl Parser {
                             continue;
                         }
                     } else {
-                        self.panic("Illegal state.");
+                        return Err(format!("Illegal state : {}", self.get_index(0)));
                     }
                 }
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
                         if let Some((variants, next_i)) =
                             self.enum_parser
-                                .parse_variants(self, &def.type_parameters, 0)
+                                .parse_variants(self, &def.type_parameters, 0)?
                         {
                             def.variants = variants;
                             self.enums.push(def);
@@ -284,16 +280,16 @@ impl Parser {
                             self.i = next_i;
                             continue;
                         } else {
-                            panic!("Expected variants : {}", self.get_index(0).unwrap())
+                            return Err(format!("Expected variants : {}", self.get_index(0)));
                         }
                     } else {
-                        panic!("Expected enum data : {}", self.get_index(0).unwrap())
+                        return Err(format!("Expected enum data : {}", self.get_index(0)));
                     }
                 }
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
                         if let Some((properties, next_i)) = StructParser::new(self)
-                            .parse_properties(&def.type_parameters, &def.name, 0)
+                            .parse_properties(&def.type_parameters, &def.name, 0)?
                         {
                             def.properties = properties;
                             self.structs.push(def);
@@ -302,10 +298,10 @@ impl Parser {
                             self.i = next_i;
                             continue;
                         } else {
-                            panic!("Expected properties.")
+                            return Err(format!("Expected properties: {}", self.get_index(0)));
                         }
                     } else {
-                        panic!("Expected struct data.")
+                        return Err(format!("Expected struct data: {}", self.get_index(0)));
                     }
                 }
                 Some(ParserState::Let) => {
@@ -326,7 +322,10 @@ impl Parser {
                             }
                         }
                     }
-                    self.panic("Expected expression and semicolon");
+                    return Err(format!(
+                        "Expected expression and semicolon: {}",
+                        self.get_index(0)
+                    ));
                 }
                 Some(ParserState::LambdaExpression) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
@@ -346,7 +345,7 @@ impl Parser {
                             }
                         }
                     }
-                    self.panic("Error parsing lambda");
+                    return Err(format!("Error parsing lambda: {}", self.get_index(0)));
                 }
                 Some(ParserState::Expression) => {
                     self.process_expression();
@@ -363,7 +362,7 @@ impl Parser {
 
         self.functions.append(&mut self.included_functions);
 
-        ASTModule {
+        Ok(ASTModule {
             body: self.body.clone(),
             functions: self.functions.clone(),
             enums: self.enums.clone(),
@@ -371,21 +370,21 @@ impl Parser {
             requires: self.requires.clone(),
             externals: self.externals.clone(),
             types: self.types.clone(),
-        }
+        })
     }
 
     ///
     /// returns true if the parser must continue
     ///
-    fn process_none(&mut self, path: &Path, token: &Token) -> bool {
+    fn process_none(&mut self, path: &Path, token: &Token) -> Result<bool, String> {
         if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
             self.body.push(stmt);
             self.parser_data.pop();
         } else if let TokenKind::EndOfLine = token.kind {
-            return false;
+            return Ok(false);
         } else if !self.parser_data.is_empty() {
-            self.panic("Error");
-        } else if let Some((name, generic_types, next_i)) = self.try_parse_function_def() {
+            return Err(format!("Error: {}", self.get_index(0)));
+        } else if let Some((name, generic_types, next_i)) = self.try_parse_function_def()? {
             self.parser_data
                 .push(ParserData::FunctionDef(ASTFunctionDef {
                     original_name: name.clone(),
@@ -396,13 +395,13 @@ impl Parser {
                     inline: false,
                     generic_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: self.get_index(next_i - self.i).unwrap(),
+                    index: self.get_index(next_i - self.i),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
         } else if let Some((name, inline, param_types, next_i)) =
-            AsmDefParser::new(self).try_parse()
+            AsmDefParser::new(self).try_parse()?
         {
             self.parser_data
                 .push(ParserData::FunctionDef(ASTFunctionDef {
@@ -414,12 +413,12 @@ impl Parser {
                     inline,
                     generic_types: param_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: self.get_index(next_i - self.i).unwrap(),
+                    index: self.get_index(next_i - self.i),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
-        } else if let Some((resource, next_i)) = self.try_parse_include() {
+        } else if let Some((resource, next_i)) = self.try_parse_include()? {
             let source_file = path.with_file_name(&resource);
             info!("include {}", source_file.to_str().unwrap());
 
@@ -428,11 +427,12 @@ impl Parser {
             match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
                     let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    let mut module = parser.parse(source_file.as_path());
+                    let mut module = parser.parse(source_file.as_path())?;
                     if !module.body.is_empty() {
-                        self.panic(&format!(
-                            "Cannot include a module with a body: {:?}.",
-                            module.body
+                        return Err(format!(
+                            "Cannot include a module with a body: {:?}: {}",
+                            module.body,
+                            self.get_index(0)
                         ));
                     }
                     self.included_functions.append(&mut module.functions);
@@ -443,9 +443,10 @@ impl Parser {
                     self.types.extend(module.types);
                 }
                 Err(err) => {
-                    self.panic(&format!(
-                        "Error running lexer for {:?}: {err}",
-                        source_file.to_str().unwrap()
+                    return Err(format!(
+                        "Error running lexer for {:?} {err}: {}",
+                        source_file.to_str().unwrap(),
+                        self.get_index(0)
                     ));
                 }
             }
@@ -475,31 +476,35 @@ impl Parser {
                 self.requires.insert(name.clone());
                 self.i += 2;
             } else {
-                self.panic("Cannot parse require");
+                return Err(format!("Cannot parse require: {}", self.get_index(0)));
             }
         } else if let TokenKind::KeyWord(KeywordKind::Extern) = token.kind {
             if let Some(TokenKind::StringLiteral(name)) = self.get_token_kind_n(1) {
                 self.externals.insert(name.clone());
                 self.i += 2;
             } else {
-                self.panic("Cannot parse external");
+                return Err(format!("Cannot parse external: {}", self.get_index(0)));
             }
         } else if let TokenKind::KeyWord(KeywordKind::Type) = token.kind {
-            let (type_def, next_i) = self.parse_type_def();
+            let (type_def, next_i) = self.parse_type_def()?;
             let token = self.get_token_kind_n(next_i - self.i);
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
                 self.types.push(type_def);
                 self.i = next_i + 1;
             } else {
-                self.panic(&format!("Missing semicolon, got {:?}", token))
+                return Err(format!(
+                    "Missing semicolon, got {:?} : {}",
+                    token,
+                    self.get_index(0)
+                ));
             }
         } else {
             self.state.push(ParserState::Statement);
         }
-        true
+        Ok(true)
     }
 
-    fn process_statement(&mut self, token: Token) {
+    fn process_statement(&mut self, token: Token) -> Result<(), String> {
         if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
             self.state.pop();
         } else if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
@@ -510,7 +515,10 @@ impl Parser {
                     .push(ParserData::Statement(ASTStatement::Expression(epr)));
                 self.i += 1;
             } else {
-                self.panic("Found semicolon without an expression");
+                return Err(format!(
+                    "Found semicolon without an expression: {}",
+                    self.get_index(0)
+                ));
             }
         } else if Some(&TokenKind::Bracket(
             BracketKind::Brace,
@@ -519,24 +527,25 @@ impl Parser {
         {
             // Here probably we have an empty function...
             self.state.pop();
-        } else if let Some((name, next_i)) = self.try_parse_let(false) {
+        } else if let Some((name, next_i)) = self.try_parse_let(false)? {
             self.parser_data
-                .push(ParserData::Let(name, false, self.get_index(1).unwrap()));
+                .push(ParserData::Let(name, false, self.get_index(1)));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
-        } else if let Some((name, next_i)) = self.try_parse_let(true) {
+        } else if let Some((name, next_i)) = self.try_parse_let(true)? {
             self.parser_data
-                .push(ParserData::Let(name, true, self.get_index(1).unwrap()));
+                .push(ParserData::Let(name, true, self.get_index(1)));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
         } else {
             self.state.push(ParserState::Expression);
         }
+        Ok(())
     }
 
-    fn process_expression(&mut self) {
+    fn process_expression(&mut self) -> Result<(), String> {
         if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
             self.state.pop();
         } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
@@ -549,23 +558,23 @@ impl Parser {
                 original_function_name: function_name.clone(),
                 function_name,
                 parameters: Vec::new(),
-                index: self.get_index(0).unwrap(),
+                index: self.get_index(0),
             };
             self.parser_data.push(ParserData::FunctionCall(call));
             self.state.push(ParserState::FunctionCall);
             self.i = next_i;
-        } else if let Some((expression, next_i)) = self.try_parse_val() {
+        } else if let Some((expression, next_i)) = self.try_parse_val()? {
             self.parser_data.push(ParserData::Expression(expression));
             self.state.pop();
             self.i = next_i;
         } else if Some(&TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))
             == self.get_token_kind()
         {
-            let (parameter_names, next_i) = self.parse_lambda_parameters(1);
+            let (parameter_names, next_i) = self.parse_lambda_parameters(1)?;
             self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
                 parameter_names,
                 body: Vec::new(),
-                index: self.get_index(0).unwrap(),
+                index: self.get_index(0),
             }));
             let fake_function_def = ASTFunctionDef {
                 original_name: String::new(),
@@ -591,14 +600,12 @@ impl Parser {
             // Here probably we have an empty function...
             self.state.pop();
         } else {
-            self.panic(&format!(
-                "Expected expression : {}",
-                self.get_index(0).unwrap()
-            ));
+            return Err(format!("Expected expression : {}", self.get_index(0)));
         }
+        Ok(())
     }
 
-    fn process_function_body(&mut self, token: &Token) {
+    fn process_function_body(&mut self, token: &Token) -> Result<(), String> {
         if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
             if let Some(ParserData::FunctionDef(mut def)) = self.before_last_parser_data() {
                 let mut statements = match &def.body {
@@ -606,7 +613,9 @@ impl Parser {
                         // TODO try not to clone
                         statements.clone()
                     }
-                    ASMBody(_) => self.panic("Expected function got asm"),
+                    ASMBody(_) => {
+                        return Err(format!("Expected function got asm:  {}", self.get_index(0)));
+                    }
                 };
                 statements.push(stmt);
                 def.body = RASMBody(statements);
@@ -618,7 +627,7 @@ impl Parser {
                 self.parser_data.pop();
                 self.set_parser_data(ParserData::LambdaDef(def), 0);
             } else {
-                self.panic("Expected body");
+                return Err(format!("Expected body: {}", self.get_index(0)));
             }
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
             self.state.pop();
@@ -626,15 +635,16 @@ impl Parser {
         } else {
             self.state.push(ParserState::Statement);
         }
+        Ok(())
     }
 
-    fn process_function_def_parameter(&mut self, token: &Token) {
+    fn process_function_def_parameter(&mut self, token: &Token) -> Result<(), String> {
         if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
             if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
                 let _n = next_i - self.i;
                 self.i = next_i;
                 if let Some((ast_type, next_i)) =
-                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)
+                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)?
                 {
                     self.i = next_i;
                     self.parser_data
@@ -644,14 +654,16 @@ impl Parser {
                             ast_index: token.index(),
                         }));
                     self.state.pop();
+                    Ok(())
                 } else {
-                    self.panic("");
+                    Err(format!(""))
                 }
             } else {
                 self.state.pop();
+                Ok(())
             }
         } else {
-            self.panic("Illegal state");
+            Err(format!("Illegal state: {}", self.get_index(0)))
         }
     }
 
@@ -671,7 +683,7 @@ impl Parser {
 
      */
 
-    fn process_function_call(&mut self, token: Token) {
+    fn process_function_call(&mut self, token: Token) -> Result<(), String> {
         if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             self.i += 1;
         } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
@@ -679,7 +691,7 @@ impl Parser {
                 self.parser_data.pop();
                 self.add_parameter_to_call_and_update_parser_data(call, expr);
             } else {
-                self.panic("expected function call");
+                return Err(format!("expected function call: {}", self.get_index(0)));
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
@@ -690,14 +702,15 @@ impl Parser {
                 ));
                 self.i += 1;
             } else {
-                self.panic("expected function call");
+                return Err(format!("expected function call: {}", self.get_index(0)));
             }
         } else {
             self.state.push(ParserState::Expression);
         }
+        Ok(())
     }
 
-    fn process_function_def(&mut self, token: Token) {
+    fn process_function_def(&mut self, token: Token) -> Result<(), String> {
         if let Some(ParserData::FunctionDefParameter(param_def)) = self.last_parser_data() {
             if let Some(ParserData::FunctionDef(mut def)) = self.before_last_parser_data() {
                 def.parameters.push(param_def);
@@ -705,7 +718,10 @@ impl Parser {
                 self.parser_data[l - 2] = ParserData::FunctionDef(def);
                 self.parser_data.pop();
             } else {
-                self.panic("Expected to be inside a function def");
+                return Err(format!(
+                    "Expected to be inside a function def: {}",
+                    self.get_index(0)
+                ));
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) =
@@ -719,10 +735,10 @@ impl Parser {
             } else if let Some(TokenKind::AsmBLock(_body)) = self.get_token_kind_n(1) {
                 self.i += 1;
             } else {
-                panic!(
+                return Err(format!(
                     "Expected return type or block : {}",
-                    self.get_index(1).unwrap()
-                );
+                    self.get_index(1)
+                ));
             }
         } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
             self.state.push(ParserState::FunctionDefReturnType);
@@ -739,7 +755,10 @@ impl Parser {
                 self.state.pop();
                 self.i += 1;
             } else {
-                self.panic("Expected to be inside a function def");
+                return Err(format!(
+                    "Expected to be inside a function def: {}",
+                    self.get_index(0)
+                ));
             }
         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             self.state.push(ParserState::FunctionDefParameter);
@@ -749,8 +768,12 @@ impl Parser {
             self.parser_data.pop();
             self.state.pop();
         } else {
-            self.panic("Expected to be inside a function def");
+            return Err(format!(
+                "Expected to be inside a function def: {}",
+                self.get_index(0)
+            ));
         }
+        Ok(())
     }
 
     fn add_parameter_to_call_and_update_parser_data(
@@ -824,7 +847,7 @@ impl Parser {
         debug!(
             "token {:?} : {}",
             self.get_token().map(|it| &it.kind),
-            self.get_index(0).unwrap_or(ASTIndex::none())
+            self.get_index(0)
         );
         debug!("state {:?}", self.state);
         debug!("data {}", SliceDisplay(&self.parser_data));
@@ -861,36 +884,43 @@ impl Parser {
         }
     }
 
-    fn try_parse_function_def(&self) -> Option<(String, Vec<String>, usize)> {
+    fn try_parse_function_def(&self) -> Result<Option<(String, Vec<String>, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
             if let Some(matcher_result) = self.function_def_matcher.match_tokens(self, 1) {
                 let param_types = matcher_result.group_alphas("type");
-                Some((
+                Ok(Some((
                     matcher_result.alphas().first().unwrap().to_string(),
                     param_types,
                     self.get_i() + matcher_result.next_n(),
-                ))
+                )))
             } else {
-                self.panic("Cannot parse function definition");
+                return Err(format!(
+                    "Cannot parse function definition: {}",
+                    self.get_index(0),
+                ));
             }
         } else {
-            None
+            Ok(None)
         }
     }
 
-    fn try_parse_include(&self) -> Option<(String, usize)> {
+    fn try_parse_include(&self) -> Result<Option<(String, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::Include)) = self.get_token_kind() {
             if let Some(next_token) = self.next_token() {
                 if let TokenKind::StringLiteral(include) = &next_token.kind {
-                    return Some((include.into(), self.i + 2));
+                    return Ok(Some((include.into(), self.i + 2)));
                 } else {
-                    self.panic(&format!("Unexpected token {:?}", next_token));
+                    return Err(format!(
+                        "Unexpected token {:?}: {}",
+                        next_token,
+                        self.get_index(1)
+                    ));
                 }
             } else {
-                self.panic("Error parsing include");
+                return Err(format!("Error parsing include: {}", self.get_index(0)));
             }
         }
-        None
+        Ok(None)
     }
 
     fn try_parse_parameter_def_name(&self) -> Option<(String, usize)> {
@@ -928,14 +958,20 @@ impl Parser {
         self.parser_data.last().cloned()
     }
 
-    fn parse_lambda_parameters(&self, out_n: usize) -> (Vec<(String, ASTIndex)>, usize) {
+    fn parse_lambda_parameters(
+        &self,
+        out_n: usize,
+    ) -> Result<(Vec<(String, ASTIndex)>, usize), String> {
         let mut n = out_n;
         let mut parameter_names = Vec::new();
         loop {
             let kind_o = self.get_token_kind_n(n);
             match kind_o {
                 None => {
-                    self.panic("No token parsing lambda parameters");
+                    return Err(format!(
+                        "No token parsing lambda parameters: {}",
+                        self.get_index(n)
+                    ));
                 }
                 Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) => {
                     n += 1;
@@ -946,82 +982,85 @@ impl Parser {
                     continue;
                 }
                 Some(TokenKind::AlphaNumeric(name)) => {
-                    parameter_names.push((name.to_string(), self.get_index(n).unwrap()));
+                    parameter_names.push((name.to_string(), self.get_index(n)));
                     n += 1;
                     continue;
                 }
                 _ => {
-                    self.panic(&format!("Unexpected token {:?}", kind_o.unwrap()));
+                    return Err(format!(
+                        "Unexpected token {:?}: {}",
+                        kind_o.unwrap(),
+                        self.get_index(n),
+                    ));
                 }
             }
         }
-        (parameter_names, self.i + n)
+        Ok((parameter_names, self.i + n))
     }
 
-    fn try_parse_val(&self) -> Option<(ASTExpression, usize)> {
+    fn try_parse_val(&self) -> Result<Option<(ASTExpression, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::True)) = self.get_token_kind() {
-            return Some((
-                ASTExpression::Value(ValueType::Boolean(true), self.get_index(0).unwrap()),
+            return Ok(Some((
+                ASTExpression::Value(ValueType::Boolean(true), self.get_index(0)),
                 self.get_i() + 1,
-            ));
+            )));
         } else if let Some(TokenKind::KeyWord(KeywordKind::False)) = self.get_token_kind() {
-            return Some((
-                ASTExpression::Value(ValueType::Boolean(false), self.get_index(0).unwrap()),
+            return Ok(Some((
+                ASTExpression::Value(ValueType::Boolean(false), self.get_index(0)),
                 self.get_i() + 1,
-            ));
+            )));
         } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
             let (value, next_i) = if let Some(TokenKind::Punctuation(PunctuationKind::Dot)) =
                 self.get_token_kind_n(1)
             {
                 if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
                     (
-                        ValueType::F32(
-                            (n.to_owned() + "." + n1)
-                                .parse()
-                                .unwrap_or_else(|_| panic!("Cannot parse '{n}.{n1}' as an f32")),
-                        ),
+                        ValueType::F32((n.to_owned() + "." + n1).parse().map_err(|err| {
+                            format!("Cannot parse '{n}.{n1}' as an f32: {}", self.get_index(0))
+                        })?),
                         self.get_i() + 3,
                     )
                 } else {
                     (
-                        ValueType::I32(
-                            n.parse()
-                                .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an i32")),
-                        ),
+                        ValueType::I32(n.parse().map_err(|err| {
+                            format!("Cannot parse '{n}' as an i32: {}", self.get_index(0))
+                        })?),
                         self.get_i() + 1,
                     )
                 }
             } else {
                 (
-                    ValueType::I32(
-                        n.parse()
-                            .unwrap_or_else(|_| panic!("Cannot parse '{n}' as an i32")),
-                    ),
+                    ValueType::I32(n.parse().map_err(|err| {
+                        format!("Cannot parse '{n}' as an i32: {}", self.get_index(0))
+                    })?),
                     self.get_i() + 1,
                 )
             };
 
-            return Some((
-                ASTExpression::Value(value, self.get_index(0).unwrap()),
+            return Ok(Some((
+                ASTExpression::Value(value, self.get_index(0)),
                 next_i,
-            ));
+            )));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
-            return Some((
-                ASTExpression::Value(ValueType::Char(*c), self.get_index(0).unwrap()),
+            return Ok(Some((
+                ASTExpression::Value(ValueType::Char(*c), self.get_index(0)),
                 self.get_i() + 1,
-            ));
+            )));
         } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
-            return Some((
-                ASTExpression::ValueRef(name.clone(), self.get_index(0).unwrap()),
+            return Ok(Some((
+                ASTExpression::ValueRef(name.clone(), self.get_index(0)),
                 self.get_i() + 1,
-            ));
+            )));
         } else if let Some(TokenKind::StringLiteral(s)) = self.get_token_kind() {
-            return Some((ASTExpression::StringLiteral(s.clone()), self.get_i() + 1));
+            return Ok(Some((
+                ASTExpression::StringLiteral(s.clone()),
+                self.get_i() + 1,
+            )));
         }
-        None
+        Ok(None)
     }
 
-    fn try_parse_let(&self, is_const: bool) -> Option<(String, usize)> {
+    fn try_parse_let(&self, is_const: bool) -> Result<Option<(String, usize)>, String> {
         let kind = if is_const {
             KeywordKind::Const
         } else {
@@ -1032,62 +1071,77 @@ impl Parser {
                 if let Some(TokenKind::Punctuation(PunctuationKind::Equal)) =
                     self.get_token_kind_n(2)
                 {
-                    return Some((name.clone(), self.get_i() + 3));
+                    return Ok(Some((name.clone(), self.get_i() + 3)));
                 } else {
-                    self.panic(&format!("expected = got {:?}", self.get_token_kind_n(2)));
+                    return Err(format!(
+                        "expected = got {:?}: {}",
+                        self.get_token_kind_n(2),
+                        self.get_index(2)
+                    ));
                 }
             } else {
-                self.panic(&format!(
-                    "expected name, got {:?}",
-                    self.get_token_kind_n(1)
+                return Err(format!(
+                    "expected name, got {:?}: {}",
+                    self.get_token_kind_n(1),
+                    self.get_index(1)
                 ));
             }
         }
-        None
+        Ok(None)
     }
 
-    fn parse_type_def(&self) -> (ASTTypeDef, usize) {
+    fn parse_type_def(&self) -> Result<(ASTTypeDef, usize), String> {
         if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
-            let (type_parameters, next_i) =
-                if let Some((type_parameters, next_i)) = TypeParamsParser::new(self).try_parse(2) {
-                    (type_parameters, next_i)
-                } else {
-                    (Vec::new(), self.get_i() + 2)
-                };
+            let (type_parameters, next_i) = if let Some((type_parameters, next_i)) =
+                TypeParamsParser::new(self).try_parse(2)?
+            {
+                (type_parameters, next_i)
+            } else {
+                (Vec::new(), self.get_i() + 2)
+            };
 
             let n = next_i - self.get_i();
             if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
                 self.get_token_kind_n(n)
             {
                 let is_ref = match self.get_token_kind_n(n + 1) {
-                    None => panic!("Unexpected end of stream"),
+                    None => return Err(format!("Unexpected end of stream: {}", self.get_index(0))),
                     Some(TokenKind::KeyWord(KeywordKind::False)) => false,
                     Some(TokenKind::KeyWord(KeywordKind::True)) => true,
-                    Some(k) => panic!("Expected a boolean value but got {k}"),
+                    Some(k) => {
+                        return Err(format!(
+                            "Expected a boolean value but got {k}: {}",
+                            self.get_index(0)
+                        ))
+                    }
                 };
                 if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) =
                     self.get_token_kind_n(n + 2)
                 {
-                    return (
+                    Ok((
                         ASTTypeDef {
                             type_parameters,
                             name: name.clone(),
                             is_ref,
-                            index: self.get_index(0).unwrap(),
+                            index: self.get_index(0),
                         },
                         self.get_i() + n + 3,
-                    );
+                    ))
+                } else {
+                    Err(format!("Error parsing type: {}", self.get_index(0)))
                 }
             } else {
-                panic!(
+                Err(format!(
                     "Expected '(' but got '{:?}': {}",
                     self.get_token_kind_n(n),
-                    self.get_index(n).unwrap()
-                );
+                    self.get_index(n)
+                ))
             }
-            panic!("Error parsing type: {}", self.get_index(0).unwrap());
         } else {
-            self.panic("Error parsing Type, expected identifier")
+            Err(format!(
+                "Error parsing Type, expected identifier: {}",
+                self.get_index(0)
+            ))
         }
     }
 }
@@ -1100,17 +1154,11 @@ impl ParserTrait for Parser {
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.tokens.get(self.i + n)
     }
-
-    fn panic(&self, message: &str) -> ! {
-        self.debug(message);
-        panic!("{}", self.error_msg(message));
-    }
 }
 
 pub trait ParserTrait {
     fn get_i(&self) -> usize;
     fn get_token_n(&self, n: usize) -> Option<&Token>;
-    fn panic(&self, message: &str) -> !;
     fn get_token_kind(&self) -> Option<&TokenKind> {
         self.get_token_kind_n(0)
     }
@@ -1121,8 +1169,14 @@ pub trait ParserTrait {
         self.get_token_n(0)
     }
 
-    fn get_index(&self, n: usize) -> Option<ASTIndex> {
-        self.get_token_n(n).map(|it| it.index())
+    fn get_index(&self, n: usize) -> ASTIndex {
+        self.get_token_n(n)
+            .map(|it| it.index())
+            .unwrap_or(ASTIndex::none())
+    }
+
+    fn wrap_error(&self, message: &str) -> String {
+        format!("{message}: {}", self.get_index(0))
     }
 }
 
@@ -1214,7 +1268,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let module = parser.parse(Path::new("."));
+        let module = parser.parse(Path::new(".")).unwrap();
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1244,6 +1298,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path)
+        parser.parse(path).unwrap()
     }
 }

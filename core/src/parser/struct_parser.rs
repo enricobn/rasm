@@ -36,27 +36,31 @@ impl<'a> StructParser<'a> {
         })
     }
 
-    pub fn try_parse_struct(&self) -> Option<(ASTStructDef, usize)> {
+    pub fn try_parse_struct(&self) -> Result<Option<(ASTStructDef, usize)>, String> {
         if let Some((token, type_parameters, next_i)) = self.try_parse() {
             if let Some(name) = token.alpha() {
                 if let Some((properties, next_i)) =
-                    self.parse_properties(&type_parameters, &name, next_i - self.parser.get_i())
+                    self.parse_properties(&type_parameters, &name, next_i - self.parser.get_i())?
                 {
-                    return Some((
+                    return Ok(Some((
                         ASTStructDef {
                             name,
                             type_parameters,
                             properties,
-                            index: self.parser.get_index(0).unwrap(),
+                            index: self.parser.get_index(0),
                         },
                         next_i,
-                    ));
+                    )));
                 }
             } else {
-                panic!("Expected alphanumeric, got {:?}", token)
+                return Err(format!(
+                    "Expected alphanumeric, got {:?}: {}",
+                    token,
+                    self.parser.get_index(0)
+                ));
             }
         }
-        None
+        Ok(None)
     }
 
     fn properties_matcher(
@@ -81,7 +85,7 @@ impl<'a> StructParser<'a> {
         generic_types: &[String],
         name: &str,
         n: usize,
-    ) -> Option<(Vec<ASTStructPropertyDef>, usize)> {
+    ) -> Result<Option<(Vec<ASTStructPropertyDef>, usize)>, String> {
         if let Some(result) = Self::properties_matcher("properties", Quantifier::One, generic_types)
             .match_tokens(self.parser, n)
         {
@@ -94,7 +98,8 @@ impl<'a> StructParser<'a> {
                 let parser = *type_result.get(i).unwrap();
                 let type_parser = TypeParser::new(parser);
                 let token = parameters_tokens.get(i).unwrap().clone();
-                if let Some((ast_type, _next_i)) = type_parser.try_parse_ast_type(0, generic_types)
+                if let Some((ast_type, _next_i)) =
+                    type_parser.try_parse_ast_type(0, generic_types)?
                 {
                     parameters.push(ASTStructPropertyDef {
                         name: token.alpha().unwrap(),
@@ -102,17 +107,20 @@ impl<'a> StructParser<'a> {
                         index: token.index(),
                     });
                 } else {
-                    self.parser
-                        .panic(&format!("Cannot parse type for property {:?}:", token));
+                    return Err(format!(
+                        "Cannot parse type for property {:?}: {}",
+                        token,
+                        self.parser.get_index(0)
+                    ));
                 }
             }
 
-            Some((parameters, self.parser.get_i() + result.next_n()))
+            Ok(Some((parameters, self.parser.get_i() + result.next_n())))
         } else {
-            panic!(
+            return Err(format!(
                 "No properties for struct {name} : {}",
-                self.parser.get_index(n).unwrap()
-            );
+                self.parser.get_index(n)
+            ));
         }
     }
 }
@@ -199,6 +207,6 @@ mod tests {
 
         let sut = StructParser::new(&parser);
 
-        sut.try_parse_struct()
+        sut.try_parse_struct().unwrap()
     }
 }
