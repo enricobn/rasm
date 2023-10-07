@@ -175,7 +175,8 @@ async fn file(
             let vec = state.finder.find(&index).unwrap();
             let name = format!("_{}_{}", it.row, it.column);
             if vec.len() > 0 {
-                if let Some(file_name) = &vec.first().cloned().and_then(|it| it.file_name) {
+                if let Some(file_name) = &vec.first().cloned().and_then(|it| it.point_to.file_name)
+                {
                     let ref_name = format!(
                         "/file?src={}#_{}_{}",
                         project
@@ -183,8 +184,8 @@ async fn file(
                             .unwrap_or_else(|| panic!("{:?}", file_name))
                             .to_str()
                             .unwrap(),
-                        vec.first().unwrap().row,
-                        vec.first().unwrap().column
+                        vec.first().unwrap().point_to.row,
+                        vec.first().unwrap().point_to.column
                     );
                     html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
                     html.push_str(&format!(

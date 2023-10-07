@@ -25,20 +25,20 @@ impl ReferenceFinder {
             functions_container.add_function(it.original_name.clone(), it.clone());
         });
 
-        let selectable_items = Self::get_selectable_items(module, &functions_container).unwrap();
+        let selectable_items = Self::process_module(module, &functions_container).unwrap();
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
         Self { selectable_items }
     }
 
-    pub fn find(&self, index: &ASTIndex) -> Result<Vec<ASTIndex>, io::Error> {
+    pub fn find(&self, index: &ASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
             if index.between(&selectable_item.min, &selectable_item.max)? {
                 //println!("found {:?}", selectable_item);
-                result.push(selectable_item.point_to.clone());
+                result.push(selectable_item.clone());
             }
 
             if selectable_item.min.file_name == index.file_name {
@@ -60,7 +60,7 @@ impl ReferenceFinder {
         Ok(Vec::new())
     }
 
-    fn get_selectable_items(
+    fn process_module(
         module: &ASTModule,
         functions_container: &FunctionsContainer,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
@@ -83,7 +83,7 @@ impl ReferenceFinder {
                 .functions
                 .iter()
                 .flat_map(|it| {
-                    Self::get_selectable_items_fn(
+                    Self::process_function(
                         it,
                         module,
                         functions_container,
@@ -97,7 +97,7 @@ impl ReferenceFinder {
         Ok(result)
     }
 
-    fn get_selectable_items_fn(
+    fn process_function(
         function: &ASTFunctionDef,
         module: &ASTModule,
         functions_container: &FunctionsContainer,
@@ -139,7 +139,7 @@ impl ReferenceFinder {
             index,
         } = ast_type
         {
-            Self::process_custom_type(module, result, name, index);
+            Self::process_custom_type(module, result, name, index, ast_type);
             param_types
                 .iter()
                 .for_each(|it| Self::process_type(module, it, result));
@@ -151,14 +151,31 @@ impl ReferenceFinder {
         result: &mut Vec<SelectableItem>,
         name: &String,
         index: &ASTIndex,
+        ast_type: &ASTType,
     ) {
         let min = index.mv(-(name.len() as i32));
+
+        if let Some(custom_type_index) = Self::get_custom_type_index(module, name) {
+            result.push(SelectableItem::new(
+                min,
+                index.clone(),
+                custom_type_index.clone(),
+                None,
+                Some(ast_type.clone()),
+                Some(custom_type_index),
+            ));
+        }
+    }
+
+    fn get_custom_type_index(module: &ASTModule, name: &str) -> Option<ASTIndex> {
         if let Some(def) = Self::get_enum(module, name) {
-            result.push(SelectableItem::new(min, index.clone(), def.index, None));
+            Some(def.index)
         } else if let Some(def) = Self::get_struct(module, name) {
-            result.push(SelectableItem::new(min, index.clone(), def.index, None));
+            Some(def.index)
         } else if let Some(def) = Self::get_type(module, name) {
-            result.push(SelectableItem::new(min, index.clone(), def.index, None));
+            Some(def.index)
+        } else {
+            None
         }
     }
 
@@ -321,16 +338,23 @@ impl ReferenceFinder {
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
-                let functions = functions_container
+                let mut functions = functions_container
                     .find_call_vec(call, &filters, None, false)
                     .unwrap();
 
                 if functions.len() == 1 {
+                    let function = functions.remove(0);
+
+                    let custom_type_index =
+                        Self::get_if_custom_type_index(module, &function.return_type);
+
                     result.push(SelectableItem::new(
                         call.index.mv(-(call.function_name.len() as i32)),
                         call.index.clone(),
-                        functions.first().unwrap().index.clone(),
+                        function.index.clone(),
                         Some(expr.clone()),
+                        Some(function.return_type.clone()),
+                        custom_type_index,
                     ));
                 } else {
                     warn!(
@@ -343,11 +367,22 @@ impl ReferenceFinder {
             }
             ASTExpression::ValueRef(name, index) => {
                 if let Some(v) = reference_context.get(name) {
+                    let ast_type = match &v.filter {
+                        TypeFilter::Exact(ast_type) => Some(ast_type.clone()),
+                        _ => None,
+                    };
+
+                    let ast_type_index = ast_type
+                        .as_ref()
+                        .and_then(|t| Self::get_if_custom_type_index(module, t));
+
                     result.push(SelectableItem::new(
                         index.mv(-(name.len() as i32)),
                         index.clone(),
                         v.index.clone(),
                         Some(expr.clone()),
+                        ast_type,
+                        ast_type_index,
                     ));
                 }
             }
@@ -375,15 +410,28 @@ impl ReferenceFinder {
         Ok(result)
     }
 
-    fn get_enum(module: &ASTModule, name: &String) -> Option<ASTEnumDef> {
+    fn get_if_custom_type_index(module: &ASTModule, ast_type: &ASTType) -> Option<ASTIndex> {
+        if let ASTType::Custom {
+            name,
+            param_types,
+            index,
+        } = ast_type
+        {
+            Self::get_custom_type_index(module, name)
+        } else {
+            None
+        }
+    }
+
+    fn get_enum(module: &ASTModule, name: &str) -> Option<ASTEnumDef> {
         module.enums.iter().find(|it| &it.name == name).cloned()
     }
 
-    fn get_struct(module: &ASTModule, name: &String) -> Option<ASTStructDef> {
+    fn get_struct(module: &ASTModule, name: &str) -> Option<ASTStructDef> {
         module.structs.iter().find(|it| &it.name == name).cloned()
     }
 
-    fn get_type(module: &ASTModule, name: &String) -> Option<ASTTypeDef> {
+    fn get_type(module: &ASTModule, name: &str) -> Option<ASTTypeDef> {
         module.types.iter().find(|it| &it.name == name).cloned()
     }
 }
@@ -392,8 +440,10 @@ impl ReferenceFinder {
 pub struct SelectableItem {
     min: ASTIndex,
     max: ASTIndex,
-    point_to: ASTIndex,
+    pub point_to: ASTIndex,
     expr: Option<ASTExpression>,
+    pub ast_type: Option<ASTType>,
+    pub ast_type_index: Option<ASTIndex>,
 }
 
 impl Display for SelectableItem {
@@ -421,12 +471,16 @@ impl SelectableItem {
         max: ASTIndex,
         point_to: ASTIndex,
         expr: Option<ASTExpression>,
+        ast_type: Option<ASTType>,
+        ast_type_index: Option<ASTIndex>,
     ) -> Self {
         SelectableItem {
             min,
             max,
             point_to,
             expr,
+            ast_type,
+            ast_type_index,
         }
     }
 }
@@ -446,7 +500,7 @@ mod tests {
     use rasm_core::project::project::RasmProject;
     use rasm_core::transformations::enrich_module;
 
-    use crate::reference_finder::ReferenceFinder;
+    use crate::reference_finder::{ReferenceFinder, SelectableItem};
 
     #[test]
     fn simple() {
@@ -460,16 +514,20 @@ mod tests {
         });
 
         assert_eq!(
-            finder
-                .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
-                .unwrap(),
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
+                    .unwrap()
+            ),
             vec![ASTIndex::new(Some(file_name.to_path_buf()), 1, 10)]
         );
 
         assert_eq!(
-            finder
-                .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 15,))
-                .unwrap(),
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 15,))
+                    .unwrap()
+            ),
             vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 21)]
         );
     }
@@ -495,23 +553,29 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            finder
-                .find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,))
-                .unwrap(),
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,))
+                    .unwrap()
+            ),
             vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 5)]
         );
 
         assert_eq!(
-            finder
-                .find(&ASTIndex::new(Some(source_file.to_path_buf()), 17, 23,))
-                .unwrap(),
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 17, 23,))
+                    .unwrap()
+            ),
             vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 7)]
         );
 
         assert_eq!(
-            finder
-                .find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,))
-                .unwrap(),
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,))
+                    .unwrap()
+            ),
             vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 5)]
         );
     }
@@ -537,8 +601,12 @@ mod tests {
                 1,
                 7,
             )),
-            found
+            vec_selectable_item_to_vec_index(found)
         );
+    }
+
+    fn vec_selectable_item_to_vec_index(vec: Vec<SelectableItem>) -> Vec<ASTIndex> {
+        vec.iter().map(|it| it.point_to.clone()).collect::<Vec<_>>()
     }
 
     fn get_reference_finder(source: &str) -> ReferenceFinder {
