@@ -159,6 +159,12 @@ fn first<T>(list: List<T>) -> Option<T> {
     match(list, { head, tail -> Option::Some(head);}, { -> Option::None();});
 }
 
+fn last<T>(list: List<T>) -> Option<T> {
+    match(list, { head, tail ->
+        tail.match({ thead, ttail -> last(tail);}, { -> Option::Some(head);});
+    }, { -> Option::None();});
+}
+
 fn get<T>(list: List<T>, i: i32) -> Option<T> {
     match(list, { head, tail ->
         if(eq(i, 0), { -> Option::Some(head);}, { -> get(tail, sub(i, 1));});
