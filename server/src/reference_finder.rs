@@ -11,10 +11,12 @@ use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter}
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::utils::SliceDisplay;
 
+use crate::completion_service::{CompletionItem, CompletionResult};
 use crate::reference_context::ReferenceContext;
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
+    functions_container: FunctionsContainer,
 }
 
 impl ReferenceFinder {
@@ -29,7 +31,10 @@ impl ReferenceFinder {
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
-        Self { selectable_items }
+        Self {
+            selectable_items,
+            functions_container,
+        }
     }
 
     pub fn find(&self, index: &ASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
@@ -49,15 +54,34 @@ impl ReferenceFinder {
         Ok(result)
     }
 
-    pub fn completion(&self, index: &ASTIndex) -> Result<Vec<(String, ASTIndex)>, io::Error> {
+    pub fn get_completions(&self, index: &ASTIndex) -> Result<CompletionResult, io::Error> {
         for selectable_item in self.selectable_items.iter() {
             if index.between(&selectable_item.min, &selectable_item.max)? {
-                if let Some(ref expr) = selectable_item.expr {
-                    return Ok(vec![(format!("{expr}"), expr.get_index())]);
+                if let Some(ref ast_type) = selectable_item.ast_type {
+                    let filter = TypeFilter::Exact(ast_type.clone());
+                    let mut items = Vec::new();
+                    for function in self.functions_container.functions() {
+                        if !function.parameters.is_empty() {
+                            if let Ok(value) =
+                                filter.almost_equal(&function.parameters.get(0).unwrap().ast_type)
+                            {
+                                if value {
+                                    items.push(CompletionItem {
+                                        value: function.original_name.clone(),
+                                        descr: format!("{function}"),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    return Ok(CompletionResult::Found(items));
                 }
             }
         }
-        Ok(Vec::new())
+
+        Ok(CompletionResult::NotFound(
+            "Cannot find completion".to_owned(),
+        ))
     }
 
     fn process_module(
