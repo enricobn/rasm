@@ -17,7 +17,7 @@ use rasm_core::codegen::backend::{Backend, BackendNasm386};
 use rasm_core::codegen::statics::Statics;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
-use rasm_core::parser::ast::{ASTIndex, ASTModule};
+use rasm_core::parser::ast::ASTIndex;
 use rasm_core::project::project::RasmProject;
 use rasm_core::transformations::enrich_module;
 use rasm_server::reference_finder::ReferenceFinder;
@@ -64,7 +64,6 @@ struct FileQueryParams {
 struct ServerState {
     src: PathBuf,
     finder: ReferenceFinder,
-    module: ASTModule,
 }
 
 impl ServerState {
@@ -82,11 +81,7 @@ impl ServerState {
         );
 
         let finder = ReferenceFinder::new(&module);
-        Self {
-            src,
-            finder,
-            module,
-        }
+        Self { src, finder }
     }
 }
 

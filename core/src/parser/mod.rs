@@ -235,19 +235,19 @@ impl Parser {
                     }
                 }
                 Some(ParserState::FunctionCall) => {
-                    self.process_function_call(token);
+                    self.process_function_call(token)?;
                     continue;
                 }
                 Some(ParserState::FunctionDef) => {
-                    self.process_function_def(token);
+                    self.process_function_def(token)?;
                     continue;
                 }
                 Some(ParserState::FunctionDefParameter) => {
-                    self.process_function_def_parameter(&token);
+                    self.process_function_def_parameter(&token)?;
                     continue;
                 }
                 Some(ParserState::FunctionBody) => {
-                    self.process_function_body(&token);
+                    self.process_function_body(&token)?;
                     continue;
                 }
                 Some(ParserState::FunctionDefReturnType) => {
@@ -348,11 +348,11 @@ impl Parser {
                     return Err(format!("Error parsing lambda: {}", self.get_index(0)));
                 }
                 Some(ParserState::Expression) => {
-                    self.process_expression();
+                    self.process_expression()?;
                     continue;
                 }
                 Some(ParserState::Statement) => {
-                    self.process_statement(token);
+                    self.process_statement(token)?;
                     continue;
                 }
             }

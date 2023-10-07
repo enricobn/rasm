@@ -40,7 +40,7 @@ pub struct CompletionItem {
 }
 
 pub enum CompletionResult {
-    Found(ASTTypedType, Vec<CompletionItem>),
+    Found(Vec<CompletionItem>),
     NotFound(String),
 }
 
@@ -147,10 +147,7 @@ impl CompletionService {
                     )));
                 }
 
-                Ok(CompletionResult::Found(
-                    completable_item.ast_typed_type.clone(),
-                    completion_items,
-                ))
+                Ok(CompletionResult::Found(completion_items))
             }
             CompletableItemResult::NotFound(message) => Ok(CompletionResult::NotFound(message)),
         }
@@ -262,10 +259,10 @@ impl CompletionService {
                 );
             }
             ASTTypedStatement::LetStatement(name, expr, is_const, index) => {
-                // TODO put name in context
                 let typed_type =
                     get_type_of_typed_expression(module, val_context, expr, None, statics);
                 val_context.insert(name.clone(), TypedValKind::LetRef(0, typed_type.clone()));
+
                 Self::process_expression(
                     module,
                     completable_items,
@@ -443,7 +440,7 @@ mod tests {
             .get_completions(&ASTIndex::new(Some(file.to_path_buf()), 6, 15))
             .unwrap();
 
-        if let CompletionResult::Found(ast_type, items) = result {
+        if let CompletionResult::Found(items) = result {
             items.iter().for_each(|it| {
                 println!("{},{}", it.value, it.descr);
             })
@@ -461,7 +458,7 @@ mod tests {
             .get_completions(&ASTIndex::new(Some(file.to_path_buf()), 11, 16))
             .unwrap();
 
-        if let CompletionResult::Found(ast_type, items) = result {
+        if let CompletionResult::Found(items) = result {
             items.iter().for_each(|it| {
                 println!("{},{}", it.value, it.descr);
             })

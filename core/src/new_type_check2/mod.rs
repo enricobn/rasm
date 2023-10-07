@@ -1223,7 +1223,7 @@ mod tests {
         let default_functions = get_default_functions(false);
         //resolved_module.print();
 
-        let typed_module = convert_to_typed_module(
+        let _ = convert_to_typed_module(
             &module,
             false,
             mandatory_functions,

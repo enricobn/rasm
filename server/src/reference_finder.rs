@@ -15,7 +15,6 @@ use crate::reference_context::ReferenceContext;
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
-    functions_container: FunctionsContainer,
 }
 
 impl ReferenceFinder {
@@ -30,10 +29,7 @@ impl ReferenceFinder {
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
-        Self {
-            selectable_items,
-            functions_container,
-        }
+        Self { selectable_items }
     }
 
     pub fn find(&self, index: &ASTIndex) -> Result<Vec<ASTIndex>, io::Error> {
