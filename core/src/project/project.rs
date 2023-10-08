@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -95,10 +96,9 @@ impl RasmProject {
         self.get_all_dependencies()
             .into_par_iter()
             .flat_map_iter(|dependency| {
-                info!("including dependency {}", dependency.to_str().unwrap());
+                info!("including dependency {}", dependency.config.package.name);
 
-                let dependency_project = RasmProject::new(dependency);
-                dependency_project.get_modules(false)
+                dependency.get_modules(false)
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -158,7 +158,7 @@ impl RasmProject {
         }
     }
 
-    fn get_all_dependencies(&self) -> Vec<PathBuf> {
+    fn get_all_dependencies(&self) -> Vec<RasmProject> {
         let mut result = Vec::new();
 
         if let Some(dependencies) = &self.config.dependencies {
@@ -175,9 +175,10 @@ impl RasmProject {
                                         self.source_folder().to_str().unwrap()
                                     )
                                 });
-                            result.push(path_buf.clone());
+
                             let dependency_project = RasmProject::new(path_buf);
                             result.append(&mut dependency_project.get_all_dependencies());
+                            result.push(dependency_project);
                         } else {
                             panic!("Unsupported path value for {dependency} : {path_value}");
                         }
@@ -190,8 +191,8 @@ impl RasmProject {
             }
         }
 
-        result.sort();
-        result.dedup();
+        result.sort_by(|a, b| a.src.cmp(&b.src));
+        result.dedup_by(|a, b| a.src.cmp(&b.src) == Ordering::Equal);
 
         result
     }
