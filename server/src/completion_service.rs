@@ -20,13 +20,13 @@ use std::io;
 use std::ops::Deref;
 
 use rasm_core::codegen::backend::BackendNasm386;
+use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
-use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
+use rasm_core::parser::ast::{ASTIndex, ASTType};
 use rasm_core::project::project::RasmProject;
-use rasm_core::transformations::enrich_module;
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::type_check::typed_ast::{
@@ -69,22 +69,17 @@ impl CompletableItem {
 pub struct CompletionService {
     items: Vec<CompletableItem>,
     typed_module: ASTTypedModule,
-    module: ASTModule,
+    module: EnhancedASTModule,
 }
 
 impl CompletionService {
     pub fn new(project: &RasmProject) -> Result<Self, TypeCheckError> {
-        let (mut module, errors) = project.get_module();
-
         let mut statics = Statics::new();
-        let backend = BackendNasm386::new(module.requires.clone(), module.externals.clone(), false);
+        let mut backend = BackendNasm386::new(false);
 
-        enrich_module(
-            &backend,
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
+        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
+
+        let module = EnhancedASTModule::new(modules, project.resource_folder());
 
         let typed_module =
             CodeGen::get_typed_module(&backend, module.clone(), false, true, false, &mut statics)?;
@@ -120,7 +115,7 @@ impl CompletionService {
             CompletableItemResult::Found(completable_item) => {
                 let completion_items = self
                     .module
-                    .functions
+                    .functions()
                     .iter()
                     .filter(|it| {
                         !it.parameters.is_empty()
@@ -441,9 +436,7 @@ mod tests {
             .unwrap();
 
         if let CompletionResult::Found(items) = result {
-            items.iter().for_each(|it| {
-                println!("{},{}", it.value, it.descr);
-            })
+            // TODO
         } else {
             panic!();
         }
@@ -459,9 +452,7 @@ mod tests {
             .unwrap();
 
         if let CompletionResult::Found(items) = result {
-            items.iter().for_each(|it| {
-                println!("{},{}", it.value, it.descr);
-            })
+            // TODO
         } else {
             panic!();
         }

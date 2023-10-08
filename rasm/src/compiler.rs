@@ -7,6 +7,8 @@ use log::info;
 
 use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::backend::BackendNasm386;
+use rasm_core::codegen::enhanced_module::EnhancedASTModule;
+use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::CodeGen;
 use rasm_core::project::project::RasmProject;
 
@@ -17,24 +19,28 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn compile(project: RasmProject, out: PathBuf, only_compile: bool) {
+        let path_buf = project.resource_folder().clone();
         let compiler = Compiler { project, out };
-        compiler._compile(only_compile)
+        compiler._compile(path_buf, only_compile)
     }
 
-    fn _compile(&self, only_compile: bool) {
+    fn _compile(&self, resource_folder: PathBuf, only_compile: bool) {
         let start = Instant::now();
 
         let debug_asm = false;
 
-        let (module, errors) = self.project.get_module();
-        info!("parse ended in {:?}", start.elapsed());
+        let mut backend = BackendNasm386::new(debug_asm);
+        let mut statics = Statics::new();
+        let (modules, errors) = self.project.get_all_modules(&mut backend, &mut statics);
 
-        let backend =
-            BackendNasm386::new(module.requires.clone(), module.externals.clone(), debug_asm);
+        let enhanced_astmodule = EnhancedASTModule::new(modules, resource_folder);
+
+        info!("parse ended in {:?}", start.elapsed());
 
         let mut code_gen = CodeGen::new(
             &backend,
-            module,
+            statics,
+            enhanced_astmodule,
             1024 * 1024,
             64 * 1024 * 1024,
             1024 * 1024,
@@ -42,7 +48,6 @@ impl Compiler {
             false,
             true,
             false,
-            self.project.resource_folder(),
         );
 
         let start = Instant::now();

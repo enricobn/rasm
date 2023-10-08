@@ -3,8 +3,9 @@ use std::io;
 
 use log::warn;
 
+use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement,
+    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTStatement,
     ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
 use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter};
@@ -16,24 +17,18 @@ use crate::reference_context::ReferenceContext;
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
-    functions_container: FunctionsContainer,
+    module: EnhancedASTModule,
 }
 
 impl ReferenceFinder {
-    pub fn new(module: &ASTModule) -> Self {
-        let mut functions_container = FunctionsContainer::new();
-
-        module.functions.iter().for_each(|it| {
-            functions_container.add_function(it.original_name.clone(), it.clone());
-        });
-
-        let selectable_items = Self::process_module(module, &functions_container).unwrap();
+    pub fn new(module: EnhancedASTModule) -> Self {
+        let selectable_items = Self::process_module(&module).unwrap();
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
         Self {
             selectable_items,
-            functions_container,
+            module,
         }
     }
 
@@ -60,7 +55,7 @@ impl ReferenceFinder {
                 if let Some(ref ast_type) = selectable_item.ast_type {
                     let filter = TypeFilter::Exact(ast_type.clone());
                     let mut items = Vec::new();
-                    for function in self.functions_container.functions() {
+                    for function in self.module.functions() {
                         if !function.parameters.is_empty() {
                             if let Ok(value) =
                                 filter.almost_equal(&function.parameters.get(0).unwrap().ast_type)
@@ -84,10 +79,7 @@ impl ReferenceFinder {
         ))
     }
 
-    fn process_module(
-        module: &ASTModule,
-        functions_container: &FunctionsContainer,
-    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+    fn process_module(module: &EnhancedASTModule) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
 
@@ -99,21 +91,15 @@ impl ReferenceFinder {
             &mut result,
             &mut reference_context,
             &mut reference_static_context,
-            functions_container,
         )?;
 
         result.append(
             &mut module
-                .functions
+                .functions()
                 .iter()
                 .flat_map(|it| {
-                    Self::process_function(
-                        it,
-                        module,
-                        functions_container,
-                        &reference_static_context,
-                    )
-                    .unwrap_or(Vec::new())
+                    Self::process_function(it, module, &reference_static_context)
+                        .unwrap_or(Vec::new())
                 })
                 .collect(),
         );
@@ -123,8 +109,7 @@ impl ReferenceFinder {
 
     fn process_function(
         function: &ASTFunctionDef,
-        module: &ASTModule,
-        functions_container: &FunctionsContainer,
+        module: &EnhancedASTModule,
         reference_static_context: &ReferenceContext,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
@@ -149,14 +134,17 @@ impl ReferenceFinder {
                 &mut result,
                 &mut val_context,
                 &mut ReferenceContext::new(None),
-                functions_container,
             )?;
         }
 
         Ok(result)
     }
 
-    fn process_type(module: &ASTModule, ast_type: &ASTType, result: &mut Vec<SelectableItem>) {
+    fn process_type(
+        module: &EnhancedASTModule,
+        ast_type: &ASTType,
+        result: &mut Vec<SelectableItem>,
+    ) {
         if let ASTType::Custom {
             name,
             param_types,
@@ -171,7 +159,7 @@ impl ReferenceFinder {
     }
 
     fn process_custom_type(
-        module: &ASTModule,
+        module: &EnhancedASTModule,
         result: &mut Vec<SelectableItem>,
         name: &String,
         index: &ASTIndex,
@@ -191,7 +179,7 @@ impl ReferenceFinder {
         }
     }
 
-    fn get_custom_type_index(module: &ASTModule, name: &str) -> Option<ASTIndex> {
+    fn get_custom_type_index(module: &EnhancedASTModule, name: &str) -> Option<ASTIndex> {
         if let Some(def) = Self::get_enum(module, name) {
             Some(def.index)
         } else if let Some(def) = Self::get_struct(module, name) {
@@ -204,12 +192,11 @@ impl ReferenceFinder {
     }
 
     fn process_statements(
-        module: &ASTModule,
+        module: &EnhancedASTModule,
         statements: &Vec<ASTStatement>,
         result: &mut Vec<SelectableItem>,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
-        functions_container: &FunctionsContainer,
     ) -> Result<(), TypeCheckError> {
         for stmt in statements {
             if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
@@ -217,7 +204,7 @@ impl ReferenceFinder {
                     expr,
                     reference_context,
                     reference_static_context,
-                    functions_container,
+                    &module.functions_by_name,
                 )?;
                 reference_context.add(name.clone(), index.clone(), filter.clone());
                 if *is_const {
@@ -230,7 +217,6 @@ impl ReferenceFinder {
                 reference_context,
                 reference_static_context,
                 module,
-                functions_container,
             ) {
                 Ok(mut inner) => {
                     result.append(&mut inner);
@@ -293,8 +279,7 @@ impl ReferenceFinder {
         stmt: &ASTStatement,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
-        module: &ASTModule,
-        functions_container: &FunctionsContainer,
+        module: &EnhancedASTModule,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
             ASTStatement::Expression(expr) => Self::get_selectable_items_expr(
@@ -302,14 +287,12 @@ impl ReferenceFinder {
                 reference_context,
                 reference_static_context,
                 module,
-                functions_container,
             ),
             ASTStatement::LetStatement(name, expr, _, index) => Self::get_selectable_items_expr(
                 expr,
                 reference_context,
                 reference_static_context,
                 module,
-                functions_container,
             ),
         }
     }
@@ -318,8 +301,7 @@ impl ReferenceFinder {
         expr: &ASTExpression,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
-        module: &ASTModule,
-        functions_container: &FunctionsContainer,
+        module: &EnhancedASTModule,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
@@ -335,7 +317,6 @@ impl ReferenceFinder {
                             reference_context,
                             reference_static_context,
                             module,
-                            functions_container,
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
@@ -357,12 +338,13 @@ impl ReferenceFinder {
                             it,
                             reference_context,
                             reference_static_context,
-                            functions_container,
+                            &module.functions_by_name,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
-                let mut functions = functions_container
+                let mut functions = module
+                    .functions_by_name
                     .find_call_vec(call, &filters, None, false)
                     .unwrap();
 
@@ -425,7 +407,6 @@ impl ReferenceFinder {
                     &mut lambda_result,
                     &mut lambda_context,
                     &mut ReferenceContext::new(None),
-                    functions_container,
                 )?;
                 result.append(&mut lambda_result);
             }
@@ -434,7 +415,10 @@ impl ReferenceFinder {
         Ok(result)
     }
 
-    fn get_if_custom_type_index(module: &ASTModule, ast_type: &ASTType) -> Option<ASTIndex> {
+    fn get_if_custom_type_index(
+        module: &EnhancedASTModule,
+        ast_type: &ASTType,
+    ) -> Option<ASTIndex> {
         if let ASTType::Custom {
             name,
             param_types,
@@ -447,15 +431,15 @@ impl ReferenceFinder {
         }
     }
 
-    fn get_enum(module: &ASTModule, name: &str) -> Option<ASTEnumDef> {
+    fn get_enum(module: &EnhancedASTModule, name: &str) -> Option<ASTEnumDef> {
         module.enums.iter().find(|it| &it.name == name).cloned()
     }
 
-    fn get_struct(module: &ASTModule, name: &str) -> Option<ASTStructDef> {
+    fn get_struct(module: &EnhancedASTModule, name: &str) -> Option<ASTStructDef> {
         module.structs.iter().find(|it| &it.name == name).cloned()
     }
 
-    fn get_type(module: &ASTModule, name: &str) -> Option<ASTTypeDef> {
+    fn get_type(module: &EnhancedASTModule, name: &str) -> Option<ASTTypeDef> {
         module.types.iter().find(|it| &it.name == name).cloned()
     }
 }
@@ -511,7 +495,6 @@ impl SelectableItem {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use std::env;
     use std::io::Write;
     use std::path::{Path, PathBuf};
@@ -519,10 +502,10 @@ mod tests {
     use env_logger::Builder;
 
     use rasm_core::codegen::backend::BackendNasm386;
+    use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::project::RasmProject;
-    use rasm_core::transformations::enrich_module;
 
     use crate::reference_finder::{ReferenceFinder, SelectableItem};
 
@@ -531,11 +514,6 @@ mod tests {
         let finder = get_reference_finder("resources/test/simple.rasm");
 
         let file_name = Path::new("resources/test/simple.rasm");
-        finder.selectable_items.iter().for_each(|it| {
-            if it.min.file_name == Some(file_name.to_path_buf()) {
-                println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
-            }
-        });
 
         assert_eq!(
             vec_selectable_item_to_vec_index(
@@ -562,12 +540,6 @@ mod tests {
 
         let file_name = Path::new("resources/test/types.rasm");
         let source_file = Path::new(&file_name);
-
-        finder.selectable_items.iter().for_each(|it| {
-            if it.min.file_name == Some(source_file.to_path_buf()) {
-                println!("{} {} -> {}", &it.min, &it.max, &it.point_to);
-            }
-        });
 
         let project = RasmProject::new(file_name.to_path_buf());
 
@@ -640,17 +612,12 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
+        let mut backend = BackendNasm386::new(false);
         let mut statics = Statics::new();
-        let (mut module, errors) = project.get_module();
+        let (mut modules, errors) = project.get_all_modules(&mut backend, &mut statics);
+        let enhanced_astmodule = EnhancedASTModule::new(modules, project.resource_folder());
 
-        enrich_module(
-            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
-
-        ReferenceFinder::new(&module)
+        ReferenceFinder::new(enhanced_astmodule)
     }
 
     fn init() {

@@ -55,8 +55,6 @@ impl TypeCheck {
             functions_by_name: FunctionsContainer::new(),
             enums: vec![],
             structs: vec![],
-            requires: Default::default(),
-            externals: Default::default(),
             types: vec![],
         };
 
@@ -85,8 +83,6 @@ impl TypeCheck {
         self.module.enums = module.enums.clone();
         self.module.structs = module.structs.clone();
         self.module.functions_by_name = FunctionsContainer::new();
-        self.module.externals = module.externals.clone();
-        self.module.requires = module.requires.clone();
 
         for default_function in default_functions {
             let call = default_function.to_call();
@@ -958,7 +954,6 @@ impl TypeCheck {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use std::env;
     use std::io::Write;
     use std::path::PathBuf;
@@ -975,7 +970,6 @@ mod tests {
         ASTModule, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::project::project::RasmProject;
-    use crate::transformations::enrich_module;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
@@ -1044,7 +1038,10 @@ mod tests {
         init();
         let mut check = TypeCheck::new();
 
-        let mut module = EnhancedASTModule::new(ASTModule::new());
+        let mut module = EnhancedASTModule::new(
+            vec![ASTModule::new(PathBuf::new())],
+            PathBuf::from("resources"),
+        );
         let function_def = ASTFunctionDef {
             original_name: "add".to_string(),
             name: "add".to_string(),
@@ -1096,8 +1093,15 @@ mod tests {
             .transform_call(&module, &call, &mut val_context, &mut statics, None)
             .unwrap();
 
-        println!("{transformed_call}");
-        check.module.print();
+        assert_eq!(
+            format!("{transformed_call}"),
+            "add_0(add_0(1,2),add_0(1,2))"
+        );
+
+        assert_eq!(
+            format!("{}", check.module.functions().get(0).unwrap()),
+            "add_0(v1:i32,v2:i32) -> i32"
+        );
     }
 
     #[test]
@@ -1106,7 +1110,10 @@ mod tests {
 
         let mut check = TypeCheck::new();
 
-        let mut module = EnhancedASTModule::new(ASTModule::new());
+        let mut module = EnhancedASTModule::new(
+            vec![ASTModule::new(PathBuf::new())],
+            PathBuf::from("resources"),
+        );
         let option_t = ASTType::Custom {
             name: "Option".to_owned(),
             param_types: vec![ASTType::Generic("T".to_owned())],
@@ -1170,8 +1177,6 @@ mod tests {
         };
         module.add_function("Option::Some".to_owned(), function_def);
 
-        module.print();
-
         let call_to_none = ASTFunctionCall {
             original_function_name: "Option::None".to_string(),
             function_name: "Option::None".to_string(),
@@ -1209,14 +1214,22 @@ mod tests {
             .transform_call(&module, &call, &mut val_context, &mut statics, None)
             .unwrap();
 
-        println!("{transformed_call}");
-        check.module.print();
+        assert_eq!(
+            format!("{transformed_call}"),
+            "orElse_0(Option_None_0(),{  -> Option_Some_0(10);\n; })"
+        );
+        assert_eq!(
+            format!("{}", check.module.functions().get(0).unwrap()),
+            "Option_Some_0(v1:i32) -> Option<i32>"
+        );
     }
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let (module, backend, mut statics) = to_ast_module(project);
+        let resource_path = project.resource_folder();
 
-        let module = EnhancedASTModule::new(module);
+        let (modules, backend, mut statics) = to_ast_module(project);
+
+        let module = EnhancedASTModule::new(modules, resource_path);
 
         let mandatory_functions = type_mandatory_functions(&module);
 
@@ -1286,20 +1299,12 @@ mod tests {
         RasmProject::new(file_name)
     }
 
-    fn to_ast_module(project: RasmProject) -> (ASTModule, BackendNasm386, Statics) {
+    fn to_ast_module(project: RasmProject) -> (Vec<ASTModule>, BackendNasm386, Statics) {
+        let mut backend = BackendNasm386::new(false);
         let mut statics = Statics::new();
-        let (mut module, _) = project.get_module();
+        let (mut modules, _) = project.get_all_modules(&mut backend, &mut statics);
 
-        let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
-
-        enrich_module(
-            &backend,
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
-
-        (module, backend, statics)
+        (modules, backend, statics)
     }
 
     fn init() {

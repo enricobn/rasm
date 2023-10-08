@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::path::PathBuf;
 
 use log::debug;
 
@@ -7,6 +7,8 @@ use crate::parser::ast::{
     ASTEnumDef, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
     ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
 };
+use crate::transformations::globals_creator::add_rasm_resource_folder;
+use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 
@@ -16,57 +18,69 @@ pub struct EnhancedASTModule {
     pub functions_by_name: FunctionsContainer,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
-    pub requires: HashSet<String>,
-    pub externals: HashSet<String>,
     pub types: Vec<ASTTypeDef>,
 }
 
 impl EnhancedASTModule {
-    pub fn new(module: ASTModule) -> Self {
+    pub fn new(modules: Vec<ASTModule>, resource_path: PathBuf) -> Self {
+        let mut body = Vec::new();
+        let mut enums = Vec::new();
+        let mut structs = Vec::new();
+        let mut types = Vec::new();
+
         let mut container = FunctionsContainer::new();
 
-        module.functions.into_iter().for_each(|it| {
-            /*
-               let similar_functions = container
-                   .find_functions_by_original_name(&it.original_name)
-                   .iter()
-                   .filter(|function| {
-                       it.parameters.len() == function.parameters.len()
-                           && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
-                           TypeFilter::Exact(p1.ast_type.clone())
-                               .almost_equal(&p2.ast_type)
-                               .unwrap()
+        for module in modules {
+            module.functions.into_iter().for_each(|it| {
+                /*
+                   let similar_functions = container
+                       .find_functions_by_original_name(&it.original_name)
+                       .iter()
+                       .filter(|function| {
+                           it.parameters.len() == function.parameters.len()
+                               && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
+                               TypeFilter::Exact(p1.ast_type.clone())
+                                   .almost_equal(&p2.ast_type)
+                                   .unwrap()
+                           })
                        })
-                   })
-                   .collect::<Vec<_>>();
-               if !similar_functions.is_empty() {
-                   let coeff : usize = TypeCheck::function_generic_coeff(&it);
-                   if similar_functions.iter().filter(|function| TypeCheck::function_generic_coeff(function) == coeff).count() > 0 {
-                       panic!(
-                           "function {it} has the same signature of other generic functions : {}\nsimilar functions:\n{}",
-                           it.index,
-                           similar_functions
-                               .iter()
-                               .map(|it| format!("{it} : {}", it.index))
-                               .collect::<Vec<_>>()
-                               .join("\n")
-                       );
+                       .collect::<Vec<_>>();
+                   if !similar_functions.is_empty() {
+                       let coeff : usize = TypeCheck::function_generic_coeff(&it);
+                       if similar_functions.iter().filter(|function| TypeCheck::function_generic_coeff(function) == coeff).count() > 0 {
+                           panic!(
+                               "function {it} has the same signature of other generic functions : {}\nsimilar functions:\n{}",
+                               it.index,
+                               similar_functions
+                                   .iter()
+                                   .map(|it| format!("{it} : {}", it.index))
+                                   .collect::<Vec<_>>()
+                                   .join("\n")
+                           );
+                       }
                    }
-               }
 
-            */
-            container.add_function(it.original_name.clone(), it);
-        });
-
-        Self {
-            body: module.body,
-            functions_by_name: container,
-            enums: module.enums,
-            structs: module.structs,
-            requires: module.requires,
-            externals: module.externals,
-            types: module.types,
+                */
+                container.add_function(it.original_name.clone(), it);
+            });
+            body.extend(module.body);
+            enums.extend(module.enums);
+            structs.extend(module.structs);
+            types.extend(module.types);
         }
+
+        let mut module = Self {
+            body,
+            functions_by_name: container,
+            enums,
+            structs,
+            types,
+        };
+
+        add_rasm_resource_folder(&mut module, resource_path);
+        str_functions_creator(&mut module);
+
+        module
     }
 
     pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {

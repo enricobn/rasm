@@ -1,9 +1,10 @@
 Doing
 ------
-- move all asm code to backend
 
 Major
 -----
+- rename EnhancedASTModule: it is the untyped container for all the modules in the project
+- move all asm code to backend
 - change the lambda syntax to be like rust ( |p1,p2| { } ) or fn(p1,p2) -> {}
 - rename const to "let global" or "global let" or "let static" or "static let"
 - separate core library (shipped with the compiler) from stdlib (an external library that must be used as a dependency)

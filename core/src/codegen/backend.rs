@@ -18,7 +18,9 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{CodeGen, TypedValKind, ValKind};
 use crate::debug_i;
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind, ValueType};
+use crate::parser::ast::{
+    ASTFunctionDef, ASTIndex, ASTModule, ASTType, BuiltinTypeKind, ValueType,
+};
 use crate::transformations::typed_enum_functions_creator::enum_has_references;
 use crate::transformations::typed_struct_functions_creator::struct_has_references;
 use crate::transformations::typed_type_functions_creator::type_has_references;
@@ -198,6 +200,8 @@ pub trait Backend: RefUnwindSafe {
         add_ref_function: &str,
         deref_function: &str,
     );
+
+    fn add_module(&mut self, module: &ASTModule);
 }
 
 enum Linker {
@@ -214,11 +218,11 @@ pub struct BackendNasm386 {
 }
 
 impl BackendNasm386 {
-    pub fn new(requires: HashSet<String>, externals: HashSet<String>, debug_asm: bool) -> Self {
+    pub fn new(debug_asm: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
-            requires,
-            externals,
+            requires: HashSet::new(),
+            externals: HashSet::new(),
             linker: if libc { Linker::Gcc } else { Linker::Ld },
             libc,
             debug_asm,
@@ -1411,19 +1415,24 @@ impl Backend for BackendNasm386 {
             true,
         );
     }
+    fn add_module(&mut self, module: &ASTModule) {
+        let requires = module.requires.clone();
+        self.requires.extend(&mut requires.into_iter());
+
+        let externals = module.externals.clone();
+        self.externals.extend(&mut externals.into_iter());
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use crate::codegen::backend::{Backend, BackendNasm386};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
 
     #[test]
     fn called_functions() {
-        let sut = BackendNasm386::new(Default::default(), Default::default(), false);
+        let sut = BackendNasm386::new(false);
 
         assert_eq!(
             sut.called_functions(
@@ -1444,7 +1453,7 @@ mod tests {
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = BackendNasm386::new(Default::default(), Default::default(), false);
+        let sut = BackendNasm386::new(false);
 
         assert!(sut
             .called_functions(
@@ -1460,10 +1469,8 @@ mod tests {
 
     #[test]
     fn called_functions_external() {
-        let mut externals = HashSet::new();
-        externals.insert("something".into());
-
-        let sut = BackendNasm386::new(Default::default(), externals, false);
+        let mut sut = BackendNasm386::new(false);
+        sut.externals.insert("something".into());
 
         assert!(sut
             .called_functions(

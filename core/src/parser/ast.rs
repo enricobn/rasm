@@ -424,6 +424,7 @@ impl Display for dyn MyToString {
 
 #[derive(Debug, Clone)]
 pub struct ASTModule {
+    pub path: PathBuf,
     pub body: Vec<ASTStatement>,
     pub functions: Vec<ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
@@ -434,8 +435,9 @@ pub struct ASTModule {
 }
 
 impl ASTModule {
-    pub fn new() -> Self {
+    pub fn new(path: PathBuf) -> Self {
         Self {
+            path,
             body: Vec::new(),
             functions: Vec::new(),
             enums: Vec::new(),

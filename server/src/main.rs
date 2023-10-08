@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
@@ -14,12 +13,12 @@ use serde::Deserialize;
 use walkdir::WalkDir;
 
 use rasm_core::codegen::backend::{Backend, BackendNasm386};
+use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::ASTIndex;
 use rasm_core::project::project::RasmProject;
-use rasm_core::transformations::enrich_module;
 use rasm_server::reference_finder::ReferenceFinder;
 
 #[tokio::main]
@@ -33,10 +32,8 @@ async fn main() {
 
     let project = RasmProject::new(src.clone());
 
-    let server_state = ServerState::new(
-        src,
-        &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
-    );
+    let mut backend = BackendNasm386::new(false);
+    let server_state = ServerState::new(src, &mut backend);
 
     let app_state = Arc::new(server_state);
 
@@ -67,20 +64,15 @@ struct ServerState {
 }
 
 impl ServerState {
-    fn new(src: PathBuf, backend: &dyn Backend) -> Self {
+    fn new(src: PathBuf, backend: &mut dyn Backend) -> Self {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let (mut module, errors) = project.get_module();
+        let (mut modules, errors) = project.get_all_modules(backend, &mut statics);
 
-        enrich_module(
-            backend,
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
+        let enhanced_astmodule = EnhancedASTModule::new(modules, project.resource_folder());
 
-        let finder = ReferenceFinder::new(&module);
+        let finder = ReferenceFinder::new(enhanced_astmodule);
         Self { src, finder }
     }
 }

@@ -328,7 +328,7 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::path::PathBuf;
 
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -438,7 +438,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // it cannot works since it need some default functions, like addref
     fn test() {
         init();
@@ -480,6 +479,7 @@ mod tests {
         };
 
         let module = ASTModule {
+            path: PathBuf::new(),
             structs: Vec::new(),
             enums: Vec::new(),
             body: vec![call],
@@ -490,10 +490,10 @@ mod tests {
         };
 
         let new_module = convert_to_typed_module(
-            &EnhancedASTModule::new(module),
+            &EnhancedASTModule::new(vec![module], PathBuf::from("resources")),
             false,
             Vec::new(),
-            &BackendNasm386::new(HashSet::new(), HashSet::new(), false),
+            &BackendNasm386::new(false),
             &mut Statics::new(),
             true,
             Vec::new(),
@@ -502,14 +502,14 @@ mod tests {
 
         let par = if let Some(ASTTypedStatement::Expression(
             ASTTypedExpression::ASTFunctionCallExpression(e),
-        )) = new_module.body.get(0)
+        )) = new_module.body.get(1)
         {
             Some(e)
         } else {
             None
         };
 
-        assert_eq!(par.unwrap().function_name, "consume");
+        assert_eq!(par.unwrap().original_function_name, "consume");
         assert!(new_module.functions_by_name.get("consume_0").is_some());
     }
 

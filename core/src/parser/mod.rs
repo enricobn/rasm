@@ -363,6 +363,7 @@ impl Parser {
         self.functions.append(&mut self.included_functions);
 
         Ok(ASTModule {
+            path: path.to_path_buf(),
             body: self.body.clone(),
             functions: self.functions.clone(),
             enums: self.enums.clone(),

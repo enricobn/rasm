@@ -1336,8 +1336,6 @@ impl PrintRefMacro {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::backend::BackendNasm386;
@@ -1652,6 +1650,6 @@ mod tests {
     }
 
     fn backend() -> BackendNasm386 {
-        BackendNasm386::new(HashSet::new(), HashSet::new(), false)
+        BackendNasm386::new(false)
     }
 }

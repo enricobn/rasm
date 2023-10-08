@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
-use std::path::PathBuf;
 use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
@@ -22,8 +21,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
-use crate::parser::ast::{ASTIndex, ASTModule, ASTParameterDef, ASTType};
-use crate::transformations::enrich_module;
+use crate::parser::ast::{ASTIndex, ASTParameterDef, ASTType};
 use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
@@ -83,7 +81,8 @@ pub enum TypedValKind {
 impl<'a> CodeGen<'a> {
     pub fn new(
         backend: &'a dyn Backend,
-        module: ASTModule,
+        statics: Statics,
+        module: EnhancedASTModule,
         lambda_space_size: usize,
         heap_size: usize,
         heap_table_slots: usize,
@@ -91,7 +90,6 @@ impl<'a> CodeGen<'a> {
         print_memory_info: bool,
         dereference: bool,
         print_module: bool,
-        resource_path: PathBuf,
     ) -> Self {
         let start = Instant::now();
 
@@ -99,10 +97,7 @@ impl<'a> CodeGen<'a> {
             *indent.borrow_mut() = 0;
         });
 
-        let mut statics = Statics::new();
-
-        let mut module = module;
-        enrich_module(backend, resource_path, &mut statics, &mut module);
+        let mut statics = statics;
 
         let typed_module = Self::get_typed_module(
             backend,
@@ -137,19 +132,17 @@ impl<'a> CodeGen<'a> {
 
     pub fn get_typed_module(
         backend: &dyn Backend,
-        module: ASTModule,
+        module: EnhancedASTModule,
         print_memory_info: bool,
         dereference: bool,
         print_module: bool,
         statics: &mut Statics,
     ) -> Result<ASTTypedModule, TypeCheckError> {
-        let enhanced_module = EnhancedASTModule::new(module);
-
-        let mandatory_functions = type_mandatory_functions(&enhanced_module);
+        let mandatory_functions = type_mandatory_functions(&module);
         let default_functions = get_default_functions(print_memory_info);
 
         let mut typed_module = convert_to_typed_module(
-            &enhanced_module,
+            &module,
             print_module,
             mandatory_functions,
             backend,

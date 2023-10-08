@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use crate::parser::ast::{ASTExpression, ASTIndex, ASTModule, ASTStatement};
+use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::parser::ast::{ASTExpression, ASTIndex, ASTStatement};
 
-pub fn add_rasm_resource_folder(module: &mut ASTModule, resource_folder: PathBuf) {
+pub fn add_rasm_resource_folder(module: &mut EnhancedASTModule, resource_folder: PathBuf) {
     module.body.insert(
         0,
         ASTStatement::LetStatement(

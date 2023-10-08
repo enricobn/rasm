@@ -230,8 +230,6 @@ impl StackVals {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::stack::StackVals;
 
@@ -243,7 +241,7 @@ mod tests {
         assert_eq!(1, stack.reserve_local_val("val1"));
         stack.reserve_return_register(&mut out);
         assert_eq!(2, stack.reserve_local_val("val2"));
-        let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
+        let backend = BackendNasm386::new(false);
         stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register");
         assert_eq!(3, stack.reserve_local_val("ref1"));
         assert_eq!(6, stack.reserve_local_space("spc", 3));

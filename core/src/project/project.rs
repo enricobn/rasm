@@ -11,10 +11,13 @@ use toml::map::Map;
 use toml::{Table, Value};
 use walkdir::WalkDir;
 
+use crate::codegen::backend::Backend;
+use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTModule;
 use crate::parser::Parser;
+use crate::transformations::enrich_module;
 
 #[derive(Debug)]
 pub struct RasmProject {
@@ -80,16 +83,24 @@ impl RasmProject {
         )
     }
 
-    pub fn get_module(&self) -> (ASTModule, Vec<String>) {
+    pub fn get_all_modules(
+        &self,
+        backend: &mut dyn Backend,
+        statics: &mut Statics,
+    ) -> (Vec<ASTModule>, Vec<String>) {
         info!("Reading project {:?}", self);
 
-        let mut module = ASTModule::new();
+        let mut modules = Vec::new();
         let mut errors = Vec::new();
 
         self.get_modules(true)
             .into_iter()
             .for_each(|project_module| match project_module {
-                Ok(m) => module.add(m),
+                Ok(mut m) => {
+                    backend.add_module(&m);
+                    enrich_module(backend, statics, &mut m);
+                    modules.push(m)
+                }
                 Err(e) => errors.push(e),
             });
 
@@ -103,11 +114,15 @@ impl RasmProject {
             .collect::<Vec<_>>()
             .into_iter()
             .for_each(|project_module| match project_module {
-                Ok(m) => module.add(m),
+                Ok(mut m) => {
+                    backend.add_module(&m);
+                    enrich_module(backend, statics, &mut m);
+                    modules.push(m)
+                }
                 Err(e) => errors.push(e),
             });
 
-        (module, errors)
+        (modules, errors)
     }
 
     fn get_modules(&self, body: bool) -> Vec<Result<ASTModule, String>> {
