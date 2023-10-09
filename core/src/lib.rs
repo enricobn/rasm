@@ -10,3 +10,4 @@ pub mod type_check;
 pub mod utils;
 pub mod new_type_check2;
 pub mod project;
+pub mod errors;

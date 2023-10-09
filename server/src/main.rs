@@ -68,7 +68,9 @@ impl ServerState {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let (mut modules, errors) = project.get_all_modules(backend, &mut statics);
+        let (modules, errors) = project.get_all_modules(backend, &mut statics);
+
+        // TODO errors
 
         let enhanced_astmodule = EnhancedASTModule::new(modules, project.resource_folder());
 

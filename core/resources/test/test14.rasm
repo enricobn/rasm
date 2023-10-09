@@ -1,0 +1,7 @@
+fn sum(value: i32) -> i32 {
+    value.
+}
+
+fn anotherFunction() -> str {
+    "a string";
+}

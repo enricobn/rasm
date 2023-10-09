@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use log::{debug, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::debug_i;
+use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
@@ -57,6 +59,7 @@ pub struct Parser {
     function_def_matcher: TokensMatcher,
     // TODO it should be a "constant"
     enum_parser: EnumParser,
+    errors: Vec<CompilationError>,
 }
 
 #[derive(Clone, Debug)]
@@ -164,10 +167,12 @@ impl Parser {
             included_files,
             function_def_matcher,
             enum_parser: EnumParser::new(),
+            errors: Vec::new(),
         }
     }
 
-    pub fn parse(&mut self, path: &Path) -> Result<ASTModule, String> {
+    pub fn parse(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
+        self.errors = Vec::new();
         self.body = Vec::new();
         self.functions = Vec::new();
         self.i = 0;
@@ -180,8 +185,9 @@ impl Parser {
 
         while self.i <= self.tokens.len() {
             count += 1;
-            if count > 10000 {
-                return Err(format!("error at : {}", self.get_index(0)));
+            if count > (self.tokens.len() + 1) * 10 {
+                self.add_error("undefined parse error".to_string());
+                return self.get_return(path);
             }
             let token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -227,81 +233,111 @@ impl Parser {
             }
 
             match self.get_state() {
-                None => {
-                    if self.process_none(path, &token)? {
-                        continue;
-                    } else {
-                        break;
+                None => match self.process_none(path, &token) {
+                    Ok(is_continue) => {
+                        if is_continue {
+                            continue;
+                        } else {
+                            break;
+                        }
                     }
-                }
-                Some(ParserState::FunctionCall) => {
-                    self.process_function_call(token)?;
-                    continue;
-                }
-                Some(ParserState::FunctionDef) => {
-                    self.process_function_def(token)?;
-                    continue;
-                }
+                    Err(message) => {
+                        self.add_error(message);
+                    }
+                },
+                Some(ParserState::FunctionCall) => match self.process_function_call(token) {
+                    Ok(_) => {
+                        continue;
+                    }
+                    Err(message) => self.add_error(message),
+                },
+                Some(ParserState::FunctionDef) => match self.process_function_def(token) {
+                    Ok(_) => {
+                        continue;
+                    }
+                    Err(message) => self.add_error(message),
+                },
                 Some(ParserState::FunctionDefParameter) => {
-                    self.process_function_def_parameter(&token)?;
-                    continue;
-                }
-                Some(ParserState::FunctionBody) => {
-                    self.process_function_body(&token)?;
-                    continue;
-                }
-                Some(ParserState::FunctionDefReturnType) => {
-                    if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                        if let Some((ast_type, next_i)) =
-                            TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)?
-                        {
-                            self.i = next_i;
-                            def.return_type = ast_type;
-
-                            self.set_parser_data(ParserData::FunctionDef(def), 0);
-
-                            self.state.pop();
+                    match self.process_function_def_parameter(&token) {
+                        Ok(_) => {
                             continue;
                         }
+                        Err(message) => self.add_error(message),
+                    }
+                }
+                Some(ParserState::FunctionBody) => match self.process_function_body(&token) {
+                    Ok(_) => {
+                        continue;
+                    }
+                    Err(message) => self.add_error(message),
+                },
+                Some(ParserState::FunctionDefReturnType) => {
+                    if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
+                        match TypeParser::new(self).try_parse_ast_type(0, &def.generic_types) {
+                            Ok(result) => {
+                                if let Some((ast_type, next_i)) = result {
+                                    self.i = next_i;
+                                    def.return_type = ast_type;
+
+                                    self.set_parser_data(ParserData::FunctionDef(def), 0);
+
+                                    self.state.pop();
+                                    continue;
+                                }
+                            }
+                            Err(message) => self.add_error(message),
+                        }
                     } else {
-                        return Err(format!("Illegal state : {}", self.get_index(0)));
+                        self.add_error("Illegal state".to_string());
                     }
                 }
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
-                        if let Some((variants, next_i)) =
-                            self.enum_parser
-                                .parse_variants(self, &def.type_parameters, 0)?
+                        match self
+                            .enum_parser
+                            .parse_variants(self, &def.type_parameters, 0)
                         {
-                            def.variants = variants;
-                            self.enums.push(def);
-                            self.state.pop();
-                            self.parser_data.pop();
-                            self.i = next_i;
-                            continue;
-                        } else {
-                            return Err(format!("Expected variants : {}", self.get_index(0)));
+                            Ok(result) => {
+                                if let Some((variants, next_i)) = result {
+                                    def.variants = variants;
+                                    self.enums.push(def);
+                                    self.state.pop();
+                                    self.parser_data.pop();
+                                    self.i = next_i;
+                                    continue;
+                                } else {
+                                    self.add_error("Expected variants".to_string());
+                                }
+                            }
+                            Err(message) => self.add_error(message),
                         }
                     } else {
-                        return Err(format!("Expected enum data : {}", self.get_index(0)));
+                        self.add_error("Expected enum data".to_string());
                     }
                 }
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
-                        if let Some((properties, next_i)) = StructParser::new(self)
-                            .parse_properties(&def.type_parameters, &def.name, 0)?
-                        {
-                            def.properties = properties;
-                            self.structs.push(def);
-                            self.state.pop();
-                            self.parser_data.pop();
-                            self.i = next_i;
-                            continue;
-                        } else {
-                            return Err(format!("Expected properties: {}", self.get_index(0)));
+                        match StructParser::new(self).parse_properties(
+                            &def.type_parameters,
+                            &def.name,
+                            0,
+                        ) {
+                            Ok(result) => {
+                                if let Some((properties, next_i)) = result {
+                                    def.properties = properties;
+                                    self.structs.push(def);
+                                    self.state.pop();
+                                    self.parser_data.pop();
+                                    self.i = next_i;
+                                    continue;
+                                } else {
+                                    self.add_error("Expected properties".to_string());
+                                }
+                            }
+                            Err(message) => self.add_error(message),
                         }
                     } else {
-                        return Err(format!("Expected struct data: {}", self.get_index(0)));
+                        self.add_error("Expected struct data".to_string());
                     }
                 }
                 Some(ParserState::Let) => {
@@ -322,10 +358,7 @@ impl Parser {
                             }
                         }
                     }
-                    return Err(format!(
-                        "Expected expression and semicolon: {}",
-                        self.get_index(0)
-                    ));
+                    self.add_error("Expected expression and semicolon".to_string());
                 }
                 Some(ParserState::LambdaExpression) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
@@ -345,16 +378,20 @@ impl Parser {
                             }
                         }
                     }
-                    return Err(format!("Error parsing lambda: {}", self.get_index(0)));
+                    self.add_error("Error parsing lambda".to_string());
                 }
-                Some(ParserState::Expression) => {
-                    self.process_expression()?;
-                    continue;
-                }
-                Some(ParserState::Statement) => {
-                    self.process_statement(token)?;
-                    continue;
-                }
+                Some(ParserState::Expression) => match self.process_expression() {
+                    Ok(_) => {
+                        continue;
+                    }
+                    Err(message) => self.add_error(message),
+                },
+                Some(ParserState::Statement) => match self.process_statement(token) {
+                    Ok(_) => {
+                        continue;
+                    }
+                    Err(message) => self.add_error(message),
+                },
             }
 
             self.i += 1;
@@ -362,16 +399,34 @@ impl Parser {
 
         self.functions.append(&mut self.included_functions);
 
-        Ok(ASTModule {
-            path: path.to_path_buf(),
-            body: self.body.clone(),
-            functions: self.functions.clone(),
-            enums: self.enums.clone(),
-            structs: self.structs.clone(),
-            requires: self.requires.clone(),
-            externals: self.externals.clone(),
-            types: self.types.clone(),
-        })
+        self.get_return(path)
+    }
+
+    fn get_return(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
+        (
+            ASTModule {
+                path: path.to_path_buf(),
+                body: self.body.clone(),
+                functions: self.functions.clone(),
+                enums: self.enums.clone(),
+                structs: self.structs.clone(),
+                requires: self.requires.clone(),
+                externals: self.externals.clone(),
+                types: self.types.clone(),
+            },
+            self.errors.clone(),
+        )
+    }
+
+    fn add_error(&mut self, message: String) {
+        debug_i!("parser error: {message}");
+        self.errors.push(CompilationError {
+            index: self.get_index(0),
+            error_kind: CompilationErrorKind::Parser(message),
+        });
+        self.parser_data = Vec::new();
+        self.state = Vec::new();
+        self.i -= 1;
     }
 
     ///
@@ -428,7 +483,8 @@ impl Parser {
             match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
                     let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    let mut module = parser.parse(source_file.as_path())?;
+                    let (mut module, errors) = parser.parse(source_file.as_path());
+                    self.errors.extend(errors);
                     if !module.body.is_empty() {
                         return Err(format!(
                             "Cannot include a module with a body: {:?}: {}",
@@ -719,10 +775,7 @@ impl Parser {
                 self.parser_data[l - 2] = ParserData::FunctionDef(def);
                 self.parser_data.pop();
             } else {
-                return Err(format!(
-                    "Expected to be inside a function def: {}",
-                    self.get_index(0)
-                ));
+                return Err("Expected to be inside a function def".to_string());
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) =
@@ -756,10 +809,7 @@ impl Parser {
                 self.state.pop();
                 self.i += 1;
             } else {
-                return Err(format!(
-                    "Expected to be inside a function def: {}",
-                    self.get_index(0)
-                ));
+                return Err("Expected to be inside a function def".to_string());
             }
         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             self.state.push(ParserState::FunctionDefParameter);
@@ -769,10 +819,7 @@ impl Parser {
             self.parser_data.pop();
             self.state.pop();
         } else {
-            return Err(format!(
-                "Expected to be inside a function def: {}",
-                self.get_index(0)
-            ));
+            return Err("Expected to be inside a function def".to_string());
         }
         Ok(())
     }
@@ -1185,6 +1232,7 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
+    use crate::errors::CompilationError;
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModule, ASTStatement, ASTType,
@@ -1269,7 +1317,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let module = parser.parse(Path::new(".")).unwrap();
+        let (module, _) = parser.parse(Path::new("."));
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1294,11 +1342,32 @@ mod tests {
         assert_eq!(f_def.return_type, ASTType::Builtin(BuiltinTypeKind::I32));
     }
 
+    #[test]
+    fn test14() {
+        let (module, errors) = parse_with_errors("resources/test/test14.rasm");
+
+        assert!(!errors.is_empty());
+
+        let f_def0 = module.functions.get(0).unwrap();
+        assert_eq!(f_def0.original_name, "sum");
+
+        let f_def1 = module.functions.get(1).unwrap();
+        assert_eq!(f_def1.original_name, "anotherFunction");
+    }
+
     fn parse(source: &str) -> ASTModule {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path).unwrap()
+        parser.parse(path).0
+    }
+
+    fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
+        init();
+        let path = Path::new(source);
+        let lexer = Lexer::from_file(path).unwrap();
+        let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
+        parser.parse(path)
     }
 }

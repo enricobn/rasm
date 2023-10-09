@@ -988,12 +988,6 @@ mod tests {
     }
 
     #[test]
-    pub fn xmllib() {
-        let project = dir_to_project("/home/enrico/development/rasm/xmllib");
-        test_project(project).unwrap_or_else(|e| panic!("{e}"))
-    }
-
-    #[test]
     pub fn test_generic_type_coeff() {
         assert_eq!(
             usize::MAX / 100,
@@ -1302,7 +1296,14 @@ mod tests {
     fn to_ast_module(project: RasmProject) -> (Vec<ASTModule>, BackendNasm386, Statics) {
         let mut backend = BackendNasm386::new(false);
         let mut statics = Statics::new();
-        let (mut modules, _) = project.get_all_modules(&mut backend, &mut statics);
+        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
+
+        if !errors.is_empty() {
+            for e in errors {
+                eprintln!("{e}");
+            }
+            panic!();
+        }
 
         (modules, backend, statics)
     }

@@ -19,14 +19,13 @@
 use std::io;
 use std::ops::Deref;
 
-use rasm_core::codegen::backend::BackendNasm386;
+use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
 use rasm_core::parser::ast::{ASTIndex, ASTType};
-use rasm_core::project::project::RasmProject;
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::type_check::typed_ast::{
@@ -73,21 +72,17 @@ pub struct CompletionService {
 }
 
 impl CompletionService {
-    pub fn new(project: &RasmProject) -> Result<Self, TypeCheckError> {
-        let mut statics = Statics::new();
-        let mut backend = BackendNasm386::new(false);
-
-        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
-
-        let module = EnhancedASTModule::new(modules, project.resource_folder());
-
+    pub fn new(
+        module: EnhancedASTModule,
+        statics: &mut Statics,
+        backend: &dyn Backend,
+    ) -> Result<Self, TypeCheckError> {
         let typed_module =
-            CodeGen::get_typed_module(&backend, module.clone(), false, true, false, &mut statics)?;
+            CodeGen::get_typed_module(backend, module.clone(), false, true, false, statics)?;
 
         let mut completable_items = Vec::new();
 
         let mut val_context = TypedValContext::new(None);
-        let mut statics = Statics::new();
 
         typed_module.body.iter().for_each(|it| {
             Self::process_statement(
@@ -95,12 +90,12 @@ impl CompletionService {
                 &mut completable_items,
                 it,
                 &mut val_context,
-                &mut statics,
+                statics,
             );
         });
 
         typed_module.functions_by_name.values().for_each(|it| {
-            Self::process_function(&typed_module, &mut completable_items, it, &mut statics);
+            Self::process_function(&typed_module, &mut completable_items, it, statics);
         });
 
         Ok(Self {
@@ -421,6 +416,9 @@ mod tests {
 
     use env_logger::Builder;
 
+    use rasm_core::codegen::backend::BackendNasm386;
+    use rasm_core::codegen::enhanced_module::EnhancedASTModule;
+    use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::project::RasmProject;
 
@@ -465,7 +463,17 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        CompletionService::new(&project).unwrap()
+        let mut backend = BackendNasm386::new(false);
+
+        let mut statics = Statics::new();
+
+        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
+
+        let module = EnhancedASTModule::new(modules, project.resource_folder());
+
+        assert!(errors.is_empty());
+
+        CompletionService::new(module, &mut statics, &backend).unwrap()
     }
 
     fn init() {

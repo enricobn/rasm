@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -31,7 +30,7 @@ use crate::type_check::typed_ast::{
 
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
-pub trait Backend: RefUnwindSafe {
+pub trait Backend: Send + Sync {
     fn address_from_base_pointer(&self, index: i8) -> String;
 
     fn address_from_stack_pointer(&self, index: i8) -> String;

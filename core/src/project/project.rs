@@ -14,8 +14,9 @@ use walkdir::WalkDir;
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
+use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
-use crate::parser::ast::ASTModule;
+use crate::parser::ast::{ASTIndex, ASTModule};
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
 
@@ -87,7 +88,7 @@ impl RasmProject {
         &self,
         backend: &mut dyn Backend,
         statics: &mut Statics,
-    ) -> (Vec<ASTModule>, Vec<String>) {
+    ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         info!("Reading project {:?}", self);
 
         let mut modules = Vec::new();
@@ -95,13 +96,11 @@ impl RasmProject {
 
         self.get_modules(true)
             .into_iter()
-            .for_each(|project_module| match project_module {
-                Ok(mut m) => {
-                    backend.add_module(&m);
-                    enrich_module(backend, statics, &mut m);
-                    modules.push(m)
-                }
-                Err(e) => errors.push(e),
+            .for_each(|(mut project_module, module_errors)| {
+                backend.add_module(&project_module);
+                enrich_module(backend, statics, &mut project_module);
+                modules.push(project_module);
+                errors.extend(module_errors);
             });
 
         self.get_all_dependencies()
@@ -113,19 +112,17 @@ impl RasmProject {
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .for_each(|project_module| match project_module {
-                Ok(mut m) => {
-                    backend.add_module(&m);
-                    enrich_module(backend, statics, &mut m);
-                    modules.push(m)
-                }
-                Err(e) => errors.push(e),
+            .for_each(|(mut project_module, module_errors)| {
+                backend.add_module(&project_module);
+                enrich_module(backend, statics, &mut project_module);
+                modules.push(project_module);
+                errors.extend(module_errors);
             });
 
         (modules, errors)
     }
 
-    fn get_modules(&self, body: bool) -> Vec<Result<ASTModule, String>> {
+    fn get_modules(&self, body: bool) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
             vec![Self::module_from_file(&PathBuf::from(
                 &self.main_src_file().unwrap(),
@@ -141,36 +138,46 @@ impl RasmProject {
                     let path = entry.path();
                     info!("including file {}", path.to_str().unwrap());
 
-                    Self::module_from_file(&path.canonicalize().unwrap()).and_then(|entry_module| {
-                        let has_body = !entry_module.body.is_empty();
+                    let (entry_module, mut module_errors) =
+                        Self::module_from_file(&path.canonicalize().unwrap());
+                    let has_body = !entry_module.body.is_empty();
 
-                        if body {
-                            if path.canonicalize().unwrap()
-                                == self.main_src_file().unwrap().canonicalize().unwrap()
-                            {
-                                if !has_body {
-                                    return Err(format!(
-                                        "Main file should have a body, but {} has not a body",
-                                        path.to_str().unwrap()
-                                    ));
-                                }
-                            } else if has_body {
-                                return Err(format!(
-                                    "Only main file should have a body, but {} has a body",
-                                    path.to_str().unwrap(),
-                                ));
+                    if body {
+                        if path.canonicalize().unwrap()
+                            == self.main_src_file().unwrap().canonicalize().unwrap()
+                        {
+                            if !has_body {
+                                Self::add_generic_error(
+                                    path,
+                                    &mut module_errors,
+                                    "Main file should have a body",
+                                );
                             }
                         } else if has_body {
-                            return Err(format!(
-                                "Only main file should have a body, but {} has a body",
-                                path.to_str().unwrap()
-                            ));
+                            Self::add_generic_error(
+                                path,
+                                &mut module_errors,
+                                "Only main file should have a body",
+                            );
                         }
-                        Ok(entry_module)
-                    })
+                    } else if has_body {
+                        Self::add_generic_error(
+                            path,
+                            &mut module_errors,
+                            "Only main file should have a body",
+                        );
+                    }
+                    (entry_module, module_errors)
                 })
                 .collect::<Vec<_>>()
         }
+    }
+
+    fn add_generic_error(path: &Path, module_errors: &mut Vec<CompilationError>, message: &str) {
+        module_errors.push(CompilationError {
+            index: ASTIndex::new(Some(path.to_path_buf()), 0, 0),
+            error_kind: CompilationErrorKind::Generic(message.to_owned()),
+        })
     }
 
     fn get_all_dependencies(&self) -> Vec<RasmProject> {
@@ -212,12 +219,15 @@ impl RasmProject {
         result
     }
 
-    fn module_from_file(main_file: &PathBuf) -> Result<ASTModule, String> {
+    fn module_from_file(main_file: &PathBuf) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(&main_file);
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
+                let lexer_errors = lexer.get_errors().clone();
                 let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
-                parser.parse(main_path)
+                let (module, mut errors) = parser.parse(main_path);
+                errors.extend(lexer_errors);
+                (module, errors)
             }
             Err(err) => {
                 panic!("An error occurred: {}", err)

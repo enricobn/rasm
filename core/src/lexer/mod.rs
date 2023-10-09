@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use log::debug;
 
+use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
@@ -24,13 +25,14 @@ enum LexStatus {
     Char,
 }
 
-#[derive(Clone)]
+//#[derive(Clone)]
 pub struct Lexer {
     file_name: Option<PathBuf>,
     index: usize,
     row: usize,
     column: usize,
     chars: Vec<char>,
+    errors: Vec<CompilationError>,
 }
 
 impl Lexer {
@@ -55,6 +57,7 @@ impl Lexer {
             row: 1,
             column: 1,
             chars: source.chars().collect::<Vec<_>>(),
+            errors: Vec::new(),
         }
     }
 
@@ -101,12 +104,19 @@ impl Lexer {
         }
     }
 
-    fn panic(&self, message: &str) -> ! {
-        panic!("{message} : {}", self.get_index())
-    }
-
     fn get_index(&self) -> ASTIndex {
         ASTIndex::new(self.file_name.clone(), self.row, self.column)
+    }
+
+    pub fn get_errors(&self) -> &Vec<CompilationError> {
+        &self.errors
+    }
+
+    fn add_error(&mut self, error_message: String) {
+        self.errors.push(CompilationError {
+            index: self.get_index(),
+            error_kind: CompilationErrorKind::Lexer(error_message),
+        });
     }
 }
 
@@ -160,8 +170,7 @@ impl Iterator for Lexer {
                         return token;
                     } else if let Some(bracket) = Lexer::get_bracket(c) {
                         if !actual.is_empty() {
-                            // TODO handle error?
-                            panic!("Bracket, but actual={}", actual);
+                            self.add_error(format!("Bracket, but actual={}", actual));
                         }
                         let token = self.some_token(bracket);
                         self.column += 1;
@@ -181,12 +190,12 @@ impl Iterator for Lexer {
                     } else if c == '\'' {
                         status = LexStatus::Char
                     } else if c != END_OF_FILE {
-                        panic!(
+                        self.add_error(format!(
                             "unknown char '{}' ({}) : {} ***",
                             c,
                             c.escape_debug(),
                             self.get_index()
-                        );
+                        ));
                     }
                 }
                 LexStatus::WhiteSpace => {
@@ -221,7 +230,7 @@ impl Iterator for Lexer {
                 LexStatus::Char => {
                     if c == '\'' {
                         if actual.chars().count() != 1 {
-                            self.panic(&format!("Invalid char literal '{actual}'"))
+                            self.add_error(format!("Invalid char literal '{actual}'"));
                         }
                         let token =
                             self.some_token(TokenKind::CharLiteral(actual.chars().next().unwrap()));
@@ -321,6 +330,9 @@ mod tests {
     #[test]
     fn test1() {
         let lexer = Lexer::from_file(Path::new("resources/test/test1.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(vec![Comment("// test1.rasm file".into())], lst);
     }
@@ -328,6 +340,9 @@ mod tests {
     #[test]
     fn test2() {
         let lexer = Lexer::from_file(Path::new("resources/test/test2.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(
             vec![
@@ -345,6 +360,9 @@ mod tests {
     #[test]
     fn test3() {
         let lexer = Lexer::from_file(Path::new("resources/test/test3.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(
             vec![
@@ -368,6 +386,9 @@ mod tests {
     #[test]
     fn test4() {
         let lexer = Lexer::from_file(Path::new("resources/test/test4.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(
             vec![
@@ -415,6 +436,9 @@ mod tests {
     #[test]
     fn test5() {
         let lexer = Lexer::from_file(Path::new("resources/test/test5.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer
             .map(|it| it.kind)
             .filter(|it| matches!(it, TokenKind::AsmBLock(_)))
@@ -431,6 +455,9 @@ mod tests {
     #[test]
     fn test6() {
         let lexer = Lexer::from_file(Path::new("resources/test/test6.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(
             vec![
@@ -444,6 +471,9 @@ mod tests {
     #[test]
     fn test7() {
         let lexer = Lexer::from_file(Path::new("resources/test/test7.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let lst: Vec<TokenKind> = lexer.map(|it| it.kind).collect();
         assert_eq!(
             vec![
@@ -468,6 +498,9 @@ mod tests {
     #[test]
     fn test13() {
         let lexer = Lexer::from_file(Path::new("resources/test/test13.rasm")).unwrap();
+
+        assert!(lexer.get_errors().is_empty());
+
         let vec = lexer.collect::<Vec<_>>();
         assert_eq!(vec.get(3).unwrap().kind, KeyWord(KeywordKind::Fn));
         assert_eq!(vec.get(3).unwrap().row, 2);
