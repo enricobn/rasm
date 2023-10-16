@@ -19,6 +19,7 @@ use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Toke
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::ASTIndex;
 use rasm_core::project::project::RasmProject;
+use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_server::reference_finder::ReferenceFinder;
 
 #[tokio::main]
@@ -33,7 +34,7 @@ async fn main() {
     let project = RasmProject::new(src.clone());
 
     let mut backend = BackendNasm386::new(false);
-    let server_state = ServerState::new(src, &mut backend);
+    let server_state = ServerState::new(src, &mut backend).unwrap();
 
     let app_state = Arc::new(server_state);
 
@@ -64,7 +65,7 @@ struct ServerState {
 }
 
 impl ServerState {
-    fn new(src: PathBuf, backend: &mut dyn Backend) -> Self {
+    fn new(src: PathBuf, backend: &mut dyn Backend) -> Result<Self, TypeCheckError> {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
@@ -74,8 +75,8 @@ impl ServerState {
 
         let enhanced_astmodule = EnhancedASTModule::new(modules, project.resource_folder());
 
-        let finder = ReferenceFinder::new(enhanced_astmodule);
-        Self { src, finder }
+        let finder = ReferenceFinder::new(enhanced_astmodule)?;
+        Ok(Self { src, finder })
     }
 }
 

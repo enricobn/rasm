@@ -21,15 +21,15 @@ pub struct ReferenceFinder {
 }
 
 impl ReferenceFinder {
-    pub fn new(module: EnhancedASTModule) -> Self {
-        let selectable_items = Self::process_module(&module).unwrap();
+    pub fn new(module: EnhancedASTModule) -> Result<Self, TypeCheckError> {
+        let selectable_items = Self::process_module(&module)?;
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
-        Self {
+        Ok(Self {
             selectable_items,
             module,
-        }
+        })
     }
 
     pub fn find(&self, index: &ASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
@@ -617,7 +617,7 @@ mod tests {
         let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
         let enhanced_astmodule = EnhancedASTModule::new(modules, project.resource_folder());
 
-        ReferenceFinder::new(enhanced_astmodule)
+        ReferenceFinder::new(enhanced_astmodule).unwrap()
     }
 
     fn init() {

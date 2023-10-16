@@ -15,8 +15,9 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ValueType,
+    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
+    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
+    ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::generic_types_matcher;
@@ -189,7 +190,7 @@ impl Parser {
                 self.add_error("undefined parse error".to_string());
                 return self.get_return(path);
             }
-            let token = if self.i == self.tokens.len() {
+            let mut token = if self.i == self.tokens.len() {
                 last_token.clone()
             } else {
                 self.tokens.get(self.i).unwrap().clone()
@@ -229,6 +230,10 @@ impl Parser {
                         self.i += 1;
                         continue;
                     }
+                    // probably it's an error, but we handle it later
+                    self.add_error("Unterminated dot expression.".to_string());
+                    self.i -= 1;
+                    token.kind = TokenKind::Punctuation(PunctuationKind::SemiColon);
                 }
             }
 
@@ -341,24 +346,31 @@ impl Parser {
                     }
                 }
                 Some(ParserState::Let) => {
-                    if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
-                        if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
-                            if let Some(ParserData::Let(name, is_const, index)) =
-                                self.before_last_parser_data()
-                            {
-                                self.state.pop();
-                                self.parser_data.pop();
-                                self.parser_data.pop();
+                    let is_semicolon = matches!(
+                        token.kind,
+                        TokenKind::Punctuation(PunctuationKind::SemiColon)
+                    );
+                    if !is_semicolon {
+                        self.add_error("Expected expression and semicolon".to_string());
+                    }
+                    if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                        if let Some(ParserData::Let(name, is_const, index)) =
+                            self.before_last_parser_data()
+                        {
+                            self.state.pop();
+                            self.parser_data.pop();
+                            self.parser_data.pop();
 
-                                self.parser_data.push(ParserData::Statement(
-                                    ASTStatement::LetStatement(name, expr.clone(), is_const, index),
-                                ));
-                                self.i += 1;
-                                continue;
-                            }
+                            self.parser_data.push(ParserData::Statement(
+                                ASTStatement::LetStatement(name, expr.clone(), is_const, index),
+                            ));
+                            self.i += 1;
+                            continue;
                         }
                     }
-                    self.add_error("Expected expression and semicolon".to_string());
+                    if is_semicolon {
+                        self.add_error("Expected expression".to_string());
+                    }
                 }
                 Some(ParserState::LambdaExpression) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
@@ -424,9 +436,6 @@ impl Parser {
             index: self.get_index(0),
             error_kind: CompilationErrorKind::Parser(message),
         });
-        self.parser_data = Vec::new();
-        self.state = Vec::new();
-        self.i -= 1;
     }
 
     ///
@@ -689,6 +698,39 @@ impl Parser {
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
             self.state.pop();
             self.i += 1;
+        /*
+                   if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
+                       self.state.pop();
+                       self.i += 1;
+                   } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                       let function_def = self
+                           .parser_data
+                           .iter_mut()
+                           .rev()
+                           .find(|it| matches!(it, ParserData::FunctionDef(_)));
+
+                       if let Some(ParserData::FunctionDef(ref mut def)) = function_def {
+                           if let ASTFunctionBody::RASMBody(body) = &def.body {
+                               let mut body = body.clone();
+                               body.push(ASTStatement::Expression(expr));
+                               def.body = ASTFunctionBody::RASMBody(body);
+                               self.functions.push(def.clone());
+                               self.parser_data.clear();
+                               self.state.clear();
+                               self.i += 1;
+                           }
+                           self.add_error("not terminated expression".to_string());
+                       } else {
+                           return Err("Expected a function def".to_string());
+                       }
+                   } else {
+                       return Err(format!(
+                           "Expected to be inside a function body: {}",
+                           self.get_index(0)
+                       ));
+                   }
+
+        */
         } else {
             self.state.push(ParserState::Statement);
         }
@@ -834,7 +876,7 @@ impl Parser {
         self.parser_data[l - 1] = ParserData::FunctionCall(call);
     }
 
-    pub fn print(module: &ASTModule) {
+    pub fn print_module(module: &ASTModule) {
         module.body.iter().for_each(|call| {
             println!("{call}");
         });
@@ -1240,6 +1282,7 @@ mod tests {
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use crate::utils::SliceDisplay;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1347,12 +1390,19 @@ mod tests {
         let (module, errors) = parse_with_errors("resources/test/test14.rasm");
 
         assert!(!errors.is_empty());
+        for error in errors {
+            println!("{error}");
+        }
 
-        let f_def0 = module.functions.get(0).unwrap();
-        assert_eq!(f_def0.original_name, "sum");
+        Parser::print_module(&module);
 
-        let f_def1 = module.functions.get(1).unwrap();
-        assert_eq!(f_def1.original_name, "anotherFunction");
+        let function_names = module
+            .functions
+            .iter()
+            .map(|it| it.original_name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(vec!["fun1", "fun2", "fun3"], function_names);
     }
 
     fn parse(source: &str) -> ASTModule {

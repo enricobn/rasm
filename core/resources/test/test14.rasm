@@ -1,7 +1,11 @@
-fn sum(value: i32) -> i32 {
+fn fun1(value: i32) -> i32 {
     value.
 }
 
-fn anotherFunction() -> str {
+fn fun2(value: i32) -> i32 {
+    let result = value.
+}
+
+fn fun3() -> str {
     "a string";
 }

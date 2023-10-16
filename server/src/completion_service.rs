@@ -272,7 +272,7 @@ impl CompletionService {
         val_context: &TypedValContext,
         expected_type: Option<ASTTypedType>,
         statics: &mut Statics,
-    ) {
+    ) -> Result<(), TypeCheckError> {
         match expr {
             ASTTypedExpression::StringLiteral(value) => {
                 // TODO we need an index
@@ -293,28 +293,32 @@ impl CompletionService {
                     {
                         (parameters, return_type.deref().clone())
                     } else {
-                        panic!("type of reference '{}' expected to be a lambda but is {ast_typed_type}", call.function_name);
+                        return Err(TypeCheckError::new(format!("type of reference '{}' expected to be a lambda but is {ast_typed_type}", call.function_name)));
                     }
                 } else {
-                    let function = module
-                        .functions_by_name
-                        .get(&call.function_name)
-                        .unwrap_or_else(|| panic!("cannot find function {}", call.function_name));
-                    (
-                        function
-                            .parameters
-                            .iter()
-                            .map(|it| it.ast_type.clone())
-                            .collect(),
-                        function.return_type.clone(),
-                    )
+                    match module.functions_by_name.get(&call.function_name) {
+                        None => {
+                            return Err(TypeCheckError::new(format!(
+                                "cannot find function {}",
+                                call.function_name
+                            )));
+                        }
+                        Some(function) => (
+                            function
+                                .parameters
+                                .iter()
+                                .map(|it| it.ast_type.clone())
+                                .collect(),
+                            function.return_type.clone(),
+                        ),
+                    }
                 };
                 completable_items.push(CompletableItem::new(
                     call.index.mv(-(call.original_function_name.len() as i32)),
                     call.index.clone(),
                     ast_typed_type,
                 ));
-                call.parameters.iter().enumerate().for_each(|(i, it)| {
+                for (i, it) in call.parameters.iter().enumerate() {
                     Self::process_expression(
                         module,
                         completable_items,
@@ -322,8 +326,8 @@ impl CompletionService {
                         val_context,
                         parameters.get(i).cloned(),
                         statics,
-                    )
-                });
+                    )?
+                }
             }
             ASTTypedExpression::ValueRef(name, index) => {
                 val_context.get(name).iter().for_each(|it| match it {
@@ -375,6 +379,7 @@ impl CompletionService {
                 }
             }
         }
+        Ok(())
     }
 
     fn process_function(
