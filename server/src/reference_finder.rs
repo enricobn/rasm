@@ -57,14 +57,12 @@ impl ReferenceFinder {
                     let mut items = Vec::new();
                     for function in self.module.functions() {
                         if !function.parameters.is_empty() {
-                            if let Ok(value) =
-                                filter.almost_equal(&function.parameters.get(0).unwrap().ast_type)
-                            {
+                            let parameter_type = &function.parameters.get(0).unwrap().ast_type;
+                            if let Ok(value) = filter.almost_equal(parameter_type) {
                                 if value {
-                                    items.push(CompletionItem {
-                                        value: function.original_name.clone(),
-                                        descr: format!("{function}"),
-                                    });
+                                    if let Some(item) = CompletionItem::for_function(function) {
+                                        items.push(item);
+                                    }
                                 }
                             }
                         }

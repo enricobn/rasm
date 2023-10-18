@@ -15,9 +15,8 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
-    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
-    ValueType,
+    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::generic_types_matcher;
@@ -1106,14 +1105,17 @@ impl Parser {
                 if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
                     (
                         ValueType::F32((n.to_owned() + "." + n1).parse().map_err(|err| {
-                            format!("Cannot parse '{n}.{n1}' as an f32: {}", self.get_index(0))
+                            format!(
+                                "Cannot parse '{n}.{n1}' as an f32, {err}: {}",
+                                self.get_index(0)
+                            )
                         })?),
                         self.get_i() + 3,
                     )
                 } else {
                     (
                         ValueType::I32(n.parse().map_err(|err| {
-                            format!("Cannot parse '{n}' as an i32: {}", self.get_index(0))
+                            format!("Cannot parse '{n}' as an i32, {err}: {}", self.get_index(0))
                         })?),
                         self.get_i() + 1,
                     )
@@ -1121,7 +1123,7 @@ impl Parser {
             } else {
                 (
                     ValueType::I32(n.parse().map_err(|err| {
-                        format!("Cannot parse '{n}' as an i32: {}", self.get_index(0))
+                        format!("Cannot parse '{n}' as an i32, {err}: {}", self.get_index(0))
                     })?),
                     self.get_i() + 1,
                 )
@@ -1282,7 +1284,6 @@ mod tests {
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::SliceDisplay;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();

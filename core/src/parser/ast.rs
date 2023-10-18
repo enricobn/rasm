@@ -25,7 +25,7 @@ pub struct ASTFunctionDef {
 
 impl Display for ASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let pt = if self.generic_types.is_empty() {
+        let generic_types = if self.generic_types.is_empty() {
             "".into()
         } else {
             format!("<{}>", self.generic_types.join(","))
@@ -43,7 +43,7 @@ impl Display for ASTFunctionDef {
             .map(|it| format!("{}", it))
             .collect::<Vec<String>>()
             .join(",");
-        f.write_str(&format!("{}{pt}({args}) -> {rt}", self.name))
+        f.write_str(&format!("{}{generic_types}({args}) -> {rt}", self.name))
     }
 }
 

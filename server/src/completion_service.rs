@@ -25,7 +25,8 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
-use rasm_core::parser::ast::{ASTIndex, ASTType};
+use rasm_core::new_type_check2;
+use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType};
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::type_check::typed_ast::{
@@ -36,6 +37,26 @@ use rasm_core::type_check::typed_ast::{
 pub struct CompletionItem {
     pub value: String,
     pub descr: String,
+    pub sort: Option<String>,
+    pub replace: Option<String>,
+}
+
+impl CompletionItem {
+    pub fn for_function(function: &ASTFunctionDef) -> Option<Self> {
+        if function.parameters.is_empty() {
+            return None;
+        }
+        let parameter_type = &function.parameters.get(0).unwrap().ast_type;
+        let coeff = new_type_check2::TypeCheck::generic_type_coeff(parameter_type);
+        let sort_value = format!("{:0>20}{}", coeff, function.original_name);
+
+        Some(CompletionItem {
+            value: function.original_name.clone(),
+            descr: format!("{function}"),
+            sort: Some(sort_value),
+            replace: None,
+        })
+    }
 }
 
 pub enum CompletionResult {
@@ -126,8 +147,7 @@ impl CompletionService {
                                 )
                                 .unwrap()
                     })
-                    .map(|it| (it.original_name.clone(), format!("{it}")))
-                    .map(|(value, descr)| CompletionItem { value, descr })
+                    .filter_map(|it| CompletionItem::for_function(it))
                     .collect::<Vec<_>>();
 
                 if completion_items.is_empty() {
@@ -424,10 +444,13 @@ mod tests {
     use rasm_core::codegen::backend::BackendNasm386;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::parser::ast::ASTIndex;
+    use rasm_core::parser::ast::{
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
+    };
     use rasm_core::project::project::RasmProject;
+    use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
 
-    use crate::completion_service::{CompletionResult, CompletionService};
+    use crate::completion_service::{CompletionItem, CompletionResult, CompletionService};
 
     #[test]
     fn test_simple() {
@@ -459,6 +482,35 @@ mod tests {
         } else {
             panic!();
         }
+    }
+
+    #[test]
+    fn test_completion_item_for_function() {
+        let function1 = ASTFunctionDef {
+            original_name: "add".to_string(),
+            name: "add_0".to_string(),
+            parameters: vec![ASTParameterDef {
+                name: "par".to_string(),
+                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_index: ASTIndex::none(),
+            }],
+            return_type: ASTType::Unit,
+            body: ASTFunctionBody::RASMBody(vec![]),
+            inline: false,
+            generic_types: vec![],
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+        };
+
+        let mut function2 = function1.clone();
+        function2.parameters = vec![ASTParameterDef {
+            name: "par".to_string(),
+            ast_type: ASTType::Generic("T".to_string()),
+            ast_index: ASTIndex::none(),
+        }];
+
+        CompletionItem::for_function(&function1).unwrap();
+        CompletionItem::for_function(&function2).unwrap();
     }
 
     fn get_completion_service(source: &str) -> CompletionService {

@@ -87,7 +87,8 @@ impl TypeCheck {
         for default_function in default_functions {
             let call = default_function.to_call();
 
-            if let Some(f) = module.find_precise_function(&call.function_name, &call.function_name)
+            if let Some(f) =
+                module.find_precise_function(&call.original_function_name, &call.function_name)
             {
                 // TODO check error
                 let mut def = f.clone();
@@ -97,7 +98,7 @@ impl TypeCheck {
 
                 self.module
                     .functions_by_name
-                    .add_function(call.function_name.clone(), def);
+                    .add_function(call.original_function_name.clone(), def);
                 self.functions_stack.insert(new_function_name, vec![]);
             } else {
                 return Err(TypeCheckError::from(format!(
