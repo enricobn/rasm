@@ -16,7 +16,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
-use crate::parser::ast::{ASTIndex, ASTModule};
+use crate::parser::ast::{ASTIndex, ASTModule, ASTStatement};
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
 
@@ -140,7 +140,11 @@ impl RasmProject {
 
                     let (entry_module, mut module_errors) =
                         Self::module_from_file(&path.canonicalize().unwrap());
-                    let has_body = !entry_module.body.is_empty();
+                    // const statements are allowed
+                    let has_body = entry_module.body.iter().any(|it| match it {
+                        ASTStatement::Expression(_) => false,
+                        ASTStatement::LetStatement(_, _, is_const, _) => !is_const,
+                    });
 
                     if body {
                         if path.canonicalize().unwrap()
