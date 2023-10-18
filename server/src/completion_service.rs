@@ -26,7 +26,7 @@ use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
 use rasm_core::new_type_check2;
-use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType};
+use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::type_check::typed_ast::{
@@ -38,7 +38,7 @@ pub struct CompletionItem {
     pub value: String,
     pub descr: String,
     pub sort: Option<String>,
-    pub replace: Option<String>,
+    pub insert: Option<String>,
 }
 
 impl CompletionItem {
@@ -52,10 +52,56 @@ impl CompletionItem {
 
         Some(CompletionItem {
             value: function.original_name.clone(),
-            descr: format!("{function}"),
+            descr: Self::function_descr(function),
             sort: Some(sort_value),
-            replace: None,
+            insert: Some(Self::function_insert(function)),
         })
+    }
+
+    fn function_descr(function: &ASTFunctionDef) -> String {
+        let generic_types = if function.generic_types.is_empty() {
+            "".into()
+        } else {
+            format!("<{}>", function.generic_types.join(","))
+        };
+
+        let rt = if function.return_type != ASTType::Unit {
+            format!("{}", function.return_type)
+        } else {
+            "()".into()
+        };
+
+        let args = function
+            .parameters
+            .iter()
+            .map(|it| format!("{}", it))
+            .collect::<Vec<String>>()
+            .join(",");
+        format!("{}{generic_types}({args}) -> {rt}", function.original_name)
+    }
+
+    fn function_insert(function: &ASTFunctionDef) -> String {
+        let args = function
+            .parameters
+            .iter()
+            .map(|it| match &it.ast_type {
+                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type: _,
+                }) => {
+                    let par_names = parameters
+                        .iter()
+                        .enumerate()
+                        .map(|(pos, ast_type)| format!("par{pos}"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!("{{ {par_names} -> \n}}")
+                }
+                _ => it.name.clone(),
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!("{}({args})", function.original_name)
     }
 }
 
