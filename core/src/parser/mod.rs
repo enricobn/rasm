@@ -26,7 +26,7 @@ use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::utils::SliceDisplay;
+use crate::utils::{OptionDisplay, SliceDisplay};
 
 mod asm_def_parser;
 pub mod ast;
@@ -79,31 +79,31 @@ impl Display for ParserData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ParserData::EnumDef(e) => {
-                write!(f, "EnumDef({})", e.name)
+                write!(f, "EnumDef({}): {}", e.name, e.index)
             }
             ParserData::FunctionCall(call) => {
-                write!(f, "FunctionCall({})", call)
+                write!(f, "FunctionCall({}): {}", call, call.index)
             }
             ParserData::FunctionDef(def) => {
-                write!(f, "FunctionDef({})", def)
+                write!(f, "FunctionDef({}): {}", def, def.index)
             }
             ParserData::FunctionDefParameter(def) => {
-                write!(f, "FunctionDefParameter({})", def)
+                write!(f, "FunctionDefParameter({}): {}", def, def.ast_index)
             }
             ParserData::LambdaDef(def) => {
-                write!(f, "LambdaDef({})", def)
+                write!(f, "LambdaDef({}): {}", def, def.index)
             }
-            ParserData::Let(name, _, _) => {
-                write!(f, "Let({})", name)
+            ParserData::Let(name, _, index) => {
+                write!(f, "Let({}): {index}", name)
             }
             ParserData::StructDef(s) => {
-                write!(f, "StructDef({})", s.name)
+                write!(f, "StructDef({}): {}", s.name, s.index)
             }
             ParserData::Expression(e) => {
-                write!(f, "Expression({})", e)
+                write!(f, "Expression({}): {}", e, e.get_index())
             }
             ParserData::Statement(s) => {
-                write!(f, "Statement({})", s)
+                write!(f, "Statement({}): {}", s, s.get_index())
             }
         }
     }
@@ -430,8 +430,23 @@ impl Parser {
 
     fn add_error(&mut self, message: String) {
         debug_i!("parser error: {message}");
+        println!(
+            "parser error {message}: {}",
+            OptionDisplay(
+                &self
+                    .file_name
+                    .clone()
+                    .map(|it| it.to_string_lossy().to_string())
+            )
+        );
+
+        let index = self
+            .get_token_n(0)
+            .map(|it| it.index())
+            .unwrap_or_else(|| ASTIndex::new(self.file_name.clone(), 0, 0));
+
         self.errors.push(CompilationError {
-            index: self.get_index(0),
+            index,
             error_kind: CompilationErrorKind::Parser(message),
         });
     }
@@ -806,7 +821,6 @@ impl Parser {
         }
         Ok(())
     }
-
     fn process_function_def(&mut self, token: Token) -> Result<(), String> {
         if let Some(ParserData::FunctionDefParameter(param_def)) = self.last_parser_data() {
             if let Some(ParserData::FunctionDef(mut def)) = self.before_last_parser_data() {
@@ -815,7 +829,10 @@ impl Parser {
                 self.parser_data[l - 2] = ParserData::FunctionDef(def);
                 self.parser_data.pop();
             } else {
-                return Err("Expected to be inside a function def".to_string());
+                return Err(format!(
+                    "Expected to be inside a function def, but {}",
+                    OptionDisplay(&self.before_last_parser_data())
+                ));
             }
         } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
             if let Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) =
@@ -849,7 +866,10 @@ impl Parser {
                 self.state.pop();
                 self.i += 1;
             } else {
-                return Err("Expected to be inside a function def".to_string());
+                return Err(format!(
+                    "Expected to be inside a function def, but {}",
+                    OptionDisplay(&self.last_parser_data())
+                ));
             }
         } else if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             self.state.push(ParserState::FunctionDefParameter);
@@ -859,7 +879,10 @@ impl Parser {
             self.parser_data.pop();
             self.state.pop();
         } else {
-            return Err("Expected to be inside a function def".to_string());
+            return Err(format!(
+                "Expected to be inside a function def, but {}",
+                OptionDisplay(&self.last_parser_data())
+            ));
         }
         Ok(())
     }
