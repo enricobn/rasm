@@ -1,0 +1,3 @@
+let c = 'p';
+
+println(c.eq('\n'));

@@ -227,10 +227,8 @@ impl RasmProject {
         let main_path = Path::new(&main_file);
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
-                let lexer_errors = lexer.get_errors().clone();
                 let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
-                let (module, mut errors) = parser.parse(main_path);
-                errors.extend(lexer_errors);
+                let (module, errors) = parser.parse(main_path);
                 (module, errors)
             }
             Err(err) => {

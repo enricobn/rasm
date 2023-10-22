@@ -1,0 +1,15 @@
+fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond: bool, fElseIf: fn() -> T, ffalse: fn() -> T) -> T {
+    if(cond, ftrue, { -> if(elseIfCond, fElseIf, ffalse); });
+}
+
+fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond1: bool, fElseIf1: fn() -> T, elseIfCond2: bool, fElseIf2: fn() -> T, ffalse: fn() -> T) -> T {
+    if(cond, ftrue, elseIfCond1, { -> if(elseIfCond2, fElseIf1, fElseIf2); }, ffalse);
+}
+
+/**
+    ATTENTION: it is not short circuit, it always evaluates both arguments,
+    if you need a short circuit then use the version with lambda
+**/
+fn if<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueElse: T) -> T {
+    if(cond, trueValue, if(elseIfCond, valueElseIf, valueElse));
+}

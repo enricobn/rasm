@@ -161,7 +161,11 @@ async fn file(
 
         let lexer = Lexer::new(s, Some(file_path.clone()));
 
-        lexer.for_each(|it| {
+        // TODO errors
+
+        let (tokens, errors_) = lexer.process();
+
+        tokens.into_iter().for_each(|it| {
             let index = ASTIndex {
                 file_name: Some(file_path.to_path_buf()),
                 row: it.row,

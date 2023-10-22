@@ -11,6 +11,8 @@ match(substr("first\nsecond\nthird\n", 13, 5), { v -> println(v);}, { -> println
 println(nextChar("1", 0));
 println(nextChar("è", 0));
 println(nextChar("☀", 0));
+println(nextChar("😀", 0));
+println(nextChar("1", 1));
 println(eq("Hello", "Hello"));
 println(eq("Hell", "Hello"));
 println(eq("Hello", "Hell"));

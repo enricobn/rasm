@@ -234,9 +234,25 @@ impl TypeCheck {
             return Ok(call.clone());
         }
 
-        if val_context.is_lambda(&call.function_name) {
+        if let Some((_return_type, parameters_types)) = val_context.get_lambda(&call.function_name)
+        {
             dedent!();
-            return Ok(call.clone());
+            let new_expressions: Vec<ASTExpression> =
+                zip(call.parameters.iter(), parameters_types.clone().iter())
+                    .map(|(it, ast_type)| {
+                        self.transform_expression(module, it, val_context, statics, Some(ast_type))
+                    })
+                    .collect::<Result<Vec<_>, TypeCheckError>>()
+                    .map_err(|it| {
+                        it.add(format!(
+                            "converting expressions in call {} : {}",
+                            call.original_function_name, call.index
+                        ))
+                    })?;
+
+            let mut new_call = call.clone();
+            new_call.parameters = new_expressions;
+            return Ok(new_call);
         }
 
         self.stack.push(format!("{}", call.index));

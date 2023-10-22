@@ -90,6 +90,29 @@ impl ValContext {
         }
         false
     }
+
+    pub fn get_lambda(&self, key: &str) -> Option<(&Box<ASTType>, &Vec<ASTType>)> {
+        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                return_type,
+                parameters,
+            }) = &par.ast_type
+            {
+                return Some((return_type, parameters));
+            }
+        }
+
+        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                return_type,
+                parameters,
+            }) = ast_type
+            {
+                return Some((return_type, parameters));
+            }
+        }
+        None
+    }
 }
 
 #[derive(Clone, Debug)]

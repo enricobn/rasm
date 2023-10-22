@@ -74,6 +74,11 @@ fn test_lambda_3() {
 }
 
 #[test]
+fn test_lambda1() {
+    run_test("lambda1", vec![], "10\n");
+}
+
+#[test]
 fn test_lambda_params() {
     run_test("lambda_params", vec!["20"], "35\n");
 }
@@ -200,7 +205,7 @@ fn test_str() {
     run_test(
         "str",
         Vec::new(),
-        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n3\n4\ntrue\nfalse\nfalse\nfalse\n9999\n     Hello\n-10\na'a\na\"a\n",
+        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n2\n3\n4\n0\ntrue\nfalse\nfalse\nfalse\n9999\n     Hello\n-10\na'a\na\"a\n",
     );
 }
 
@@ -252,6 +257,10 @@ fn test_vec2() {
     run_test("vec2", vec![], "\n\n");
 }
 
+#[test]
+fn test_vec3() {
+    run_test("vec3", vec![], "1\n😀\nè\n5\n4\n");
+}
 #[test]
 fn test_vec_combine() {
     run_test("vec_combine", vec![], "6,6,\n0,1,2,1,2,3,\n");

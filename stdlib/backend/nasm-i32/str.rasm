@@ -115,10 +115,11 @@ asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
 /**
  *  returns the offset (in bytes, not chars) of the next char
  *  given an offset from the start of the string.
+ *  Returns 0 if it's the end of the string.
+ *  TODO handle beyond the end of the string.
  *  It is used to handle UTF-8 encoding
  **/
 asm nextChar(s: str, offset: i32) -> i32 /{
-    mov     eax,$offset
 
     push    ebx
     push    ecx
@@ -129,23 +130,29 @@ asm nextChar(s: str, offset: i32) -> i32 /{
     mov     dword ebx,[ebx]
     add     ebx, $offset
 
+    mov     dword eax,0
     mov     cl,[ebx]
-    and     cl,128+64+32
-    cmp     cl,128+64+32
+    cmp     cl,0
+    je      .end
+
+    mov     eax,$offset
+
+    and     cl,128+64+32+16
+    cmp     cl,128+64+32+16
     jne     .b2
     add     eax, 4
     jmp     .end
 .b2:
     mov     cl,[ebx]
-    and     cl,128+64
-    cmp     cl,128+64
+    and     cl,128+64+32
+    cmp     cl,128+64+32
     jne     .b3
     add     eax, 3
     jmp     .end
 .b3:
     mov     cl,[ebx]
-    and     cl,128
-    cmp     cl,128
+    and     cl,128+64
+    cmp     cl,128+64
     jne      .b4
     add     eax, 2
     jmp     .end
@@ -189,6 +196,26 @@ inline asm eq(a: char, b: char) -> bool /{
     mov     eax,1 ; true
     je      $+7  ; Jump if equals
     mov     eax,0 ; false
+}/
+
+asm len(s: str) -> i32 /{
+    push    ebx
+    push    ecx
+
+    mov     dword ebx, 0    ; the count
+    mov     dword ecx, 0    ; the offset
+.loop:
+    $call(nextChar, $s, ecx)
+    cmp     dword eax,0
+    jz      .end
+    mov     dword ecx,eax
+    inc     ebx
+    jmp      .loop
+.end:
+    mov     eax,ebx
+
+    pop     ecx
+    pop     ebx
 }/
 
 fn toString(s: str) -> str {

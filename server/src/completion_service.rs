@@ -84,6 +84,7 @@ impl CompletionItem {
         let args = function
             .parameters
             .iter()
+            .skip(1)
             .map(|it| match &it.ast_type {
                 ASTType::Builtin(BuiltinTypeKind::Lambda {
                     parameters,
@@ -92,16 +93,16 @@ impl CompletionItem {
                     let par_names = parameters
                         .iter()
                         .enumerate()
-                        .map(|(pos, ast_type)| format!("par{pos}"))
+                        .map(|(pos, _ast_type)| format!("par{pos}"))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    format!("{{ {par_names} -> \n}}")
+                    format!("\n    {{ {par_names} -> }}")
                 }
                 _ => it.name.clone(),
             })
             .collect::<Vec<String>>()
             .join(", ");
-        format!("{}({args})", function.original_name)
+        format!("{}({args});", function.original_name)
     }
 }
 

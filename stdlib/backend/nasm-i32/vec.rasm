@@ -12,6 +12,22 @@ asm vecOf<T>(value: T) -> Vec<T> /{
     pop     eax
 }/
 
+asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
+    $call(malloc, 12, " for vecOf 2")
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 2
+
+    push    ebx
+
+    mov     dword ebx, $v1
+    mov     dword [eax + 4], ebx
+    mov     dword ebx, $v2
+    mov     dword [eax + 8], ebx
+    pop     ebx
+    pop     eax
+}/
+
 asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     $call(malloc, 16, " for vecOf")
     push    eax
@@ -27,6 +43,42 @@ asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     mov     dword [eax + 12], ebx
     pop     ebx
 
+    pop     eax
+}/
+
+asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
+    $call(malloc, 36, " for vecOf 8")
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 8
+
+    push    ebx
+
+    mov     dword ebx, $v1
+    mov     dword [eax + 4], ebx
+
+    mov     dword ebx, $v2
+    mov     dword [eax + 8], ebx
+
+    mov     dword ebx, $v3
+    mov     dword [eax + 12], ebx
+
+    mov     dword ebx, $v4
+    mov     dword [eax + 16], ebx
+
+    mov     dword ebx, $v5
+    mov     dword [eax + 20], ebx
+
+    mov     dword ebx, $v6
+    mov     dword [eax + 24], ebx
+
+    mov     dword ebx, $v7
+    mov     dword [eax + 28], ebx
+
+    mov     dword ebx, $v8
+    mov     dword [eax + 32], ebx
+
+    pop     ebx
     pop     eax
 }/
 
@@ -255,58 +307,6 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     pop     ebx
 }/
 
-asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
-    $call(malloc, 12, " for vecOf 2")
-    push    eax
-    mov     dword eax, [eax]
-    mov     dword [eax], 2
-
-    push    ebx
-
-    mov     dword ebx, $v1
-    mov     dword [eax + 4], ebx
-    mov     dword ebx, $v2
-    mov     dword [eax + 8], ebx
-    pop     ebx
-    pop     eax
-}/
-
-asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
-    $call(malloc, 36, " for vecOf 8")
-    push    eax
-    mov     dword eax, [eax]
-    mov     dword [eax], 8
-
-    push    ebx
-
-    mov     dword ebx, $v1
-    mov     dword [eax + 4], ebx
-
-    mov     dword ebx, $v2
-    mov     dword [eax + 8], ebx
-
-    mov     dword ebx, $v3
-    mov     dword [eax + 12], ebx
-
-    mov     dword ebx, $v4
-    mov     dword [eax + 16], ebx
-
-    mov     dword ebx, $v5
-    mov     dword [eax + 20], ebx
-
-    mov     dword ebx, $v6
-    mov     dword [eax + 24], ebx
-
-    mov     dword ebx, $v7
-    mov     dword [eax + 28], ebx
-
-    mov     dword ebx, $v8
-    mov     dword [eax + 32], ebx
-
-    pop     ebx
-    pop     eax
-}/
-
 asm flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     $call(vecFlattenCreate, $vec:i32)
     push    eax
@@ -388,7 +388,7 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     pop     ebx
 }/
 
-asm length<T>(vec: Vec<T>) -> i32 /{
+asm len<T>(vec: Vec<T>) -> i32 /{
       mov     dword eax, $vec
       mov     dword eax, [eax]
       mov     dword eax, [eax]
@@ -498,9 +498,9 @@ asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> 
     push    esi
     push    edi
 
-    $call(length, $vec1)
+    $call(len, $vec1)
     mov     dword ebx, eax
-    $call(length, $vec2)
+    $call(len, $vec2)
     $call(min, ebx, eax)
     push    eax                 ; the size of the new vec
 
@@ -558,16 +558,16 @@ asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     push    ecx
     push    edx
 
-    $call(length, $vec1)
+    $call(len, $vec1)
     mov     dword ebx, eax
-    $call(length, $vec2)
+    $call(len, $vec2)
     add     dword eax, ebx
     push    eax                 ; the size of the new vec
 
     inc     eax                 ; + 1 for the size
     add     eax, eax
     add     eax, eax
-    $call(malloc, eax, " for vec add)
+    $call(malloc, eax, " for vec add")
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     $call(addRef, eax, "for vec add")
     pop     ecx                 ; the size of the new vec
@@ -600,6 +600,68 @@ asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     mov     dword ebx, [eax]
     mov     dword [ebx], ecx
 
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+asm charsVec(s: str) -> Vec<char> /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    $call(len, $s)
+    mov     dword ebx, eax
+    inc     ebx
+    add     ebx, ebx
+    add     ebx, ebx
+    $call(malloc, ebx, "for charsVec")
+    ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
+    $call(addRef, eax, "for charsVec")
+
+    push    eax
+
+    mov     dword ecx,[eax]     ; the nex address in the vec
+    add     dword ecx,4
+    mov     dword edx,0         ; the offset
+.loop:
+    ; $call(println, edx)
+
+    $call(nextChar, $s, edx)
+    cmp     dword eax,0
+    jz      .end
+
+    push    eax                 ; the next offset
+    mov     dword ebx,$s
+    mov     dword ebx,[ebx]
+    add     dword ebx,edx       ; the source
+
+    sub     eax,edx             ; the len to copy
+
+    mov     dword [ecx],0       ; I initialize it with 4 zeroes
+    $call(memcopy, ebx, ecx, eax)
+
+    pop     edx
+    add     ecx,4
+    jmp     .loop
+
+.end:
+    ; $call(println, "end")
+    pop     eax
+    $call(deref, eax, "for charsVec")
+
+    ; we set the length
+    push    eax
+    $call(len, $s)
+    mov     ebx,eax
+    pop     eax
+
+    push    eax
+    mov     dword eax,[eax]
+    mov     dword [eax],ebx
+    pop     eax
+
+    ; $call(println, "end1")
     pop     edx
     pop     ecx
     pop     ebx

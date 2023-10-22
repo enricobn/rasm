@@ -4,6 +4,8 @@ fn fun1(value: i32) -> i32 {
 
 fn fun2(value: i32) -> i32 {
     let result = value.
+
+    10;
 }
 
 fn fun3() -> str {

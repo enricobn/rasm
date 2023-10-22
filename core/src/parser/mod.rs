@@ -126,7 +126,10 @@ enum ParserState {
 
 impl Parser {
     pub fn new(lexer: Lexer, file_name: Option<PathBuf>) -> Self {
-        let tokens = lexer
+        let (lexer_tokens, lexer_errors) = lexer.process();
+
+        let tokens = lexer_tokens
+            .into_iter()
             .filter(|it| {
                 !matches!(
                     it.kind,
@@ -167,18 +170,14 @@ impl Parser {
             included_files,
             function_def_matcher,
             enum_parser: EnumParser::new(),
-            errors: Vec::new(),
+            errors: lexer_errors,
         }
     }
 
     pub fn parse(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
-        self.errors = Vec::new();
-        self.body = Vec::new();
-        self.functions = Vec::new();
-        self.i = 0;
-        self.parser_data = Vec::new();
-        self.state = Vec::new();
-
+        if self.i > 0 {
+            panic!("Cannot parse twice");
+        }
         let last_token = Token::new(TokenKind::EndOfLine, Some(path.to_path_buf()), 0, 0);
 
         let mut count = 0;

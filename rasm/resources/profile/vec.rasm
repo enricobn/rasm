@@ -14,7 +14,7 @@ printAllocated();
 
 fn main() {
     let points = points(atoi(argv(1)));
-    println(points.length);
+    println(points.len);
 }
 
 fn points(count: i32) -> Vec<Point> {

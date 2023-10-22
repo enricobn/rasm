@@ -602,8 +602,10 @@ struct TypeParserHelper {
 impl TypeParserHelper {
     fn new(file_name: Option<PathBuf>, type_str: &str) -> Self {
         let lexer = Lexer::new(type_str.into(), file_name);
+        // TODO errors
+        let (tokens, _errors) = lexer.process();
         Self {
-            type_tokens: lexer.collect(),
+            type_tokens: tokens,
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -19,6 +20,15 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn compile(project: RasmProject, out: PathBuf, only_compile: bool) {
+        if out.exists() {
+            let _ = fs::remove_file(&out);
+        }
+
+        let executable = out.with_extension("");
+        if executable.exists() {
+            let _ = fs::remove_file(&executable);
+        }
+
         let path_buf = project.resource_folder().clone();
         let compiler = Compiler { project, out };
         compiler._compile(path_buf, only_compile)
@@ -32,6 +42,13 @@ impl Compiler {
         let mut backend = BackendNasm386::new(debug_asm);
         let mut statics = Statics::new();
         let (modules, errors) = self.project.get_all_modules(&mut backend, &mut statics);
+
+        if !errors.is_empty() {
+            for error in errors {
+                eprintln!("{error}");
+            }
+            panic!()
+        }
 
         let enhanced_astmodule = EnhancedASTModule::new(modules, resource_folder);
 

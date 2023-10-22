@@ -211,3 +211,7 @@ fn replace<T>(list: List<T>, new: T) -> Pair<Option<T>, List<T>> {
         { -> Pair(Option::None(), list); }
     );
 }
+
+fn len<T>(list: List<T>) -> i32 {
+    list.foldLeft(0, { prec, e -> prec.add(1);});
+}

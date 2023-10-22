@@ -1,0 +1,3 @@
+let v = charsVec("1😀è54");
+
+v.forEach({ it -> println(it);});

@@ -19,7 +19,7 @@ println(filter(vecRange(0, 10), { n -> eq(n, 5);}));
 
 println(vecOf(10, 15, 21, 2, 2, 1, 4, 5));
 
-println(length(vecRange(0, 10)));
+println(len(vecRange(0, 10)));
 
 let vecOfVecs = vecOf(vecOf(1), vecOf(2, 3));
 println(flatten(vecOfVecs));
