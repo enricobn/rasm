@@ -205,7 +205,7 @@ fn test_str() {
     run_test(
         "str",
         Vec::new(),
-        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n2\n3\n4\n0\ntrue\nfalse\nfalse\nfalse\n9999\n     Hello\n-10\na'a\na\"a\n",
+        "😀\nHello world!\nHello world!\n12\nfirst\nsecond\nthird\n1\n2\n3\n4\n0\ntrue\nfalse\nfalse\nfalse\n9999\n     Hello\n-10\na'a\na\"a\nHello1è☀😀world\n",
     );
 }
 

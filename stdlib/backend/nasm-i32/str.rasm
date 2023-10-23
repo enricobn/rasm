@@ -218,6 +218,37 @@ asm len(s: str) -> i32 /{
     pop     ebx
 }/
 
+asm add(s: str, c: char) -> str /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    $call(slen, $s)
+    mov     ebx, eax
+    add     ebx, 5
+
+    $call(malloc,ebx, " for add(str,char)")
+    push    eax
+
+    mov     dword ecx,$s
+    mov     dword ecx,[ecx]
+    sub     ebx,5
+    $call(memcopy,ecx,[eax],ebx)
+
+    mov     dword eax,[eax]
+    add     eax,ebx
+    mov     dword ebx,$c
+    mov     dword [eax],ebx
+    add     eax,4
+    mov     byte [eax],10
+
+    pop     eax
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
 fn toString(s: str) -> str {
     s;
 }
