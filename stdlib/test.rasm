@@ -1,0 +1,29 @@
+fn assertTrue(value: bool) {
+    ifRun(value,{ -> },{ ->
+        println("assertion failed");
+        exitMain(1);
+    });
+}
+
+fn assertFalse(value: bool) {
+    ifRun(value,{ ->
+        println("assertion failed");
+        exitMain(1);
+    }, { -> });
+}
+
+fn assertTrue(message: str, value: bool) {
+    ifRun(value,{ -> },{ ->
+        print("assertion failed: ");
+        println(message);
+        exitMain(1);
+    });
+}
+
+fn assertFalse(message: str, value: bool) {
+    ifRun(value,{ ->
+        print("assertion failed: ");
+        println(message);
+        exitMain(1);
+    }, { -> });
+}

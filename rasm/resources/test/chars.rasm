@@ -5,3 +5,23 @@ println(eq('A', 'A'));
 println(eq('A', 'b'));
 
 println(chars("Hello"));
+
+assertTrue('A'.isAlpha());
+assertTrue('Z'.isAlpha());
+assertTrue('a'.isAlpha());
+assertTrue('b'.isAlpha());
+assertFalse('0'.isAlpha());
+assertFalse('_'.isAlpha());
+
+assertTrue('0'.isNumber());
+assertTrue('9'.isNumber());
+assertFalse('a'.isNumber());
+assertFalse('A'.isNumber());
+
+assertTrue('a'.isAlphaNumeric());
+assertTrue('B'.isAlphaNumeric());
+assertTrue('0'.isAlphaNumeric());
+assertTrue('1'.isAlphaNumeric());
+
+assertFalse('_'.isAlphaNumeric());
+assertFalse('@'.isAlphaNumeric());

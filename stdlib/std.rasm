@@ -36,20 +36,6 @@ fn print(file: File, b: bool) -> Option<IOError> {
     if(b, { -> print(file, "true");}, { -> print(file, "false");});
 }
 
-fn assert(value: bool) {
-    ifRun(value,{ -> },{ ->
-        println("assertion failed");
-        exitMain(1);
-    });
-}
-
-fn assertFalse(value: bool) {
-    ifRun(value,{ ->
-        println("assertion failed");
-        exitMain(1);
-    }, { -> });
-}
-
 fn with<T,O>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }

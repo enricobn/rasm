@@ -2,3 +2,31 @@ fn padLeft(s: str, len: i32) -> str {
     let l = slen(s);
     if(not(less(l, len)), s, { -> padLeft(add(" ", s), len);});
 }
+
+fn isWhiteSpace(c: char) -> bool {
+    c.eq(' ').or(c.eq('\t'));
+}
+
+fn isAlphaNumeric(c: char) -> bool {
+    c.isAlpha().or(c.isNumber());
+}
+
+fn toString(s: str) -> str {
+    s;
+}
+
+fn add<T1,T2>(a: T1, b: T2) -> str {
+    add(toString(a), toString(b));
+}
+
+fn add<T1,T2,T3>(a: T1, b: T2, c: T3) -> str {
+    add(add(toString(a), toString(b)), toString(c));
+}
+
+fn add<T1,T2,T3,T4>(a: T1, b: T2, c: T3, d: T4) -> str {
+    add(add(toString(a), toString(b)), add(toString(c), toString(d)));
+}
+
+fn print<T>(file: File, s: T) -> Option<IOError> {
+    print(file, toString(s));
+}

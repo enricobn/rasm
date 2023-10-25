@@ -430,15 +430,6 @@ impl Parser {
 
     fn add_error(&mut self, message: String) {
         debug_i!("parser error: {message}");
-        println!(
-            "parser error {message}: {}",
-            OptionDisplay(
-                &self
-                    .file_name
-                    .clone()
-                    .map(|it| it.to_string_lossy().to_string())
-            )
-        );
 
         let index = self
             .get_token_n(0)

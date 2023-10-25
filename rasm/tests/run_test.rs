@@ -506,6 +506,9 @@ fn execute(executable: &str, args: Vec<&str>, expected_output: Option<&str>) {
         .output()
         .expect(&failure_message);
 
+    if !output.status.success() {
+        println!("{}", String::from_utf8_lossy(&output.stdout));
+    }
     assert!(output.status.success());
 
     if let Some(eo) = expected_output {

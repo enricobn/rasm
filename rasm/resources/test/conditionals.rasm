@@ -25,13 +25,13 @@ println(if(true, 100, 200));
 
 // TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
 assertFalse(or(false, false));
-assert(or(true, false));
-assert(or(false, true));
-assert(or(true, true));
+assertTrue(or(true, false));
+assertTrue(or(false, true));
+assertTrue(or(true, true));
 
 assertFalse(and(false, false));
 assertFalse(and(true, false));
 assertFalse(and(false, true));
-assert(and(true, true));
-assert(not(false));
+assertTrue(and(true, true));
+assertTrue(not(false));
 assertFalse(not(true));

@@ -246,6 +246,8 @@ impl Lexer {
                                     actual_char = '\n';
                                 } else if actual == "\\t" {
                                     actual_char = '\t';
+                                } else if actual == "\\\\" {
+                                    actual_char = '\\';
                                 } else {
                                     self.add_error(format!("Invalid char literal '{actual}'"));
                                 };
