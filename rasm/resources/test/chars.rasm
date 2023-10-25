@@ -25,3 +25,5 @@ assertTrue('1'.isAlphaNumeric());
 
 assertFalse('_'.isAlphaNumeric());
 assertFalse('@'.isAlphaNumeric());
+assertFalse(' '.isAlphaNumeric());
+assertFalse('/'.isAlphaNumeric());

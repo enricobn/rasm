@@ -35,3 +35,19 @@ assertFalse(and(false, true));
 assertTrue(and(true, true));
 assertTrue(not(false));
 assertFalse(not(true));
+
+assertTrue("<", ifChar('<').eq('<'));
+assertTrue("=", ifChar('=').eq('='));
+assertTrue(">", ifChar('>').eq('>'));
+assertTrue("a", ifChar('a').eq('?'));
+
+fn ifChar(c: char) -> char {
+    if( c.eq('<'),
+        { -> '<'; },
+        c.eq('='),
+        { -> '='; },
+        c.eq('>'),
+        { -> '>'; },
+        { -> '?'; }
+    );
+}

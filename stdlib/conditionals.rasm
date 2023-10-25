@@ -3,7 +3,7 @@ fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond: bool, fElseIf: fn() -> T, ffa
 }
 
 fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond1: bool, fElseIf1: fn() -> T, elseIfCond2: bool, fElseIf2: fn() -> T, ffalse: fn() -> T) -> T {
-    if(cond, ftrue, elseIfCond1, { -> if(elseIfCond2, fElseIf1, fElseIf2); }, ffalse);
+    if(cond, ftrue, elseIfCond1, fElseIf1, { -> if(elseIfCond2, fElseIf2, ffalse); });
 }
 
 /**
