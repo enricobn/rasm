@@ -26,13 +26,12 @@ it will produce a "name" executable
 it will produce a "executable name" executable
 
 for example:
-`target/release/rasm rasm/resources/test/fibonacci.rasm`  
-will produce the fibonacci executable file in the rasm/resources/test folder
-`target/release/rasm rasm/resources/test/fibonacci.rasm fibonacci`  
-will produce the fibonacci executable file in the current folder
-you can run it with:  
-`./fibonacci 40`  
-it should print the fortieth fibonacci number (102334155)
+- `target/release/rasm rasm/resources/test/fibonacci.rasm`  
+  will produce the fibonacci executable file in the rasm/resources/test folder  
+- `target/release/rasm rasm/resources/test/fibonacci.rasm fibonacci`  
+  will produce the fibonacci executable file in the current folder, then you can run it with:  
+  `./fibonacci 40`  
+  it should print the fortieth fibonacci number (102334155)
 
 ## SDL examples
 
