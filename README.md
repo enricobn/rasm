@@ -19,15 +19,17 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 
 ### Compile a rasm program
 
-`target/release/rasm "file name".rasm` 
-it will produce a "file name" executable
+`target/release/rasm "name".rasm` 
+it will produce a "name" executable
 
-`target/release/rasm "file name".rasm` "file name"  
-it will produce a "file name" executable
+`target/release/rasm "name".rasm` "executable name"  
+it will produce a "executable name" executable
 
-for example:  
+for example:
+`target/release/rasm rasm/resources/test/fibonacci.rasm`  
+will produce the fibonacci executable file in the rasm/resources/test folder
 `target/release/rasm rasm/resources/test/fibonacci.rasm fibonacci`  
-will produce fibonacci file  
+will produce the fibonacci executable file in the current folder
 you can run it with:  
 `./fibonacci 40`  
 it should print the fortieth fibonacci number (102334155)
@@ -49,5 +51,3 @@ Only executables produced with libc support can be run with valgrind.
 ## profiling
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
 CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -p rasm rasm/resources/examples/breakout
-
-
