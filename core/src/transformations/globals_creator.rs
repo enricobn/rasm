@@ -11,7 +11,9 @@ pub fn add_rasm_resource_folder(module: &mut EnhancedASTModule, resource_folder:
             ASTExpression::StringLiteral(
                 resource_folder
                     .canonicalize()
-                    .unwrap_or_else(|_| panic!("{:?}", resource_folder))
+                    .unwrap_or_else(|_| {
+                        panic!("Cannot find resource folder: {:?}", resource_folder)
+                    })
                     .to_str()
                     .unwrap()
                     .to_owned(),

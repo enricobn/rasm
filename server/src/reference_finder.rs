@@ -503,7 +503,7 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::ASTIndex;
-    use rasm_core::project::project::RasmProject;
+    use rasm_core::project::RasmProject;
 
     use crate::reference_finder::{ReferenceFinder, SelectableItem};
 

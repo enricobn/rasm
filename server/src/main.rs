@@ -18,7 +18,7 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::ASTIndex;
-use rasm_core::project::project::RasmProject;
+use rasm_core::project::RasmProject;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_server::reference_finder::ReferenceFinder;
 

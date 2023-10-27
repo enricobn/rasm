@@ -11,7 +11,7 @@ use rasm_core::codegen::backend::BackendNasm386;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::CodeGen;
-use rasm_core::project::project::RasmProject;
+use rasm_core::project::RasmProject;
 
 pub struct Compiler {
     project: RasmProject,
@@ -25,6 +25,7 @@ impl Compiler {
         }
 
         let executable = out.with_extension("");
+
         if executable.exists() {
             let _ = fs::remove_file(&executable);
         }

@@ -1,3 +1,21 @@
+/*
+ *     RASM compiler.
+ *     Copyright (C) 2022-2023  Enrico Benedetti
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     (at your option) any later version.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public License
+ *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 use std::cmp::Ordering;
 use std::fs::File;
 use std::io::Read;
@@ -22,50 +40,88 @@ use crate::transformations::enrich_module;
 
 #[derive(Debug)]
 pub struct RasmProject {
-    src: PathBuf,
+    root: PathBuf,
     config: RasmConfig,
     from_file: bool,
 }
 
 impl RasmProject {
-    pub fn new(src: PathBuf) -> Self {
+    pub fn new(root: PathBuf) -> Self {
         Self {
-            src: src.clone(),
-            config: get_rasm_config(src.as_path()),
-            from_file: !src.is_dir(),
+            root: root.clone(),
+            config: get_rasm_config(root.as_path()),
+            from_file: !root.is_dir(),
         }
     }
 
     pub fn main_src_file(&self) -> Option<PathBuf> {
-        self.config.package.main.clone().map(|it| {
-            if self.is_dir() {
-                Path::new(&self.src)
-                    .join(Path::new(&self.config.package.source_folder))
-                    .join(Path::new(&it))
-            } else {
-                Path::new(&self.config.package.source_folder).join(Path::new(&it))
-            }
-        })
-    }
-
-    pub fn resource_folder(&self) -> PathBuf {
-        if self.is_dir() {
-            Path::new(&self.src).join(Path::new(&self.config.package.resource_folder))
-        } else {
-            Path::new(&self.config.package.resource_folder).to_path_buf()
-        }
+        self.config
+            .package
+            .main
+            .clone()
+            .map(|it| self.source_folder().join(Path::new(&it)))
     }
 
     pub fn source_folder(&self) -> PathBuf {
         if self.is_dir() {
-            Path::new(&self.src).join(Path::new(&self.config.package.source_folder))
+            Path::new(&self.root).join(Path::new(
+                &self
+                    .config
+                    .package
+                    .source_folder
+                    .as_ref()
+                    .unwrap_or(&"src".to_string()),
+            ))
         } else {
-            Path::new(&self.config.package.source_folder).to_path_buf()
+            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
+    pub fn resource_folder(&self) -> PathBuf {
+        if self.is_dir() {
+            Path::new(&self.root).join(Path::new(
+                &self
+                    .config
+                    .package
+                    .resource_folder
+                    .as_ref()
+                    .unwrap_or(&"resources".to_string()),
+            ))
+        } else {
+            Path::new(&self.config.package.resource_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
+    pub fn test_source_folder(&self) -> PathBuf {
+        if self.is_dir() {
+            Path::new(&self.root).join(Path::new(
+                self.config
+                    .package
+                    .source_folder
+                    .as_ref()
+                    .unwrap_or(&"test".to_string()),
+            ))
+        } else {
+            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
+    pub fn test_resource_folder(&self) -> PathBuf {
+        if self.is_dir() {
+            Path::new(&self.root).join(Path::new(
+                self.config
+                    .package
+                    .resource_folder
+                    .as_ref()
+                    .unwrap_or(&"testresources".to_string()),
+            ))
+        } else {
+            Path::new(self.config.package.resource_folder.as_ref().unwrap()).to_path_buf()
         }
     }
 
     fn is_dir(&self) -> bool {
-        Path::new(&self.src).is_dir()
+        Path::new(&self.root).is_dir()
     }
 
     pub fn from_relative_to_root(&self, path: &Path) -> PathBuf {
@@ -147,8 +203,14 @@ impl RasmProject {
                     });
 
                     if body {
-                        if path.canonicalize().unwrap()
-                            == self.main_src_file().unwrap().canonicalize().unwrap()
+                        if path
+                            .canonicalize()
+                            .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
+                            == self
+                                .main_src_file()
+                                .expect("Cannot find main in rasm.toml")
+                                .canonicalize()
+                                .expect("Cannot find main source file")
                         {
                             if !has_body {
                                 Self::add_generic_error(
@@ -217,8 +279,8 @@ impl RasmProject {
             }
         }
 
-        result.sort_by(|a, b| a.src.cmp(&b.src));
-        result.dedup_by(|a, b| a.src.cmp(&b.src) == Ordering::Equal);
+        result.sort_by(|a, b| a.root.cmp(&b.root));
+        result.dedup_by(|a, b| a.root.cmp(&b.root) == Ordering::Equal);
 
         result
     }
@@ -242,9 +304,11 @@ impl RasmProject {
 pub struct RasmPackage {
     pub name: String,
     pub version: String,
-    pub source_folder: String,
     pub main: Option<String>,
-    pub resource_folder: String,
+    pub source_folder: Option<String>,
+    pub resource_folder: Option<String>,
+    pub test_folder: Option<String>,
+    pub test_resource_folder: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -276,9 +340,11 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
         package: RasmPackage {
             name: name.to_owned(),
             version: "1.0.0".to_owned(),
-            source_folder: parent.to_owned(),
+            source_folder: Some(parent.to_owned()),
             main: Some(name.to_owned()),
-            resource_folder: parent.to_owned(),
+            resource_folder: Some(parent.to_owned()),
+            test_folder: Some(parent.to_owned()),
+            test_resource_folder: Some(parent.to_owned()),
         },
         dependencies: Some(dependencies_map),
     }
@@ -292,7 +358,10 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
     let mut s = String::new();
     if let Ok(mut file) = File::open(toml_file) {
         if let Ok(_size) = file.read_to_string(&mut s) {
-            toml::from_str::<RasmConfig>(&s).unwrap()
+            match toml::from_str::<RasmConfig>(&s) {
+                Ok(config) => config,
+                Err(err) => panic!("Error parsing rasm.toml:\n{}", err),
+            }
         } else {
             panic!("Cannot read rasm.toml");
         }

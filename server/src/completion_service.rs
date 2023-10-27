@@ -494,7 +494,7 @@ mod tests {
     use rasm_core::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
     };
-    use rasm_core::project::project::RasmProject;
+    use rasm_core::project::RasmProject;
     use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
 
     use crate::completion_service::{CompletionItem, CompletionResult, CompletionService};

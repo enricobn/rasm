@@ -986,7 +986,7 @@ mod tests {
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
         ASTModule, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
-    use crate::project::project::RasmProject;
+    use crate::project::RasmProject;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;

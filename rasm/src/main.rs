@@ -9,7 +9,7 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
 
-use rasm_core::project::project::RasmProject;
+use rasm_core::project::RasmProject;
 
 use crate::compiler::Compiler;
 
