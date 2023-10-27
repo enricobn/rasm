@@ -22,7 +22,7 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 `target/release/rasm "name".rasm` 
 it will produce a "name" executable
 
-`target/release/rasm "name".rasm` "executable name"  
+`target/release/rasm "name".rasm "executable name"`  
 it will produce a "executable name" executable
 
 for example:
