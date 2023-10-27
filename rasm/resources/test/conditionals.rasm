@@ -41,6 +41,12 @@ assertTrue("=", ifChar('=').eq('='));
 assertTrue(">", ifChar('>').eq('>'));
 assertTrue("a", ifChar('a').eq('?'));
 
+assertTrue("<", ifChar2('<').eq('<'));
+assertTrue("=", ifChar2('=').eq('='));
+assertTrue(">", ifChar2('>').eq('>'));
+assertTrue("/", ifChar2('/').eq('/'));
+assertTrue("a", ifChar2('a').eq('?'));
+
 fn ifChar(c: char) -> char {
     if( c.eq('<'),
         { -> '<'; },
@@ -48,6 +54,19 @@ fn ifChar(c: char) -> char {
         { -> '='; },
         c.eq('>'),
         { -> '>'; },
+        { -> '?'; }
+    );
+}
+
+fn ifChar2(c: char) -> char {
+    if( c.eq('<'),
+        { -> '<'; },
+        c.eq('='),
+        { -> '='; },
+        c.eq('>'),
+        { -> '>'; },
+        c.eq('/'),
+        { -> '/'; },
         { -> '?'; }
     );
 }
