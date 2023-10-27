@@ -470,7 +470,13 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
         .unwrap();
     let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
 
-    let mut args = vec![source.to_owned(), dest.clone()];
+    let mut args = vec![
+        "build".to_string(),
+        "-f".to_string(),
+        source.to_owned(),
+        "-o".to_string(),
+        dest.clone(),
+    ];
     let dest = Some(dest);
 
     if only_compile {

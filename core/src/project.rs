@@ -17,6 +17,7 @@
  */
 
 use std::cmp::Ordering;
+use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -60,6 +61,19 @@ impl RasmProject {
             .main
             .clone()
             .map(|it| self.source_folder().join(Path::new(&it)))
+    }
+
+    pub fn out_file(&self) -> Option<PathBuf> {
+        let target = self.root.join("target");
+        if !target.exists() {
+            fs::create_dir(&target).expect("Error creating target folder");
+        }
+
+        self.config
+            .package
+            .out
+            .clone()
+            .map(|it| target.join(Path::new(&it)))
     }
 
     pub fn source_folder(&self) -> PathBuf {
@@ -305,6 +319,7 @@ pub struct RasmPackage {
     pub name: String,
     pub version: String,
     pub main: Option<String>,
+    pub out: Option<String>,
     pub source_folder: Option<String>,
     pub resource_folder: Option<String>,
     pub test_folder: Option<String>,
@@ -326,8 +341,8 @@ fn get_rasm_config(src_path: &Path) -> RasmConfig {
 }
 
 fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
-    let parent = src_path.parent().unwrap().to_str().unwrap();
-    let name = src_path.file_name().unwrap().to_str().unwrap();
+    let parent = src_path.parent().unwrap().to_string_lossy().to_string();
+    let name = src_path.file_name().unwrap().to_string_lossy().to_string();
     let mut dependencies_map = Map::new();
     let mut stdlib = Map::new();
     stdlib.insert(
@@ -342,6 +357,7 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
             version: "1.0.0".to_owned(),
             source_folder: Some(parent.to_owned()),
             main: Some(name.to_owned()),
+            out: Some(src_path.with_extension("").to_string_lossy().to_string()),
             resource_folder: Some(parent.to_owned()),
             test_folder: Some(parent.to_owned()),
             test_resource_folder: Some(parent.to_owned()),

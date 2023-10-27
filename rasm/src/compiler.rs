@@ -30,6 +30,12 @@ impl Compiler {
             let _ = fs::remove_file(&executable);
         }
 
+        let object = out.with_extension("o");
+
+        if object.exists() {
+            let _ = fs::remove_file(&object);
+        }
+
         let path_buf = project.resource_folder().clone();
         let compiler = Compiler { project, out };
         compiler._compile(path_buf, only_compile)

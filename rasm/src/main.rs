@@ -35,16 +35,23 @@ fn main() {
     let matches = Command::new("RASM lang")
         .version("0.1.0-alpha.0")
         .arg(
-            Arg::new("SRC")
-                .help("Sets the input directory or file to use")
-                .required(false)
+            Arg::new("ACTION")
+                .help("The action to perform, that can be: build, run, test")
+                .required(true)
+                .value_parser(["build", "run", "test"])
                 .index(1),
         )
         .arg(
-            Arg::new("OUTPUT")
+            Arg::new("file")
+                .short('f')
+                .help("Sets the input directory or file to use")
+                .required(false),
+        )
+        .arg(
+            Arg::new("out")
+                .short('o')
                 .help("Sets the output file to use")
-                .required(false)
-                .index(2),
+                .required(false),
         )
         .arg(
             Arg::new("compile")
@@ -65,8 +72,10 @@ fn main() {
 
     info!("Current dir: {:?}", current_path);
 
+    let action = matches.get_one::<String>("ACTION").cloned().unwrap();
+
     let src = matches
-        .get_one::<String>("SRC")
+        .get_one::<String>("file")
         .cloned()
         .unwrap_or(".".to_owned());
     let src_path = Path::new(&src);
@@ -78,17 +87,19 @@ fn main() {
     let main_src_file = project
         .main_src_file()
         .expect("undefined main in rasm.toml");
-    info!("main {:?}", main_src_file);
+    info!("main: {:?}", main_src_file);
 
     let resource_folder = project.resource_folder();
-    info!("resource folder {:?}", resource_folder);
+    info!("resource folder: {:?}", resource_folder);
 
-    let out = if let Some(o) = matches.get_one::<String>("OUTPUT") {
+    let out = if let Some(o) = matches.get_one::<String>("out") {
         Path::new(o).to_path_buf()
     } else {
-        Path::new(&main_src_file).with_extension("")
+        project.out_file().expect("undefined out in rasm.toml")
     }
     .with_extension("asm");
+
+    info!("out: {}", out.with_extension("").to_string_lossy());
 
     Compiler::compile(project, out, matches.get_flag("compile"));
     info!("finished in {:?}", start.elapsed());

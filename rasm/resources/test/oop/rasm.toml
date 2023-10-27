@@ -4,6 +4,7 @@ version = "1.0.0"
 source_folder = "."
 main = "oop.rasm"
 resource_folder = "."
+out = "oop"
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }
