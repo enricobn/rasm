@@ -7,7 +7,8 @@ use crate::parser::ast::{
     ASTEnumDef, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
     ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
 };
-use crate::transformations::globals_creator::add_rasm_resource_folder;
+use crate::project::RasmProject;
+use crate::transformations::globals_creator::add_folder;
 use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
@@ -22,7 +23,7 @@ pub struct EnhancedASTModule {
 }
 
 impl EnhancedASTModule {
-    pub fn new(modules: Vec<ASTModule>, resource_path: PathBuf) -> Self {
+    pub fn new(modules: Vec<ASTModule>, project: &RasmProject) -> Self {
         let mut body = Vec::new();
         let mut enums = Vec::new();
         let mut structs = Vec::new();
@@ -77,7 +78,12 @@ impl EnhancedASTModule {
             types,
         };
 
-        add_rasm_resource_folder(&mut module, resource_path);
+        add_folder(&mut module, "RASMRESOURCEFOLDER", project.resource_folder());
+        add_folder(
+            &mut module,
+            "RASMTESTRESOURCEFOLDER",
+            project.test_resource_folder(),
+        );
         str_functions_creator(&mut module);
 
         module

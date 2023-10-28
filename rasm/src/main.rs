@@ -92,15 +92,8 @@ fn main() {
     let resource_folder = project.resource_folder();
     info!("resource folder: {:?}", resource_folder);
 
-    let out = if let Some(o) = matches.get_one::<String>("out") {
-        Path::new(o).to_path_buf()
-    } else {
-        project.out_file().expect("undefined out in rasm.toml")
-    }
-    .with_extension("asm");
+    let compiler = Compiler::new(project, matches.get_one::<String>("out"));
+    compiler.compile(matches.get_flag("compile"));
 
-    info!("out: {}", out.with_extension("").to_string_lossy());
-
-    Compiler::compile(project, out, matches.get_flag("compile"));
     info!("finished in {:?}", start.elapsed());
 }

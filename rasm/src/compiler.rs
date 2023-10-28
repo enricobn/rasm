@@ -19,29 +19,36 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(project: RasmProject, out: PathBuf, only_compile: bool) {
-        if out.exists() {
-            let _ = fs::remove_file(&out);
+    pub fn new(project: RasmProject, out: Option<&String>) -> Self {
+        let out = if let Some(o) = out {
+            Path::new(o).to_path_buf()
+        } else {
+            project.out_file().expect("undefined out in rasm.toml")
+        }
+        .with_extension("asm");
+
+        info!("out: {}", out.with_extension("").to_string_lossy());
+
+        Self { project, out }
+    }
+
+    pub fn compile(&self, only_compile: bool) {
+        if self.out.exists() {
+            let _ = fs::remove_file(&self.out);
         }
 
-        let executable = out.with_extension("");
+        let executable = self.out.with_extension("");
 
         if executable.exists() {
             let _ = fs::remove_file(&executable);
         }
 
-        let object = out.with_extension("o");
+        let object = self.out.with_extension("o");
 
         if object.exists() {
             let _ = fs::remove_file(&object);
         }
 
-        let path_buf = project.resource_folder().clone();
-        let compiler = Compiler { project, out };
-        compiler._compile(path_buf, only_compile)
-    }
-
-    fn _compile(&self, resource_folder: PathBuf, only_compile: bool) {
         let start = Instant::now();
 
         let debug_asm = false;
@@ -57,7 +64,7 @@ impl Compiler {
             panic!()
         }
 
-        let enhanced_astmodule = EnhancedASTModule::new(modules, resource_folder);
+        let enhanced_astmodule = EnhancedASTModule::new(modules, &self.project);
 
         info!("parse ended in {:?}", start.elapsed());
 

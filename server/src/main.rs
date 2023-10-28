@@ -73,7 +73,7 @@ impl ServerState {
 
         // TODO errors
 
-        let enhanced_astmodule = EnhancedASTModule::new(modules, project.resource_folder());
+        let enhanced_astmodule = EnhancedASTModule::new(modules, &project);
 
         let finder = ReferenceFinder::new(enhanced_astmodule)?;
         Ok(Self { src, finder })

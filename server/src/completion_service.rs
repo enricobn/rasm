@@ -573,7 +573,7 @@ mod tests {
 
         let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
 
-        let module = EnhancedASTModule::new(modules, project.resource_folder());
+        let module = EnhancedASTModule::new(modules, &project);
 
         assert!(errors.is_empty());
 
