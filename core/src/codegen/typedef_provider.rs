@@ -17,8 +17,7 @@
  */
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::type_check::typed_ast::{
-    get_type_of_typed_expression, ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType,
-    ASTTypedTypeDef, BuiltinTypedTypeKind,
+    ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
 pub trait TypeDefProvider {
@@ -39,7 +38,24 @@ pub trait TypeDefProvider {
                 BuiltinTypedTypeKind::Bool => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
                 BuiltinTypedTypeKind::Char => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
                 BuiltinTypedTypeKind::F32 => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
-                BuiltinTypedTypeKind::Lambda { .. } => todo!(),
+                BuiltinTypedTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    let vec = parameters
+                        .iter()
+                        .map(|it| self.get_type_from_typed_type(it))
+                        .collect::<Option<Vec<_>>>();
+                    let o_return_type = self.get_type_from_typed_type(return_type);
+                    if let (Some(v), Some(rt)) = (vec, o_return_type) {
+                        Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            parameters: v,
+                            return_type: Box::new(rt),
+                        }))
+                    } else {
+                        None
+                    }
+                }
             },
             ASTTypedType::Unit => Some(ASTType::Unit),
             _ => self.get_type_from_custom_typed_type(ast_typed_type),
