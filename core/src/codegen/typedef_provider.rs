@@ -17,7 +17,8 @@
  */
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
+    get_type_of_typed_expression, ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType,
+    ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
 pub trait TypeDefProvider {

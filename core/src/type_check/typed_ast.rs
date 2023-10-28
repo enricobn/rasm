@@ -1025,6 +1025,13 @@ fn verify(module: &ASTTypedModule, statics: &mut Statics) {
 
     for statement in module.body.iter() {
         verify_statement(module, &mut context, statement, statics);
+        if let ASTTypedStatement::Expression(e) = statement {
+            let typed_type = get_type_of_typed_expression(module, &context, e, None, statics);
+
+            if typed_type != ASTTypedType::Unit {
+                expression_return_value_is_not_used(statement);
+            }
+        }
     }
 
     for function_def in module.functions_by_name.values() {
@@ -1035,8 +1042,18 @@ fn verify(module: &ASTTypedModule, statics: &mut Statics) {
         }
 
         if let ASTTypedFunctionBody::RASMBody(expressions) = &function_def.body {
-            for statement in expressions.iter() {
-                verify_statement(module, &mut context, statement, statics)
+            for (i, statement) in expressions.iter().enumerate() {
+                verify_statement(module, &mut context, statement, statics);
+                if i != expressions.len() - 1 {
+                    if let ASTTypedStatement::Expression(e) = statement {
+                        let typed_type =
+                            get_type_of_typed_expression(module, &context, e, None, statics);
+
+                        if typed_type != ASTTypedType::Unit {
+                            expression_return_value_is_not_used(statement);
+                        }
+                    }
+                }
             }
             let real_return_type = if let Some(last) = expressions.iter().last() {
                 match last {
@@ -1071,6 +1088,13 @@ fn verify(module: &ASTTypedModule, statics: &mut Statics) {
             );
         }
     }
+}
+
+fn expression_return_value_is_not_used(statement: &ASTTypedStatement) -> ! {
+    panic!(
+        "Expression return value is not used: {}",
+        statement.get_index().unwrap()
+    )
 }
 
 fn verify_statement(

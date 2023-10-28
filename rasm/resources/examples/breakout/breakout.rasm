@@ -46,6 +46,18 @@ new type check
 type check ended in 221.89785ms
 */
 
+/*
+optimized recursive expression transformation
+
+type check ended in 111.299023ms
+*/
+
+/*
+removed clone of ASTType in get_valid_function
+
+type check ended in 105.080644ms
+*/
+
 enum GameResult {
     Play(state: GameState),
     End(score: i32)
@@ -88,7 +100,7 @@ const BLUE = SDLColor(0, 0, 255, 255);
 const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
-sdlTTFInit();
+if(sdlTTFInit().eq(1), { -> panic("TTFInit error."); }, { -> });
 
 let font = sdlOpenFont(add(RASMRESOURCEFOLDER, "/DejaVuSerif.ttf"), 24);
 

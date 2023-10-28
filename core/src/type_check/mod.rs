@@ -94,7 +94,6 @@ pub fn resolve_generic_types_from_effective_type(
     effective_type: &ASTType,
 ) -> Result<ResolvedGenericTypes, TypeCheckError> {
     let mut result = ResolvedGenericTypes::new();
-
     if generic_type == effective_type || !is_generic_type(generic_type) {
         return Ok(result);
     }

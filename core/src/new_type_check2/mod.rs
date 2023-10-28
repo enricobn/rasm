@@ -257,7 +257,7 @@ impl TypeCheck {
 
         self.stack.push(format!("{}", call.index));
 
-        let (mut new_function_def, resolved_generic_types) =
+        let (mut new_function_def, resolved_generic_types, new_expressions) =
             self.get_valid_function(module, call, val_context, statics, expected_return_type)?;
 
         debug_i!("found valid function {new_function_def}");
@@ -298,25 +298,6 @@ impl TypeCheck {
             new_function_def.resolved_generic_types = resolved_generic_types;
             new_function_def.generic_types = Vec::new();
         }
-
-        let new_expressions: Vec<ASTExpression> =
-            zip(call.parameters.iter(), new_function_def.parameters.iter())
-                .map(|(it, param)| {
-                    self.transform_expression(
-                        module,
-                        it,
-                        val_context,
-                        statics,
-                        Some(&param.ast_type),
-                    )
-                })
-                .collect::<Result<Vec<_>, TypeCheckError>>()
-                .map_err(|it| {
-                    it.add(format!(
-                        "converting expressions in call {} : {}",
-                        call.original_function_name, call.index
-                    ))
-                })?;
 
         let mut new_call = call.clone();
         new_call.parameters = new_expressions;
@@ -361,7 +342,7 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
-    ) -> Result<(ASTFunctionDef, ResolvedGenericTypes), TypeCheckError> {
+    ) -> Result<(ASTFunctionDef, ResolvedGenericTypes, Vec<ASTExpression>), TypeCheckError> {
         let mut valid_functions = Vec::new();
         let mut errors = Vec::new();
 
@@ -381,7 +362,7 @@ impl TypeCheck {
                     dedent!();
                     continue;
                 }
-                if !is_generic_type(rt) {
+                if !is_generic_type(rt) && is_generic_type(&function.return_type) {
                     if let Ok(result) =
                         resolve_generic_types_from_effective_type(&function.return_type, rt)
                     {
@@ -409,33 +390,37 @@ impl TypeCheck {
                 result = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
                         if !valid {
-                            return Ok(());
+                            return Err(TypeCheckError::new("Dummy".to_string()));
                         }
                         let resolved_count = resolved_generic_types.len();
                         debug_i!("expr {expr}");
 
-                        // TODO optimize
-                        let param_type = substitute(&param.ast_type, &resolved_generic_types)
-                            .unwrap_or(param.ast_type.clone());
+                        let substituted_type = substitute(&param.ast_type, &resolved_generic_types);
+
+                        let param_type = if let Some(ast_type) = &substituted_type {
+                            ast_type
+                        } else {
+                            &param.ast_type
+                        };
                         debug_i!("real expression : {expr}");
                         debug_i!("real type of expression : {param_type}");
 
-                        let t = self.get_filter(
+                        let (t, e) = self.get_filter(
                             module,
                             val_context,
                             statics,
                             &mut resolved_generic_types,
                             expr,
-                            &param_type,
+                            param_type,
                         )?;
                         if resolved_count != resolved_generic_types.len() {
                             something_resolved = true;
                         }
                         debug_i!("filter {t}");
-                        if !t.almost_equal(&param_type)? {
+                        if !t.almost_equal(param_type)? {
                             valid = false
                         }
-                        Ok(())
+                        Ok(e)
                     })
                     .collect();
                 dedent!();
@@ -469,6 +454,7 @@ impl TypeCheck {
                     function.clone(),
                     generic_types_coeff,
                     resolved_generic_types,
+                    result.unwrap(),
                 ));
                 debug_i!("it's valid with generic_types_coeff {generic_types_coeff}");
             }
@@ -518,11 +504,13 @@ impl TypeCheck {
                     )
                 )));
             }
-            let (valid_function, _x, resolved_generic_types) = dis_valid_functions.remove(0);
-            Ok((valid_function, resolved_generic_types))
+            let (valid_function, _x, resolved_generic_types, expressions) =
+                dis_valid_functions.remove(0);
+            Ok((valid_function, resolved_generic_types, expressions))
         } else {
-            let (valid_function, _x, resolved_generic_types) = valid_functions.remove(0);
-            Ok((valid_function, resolved_generic_types))
+            let (valid_function, _x, resolved_generic_types, expressions) =
+                valid_functions.remove(0);
+            Ok((valid_function, resolved_generic_types, expressions))
         }
     }
 
@@ -542,10 +530,10 @@ impl TypeCheck {
         resolved_generic_types: &mut ResolvedGenericTypes,
         expr: &ASTExpression,
         param_type: &ASTType,
-    ) -> Result<TypeFilter, TypeCheckError> {
-        let e = self.transform_expression(module, expr, val_context, statics, Some(&param_type))?;
+    ) -> Result<(TypeFilter, ASTExpression), TypeCheckError> {
+        let e = self.transform_expression(module, expr, val_context, statics, Some(param_type))?;
 
-        let t = self.type_of_expression(module, &e, val_context, statics, Some(&param_type))?;
+        let t = self.type_of_expression(module, &e, val_context, statics, Some(param_type))?;
         if let TypeFilter::Exact(et) = &t {
             if !is_generic_type(et) {
                 resolved_generic_types
@@ -566,7 +554,7 @@ impl TypeCheck {
                 }
             }
         }
-        Ok(t)
+        Ok((t, e))
     }
 
     ///
