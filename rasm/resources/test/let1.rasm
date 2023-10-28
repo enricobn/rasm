@@ -1,8 +1,8 @@
 let v = vecOf(10);
 
-ifRun(true, { ->
+if(true, { ->
     let c = vecOf(30);
-    ifRun(true, { -> println(v);}, { -> println("Empty");});
+    if(true, { -> println(v);}, { -> println("Empty");});
 }, { -> println("Empty");});
 
 println(v);

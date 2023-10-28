@@ -69,3 +69,9 @@ fn print(c: Compare) {
 fn toString(error: IOError) -> str {
     add("IOError(", error.message, ")");
 }
+
+fn panic(message: str) {
+    print("PANIC: ");
+    println(message);
+    exitMain(1);
+}

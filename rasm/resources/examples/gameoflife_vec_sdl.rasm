@@ -71,7 +71,7 @@ fn printCells(ren: SDLRenderer, cells: Vec<Cell>, width: i32, height: i32) {
 
     forEach(vecRange(0, height), { y ->
         forEach(xRange, { x ->
-            ifRun(isAlive(cells, Cell(x, y)), { ->
+            if(isAlive(cells, Cell(x, y)), { ->
                  sdlRenderFillRect(ren, SDLRect(mul(10, x), mul(10, y), 10, 10));
             }, { -> });
         });

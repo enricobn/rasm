@@ -24,7 +24,7 @@ fn m() {
 
     run(event, { e ->
         let key = KeyEvent::key(e);
-        ifRun(eq(key, 41), { ->
+        if(eq(key, 41), { ->
         }, { ->
             println(e);
             m();

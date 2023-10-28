@@ -34,7 +34,7 @@ fn printCells(cells: Vec<Cell>, width: i32, height: i32) {
     forEach(vecRange(0, height), { y ->
         forEach(vecRange(0, width), { x ->
             let alive = isAlive(cells, Cell(x, y));
-            ifRun(alive, { -> print("*"); }, { -> print(" "); });
+            if(alive, { -> print("*"); }, { -> print(" "); });
         });
         println("");
     });

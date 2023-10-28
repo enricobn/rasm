@@ -1,11 +1,11 @@
 choose(atoi(argv(1)), { -> println("0"); }, { -> println("1"); }, { -> println("2"); }, { -> println("3"); });
 
 fn choose(n: i32, l0: fn() -> (), l1: fn() -> (), l2: fn() -> (), l3: fn() -> ()) {
-    ifRun (eq(0, n),
+    if(eq(0, n),
         { -> l0(); },
-        { -> ifRun (eq(1, n),
+        { -> if(eq(1, n),
                 { -> l1(); },
-                { -> ifRun (eq(2,n),
+                { -> if(eq(2,n),
                     { -> l2(); },
                     { -> l3(); }
                 );});

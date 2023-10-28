@@ -1,29 +1,39 @@
-fn assertTrue(value: bool) {
-    ifRun(value,{ -> },{ ->
-        println("assertion failed");
-        exitMain(1);
+struct Assertions {
+    failed: Vec<str>
+}
+
+fn Assertions() -> Assertions {
+    Assertions(Vec());
+}
+
+fn push(assertions: Assertions, message: str) -> Assertions {
+    assertions.failed(assertions.failed.push(message));
+}
+
+fn validate(assertions: Assertions) {
+    if(assertions.failed.isEmpty, { -> }, { -> panic("Assertion error."); });
+}
+
+fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
+    if(value,{ -> assertions; },{ ->
+        assertions.push("assertion failed");
     });
 }
 
-fn assertFalse(value: bool) {
-    ifRun(value,{ ->
-        println("assertion failed");
-        exitMain(1);
-    }, { -> });
+fn assertFalse(assertions: Assertions, value: bool) -> Assertions {
+    if(value,{ ->
+        assertions.push("assertion failed");
+    }, { -> assertions; });
 }
 
-fn assertTrue(message: str, value: bool) {
-    ifRun(value,{ -> },{ ->
-        print("assertion failed: ");
-        println(message);
-        exitMain(1);
+fn assertTrue(assertions: Assertions, message: str, value: bool) -> Assertions {
+    if(value,{ -> assertions; },{ ->
+        assertions.push("assertion failed: ".add(message));
     });
 }
 
-fn assertFalse(message: str, value: bool) {
-    ifRun(value,{ ->
-        print("assertion failed: ");
-        println(message);
-        exitMain(1);
-    }, { -> });
+fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions {
+    if(value,{ ->
+        assertions.push("assertion failed: ".add(message));
+    }, { -> assertions; });
 }

@@ -79,3 +79,6 @@ fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
     map(filtered, { e -> value(e);});
 }
 
+fn isEmpty<T>(vec: Vec<T>) -> bool {
+    vec.len.eq(0);
+}

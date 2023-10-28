@@ -4,11 +4,11 @@ println(v);
 let m = map(v, { n -> add(n, 10);});
 println(m);
 
-ifRun(anyMatch(v, { n -> eq(n, 0);}), { -> println("true");}, { -> println("false");});
-ifRun(anyMatch(v, { n -> eq(n, 2);}), { -> println("true");}, { -> println("false");});
+if(anyMatch(v, { n -> eq(n, 0);}), { -> println("true");}, { -> println("false");});
+if(anyMatch(v, { n -> eq(n, 2);}), { -> println("true");}, { -> println("false");});
 
-ifRun(anyMatch(vecRange(0, 2), { n -> eq(n, 0);}), { -> println("true");}, { -> println("false");});
-ifRun(anyMatch(vecRange(0, 2), { n -> eq(n, 2);}), { -> println("true");}, { -> println("false");});
+if(anyMatch(vecRange(0, 2), { n -> eq(n, 0);}), { -> println("true");}, { -> println("false");});
+if(anyMatch(vecRange(0, 2), { n -> eq(n, 2);}), { -> println("true");}, { -> println("false");});
 
 println(count(vecRange(0, 10), { n -> eq(n, 5);}));
 println(count(vecRange(0, 10), { n -> lessOrEqual(n, 5);}));

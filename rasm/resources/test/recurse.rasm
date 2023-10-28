@@ -3,5 +3,5 @@ recurse(5, {n -> add(n, -1);});
 
 fn recurse(n: i32, f: fn(i32) -> i32) {
     println(n);
-    ifRun(less(n,1), { -> }, { -> recurse(f(n), f);});
+    if(less(n,1), { -> }, { -> recurse(f(n), f);});
 }

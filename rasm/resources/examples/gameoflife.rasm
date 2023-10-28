@@ -55,7 +55,7 @@ fn printCells(cells: List<Cell>, width: i32, height: i32) {
 
     forEach(range(0, height), { y ->
         forEach(xRange, { x ->
-            ifRun(isAlive(cells, Cell(x, y)), { -> print("*"); }, { -> print(" "); });
+            if(isAlive(cells, Cell(x, y)), { -> print("*"); }, { -> print(" "); });
         });
         println("");
     });

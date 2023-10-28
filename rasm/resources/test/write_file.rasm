@@ -1,8 +1,9 @@
 
 let file = createFile("file_for_write.txt");
 
-println(file, "Hello world");
-println(file, 1000);
+println(file, "Hello world")
+.or(println(file, 1000))
+.match({ error -> panic(error.message); }, { -> });
 
 sysClose(file);
 
