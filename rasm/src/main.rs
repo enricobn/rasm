@@ -92,7 +92,7 @@ fn main() {
     let resource_folder = project.resource_folder();
     info!("resource folder: {:?}", resource_folder);
 
-    let compiler = Compiler::new(project, matches.get_one::<String>("out"));
+    let compiler = Compiler::new(project, matches.get_one::<String>("out"), action == "test");
     compiler.compile(matches.get_flag("compile"));
 
     info!("finished in {:?}", start.elapsed());

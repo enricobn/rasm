@@ -37,3 +37,14 @@ fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions 
         assertions.push("assertion failed: ".add(message));
     }, { -> assertions; });
 }
+
+fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
+    testRun().failed.first.match(
+        { error ->
+            let message = add(add(add("Failed ", name), " : "), index);
+            println(message);
+            println(error);
+            true;
+        }, { -> false; }
+    );
+}

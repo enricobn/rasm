@@ -63,17 +63,21 @@ impl RasmProject {
             .map(|it| self.source_folder().join(Path::new(&it)))
     }
 
-    pub fn out_file(&self) -> Option<PathBuf> {
+    pub fn out_file(&self, is_test: bool) -> Option<PathBuf> {
         let target = self.root.join("target");
         if !target.exists() {
             fs::create_dir(&target).expect("Error creating target folder");
         }
 
-        self.config
-            .package
-            .out
-            .clone()
-            .map(|it| target.join(Path::new(&it)))
+        if is_test {
+            Some(target.join("test"))
+        } else {
+            self.config
+                .package
+                .out
+                .clone()
+                .map(|it| target.join(Path::new(&it)))
+        }
     }
 
     pub fn source_folder(&self) -> PathBuf {
@@ -85,6 +89,21 @@ impl RasmProject {
                     .source_folder
                     .as_ref()
                     .unwrap_or(&"src".to_string()),
+            ))
+        } else {
+            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
+    pub fn test_folder(&self) -> PathBuf {
+        if self.is_dir() {
+            Path::new(&self.root).join(Path::new(
+                &self
+                    .config
+                    .package
+                    .test_folder
+                    .as_ref()
+                    .unwrap_or(&"test".to_string()),
             ))
         } else {
             Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
@@ -154,6 +173,28 @@ impl RasmProject {
         )
     }
 
+    pub fn get_all_test_modules(
+        &self,
+        backend: &mut dyn Backend,
+        statics: &mut Statics,
+    ) -> (Vec<ASTModule>, Vec<CompilationError>) {
+        info!("Reading tests for project {:?}", self);
+
+        let mut modules = Vec::new();
+        let mut errors = Vec::new();
+
+        self.get_modules(true, self.test_folder())
+            .into_iter()
+            .for_each(|(mut project_module, module_errors)| {
+                backend.add_module(&project_module);
+                enrich_module(backend, statics, &mut project_module);
+                modules.push(project_module);
+                errors.extend(module_errors);
+            });
+
+        (modules, errors)
+    }
+
     pub fn get_all_modules(
         &self,
         backend: &mut dyn Backend,
@@ -164,7 +205,7 @@ impl RasmProject {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(true)
+        self.get_modules(true, self.source_folder())
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
                 backend.add_module(&project_module);
@@ -178,7 +219,7 @@ impl RasmProject {
             .flat_map_iter(|dependency| {
                 info!("including dependency {}", dependency.config.package.name);
 
-                dependency.get_modules(false)
+                dependency.get_modules(false, dependency.source_folder())
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -192,13 +233,17 @@ impl RasmProject {
         (modules, errors)
     }
 
-    fn get_modules(&self, body: bool) -> Vec<(ASTModule, Vec<CompilationError>)> {
+    fn get_modules(
+        &self,
+        body: bool,
+        source_folder: PathBuf,
+    ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
             vec![Self::module_from_file(&PathBuf::from(
                 &self.main_src_file().unwrap(),
             ))]
         } else {
-            WalkDir::new(self.source_folder())
+            WalkDir::new(source_folder)
                 .into_iter()
                 .collect::<Vec<_>>()
                 .into_par_iter()
