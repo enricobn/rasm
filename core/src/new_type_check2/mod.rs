@@ -825,6 +825,12 @@ impl TypeCheck {
                 ValueType::F32(_) => TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::F32)),
             },
             ASTExpression::Lambda(def) => {
+                if def.body.is_empty() {
+                    return Ok(TypeFilter::Lambda(
+                        def.parameter_names.len(),
+                        Some(Box::new(TypeFilter::Exact(ASTType::Unit))),
+                    ));
+                }
                 // I cannot go deep in determining the type
                 if expected_type.is_none() {
                     dedent!();
@@ -968,15 +974,10 @@ mod tests {
     use crate::codegen::backend::BackendNasm386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::val_context::ValContext;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
-        ASTModule, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
-    };
+    use crate::parser::ast::{ASTIndex, ASTModule, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::{convert_to_typed_module, get_default_functions};
 
