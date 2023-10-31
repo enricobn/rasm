@@ -161,7 +161,11 @@ impl RasmProject {
         if path.is_absolute() {
             path.to_path_buf()
         } else {
-            self.source_folder().join(path)
+            if self.root.is_dir() {
+                self.root.join(path)
+            } else {
+                self.root.parent().unwrap().join(path)
+            }
         }
     }
 
@@ -169,7 +173,11 @@ impl RasmProject {
         diff_paths(
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
-            self.source_folder().canonicalize().unwrap(),
+            if self.root.is_dir() {
+                self.root.canonicalize().unwrap()
+            } else {
+                self.root.parent().unwrap().canonicalize().unwrap()
+            },
         )
     }
 
@@ -200,8 +208,6 @@ impl RasmProject {
         backend: &mut dyn Backend,
         statics: &mut Statics,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        info!("Reading project {:?}", self);
-
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
@@ -313,13 +319,15 @@ impl RasmProject {
                 if let Value::Table(table) = dependency {
                     if let Some(path_value) = table.get("path") {
                         if let Value::String(path) = path_value {
-                            let path_buf = self
-                                .from_relative_to_root(Path::new(path))
+                            let path_from_relative_to_root =
+                                self.from_relative_to_root(Path::new(path));
+                            let path_buf = path_from_relative_to_root
                                 .canonicalize()
                                 .unwrap_or_else(|_| {
                                     panic!(
-                                        "error canonicalizing {path}, root {}",
-                                        self.source_folder().to_str().unwrap()
+                                        "error canonicalizing {path}, path_from_relative_to_root {}, root {}",
+                                        path_from_relative_to_root.to_string_lossy(),
+                                        self.root.to_string_lossy()
                                     )
                                 });
 

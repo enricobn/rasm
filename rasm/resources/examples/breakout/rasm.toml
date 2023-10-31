@@ -1,9 +1,7 @@
 [package]
 name = "breakout"
 version = "1.0.0"
-source_folder = "."
 main = "breakout.rasm"
-resource_folder = "."
 out = "breakout"
 
 [dependencies]

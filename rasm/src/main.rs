@@ -7,7 +7,9 @@ use std::time::Instant;
 
 use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
+use log::debug;
 use log::info;
+use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
 
@@ -82,7 +84,7 @@ fn main() {
 
     let project = RasmProject::new(src_path.to_path_buf());
 
-    info!("project {:?}", project);
+    debug_i!("project {:?}", project);
 
     let main_src_file = project
         .main_src_file()
