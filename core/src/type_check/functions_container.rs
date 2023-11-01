@@ -573,6 +573,11 @@ impl FunctionsContainer {
 
                                 Ok(parameter_same && return_type_same)
                             }
+                            ASTType::Generic(name) => {
+                                resolved_generic_types
+                                    .insert(name.to_string(), filter_type.clone());
+                                Ok(true)
+                            }
                             _ => Ok(false),
                         },
                         _ => {
@@ -603,6 +608,7 @@ impl FunctionsContainer {
                             }
                             _ => {
                                 if let Some(already_resolved) = already_resolved_o {
+                                    debug_i!("already resolved {already_resolved}");
                                     Ok(already_resolved == parameter_type)
                                 } else {
                                     resolved_generic_types.insert(
