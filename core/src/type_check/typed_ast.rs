@@ -849,7 +849,7 @@ pub fn convert_to_typed_module(
                 statics,
                 dereference,
             )
-            .or_else(|it| Err(it.add(format!("Error converting {converted_function}"))))?,
+            .map_err(|it| it.add(format!("Error converting {converted_function}")))?,
         );
     }
 
