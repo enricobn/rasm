@@ -19,12 +19,15 @@
 // more on optimized lambda space allocation (in stack)
 //
 // real    0m1,966s
+//
+// ?
+// real    0m1,894s
 
 println(fib(atoi(argv(1))));
 
 fn fib(n: i32) -> i32 {
     if(lessOrEqual(n, 1), n, { ->
-        add(fib(add(n, -1)), fib(add(n, -2)));
+        fib(n.sub(1)).add(fib(n.sub(2)));
     });
 }
 
