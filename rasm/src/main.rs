@@ -86,11 +86,6 @@ fn main() {
 
     debug_i!("project {:?}", project);
 
-    let main_src_file = project
-        .main_src_file()
-        .expect("undefined main in rasm.toml");
-    info!("main: {:?}", main_src_file);
-
     let resource_folder = project.resource_folder();
     info!("resource folder: {:?}", resource_folder);
 

@@ -186,7 +186,7 @@ impl RasmProject {
         backend: &mut dyn Backend,
         statics: &mut Statics,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        info!("Reading tests for project {:?}", self);
+        info!("Reading tests");
 
         let mut modules = Vec::new();
         let mut errors = Vec::new();
@@ -268,15 +268,17 @@ impl RasmProject {
                     });
 
                     if body {
-                        if path
-                            .canonicalize()
-                            .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
-                            == self
-                                .main_src_file()
-                                .expect("Cannot find main in rasm.toml")
+                        let is_main = if let Some(main_src_file) = self.main_src_file() {
+                            path.canonicalize().unwrap_or_else(|_| {
+                                panic!("Cannot find {}", path.to_string_lossy())
+                            }) == main_src_file
                                 .canonicalize()
                                 .expect("Cannot find main source file")
-                        {
+                        } else {
+                            false
+                        };
+
+                        if is_main {
                             if !has_body {
                                 Self::add_generic_error(
                                     path,
