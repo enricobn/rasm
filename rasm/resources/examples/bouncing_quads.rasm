@@ -1,6 +1,6 @@
 include "sdl/sdl.rasm"
-include "breakout/fps.rasm"
-include "breakout/direction.rasm"
+include "breakout/src/fps.rasm"
+include "breakout/src/direction.rasm"
 
 struct Model {
     quads: Vec<Quad>,
@@ -29,7 +29,7 @@ const YELLOW = SDLColor(255, 255, 0, 255);
 sdlInit();
 if(sdlTTFInit().eq(1), { -> panic("TTFInit error."); }, { -> });
 
-let font = sdlErrorIfNull(sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
+let font = sdlErrorIfNull(sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/resources/DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
 let quads = vecRange(0, QUADS).map({ it ->
                     let x = random(WIDTH);
                     let y = random(HEIGHT);
