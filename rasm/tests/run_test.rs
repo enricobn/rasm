@@ -406,6 +406,16 @@ fn result() {
     run_test("result", Vec::new(), "ok\nerr: An error\n");
 }
 
+#[test]
+fn test_if() {
+    run_test("if", Vec::new(), "");
+}
+
+#[test]
+fn curry() {
+    run_test("curry", Vec::new(), "");
+}
+
 // Compile tests
 
 #[test]

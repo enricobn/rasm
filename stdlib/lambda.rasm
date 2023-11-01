@@ -1,0 +1,19 @@
+fn call<T>(lambda: fn() -> T) -> T {
+    lambda();
+}
+
+fn call<PT,T>(lambda: fn(PT) -> T, v: PT) -> T {
+    lambda(v);
+}
+
+fn call<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1, v2: PT2) -> T {
+    lambda(v1, v2);
+}
+
+fn curry<PT,T>(lambda: fn(PT) -> T, v: PT) -> fn() -> T {
+    { -> lambda(v); };
+}
+
+fn curry<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1) -> fn(PT2) -> T {
+    { v2 -> lambda(v1, v2); };
+}

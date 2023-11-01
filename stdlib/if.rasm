@@ -1,0 +1,44 @@
+struct If<T> {
+    value: Option<T>
+}
+
+fn if<T>(cond: bool, trueValue: T) -> If<T> {
+    If(if(cond, Option::Some(trueValue), Option::None()));
+}
+
+fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
+    ifValue.value.match(
+        { value -> ifValue; },
+        { -> if(cond, trueValue); }
+    );
+}
+
+fn else<T>(ifValue: If<T>, elseValue: T) -> T {
+    ifValue.value.getOrElse(elseValue);
+}
+
+/*
+struct IfLambda<T> {
+    value: Option<fn() -> T>
+}
+
+fn if<T>(cond: bool, trueValue: fn() -> T) -> IfLambda<T> {
+    if(cond, IfLambda(Option::Some(trueValue)), IfLambda(Option::None()));
+}
+
+fn elseIf<T>(ifValue: IfLambda<T>, cond: bool, trueValue: fn() -> T) -> IfLambda<T> {
+    ifValue.value.match(
+        { value -> ifValue; },
+        { -> if(cond, trueValue); }
+    );
+}
+
+fn else<T>(ifValue: IfLambda<T>, elseValue: fn() -> T) -> T {
+    let lambda = ifValue.value.match(
+        { value -> value; },
+        { -> elseValue; }
+    );
+
+    lambda();
+}
+*/
