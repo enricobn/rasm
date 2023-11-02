@@ -30,7 +30,7 @@ println(listToVec(listOf(0, 1, 2)));
 
 println(foldLeft(vecRange(0, 5), 0, { prev, act -> add(prev, act);}));
 
-println(first(Vec()));
+println(first(Vec<i32>()));
 
 let vecOfOpt = vecOf(Option::Some("Hello"));
 
