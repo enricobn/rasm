@@ -4,5 +4,16 @@ enum Result<OK,ERROR> {
 }
 
 fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
-    result.match({ value -> Result::Ok(mapFun(value)); }, { error -> result;});
+    result.match({ value -> Result::Ok(mapFun(value)); }, { error -> Result::Error(error);});
+}
+
+fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
+    flatten(map(l, f));
+}
+
+fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
+    r.match(
+        { value -> value; },
+        { error -> Result::Error(error); }
+    );
 }

@@ -2,6 +2,7 @@ doJob().println;
 doJobErr().println;
 
 doJob().map({ it -> it.add(2);}).println;
+doJob().fmap({ it -> Result::Ok<str,str>("value=".add(it));}).println;
 
 fn print(result: Result<(), str>) {
     result.match({ ok -> print("ok");}, { err -> print("err: ", err); });

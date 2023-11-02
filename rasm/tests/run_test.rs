@@ -403,7 +403,11 @@ fn list_pop_replace() {
 
 #[test]
 fn result() {
-    run_test("result", Vec::new(), "ok(0)\nerr: An error\nok(2)\n");
+    run_test(
+        "result",
+        Vec::new(),
+        "ok(0)\nerr: An error\nok(2)\nok(value=0)\n",
+    );
 }
 
 #[test]
