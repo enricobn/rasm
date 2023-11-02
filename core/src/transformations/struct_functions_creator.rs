@@ -137,6 +137,7 @@ fn struct_lambda_property_rasm_body(name: &str, parameters: &[ASTType]) -> Vec<A
                 function_name: format!("{name}Fn"),
                 parameters: vec![ASTExpression::ValueRef("v".to_owned(), ASTIndex::none())],
                 index: ASTIndex::none(),
+                generics: Vec::new(),
             }),
             false,
             ASTIndex::none(),
@@ -150,6 +151,7 @@ fn struct_lambda_property_rasm_body(name: &str, parameters: &[ASTType]) -> Vec<A
                 .map(|(index, _it)| ASTExpression::ValueRef(format!("p{index}"), ASTIndex::none()))
                 .collect(),
             index: ASTIndex::none(),
+            generics: Vec::new(),
         })),
     ]
 }

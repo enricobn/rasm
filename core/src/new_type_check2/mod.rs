@@ -357,6 +357,17 @@ impl TypeCheck {
 
             let mut resolved_generic_types = ResolvedGenericTypes::new();
 
+            if !call.generics.is_empty() {
+                if call.generics.len() != function.generic_types.len() {
+                    // TODO must I return an error?
+                    dedent!();
+                    continue;
+                }
+                zip(function.generic_types.iter(), call.generics.iter()).for_each(|(g, t)| {
+                    resolved_generic_types.insert(g.to_string(), t.clone());
+                });
+            }
+
             if let Some(rt) = expected_return_type {
                 if !TypeFilter::Exact(function.return_type.clone()).almost_equal(rt)? {
                     dedent!();

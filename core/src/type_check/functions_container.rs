@@ -936,6 +936,7 @@ mod tests {
                 row: 0,
                 column: 0,
             },
+            generics: Vec::new(),
         };
 
         let result = sut.find_call(

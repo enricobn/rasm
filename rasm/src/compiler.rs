@@ -176,6 +176,7 @@ impl Compiler {
                         function_name: it.name.clone(),
                         parameters: Vec::new(),
                         index: ASTIndex::none(),
+                        generics: Vec::new(),
                     };
                     let lambda_def = ASTLambdaDef {
                         parameter_names: Vec::new(),
@@ -193,6 +194,7 @@ impl Compiler {
                             ASTExpression::Lambda(lambda_def),
                         ],
                         index: ASTIndex::none(),
+                        generics: Vec::new(),
                     };
                     expr =
                         Self::or_expression(expr.clone(), ASTFunctionCallExpression(run_test_call));
@@ -211,6 +213,7 @@ impl Compiler {
             function_name: "panic".to_string(),
             parameters: vec![ASTExpression::StringLiteral("Tests failed.".to_string())],
             index: ASTIndex::none(),
+            generics: Vec::new(),
         };
         let panic_lambda = ASTLambdaDef {
             parameter_names: Vec::new(),
@@ -234,6 +237,7 @@ impl Compiler {
                 ASTExpression::Lambda(empty_lambda),
             ],
             index: ASTIndex::none(),
+            generics: Vec::new(),
         };
 
         let if_expression = ASTFunctionCallExpression(if_call);
@@ -258,6 +262,7 @@ impl Compiler {
             function_name: "or".to_string(),
             parameters: vec![e1, e2],
             index: ASTIndex::none(),
+            generics: Vec::new(),
         };
         ASTFunctionCallExpression(call)
     }

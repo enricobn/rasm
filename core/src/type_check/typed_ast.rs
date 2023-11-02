@@ -1975,6 +1975,7 @@ impl DefaultFunction {
                 })
                 .collect(),
             index: ASTIndex::none(),
+            generics: Vec::new(),
         }
     }
 }

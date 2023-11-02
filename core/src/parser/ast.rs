@@ -197,6 +197,7 @@ pub struct ASTFunctionCall {
     pub function_name: String,
     pub parameters: Vec<ASTExpression>,
     pub index: ASTIndex,
+    pub generics: Vec<ASTType>,
 }
 
 impl Display for ASTFunctionCall {
