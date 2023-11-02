@@ -2,11 +2,6 @@ struct IOError {
     message: str
 }
 
-enum Result<OK,ERROR> {
-    Ok(value: OK),
-    Error(error: ERROR)
-}
-
 struct Pair<A,B> {
     first: A,
     second: B

@@ -1,0 +1,8 @@
+enum Result<OK,ERROR> {
+    Ok(value: OK),
+    Error(error: ERROR)
+}
+
+fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
+    result.match({ value -> Result::Ok(mapFun(value)); }, { error -> result;});
+}

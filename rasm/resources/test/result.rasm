@@ -1,8 +1,14 @@
 doJob().println;
 doJobErr().println;
 
-fn print<T>(result: Result<T, str>) {
+doJob().map({ it -> it.add(2);}).println;
+
+fn print(result: Result<(), str>) {
     result.match({ ok -> print("ok");}, { err -> print("err: ", err); });
+}
+
+fn print<OK,ERROR>(result: Result<OK, ERROR>) {
+    result.match({ ok -> print("ok(", ok); print(")"); }, { err -> print("err: ", err); });
 }
 
 fn doJob() -> Result<i32, str> {
