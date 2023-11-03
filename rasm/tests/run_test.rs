@@ -79,6 +79,10 @@ fn test_lambda1() {
 }
 
 #[test]
+fn test_lambda2() {
+    run_test("lambda2", vec![], "Some(10)\n");
+}
+#[test]
 fn test_lambda_params() {
     run_test("lambda_params", vec!["20"], "35\n");
 }

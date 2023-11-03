@@ -343,6 +343,11 @@ impl TypeCheck {
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
     ) -> Result<(ASTFunctionDef, ResolvedGenericTypes, Vec<ASTExpression>), TypeCheckError> {
+        debug_i!(
+            "get_valid_function call {call} expected_return_type {}: {}",
+            OptionDisplay(&expected_return_type),
+            call.index
+        );
         let mut valid_functions = Vec::new();
         let mut errors = Vec::new();
 
@@ -548,7 +553,7 @@ impl TypeCheck {
         if let TypeFilter::Exact(et) = &t {
             if !is_generic_type(et) {
                 resolved_generic_types
-                    .extend(resolve_generic_types_from_effective_type(&param_type, et)?)?;
+                    .extend(resolve_generic_types_from_effective_type(param_type, et)?)?;
             }
         } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
             if let TypeFilter::Exact(et) = lrt.deref() {
@@ -895,7 +900,18 @@ impl TypeCheck {
                     }
                 }
                 debug_i!("lambda return type {}", OptionDisplay(&return_type));
-                TypeFilter::Lambda(def.parameter_names.len(), return_type)
+                if def.parameter_names.is_empty() {
+                    if let Some(TypeFilter::Exact(exact_return_type)) = return_type.as_deref() {
+                        TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            parameters: Vec::new(),
+                            return_type: Box::new(exact_return_type.clone()),
+                        }))
+                    } else {
+                        TypeFilter::Lambda(def.parameter_names.len(), return_type)
+                    }
+                } else {
+                    TypeFilter::Lambda(def.parameter_names.len(), return_type)
+                }
             }
             ASTExpression::Any(t) => TypeFilter::Exact(t.clone()),
         };
@@ -926,6 +942,15 @@ impl TypeCheck {
             }) = et
             {
                 Ok(Some(return_type.deref()))
+            } else if let ASTType::Generic(name) = et {
+                /*
+                Err(TypeCheckError::from(format!(
+                    "Expected lambda but got generic type {name}"
+                )))
+
+                 */
+                debug_i!("Expected lambda but got generic type {name}");
+                Ok(None)
             } else {
                 Err(TypeCheckError::from(format!(
                     "Expected lambda but got {et}"
@@ -1045,7 +1070,7 @@ mod tests {
     }
 
     /*
-    TODO cannot work without a souce file or folder
+    TODO cannot work without a source file or folder
     #[test]
     pub fn test_add() {
         init();
@@ -1119,7 +1144,7 @@ mod tests {
      */
 
     /*
-    TODO cannot work without a souce file or folder
+    TODO cannot work without a source file or folder
     #[test]
     pub fn test_option_none() {
         init();

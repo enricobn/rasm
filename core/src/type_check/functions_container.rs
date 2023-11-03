@@ -681,7 +681,7 @@ impl FunctionsContainer {
                     },
                 }
             }
-            TypeFilter::Lambda(len, _) => {
+            TypeFilter::Lambda(len, lambda_return_type_filter) => {
                 // TODO return type
                 if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                     parameters,
@@ -689,6 +689,23 @@ impl FunctionsContainer {
                 }) = parameter_type
                 {
                     Ok(len == &parameters.len())
+                } else if let ASTType::Generic(name) = parameter_type {
+                    if let Some(TypeFilter::Exact(lrt)) = lambda_return_type_filter.as_deref() {
+                        if *len == 0 {
+                            let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters: Vec::new(),
+                                return_type: Box::new(lrt.clone()),
+                            });
+
+                            println!("lambda {lambda}");
+                            resolved_generic_types.insert(name.to_owned(), lambda);
+                            Ok(true)
+                        } else {
+                            Ok(false)
+                        }
+                    } else {
+                        Ok(false)
+                    }
                 } else {
                     Ok(false)
                 }
