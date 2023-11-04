@@ -942,14 +942,7 @@ impl TypeCheck {
             }) = et
             {
                 Ok(Some(return_type.deref()))
-            } else if let ASTType::Generic(name) = et {
-                /*
-                Err(TypeCheckError::from(format!(
-                    "Expected lambda but got generic type {name}"
-                )))
-
-                 */
-                debug_i!("Expected lambda but got generic type {name}");
+            } else if let ASTType::Generic(_name) = et {
                 Ok(None)
             } else {
                 Err(TypeCheckError::from(format!(
