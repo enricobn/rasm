@@ -6,7 +6,7 @@ fn Assertions() -> Assertions {
     Assertions(Vec());
 }
 
-fn push(assertions: Assertions, message: str) -> Assertions {
+fn fail(assertions: Assertions, message: str) -> Assertions {
     assertions.failed(assertions.failed.push(message));
 }
 
@@ -16,25 +16,37 @@ fn validate(assertions: Assertions) {
 
 fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
     if(value,{ -> assertions; },{ ->
-        assertions.push("assertion failed");
+        assertions.fail("assertion failed");
     });
 }
 
 fn assertFalse(assertions: Assertions, value: bool) -> Assertions {
     if(value,{ ->
-        assertions.push("assertion failed");
+        assertions.fail("assertion failed");
     }, { -> assertions; });
 }
 
 fn assertTrue(assertions: Assertions, message: str, value: bool) -> Assertions {
     if(value,{ -> assertions; },{ ->
-        assertions.push("assertion failed: ".add(message));
+        assertions.fail("assertion failed: ".add(message));
     });
 }
 
 fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions {
     if(value,{ ->
-        assertions.push("assertion failed: ".add(message));
+        assertions.fail("assertion failed: ".add(message));
+    }, { -> assertions; });
+}
+
+fn assertEquals<T>(assertions: Assertions, message: str, expected: T, current: T) -> Assertions {
+    if(expected.eq(current).not,{ ->
+        assertions.fail("assertion failed: ".add(message));
+    }, { -> assertions; });
+}
+
+fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
+    if(expected.eq(current).not,{ ->
+        assertions.fail("assertion failed");
     }, { -> assertions; });
 }
 

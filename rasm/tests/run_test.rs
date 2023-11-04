@@ -424,6 +424,11 @@ fn curry() {
     run_test("curry", Vec::new(), "");
 }
 
+#[test]
+fn assertions() {
+    run_test("assertions", Vec::new(), "");
+}
+
 // Compile tests
 
 #[test]
