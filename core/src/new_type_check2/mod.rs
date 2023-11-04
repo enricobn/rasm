@@ -644,7 +644,7 @@ impl TypeCheck {
                         &val_context,
                         &type_def_provider,
                     )
-                    .map_err(|it| TypeCheckError::new(it))?;
+                    .map_err(TypeCheckError::new)?;
 
                 if called_functions.is_empty() {
                     None

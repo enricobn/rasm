@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::env;
 use std::iter::zip;
@@ -881,7 +880,7 @@ impl<'a> CodeGen<'a> {
                                     // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
 
                                     let mut parameters = FunctionCallParameters::new(
-                                        self.backend.borrow(),
+                                        self.backend,
                                         Vec::new(),
                                         function_def.inline,
                                         true,
@@ -964,7 +963,7 @@ impl<'a> CodeGen<'a> {
                                         self.id += 1;
 
                                         let mut parameters = FunctionCallParameters::new(
-                                            self.backend.borrow(),
+                                            self.backend,
                                             Vec::new(),
                                             function_def.inline,
                                             true,
@@ -1031,7 +1030,7 @@ impl<'a> CodeGen<'a> {
             }
             ASTTypedFunctionBody::ASMBody(body) => {
                 let function_call_parameters = FunctionCallParameters::new(
-                    self.backend.borrow(),
+                    self.backend,
                     function_def.parameters.clone(),
                     false,
                     false,
@@ -1285,7 +1284,7 @@ impl<'a> CodeGen<'a> {
         }
 
         let mut call_parameters = FunctionCallParameters::new(
-            self.backend.borrow(),
+            self.backend,
             parameters.clone(),
             inline,
             false,

@@ -491,7 +491,7 @@ impl Parser {
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
         } else if let Some((resource, next_i)) = self.try_parse_include()? {
-            let source_file = path.with_file_name(&resource);
+            let source_file = path.with_file_name(resource);
             info!("include {}", source_file.to_str().unwrap());
 
             self.included_files.insert(source_file.clone());
@@ -763,7 +763,7 @@ impl Parser {
                     self.state.pop();
                     Ok(())
                 } else {
-                    Err(format!(""))
+                    Err(String::new())
                 }
             } else {
                 self.state.pop();
@@ -1045,10 +1045,10 @@ impl Parser {
                     self.get_i() + matcher_result.next_n(),
                 )))
             } else {
-                return Err(format!(
+                Err(format!(
                     "Cannot parse function definition: {}",
                     self.get_index(0),
-                ));
+                ))
             }
         } else {
             Ok(None)

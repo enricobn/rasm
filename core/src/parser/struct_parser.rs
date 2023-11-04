@@ -117,10 +117,10 @@ impl<'a> StructParser<'a> {
 
             Ok(Some((parameters, self.parser.get_i() + result.next_n())))
         } else {
-            return Err(format!(
+            Err(format!(
                 "No properties for struct {name} : {}",
                 self.parser.get_index(n)
-            ));
+            ))
         }
     }
 }

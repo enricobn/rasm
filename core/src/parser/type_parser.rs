@@ -221,10 +221,10 @@ impl<'a> TypeParser<'a> {
                 self.parser.get_i() + n,
             ))
         } else {
-            return Err(format!(
+            Err(format!(
                 "Error parsing fn type parameter, expected '(': {}",
                 self.parser.get_index(n)
-            ));
+            ))
         }
     }
 }

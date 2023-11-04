@@ -97,7 +97,7 @@ impl ReferenceFinder {
                 .iter()
                 .flat_map(|it| {
                     Self::process_function(it, module, &reference_static_context)
-                        .unwrap_or(Vec::new())
+                        .unwrap_or_default()
                 })
                 .collect(),
         );

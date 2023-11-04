@@ -317,14 +317,14 @@ impl FunctionsContainer {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
             OptionDisplay(&return_type_filter),
-            SliceDisplay(&parameter_types_filter)
+            SliceDisplay(parameter_types_filter)
         );
         let result =
             if let Some(functions) = self.functions_by_name.get(&call.original_function_name) {
                 if functions.is_empty() {
                     panic!(
                         "cannot find functions for call {call} filter {}",
-                        SliceDisplay(&parameter_types_filter)
+                        SliceDisplay(parameter_types_filter)
                     );
                 } else {
                     Self::find_call_vec_1(
@@ -778,21 +778,17 @@ impl FunctionsContainer {
             if functions.len() > 1 {
                 for function in functions.iter() {
                     for other_function in functions.iter() {
-                        if function.name != other_function.name {
-                            if function.parameters.len() == other_function.parameters.len() {
-                                if zip(&function.parameters, &other_function.parameters).all(
+                        if function.name != other_function.name && function.parameters.len() == other_function.parameters.len() && zip(&function.parameters, &other_function.parameters).all(
                                     |(a, b)| {
                                         a.ast_type == b.ast_type
                                             || matches!(a.ast_type, ASTType::Generic(_))
                                                 && matches!(b.ast_type, ASTType::Generic(_))
                                     },
                                 ) {
-                                    panic!(
-                                        "Duplicate function signature {} {}",
-                                        function.index, other_function.index
-                                    );
-                                }
-                            }
+                            panic!(
+                                "Duplicate function signature {} {}",
+                                function.index, other_function.index
+                            );
                         }
                     }
                 }

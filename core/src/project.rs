@@ -164,12 +164,10 @@ impl RasmProject {
     pub fn from_relative_to_root(&self, path: &Path) -> PathBuf {
         if path.is_absolute() {
             path.to_path_buf()
+        } else if self.root.is_dir() {
+            self.root.join(path)
         } else {
-            if self.root.is_dir() {
-                self.root.join(path)
-            } else {
-                self.root.parent().unwrap().join(path)
-            }
+            self.root.parent().unwrap().join(path)
         }
     }
 

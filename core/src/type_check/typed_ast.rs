@@ -867,7 +867,7 @@ pub fn convert_to_typed_module(
 
     let mut evaluator = TextMacroEvaluator::new();
 
-    for (name, function) in functions_by_name.iter_mut() {
+    for (_name, function) in functions_by_name.iter_mut() {
         match &function.body {
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::ASMBody(body) => {
@@ -1756,7 +1756,7 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
                     .collect(),
                 return_type: Box::new(typed_type(
                     conv_context,
-                    &return_type,
+                    return_type,
                     &(message.to_owned() + ", lambda return type"),
                 )),
             }),

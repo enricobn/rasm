@@ -1564,7 +1564,7 @@ mod tests {
             )
             .unwrap();
 
-        let (m, i) = macros.get(0).unwrap();
+        let (m, _i) = macros.get(0).unwrap();
         let param = m.parameters.get(1).unwrap();
         match param {
             MacroParam::Plain(_, _, _) => panic!("plain"),

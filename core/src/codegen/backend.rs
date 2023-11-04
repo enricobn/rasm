@@ -989,7 +989,7 @@ impl Backend for BackendNasm386 {
                         for c in s
                             .replace("\\n", "\n")
                             .replace("\\t", "\t")
-                            .replace("'", "',39,'")
+                            .replace('\'', "',39,'")
                             //.replace("\\\"", "\"")
                             .chars()
                         {
