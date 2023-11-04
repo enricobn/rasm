@@ -571,7 +571,7 @@ mod tests {
 
         let mut statics = Statics::new();
 
-        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
+        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics, false);
 
         let module = EnhancedASTModule::new(modules, &project);
 

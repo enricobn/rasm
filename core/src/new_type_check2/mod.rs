@@ -1004,7 +1004,7 @@ mod tests {
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::{ASTIndex, ASTModule, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
@@ -1261,7 +1261,10 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let (modules, backend, mut statics) = to_ast_module(&project);
+        let mut backend = BackendNasm386::new(false);
+        let mut statics = Statics::new();
+
+        let (modules, _errors) = project.get_all_modules(&mut backend, &mut statics, false);
 
         let module = EnhancedASTModule::new(modules, &project);
 
@@ -1331,21 +1334,6 @@ mod tests {
         let file_name = PathBuf::from(test_folder);
 
         RasmProject::new(file_name)
-    }
-
-    fn to_ast_module(project: &RasmProject) -> (Vec<ASTModule>, BackendNasm386, Statics) {
-        let mut backend = BackendNasm386::new(false);
-        let mut statics = Statics::new();
-        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics);
-
-        if !errors.is_empty() {
-            for e in errors {
-                eprintln!("{e}");
-            }
-            panic!();
-        }
-
-        (modules, backend, statics)
     }
 
     fn init() {

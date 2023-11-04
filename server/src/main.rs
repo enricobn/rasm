@@ -69,7 +69,7 @@ impl ServerState {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let (modules, errors) = project.get_all_modules(backend, &mut statics);
+        let (modules, errors) = project.get_all_modules(backend, &mut statics, false);
 
         // TODO errors
 
