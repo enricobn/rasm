@@ -34,6 +34,8 @@ use rasm_core::type_check::typed_ast::{
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 
+use crate::reference_finder::FileToken;
+
 pub struct CompletionItem {
     pub value: String,
     pub descr: String,
@@ -118,18 +120,20 @@ pub enum CompletableItemResult {
 
 #[derive(Clone)]
 pub struct CompletableItem {
-    min: ASTIndex,
-    max: ASTIndex,
+    file_token: FileToken,
     ast_typed_type: ASTTypedType,
 }
 
 impl CompletableItem {
-    fn new(min: ASTIndex, max: ASTIndex, ast_typed_type: ASTTypedType) -> Self {
+    fn new(start: ASTIndex, len: usize, ast_typed_type: ASTTypedType) -> Self {
         Self {
-            min,
-            max,
+            file_token: FileToken::new(start, len),
             ast_typed_type,
         }
+    }
+
+    fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
+        self.file_token.contains(index)
     }
 }
 
@@ -253,11 +257,7 @@ impl CompletionService {
         let items = self
             .items
             .iter()
-            .map(|it| {
-                index
-                    .between(&it.min, &it.max)
-                    .map(|valid| (it.clone(), valid))
-            })
+            .map(|it| it.contains(index).map(|valid| (it.clone(), valid)))
             .collect::<io::Result<Vec<_>>>()?;
 
         if items.is_empty() {
@@ -382,7 +382,7 @@ impl CompletionService {
                 };
                 completable_items.push(CompletableItem::new(
                     call.index.mv(-(call.original_function_name.len() as i32)),
-                    call.index.clone(),
+                    call.original_function_name.len(),
                     ast_typed_type,
                 ));
                 for (i, it) in call.parameters.iter().enumerate() {
@@ -401,14 +401,14 @@ impl CompletionService {
                     TypedValKind::ParameterRef(_, def) => {
                         completable_items.push(CompletableItem::new(
                             index.mv(-(name.len() as i32)),
-                            index.clone(),
+                            name.len(),
                             def.ast_type.clone(),
                         ));
                     }
                     TypedValKind::LetRef(_, ast_typed_type) => {
                         completable_items.push(CompletableItem::new(
                             index.mv(-(name.len() as i32)),
-                            index.clone(),
+                            name.len(),
                             ast_typed_type.clone(),
                         ));
                     }

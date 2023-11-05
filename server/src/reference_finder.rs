@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::io;
+use std::path::PathBuf;
 
 use log::warn;
 
@@ -36,13 +37,9 @@ impl ReferenceFinder {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
-            if index.between(&selectable_item.min, &selectable_item.max)? {
+            if selectable_item.contains(index)? {
                 //println!("found {:?}", selectable_item);
                 result.push(selectable_item.clone());
-            }
-
-            if selectable_item.min.file_name == index.file_name {
-                //println!("NOT found {:?}", selectable_item.min.row);
             }
         }
 
@@ -51,7 +48,7 @@ impl ReferenceFinder {
 
     pub fn get_completions(&self, index: &ASTIndex) -> Result<CompletionResult, io::Error> {
         for selectable_item in self.selectable_items.iter() {
-            if index.between(&selectable_item.min, &selectable_item.max)? {
+            if selectable_item.contains(index)? {
                 if let Some(ref ast_type) = selectable_item.ast_type {
                     let filter = TypeFilter::Exact(ast_type.clone());
                     let mut items = Vec::new();
@@ -168,7 +165,7 @@ impl ReferenceFinder {
         if let Some(custom_type_index) = Self::get_custom_type_index(module, name) {
             result.push(SelectableItem::new(
                 min,
-                index.clone(),
+                name.len(),
                 custom_type_index.clone(),
                 None,
                 Some(ast_type.clone()),
@@ -266,7 +263,7 @@ impl ReferenceFinder {
                 })?
                 .filter
                 .clone(),
-            ASTExpression::Value(value_type, index) => TypeFilter::Exact(value_type.to_type()),
+            ASTExpression::Value(value_type, _index) => TypeFilter::Exact(value_type.to_type()),
             ASTExpression::Any(ast_type) => TypeFilter::Exact(ast_type.clone()),
         };
 
@@ -353,8 +350,8 @@ impl ReferenceFinder {
                         Self::get_if_custom_type_index(module, &function.return_type);
 
                     result.push(SelectableItem::new(
-                        call.index.mv(-(call.function_name.len() as i32)),
-                        call.index.clone(),
+                        call.index.mv(-(call.original_function_name.len() as i32)),
+                        call.original_function_name.len(),
                         function.index.clone(),
                         Some(expr.clone()),
                         Some(function.return_type.clone()),
@@ -382,7 +379,7 @@ impl ReferenceFinder {
 
                     result.push(SelectableItem::new(
                         index.mv(-(name.len() as i32)),
-                        index.clone(),
+                        name.len(),
                         v.index.clone(),
                         Some(expr.clone()),
                         ast_type,
@@ -443,9 +440,70 @@ impl ReferenceFinder {
 }
 
 #[derive(Debug, Clone)]
+pub struct FileToken {
+    start: ASTIndex,
+    len: usize,
+}
+
+impl FileToken {
+    pub fn new(start: ASTIndex, len: usize) -> Self {
+        Self { start, len }
+    }
+
+    pub fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
+        Ok(index.row == self.start.row
+            && index.column >= self.start.column
+            && index.column <= (self.start.column + self.len - 1)
+            && Self::path_matches(&index.file_name, &self.start.file_name)?)
+    }
+
+    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> io::Result<bool> {
+        if let Some(p1) = op1 {
+            if let Some(p2) = op2 {
+                if p1.file_name() != p2.file_name() {
+                    return Ok(false);
+                }
+                let p1_canon = p1.canonicalize().map_err(|it| {
+                    io::Error::new(
+                        it.kind(),
+                        format!("Error canonilizing {}", p1.as_os_str().to_str().unwrap()),
+                    )
+                })?;
+
+                let p2_canon = p2.canonicalize().map_err(|it| {
+                    io::Error::new(
+                        it.kind(),
+                        format!("Error canonilizing {}", p2.as_os_str().to_str().unwrap()),
+                    )
+                })?;
+
+                return Ok(p1_canon == p2_canon);
+            }
+        }
+
+        Ok(false)
+    }
+}
+
+impl Display for FileToken {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let file_name = self
+            .start
+            .file_name
+            .as_ref()
+            .and_then(|it| it.to_str().map(|s| format!("file:///{s}")))
+            .unwrap_or("".to_string());
+
+        f.write_str(&format!(
+            "{file_name} {}:{} len {}",
+            self.start.row, self.start.column, self.len
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct SelectableItem {
-    min: ASTIndex,
-    max: ASTIndex,
+    file_token: FileToken,
     pub point_to: ASTIndex,
     expr: Option<ASTExpression>,
     pub ast_type: Option<ASTType>,
@@ -454,40 +512,30 @@ pub struct SelectableItem {
 
 impl Display for SelectableItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let file_name = if self.min.file_name != self.max.file_name {
-            String::new()
-        } else {
-            self.min
-                .file_name
-                .as_ref()
-                .and_then(|it| it.to_str().map(|s| format!("file:///{s}")))
-                .unwrap_or("".to_owned())
-        };
-
-        f.write_str(&format!(
-            "{file_name} {}:{}-{}:{} {}",
-            self.min.row, self.min.column, self.max.row, self.max.column, self.point_to
-        ))
+        f.write_str(&format!("{} -> {}", self.file_token, self.point_to))
     }
 }
 
 impl SelectableItem {
     pub fn new(
-        min: ASTIndex,
-        max: ASTIndex,
+        start: ASTIndex,
+        len: usize,
         point_to: ASTIndex,
         expr: Option<ASTExpression>,
         ast_type: Option<ASTType>,
         ast_type_index: Option<ASTIndex>,
     ) -> Self {
         SelectableItem {
-            min,
-            max,
+            file_token: FileToken::new(start, len),
             point_to,
             expr,
             ast_type,
             ast_type_index,
         }
+    }
+
+    fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
+        self.file_token.contains(index)
     }
 }
 
