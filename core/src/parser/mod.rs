@@ -467,7 +467,7 @@ impl Parser {
                     inline: false,
                     generic_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: self.get_index(next_i - self.i),
+                    index: self.get_index(1),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -1435,7 +1435,7 @@ mod tests {
             generic_types: vec!["T".into(), "T1".into()],
             resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: "p".into(),
-            index: ASTIndex::new(None, 1, 12),
+            index: ASTIndex::new(None, 1, 5),
         };
 
         assert_eq!(module.functions, vec![function_def]);

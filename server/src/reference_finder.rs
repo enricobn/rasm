@@ -352,7 +352,9 @@ impl ReferenceFinder {
                     result.push(SelectableItem::new(
                         call.index.mv(-(call.original_function_name.len() as i32)),
                         call.original_function_name.len(),
-                        function.index.clone(),
+                        function
+                            .index
+                            .mv(-(call.original_function_name.len() as i32)),
                         Some(expr.clone()),
                         Some(function.return_type.clone()),
                         custom_type_index,
@@ -380,7 +382,7 @@ impl ReferenceFinder {
                     result.push(SelectableItem::new(
                         index.mv(-(name.len() as i32)),
                         name.len(),
-                        v.index.clone(),
+                        v.index.mv(-(name.len() as i32)).clone(),
                         Some(expr.clone()),
                         ast_type,
                         ast_type_index,
@@ -463,19 +465,9 @@ impl FileToken {
                 if p1.file_name() != p2.file_name() {
                     return Ok(false);
                 }
-                let p1_canon = p1.canonicalize().map_err(|it| {
-                    io::Error::new(
-                        it.kind(),
-                        format!("Error canonilizing {}", p1.as_os_str().to_str().unwrap()),
-                    )
-                })?;
+                let p1_canon = p1.canonicalize()?;
 
-                let p2_canon = p2.canonicalize().map_err(|it| {
-                    io::Error::new(
-                        it.kind(),
-                        format!("Error canonilizing {}", p2.as_os_str().to_str().unwrap()),
-                    )
-                })?;
+                let p2_canon = p2.canonicalize()?;
 
                 return Ok(p1_canon == p2_canon);
             }
@@ -567,16 +559,16 @@ mod tests {
                     .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 1, 10)]
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 1, 5)]
         );
 
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 15,))
+                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 13,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 21)]
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 16)]
         );
     }
 
@@ -626,23 +618,43 @@ mod tests {
     fn types_1() {
         let finder = get_reference_finder("resources/test/types.rasm");
 
-        let file_name = Path::new("resources/test/types.rasm");
-        let source_file = Path::new(&file_name);
-
+        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
         let found = finder
-            .find(&ASTIndex::new(
-                Some(PathBuf::from("resources/test/types.rasm")),
-                25,
-                31,
-            ))
+            .find(&ASTIndex::new(file_name.clone(), 25, 31))
             .unwrap();
 
         assert_eq!(
-            vec!(ASTIndex::new(
-                Some(PathBuf::from("resources/test/types.rasm",)),
-                1,
-                7,
-            )),
+            vec!(ASTIndex::new(file_name, 1, 7,)),
+            vec_selectable_item_to_vec_index(found)
+        );
+    }
+
+    #[test]
+    fn types_2() {
+        let finder = get_reference_finder("resources/test/types.rasm");
+
+        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+        let found = finder
+            .find(&ASTIndex::new(file_name.clone(), 9, 1))
+            .unwrap();
+
+        assert_eq!(
+            vec!(ASTIndex::new(file_name, 13, 4,)),
+            vec_selectable_item_to_vec_index(found)
+        );
+    }
+
+    #[test]
+    fn types_3() {
+        let finder = get_reference_finder("resources/test/types.rasm");
+
+        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+        let found = finder
+            .find(&ASTIndex::new(file_name.clone(), 9, 13))
+            .unwrap();
+
+        assert_eq!(
+            vec!(ASTIndex::new(file_name, 5, 5,)),
             vec_selectable_item_to_vec_index(found)
         );
     }
