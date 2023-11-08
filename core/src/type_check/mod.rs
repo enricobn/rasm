@@ -5,7 +5,7 @@ use log::debug;
 use type_check_error::TypeCheckError;
 
 use crate::codegen::text_macro::{MacroParam, TextMacro};
-use crate::parser::ast::MyToString;
+use crate::parser::ast::{ASTIndex, MyToString};
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::{debug_i, dedent, indent};
@@ -118,16 +118,16 @@ pub fn resolve_generic_types_from_effective_type(
                         return_type: e_return_type,
                     }) => {
                         if e_parameters.len() != p_parameters.len() {
-                            return Err(TypeCheckError::new(
-                                "Invalid parameters count.".to_owned(),
-                            ));
+                            return Err(type_check_error("Invalid parameters count.".to_string()));
                         }
                         for (i, p_p) in p_parameters.iter().enumerate() {
                             let e_p = e_parameters.get(i).unwrap();
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
-                            .map_err(|e| format!("{} in lambda param gen type {generic_type}eff. type {effective_type}", e))?;
+                            .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
 
-                            result.extend(inner_result)?;
+                            result
+                                .extend(inner_result)
+                                .map_err(|it| type_check_error(it.clone()))?;
                         }
 
                         /*
@@ -148,13 +148,15 @@ pub fn resolve_generic_types_from_effective_type(
 
                          */
                         let inner_result = resolve_generic_types_from_effective_type(p_return_type, e_return_type)
-                        .map_err(|e| format!("{} in return type gen type {generic_type}eff. type {effective_type}", e))?;
+                        .map_err(|e| e.add(ASTIndex::none(), format!("in return type gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
 
-                        result.extend(inner_result)?;
+                        result
+                            .extend(inner_result)
+                            .map_err(|it| type_check_error(it.clone()))?;
                     }
                     _ => {
                         dedent!();
-                        return Err("unmatched types".into());
+                        return Err(type_check_error("unmatched types".to_string()));
                     }
                 },
             }
@@ -174,47 +176,54 @@ pub fn resolve_generic_types_from_effective_type(
             name: p_name,
             param_types: p_param_types,
             index: _,
-        } => {
-            match effective_type {
-                ASTType::Custom {
-                    name: e_name,
-                    param_types: e_param_types,
-                    index: _,
-                } => {
-                    if p_name != e_name {
-                        dedent!();
-                        return Err(format!("unmatched custom type name {p_name} {e_name}").into());
-                    }
-
-                    for (i, p_p) in p_param_types.iter().enumerate() {
-                        let e_p = e_param_types.get(i).unwrap();
-                        let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
-                        .map_err(|e| e.add(format!("in custom type gen type {generic_type} eff type {effective_type}")))?;
-
-                        result.extend(inner_result).map_err(|it| {
-                            it.add(format!(
-                                "in custom type gen type {generic_type} eff type {effective_type}"
-                            ))
-                        })?;
-                    }
-                }
-                ASTType::Generic(_) => {}
-                _ => {
+        } => match effective_type {
+            ASTType::Custom {
+                name: e_name,
+                param_types: e_param_types,
+                index: _,
+            } => {
+                if p_name != e_name {
                     dedent!();
-                    return Err(format!(
-                        "unmatched types generic type: {:?}, effective type: {:?}",
-                        generic_type, effective_type
-                    )
-                    .into());
+                    return Err(type_check_error(format!(
+                        "unmatched custom type name {p_name} {e_name}"
+                    )));
+                }
+
+                for (i, p_p) in p_param_types.iter().enumerate() {
+                    let e_p = e_param_types.get(i).unwrap();
+                    let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
+                        .map_err(|e| e.add(ASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"), Vec::new()))?;
+
+                    result.extend(inner_result).map_err(|it| {
+                        TypeCheckError::new(
+                            ASTIndex::none(),
+                            format!(
+                                "in custom type gen type {generic_type} eff type {effective_type}"
+                            ),
+                            Vec::new(),
+                        )
+                    })?;
                 }
             }
-        }
+            ASTType::Generic(_) => {}
+            _ => {
+                dedent!();
+                return Err(type_check_error(format!(
+                    "unmatched types generic type: {:?}, effective type: {:?}",
+                    generic_type, effective_type
+                )));
+            }
+        },
         ASTType::Unit => {}
     }
 
     debug_i!("result {}", result.my_to_string());
     dedent!();
     Ok(result)
+}
+
+fn type_check_error(message: String) -> TypeCheckError {
+    TypeCheckError::new(ASTIndex::none(), message, Vec::new())
 }
 
 pub fn substitute(

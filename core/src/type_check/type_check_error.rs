@@ -16,23 +16,24 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::parser::ast::ASTIndex;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct TypeCheckError {
-    messages: Vec<String>,
+    messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,
 }
 
 impl TypeCheckError {
-    pub fn new(message: String) -> Self {
+    pub fn new(index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
         TypeCheckError {
-            messages: vec![message],
+            messages: vec![(index, message, stack)],
         }
     }
 
-    pub fn add(self, message: String) -> Self {
+    pub fn add(self, index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
         let mut result = self.messages.clone();
-        result.push(message);
+        result.push((index, message, stack));
         TypeCheckError { messages: result }
     }
 }
@@ -41,22 +42,12 @@ impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         //let bt = Backtrace::new();
         //println!("{:?}", bt);
-        for message in self.messages.iter() {
-            f.write_str(message)?;
-            f.write_str("\n")?;
+        for (index, message, stack) in self.messages.iter() {
+            f.write_str(&format!("{} : {}\n", message, index))?;
+            for i in stack {
+                f.write_str(&format!("{}\n", i))?;
+            }
         }
         Ok(())
-    }
-}
-
-impl From<&str> for TypeCheckError {
-    fn from(s: &str) -> Self {
-        TypeCheckError::new(s.into())
-    }
-}
-
-impl From<String> for TypeCheckError {
-    fn from(s: String) -> Self {
-        TypeCheckError::new(s)
     }
 }

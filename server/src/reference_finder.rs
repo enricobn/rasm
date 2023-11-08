@@ -259,7 +259,11 @@ impl ReferenceFinder {
                 .get(name)
                 .or_else(|| reference_static_context.get(name))
                 .ok_or_else(|| {
-                    TypeCheckError::from(format!("cannot find ref to '{name}' : {index}"))
+                    TypeCheckError::new(
+                        index.clone(),
+                        format!("cannot find ref to '{name}'"),
+                        Vec::new(),
+                    )
                 })?
                 .filter
                 .clone(),

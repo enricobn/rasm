@@ -21,7 +21,6 @@ use std::fmt::{Display, Formatter};
 use linked_hash_map::{Iter, LinkedHashMap};
 
 use crate::parser::ast::{ASTType, MyToString};
-use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGenericTypes {
@@ -39,13 +38,13 @@ impl ResolvedGenericTypes {
         self.map.get(key)
     }
 
-    pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), TypeCheckError> {
+    pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), String> {
         for (key, t) in other.iter() {
             if let Some(et) = self.get(key) {
                 if t != et {
-                    return Err(TypeCheckError::from(format!(
+                    return Err(format!(
                         "Already resolved generic {key}, prev {et}, actual {t}"
-                    )));
+                    ));
                 }
             }
         }

@@ -20,13 +20,13 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
+use crate::errors::CompilationError;
 use crate::parser::ast::{ASTIndex, ASTParameterDef, ASTType};
 use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
 use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
 use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::get_new_native_call;
-use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
@@ -136,7 +136,7 @@ impl<'a> CodeGen<'a> {
         dereference: bool,
         print_module: bool,
         statics: &mut Statics,
-    ) -> Result<ASTTypedModule, TypeCheckError> {
+    ) -> Result<ASTTypedModule, CompilationError> {
         let mandatory_functions = type_mandatory_functions(&module);
         let default_functions = get_default_functions(print_memory_info);
 

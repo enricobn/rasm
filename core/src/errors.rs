@@ -21,18 +21,18 @@ use std::fmt::{Display, Formatter};
 use crate::parser::ast::ASTIndex;
 use crate::type_check::type_check_error::TypeCheckError;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CompilationError {
     pub index: ASTIndex,
     pub error_kind: CompilationErrorKind,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum CompilationErrorKind {
     Generic(String),
     Lexer(String),
     Parser(String),
-    TypeCheck(TypeCheckError),
+    TypeCheck(String, Vec<TypeCheckError>),
 }
 
 impl Display for CompilationError {
@@ -41,7 +41,12 @@ impl Display for CompilationError {
             CompilationErrorKind::Generic(message) => f.write_str(message)?,
             CompilationErrorKind::Lexer(message) => f.write_str(message)?,
             CompilationErrorKind::Parser(message) => f.write_str(message)?,
-            CompilationErrorKind::TypeCheck(error) => f.write_str(&format!("{error}"))?,
+            CompilationErrorKind::TypeCheck(message, error) => {
+                f.write_str(&format!("{message}\n"))?;
+                for e in error {
+                    f.write_str(&format!("{e}\n"))?
+                }
+            }
         }
 
         f.write_str(&format!("\n --> {}", self.index))

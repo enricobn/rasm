@@ -25,6 +25,7 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
+use rasm_core::errors::CompilationError;
 use rasm_core::new_type_check2;
 use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
 use rasm_core::type_check::functions_container::TypeFilter;
@@ -148,7 +149,7 @@ impl CompletionService {
         module: EnhancedASTModule,
         statics: &mut Statics,
         backend: &dyn Backend,
-    ) -> Result<Self, TypeCheckError> {
+    ) -> Result<Self, CompilationError> {
         let typed_module =
             CodeGen::get_typed_module(backend, module.clone(), false, true, false, statics)?;
 
@@ -360,15 +361,17 @@ impl CompletionService {
                     {
                         (parameters, return_type.deref().clone())
                     } else {
-                        return Err(TypeCheckError::new(format!("type of reference '{}' expected to be a lambda but is {ast_typed_type}", call.function_name)));
+                        return Err(TypeCheckError::new(call.index.clone(),
+                                                       format!("type of reference '{}' expected to be a lambda but is {ast_typed_type}", call.function_name), Vec::new()));
                     }
                 } else {
                     match module.functions_by_name.get(&call.function_name) {
                         None => {
-                            return Err(TypeCheckError::new(format!(
-                                "cannot find function {}",
-                                call.function_name
-                            )));
+                            return Err(TypeCheckError::new(
+                                call.index.clone(),
+                                format!("cannot find function {}", call.function_name),
+                                Vec::new(),
+                            ));
                         }
                         Some(function) => (
                             function

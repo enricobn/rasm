@@ -11,6 +11,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
+use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
@@ -814,7 +815,7 @@ pub fn convert_to_typed_module(
     statics: &mut Statics,
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
-) -> Result<ASTTypedModule, TypeCheckError> {
+) -> Result<ASTTypedModule, CompilationError> {
     let type_check = TypeCheck::new();
 
     let module = type_check.type_check(
@@ -849,7 +850,13 @@ pub fn convert_to_typed_module(
                 statics,
                 dereference,
             )
-            .map_err(|it| it.add(format!("Error converting {converted_function}")))?,
+            .map_err(|it| {
+                compilation_error(
+                    converted_function.index.clone(),
+                    format!("Error converting {converted_function}"),
+                    vec![it],
+                )
+            })?,
         );
     }
 
@@ -882,7 +889,13 @@ pub fn convert_to_typed_module(
                         true,
                         &result,
                     )
-                    .map_err(|it| TypeCheckError::from(it.clone()))?;
+                    .map_err(|it| {
+                        compilation_error(
+                            function.index.clone(),
+                            format!("{} converting body of {}", it, function),
+                            Vec::new(),
+                        )
+                    })?;
 
                 let new_body = evaluator
                     .translate(
@@ -895,7 +908,13 @@ pub fn convert_to_typed_module(
                         false,
                         &result,
                     )
-                    .map_err(|it| TypeCheckError::from(it.clone()))?;
+                    .map_err(|it| {
+                        compilation_error(
+                            function.index.clone(),
+                            format!("{} converting body of {}", it, function),
+                            Vec::new(),
+                        )
+                    })?;
                 function.body = ASTTypedFunctionBody::ASMBody(new_body);
             }
         }
@@ -914,6 +933,17 @@ pub fn convert_to_typed_module(
     info!("verify end");
 
     Ok(result)
+}
+
+fn compilation_error(
+    index: ASTIndex,
+    message: String,
+    errors: Vec<TypeCheckError>,
+) -> CompilationError {
+    CompilationError {
+        index,
+        error_kind: CompilationErrorKind::TypeCheck(message, errors),
+    }
 }
 
 pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
