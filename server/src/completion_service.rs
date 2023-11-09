@@ -25,11 +25,10 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{CodeGen, TypedValKind};
-use rasm_core::errors::CompilationError;
+use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
 use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
 use rasm_core::type_check::functions_container::TypeFilter;
-use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
@@ -292,10 +291,11 @@ impl CompletionService {
         statements: &[ASTTypedStatement],
         val_context: &mut TypedValContext,
         statics: &mut Statics,
-    ) {
-        statements.iter().for_each(|it| {
-            Self::process_statement(module, completable_items, it, val_context, statics);
-        });
+    ) -> Result<(), CompilationError> {
+        for it in statements.iter() {
+            Self::process_statement(module, completable_items, it, val_context, statics)?;
+        }
+        Ok(())
     }
 
     fn process_statement(
@@ -304,21 +304,19 @@ impl CompletionService {
         statement: &ASTTypedStatement,
         val_context: &mut TypedValContext,
         statics: &mut Statics,
-    ) {
+    ) -> Result<(), CompilationError> {
         match statement {
-            ASTTypedStatement::Expression(expr) => {
-                Self::process_expression(
-                    module,
-                    completable_items,
-                    expr,
-                    val_context,
-                    None,
-                    statics,
-                );
-            }
-            ASTTypedStatement::LetStatement(name, expr, is_const, index) => {
+            ASTTypedStatement::Expression(expr) => Self::process_expression(
+                module,
+                completable_items,
+                expr,
+                val_context,
+                None,
+                statics,
+            ),
+            ASTTypedStatement::LetStatement(name, expr, _is_const, _index) => {
                 let typed_type =
-                    get_type_of_typed_expression(module, val_context, expr, None, statics);
+                    get_type_of_typed_expression(module, val_context, expr, None, statics)?;
                 val_context.insert(name.clone(), TypedValKind::LetRef(0, typed_type.clone()));
 
                 Self::process_expression(
@@ -328,7 +326,7 @@ impl CompletionService {
                     val_context,
                     Some(typed_type),
                     statics,
-                );
+                )
             }
         }
     }
@@ -340,9 +338,9 @@ impl CompletionService {
         val_context: &TypedValContext,
         expected_type: Option<ASTTypedType>,
         statics: &mut Statics,
-    ) -> Result<(), TypeCheckError> {
+    ) -> Result<(), CompilationError> {
         match expr {
-            ASTTypedExpression::StringLiteral(value) => {
+            ASTTypedExpression::StringLiteral(_value) => {
                 // TODO we need an index
             }
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -361,17 +359,19 @@ impl CompletionService {
                     {
                         (parameters, return_type.deref().clone())
                     } else {
-                        return Err(TypeCheckError::new(call.index.clone(),
-                                                       format!("type of reference '{}' expected to be a lambda but is {ast_typed_type}", call.function_name), Vec::new()));
+                        return Err(CompilationError { index: call.index.clone(),
+                                                       error_kind: CompilationErrorKind::Generic(format!("type of reference '{}' expected to be a lambda but is {ast_typed_type}", call.function_name))});
                     }
                 } else {
                     match module.functions_by_name.get(&call.function_name) {
                         None => {
-                            return Err(TypeCheckError::new(
-                                call.index.clone(),
-                                format!("cannot find function {}", call.function_name),
-                                Vec::new(),
-                            ));
+                            return Err(CompilationError {
+                                index: call.index.clone(),
+                                error_kind: CompilationErrorKind::Generic(format!(
+                                    "cannot find function {}",
+                                    call.function_name
+                                )),
+                            });
                         }
                         Some(function) => (
                             function
@@ -421,7 +421,7 @@ impl CompletionService {
             ASTTypedExpression::Lambda(lambda_def) => {
                 if let Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                     parameters,
-                    return_type,
+                    return_type: _,
                 })) = expected_type
                 {
                     let mut lambda_context = TypedValContext::new(Some(val_context));
@@ -445,7 +445,7 @@ impl CompletionService {
                         &lambda_def.body,
                         &mut lambda_context,
                         statics,
-                    );
+                    )?;
                 }
             }
         }

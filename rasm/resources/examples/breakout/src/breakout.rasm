@@ -64,6 +64,12 @@ added special case for determining the type of a parameterless lambda
 type check ended in 117.623057ms
 */
 
+/*
+    removed print of stack in Display for TypeCheckError
+
+    type check ended in 88.168403ms
+*/
+
 enum GameResult {
     Play(state: GameState),
     End(score: i32)

@@ -477,7 +477,8 @@ impl<'a> CodeGen<'a> {
                     expr,
                     None,
                     &mut self.statics,
-                );
+                )
+                .unwrap();
 
                 if is_const {
                     let key = self

@@ -40,13 +40,14 @@ impl TypeCheckError {
 
 impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        //let bt = Backtrace::new();
-        //println!("{:?}", bt);
         for (index, message, stack) in self.messages.iter() {
             f.write_str(&format!("{} : {}\n", message, index))?;
+            /*
             for i in stack {
                 f.write_str(&format!("{}\n", i))?;
             }
+
+             */
         }
         Ok(())
     }

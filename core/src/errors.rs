@@ -33,6 +33,7 @@ pub enum CompilationErrorKind {
     Lexer(String),
     Parser(String),
     TypeCheck(String, Vec<TypeCheckError>),
+    Verify(String),
 }
 
 impl Display for CompilationError {
@@ -47,6 +48,7 @@ impl Display for CompilationError {
                     f.write_str(&format!("{e}\n"))?
                 }
             }
+            CompilationErrorKind::Verify(message) => f.write_str(message)?,
         }
 
         f.write_str(&format!("\n --> {}", self.index))
