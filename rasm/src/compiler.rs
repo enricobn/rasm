@@ -78,9 +78,9 @@ impl Compiler {
 
         info!("parse ended in {:?}", start.elapsed());
 
-        let mut code_gen = CodeGen::new(
+        let code_gen = CodeGen::new(
             &backend,
-            statics,
+            &mut statics,
             enhanced_ast_module,
             1024 * 1024,
             64 * 1024 * 1024,
@@ -93,7 +93,7 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let asm = code_gen.asm();
+        let asm = code_gen.asm(statics);
 
         info!("code generation ended in {:?}", start.elapsed());
 

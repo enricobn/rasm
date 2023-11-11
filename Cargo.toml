@@ -23,7 +23,7 @@ pad = "0.1"
 pathdiff = "0.2"
 rand = "0.8"
 rayon = "1.7.0"
-regex = "1.6"
+regex = "1.10.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
 strum = "0.24"

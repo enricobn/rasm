@@ -20,7 +20,6 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
-use crate::type_check::functions_container::FunctionsContainer;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::substitute;
 use crate::type_check::type_check_error::TypeCheckError;
@@ -873,7 +872,7 @@ pub fn convert_to_typed_module(
         types: conv_context.type_defs,
     };
 
-    let mut evaluator = TextMacroEvaluator::new();
+    let evaluator = TextMacroEvaluator::new();
 
     for (_name, function) in functions_by_name.iter_mut() {
         match &function.body {
@@ -990,65 +989,6 @@ pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
 
     default_functions.sort_by(|a, b| a.name.cmp(&b.name));
     default_functions
-}
-
-fn find_calls(
-    name: &str,
-    typed_context: &FunctionsContainer,
-    body: &[ASTStatement],
-) -> Vec<ASTIndex> {
-    let mut result = Vec::new();
-
-    result.append(&mut find_calls_in_statements(name, body));
-
-    for f in typed_context.functions() {
-        match &f.body {
-            RASMBody(b) => {
-                result.append(&mut find_calls_in_statements(name, b));
-            }
-            ASMBody(_) => {}
-        }
-    }
-
-    result
-}
-
-fn find_calls_in_statements(name: &str, body: &[ASTStatement]) -> Vec<ASTIndex> {
-    let mut result = Vec::new();
-
-    for st in body.iter() {
-        let e = match st {
-            ASTStatement::Expression(e) => e,
-            ASTStatement::LetStatement(_, e, _, _) => e,
-        };
-
-        result.append(&mut find_calls_in_expression(name, e));
-    }
-    result
-}
-
-fn find_calls_in_expression(name: &str, expr: &ASTExpression) -> Vec<ASTIndex> {
-    let mut result = Vec::new();
-
-    match expr {
-        ASTExpression::StringLiteral(_) => {}
-        ASTExpression::ASTFunctionCallExpression(call) => {
-            if call.function_name == name {
-                result.push(call.index.clone());
-            }
-            for p in call.parameters.iter() {
-                result.append(&mut find_calls_in_expression(name, p));
-            }
-        }
-        ASTExpression::ValueRef(_, _) => {}
-        ASTExpression::Value(_, _) => {}
-        ASTExpression::Lambda(def) => {
-            result.append(&mut find_calls_in_statements(name, &def.body));
-        }
-        ASTExpression::Any(_) => {}
-    }
-
-    result
 }
 
 fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), CompilationError> {

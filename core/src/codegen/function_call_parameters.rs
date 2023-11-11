@@ -186,7 +186,7 @@ impl<'a> FunctionCallParameters<'a> {
         context: &TypedValContext,
         comment: Option<&str>,
         statics: &mut Statics,
-        module: &mut ASTTypedModule,
+        module: &ASTTypedModule,
         stack_vals: &StackVals,
         optimize: bool,
     ) -> LambdaSpace {

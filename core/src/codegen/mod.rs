@@ -51,11 +51,6 @@ pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
 
 pub struct CodeGen<'a> {
     pub module: ASTTypedModule,
-    id: usize,
-    statics: Statics,
-    body: String,
-    definitions: String,
-    lambdas: Vec<LambdaCall>,
     backend: &'a dyn Backend,
     heap_size: usize,
     heap_table_slots: usize,
@@ -80,7 +75,7 @@ pub enum TypedValKind {
 impl<'a> CodeGen<'a> {
     pub fn new(
         backend: &'a dyn Backend,
-        statics: Statics,
+        statics: &mut Statics,
         module: EnhancedASTModule,
         lambda_space_size: usize,
         heap_size: usize,
@@ -96,15 +91,13 @@ impl<'a> CodeGen<'a> {
             *indent.borrow_mut() = 0;
         });
 
-        let mut statics = statics;
-
         let typed_module = Self::get_typed_module(
             backend,
             module,
             print_memory_info,
             dereference,
             print_module,
-            &mut statics,
+            statics,
         )
         .unwrap_or_else(|e| {
             panic!("{e}");
@@ -114,11 +107,6 @@ impl<'a> CodeGen<'a> {
 
         Self {
             module: typed_module,
-            body: String::new(),
-            statics,
-            id: 0,
-            definitions: String::new(),
-            lambdas: Vec::new(),
             backend,
             heap_size,
             heap_table_slots,
@@ -160,11 +148,12 @@ impl<'a> CodeGen<'a> {
         env::var("RASM_STDLIB").unwrap_or(current_dir.join("stdlib").to_str().unwrap().to_owned())
     }
 
-    pub fn asm(&mut self) -> String {
-        self.id = 0;
-        self.body = String::new();
+    pub fn asm(&self, mut statics: Statics) -> String {
+        let mut id: usize = 0;
+        let mut body = String::new();
 
-        self.definitions = String::new();
+        let mut definitions = String::new();
+        let mut lambdas = Vec::new();
 
         // for now main has no context
         let mut context = TypedValContext::new(None);
@@ -187,12 +176,14 @@ impl<'a> CodeGen<'a> {
                             0,
                             false,
                             &stack,
+                            &mut id,
+                            &mut statics,
                         );
                         before.push_str(&bf);
 
                         Self::insert_on_top(&af.join("\n"), &mut after);
 
-                        self.lambdas.append(&mut lambda_calls);
+                        lambdas.append(&mut lambda_calls);
                     }
                     _ => {
                         panic!("unsupported expression in body {e}");
@@ -209,17 +200,20 @@ impl<'a> CodeGen<'a> {
                         None,
                         None,
                         *is_const,
+                        &mut statics,
+                        &mut body,
+                        &mut id,
                     );
-                    self.lambdas.append(&mut new_lambda_calls);
+                    lambdas.append(&mut new_lambda_calls);
                 }
             }
         }
 
-        self.body.push_str(&before.replace(
+        body.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
             &(stack.len_of_all() * self.backend.word_len()).to_string(),
         ));
-        self.body.push_str(&after);
+        body.push_str(&after);
 
         // debug!("stack {:?}", stack);
         //        assert_eq!(stack.size(), 0);
@@ -227,56 +221,93 @@ impl<'a> CodeGen<'a> {
         // TODO add a command line argument
         //Parser::print(&self.module);
 
-        self.create_lambdas(self.lambdas.clone(), 0);
+        self.create_lambdas(
+            lambdas,
+            0,
+            &mut definitions,
+            &mut id,
+            &mut statics,
+            &mut body,
+        );
 
-        self.create_all_functions();
+        /*
+        let mut used_functions = UsedFunctions::find(&self.module, self.backend);
+        let used_functions_in_body = UsedFunctions::get_used_functions(&body);
+        let used_functions_in_definitions = UsedFunctions::get_used_functions(&definitions);
+
+        for used_function_in_body in used_functions_in_body.iter() {
+            println!("used_function_in_body {used_function_in_body}");
+        }
+
+        for used_function_in_definitions in used_functions_in_definitions.iter() {
+            println!("used_function_in_definitions {used_function_in_definitions}");
+        }
+
+        used_functions.extend(used_functions_in_body);
+        used_functions.extend(used_functions_in_definitions);
+        used_functions.insert("addStaticAllocation_0".to_string());
+        used_functions.insert("addHeap_0".to_string());
+        used_functions.insert("createCmdLineArguments_0".to_string());
+
+        let functions = self
+            .module
+            .functions_by_name
+            .values()
+            .filter(|it| {
+                let used = used_functions.contains(&it.name);
+                if !used {
+                    //println!("not used {}", it.name);
+                }
+                used
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+         */
+
+        self.create_all_functions(&mut definitions, &mut id, &mut statics, &mut body);
 
         let mut asm = String::new();
 
         self.backend.preamble(&mut asm);
 
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
-        self.statics.insert(
+        statics.insert(
             "_heap_table".into(),
             Mem((self.heap_table_slots + 1) * 20, Bytes),
         );
-        self.statics.insert(
+        statics.insert(
             "_heap_table_size".into(),
             I32Value(self.heap_table_slots as i32 * 20),
         );
-        self.statics.insert("_heap_table_next".into(), I32Value(0));
-        self.statics.insert("_heap".into(), Mem(4, Bytes));
-        self.statics
-            .insert("_heap_size".into(), I32Value(self.heap_size as i32));
-        self.statics
-            .insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
+        statics.insert("_heap_table_next".into(), I32Value(0));
+        statics.insert("_heap".into(), Mem(4, Bytes));
+        statics.insert("_heap_size".into(), I32Value(self.heap_size as i32));
+        statics.insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
 
-        self.statics
-            .insert("_lambda_space_stack".into(), Mem(4, Bytes));
-        self.statics.insert(
+        statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
+        statics.insert(
             "_lambda_space_stack_buffer".into(),
             Mem(self.lambda_space_size, Bytes),
         );
 
         let reusable_heap_table_size = 16 * 1024 * 1024;
-        self.statics.insert(
+        statics.insert(
             "_reusable_heap_table".into(),
             Mem(reusable_heap_table_size, Bytes),
         );
-        self.statics.insert(
+        statics.insert(
             "_reusable_heap_table_size".into(),
             I32Value(reusable_heap_table_size as i32),
         );
-        self.statics
-            .insert("_reusable_heap_table_next".into(), I32Value(0));
+        statics.insert("_reusable_heap_table_next".into(), I32Value(0));
 
         // command line arguments
-        self.statics.insert("_rasm_args".into(), Mem(12, Words));
-        self.statics.insert("_NEW_LINE".into(), I32Value(10));
-        self.statics.insert("_ESC".into(), I32Value(27));
-        self.statics.insert("_for_nprint".into(), Mem(20, Bytes));
+        statics.insert("_rasm_args".into(), Mem(12, Words));
+        statics.insert("_NEW_LINE".into(), I32Value(10));
+        statics.insert("_ESC".into(), I32Value(27));
+        statics.insert("_for_nprint".into(), Mem(20, Bytes));
 
-        let (declarations, code) = self.backend.generate_statics_code(&self.statics);
+        let (declarations, code) = self.backend.generate_statics_code(&mut statics);
 
         asm.push_str(&declarations);
 
@@ -333,7 +364,7 @@ impl<'a> CodeGen<'a> {
         );
 
         let mut temp_statics = Statics::new();
-        let mut evaluator = TextMacroEvaluator::new();
+        let evaluator = TextMacroEvaluator::new();
 
         let code = evaluator
             .translate(
@@ -369,8 +400,8 @@ impl<'a> CodeGen<'a> {
 
         self.backend.reserve_local_vals(&stack, &mut asm);
 
-        let body = self.body.clone();
-        let new_body = self.translate_body(&body).unwrap();
+        //let body = body.clone();
+        let new_body = self.translate_body(&body, &mut statics).unwrap();
 
         asm.push_str(&new_body);
         asm.push('\n');
@@ -386,13 +417,13 @@ impl<'a> CodeGen<'a> {
         self.backend
             .call_function(&mut asm, "exitMain_0", &[("0", None)], None);
 
-        asm.push_str(&self.definitions);
+        asm.push_str(&definitions);
 
         asm
     }
 
     fn add_let(
-        &mut self,
+        &self,
         context: &mut TypedValContext,
         stack: &StackVals,
         after: &mut String,
@@ -402,6 +433,9 @@ impl<'a> CodeGen<'a> {
         function_def: Option<&ASTTypedFunctionDef>,
         lambda_space: Option<&LambdaSpace>,
         is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        id: &mut usize,
     ) -> Vec<LambdaCall> {
         let wl = self.backend.word_len();
         let bp = self.backend.stack_base_pointer();
@@ -444,6 +478,8 @@ impl<'a> CodeGen<'a> {
                             0,
                             false,
                             stack,
+                            id,
+                            statics,
                         ),
                         call.index.clone(),
                     )
@@ -464,6 +500,8 @@ impl<'a> CodeGen<'a> {
                             0,
                             false,
                             stack,
+                            id,
+                            statics,
                         ),
                         call.index.clone(),
                     )
@@ -471,22 +509,15 @@ impl<'a> CodeGen<'a> {
             }
             ASTTypedExpression::Value(value_type, index) => {
                 let value = self.backend.value_to_string(value_type);
-                let typed_type = get_type_of_typed_expression(
-                    &self.module,
-                    context,
-                    expr,
-                    None,
-                    &mut self.statics,
-                )
-                .unwrap();
+                let typed_type =
+                    get_type_of_typed_expression(&self.module, context, expr, None, statics)
+                        .unwrap();
 
                 if is_const {
-                    let key = self
-                        .statics
-                        .add_typed_const(name.to_owned(), typed_type.clone());
+                    let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
 
                     CodeGen::add(
-                        &mut self.body,
+                        body,
                         &format!("mov {ws} [{key}], {}", value),
                         Some(""),
                         true,
@@ -506,19 +537,17 @@ impl<'a> CodeGen<'a> {
                 (typed_type, (String::new(), vec![], vec![]), index.clone())
             }
             ASTTypedExpression::StringLiteral(value) => {
-                let label = self.statics.add_str(value);
+                let label = statics.add_str(value);
 
                 let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
 
-                CodeGen::add(&mut self.body, "push ebx", None, true);
+                CodeGen::add(body, "push ebx", None, true);
 
                 if is_const {
-                    let key = self
-                        .statics
-                        .add_typed_const(name.to_owned(), typed_type.clone());
+                    let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
 
                     self.backend.indirect_mov(
-                        &mut self.body,
+                        body,
                         &label,
                         &key,
                         "ebx",
@@ -591,33 +620,26 @@ impl<'a> CodeGen<'a> {
 
         if is_const {
             if !bf.is_empty() {
-                self.body.push_str(&bf);
+                body.push_str(&bf);
 
-                let key = self
-                    .statics
-                    .add_typed_const(name.to_owned(), ast_typed_type.clone());
+                let key = statics.add_typed_const(name.to_owned(), ast_typed_type.clone());
 
-                CodeGen::add(
-                    &mut self.body,
-                    &format!("mov {ws} [{key}], eax"),
-                    Some(""),
-                    true,
-                );
+                CodeGen::add(body, &format!("mov {ws} [{key}], eax"), Some(""), true);
             }
 
             if self.dereference {
                 if let Some(type_name) =
                     CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
                 {
-                    let entry = self.statics.get_typed_const(name).unwrap();
+                    let entry = statics.get_typed_const(name).unwrap();
 
                     self.backend.call_add_ref(
-                        &mut self.body,
+                        body,
                         &format!("[{}]", entry.key),
                         &type_name,
                         &format!("for const {name} : {index}"),
                         &self.module,
-                        &mut self.statics,
+                        statics,
                     );
                 }
             }
@@ -644,7 +666,7 @@ impl<'a> CodeGen<'a> {
                         &type_name,
                         &format!("for let val {name} : {index}"),
                         &self.module,
-                        &mut self.statics,
+                        statics,
                     );
 
                     let deref_str = &self.backend.call_deref(
@@ -652,7 +674,7 @@ impl<'a> CodeGen<'a> {
                         &type_name,
                         &format!("for let val {name}"),
                         &self.module,
-                        &mut self.statics,
+                        statics,
                     );
                     Self::insert_on_top(deref_str, after);
                 }
@@ -668,12 +690,12 @@ impl<'a> CodeGen<'a> {
         new_lambda_calls
     }
 
-    fn translate_body(&mut self, body: &str) -> Result<String, String> {
+    fn translate_body(&self, body: &str, statics: &mut Statics) -> Result<String, String> {
         let val_context = ValContext::new(None);
 
         let new_body = TextMacroEvaluator::new().translate(
             self.backend,
-            &mut self.statics,
+            statics,
             None,
             None,
             body,
@@ -703,7 +725,7 @@ impl<'a> CodeGen<'a> {
 
         TextMacroEvaluator::new().translate(
             self.backend,
-            &mut self.statics,
+            statics,
             None,
             None,
             &lines.join("\n"),
@@ -719,8 +741,14 @@ impl<'a> CodeGen<'a> {
             .call_function_simple(asm, "printTableSlotsAllocated_0");
     }
 
-    fn create_all_functions(&mut self) {
-        for function_def in self.functions().clone().values() {
+    fn create_all_functions(
+        &self,
+        definitions: &mut String,
+        id: &mut usize,
+        statics: &mut Statics,
+        body: &mut String,
+    ) {
+        for function_def in self.module.functions_by_name.values() {
             // ValContext ???
             if !function_def.inline {
                 let lambda_calls = self.add_function_def(
@@ -729,13 +757,25 @@ impl<'a> CodeGen<'a> {
                     &TypedValContext::new(None),
                     0,
                     false,
+                    definitions,
+                    id,
+                    statics,
+                    body,
                 );
-                self.create_lambdas(lambda_calls, 0);
+                self.create_lambdas(lambda_calls, 0, definitions, id, statics, body);
             }
         }
     }
 
-    fn create_lambdas(&mut self, lambdas: Vec<LambdaCall>, indent: usize) {
+    fn create_lambdas(
+        &self,
+        lambdas: Vec<LambdaCall>,
+        indent: usize,
+        definitions: &mut String,
+        id: &mut usize,
+        statics: &mut Statics,
+        body: &mut String,
+    ) {
         let mut lambda_calls = Vec::new();
         for lambda_call in lambdas {
             //debug!("Creating lambda {}", lambda_call.def.name);
@@ -745,6 +785,10 @@ impl<'a> CodeGen<'a> {
                 lambda_call.space.get_context(),
                 indent,
                 true,
+                definitions,
+                id,
+                statics,
+                body,
             ));
             //Parser::print_function_def(&lambda_call.def);
             lambda_calls.extend(
@@ -759,23 +803,31 @@ impl<'a> CodeGen<'a> {
                             lambda_call.space.get_context(),
                             indent,
                             false,
+                            definitions,
+                            id,
+                            statics,
+                            body,
                         )
                     })
                     .collect::<Vec<_>>(),
             );
         }
         if !lambda_calls.is_empty() {
-            self.create_lambdas(lambda_calls, indent + 1);
+            self.create_lambdas(lambda_calls, indent + 1, definitions, id, statics, body);
         }
     }
 
     fn add_function_def(
-        &mut self,
+        &self,
         function_def: &ASTTypedFunctionDef,
         lambda_space: Option<&LambdaSpace>,
         parent_context: &TypedValContext,
         indent: usize,
         is_lambda: bool,
+        definitions: &mut String,
+        id: &mut usize,
+        statics: &mut Statics,
+        body: &mut String,
     ) -> Vec<LambdaCall> {
         debug!(
             "{}Adding function def {}",
@@ -786,27 +838,16 @@ impl<'a> CodeGen<'a> {
         let mut lambda_calls = Vec::new();
 
         if function_def.index.file_name.is_some() {
-            self.backend.add_comment(
-                &mut self.definitions,
-                &format!("{}", function_def.index),
-                false,
-            );
+            self.backend
+                .add_comment(definitions, &format!("{}", function_def.index), false);
         }
-        self.backend.add_comment(
-            &mut self.definitions,
-            &format!("function {}", function_def),
-            false,
-        );
-        CodeGen::add(
-            &mut self.definitions,
-            &format!("{}:", function_def.name),
-            None,
-            false,
-        );
+        self.backend
+            .add_comment(definitions, &format!("function {}", function_def), false);
+        CodeGen::add(definitions, &format!("{}:", function_def.name), None, false);
 
         let mut before = String::new();
 
-        self.backend.function_preamble(&mut self.definitions);
+        self.backend.function_preamble(definitions);
 
         let stack = StackVals::new();
 
@@ -869,6 +910,8 @@ impl<'a> CodeGen<'a> {
                                         indent + 1,
                                         false,
                                         &stack,
+                                        id,
+                                        statics,
                                     );
 
                                     before.push_str(&bf);
@@ -887,10 +930,10 @@ impl<'a> CodeGen<'a> {
                                         true,
                                         &stack,
                                         self.dereference,
-                                        self.id,
+                                        *id,
                                     );
 
-                                    self.id += 1;
+                                    *id += 1;
 
                                     self.add_val(
                                         &context,
@@ -902,6 +945,7 @@ impl<'a> CodeGen<'a> {
                                         "",
                                         &stack,
                                         index,
+                                        statics,
                                     );
 
                                     before.push_str(&parameters.before());
@@ -909,7 +953,7 @@ impl<'a> CodeGen<'a> {
                                     Self::insert_on_top(&parameters.after().join("\n"), &mut after);
                                 }
                                 ASTTypedExpression::StringLiteral(value) => {
-                                    let label = self.statics.add_str(value);
+                                    let label = statics.add_str(value);
 
                                     CodeGen::add(
                                         &mut before,
@@ -946,7 +990,7 @@ impl<'a> CodeGen<'a> {
                                         })
                                         .collect::<Vec<_>>();
 
-                                        let name = format!("lambda{}", self.id);
+                                        let name = format!("lambda{}", id);
                                         let def = ASTTypedFunctionDef {
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                             name: name.clone(),
@@ -961,7 +1005,7 @@ impl<'a> CodeGen<'a> {
                                             index: lambda_def.index.clone(),
                                         };
 
-                                        self.id += 1;
+                                        *id += 1;
 
                                         let mut parameters = FunctionCallParameters::new(
                                             self.backend,
@@ -970,18 +1014,18 @@ impl<'a> CodeGen<'a> {
                                             true,
                                             &stack,
                                             self.dereference,
-                                            self.id,
+                                            *id,
                                         );
 
-                                        self.id += 1;
+                                        *id += 1;
 
                                         let new_lambda_space = parameters.add_lambda(
                                             &def,
                                             lambda_space,
                                             &context,
                                             None,
-                                            &mut self.statics,
-                                            &mut self.module,
+                                            statics,
+                                            &self.module,
                                             &stack,
                                             false,
                                         );
@@ -1023,6 +1067,9 @@ impl<'a> CodeGen<'a> {
                                 Some(function_def),
                                 lambda_space,
                                 *is_const,
+                                statics,
+                                body,
+                                id,
                             );
                             lambda_calls.append(&mut new_lambda_calls);
                         }
@@ -1037,10 +1084,10 @@ impl<'a> CodeGen<'a> {
                     false,
                     &stack,
                     self.dereference,
-                    self.id,
+                    *id,
                 );
 
-                self.id += 1;
+                *id += 1;
 
                 let new_body =
                     function_call_parameters.resolve_asm_parameters(body, "0".into(), indent);
@@ -1048,26 +1095,25 @@ impl<'a> CodeGen<'a> {
             }
         }
 
-        self.backend
-            .reserve_local_vals(&stack, &mut self.definitions);
+        self.backend.reserve_local_vals(&stack, definitions);
 
-        self.definitions.push_str(&before.replace(
+        definitions.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
             &(stack.len_of_all() * self.backend.word_len()).to_string(),
         ));
 
-        self.definitions.push_str(&after);
-        self.definitions.push('\n');
+        definitions.push_str(&after);
+        definitions.push('\n');
 
-        self.backend.restore(&stack, &mut self.definitions);
+        self.backend.restore(&stack, definitions);
 
-        self.backend.function_end(&mut self.definitions, true);
+        self.backend.function_end(definitions, true);
 
         lambda_calls
     }
 
     fn call_function(
-        &mut self,
+        &self,
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: Option<&ASTTypedFunctionDef>,
@@ -1076,6 +1122,8 @@ impl<'a> CodeGen<'a> {
         indent: usize,
         is_lambda: bool,
         stack_vals: &StackVals,
+        id: &mut usize,
+        statics: &mut Statics,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
         let mut before = String::new();
         let mut after = Vec::new();
@@ -1113,6 +1161,8 @@ impl<'a> CodeGen<'a> {
                 is_lambda,
                 stack_vals,
                 &mut after,
+                id,
+                statics,
             )
         } else if let Some(function_def) = self
             .functions()
@@ -1148,6 +1198,8 @@ impl<'a> CodeGen<'a> {
                 is_lambda,
                 stack_vals,
                 &mut after,
+                id,
+                statics,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
             let (index, ast_type) = match kind {
@@ -1175,8 +1227,8 @@ impl<'a> CodeGen<'a> {
                 let parameters_defs = parameters
                     .iter()
                     .map(|it| {
-                        let name = format!("p_{}", self.id);
-                        self.id += 1;
+                        let name = format!("p_{}", id);
+                        *id += 1;
                         ASTTypedParameterDef {
                             name,
                             ast_type: it.clone(),
@@ -1228,6 +1280,8 @@ impl<'a> CodeGen<'a> {
                     true,
                     stack_vals,
                     &mut after,
+                    id,
+                    statics,
                 )
             } else {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
@@ -1244,7 +1298,7 @@ impl<'a> CodeGen<'a> {
     }
 
     fn call_function_(
-        &mut self,
+        &self,
         function_call: &&ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: &Option<&ASTTypedFunctionDef>,
@@ -1259,6 +1313,8 @@ impl<'a> CodeGen<'a> {
         is_lambda: bool,
         stack_vals: &StackVals,
         after: &mut Vec<String>,
+        id: &mut usize,
+        statics: &mut Statics,
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
@@ -1291,10 +1347,10 @@ impl<'a> CodeGen<'a> {
             false,
             stack_vals,
             self.dereference,
-            self.id,
+            *id,
         );
 
-        self.id += 1;
+        *id += 1;
 
         if !function_call.parameters.is_empty() {
             // as for C calling conventions parameters are pushed in reverse order
@@ -1328,7 +1384,7 @@ impl<'a> CodeGen<'a> {
 
                 match expr {
                     ASTTypedExpression::StringLiteral(value) => {
-                        let label = self.statics.add_str(value);
+                        let label = statics.add_str(value);
                         call_parameters.add_label(&param_name, label, None);
                     }
                     /*ASTTypedExpression::CharLiteral(c) => {
@@ -1351,6 +1407,8 @@ impl<'a> CodeGen<'a> {
                             indent + 1,
                             false,
                             stack_vals,
+                            id,
+                            statics,
                         );
 
                         call_parameters.push(&bf);
@@ -1362,7 +1420,7 @@ impl<'a> CodeGen<'a> {
                             &self.module,
                             &format!("{param_name} = {} : {}", &call.function_name, call.index),
                             param_type.clone(),
-                            &mut self.statics,
+                            statics,
                         );
 
                         lambda_calls.append(&mut inner_lambda_calls);
@@ -1382,6 +1440,7 @@ impl<'a> CodeGen<'a> {
                             &error_msg,
                             stack_vals,
                             index,
+                            statics,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -1402,7 +1461,7 @@ impl<'a> CodeGen<'a> {
 
                         let rt = return_type.deref().clone();
 
-                        let name = format!("lambda{}", self.id);
+                        let name = format!("lambda{}", id);
                         let mut def = ASTTypedFunctionDef {
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: name.clone(),
@@ -1415,7 +1474,7 @@ impl<'a> CodeGen<'a> {
                             index: lambda_def.index.clone(),
                         };
 
-                        self.id += 1;
+                        *id += 1;
 
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
@@ -1436,8 +1495,8 @@ impl<'a> CodeGen<'a> {
                             lambda_space_opt,
                             context,
                             None,
-                            &mut self.statics,
-                            &mut self.module,
+                            statics,
+                            &self.module,
                             stack_vals,
                             optimize,
                         );
@@ -1644,7 +1703,7 @@ impl<'a> CodeGen<'a> {
     }
 
     fn add_val(
-        &mut self,
+        &self,
         context: &TypedValContext,
         lambda_space_opt: &Option<&LambdaSpace>,
         indent: &usize,
@@ -1654,6 +1713,7 @@ impl<'a> CodeGen<'a> {
         error_msg: &str,
         stack_vals: &StackVals,
         ast_index: &ASTIndex,
+        statics: &Statics,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1682,7 +1742,7 @@ impl<'a> CodeGen<'a> {
                     )
                 }
             }
-        } else if let Some(entry) = self.statics.get_typed_const(val_name) {
+        } else if let Some(entry) = statics.get_typed_const(val_name) {
             call_parameters.add_label(
                 param_name,
                 entry.key.clone(),

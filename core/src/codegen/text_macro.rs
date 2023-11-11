@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 
+use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use regex::Regex;
@@ -80,6 +81,10 @@ impl Display for TextMacro {
     }
 }
 
+lazy_static! {
+    static ref RE: Regex = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
+}
+
 pub struct TextMacroEvaluator {
     evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>,
 }
@@ -96,7 +101,7 @@ impl TextMacroEvaluator {
     }
 
     pub fn translate(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         statics: &mut Statics,
         typed_function_def: Option<&ASTTypedFunctionDef>,
@@ -106,15 +111,13 @@ impl TextMacroEvaluator {
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
-        let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
-
         let mut result = Vec::new();
 
         let lines = body.lines();
 
         for s in lines {
             let stripped_comments = backend.remove_comments_from_line(s.to_string());
-            let matches = re.captures_iter(&stripped_comments);
+            let matches = RE.captures_iter(&stripped_comments);
 
             let mut line_result = s.to_string();
 
@@ -528,7 +531,7 @@ impl TextMacroEvaluator {
     }
 
     pub fn eval_macro(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         statics: &mut Statics,
         text_macro: &TextMacro,
@@ -539,7 +542,7 @@ impl TextMacroEvaluator {
     ) -> Option<String> {
         let evaluator = self
             .evaluators
-            .get_mut(&text_macro.name)
+            .get(&text_macro.name)
             .unwrap_or_else(|| panic!("{} macro not found", &text_macro.name));
 
         if evaluator.is_pre_macro() == pre_macro {
@@ -564,15 +567,13 @@ impl TextMacroEvaluator {
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
-        let re = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
-
         let mut result = Vec::new();
 
         let lines = body.lines();
 
         for (i, s) in lines.enumerate() {
             let stripped_comments = backend.remove_comments_from_line(s.to_string());
-            let matches = re.captures_iter(&stripped_comments);
+            let matches = RE.captures_iter(&stripped_comments);
 
             for cap in matches {
                 let name = cap.get(1).unwrap().as_str();
@@ -622,7 +623,7 @@ impl ParserTrait for TypeParserHelper {
 
 trait TextMacroEval {
     fn eval_macro(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
@@ -644,7 +645,7 @@ impl CallTextMacroEvaluator {
 
 impl TextMacroEval for CallTextMacroEvaluator {
     fn eval_macro(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
@@ -712,7 +713,7 @@ impl CCallTextMacroEvaluator {
 
 impl TextMacroEval for CCallTextMacroEvaluator {
     fn eval_macro(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
@@ -865,7 +866,7 @@ impl AddRefMacro {
 
 impl TextMacroEval for AddRefMacro {
     fn eval_macro(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
@@ -938,7 +939,7 @@ struct PrintRefMacro {}
 
 impl TextMacroEval for PrintRefMacro {
     fn eval_macro(
-        &mut self,
+        &self,
         backend: &dyn Backend,
         _statics: &mut Statics,
         parameters: &[MacroParam],
@@ -987,7 +988,7 @@ impl PrintRefMacro {
     }
 
     fn print_ref(
-        &mut self,
+        &self,
         src: &str,
         ast_type_o: &Option<ASTType>,
         ast_typed_type_o: &Option<ASTTypedType>,
@@ -1093,7 +1094,7 @@ impl PrintRefMacro {
     }
 
     fn print_ref_struct(
-        &mut self,
+        &self,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
@@ -1135,7 +1136,7 @@ impl PrintRefMacro {
     }
 
     fn print_ref_enum(
-        &mut self,
+        &self,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
@@ -1211,7 +1212,7 @@ impl PrintRefMacro {
     }
 
     fn print_ref_type(
-        &mut self,
+        &self,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,

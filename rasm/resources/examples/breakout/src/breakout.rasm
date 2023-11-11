@@ -70,6 +70,12 @@ type check ended in 117.623057ms
     type check ended in 88.168403ms
 */
 
+/*
+    optimized Regex using lazy_static
+
+    type check ended in 66.804596ms
+*/
+
 enum GameResult {
     Play(state: GameState),
     End(score: i32)

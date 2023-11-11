@@ -16,6 +16,9 @@ pub mod resolved_generic_types;
 pub mod type_check_error;
 pub mod typed_ast;
 
+pub mod traverse_typed_ast;
+pub mod used_functions;
+
 pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
     let p = m
         .parameters

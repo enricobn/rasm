@@ -156,19 +156,19 @@ impl CompletionService {
 
         let mut val_context = TypedValContext::new(None);
 
-        typed_module.body.iter().for_each(|it| {
+        for it in typed_module.body.iter() {
             Self::process_statement(
                 &typed_module,
                 &mut completable_items,
                 it,
                 &mut val_context,
                 statics,
-            );
-        });
+            )?;
+        }
 
-        typed_module.functions_by_name.values().for_each(|it| {
-            Self::process_function(&typed_module, &mut completable_items, it, statics);
-        });
+        for it in typed_module.functions_by_name.values() {
+            Self::process_function(&typed_module, &mut completable_items, it, statics)?;
+        }
 
         Ok(Self {
             items: completable_items,
@@ -457,7 +457,7 @@ impl CompletionService {
         completable_items: &mut Vec<CompletableItem>,
         function_def: &ASTTypedFunctionDef,
         statics: &mut Statics,
-    ) {
+    ) -> Result<(), CompilationError> {
         let mut val_context = TypedValContext::new(None);
 
         function_def
@@ -476,10 +476,12 @@ impl CompletionService {
                     &body,
                     &mut val_context,
                     statics,
-                );
+                )?;
             }
             ASTTypedFunctionBody::ASMBody(_) => {}
         }
+
+        Ok(())
     }
 }
 
