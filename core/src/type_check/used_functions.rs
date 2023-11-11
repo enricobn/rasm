@@ -60,7 +60,7 @@ impl<'a> TraverseTypedAST for UsedFunctions<'a> {
     fn found_function_def(&mut self, function: &ASTTypedFunctionDef) {}
 
     fn found_asm(&mut self, module: &ASTTypedModule, function: &ASTTypedFunctionDef, asm: &str) {
-        let used_functions = self.get_used_functions(asm);
+        let used_functions = Self::get_used_functions(asm);
 
         self.functions.extend(used_functions);
         /*
@@ -86,7 +86,7 @@ impl<'a> TraverseTypedAST for UsedFunctions<'a> {
 }
 
 impl<'a> UsedFunctions<'a> {
-    pub fn get_used_functions(&self, asm: &str) -> HashSet<String> {
+    pub fn get_used_functions(asm: &str) -> HashSet<String> {
         let mut used_functions: HashSet<String> = HashSet::new();
 
         for line in asm.lines() {

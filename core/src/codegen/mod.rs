@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
@@ -32,6 +32,7 @@ use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use crate::type_check::used_functions::UsedFunctions;
 use crate::utils::OptionDisplay;
 
 pub mod backend;
@@ -48,6 +49,7 @@ pub mod val_context;
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function
 /// generation, but we need that value during the code generation...   
 pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
+const OPTIMIZE_UNUSED_FUNCTIONS: bool = false;
 
 pub struct CodeGen<'a> {
     pub module: ASTTypedModule,
@@ -152,7 +154,6 @@ impl<'a> CodeGen<'a> {
         let mut id: usize = 0;
         let mut body = String::new();
 
-        let mut definitions = String::new();
         let mut lambdas = Vec::new();
 
         // for now main has no context
@@ -221,50 +222,9 @@ impl<'a> CodeGen<'a> {
         // TODO add a command line argument
         //Parser::print(&self.module);
 
-        self.create_lambdas(
-            lambdas,
-            0,
-            &mut definitions,
-            &mut id,
-            &mut statics,
-            &mut body,
-        );
+        let mut functions_asm = self.create_lambdas(lambdas, 0, &mut id, &mut statics);
 
-        /*
-        let mut used_functions = UsedFunctions::find(&self.module, self.backend);
-        let used_functions_in_body = UsedFunctions::get_used_functions(&body);
-        let used_functions_in_definitions = UsedFunctions::get_used_functions(&definitions);
-
-        for used_function_in_body in used_functions_in_body.iter() {
-            println!("used_function_in_body {used_function_in_body}");
-        }
-
-        for used_function_in_definitions in used_functions_in_definitions.iter() {
-            println!("used_function_in_definitions {used_function_in_definitions}");
-        }
-
-        used_functions.extend(used_functions_in_body);
-        used_functions.extend(used_functions_in_definitions);
-        used_functions.insert("addStaticAllocation_0".to_string());
-        used_functions.insert("addHeap_0".to_string());
-        used_functions.insert("createCmdLineArguments_0".to_string());
-
-        let functions = self
-            .module
-            .functions_by_name
-            .values()
-            .filter(|it| {
-                let used = used_functions.contains(&it.name);
-                if !used {
-                    //println!("not used {}", it.name);
-                }
-                used
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-         */
-
-        self.create_all_functions(&mut definitions, &mut id, &mut statics, &mut body);
+        functions_asm.extend(self.create_all_functions(&mut id, &mut statics));
 
         let mut asm = String::new();
 
@@ -307,7 +267,7 @@ impl<'a> CodeGen<'a> {
         statics.insert("_ESC".into(), I32Value(27));
         statics.insert("_for_nprint".into(), Mem(20, Bytes));
 
-        let (declarations, code) = self.backend.generate_statics_code(&mut statics);
+        let (declarations, code) = self.backend.generate_statics_code(&statics);
 
         asm.push_str(&declarations);
 
@@ -400,7 +360,11 @@ impl<'a> CodeGen<'a> {
 
         self.backend.reserve_local_vals(&stack, &mut asm);
 
-        //let body = body.clone();
+        // probably there is not a valid body from functions
+        for (_name, (_defs, bd)) in functions_asm.iter() {
+            body.push_str(bd);
+        }
+
         let new_body = self.translate_body(&body, &mut statics).unwrap();
 
         asm.push_str(&new_body);
@@ -417,9 +381,57 @@ impl<'a> CodeGen<'a> {
         self.backend
             .call_function(&mut asm, "exitMain_0", &[("0", None)], None);
 
-        asm.push_str(&definitions);
+        let used_functions = self.get_used_functions(&functions_asm, &asm);
+
+        for (_, (defs, _bd)) in used_functions {
+            asm.push_str(defs);
+        }
 
         asm
+    }
+
+    fn get_used_functions(
+        &self,
+        functions_asm: &'a HashMap<String, (String, String)>,
+        asm: &String,
+    ) -> Vec<(&'a String, &'a (String, String))> {
+        if OPTIMIZE_UNUSED_FUNCTIONS {
+            let mut used_functions = UsedFunctions::find(&self.module, self.backend);
+            // those are probably lambdas
+            used_functions.extend(
+                functions_asm
+                    .keys()
+                    .filter(|it| !self.module.functions_by_name.contains_key(*it))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
+
+            used_functions.extend(UsedFunctions::get_used_functions(&asm));
+
+            let mut used_functions_in_defs = HashSet::new();
+
+            for (_name, (defs, _bd)) in functions_asm
+                .iter()
+                .filter(|(it, (_, _))| used_functions.contains(*it))
+            {
+                used_functions_in_defs.extend(UsedFunctions::get_used_functions(defs));
+            }
+
+            used_functions.extend(used_functions_in_defs);
+
+            functions_asm
+                .iter()
+                .filter(|(it, (_, _))| {
+                    let valid = used_functions.contains(*it);
+                    if !valid {
+                        debug!("unused function {it}");
+                    }
+                    valid
+                })
+                .collect::<Vec<_>>()
+        } else {
+            functions_asm.iter().collect::<Vec<_>>()
+        }
     }
 
     fn add_let(
@@ -743,41 +755,51 @@ impl<'a> CodeGen<'a> {
 
     fn create_all_functions(
         &self,
-        definitions: &mut String,
         id: &mut usize,
         statics: &mut Statics,
-        body: &mut String,
-    ) {
+    ) -> HashMap<String, (String, String)> {
+        let mut result = HashMap::new();
+
         for function_def in self.module.functions_by_name.values() {
             // ValContext ???
             if !function_def.inline {
+                let mut definitions = String::new();
+                let mut body = String::new();
+
                 let lambda_calls = self.add_function_def(
                     function_def,
                     None,
                     &TypedValContext::new(None),
                     0,
                     false,
-                    definitions,
+                    &mut definitions,
                     id,
                     statics,
-                    body,
+                    &mut body,
                 );
-                self.create_lambdas(lambda_calls, 0, definitions, id, statics, body);
+                result.extend(self.create_lambdas(lambda_calls, 0, id, statics));
+
+                result.insert(function_def.name.clone(), (definitions, body));
             }
         }
+
+        result
     }
 
     fn create_lambdas(
         &self,
         lambdas: Vec<LambdaCall>,
         indent: usize,
-        definitions: &mut String,
         id: &mut usize,
         statics: &mut Statics,
-        body: &mut String,
-    ) {
+    ) -> HashMap<String, (String, String)> {
+        let mut result = HashMap::new();
+
         let mut lambda_calls = Vec::new();
         for lambda_call in lambdas {
+            let mut definitions = String::new();
+            let mut body = String::new();
+
             //debug!("Creating lambda {}", lambda_call.def.name);
             lambda_calls.append(&mut self.add_function_def(
                 &lambda_call.def,
@@ -785,11 +807,14 @@ impl<'a> CodeGen<'a> {
                 lambda_call.space.get_context(),
                 indent,
                 true,
-                definitions,
+                &mut definitions,
                 id,
                 statics,
-                body,
+                &mut body,
             ));
+
+            result.insert(lambda_call.def.name.clone(), (definitions, body));
+
             //Parser::print_function_def(&lambda_call.def);
             lambda_calls.extend(
                 lambda_call
@@ -797,24 +822,33 @@ impl<'a> CodeGen<'a> {
                     .get_ref_functions()
                     .iter()
                     .flat_map(|it| {
-                        self.add_function_def(
+                        let mut definitions = String::new();
+                        let mut body = String::new();
+
+                        let ls = self.add_function_def(
                             it,
                             None,
                             lambda_call.space.get_context(),
                             indent,
                             false,
-                            definitions,
+                            &mut definitions,
                             id,
                             statics,
-                            body,
-                        )
+                            &mut body,
+                        );
+
+                        result.insert(it.name.clone(), (definitions, body));
+
+                        ls
                     })
                     .collect::<Vec<_>>(),
             );
         }
         if !lambda_calls.is_empty() {
-            self.create_lambdas(lambda_calls, indent + 1, definitions, id, statics, body);
+            result.extend(self.create_lambdas(lambda_calls, indent + 1, id, statics));
         }
+
+        result
     }
 
     fn add_function_def(

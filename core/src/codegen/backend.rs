@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
@@ -45,9 +45,9 @@ pub trait Backend: Send + Sync {
 
     fn compile_and_link(&self, source_file: &PathBuf);
 
-    fn compile(&self, source_file: &PathBuf) -> Output;
+    fn compile(&self, source_file: &PathBuf);
 
-    fn link(&self, path: &Path) -> Output;
+    fn link(&self, path: &Path);
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
@@ -363,20 +363,13 @@ impl Backend for BackendNasm386 {
     }
 
     fn compile_and_link(&self, source_file: &PathBuf) {
-        let nasm_output = self.compile(source_file);
-        if nasm_output.status.success() {
-            let path = Path::new(&source_file);
-            let linker_output = self.link(path);
+        self.compile(source_file);
 
-            if !linker_output.status.success() {
-                panic!("Error running linker")
-            }
-        } else {
-            panic!("Error running nasm")
-        }
+        let path = Path::new(&source_file);
+        self.link(path);
     }
 
-    fn compile(&self, source_file: &PathBuf) -> Output {
+    fn compile(&self, source_file: &PathBuf) {
         let start = Instant::now();
         info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");
@@ -393,10 +386,13 @@ impl Backend for BackendNasm386 {
             .output()
             .expect("failed to execute nasm");
         info!("assembler ended in {:?}", start.elapsed());
-        result
+
+        if !result.status.success() {
+            panic!("Error running nasm")
+        }
     }
 
-    fn link(&self, path: &Path) -> Output {
+    fn link(&self, path: &Path) {
         let start = Instant::now();
         let result = match self.linker {
             Linker::Ld => {
@@ -442,7 +438,10 @@ impl Backend for BackendNasm386 {
             }
         };
         info!("linker ended in {:?}", start.elapsed());
-        result
+
+        if !result.status.success() {
+            panic!("Error running linker")
+        }
     }
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String> {

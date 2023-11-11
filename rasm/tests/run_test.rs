@@ -500,7 +500,6 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
         "-o".to_string(),
         dest.clone(),
     ];
-    let dest = Some(dest);
 
     if only_compile {
         // it's needed for running some tests on github since we are not able to link
@@ -523,7 +522,7 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
 
     assert!(status.success());
 
-    dest
+    Some(dest)
 }
 
 fn execute(executable: &str, args: Vec<&str>, expected_output: Option<&str>) {
