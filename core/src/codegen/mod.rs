@@ -49,17 +49,37 @@ pub mod val_context;
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function
 /// generation, but we need that value during the code generation...   
 pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
-const OPTIMIZE_UNUSED_FUNCTIONS: bool = false;
+
+pub struct CodeGenOptions {
+    pub lambda_space_size: usize,
+    pub heap_size: usize,
+    pub heap_table_slots: usize,
+    pub debug_asm: bool,
+    pub print_memory_info: bool,
+    pub dereference: bool,
+    pub print_module: bool,
+    pub optimize_unused_functions: bool,
+}
+
+impl Default for CodeGenOptions {
+    fn default() -> Self {
+        Self {
+            lambda_space_size: 1024 * 1024,
+            heap_size: 64 * 1024 * 1024,
+            heap_table_slots: 1024 * 1024,
+            debug_asm: false,
+            print_memory_info: false,
+            dereference: true,
+            print_module: false,
+            optimize_unused_functions: false,
+        }
+    }
+}
 
 pub struct CodeGen<'a> {
     pub module: ASTTypedModule,
     backend: &'a dyn Backend,
-    heap_size: usize,
-    heap_table_slots: usize,
-    print_memory_info: bool,
-    lambda_space_size: usize,
-    debug_asm: bool,
-    dereference: bool,
+    options: CodeGenOptions,
 }
 
 #[derive(Clone, Debug)]
@@ -79,13 +99,7 @@ impl<'a> CodeGen<'a> {
         backend: &'a dyn Backend,
         statics: &mut Statics,
         module: EnhancedASTModule,
-        lambda_space_size: usize,
-        heap_size: usize,
-        heap_table_slots: usize,
-        debug_asm: bool,
-        print_memory_info: bool,
-        dereference: bool,
-        print_module: bool,
+        options: CodeGenOptions,
     ) -> Self {
         let start = Instant::now();
 
@@ -96,9 +110,9 @@ impl<'a> CodeGen<'a> {
         let typed_module = Self::get_typed_module(
             backend,
             module,
-            print_memory_info,
-            dereference,
-            print_module,
+            options.print_memory_info,
+            options.dereference,
+            options.print_module,
             statics,
         )
         .unwrap_or_else(|e| {
@@ -110,12 +124,7 @@ impl<'a> CodeGen<'a> {
         Self {
             module: typed_module,
             backend,
-            heap_size,
-            heap_table_slots,
-            print_memory_info,
-            lambda_space_size,
-            debug_asm,
-            dereference,
+            options,
         }
     }
 
@@ -233,21 +242,21 @@ impl<'a> CodeGen<'a> {
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         statics.insert(
             "_heap_table".into(),
-            Mem((self.heap_table_slots + 1) * 20, Bytes),
+            Mem((self.options.heap_table_slots + 1) * 20, Bytes),
         );
         statics.insert(
             "_heap_table_size".into(),
-            I32Value(self.heap_table_slots as i32 * 20),
+            I32Value(self.options.heap_table_slots as i32 * 20),
         );
         statics.insert("_heap_table_next".into(), I32Value(0));
         statics.insert("_heap".into(), Mem(4, Bytes));
-        statics.insert("_heap_size".into(), I32Value(self.heap_size as i32));
-        statics.insert("_heap_buffer".into(), Mem(self.heap_size, Bytes));
+        statics.insert("_heap_size".into(), I32Value(self.options.heap_size as i32));
+        statics.insert("_heap_buffer".into(), Mem(self.options.heap_size, Bytes));
 
         statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
         statics.insert(
             "_lambda_space_stack_buffer".into(),
-            Mem(self.lambda_space_size, Bytes),
+            Mem(self.options.lambda_space_size, Bytes),
         );
 
         let reusable_heap_table_size = 16 * 1024 * 1024;
@@ -271,7 +280,7 @@ impl<'a> CodeGen<'a> {
 
         asm.push_str(&declarations);
 
-        if self.debug_asm {
+        if self.options.debug_asm {
             CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
         }
 
@@ -333,7 +342,7 @@ impl<'a> CodeGen<'a> {
                 None,
                 None,
                 &code,
-                self.dereference,
+                self.options.dereference,
                 false,
                 &self.module,
             )
@@ -374,7 +383,7 @@ impl<'a> CodeGen<'a> {
 
         self.backend.function_end(&mut asm, false);
 
-        if self.print_memory_info {
+        if self.options.print_memory_info {
             self.print_memory_info(&mut asm);
         }
 
@@ -395,7 +404,7 @@ impl<'a> CodeGen<'a> {
         functions_asm: &'a HashMap<String, (String, String)>,
         asm: &String,
     ) -> Vec<(&'a String, &'a (String, String))> {
-        if OPTIMIZE_UNUSED_FUNCTIONS {
+        if self.options.optimize_unused_functions {
             let mut used_functions = UsedFunctions::find(&self.module, self.backend);
             // those are probably lambdas
             used_functions.extend(
@@ -639,7 +648,7 @@ impl<'a> CodeGen<'a> {
                 CodeGen::add(body, &format!("mov {ws} [{key}], eax"), Some(""), true);
             }
 
-            if self.dereference {
+            if self.options.dereference {
                 if let Some(type_name) =
                     CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
                 {
@@ -668,7 +677,7 @@ impl<'a> CodeGen<'a> {
                     .store_function_result_in_stack(before, -(address_relative_to_bp as i32));
             }
 
-            if self.dereference {
+            if self.options.dereference {
                 if let Some(type_name) =
                     CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
                 {
@@ -711,7 +720,7 @@ impl<'a> CodeGen<'a> {
             None,
             None,
             body,
-            self.dereference,
+            self.options.dereference,
             true,
             &self.module,
         )?;
@@ -741,7 +750,7 @@ impl<'a> CodeGen<'a> {
             None,
             None,
             &lines.join("\n"),
-            self.dereference,
+            self.options.dereference,
             false,
             &self.module,
         )
@@ -963,7 +972,7 @@ impl<'a> CodeGen<'a> {
                                         function_def.inline,
                                         true,
                                         &stack,
-                                        self.dereference,
+                                        self.options.dereference,
                                         *id,
                                     );
 
@@ -1047,7 +1056,7 @@ impl<'a> CodeGen<'a> {
                                             function_def.inline,
                                             true,
                                             &stack,
-                                            self.dereference,
+                                            self.options.dereference,
                                             *id,
                                         );
 
@@ -1117,7 +1126,7 @@ impl<'a> CodeGen<'a> {
                     false,
                     false,
                     &stack,
-                    self.dereference,
+                    self.options.dereference,
                     *id,
                 );
 
@@ -1380,7 +1389,7 @@ impl<'a> CodeGen<'a> {
             inline,
             false,
             stack_vals,
-            self.dereference,
+            self.options.dereference,
             *id,
         );
 

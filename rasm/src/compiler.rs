@@ -10,7 +10,7 @@ use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::backend::BackendNasm386;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::CodeGen;
+use rasm_core::codegen::{CodeGen, CodeGenOptions};
 use rasm_core::project::RasmProject;
 
 pub struct Compiler {
@@ -82,13 +82,7 @@ impl Compiler {
             &backend,
             &mut statics,
             enhanced_ast_module,
-            1024 * 1024,
-            64 * 1024 * 1024,
-            1024 * 1024,
-            debug_asm,
-            false,
-            true,
-            false,
+            CodeGenOptions::default(),
         );
 
         let start = Instant::now();

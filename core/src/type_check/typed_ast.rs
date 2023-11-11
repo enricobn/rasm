@@ -995,7 +995,7 @@ fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Compilat
     let mut context = TypedValContext::new(None);
 
     for statement in module.body.iter() {
-        verify_statement(module, &mut context, statement, statics);
+        verify_statement(module, &mut context, statement, statics)?;
         if let ASTTypedStatement::Expression(e) = statement {
             let typed_type = get_type_of_typed_expression(module, &context, e, None, statics)?;
 
@@ -1348,7 +1348,7 @@ pub fn get_type_of_typed_expression(
             }
 
             for statement in lambda_def.body.iter() {
-                verify_statement(module, &mut context, statement, statics);
+                verify_statement(module, &mut context, statement, statics)?;
             }
 
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
