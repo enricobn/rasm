@@ -525,12 +525,15 @@ impl Parser {
             }
 
             self.i = next_i;
-        } else if let Some((name, type_params, next_i)) = self.enum_parser.try_parse(self) {
+        } else if let Some((name, type_params, modifiers, next_i)) =
+            self.enum_parser.try_parse(self)
+        {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
-                index: token.index(),
+                index: name.index().mv_left(name.alpha().unwrap().len()),
+                modifiers,
             }));
             self.state.push(ParserState::EnumDef);
             self.i = next_i;

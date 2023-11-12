@@ -160,7 +160,7 @@ impl ReferenceFinder {
         index: &ASTIndex,
         ast_type: &ASTType,
     ) {
-        let min = index.mv(-(name.len() as i32));
+        let min = index.mv_left(name.len());
 
         if let Some(custom_type_index) = Self::get_custom_type_index(module, name) {
             result.push(SelectableItem::new(
@@ -354,11 +354,9 @@ impl ReferenceFinder {
                         Self::get_if_custom_type_index(module, &function.return_type);
 
                     result.push(SelectableItem::new(
-                        call.index.mv(-(call.original_function_name.len() as i32)),
+                        call.index.mv_left(call.original_function_name.len()),
                         call.original_function_name.len(),
-                        function
-                            .index
-                            .mv(-(call.original_function_name.len() as i32)),
+                        function.index.mv_left(call.original_function_name.len()),
                         Some(expr.clone()),
                         Some(function.return_type.clone()),
                         custom_type_index,
@@ -384,9 +382,9 @@ impl ReferenceFinder {
                         .and_then(|t| Self::get_if_custom_type_index(module, t));
 
                     result.push(SelectableItem::new(
-                        index.mv(-(name.len() as i32)),
+                        index.mv_left(name.len()),
                         name.len(),
-                        v.index.mv(-(name.len() as i32)).clone(),
+                        v.index.mv_left(name.len()).clone(),
                         Some(expr.clone()),
                         ast_type,
                         ast_type_index,
@@ -596,7 +594,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 5)]
+            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 6)]
         );
 
         assert_eq!(

@@ -1,4 +1,4 @@
-use crate::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, TokenKind};
+use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher};
 
 pub fn generic_types_matcher() -> TokensMatcher {
@@ -13,4 +13,10 @@ pub fn generic_types_matcher() -> TokensMatcher {
     matcher.end_group();
     matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
     matcher
+}
+
+pub fn modifiers_matcher() -> TokensMatcher {
+    let mut modifiers_matcher = TokensMatcher::new("modifiers", Quantifier::AtMostOne);
+    modifiers_matcher.add_kind(TokenKind::KeyWord(KeywordKind::Pub));
+    modifiers_matcher
 }

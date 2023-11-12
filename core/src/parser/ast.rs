@@ -238,6 +238,14 @@ impl ASTIndex {
             column: (self.column as i32 + offset) as usize,
         }
     }
+
+    pub fn mv_left(&self, offset: usize) -> Self {
+        Self {
+            file_name: self.file_name.clone(),
+            row: self.row,
+            column: (self.column as i32 - (offset as i32)) as usize,
+        }
+    }
 }
 
 impl Display for ASTIndex {
@@ -356,6 +364,21 @@ impl Display for ASTStatement {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ASTModifiers {
+    public: bool,
+}
+
+impl ASTModifiers {
+    pub fn public() -> Self {
+        Self { public: true }
+    }
+
+    pub fn private() -> Self {
+        Self { public: false }
+    }
+}
+
 pub trait MyToString {
     fn my_to_string(&self) -> String;
 }
@@ -433,6 +456,7 @@ pub struct ASTEnumDef {
     pub type_parameters: Vec<String>,
     pub variants: Vec<ASTEnumVariantDef>,
     pub index: ASTIndex,
+    pub modifiers: ASTModifiers,
 }
 
 impl Display for ASTEnumDef {

@@ -5,8 +5,8 @@ use linked_hash_map::LinkedHashMap;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef};
-use crate::parser::matchers::generic_types_matcher;
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModifiers, ASTParameterDef};
+use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
 };
@@ -19,23 +19,35 @@ pub struct EnumParser {
 
 impl EnumParser {
     pub fn new() -> Self {
-        let generic_types = generic_types_matcher();
-
         let mut matcher = TokensMatcher::default();
+        matcher.add_matcher(modifiers_matcher());
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
-        matcher.add_matcher(generic_types);
+        matcher.add_matcher(generic_types_matcher());
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
         Self { matcher }
     }
 
-    pub fn try_parse(&self, parser: &dyn ParserTrait) -> Option<(Token, Vec<String>, usize)> {
+    pub fn try_parse(
+        &self,
+        parser: &dyn ParserTrait,
+    ) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
         self.matcher.match_tokens(parser, 0).map(|result| {
             let param_types = result.group_alphas("type");
+            let mut name_index = 1;
+            let modifiers = if result.group_tokens("modifiers").is_empty() {
+                ASTModifiers::private()
+            } else {
+                name_index += 1;
+                ASTModifiers::public()
+            };
+            let token = result.tokens().get(name_index).unwrap().clone();
+
             (
-                result.tokens().get(1).unwrap().clone(),
+                token,
                 param_types,
+                modifiers,
                 parser.get_i() + result.next_n(),
             )
         })
@@ -45,7 +57,7 @@ impl EnumParser {
         &self,
         parser: &dyn ParserTrait,
     ) -> Result<Option<(ASTEnumDef, usize)>, String> {
-        if let Some((token, type_parameters, next_i)) = self.try_parse(parser) {
+        if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
             if let Some((variants, next_i)) =
                 self.parse_variants(parser, &type_parameters, next_i - parser.get_i())?
             {
@@ -54,7 +66,8 @@ impl EnumParser {
                         name: token.alpha().unwrap(),
                         type_parameters,
                         variants,
-                        index: parser.get_index(0),
+                        index: token.index().mv_left(token.alpha().unwrap().len()),
+                        modifiers,
                     },
                     next_i,
                 )));
@@ -264,6 +277,7 @@ mod tests {
             Some((
                 Token::new(TokenKind::AlphaNumeric("Option".to_owned()), None, 1, 12),
                 vec!["T".to_owned()],
+                ASTModifiers::private(),
                 6
             ))
         );
@@ -301,7 +315,8 @@ mod tests {
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
-                    index: ASTIndex::new(None, 1, 5)
+                    index: ASTIndex::new(None, 1, 6),
+                    modifiers: ASTModifiers::private()
                 },
                 15
             )),
@@ -468,7 +483,7 @@ mod tests {
         }";
         let parse_result = try_parse(source);
 
-        if let Some((_name, type_parameters, next_i)) = parse_result {
+        if let Some((_name, type_parameters, modifiers, next_i)) = parse_result {
             let parse_result = parse_variants(source, &type_parameters, next_i);
 
             if let Some((variants, next_i)) = parse_result {
@@ -489,6 +504,7 @@ mod tests {
                 };
 
                 assert_eq!(vec![empty, some], variants);
+                assert_eq!(modifiers, ASTModifiers::private());
                 assert_eq!(15, next_i);
             } else {
                 panic!();
@@ -506,7 +522,7 @@ mod tests {
         }";
         let parse_result = try_parse(source);
 
-        if let Some((_name, type_parameters, next_i)) = parse_result {
+        if let Some((_name, type_parameters, modifiers, next_i)) = parse_result {
             let parse_result = parse_variants(source, &type_parameters, next_i);
 
             if let Some((variants, next_i)) = parse_result {
@@ -538,6 +554,7 @@ mod tests {
                 };
 
                 assert_eq!(variants, vec![full, empty]);
+                assert_eq!(modifiers, ASTModifiers::private());
                 assert_eq!(next_i, 22);
             } else {
                 panic!();
@@ -555,7 +572,7 @@ mod tests {
         }";
         let parse_result = try_parse(source);
 
-        if let Some((_name, type_parameters, next_i)) = parse_result {
+        if let Some((_name, type_parameters, modifiers, next_i)) = parse_result {
             let parse_result = parse_variants(source, &type_parameters, next_i);
 
             if let Some((variants, next_i)) = parse_result {
@@ -581,6 +598,7 @@ mod tests {
 
                 assert_eq!(variants, vec![left, right]);
                 assert_eq!(type_parameters, vec!["L", "R"]);
+                assert_eq!(modifiers, ASTModifiers::private());
                 assert_eq!(next_i, 22);
             } else {
                 panic!();
@@ -590,7 +608,47 @@ mod tests {
         }
     }
 
-    fn try_parse(source: &str) -> Option<(Token, Vec<String>, usize)> {
+    #[test]
+    fn test_pub() {
+        let parse_result = try_parse_enum(
+            "pub enum Option<T> {
+            Empty,
+            Some(value: T)
+        }",
+        );
+
+        let some = ASTEnumVariantDef {
+            name: "Some".into(),
+            parameters: vec![ASTParameterDef {
+                name: "value".into(),
+                ast_type: Generic("T".into()),
+                ast_index: ASTIndex::new(None, 3, 23),
+            }],
+            index: ASTIndex::new(None, 3, 17),
+        };
+
+        let empty = ASTEnumVariantDef {
+            name: "Empty".into(),
+            parameters: vec![],
+            index: ASTIndex::new(None, 2, 18),
+        };
+
+        assert_eq!(
+            parse_result,
+            Some((
+                ASTEnumDef {
+                    name: "Option".to_string(),
+                    type_parameters: vec!["T".to_string()],
+                    variants: vec![empty, some],
+                    index: ASTIndex::new(None, 1, 10),
+                    modifiers: ASTModifiers::public()
+                },
+                16
+            )),
+        );
+    }
+
+    fn try_parse(source: &str) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
         let parser = get_parser(source);
 
         let sut = EnumParser::new();

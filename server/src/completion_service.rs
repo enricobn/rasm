@@ -384,7 +384,7 @@ impl CompletionService {
                     }
                 };
                 completable_items.push(CompletableItem::new(
-                    call.index.mv(-(call.original_function_name.len() as i32)),
+                    call.index.mv_left(call.original_function_name.len()),
                     call.original_function_name.len(),
                     ast_typed_type,
                 ));
@@ -403,14 +403,14 @@ impl CompletionService {
                 val_context.get(name).iter().for_each(|it| match it {
                     TypedValKind::ParameterRef(_, def) => {
                         completable_items.push(CompletableItem::new(
-                            index.mv(-(name.len() as i32)),
+                            index.mv_left(name.len()),
                             name.len(),
                             def.ast_type.clone(),
                         ));
                     }
                     TypedValKind::LetRef(_, ast_typed_type) => {
                         completable_items.push(CompletableItem::new(
-                            index.mv(-(name.len() as i32)),
+                            index.mv_left(name.len()),
                             name.len(),
                             ast_typed_type.clone(),
                         ));
