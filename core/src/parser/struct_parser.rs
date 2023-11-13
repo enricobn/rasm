@@ -8,16 +8,14 @@ use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrai
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
-pub struct StructParser<'a> {
-    parser: &'a dyn ParserTrait,
-}
+pub struct StructParser {}
 
-impl<'a> StructParser<'a> {
-    pub fn new(parser: &'a dyn ParserTrait) -> Self {
-        Self { parser }
+impl StructParser {
+    pub fn new() -> Self {
+        Self {}
     }
 
-    pub fn try_parse(&self) -> Option<(Token, Vec<String>, usize)> {
+    pub fn try_parse(&self, parser: &dyn ParserTrait) -> Option<(Token, Vec<String>, usize)> {
         let param_types_matcher = generic_types_matcher();
 
         let mut matcher = TokensMatcher::default();
@@ -26,28 +24,31 @@ impl<'a> StructParser<'a> {
         matcher.add_matcher(param_types_matcher);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        matcher.match_tokens(self.parser, 0).map(|result| {
+        matcher.match_tokens(parser, 0).map(|result| {
             let param_types = result.group_alphas("type");
             (
                 result.tokens().get(1).unwrap().clone(),
                 param_types,
-                self.parser.get_i() + result.next_n(),
+                parser.get_i() + result.next_n(),
             )
         })
     }
 
-    pub fn try_parse_struct(&self) -> Result<Option<(ASTStructDef, usize)>, String> {
-        if let Some((token, type_parameters, next_i)) = self.try_parse() {
+    pub fn try_parse_struct(
+        &self,
+        parser: &dyn ParserTrait,
+    ) -> Result<Option<(ASTStructDef, usize)>, String> {
+        if let Some((token, type_parameters, next_i)) = self.try_parse(parser) {
             if let Some(name) = token.alpha() {
                 if let Some((properties, next_i)) =
-                    self.parse_properties(&type_parameters, &name, next_i - self.parser.get_i())?
+                    self.parse_properties(parser, &type_parameters, &name, next_i - parser.get_i())?
                 {
                     return Ok(Some((
                         ASTStructDef {
                             name,
                             type_parameters,
                             properties,
-                            index: self.parser.get_index(0),
+                            index: parser.get_index(0),
                         },
                         next_i,
                     )));
@@ -56,7 +57,7 @@ impl<'a> StructParser<'a> {
                 return Err(format!(
                     "Expected alphanumeric, got {:?}: {}",
                     token,
-                    self.parser.get_index(0)
+                    parser.get_index(0)
                 ));
             }
         }
@@ -82,12 +83,13 @@ impl<'a> StructParser<'a> {
 
     pub fn parse_properties(
         &self,
+        parser: &dyn ParserTrait,
         generic_types: &[String],
         name: &str,
         n: usize,
     ) -> Result<Option<(Vec<ASTStructPropertyDef>, usize)>, String> {
         if let Some(result) = Self::properties_matcher("properties", Quantifier::One, generic_types)
-            .match_tokens(self.parser, n)
+            .match_tokens(parser, n)
         {
             let parameters_tokens = result.group_tokens("parameter");
             let type_result = result.group_results("parameter_type");
@@ -110,16 +112,16 @@ impl<'a> StructParser<'a> {
                     return Err(format!(
                         "Cannot parse type for property {:?}: {}",
                         token,
-                        self.parser.get_index(0)
+                        parser.get_index(0)
                     ));
                 }
             }
 
-            Ok(Some((parameters, self.parser.get_i() + result.next_n())))
+            Ok(Some((parameters, parser.get_i() + result.next_n())))
         } else {
             Err(format!(
                 "No properties for struct {name} : {}",
-                self.parser.get_index(n)
+                parser.get_index(n)
             ))
         }
     }
@@ -205,8 +207,8 @@ mod tests {
     fn try_parse_struct(source: &str) -> Option<(ASTStructDef, usize)> {
         let parser = get_parser(source);
 
-        let sut = StructParser::new(&parser);
+        let sut = StructParser::new();
 
-        sut.try_parse_struct().unwrap()
+        sut.try_parse_struct(&parser).unwrap()
     }
 }

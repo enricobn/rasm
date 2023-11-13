@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
@@ -40,6 +41,18 @@ pub mod tokens_matcher;
 mod type_params_parser;
 pub mod type_parser;
 
+lazy_static! {
+    static ref ENUM_PARSER: EnumParser = EnumParser::new();
+    static ref STRUCT_PARSER: StructParser = StructParser::new();
+    static ref FUNCTION_DEF_MATCHER: TokensMatcher = {
+        let mut function_def_matcher = TokensMatcher::default();
+        function_def_matcher.add_alphanumeric();
+        function_def_matcher.add_matcher(generic_types_matcher());
+        function_def_matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
+        function_def_matcher
+    };
+}
+
 pub struct Parser {
     tokens: Vec<Token>,
     body: Vec<ASTStatement>,
@@ -55,10 +68,6 @@ pub struct Parser {
     externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
     included_files: HashSet<PathBuf>,
-    // TODO it should be a "constant"
-    function_def_matcher: TokensMatcher,
-    // TODO it should be a "constant"
-    enum_parser: EnumParser,
     errors: Vec<CompilationError>,
 }
 
@@ -148,11 +157,6 @@ impl Parser {
             HashSet::new()
         };
 
-        let mut function_def_matcher = TokensMatcher::default();
-        function_def_matcher.add_alphanumeric();
-        function_def_matcher.add_matcher(generic_types_matcher());
-        function_def_matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
-
         Self {
             tokens,
             body: Vec::new(),
@@ -168,8 +172,6 @@ impl Parser {
             externals: HashSet::new(),
             types: Vec::new(),
             included_files,
-            function_def_matcher,
-            enum_parser: EnumParser::new(),
             errors: lexer_errors,
         }
     }
@@ -299,10 +301,7 @@ impl Parser {
                 }
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
-                        match self
-                            .enum_parser
-                            .parse_variants(self, &def.type_parameters, 0)
-                        {
+                        match ENUM_PARSER.parse_variants(self, &def.type_parameters, 0) {
                             Ok(result) => {
                                 if let Some((variants, next_i)) = result {
                                     def.variants = variants;
@@ -323,7 +322,8 @@ impl Parser {
                 }
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
-                        match StructParser::new(self).parse_properties(
+                        match STRUCT_PARSER.parse_properties(
+                            self,
                             &def.type_parameters,
                             &def.name,
                             0,
@@ -525,9 +525,7 @@ impl Parser {
             }
 
             self.i = next_i;
-        } else if let Some((name, type_params, modifiers, next_i)) =
-            self.enum_parser.try_parse(self)
-        {
+        } else if let Some((name, type_params, modifiers, next_i)) = ENUM_PARSER.try_parse(self) {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
@@ -537,8 +535,7 @@ impl Parser {
             }));
             self.state.push(ParserState::EnumDef);
             self.i = next_i;
-        } else if let Some((name_token, type_params, next_i)) = StructParser::new(self).try_parse()
-        {
+        } else if let Some((name_token, type_params, next_i)) = STRUCT_PARSER.try_parse(self) {
             self.parser_data.push(ParserData::StructDef(ASTStructDef {
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
@@ -1040,7 +1037,7 @@ impl Parser {
 
     fn try_parse_function_def(&self) -> Result<Option<(String, Vec<String>, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
-            if let Some(matcher_result) = self.function_def_matcher.match_tokens(self, 1) {
+            if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 1) {
                 let param_types = matcher_result.group_alphas("type");
                 Ok(Some((
                     matcher_result.alphas().first().unwrap().to_string(),
