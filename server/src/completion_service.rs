@@ -36,6 +36,7 @@ use rasm_core::type_check::typed_ast::{
 
 use crate::reference_finder::FileToken;
 
+#[derive(PartialEq, Debug)]
 pub struct CompletionItem {
     pub value: String,
     pub descr: String,
@@ -108,6 +109,7 @@ impl CompletionItem {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub enum CompletionResult {
     Found(Vec<CompletionItem>),
     NotFound(String),

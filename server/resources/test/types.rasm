@@ -9,6 +9,7 @@ let aVec = vecOf(10);
 doSomething(anEnum);
 doSomething(aStruct);
 doSomething(aVec);
+println(aStruct.anI32);
 
 fn doSomething(value: Option<i32>) {
     println("anOption");

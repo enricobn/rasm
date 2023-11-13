@@ -50,14 +50,13 @@ pub struct TypeCheck {
 }
 
 impl TypeCheck {
-    pub fn new(root_namespace: &ASTNameSpace, body_namespace: &ASTNameSpace) -> Self {
+    pub fn new(body_namespace: &ASTNameSpace) -> Self {
         let typed_module = EnhancedASTModule {
             body: vec![],
             functions_by_name: FunctionsContainer::new(),
             enums: vec![],
             structs: vec![],
             types: vec![],
-            root_namespace: root_namespace.clone(),
             body_namespace: body_namespace.clone(),
         };
 

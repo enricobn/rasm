@@ -18,7 +18,6 @@ pub struct EnhancedASTModule {
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
     pub types: Vec<ASTTypeDef>,
-    pub root_namespace: ASTNameSpace,
     pub body_namespace: ASTNameSpace,
 }
 
@@ -76,7 +75,8 @@ impl EnhancedASTModule {
             enums,
             structs,
             types,
-            root_namespace: ASTNameSpace::root_namespace(project),
+            /*
+            root_namespace: ASTNameSpace::root_namespace(project),*/
             body_namespace: ASTNameSpace::new(
                 project.config.package.name.clone(),
                 project
