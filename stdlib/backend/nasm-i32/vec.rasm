@@ -1,4 +1,4 @@
-asm vecOf<T>(value: T) -> Vec<T> /{
+pub asm vecOf<T>(value: T) -> Vec<T> /{
     $call(malloc, 8, " for vecOf")
     push    eax
 
@@ -12,7 +12,7 @@ asm vecOf<T>(value: T) -> Vec<T> /{
     pop     eax
 }/
 
-asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
+pub asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
     $call(malloc, 12, " for vecOf 2")
     push    eax
     mov     dword eax, [eax]
@@ -28,7 +28,7 @@ asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
     pop     eax
 }/
 
-asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
+pub asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     $call(malloc, 16, " for vecOf")
     push    eax
 
@@ -46,7 +46,7 @@ asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     pop     eax
 }/
 
-asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
+pub asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
     $call(malloc, 36, " for vecOf 8")
     push    eax
     mov     dword eax, [eax]
@@ -82,7 +82,7 @@ asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /
     pop     eax
 }/
 
-asm forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
+pub asm forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     push    ebx
     push    ecx
     push    edx
@@ -110,7 +110,7 @@ asm forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
 }/
 
 // end exclusive
-asm vecRange(start: i32, end: i32) -> Vec<i32> /{
+pub asm vecRange(start: i32, end: i32) -> Vec<i32> /{
     push    ebx
     push    ecx
     push    edx
@@ -144,7 +144,7 @@ asm vecRange(start: i32, end: i32) -> Vec<i32> /{
     pop     ebx
 }/
 
-asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+pub asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     push    ebx
     push    ecx
     push    edx
@@ -190,7 +190,7 @@ asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 }/
 
 /** false = 0 true = any other value **/
-asm anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+pub asm anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     push    ebx
     push    ecx
 
@@ -219,7 +219,7 @@ asm anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     pop     ebx
 }/
 
-asm count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
+pub asm count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -253,7 +253,7 @@ asm count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
 }/
 
 // TODO the resulting vector is allocated with the size of the original vector, but the count of the elements is right
-asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
+pub asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -307,7 +307,7 @@ asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     pop     ebx
 }/
 
-asm flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
+pub asm flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     $call(vecFlattenCreate, $vec:i32)
     push    eax
 
@@ -388,13 +388,13 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     pop     ebx
 }/
 
-asm len<T>(vec: Vec<T>) -> i32 /{
+pub asm len<T>(vec: Vec<T>) -> i32 /{
       mov     dword eax, $vec
       mov     dword eax, [eax]
       mov     dword eax, [eax]
 }/
 
-asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+pub asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     push    ebx
     push    ecx
     push    edx
@@ -426,7 +426,7 @@ asm foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     pop     ebx
 }/
 
-asm first<T>(vec: Vec<T>) -> Option<T> /{
+pub asm first<T>(vec: Vec<T>) -> Option<T> /{
     push    ebx
     mov     dword ebx, $vec
     mov     dword ebx, [ebx]
@@ -443,7 +443,7 @@ asm first<T>(vec: Vec<T>) -> Option<T> /{
     pop     ebx
 }/
 
-asm push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
+pub asm push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     push    ebx
     push    ecx
     push    edx
@@ -479,11 +479,11 @@ asm push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     pop     ebx
 }/
 
-fn VecReferences(vec: i32, generic: i32) -> i32 {
+pub fn VecReferences(vec: i32, generic: i32) -> i32 {
     vec;
 }
 
-asm Vec<T>() -> Vec<T> /{
+pub asm Vec<T>() -> Vec<T> /{
     $call(malloc, 4, " for Vec")
     push    eax
     mov     dword eax, [eax]
@@ -491,7 +491,7 @@ asm Vec<T>() -> Vec<T> /{
     pop     eax
 }/
 
-asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
+pub asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -553,7 +553,7 @@ asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> 
     pop     ebx
 }/
 
-asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
+pub asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -605,7 +605,7 @@ asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     pop     ebx
 }/
 
-asm charsVec(s: str) -> Vec<char> /{
+pub asm charsVec(s: str) -> Vec<char> /{
     push    ebx
     push    ecx
     push    edx

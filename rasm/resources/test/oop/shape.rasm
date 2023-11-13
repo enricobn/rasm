@@ -1,4 +1,4 @@
-struct Shape {
+pub struct Shape {
     center: fn() -> Point,
     move: fn(i32,i32) -> Shape,
     toString: fn() -> str

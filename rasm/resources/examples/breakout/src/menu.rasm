@@ -1,8 +1,8 @@
-struct MenuState {
+pub struct MenuState {
     highScores: Vec<HighScore>
 }
 
-fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
+pub fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
     let spacePressed = count(keys, { k -> eq(k, 44);});
 
     if(eq(spacePressed, 0), { ->
@@ -12,7 +12,7 @@ fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
     });
 }
 
-fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
+pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
     let font = resources.font;
 
     let title = createSDLText(ren, font, "Rasm BREAKOUT", GREEN);
@@ -43,7 +43,7 @@ fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
         let sScore = padLeft(toString(score), 10);
         let scoreText = createSDLText(ren, font, sScore, color);
         let y = add(300, mul(index, 30));
-        renderAndRelease(ren, scoreText, SDLRect(380, y, mul(slen(sScore), 24), 24));
+        renderAndRelease(ren, scoreText, SDLRect(380, y, mul(len(sScore), 24), 24));
     });
 
     let footer = createSDLText(ren, font, "Press SPACE to start", RED);

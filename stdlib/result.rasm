@@ -1,17 +1,17 @@
-enum Result<OK,ERROR> {
+pub enum Result<OK,ERROR> {
     Ok(value: OK),
     Error(error: ERROR)
 }
 
-fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
+pub fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
     result.match({ value -> Result::Ok(mapFun(value)); }, { error -> Result::Error(error);});
 }
 
-fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
+pub fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
     flatten(map(l, f));
 }
 
-fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
+pub fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
     r.match(
         { value -> value; },
         { error -> Result::Error(error); }

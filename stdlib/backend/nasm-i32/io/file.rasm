@@ -1,18 +1,18 @@
-type File(false);
+pub type File(false);
 
-enum FilePermission {
+pub enum FilePermission {
     Read,
     Write,
     Execute
 }
 
-struct FileMode {
+pub struct FileMode {
     user: Vec<FilePermission>,
     group: Vec<FilePermission>,
     others: Vec<FilePermission>
 }
 
-fn fileMode(f: FileMode) -> i32 {
+pub fn fileMode(f: FileMode) -> i32 {
     let user = f.user;
     let group = f.group;
     let others = f.others;
@@ -20,18 +20,18 @@ fn fileMode(f: FileMode) -> i32 {
     add(add(mul(64, filePermissions(user)), mul(8, filePermissions(group))), filePermissions(others));
 }
 
-fn filePermission(p: FilePermission) -> i32 {
+pub fn filePermission(p: FilePermission) -> i32 {
     match(p, { -> 4;}, { -> 2;}, { -> 1;});
 }
 
-fn filePermissions(p: Vec<FilePermission>) -> i32 {
+pub fn filePermissions(p: Vec<FilePermission>) -> i32 {
     foldLeft(p, 0, { prev, act ->
         let perm = filePermission(act);
         add(prev, perm);
     });
 }
 
-enum FileFlag {
+pub enum FileFlag {
     ReadOnly,
     WriteOnly,
     ReadWrite,
@@ -40,7 +40,7 @@ enum FileFlag {
     Append
 }
 
-fn fileFlag(flag: FileFlag) -> i32 {
+pub fn fileFlag(flag: FileFlag) -> i32 {
     match(flag,
         { -> 0;},       //  ReadOnly
         { -> 1;},       //  WriteOnly,
@@ -51,14 +51,14 @@ fn fileFlag(flag: FileFlag) -> i32 {
     );
 }
 
-fn fileFlags(flags: Vec<FileFlag>) -> i32 {
+pub fn fileFlags(flags: Vec<FileFlag>) -> i32 {
     foldLeft(flags, 0, { prev, act ->
         let flagValue = fileFlag(act);
         add(prev, flagValue);
     });
 }
 
-fn createFile(path: str) -> File {
+pub fn createFile(path: str) -> File {
     sysOpen(path, fileFlags(vecOf(FileFlag::Create(), FileFlag::Truncate(), FileFlag::WriteOnly())),
         fileMode(FileMode(
             vecOf(FilePermission::Read(), FilePermission::Write()),
@@ -68,7 +68,7 @@ fn createFile(path: str) -> File {
     );
 }
 
-fn createFile(path: str, flags: Vec<FileFlag>) -> File {
+pub fn createFile(path: str, flags: Vec<FileFlag>) -> File {
     sysOpen(path, fileFlags(flags),
         fileMode(FileMode(
             vecOf(FilePermission::Read(), FilePermission::Write()),
@@ -78,7 +78,7 @@ fn createFile(path: str, flags: Vec<FileFlag>) -> File {
     );
 }
 
-asm fileExists(path: str) -> bool /{
+pub asm fileExists(path: str) -> bool /{
     $call(sysOpen, $path, 0, 0)
     cmp     dword eax, 0
     jb      .error
@@ -88,12 +88,12 @@ asm fileExists(path: str) -> bool /{
 .end:
 }/
 
-fn readFile(path: str) -> str {
+pub fn readFile(path: str) -> str {
     let file = sysOpen(path, 0);
     readFile(file);
 }
 
-asm readFile(file: File) -> str /{
+pub asm readFile(file: File) -> str /{
     push    ebx
     push    ecx
     push    edx
@@ -122,7 +122,7 @@ asm readFile(file: File) -> str /{
     pop     ebx
 }/
 
-asm fileSize(descriptor: File) -> i32 /{
+pub asm fileSize(descriptor: File) -> i32 /{
     push    ebx
     push    ecx
 
@@ -194,6 +194,10 @@ asm sysRead(descriptor: File, buffer: str, size: i32) /{
     pop     ebx
 }/
 
+pub fn close(descriptor: File) {
+    sysClose(descriptor);
+}
+
 asm sysClose(descriptor: File) /{
     push    ebx
 
@@ -203,6 +207,10 @@ asm sysClose(descriptor: File) /{
 
     pop     ebx
 }/
+
+pub fn delete(path: str) {
+    sysUnlink(path);
+}
 
 asm sysUnlink(path: str) /{
     push    ebx

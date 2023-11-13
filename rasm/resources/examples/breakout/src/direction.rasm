@@ -1,25 +1,25 @@
-enum XDirection {
+pub enum XDirection {
     Left,
     Right
 }
 
-fn flip(xDir: XDirection) -> XDirection {
+pub fn flip(xDir: XDirection) -> XDirection {
     match(xDir, { -> XDirection::Right();}, { -> XDirection::Left(); } );
 }
 
-fn move<T>(x: T, xDir: XDirection, diff: T) -> T {
+pub fn move<T>(x: T, xDir: XDirection, diff: T) -> T {
     match(xDir, { -> sub(x, diff);} , { -> add(x, diff);});
 }
 
-enum YDirection {
+pub enum YDirection {
     Up,
     Down
 }
 
-fn flip(yDir: YDirection) -> YDirection {
+pub fn flip(yDir: YDirection) -> YDirection {
     match(yDir, { -> YDirection::Down();}, { -> YDirection::Up(); } );
 }
 
-fn move<T>(y: T, yDir: YDirection, diff: T) -> T {
+pub fn move<T>(y: T, yDir: YDirection, diff: T) -> T {
     match(yDir, { -> sub(y, diff);} , { -> add(y, diff);});
 }

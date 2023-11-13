@@ -1,13 +1,13 @@
-struct Point {
+pub struct Point {
     x: i32,
     y: i32
 }
 
-fn toString(p: Point) -> str {
+pub fn toString(p: Point) -> str {
     "Point(".add(p.x).add(",").add(p.y).add(")");
 }
 
-fn Shape(point: Point) -> Shape {
+pub fn Shape(point: Point) -> Shape {
     Shape(
         { -> point; },
         { dx, dy ->

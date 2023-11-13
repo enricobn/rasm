@@ -76,16 +76,16 @@ type check ended in 117.623057ms
     type check ended in 66.804596ms
 */
 
-enum GameResult {
+pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
 }
 
-struct Resources {
+pub struct Resources {
     font: SDLFont
 }
 
-struct HighScore {
+pub struct HighScore {
     score: i32,
     time: TimeVal
 }
@@ -97,7 +97,7 @@ struct State {
     highScores: Vec<HighScore>
 }
 
-enum Stage {
+pub enum Stage {
     Menu(menuState: MenuState),
     Game(gameState: GameState)
 }
@@ -222,7 +222,7 @@ fn writeHighScores(highScores: Vec<HighScore>) {
         });
     });
 
-    sysClose(file);
+    close(file);
 }
 
 fn print(file: File, highScore: HighScore) -> Option<IOError> {
@@ -239,7 +239,7 @@ fn splitToList(s: str, separator: str) -> List<str> {
     match(separatorIndex,
         { index ->
             let item = substr(s, 0, index);
-            let remainder = substr(s, add(index, 1), sub(sub(slen(s), index), 1));
+            let remainder = substr(s, add(index, 1), sub(sub(len(s), index), 1));
             match(item,
                 { f ->
                     match(remainder,

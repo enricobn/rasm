@@ -1,19 +1,19 @@
-struct If<T> {
+pub struct If<T> {
     value: Option<T>
 }
 
-fn if<T>(cond: bool, trueValue: T) -> If<T> {
+pub fn if<T>(cond: bool, trueValue: T) -> If<T> {
     If(if(cond, Option::Some(trueValue), Option::None()));
 }
 
-fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
+pub fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
     ifValue.value.match(
         { value -> ifValue; },
         { -> if(cond, trueValue); }
     );
 }
 
-fn else<T>(ifValue: If<T>, elseValue: T) -> T {
+pub fn else<T>(ifValue: If<T>, elseValue: T) -> T {
     ifValue.value.getOrElse(elseValue);
 }
 

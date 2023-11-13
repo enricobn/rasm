@@ -4,7 +4,6 @@ use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use log::{debug, info};
-use toml::value::Index;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::debug_i;
@@ -185,11 +184,22 @@ impl Parser {
         &mut self,
         project: Option<&RasmProject>,
         path: &Path,
+        for_tests: bool,
     ) -> (ASTModule, Vec<CompilationError>) {
         let namespace = if let Some(p) = project {
             ASTNameSpace::new(
                 p.config.package.name.clone(),
-                path.to_string_lossy().to_string(),
+                if for_tests {
+                    p.relative_to_root_test(path)
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string()
+                } else {
+                    p.relative_to_root_src(path)
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string()
+                },
             )
         } else {
             ASTNameSpace::new("".to_string(), path.to_string_lossy().to_string())
@@ -437,20 +447,21 @@ impl Parser {
         namespace: &ASTNameSpace,
         path: &Path,
     ) -> (ASTModule, Vec<CompilationError>) {
-        (
-            ASTModule {
-                path: path.to_path_buf(),
-                body: self.body.clone(),
-                functions: self.functions.clone(),
-                enums: self.enums.clone(),
-                structs: self.structs.clone(),
-                requires: self.requires.clone(),
-                externals: self.externals.clone(),
-                types: self.types.clone(),
-                namespace: namespace.clone(),
-            },
-            self.errors.clone(),
-        )
+        let module = ASTModule {
+            path: path.to_path_buf(),
+            body: self.body.clone(),
+            functions: self.functions.clone(),
+            enums: self.enums.clone(),
+            structs: self.structs.clone(),
+            requires: self.requires.clone(),
+            externals: self.externals.clone(),
+            types: self.types.clone(),
+            namespace: namespace.clone(),
+        };
+
+        //Parser::print_module(&module);
+
+        (module, self.errors.clone())
     }
 
     fn add_error(&mut self, message: String) {
@@ -536,7 +547,7 @@ impl Parser {
             match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
                     let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    let (mut module, errors) = parser.parse(None, source_file.as_path());
+                    let (mut module, errors) = parser.parse(None, source_file.as_path(), false);
                     self.errors.extend(errors);
                     if !module.body.is_empty() {
                         return Err(format!(
@@ -600,8 +611,7 @@ impl Parser {
             } else {
                 return Err(format!("Cannot parse external: {}", self.get_index(0)));
             }
-        } else if let TokenKind::KeyWord(KeywordKind::Type) = token.kind {
-            let (type_def, next_i) = self.parse_type_def()?;
+        } else if let Some((type_def, next_i)) = self.parse_type_def()? {
             let token = self.get_token_kind_n(next_i - self.i);
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
                 self.types.push(type_def);
@@ -956,10 +966,7 @@ impl Parser {
     }
 
     pub fn print_function_def(f: &ASTFunctionDef) {
-        match &f.body {
-            RASMBody(_) => print!("fn {}", f),
-            ASMBody(_) => print!("asm {}", f),
-        }
+        print!("{}", f);
         match &f.body {
             RASMBody(expressions) => {
                 println!(" {{");
@@ -1291,58 +1298,72 @@ impl Parser {
         Ok(None)
     }
 
-    fn parse_type_def(&self) -> Result<(ASTTypeDef, usize), String> {
-        if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
-            let (type_parameters, next_i) = if let Some((type_parameters, next_i)) =
-                TypeParamsParser::new(self).try_parse(2)?
-            {
-                (type_parameters, next_i)
-            } else {
-                (Vec::new(), self.get_i() + 2)
-            };
-
-            let n = next_i - self.get_i();
-            if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
-                self.get_token_kind_n(n)
-            {
-                let is_ref = match self.get_token_kind_n(n + 1) {
-                    None => return Err(format!("Unexpected end of stream: {}", self.get_index(0))),
-                    Some(TokenKind::KeyWord(KeywordKind::False)) => false,
-                    Some(TokenKind::KeyWord(KeywordKind::True)) => true,
-                    Some(k) => {
-                        return Err(format!(
-                            "Expected a boolean value but got {k}: {}",
-                            self.get_index(0)
-                        ))
-                    }
-                };
-                if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) =
-                    self.get_token_kind_n(n + 2)
+    fn parse_type_def(&self) -> Result<Option<(ASTTypeDef, usize)>, String> {
+        let mut base_n = 0;
+        let modifiers = if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
+            base_n += 1;
+            ASTModifiers::public()
+        } else {
+            ASTModifiers::private()
+        };
+        if let Some(TokenKind::KeyWord(KeywordKind::Type)) = self.get_token_kind_n(base_n) {
+            if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(base_n + 1) {
+                let (type_parameters, next_i) = if let Some((type_parameters, next_i)) =
+                    TypeParamsParser::new(self).try_parse(base_n + 2)?
                 {
-                    Ok((
-                        ASTTypeDef {
-                            type_parameters,
-                            name: name.clone(),
-                            is_ref,
-                            index: self.get_index(0),
-                        },
-                        self.get_i() + n + 3,
-                    ))
+                    (type_parameters, next_i)
                 } else {
-                    Err(format!("Error parsing type: {}", self.get_index(0)))
+                    (Vec::new(), self.get_i() + base_n + 2)
+                };
+
+                let n = next_i - self.get_i();
+                if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
+                    self.get_token_kind_n(n)
+                {
+                    let is_ref = match self.get_token_kind_n(n + 1) {
+                        None => {
+                            return Err(format!("Unexpected end of stream: {}", self.get_index(0)))
+                        }
+                        Some(TokenKind::KeyWord(KeywordKind::False)) => false,
+                        Some(TokenKind::KeyWord(KeywordKind::True)) => true,
+                        Some(k) => {
+                            return Err(format!(
+                                "Expected a boolean value but got {k}: {}",
+                                self.get_index(0)
+                            ))
+                        }
+                    };
+                    if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) =
+                        self.get_token_kind_n(n + 2)
+                    {
+                        Ok(Some((
+                            ASTTypeDef {
+                                type_parameters,
+                                name: name.clone(),
+                                is_ref,
+                                index: self.get_index(base_n + 1).mv_left(name.len()),
+                                modifiers: modifiers.clone(),
+                            },
+                            self.get_i() + n + 3,
+                        )))
+                    } else {
+                        Err(format!("Error parsing type: {}", self.get_index(0)))
+                    }
+                } else {
+                    Err(format!(
+                        "Expected '(' but got '{:?}': {}",
+                        self.get_token_kind_n(n),
+                        self.get_index(n)
+                    ))
                 }
             } else {
                 Err(format!(
-                    "Expected '(' but got '{:?}': {}",
-                    self.get_token_kind_n(n),
-                    self.get_index(n)
+                    "Error parsing Type, expected identifier: {}",
+                    self.get_index(0)
                 ))
             }
         } else {
-            Err(format!(
-                "Error parsing Type, expected identifier: {}",
-                self.get_index(0)
-            ))
+            Ok(None)
         }
     }
 }
@@ -1471,7 +1492,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(None, Path::new("."));
+        let (module, _) = parser.parse(None, Path::new("."), false);
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1507,8 +1528,6 @@ mod tests {
             println!("{error}");
         }
 
-        Parser::print_module(&module);
-
         let function_names = module
             .functions
             .iter()
@@ -1524,7 +1543,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(None, Path::new("."));
+        let (module, errors) = parser.parse(None, Path::new("."), false);
 
         println!("{}", SliceDisplay(&errors));
 
@@ -1550,7 +1569,7 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(None, path).0
+        parser.parse(None, path, false).0
     }
 
     fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
@@ -1558,6 +1577,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(None, path)
+        parser.parse(None, path, false)
     }
 }

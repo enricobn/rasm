@@ -1,0 +1,2850 @@
+<root>
+<log message="project RasmProject { root: &quot;resources/examples/breakout&quot;, config: RasmConfig { package: RasmPackage { name: &quot;breakout&quot;, version: &quot;1.0.0&quot;, main: Some(&quot;breakout.rasm&quot;), out: Some(&quot;breakout&quot;), source_folder: None, resource_folder: None, test_folder: None, test_resource_folder: None }, dependencies: Some({&quot;sdl&quot;: Table({&quot;path&quot;: String(&quot;../sdl&quot;)}), &quot;stdlib&quot;: Table({&quot;path&quot;: String(&quot;../../../../stdlib&quot;)})}) }, from_file: false }"/>
+<log message="transform_statements expected_return_type None"/>
+<children>
+<log message="type_of_expression &quot;/home/enrico/development/rust/rasm/rasm/resources/examples/breakout/testresources&quot; expected type None"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="type_of_expression &quot;/home/enrico/development/rust/rasm/rasm/resources/examples/breakout/resources&quot; expected type None"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="type_of_expression 1024 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 768 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 34 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 10 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 80 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 10 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 25 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="type_of_expression 5 expected type None"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="transform_call SDLColor(0,0,0,255) expected_return_type None"/>
+<children>
+<log message="get_valid_function call SDLColor(0,0,0,255) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:113:23"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec SDLColor(0,0,0,255) return type Some(SDLColor) filter Exact(i32), Exact(i32), Exact(i32), Exact(i32)"/>
+<log message="cannot find a function with name SDLColor"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+</children>
+<log message="type_of_expression SDLColor_0(0,0,0,255) expected type None"/>
+<children>
+</children>
+<log message="transform_call SDLColor(255,255,255,255) expected_return_type None"/>
+<children>
+<log message="get_valid_function call SDLColor(255,255,255,255) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:114:23"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec SDLColor(255,255,255,255) return type Some(SDLColor) filter Exact(i32), Exact(i32), Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor, filters Exact(i32), Exact(i32), Exact(i32), Exact(i32), return type Some(SDLColor)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type SDLColor filter Exact(SDLColor) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="already added function SDLColor_0"/>
+</children>
+<log message="type_of_expression SDLColor_0(255,255,255,255) expected type None"/>
+<children>
+</children>
+<log message="transform_call SDLColor(255,0,0,255) expected_return_type None"/>
+<children>
+<log message="get_valid_function call SDLColor(255,0,0,255) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:115:21"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec SDLColor(255,0,0,255) return type Some(SDLColor) filter Exact(i32), Exact(i32), Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor, filters Exact(i32), Exact(i32), Exact(i32), Exact(i32), return type Some(SDLColor)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type SDLColor filter Exact(SDLColor) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="already added function SDLColor_0"/>
+</children>
+<log message="type_of_expression SDLColor_0(255,0,0,255) expected type None"/>
+<children>
+</children>
+<log message="transform_call SDLColor(0,255,0,255) expected_return_type None"/>
+<children>
+<log message="get_valid_function call SDLColor(0,255,0,255) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:116:23"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec SDLColor(0,255,0,255) return type Some(SDLColor) filter Exact(i32), Exact(i32), Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor, filters Exact(i32), Exact(i32), Exact(i32), Exact(i32), return type Some(SDLColor)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type SDLColor filter Exact(SDLColor) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="already added function SDLColor_0"/>
+</children>
+<log message="type_of_expression SDLColor_0(0,255,0,255) expected type None"/>
+<children>
+</children>
+<log message="transform_call SDLColor(0,0,255,255) expected_return_type None"/>
+<children>
+<log message="get_valid_function call SDLColor(0,0,255,255) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:117:22"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec SDLColor(0,0,255,255) return type Some(SDLColor) filter Exact(i32), Exact(i32), Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor, filters Exact(i32), Exact(i32), Exact(i32), Exact(i32), return type Some(SDLColor)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type SDLColor filter Exact(SDLColor) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="already added function SDLColor_0"/>
+</children>
+<log message="type_of_expression SDLColor_0(0,0,255,255) expected type None"/>
+<children>
+</children>
+<log message="transform_call SDLColor(255,255,0,255) expected_return_type None"/>
+<children>
+<log message="get_valid_function call SDLColor(255,255,0,255) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:118:24"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 0"/>
+<log message="real expression : 0"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 0 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 255"/>
+<log message="real expression : 255"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 255 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec SDLColor(255,255,0,255) return type Some(SDLColor) filter Exact(i32), Exact(i32), Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor, filters Exact(i32), Exact(i32), Exact(i32), Exact(i32), return type Some(SDLColor)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type SDLColor filter Exact(SDLColor) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm SDLColor_0(r:i32,g:i32,b:i32,a:i32) -&gt; SDLColor"/>
+<log message="already added function SDLColor_0"/>
+</children>
+<log message="type_of_expression SDLColor_0(255,255,0,255) expected type None"/>
+<children>
+</children>
+<log message="transform_call sdlInit() expected_return_type None"/>
+<children>
+<log message="get_valid_function call sdlInit() expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:120:8"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlInit() -&gt; ()"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlInit() -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlInit() return type Some(()) filter "/>
+<log message="cannot find a function with name sdlInit"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlInit_0() -&gt; ()"/>
+</children>
+<log message="transform_call if(eq(sdlTTFInit(),1),{  -&gt; panic(&quot;TTFInit error.&quot;);
+; },{  -&gt;  }) expected_return_type None"/>
+<children>
+<log message="get_valid_function call if(eq(sdlTTFInit(),1),{  -&gt; panic(&quot;TTFInit error.&quot;);
+; },{  -&gt;  }) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:3"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/conditionals.rasm if&lt;T&gt;(cond:bool,ftrue:fn () -&gt; T,ffalse:fn () -&gt; T) -&gt; T"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr eq(sdlTTFInit(),1)"/>
+<log message="real expression : eq(sdlTTFInit(),1)"/>
+<log message="real type of expression : bool"/>
+<log message="transform_call eq(sdlTTFInit(),1) expected_return_type Some(bool)"/>
+<children>
+<log message="get_valid_function call eq(sdlTTFInit(),1) expected_return_type Some(bool): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:19"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(s1:str,s2:str) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : str"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression 1 expected type Some(str)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(str) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(a:char,b:char) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : char"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(char)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(char): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression 1 expected type Some(char)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(char) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : i32"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(i32)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(i32): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlTTFInit() return type Some(i32) filter "/>
+<log message="cannot find a function with name sdlTTFInit"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32"/>
+</children>
+<log message="type_of_expression sdlTTFInit_0() expected type Some(i32)"/>
+<children>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 1 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/time.rasm eq(t1:TimeVal,t2:TimeVal) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : TimeVal"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(TimeVal)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(TimeVal): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : TimeVal"/>
+<log message="type_of_expression 1 expected type Some(TimeVal)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(TimeVal) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/vec.rasm eq&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type Vec&lt;T&gt; filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type Vec&lt;T&gt;"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="type_of_expression 1 expected type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type Vec&lt;T&gt; effective_type  i32"/>
+<children>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(Vec&lt;T&gt;) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec eq(sdlTTFInit(),1) return type Some(bool) filter Exact(i32), Exact(i32)"/>
+<log message="cannot find a function with name eq"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool"/>
+</children>
+<log message="type_of_expression eq_0(sdlTTFInit_0(),1) expected type Some(bool)"/>
+<children>
+</children>
+<log message="filter Exact(bool)"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real expression : {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real type of expression : fn () -&gt; T"/>
+<log message="transform_statements expected_return_type Some(T)"/>
+<children>
+<log message="transform_call panic(&quot;TTFInit error.&quot;) expected_return_type Some(T)"/>
+<children>
+<log message="get_valid_function call panic(&quot;TTFInit error.&quot;) expected_return_type Some(T): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:34"/>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<children>
+<log message="almost_same_type T filter Exact(()) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr &quot;TTFInit error.&quot;"/>
+<log message="real expression : &quot;TTFInit error.&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;TTFInit error.&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type () filter Exact(T) return_type: false"/>
+<children>
+<log message="already_resolved None"/>
+<log message="almost same: true"/>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec panic(&quot;TTFInit error.&quot;) return type Some(()) filter Exact(str)"/>
+<log message="cannot find a function with name panic"/>
+<log message="Found functions: "/>
+<log message="adding new function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; ()"/>
+</children>
+</children>
+<log message="type_of_expression {  -&gt; panic_0(&quot;TTFInit error.&quot;);
+; } expected type Some(fn () -&gt; T)"/>
+<children>
+<log message="type_of_expression panic_0(&quot;TTFInit error.&quot;) expected type None"/>
+<children>
+</children>
+<log message="lambda return type Some(Exact(()))"/>
+<log message="found type Exact(fn () -&gt; ())"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type fn () -&gt; T effective_type  fn () -&gt; ()"/>
+<children>
+<log message="extract_generic_types_from_effective_type: generic_type T effective_type  ()"/>
+<children>
+<log message="resolved generic type T to ()"/>
+<log message="result T=()"/>
+</children>
+<log message="result T=()"/>
+</children>
+<log message="filter Exact(fn () -&gt; ())"/>
+<log message="almost_same_type fn () -&gt; T filter Exact(fn () -&gt; ()) return_type: false"/>
+<children>
+<log message="filter_ps "/>
+<log message="a_p "/>
+<log message="almost_same_type T filter Exact(()) return_type: true"/>
+<children>
+<log message="almost same: true"/>
+</children>
+<log message="almost same: true"/>
+</children>
+<log message="expr {  -&gt;  }"/>
+<log message="something substituted T -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt;  }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+</children>
+<log message="type_of_expression {  -&gt;  } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="filter Lambda(0, Some(Exact(())))"/>
+<log message="almost_same_type fn () -&gt; () filter Lambda(0, Some(Exact(()))) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="calculating filters loop 1"/>
+<children>
+<log message="expr eq(sdlTTFInit(),1)"/>
+<log message="real expression : eq(sdlTTFInit(),1)"/>
+<log message="real type of expression : bool"/>
+<log message="transform_call eq(sdlTTFInit(),1) expected_return_type Some(bool)"/>
+<children>
+<log message="get_valid_function call eq(sdlTTFInit(),1) expected_return_type Some(bool): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:19"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(s1:str,s2:str) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : str"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression 1 expected type Some(str)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(str) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(a:char,b:char) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : char"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(char)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(char): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression 1 expected type Some(char)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(char) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : i32"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(i32)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(i32): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlTTFInit() return type Some(i32) filter "/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32, filters , return type Some(i32)"/>
+<children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32"/>
+<log message="already added function sdlTTFInit_0"/>
+</children>
+<log message="type_of_expression sdlTTFInit_0() expected type Some(i32)"/>
+<children>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 1 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/time.rasm eq(t1:TimeVal,t2:TimeVal) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : TimeVal"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(TimeVal)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(TimeVal): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : TimeVal"/>
+<log message="type_of_expression 1 expected type Some(TimeVal)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(TimeVal) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/vec.rasm eq&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type Vec&lt;T&gt; filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type Vec&lt;T&gt;"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="type_of_expression 1 expected type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type Vec&lt;T&gt; effective_type  i32"/>
+<children>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(Vec&lt;T&gt;) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec eq(sdlTTFInit(),1) return type Some(bool) filter Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool, filters Exact(i32), Exact(i32), return type Some(bool)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool"/>
+<log message="already added function eq_0"/>
+</children>
+<log message="type_of_expression eq_0(sdlTTFInit_0(),1) expected type Some(bool)"/>
+<children>
+</children>
+<log message="filter Exact(bool)"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="something substituted T -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+<log message="transform_call panic(&quot;TTFInit error.&quot;) expected_return_type Some(())"/>
+<children>
+<log message="get_valid_function call panic(&quot;TTFInit error.&quot;) expected_return_type Some(()): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:34"/>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<children>
+<log message="almost_same_type () filter Exact(()) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr &quot;TTFInit error.&quot;"/>
+<log message="real expression : &quot;TTFInit error.&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;TTFInit error.&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type () filter Exact(()) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec panic(&quot;TTFInit error.&quot;) return type Some(()) filter Exact(str)"/>
+<log message="testing function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; (), filters Exact(str), return type Some(())"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type () filter Exact(()) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; ()"/>
+<log message="already added function panic_0"/>
+</children>
+</children>
+<log message="type_of_expression {  -&gt; panic_0(&quot;TTFInit error.&quot;);
+; } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="type_of_expression panic_0(&quot;TTFInit error.&quot;) expected type None"/>
+<children>
+</children>
+<log message="lambda return type Some(Exact(()))"/>
+<log message="found type Exact(fn () -&gt; ())"/>
+</children>
+<log message="filter Exact(fn () -&gt; ())"/>
+<log message="almost_same_type fn () -&gt; () filter Exact(fn () -&gt; ()) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt;  }"/>
+<log message="something substituted T -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt;  }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+</children>
+<log message="type_of_expression {  -&gt;  } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="filter Lambda(0, Some(Exact(())))"/>
+<log message="almost_same_type fn () -&gt; () filter Lambda(0, Some(Exact(()))) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/conditionals.rasm if&lt;T&gt;(cond:bool,trueVal:T,falseVal:T) -&gt; T"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr eq(sdlTTFInit(),1)"/>
+<log message="real expression : eq(sdlTTFInit(),1)"/>
+<log message="real type of expression : bool"/>
+<log message="transform_call eq(sdlTTFInit(),1) expected_return_type Some(bool)"/>
+<children>
+<log message="get_valid_function call eq(sdlTTFInit(),1) expected_return_type Some(bool): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:19"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(s1:str,s2:str) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : str"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression 1 expected type Some(str)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(str) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(a:char,b:char) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : char"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(char)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(char): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression 1 expected type Some(char)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(char) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : i32"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(i32)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(i32): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlTTFInit() return type Some(i32) filter "/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32, filters , return type Some(i32)"/>
+<children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32"/>
+<log message="already added function sdlTTFInit_0"/>
+</children>
+<log message="type_of_expression sdlTTFInit_0() expected type Some(i32)"/>
+<children>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 1 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/time.rasm eq(t1:TimeVal,t2:TimeVal) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : TimeVal"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(TimeVal)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(TimeVal): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : TimeVal"/>
+<log message="type_of_expression 1 expected type Some(TimeVal)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(TimeVal) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/vec.rasm eq&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type Vec&lt;T&gt; filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type Vec&lt;T&gt;"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="type_of_expression 1 expected type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type Vec&lt;T&gt; effective_type  i32"/>
+<children>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(Vec&lt;T&gt;) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec eq(sdlTTFInit(),1) return type Some(bool) filter Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool, filters Exact(i32), Exact(i32), return type Some(bool)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool"/>
+<log message="already added function eq_0"/>
+</children>
+<log message="type_of_expression eq_0(sdlTTFInit_0(),1) expected type Some(bool)"/>
+<children>
+</children>
+<log message="filter Exact(bool)"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real expression : {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real type of expression : T"/>
+<log message="transform_statements expected_return_type None"/>
+<children>
+<log message="transform_call panic(&quot;TTFInit error.&quot;) expected_return_type None"/>
+<children>
+<log message="get_valid_function call panic(&quot;TTFInit error.&quot;) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:34"/>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr &quot;TTFInit error.&quot;"/>
+<log message="real expression : &quot;TTFInit error.&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;TTFInit error.&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec panic(&quot;TTFInit error.&quot;) return type Some(()) filter Exact(str)"/>
+<log message="testing function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; (), filters Exact(str), return type Some(())"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type () filter Exact(()) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; ()"/>
+<log message="already added function panic_0"/>
+</children>
+</children>
+<log message="type_of_expression {  -&gt; panic_0(&quot;TTFInit error.&quot;);
+; } expected type Some(T)"/>
+<children>
+<log message="type_of_expression panic_0(&quot;TTFInit error.&quot;) expected type None"/>
+<children>
+</children>
+<log message="lambda return type Some(Exact(()))"/>
+<log message="found type Exact(fn () -&gt; ())"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type T effective_type  fn () -&gt; ()"/>
+<children>
+<log message="resolved generic type T to fn () -&gt; ()"/>
+<log message="result T=fn () -&gt; ()"/>
+</children>
+<log message="filter Exact(fn () -&gt; ())"/>
+<log message="almost_same_type T filter Exact(fn () -&gt; ()) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+<log message="expr {  -&gt;  }"/>
+<log message="something substituted T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt;  }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+</children>
+<log message="type_of_expression {  -&gt;  } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="filter Lambda(0, Some(Exact(())))"/>
+<log message="almost_same_type fn () -&gt; () filter Lambda(0, Some(Exact(()))) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="calculating filters loop 1"/>
+<children>
+<log message="expr eq(sdlTTFInit(),1)"/>
+<log message="real expression : eq(sdlTTFInit(),1)"/>
+<log message="real type of expression : bool"/>
+<log message="transform_call eq(sdlTTFInit(),1) expected_return_type Some(bool)"/>
+<children>
+<log message="get_valid_function call eq(sdlTTFInit(),1) expected_return_type Some(bool): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:19"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(s1:str,s2:str) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : str"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression 1 expected type Some(str)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(str) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(a:char,b:char) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : char"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(char)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(char): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression 1 expected type Some(char)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(char) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : i32"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(i32)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(i32): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlTTFInit() return type Some(i32) filter "/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32, filters , return type Some(i32)"/>
+<children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32"/>
+<log message="already added function sdlTTFInit_0"/>
+</children>
+<log message="type_of_expression sdlTTFInit_0() expected type Some(i32)"/>
+<children>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 1 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/time.rasm eq(t1:TimeVal,t2:TimeVal) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : TimeVal"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(TimeVal)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(TimeVal): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : TimeVal"/>
+<log message="type_of_expression 1 expected type Some(TimeVal)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(TimeVal) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/vec.rasm eq&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type Vec&lt;T&gt; filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type Vec&lt;T&gt;"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="type_of_expression 1 expected type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type Vec&lt;T&gt; effective_type  i32"/>
+<children>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(Vec&lt;T&gt;) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec eq(sdlTTFInit(),1) return type Some(bool) filter Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool, filters Exact(i32), Exact(i32), return type Some(bool)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool"/>
+<log message="already added function eq_0"/>
+</children>
+<log message="type_of_expression eq_0(sdlTTFInit_0(),1) expected type Some(bool)"/>
+<children>
+</children>
+<log message="filter Exact(bool)"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="something substituted T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+<log message="transform_call panic(&quot;TTFInit error.&quot;) expected_return_type Some(())"/>
+<children>
+<log message="get_valid_function call panic(&quot;TTFInit error.&quot;) expected_return_type Some(()): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:34"/>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<children>
+<log message="almost_same_type () filter Exact(()) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr &quot;TTFInit error.&quot;"/>
+<log message="real expression : &quot;TTFInit error.&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;TTFInit error.&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type () filter Exact(()) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec panic(&quot;TTFInit error.&quot;) return type Some(()) filter Exact(str)"/>
+<log message="testing function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; (), filters Exact(str), return type Some(())"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type () filter Exact(()) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; ()"/>
+<log message="already added function panic_0"/>
+</children>
+</children>
+<log message="type_of_expression {  -&gt; panic_0(&quot;TTFInit error.&quot;);
+; } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="type_of_expression panic_0(&quot;TTFInit error.&quot;) expected type None"/>
+<children>
+</children>
+<log message="lambda return type Some(Exact(()))"/>
+<log message="found type Exact(fn () -&gt; ())"/>
+</children>
+<log message="filter Exact(fn () -&gt; ())"/>
+<log message="almost_same_type fn () -&gt; () filter Exact(fn () -&gt; ()) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt;  }"/>
+<log message="something substituted T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt;  }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+</children>
+<log message="type_of_expression {  -&gt;  } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="filter Lambda(0, Some(Exact(())))"/>
+<log message="almost_same_type fn () -&gt; () filter Lambda(0, Some(Exact(()))) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 368934881474191032"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/conditionals.rasm if&lt;T&gt;(cond:bool,vtrue:T,ffalse:fn () -&gt; T) -&gt; T"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr eq(sdlTTFInit(),1)"/>
+<log message="real expression : eq(sdlTTFInit(),1)"/>
+<log message="real type of expression : bool"/>
+<log message="transform_call eq(sdlTTFInit(),1) expected_return_type Some(bool)"/>
+<children>
+<log message="get_valid_function call eq(sdlTTFInit(),1) expected_return_type Some(bool): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:19"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(s1:str,s2:str) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : str"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression 1 expected type Some(str)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(str) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(a:char,b:char) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : char"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(char)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(char): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression 1 expected type Some(char)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(char) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : i32"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(i32)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(i32): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlTTFInit() return type Some(i32) filter "/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32, filters , return type Some(i32)"/>
+<children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32"/>
+<log message="already added function sdlTTFInit_0"/>
+</children>
+<log message="type_of_expression sdlTTFInit_0() expected type Some(i32)"/>
+<children>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 1 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/time.rasm eq(t1:TimeVal,t2:TimeVal) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : TimeVal"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(TimeVal)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(TimeVal): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : TimeVal"/>
+<log message="type_of_expression 1 expected type Some(TimeVal)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(TimeVal) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/vec.rasm eq&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type Vec&lt;T&gt; filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type Vec&lt;T&gt;"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="type_of_expression 1 expected type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type Vec&lt;T&gt; effective_type  i32"/>
+<children>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(Vec&lt;T&gt;) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec eq(sdlTTFInit(),1) return type Some(bool) filter Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool, filters Exact(i32), Exact(i32), return type Some(bool)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool"/>
+<log message="already added function eq_0"/>
+</children>
+<log message="type_of_expression eq_0(sdlTTFInit_0(),1) expected type Some(bool)"/>
+<children>
+</children>
+<log message="filter Exact(bool)"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real expression : {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real type of expression : T"/>
+<log message="transform_statements expected_return_type None"/>
+<children>
+<log message="transform_call panic(&quot;TTFInit error.&quot;) expected_return_type None"/>
+<children>
+<log message="get_valid_function call panic(&quot;TTFInit error.&quot;) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:34"/>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr &quot;TTFInit error.&quot;"/>
+<log message="real expression : &quot;TTFInit error.&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;TTFInit error.&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec panic(&quot;TTFInit error.&quot;) return type Some(()) filter Exact(str)"/>
+<log message="testing function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; (), filters Exact(str), return type Some(())"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type () filter Exact(()) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; ()"/>
+<log message="already added function panic_0"/>
+</children>
+</children>
+<log message="type_of_expression {  -&gt; panic_0(&quot;TTFInit error.&quot;);
+; } expected type Some(T)"/>
+<children>
+<log message="type_of_expression panic_0(&quot;TTFInit error.&quot;) expected type None"/>
+<children>
+</children>
+<log message="lambda return type Some(Exact(()))"/>
+<log message="found type Exact(fn () -&gt; ())"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type T effective_type  fn () -&gt; ()"/>
+<children>
+<log message="resolved generic type T to fn () -&gt; ()"/>
+<log message="result T=fn () -&gt; ()"/>
+</children>
+<log message="filter Exact(fn () -&gt; ())"/>
+<log message="almost_same_type T filter Exact(fn () -&gt; ()) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+<log message="expr {  -&gt;  }"/>
+<log message="something substituted T -&gt; fn () -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt;  }"/>
+<log message="real type of expression : fn () -&gt; fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(fn () -&gt; ())"/>
+<children>
+</children>
+<log message="type_of_expression {  -&gt;  } expected type Some(fn () -&gt; fn () -&gt; ())"/>
+<children>
+<log message="filter Lambda(0, Some(Exact(())))"/>
+<log message="almost_same_type fn () -&gt; fn () -&gt; () filter Lambda(0, Some(Exact(()))) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="calculating filters loop 1"/>
+<children>
+<log message="expr eq(sdlTTFInit(),1)"/>
+<log message="real expression : eq(sdlTTFInit(),1)"/>
+<log message="real type of expression : bool"/>
+<log message="transform_call eq(sdlTTFInit(),1) expected_return_type Some(bool)"/>
+<children>
+<log message="get_valid_function call eq(sdlTTFInit(),1) expected_return_type Some(bool): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:19"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(s1:str,s2:str) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : str"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression 1 expected type Some(str)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(str) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm eq(a:char,b:char) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : char"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(char)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(char): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression 1 expected type Some(char)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type char filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(char) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : i32"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(i32)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(i32): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlTTFInit() return type Some(i32) filter "/>
+<log message="testing function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32, filters , return type Some(i32)"/>
+<children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit_0() -&gt; i32"/>
+<log message="already added function sdlTTFInit_0"/>
+</children>
+<log message="type_of_expression sdlTTFInit_0() expected type Some(i32)"/>
+<children>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 1 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/time.rasm eq(t1:TimeVal,t2:TimeVal) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : TimeVal"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(TimeVal)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(TimeVal): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : TimeVal"/>
+<log message="type_of_expression 1 expected type Some(TimeVal)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type TimeVal filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type TimeVal"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(TimeVal) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/vec.rasm eq&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; bool"/>
+<children>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr sdlTTFInit()"/>
+<log message="real expression : sdlTTFInit()"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="transform_call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="get_valid_function call sdlTTFInit() expected_return_type Some(Vec&lt;T&gt;): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlTTFInit() -&gt; i32"/>
+<children>
+<log message="almost_same_type Vec&lt;T&gt; filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type Vec&lt;T&gt;"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="expr 1"/>
+<log message="real expression : 1"/>
+<log message="real type of expression : Vec&lt;T&gt;"/>
+<log message="type_of_expression 1 expected type Some(Vec&lt;T&gt;)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type Vec&lt;T&gt; effective_type  i32"/>
+<children>
+</children>
+</children>
+<log message="ignored function due to call sdlTTFInit 
+cannot find a valid function for namespace breakout:resources/examples/breakout/src/breakout.rasm 
+ : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+converting expression, expected_type Some(Vec&lt;T&gt;) : file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:14
+"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq(a:i32,b:i32) -&gt; bool"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec eq(sdlTTFInit(),1) return type Some(bool) filter Exact(i32), Exact(i32)"/>
+<log message="testing function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool, filters Exact(i32), Exact(i32), return type Some(bool)"/>
+<children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm eq_0(a:i32,b:i32) -&gt; bool"/>
+<log message="already added function eq_0"/>
+</children>
+<log message="type_of_expression eq_0(sdlTTFInit_0(),1) expected type Some(bool)"/>
+<children>
+</children>
+<log message="filter Exact(bool)"/>
+<log message="almost_same_type bool filter Exact(bool) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="something substituted T -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt; panic(&quot;TTFInit error.&quot;);
+; }"/>
+<log message="real type of expression : fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(())"/>
+<children>
+<log message="transform_call panic(&quot;TTFInit error.&quot;) expected_return_type Some(())"/>
+<children>
+<log message="get_valid_function call panic(&quot;TTFInit error.&quot;) expected_return_type Some(()): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:121:34"/>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<children>
+<log message="almost_same_type () filter Exact(()) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr &quot;TTFInit error.&quot;"/>
+<log message="real expression : &quot;TTFInit error.&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;TTFInit error.&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type () filter Exact(()) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic(message:str) -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec panic(&quot;TTFInit error.&quot;) return type Some(()) filter Exact(str)"/>
+<log message="testing function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; (), filters Exact(str), return type Some(())"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="match_parameters: true"/>
+<log message="almost_same_type () filter Exact(()) return_type: true"/>
+<children>
+</children>
+</children>
+<log message="Found functions: pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/std.rasm panic_0(message:str) -&gt; ()"/>
+<log message="already added function panic_0"/>
+</children>
+</children>
+<log message="type_of_expression {  -&gt; panic_0(&quot;TTFInit error.&quot;);
+; } expected type Some(fn () -&gt; ())"/>
+<children>
+<log message="type_of_expression panic_0(&quot;TTFInit error.&quot;) expected type None"/>
+<children>
+</children>
+<log message="lambda return type Some(Exact(()))"/>
+<log message="found type Exact(fn () -&gt; ())"/>
+</children>
+<log message="filter Exact(fn () -&gt; ())"/>
+<log message="almost_same_type fn () -&gt; () filter Exact(fn () -&gt; ()) return_type: false"/>
+<children>
+</children>
+<log message="expr {  -&gt;  }"/>
+<log message="something substituted T -&gt; fn () -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; fn () -&gt; ()"/>
+<log message="real expression : {  -&gt;  }"/>
+<log message="real type of expression : fn () -&gt; fn () -&gt; ()"/>
+<log message="transform_statements expected_return_type Some(fn () -&gt; ())"/>
+<children>
+</children>
+<log message="type_of_expression {  -&gt;  } expected type Some(fn () -&gt; fn () -&gt; ())"/>
+<children>
+<log message="filter Lambda(0, Some(Exact(())))"/>
+<log message="almost_same_type fn () -&gt; fn () -&gt; () filter Lambda(0, Some(Exact(()))) return_type: false"/>
+<children>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 184467440737095516"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/conditionals.rasm if&lt;T&gt;(cond:bool,ftrue:fn () -&gt; T,ffalse:fn () -&gt; T) -&gt; T"/>
+<log message="something substituted T -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; ()"/>
+<log message="something substituted T -&gt; ()"/>
+<log message="something substituted fn () -&gt; T -&gt; fn () -&gt; ()"/>
+<log message="something substituted T -&gt; ()"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec if(eq(sdlTTFInit(),1),{  -&gt; panic(&quot;TTFInit error.&quot;);
+; },{  -&gt;  }) return type Some(()) filter Exact(bool), Exact(fn () -&gt; ()), Exact(fn () -&gt; ())"/>
+<log message="cannot find a function with name if"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/conditionals.rasm if_0(cond:bool,ftrue:fn () -&gt; (),ffalse:fn () -&gt; ()) -&gt; ()"/>
+</children>
+<log message="transform_call sdlOpenFont(add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;),24) expected_return_type None"/>
+<children>
+<log message="get_valid_function call sdlOpenFont(add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;),24) expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:123:23"/>
+<log message="verifying function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlOpenFont(file:str,size:i32) -&gt; SDLFont"/>
+<children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;)"/>
+<log message="real expression : add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;)"/>
+<log message="real type of expression : str"/>
+<log message="transform_call add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;) expected_return_type Some(str)"/>
+<children>
+<log message="get_valid_function call add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;) expected_return_type Some(str): file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:123:27"/>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/f32.rasm add(f1:f32,f2:f32) -&gt; f32"/>
+<children>
+<log message="almost_same_type str filter Exact(f32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/f32.rasm add(f1:f32,n2:i32) -&gt; f32"/>
+<children>
+<log message="almost_same_type str filter Exact(f32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm add(s1:str,s2:str) -&gt; str"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr RASMRESOURCEFOLDER"/>
+<log message="real expression : RASMRESOURCEFOLDER"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression RASMRESOURCEFOLDER expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="expr &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real expression : &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;/DejaVuSerif.ttf&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm add(s:str,c:char) -&gt; str"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr RASMRESOURCEFOLDER"/>
+<log message="real expression : RASMRESOURCEFOLDER"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression RASMRESOURCEFOLDER expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="expr &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real expression : &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real type of expression : char"/>
+<log message="type_of_expression &quot;/DejaVuSerif.ttf&quot; expected type Some(char)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type char filter Exact(str) return_type: false"/>
+<children>
+<log message="parameter type char"/>
+<log message="almost same: false"/>
+</children>
+</children>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/i32.rasm add(n1:i32,n2:i32) -&gt; i32"/>
+<children>
+<log message="almost_same_type str filter Exact(i32) return_type: false"/>
+<children>
+<log message="parameter type str"/>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="verifying function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/vec.rasm add&lt;T&gt;(vec1:Vec&lt;T&gt;,vec2:Vec&lt;T&gt;) -&gt; Vec&lt;T&gt;"/>
+<children>
+<log message="almost_same_type str filter Exact(Vec&lt;T&gt;) return_type: false"/>
+<children>
+<log message="almost same: false"/>
+</children>
+</children>
+<log message="verifying function pub fn stdlib:/home/enrico/development/rust/rasm/stdlib/str.rasm add&lt;T1,T2&gt;(a:T1,b:T2) -&gt; str"/>
+<children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="calculating filters loop 0"/>
+<children>
+<log message="expr RASMRESOURCEFOLDER"/>
+<log message="real expression : RASMRESOURCEFOLDER"/>
+<log message="real type of expression : T1"/>
+<log message="type_of_expression RASMRESOURCEFOLDER expected type Some(T1)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type T1 effective_type  str"/>
+<children>
+<log message="resolved generic type T1 to str"/>
+<log message="result T1=str"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type T1 filter Exact(str) return_type: false"/>
+<children>
+<log message="parameter type T1"/>
+<log message="almost same: true"/>
+</children>
+<log message="expr &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real expression : &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real type of expression : T2"/>
+<log message="type_of_expression &quot;/DejaVuSerif.ttf&quot; expected type Some(T2)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="extract_generic_types_from_effective_type: generic_type T2 effective_type  str"/>
+<children>
+<log message="resolved generic type T2 to str"/>
+<log message="result T2=str"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type T2 filter Exact(str) return_type: false"/>
+<children>
+<log message="parameter type T2"/>
+<log message="almost same: true"/>
+</children>
+</children>
+<log message="calculating filters loop 1"/>
+<children>
+<log message="expr RASMRESOURCEFOLDER"/>
+<log message="something substituted T1 -&gt; str"/>
+<log message="real expression : RASMRESOURCEFOLDER"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression RASMRESOURCEFOLDER expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="expr &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="something substituted T2 -&gt; str"/>
+<log message="real expression : &quot;/DejaVuSerif.ttf&quot;"/>
+<log message="real type of expression : str"/>
+<log message="type_of_expression &quot;/DejaVuSerif.ttf&quot; expected type Some(str)"/>
+<children>
+<log message="found type Exact(str)"/>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="it's valid with generic_types_coeff 368934881474191032"/>
+</children>
+<log message="found valid function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm add(s1:str,s2:str) -&gt; str"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;) return type Some(str) filter Exact(str), Exact(str)"/>
+<log message="cannot find a function with name add"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm stdlib:/home/enrico/development/rust/rasm/stdlib/backend/nasm-i32/str.rasm add_0(s1:str,s2:str) -&gt; str"/>
+</children>
+<log message="type_of_expression add_0(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;) expected type Some(str)"/>
+<children>
+</children>
+<log message="filter Exact(str)"/>
+<log message="almost_same_type str filter Exact(str) return_type: false"/>
+<children>
+</children>
+<log message="expr 24"/>
+<log message="real expression : 24"/>
+<log message="real type of expression : i32"/>
+<log message="type_of_expression 24 expected type Some(i32)"/>
+<children>
+<log message="found type Exact(i32)"/>
+</children>
+<log message="filter Exact(i32)"/>
+<log message="almost_same_type i32 filter Exact(i32) return_type: false"/>
+<children>
+</children>
+</children>
+<log message="it's valid with generic_types_coeff 0"/>
+</children>
+<log message="found valid function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlOpenFont(file:str,size:i32) -&gt; SDLFont"/>
+<log message="find call vec for module"/>
+<log message="find_call_vec sdlOpenFont(add(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;),24) return type Some(SDLFont) filter Exact(str), Exact(i32)"/>
+<log message="cannot find a function with name sdlOpenFont"/>
+<log message="Found functions: "/>
+<log message="adding new function pub asm sdl:/home/enrico/development/rust/rasm/rasm/resources/examples/sdl/sdl.rasm sdlOpenFont_0(file:str,size:i32) -&gt; SDLFont"/>
+</children>
+<log message="type_of_expression sdlOpenFont_0(add_0(RASMRESOURCEFOLDER,&quot;/DejaVuSerif.ttf&quot;),24) expected type None"/>
+<children>
+</children>
+<log message="adding let val font of type SDLFont to context"/>
+<log message="transform_call loadHighScores() expected_return_type None"/>
+<children>
+<log message="get_valid_function call loadHighScores() expected_return_type None: file:////home/enrico/development/rust/rasm/rasm/resources/examples/breakout/src/breakout.rasm:125:32"/>
+</children>
+</children>
+</children>
+</children>
+</children>
+</children>
+</children>
+</children>
+</root>

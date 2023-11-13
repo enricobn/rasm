@@ -3,12 +3,12 @@ let file = createFile(fileName);
 let p = println(file, 'c').orElse({ -> println(file, "Hello");});
 
 run(p, { v ->
-            sysClose(file);
+            close(file);
             println(v);
             exitMain(0);
         }
     );
 
-sysClose(file);
+close(file);
 
 print(readFile(fileName));

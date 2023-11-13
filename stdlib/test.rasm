@@ -1,56 +1,56 @@
-struct Assertions {
+pub struct Assertions {
     failed: Vec<str>
 }
 
-fn Assertions() -> Assertions {
+pub fn Assertions() -> Assertions {
     Assertions(Vec());
 }
 
-fn fail(assertions: Assertions, message: str) -> Assertions {
+pub fn fail(assertions: Assertions, message: str) -> Assertions {
     assertions.failed(assertions.failed.push(message));
 }
 
-fn validate(assertions: Assertions) {
+pub fn validate(assertions: Assertions) {
     assertions.failed.first.match({ error -> panic("Assertion error: ".add(error)); }, { -> });
 }
 
-fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
+pub fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
     if(value,{ -> assertions; },{ ->
         assertions.fail("assertion failed");
     });
 }
 
-fn assertFalse(assertions: Assertions, value: bool) -> Assertions {
+pub fn assertFalse(assertions: Assertions, value: bool) -> Assertions {
     if(value,{ ->
         assertions.fail("assertion failed");
     }, { -> assertions; });
 }
 
-fn assertTrue(assertions: Assertions, message: str, value: bool) -> Assertions {
+pub fn assertTrue(assertions: Assertions, message: str, value: bool) -> Assertions {
     if(value,{ -> assertions; },{ ->
         assertions.fail("assertion failed: ".add(message));
     });
 }
 
-fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions {
+pub fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions {
     if(value,{ ->
         assertions.fail("assertion failed: ".add(message));
     }, { -> assertions; });
 }
 
-fn assertEquals<T>(assertions: Assertions, message: str, expected: T, current: T) -> Assertions {
+pub fn assertEquals<T>(assertions: Assertions, message: str, expected: T, current: T) -> Assertions {
     if(expected.eq(current).not,{ ->
         assertions.fail("assertion failed: ".add(message));
     }, { -> assertions; });
 }
 
-fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
+pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
     if(expected.eq(current).not,{ ->
         assertions.fail("assertion failed");
     }, { -> assertions; });
 }
 
-fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
+pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
     testRun().failed.first.match(
         { error ->
             let message = add(add(add("Failed ", name), " : "), index);

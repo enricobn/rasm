@@ -1,36 +1,36 @@
-type Vec<T>(true);
+pub type Vec<T>(true);
 
-fn cartesianProduct<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> {
+pub fn cartesianProduct<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> {
     fmap(vec1, { v1 ->
         map(vec2, { v2 -> zipFunction(v1, v2); });
     });
 }
 
-fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
+pub fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
     flatten(map(l, f));
 }
 
-fn listToVec<T>(l: List<T>) -> Vec<T> {
+pub fn listToVec<T>(l: List<T>) -> Vec<T> {
     match(l, { head, tail -> flatten(vecOf(vecOf(head), listToVec(tail)));},
         { -> Vec(); });
 }
 
-fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
+pub fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
     forEach(v, { n -> printFunction(n); print(",");});
 }
 
-fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
+pub fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
     let v1 = map(v, { n -> print(file, n).or(print(file, ","));});
     let errors = v1.filter({ o -> o.isSome; });
     errors.first.match({ o -> o;} { -> Option::Some(IOError("Cannot happen"));});
 }
 
-fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
+pub fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
     zip(vecRange(0, len(vec)), vec, { index, value -> EnumerateEntry(index, value);});
 }
 
 // TODO optimize
-fn sort<T>(vec: Vec<T>) -> Vec<T> {
+pub fn sort<T>(vec: Vec<T>) -> Vec<T> {
     if(less(len(vec), 2), vec, { ->
         let firstOfVec = first(vec);
         match(firstOfVec, { f ->
@@ -43,7 +43,7 @@ fn sort<T>(vec: Vec<T>) -> Vec<T> {
 }
 
 // TODO optimize
-fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
+pub fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
     if(less(len(vec), 2), vec, { ->
         let firstOfVec = first(vec);
         match(firstOfVec, { f ->
@@ -55,14 +55,14 @@ fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
     });
 }
 
-fn eq<T>(vec1: Vec<T>, vec2: Vec<T>) -> bool {
+pub fn eq<T>(vec1: Vec<T>, vec2: Vec<T>) -> bool {
     if(not(eq(len(vec1), len(vec2))), false, { ->
         let booleans = zip(vec1, vec2, { v1, v2 -> eq(v1, v2);});
         eq(count(booleans, { v -> not(v);}), 0);
     });
 }
 
-fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
+pub fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
     if(not(eq(len(vec1), len(vec2))), false, { ->
         let booleans = zip(vec1, vec2, { v1, v2 ->
             match(cmpFunction(v1, v2), { -> false;}, { -> true;}, { -> false;});
@@ -71,7 +71,7 @@ fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
     });
 }
 
-fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
+pub fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
     let es = enumerate(vec);
 
     let filtered = filter(es, { e -> less(index(e), count);});
@@ -79,6 +79,6 @@ fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
     map(filtered, { e -> value(e);});
 }
 
-fn isEmpty<T>(vec: Vec<T>) -> bool {
+pub fn isEmpty<T>(vec: Vec<T>) -> bool {
     vec.len.eq(0);
 }

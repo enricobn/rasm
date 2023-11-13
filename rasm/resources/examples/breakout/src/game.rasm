@@ -4,7 +4,7 @@ struct GameState {
     fps: FPS
 }
 
-struct World {
+pub struct World {
     bricks: Vec<Brick>,
     ball: Ball,
     bar: Bar,
@@ -17,7 +17,7 @@ enum GameStage {
     Run
 }
 
-fn initialGameState() -> GameState {
+pub fn initialGameState() -> GameState {
     GameState(GameStage::Run(), initialWorld(), FPS(0, now(), 0));
 }
 
@@ -29,7 +29,7 @@ fn initialWorld() -> World {
     World(bricks, initialBall(now), Bar(500.0, 0, now), 0, 3);
 }
 
-fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
+pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
     let stage = stage(gameState);
     let fps = gameState.fps.update();
 
@@ -83,7 +83,7 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
     first(filter(bricks, { brick -> collides(ball, brick); }));
 }
 
-fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
+pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
     match(gameState.stage, { -> }, { ->
         render(ren, resources, gameState.world, gameState.fps.fps);
     });
@@ -114,8 +114,4 @@ fn render(ren: SDLRenderer, resources: Resources, world: World, fps: i32) {
 
     let fpsText = createSDLText(ren, font, add("FPS: ", toString(fps)), GREEN);
     renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
-}
-
-fn toi32(f: f32, default: i32) -> i32 {
-    getOrElse(toi32(f), default);
 }

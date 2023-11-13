@@ -11,6 +11,6 @@ fn check(c: str) -> Vec<Option<str>> {
     );
 }
 
-fn toString<T>(o: Option<T>) -> str {
+pub fn toString<T>(o: Option<T>) -> str {
    o.match({ v -> "Some(".add(v).add(")");}, { -> "None";});
 }

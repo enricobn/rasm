@@ -4,11 +4,11 @@ doJobErr().println;
 doJob().map({ it -> it.add(2);}).println;
 doJob().fmap({ it -> Result::Ok<str,str>("value=".add(it));}).println;
 
-fn print(result: Result<(), str>) {
+pub fn print(result: Result<(), str>) {
     result.match({ ok -> print("ok");}, { err -> print("err: ", err); });
 }
 
-fn print<OK,ERROR>(result: Result<OK, ERROR>) {
+pub fn print<OK,ERROR>(result: Result<OK, ERROR>) {
     result.match({ ok -> print("ok(", ok); print(")"); }, { err -> print("err: ", err); });
 }
 

@@ -5,8 +5,8 @@ println(file, "Hello world")
 .or(println(file, 1000))
 .match({ error -> panic(error.message); }, { -> });
 
-sysClose(file);
+close(file);
 
 print(readFile("file_for_write.txt"));
 
-sysUnlink("file_for_write.txt");
+delete("file_for_write.txt");

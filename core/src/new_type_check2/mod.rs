@@ -31,7 +31,7 @@ use crate::codegen::ValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
-    ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+    ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
 };
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -50,13 +50,15 @@ pub struct TypeCheck {
 }
 
 impl TypeCheck {
-    pub fn new() -> Self {
+    pub fn new(root_namespace: &ASTNameSpace, body_namespace: &ASTNameSpace) -> Self {
         let typed_module = EnhancedASTModule {
             body: vec![],
             functions_by_name: FunctionsContainer::new(),
             enums: vec![],
             structs: vec![],
             types: vec![],
+            root_namespace: root_namespace.clone(),
+            body_namespace: body_namespace.clone(),
         };
 
         Self {
@@ -110,11 +112,21 @@ impl TypeCheck {
         }
 
         let new_body = self
-            .transform_statements(module, &module.body, &mut val_context, statics, None)
+            .transform_statements(
+                module,
+                &module.body,
+                &mut val_context,
+                statics,
+                None,
+                &module.body_namespace,
+            )
             .map_err(|it| CompilationError {
                 index: ASTIndex::none(),
                 error_kind: CompilationErrorKind::TypeCheck(
-                    format!("Error transforming statements for module body"),
+                    format!(
+                        "Error transforming statements for module body, body namespace {}",
+                        module.body_namespace
+                    ),
                     vec![it],
                 ),
             })?;
@@ -192,13 +204,21 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<ASTStatement, TypeCheckError> {
         match statement {
             ASTStatement::Expression(e) => self
-                .transform_expression(module, e, val_context, statics, expected_return_type)
+                .transform_expression(
+                    module,
+                    e,
+                    val_context,
+                    statics,
+                    expected_return_type,
+                    namespace,
+                )
                 .map(ASTStatement::Expression),
             ASTStatement::LetStatement(name, e, is_const, index) => self
-                .transform_expression(module, e, val_context, statics, None)
+                .transform_expression(module, e, val_context, statics, None, namespace)
                 .map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const, index.clone())),
         }
     }
@@ -210,13 +230,21 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<ASTExpression, TypeCheckError> {
         match expression {
             ASTExpression::ASTFunctionCallExpression(call) => self
-                .transform_call(module, call, val_context, statics, expected_type)
+                .transform_call(module, call, val_context, statics, expected_type, namespace)
                 .map(ASTExpression::ASTFunctionCallExpression),
             ASTExpression::Lambda(lambda_def) => self
-                .transform_lambda_def(module, lambda_def, val_context, statics, expected_type)
+                .transform_lambda_def(
+                    module,
+                    lambda_def,
+                    val_context,
+                    statics,
+                    expected_type,
+                    namespace,
+                )
                 .map(ASTExpression::Lambda),
             _ => Ok(expression.clone()),
         }
@@ -239,6 +267,7 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<ASTFunctionCall, TypeCheckError> {
         debug_i!(
             "transform_call {call} expected_return_type {}",
@@ -258,7 +287,14 @@ impl TypeCheck {
             let new_expressions: Vec<ASTExpression> =
                 zip(call.parameters.iter(), parameters_types.clone().iter())
                     .map(|(it, ast_type)| {
-                        self.transform_expression(module, it, val_context, statics, Some(ast_type))
+                        self.transform_expression(
+                            module,
+                            it,
+                            val_context,
+                            statics,
+                            Some(ast_type),
+                            namespace,
+                        )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()
                     .map_err(|it| {
@@ -279,8 +315,15 @@ impl TypeCheck {
 
         self.stack.push(call.index.clone());
 
-        let (mut new_function_def, resolved_generic_types, new_expressions) =
-            self.get_valid_function(module, call, val_context, statics, expected_return_type)?;
+        let (mut new_function_def, resolved_generic_types, new_expressions) = self
+            .get_valid_function(
+                module,
+                call,
+                val_context,
+                statics,
+                expected_return_type,
+                namespace,
+            )?;
 
         debug_i!("found valid function {new_function_def}");
 
@@ -372,6 +415,7 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<(ASTFunctionDef, ResolvedGenericTypes, Vec<ASTExpression>), TypeCheckError> {
         debug_i!(
             "get_valid_function call {call} expected_return_type {}: {}",
@@ -384,7 +428,15 @@ impl TypeCheck {
         let original_functions = module
             .find_functions_by_original_name(&call.original_function_name)
             .iter()
-            .filter(|it| it.parameters.len() == call.parameters.len());
+            .filter(|it| {
+                /*
+                if !it.modifiers.public && &it.namespace != namespace {
+                    println!("different namespaces {} {}", it, namespace);
+                }
+                 */
+                (it.modifiers.public || &it.namespace == namespace)
+                    && it.parameters.len() == call.parameters.len()
+            });
 
         for function in original_functions {
             debug_i!("verifying function {function}");
@@ -466,6 +518,7 @@ impl TypeCheck {
                             &mut resolved_generic_types,
                             expr,
                             param_type,
+                            namespace,
                         )?;
                         if resolved_count != resolved_generic_types.len() {
                             something_resolved = true;
@@ -521,7 +574,7 @@ impl TypeCheck {
             Err(TypeCheckError::new(
                 call.index.clone(),
                 format!(
-                    "call {} \ncannot find a valid function\n{}",
+                    "call {} \ncannot find a valid function for namespace {namespace} \n{}",
                     call.original_function_name,
                     SliceDisplay(&errors.iter().map(|it| format!("{it}")).collect::<Vec<_>>())
                 ),
@@ -591,10 +644,25 @@ impl TypeCheck {
         resolved_generic_types: &mut ResolvedGenericTypes,
         expr: &ASTExpression,
         param_type: &ASTType,
+        namespace: &ASTNameSpace,
     ) -> Result<(TypeFilter, ASTExpression), TypeCheckError> {
-        let e = self.transform_expression(module, expr, val_context, statics, Some(param_type))?;
+        let e = self.transform_expression(
+            module,
+            expr,
+            val_context,
+            statics,
+            Some(param_type),
+            namespace,
+        )?;
 
-        let t = self.type_of_expression(module, &e, val_context, statics, Some(param_type))?;
+        let t = self.type_of_expression(
+            module,
+            &e,
+            val_context,
+            statics,
+            Some(param_type),
+            namespace,
+        )?;
         if let TypeFilter::Exact(et) = &t {
             if !is_generic_type(et) {
                 resolved_generic_types
@@ -692,6 +760,7 @@ impl TypeCheck {
                     &mut val_context,
                     statics,
                     Some(&new_function_def.return_type),
+                    &new_function_def.namespace,
                 )?;
                 Some(ASTFunctionBody::RASMBody(new_statements))
             }
@@ -723,8 +792,14 @@ impl TypeCheck {
 
                     for (_m, f) in called_functions.iter() {
                         let call = f.to_call(new_function_def);
-                        let new_call =
-                            self.transform_call(module, &call, &mut val_context, statics, None)?;
+                        let new_call = self.transform_call(
+                            module,
+                            &call,
+                            &mut val_context,
+                            statics,
+                            None,
+                            &new_function_def.namespace,
+                        )?;
                         debug_i!("old line {}", lines[f.i]);
 
                         let new_line =
@@ -748,6 +823,7 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<Vec<ASTStatement>, TypeCheckError> {
         debug_i!(
             "transform_statements expected_return_type {}",
@@ -763,11 +839,12 @@ impl TypeCheck {
                 } else {
                     None
                 };
-                let new_statement = self.transform_statement(module, it, val_context, statics, er);
+                let new_statement =
+                    self.transform_statement(module, it, val_context, statics, er, namespace);
 
                 if let Ok(ASTStatement::LetStatement(name, expr, is_cons, index)) = &new_statement {
                     if let Ok(type_of_expr) =
-                        self.type_of_expression(module, expr, val_context, statics, None)
+                        self.type_of_expression(module, expr, val_context, statics, None, namespace)
                     {
                         if let TypeFilter::Exact(ast_type) = type_of_expr {
                             if *is_cons {
@@ -816,6 +893,7 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<TypeFilter, TypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
@@ -859,9 +937,14 @@ impl TypeCheck {
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 }
 
-                if let Ok(transformed_call) =
-                    self.transform_call(module, call, val_context, statics, expected_type)
-                {
+                if let Ok(transformed_call) = self.transform_call(
+                    module,
+                    call,
+                    val_context,
+                    statics,
+                    expected_type,
+                    namespace,
+                ) {
                     if let Some(f) = self
                         .module
                         .find_precise_function(
@@ -878,7 +961,9 @@ impl TypeCheck {
                 let filters = call
                     .parameters
                     .iter()
-                    .map(|it| self.type_of_expression(module, it, val_context, statics, None))
+                    .map(|it| {
+                        self.type_of_expression(module, it, val_context, statics, None, namespace)
+                    })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
                 let functions = module
                     .functions_by_name
@@ -955,6 +1040,7 @@ impl TypeCheck {
                             &mut lambda_val_context,
                             statics,
                             None,
+                            namespace,
                         )?;
 
                         if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -982,6 +1068,7 @@ impl TypeCheck {
                                 &mut lambda_val_context,
                                 statics,
                                 None,
+                                namespace,
                             )?));
                         }
                     }
@@ -1015,6 +1102,7 @@ impl TypeCheck {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
     ) -> Result<ASTLambdaDef, TypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
@@ -1042,8 +1130,14 @@ impl TypeCheck {
             Ok(None)
         };
 
-        new_lambda.body =
-            self.transform_statements(module, &lambda_def.body, &mut val_context, statics, ert?)?;
+        new_lambda.body = self.transform_statements(
+            module,
+            &lambda_def.body,
+            &mut val_context,
+            statics,
+            ert?,
+            namespace,
+        )?;
 
         Ok(new_lambda)
     }

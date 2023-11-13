@@ -1,10 +1,10 @@
-struct FPS {
+pub struct FPS {
     frameCount: i32,
     lastFPSUpdate: TimeVal,
     fps: i32
 }
 
-fn update(fps: FPS) -> FPS {
+pub fn update(fps: FPS) -> FPS {
     let now = now();
     let et = elapsedTime(now, fps.lastFPSUpdate);
 

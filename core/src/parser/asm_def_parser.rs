@@ -15,15 +15,23 @@ impl<'a> AsmDefParser<'a> {
     pub fn try_parse(
         &self,
     ) -> Result<Option<(Token, bool, Vec<String>, ASTModifiers, usize)>, String> {
-        if let Some(kind) = self.parser.get_token_kind() {
+        let mut current_n = 0;
+        let modifiers =
+            if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.parser.get_token_kind_n(0) {
+                current_n += 1;
+                ASTModifiers::public()
+            } else {
+                ASTModifiers::private()
+            };
+        if let Some(kind) = self.parser.get_token_kind_n(current_n) {
             if let TokenKind::KeyWord(KeywordKind::Inline) = kind {
-                if let Some((function_name, type_params, modifiers, next_i)) =
-                    self.try_parse_no_inline(1)?
+                if let Some((function_name, type_params, next_i)) =
+                    self.try_parse_no_inline(current_n + 1)?
                 {
                     return Ok(Some((function_name, true, type_params, modifiers, next_i)));
                 }
-            } else if let Some((function_name, type_params, modifiers, next_i)) =
-                self.try_parse_no_inline(0)?
+            } else if let Some((function_name, type_params, next_i)) =
+                self.try_parse_no_inline(current_n)?
             {
                 return Ok(Some((function_name, false, type_params, modifiers, next_i)));
             }
@@ -31,18 +39,8 @@ impl<'a> AsmDefParser<'a> {
         Ok(None)
     }
 
-    fn try_parse_no_inline(
-        &self,
-        n: usize,
-    ) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
+    fn try_parse_no_inline(&self, n: usize) -> Result<Option<(Token, Vec<String>, usize)>, String> {
         let mut current_n = n + 1;
-        let modifiers =
-            if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.parser.get_token_kind_n(n) {
-                current_n += 1;
-                ASTModifiers::public()
-            } else {
-                ASTModifiers::private()
-            };
         if let Some(TokenKind::KeyWord(KeywordKind::Asm)) = self.parser.get_token_kind_n(n) {
             let name_token_o = self.parser.get_token_n(n + 1);
 
@@ -64,7 +62,6 @@ impl<'a> AsmDefParser<'a> {
                     return Ok(Some((
                         name_token_o.unwrap().clone(),
                         type_params,
-                        modifiers,
                         self.parser.get_i() + current_n + 2,
                     )));
                 }

@@ -1,6 +1,6 @@
 extern "exit"
 
-asm exitMain(status: i32) /{
+pub asm exitMain(status: i32) /{
     %ifdef LIBC
     push    dword $status
     call    exit
@@ -13,12 +13,12 @@ asm exitMain(status: i32) /{
     %endif
 }/
 
-asm argc() -> i32 /{
+pub asm argc() -> i32 /{
     mov     eax,[_rasm_args]
 }/
 
 // TODO unsafe use Option
-asm argv(i: i32) -> str /{
+pub asm argv(i: i32) -> str /{
     push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
@@ -34,7 +34,7 @@ asm argv(i: i32) -> str /{
     pop edx
 }/
 
-asm memcopy(source: i32, dest: i32, len: i32) /{
+pub asm memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi
     push    edi
@@ -49,7 +49,7 @@ asm memcopy(source: i32, dest: i32, len: i32) /{
     pop     ecx
 }/
 
-asm malloc(size: i32, descr: str) -> i32 /{
+pub asm malloc(size: i32, descr: str) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -187,7 +187,7 @@ asm malloc(size: i32, descr: str) -> i32 /{
     pop     ebx
 }/
 
-asm addStaticStringToHeap(s: i32) -> i32 /{
+pub asm addStaticStringToHeap(s: i32) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -222,7 +222,7 @@ asm addStaticStringToHeap(s: i32) -> i32 /{
     pop     ebx
 }/
 
-asm deref(address: i32, descr: str) -> i32 /{
+pub asm deref(address: i32, descr: str) -> i32 /{
     push    eax
     push    ebx
 
@@ -327,7 +327,7 @@ asm deref(address: i32, descr: str) -> i32 /{
 /**
  * given an address in the allocation table, dereferences that entry and adds it to the reusable table
  */
-asm freeMem(address: i32) /{
+pub asm freeMem(address: i32) /{
     push    ebx
     push    eax
 
@@ -343,7 +343,7 @@ asm freeMem(address: i32) /{
     pop     ebx
 }/
 
-asm addRef(address: i32, descr: str) /{
+pub asm addRef(address: i32, descr: str) /{
     push    eax
     push    ebx
 
@@ -419,7 +419,7 @@ asm addRef(address: i32, descr: str) /{
     pop     eax
 }/
 
-asm removeFromReused(address: i32) /{
+pub asm removeFromReused(address: i32) /{
     push    eax
 
     %ifdef LOG_DEBUG
@@ -465,7 +465,7 @@ fn invalidAddress() {
     exitMain(1);
 }
 
-asm printAllocated() /{
+pub asm printAllocated() /{
     push    eax
     push    ebx
     push    ecx
@@ -497,7 +497,7 @@ asm printAllocated() /{
 }/
 
 /* probably there's a faster way to do this: a simple diff... */
-asm printTotalMemory() /{
+pub asm printTotalMemory() /{
     push    eax
     push    ebx
     push    ecx
@@ -525,7 +525,7 @@ asm printTotalMemory() /{
     pop     eax
 }/
 
-asm printTableSlotsAllocated() /{
+pub asm printTableSlotsAllocated() /{
     push    eax
     push    ebx
 
@@ -615,7 +615,7 @@ asm memContains(startAddress: i32, len: i32, what: i32) /{
     pop     eax
 }/
 
-asm copy<T>(o: T) -> T /{
+pub asm copy<T>(o: T) -> T /{
     push    ebx
     push    ecx
 
@@ -630,7 +630,7 @@ asm copy<T>(o: T) -> T /{
     pop     ebx
 }/
 
-asm addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
+pub asm addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
     push    ebx
 
     mov     dword ebx, $labelMemory
@@ -645,7 +645,7 @@ asm addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
     pop     ebx
 }/
 
-asm addHeap(label: i32, descrLabel: i32, value: i32) /{
+pub asm addHeap(label: i32, descrLabel: i32, value: i32) /{
     push    ebx
 
     mov     dword ebx, $descrLabel

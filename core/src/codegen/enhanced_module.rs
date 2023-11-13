@@ -3,7 +3,7 @@ use log::debug;
 use crate::debug_i;
 use crate::parser::ast::{
     ASTEnumDef, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
-    ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
+    ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
 };
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
@@ -18,6 +18,8 @@ pub struct EnhancedASTModule {
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
     pub types: Vec<ASTTypeDef>,
+    pub root_namespace: ASTNameSpace,
+    pub body_namespace: ASTNameSpace,
 }
 
 impl EnhancedASTModule {
@@ -74,6 +76,16 @@ impl EnhancedASTModule {
             enums,
             structs,
             types,
+            root_namespace: ASTNameSpace::root_namespace(project),
+            body_namespace: ASTNameSpace::new(
+                project.config.package.name.clone(),
+                project
+                    .config
+                    .package
+                    .main
+                    .clone()
+                    .unwrap_or("".to_string()),
+            ),
         };
 
         add_folder(&mut module, "RASMRESOURCEFOLDER", project.resource_folder());

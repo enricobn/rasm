@@ -171,12 +171,24 @@ impl RasmProject {
         }
     }
 
-    pub fn relative_to_root(&self, path: &Path) -> Option<PathBuf> {
+    pub fn relative_to_root_src(&self, path: &Path) -> Option<PathBuf> {
         diff_paths(
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
-                self.root.canonicalize().unwrap()
+                self.source_folder().canonicalize().unwrap()
+            } else {
+                self.root.parent().unwrap().canonicalize().unwrap()
+            },
+        )
+    }
+
+    pub fn relative_to_root_test(&self, path: &Path) -> Option<PathBuf> {
+        diff_paths(
+            path.canonicalize()
+                .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
+            if self.root.is_dir() {
+                self.test_folder().canonicalize().unwrap()
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
@@ -193,7 +205,7 @@ impl RasmProject {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(true, self.test_folder())
+        self.get_modules(true, self.test_folder(), true)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
                 backend.add_module(&project_module);
@@ -213,7 +225,7 @@ impl RasmProject {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(true, self.source_folder())
+        self.get_modules(true, self.source_folder(), false)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
                 backend.add_module(&project_module);
@@ -226,8 +238,8 @@ impl RasmProject {
             .into_par_iter()
             .flat_map_iter(|dependency| {
                 info!("including dependency {}", dependency.config.package.name);
-
-                dependency.get_modules(false, dependency.source_folder())
+                //TODO include tests?
+                dependency.get_modules(false, dependency.source_folder(), false)
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -410,9 +422,10 @@ impl RasmProject {
         &self,
         body: bool,
         source_folder: PathBuf,
+        for_tests: bool,
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
-            vec![self.module_from_file(&PathBuf::from(&self.main_src_file().unwrap()))]
+            vec![self.module_from_file(&PathBuf::from(&self.main_src_file().unwrap()), for_tests)]
         } else {
             WalkDir::new(source_folder)
                 .into_iter()
@@ -425,7 +438,7 @@ impl RasmProject {
                     info!("including file {}", path.to_str().unwrap());
 
                     let (entry_module, mut module_errors) =
-                        self.module_from_file(&path.canonicalize().unwrap());
+                        self.module_from_file(&path.canonicalize().unwrap(), for_tests);
                     // const statements are allowed
                     let has_body = entry_module.body.iter().any(|it| match it {
                         ASTStatement::Expression(_) => false,
@@ -519,12 +532,16 @@ impl RasmProject {
         result
     }
 
-    fn module_from_file(&self, main_file: &PathBuf) -> (ASTModule, Vec<CompilationError>) {
+    fn module_from_file(
+        &self,
+        main_file: &PathBuf,
+        for_tests: bool,
+    ) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(&main_file);
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
                 let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
-                let (module, errors) = parser.parse(Some(self), main_path);
+                let (module, errors) = parser.parse(Some(self), main_path, for_tests);
                 (module, errors)
             }
             Err(err) => {

@@ -1,10 +1,10 @@
-struct Circle {
+pub struct Circle {
     x: i32,
     y: i32,
     radius: i32
 }
 
-fn Shape(circle: Circle) -> Shape {
+pub fn Shape(circle: Circle) -> Shape {
     Shape(
         { -> Point(circle.x, circle.y); },
         { dx, dy ->

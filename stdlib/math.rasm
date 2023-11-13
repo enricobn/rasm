@@ -1,18 +1,18 @@
-fn min<T>(a: T, b: T) -> T {
+pub fn min<T>(a: T, b: T) -> T {
     if(less(a, b), a, b);
 }
 
-fn max<T>(a: T, b: T) -> T {
+pub fn max<T>(a: T, b: T) -> T {
     if(greater(a, b), a, b);
 }
 
-fn between<T>(actual: T, minValue: T, maxValue: T) -> T {
+pub fn between<T>(actual: T, minValue: T, maxValue: T) -> T {
     let g = greater(actual, maxValue);
     let l = less(actual, minValue);
 
     if(g, maxValue, if(l, minValue, actual));
 }
 
-fn cmp<T>(a: T, b: T) -> Compare {
+pub fn cmp<T>(a: T, b: T) -> Compare {
     if(less(a, b), Compare::Less(), if(eq(a, b), Compare::Equal(), Compare::Greater()));
 }

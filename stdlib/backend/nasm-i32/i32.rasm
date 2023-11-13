@@ -1,17 +1,17 @@
 /** Adds two numbers **/
-inline asm add(n1: i32, n2: i32) -> i32 /{
+pub inline asm add(n1: i32, n2: i32) -> i32 /{
     mov     eax, $n1
     add     eax, $n2
 }/
 
 /** Subtracts two numbers **/
-inline asm sub(n1: i32, n2: i32) -> i32 /{
+pub inline asm sub(n1: i32, n2: i32) -> i32 /{
     mov     eax, $n1
     sub     eax, $n2
 }/
 
 /** Multiply two numbers, but we return only the low 32 bit (edx is saved) **/
-inline asm mul(n1: i32, n2: i32) -> i32 /{
+pub inline asm mul(n1: i32, n2: i32) -> i32 /{
     push    edx
     mov     dword eax,$n1
     imul    dword eax,$n2
@@ -19,7 +19,7 @@ inline asm mul(n1: i32, n2: i32) -> i32 /{
 }/
 
 /** Divide two numbers, but we return only the low 32 bit (edx is saved) **/
-asm div(n1: i32, n2: i32) -> i32 /{
+pub asm div(n1: i32, n2: i32) -> i32 /{
     push    ebx
     push    edx
 
@@ -33,7 +33,7 @@ asm div(n1: i32, n2: i32) -> i32 /{
     pop     ebx
 }/
 
-asm toString(n: i32) -> str /{
+pub asm toString(n: i32) -> str /{
     push    esi
     push    ebx
     push    ecx
@@ -82,7 +82,7 @@ asm toString(n: i32) -> str /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-inline asm lessOrEqual(a: i32, b: i32) -> bool /{
+pub inline asm lessOrEqual(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -94,7 +94,7 @@ inline asm lessOrEqual(a: i32, b: i32) -> bool /{
  *  a  < b
  *  false = 0 true = 1
  **/
-inline asm less(a: i32, b: i32) -> bool /{
+pub inline asm less(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -106,7 +106,7 @@ inline asm less(a: i32, b: i32) -> bool /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-inline asm greater(a: i32, b: i32) -> bool /{
+pub inline asm greater(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -118,7 +118,7 @@ inline asm greater(a: i32, b: i32) -> bool /{
  *  a  == b
  *  false = 0 true = 1
  **/
-inline asm eq(a: i32, b: i32) -> bool /{
+pub inline asm eq(a: i32, b: i32) -> bool /{
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true

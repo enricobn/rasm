@@ -1,8 +1,8 @@
-asm printAddress<T>(message: str, address: T) /{
+pub asm printAddress<T>(message: str, address: T) /{
     $call(print, 1:File, $message)
     $call(println, 1:File, $address: i32)
 }/
 
-asm printRef<T>(o: T) /{
+pub asm printRef<T>(o: T) /{
     $printRef($o)
 }/

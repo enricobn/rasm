@@ -21,11 +21,21 @@ impl ASTNameSpace {
         Self { lib, path }
     }
 
+    pub fn root_namespace(project: &RasmProject) -> Self {
+        Self::new(project.config.package.name.clone(), "".to_string())
+    }
+
     pub fn global() -> Self {
         Self {
             lib: "".to_string(),
             path: "".to_string(),
         }
+    }
+}
+
+impl Display for ASTNameSpace {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}:{}", self.lib, self.path))
     }
 }
 
@@ -58,13 +68,24 @@ impl Display for ASTFunctionDef {
             "()".into()
         };
 
+        let modifiers = if self.modifiers.public { "pub " } else { "" };
+
+        let fun_or_asm = if let ASTFunctionBody::RASMBody(_) = self.body {
+            "fn"
+        } else {
+            "asm"
+        };
+
         let args = self
             .parameters
             .iter()
             .map(|it| format!("{}", it))
             .collect::<Vec<String>>()
             .join(",");
-        f.write_str(&format!("{}{generic_types}({args}) -> {rt}", self.name))
+        f.write_str(&format!(
+            "{}{} {} {}{generic_types}({args}) -> {rt}",
+            modifiers, fun_or_asm, self.namespace, self.name
+        ))
     }
 }
 
@@ -388,7 +409,7 @@ impl Display for ASTStatement {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTModifiers {
-    public: bool,
+    pub public: bool,
 }
 
 impl ASTModifiers {
@@ -537,6 +558,7 @@ pub struct ASTTypeDef {
     pub type_parameters: Vec<String>,
     pub is_ref: bool,
     pub index: ASTIndex,
+    pub modifiers: ASTModifiers,
 }
 
 impl Display for ASTTypeDef {

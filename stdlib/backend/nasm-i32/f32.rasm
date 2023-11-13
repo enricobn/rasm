@@ -1,4 +1,4 @@
-asm tof32(n: i32) -> f32 /{
+pub asm tof32(n: i32) -> f32 /{
     push    ebx
     push    ecx
 
@@ -44,7 +44,7 @@ asm countBits(n: i32) -> i32 /{
     pop     ebx
 }/
 
-asm toi32(n: f32) -> Option<i32> /{
+pub asm toi32(n: f32) -> Option<i32> /{
     push    ebx
     push    ecx
     push    edx
@@ -92,7 +92,7 @@ asm toi32(n: f32) -> Option<i32> /{
     pop     ebx
 }/
 
-asm negate(n: i32) -> i32 /{
+pub asm negate(n: i32) -> i32 /{
     mov     dword eax,$n
     xor     dword eax,0xFFFFFFFF
     inc     dword eax
@@ -110,7 +110,7 @@ asm getAligned(alignedMantissa: i32, intNumbersCount: i32) -> i32 /{
 }/
 
 // from https://stackoverflow.com/questions/42181811/how-to-add-two-numbers-integer-and-a-float-in-nasm
-asm mul(f1: f32, f2: f32) -> f32 /{
+pub asm mul(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -126,7 +126,7 @@ asm mul(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-asm mul(f1: f32, n2: i32) -> f32 /{
+pub asm mul(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -143,7 +143,7 @@ asm mul(f1: f32, n2: i32) -> f32 /{
 }/
 
 
-asm div(f1: f32, f2: f32) -> f32 /{
+pub asm div(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -159,7 +159,7 @@ asm div(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-asm div(f1: f32, n2: i32) -> f32 /{
+pub asm div(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -175,7 +175,7 @@ asm div(f1: f32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-asm divf(n1: i32, n2: i32) -> f32 /{
+pub asm divf(n1: i32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$n1
@@ -191,7 +191,7 @@ asm divf(n1: i32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-asm add(f1: f32, f2: f32) -> f32 /{
+pub asm add(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -207,7 +207,7 @@ asm add(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-asm sub(f1: f32, f2: f32) -> f32 /{
+pub asm sub(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -223,7 +223,7 @@ asm sub(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-asm add(f1: f32, n2: i32) -> f32 /{
+pub asm add(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$n2
@@ -239,7 +239,7 @@ asm add(f1: f32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-asm sub(f1: f32, n2: i32) -> f32 /{
+pub asm sub(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -255,7 +255,7 @@ asm sub(f1: f32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-asm sub(n1: i32, f2: f32) -> f32 /{
+pub asm sub(n1: i32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$n1
@@ -272,7 +272,7 @@ asm sub(n1: i32, f2: f32) -> f32 /{
 }/
 
 // false = 0 true = any other value
-asm greater(f1: f32, f2: f32) -> bool /{
+pub asm greater(f1: f32, f2: f32) -> bool /{
     $call(cmp, $f1, $f2)
     cmp     dword eax,0
     je      .true
@@ -283,7 +283,7 @@ asm greater(f1: f32, f2: f32) -> bool /{
 .end:
 }/
 
-asm greater(f1: f32, n2: i32) -> bool /{
+pub asm greater(f1: f32, n2: i32) -> bool /{
     $call(cmp, $f1, $n2)
     cmp     dword eax,0
     je      .true
@@ -294,7 +294,7 @@ asm greater(f1: f32, n2: i32) -> bool /{
 .end:
 }/
 
-asm less(f1: f32, f2: f32) -> bool /{
+pub asm less(f1: f32, f2: f32) -> bool /{
     $call(cmp, $f1, $f2)
     cmp     dword eax,0x100
     je      .true
@@ -305,7 +305,7 @@ asm less(f1: f32, f2: f32) -> bool /{
 .end:
 }/
 
-asm less(f1: f32, n2: i32) -> bool /{
+pub asm less(f1: f32, n2: i32) -> bool /{
     $call(cmp, $f1, $n2)
     cmp     dword eax,0x100
     je      .true
@@ -316,7 +316,7 @@ asm less(f1: f32, n2: i32) -> bool /{
 .end:
 }/
 
-asm cmp(f1: f32, f2: f32) -> i32 /{
+pub asm cmp(f1: f32, f2: f32) -> i32 /{
     sub     esp,4
 
     finit
@@ -337,7 +337,7 @@ asm cmp(f1: f32, f2: f32) -> i32 /{
     add     esp,4
 }/
 
-asm cmp(f1: f32, n2: i32) -> i32 /{
+pub asm cmp(f1: f32, n2: i32) -> i32 /{
     sub     esp,4
 
     finit
@@ -359,7 +359,7 @@ asm cmp(f1: f32, n2: i32) -> i32 /{
 }/
 
 // false = 0 true = any other value
-asm min(f1: f32, f2: f32) -> f32 /{
+pub asm min(f1: f32, f2: f32) -> f32 /{
     $call(greater, $f1: f32, $f2: f32)
     cmp     dword eax,0
     jz      .false

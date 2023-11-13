@@ -816,7 +816,10 @@ pub fn convert_to_typed_module(
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new();
+    let type_check = TypeCheck::new(
+        &original_module.root_namespace,
+        &original_module.body_namespace,
+    );
 
     let module = type_check.type_check(
         original_module,

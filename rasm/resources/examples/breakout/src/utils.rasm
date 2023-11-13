@@ -1,0 +1,3 @@
+pub fn toi32(f: f32, default: i32) -> i32 {
+    getOrElse(toi32(f), default);
+}

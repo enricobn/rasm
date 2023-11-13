@@ -1,9 +1,9 @@
-struct TimeVal {
+pub struct TimeVal {
     sec: i32,
     nano: i32
 }
 
-asm now() -> TimeVal /{
+pub asm now() -> TimeVal /{
     push    ecx
     push    ebx
     $call(TimeVal, 0, 0)
@@ -22,7 +22,7 @@ asm now() -> TimeVal /{
 /**
     returns the elapsed time in nanoseconds
 */
-fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
+pub fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
     let secA = sec(actual);
     let nanoA = nano(actual);
     let secP = sec(previous);
@@ -31,14 +31,14 @@ fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
     add(mul(1000000, sub(secA, secP)), sub(nanoA, nanoP));
 }
 
-fn print(timeVal: TimeVal) {
+pub fn print(timeVal: TimeVal) {
     print("sec=");
     print(timeVal.sec);
     print(" nano=");
     print(timeVal.nano);
 }
 
-fn less(t1: TimeVal, t2: TimeVal) -> bool {
+pub fn less(t1: TimeVal, t2: TimeVal) -> bool {
     let sec1 = sec(t1);
     let nano1 = nano(t1);
 
@@ -48,7 +48,7 @@ fn less(t1: TimeVal, t2: TimeVal) -> bool {
     if(less(sec1, sec2), true, if(eq(sec1, sec2), less(nano1, nano2), false));
 }
 
-fn eq(t1: TimeVal, t2: TimeVal) -> bool {
+pub fn eq(t1: TimeVal, t2: TimeVal) -> bool {
     let sec1 = sec(t1);
     let nano1 = nano(t1);
 
@@ -59,7 +59,7 @@ fn eq(t1: TimeVal, t2: TimeVal) -> bool {
 }
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
-asm sleep(timeVal: TimeVal) -> i32 /{
+pub asm sleep(timeVal: TimeVal) -> i32 /{
     push ebx
     push ecx
     mov dword ebx,$timeVal

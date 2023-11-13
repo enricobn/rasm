@@ -594,7 +594,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 6)],
+            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 10)],
         );
 
         assert_eq!(
@@ -612,7 +612,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 5)],
+            vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 10)],
         );
     }
 

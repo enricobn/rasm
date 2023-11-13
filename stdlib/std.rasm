@@ -1,71 +1,71 @@
-struct IOError {
+pub struct IOError {
     message: str
 }
 
-struct Pair<A,B> {
+pub struct Pair<A,B> {
     first: A,
     second: B
 }
 
-fn println<T>(v: T) {
+pub fn println<T>(v: T) {
     print(v);
     println();
 }
 
-fn print<T>(prefix: str, o: T) {
+pub fn print<T>(prefix: str, o: T) {
     print(prefix);
     print(o);
 }
 
-fn println<T1,T2>(file: File, o1: T1, o2: T2) -> Option<IOError>{
+pub fn println<T1,T2>(file: File, o1: T1, o2: T2) -> Option<IOError>{
     print(file, o1)
         .or(println(file, o2));
 }
 
-fn println<T1,T2>(o1: T1, o2: T2) {
+pub fn println<T1,T2>(o1: T1, o2: T2) {
     println(STDOut(), o1, o2).toUnit();
 }
 
 // TODO do it in asm
-fn print(file: File, b: bool) -> Option<IOError> {
+pub fn print(file: File, b: bool) -> Option<IOError> {
     if(b, { -> print(file, "true");}, { -> print(file, "false");});
 }
 
-fn with<T,O>(v: T, f: fn(T) -> O) -> O {
+pub fn with<T,O>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }
 
-fn with2<T1,T2,O>(v1: T1, v2: T2, f: fn(T1, T2) -> O) -> O {
+pub fn with2<T1,T2,O>(v1: T1, v2: T2, f: fn(T1, T2) -> O) -> O {
     f(v1, v2);
 }
 
-fn with3<T1,T2,T3,O>(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
+pub fn with3<T1,T2,T3,O>(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
     f(v1, v2, v3);
 }
 
-fn with4<T1,T2,T3,T4,O>(v1: T1, v2: T2, v3: T3, v4: T4, f: fn(T1, T2, T3, T4) -> O) -> O {
+pub fn with4<T1,T2,T3,T4,O>(v1: T1, v2: T2, v3: T3, v4: T4, f: fn(T1, T2, T3, T4) -> O) -> O {
     f(v1, v2, v3, v4);
 }
 
-fn runWith<T>(v: T, f: fn(T) -> ()) {
+pub fn runWith<T>(v: T, f: fn(T) -> ()) {
     f(v);
 }
 
-enum Compare {
+pub enum Compare {
     Less,
     Equal,
     Greater
 }
 
-fn print(c: Compare) {
+pub fn print(c: Compare) {
     match(c, { -> print("Less");}, { -> print("Equal");}, { -> print("Greater");});
 }
 
-fn toString(error: IOError) -> str {
+pub fn toString(error: IOError) -> str {
     add("IOError(", error.message, ")");
 }
 
-fn panic(message: str) {
+pub fn panic(message: str) {
     print("PANIC: ");
     println(message);
     exitMain(1);

@@ -1,11 +1,11 @@
-struct Rect {
+pub struct Rect {
     x: i32,
     y: i32,
     width: i32,
     height: i32
 }
 
-fn Shape(rect: Rect) -> Shape {
+pub fn Shape(rect: Rect) -> Shape {
     Shape(
         { -> Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2))); },
         { dx, dy ->

@@ -1,4 +1,4 @@
-asm random() -> i32 /{
+pub asm random() -> i32 /{
     $call(malloc, 4, "random")
     push    dword ebx
     push    dword ecx
@@ -16,7 +16,7 @@ asm random() -> i32 /{
     pop ebx
 }/
 
-fn random(max: i32) -> i32 {
+pub fn random(max: i32) -> i32 {
     let r = random();
     let rp = if(r.less(0), negate(r), r);
     rp.sub(rp.div(max).mul(max));

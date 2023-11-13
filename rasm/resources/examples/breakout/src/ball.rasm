@@ -1,4 +1,4 @@
-struct Ball {
+pub struct Ball {
     x: f32,
     y: f32,
     xDir: XDirection,
@@ -6,11 +6,11 @@ struct Ball {
     lastUpdate: TimeVal
 }
 
-fn initialBall(now: TimeVal) -> Ball {
+pub fn initialBall(now: TimeVal) -> Ball {
     Ball(500.0, 200.0, XDirection::Right(), YDirection::Down(), now);
 }
 
-fn update(ball: Ball, actualTime: TimeVal) -> Ball {
+pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {
     let elapsed = elapsedTime(actualTime, ball.lastUpdate);
 
     let diff = divf(elapsed, 3000);
@@ -46,7 +46,7 @@ fn update(y: f32, yDir: YDirection, diff: f32) -> Pair<f32,YDirection> {
     );
 }
 
-fn collides(ball: Ball, brick: Brick) -> bool {
+pub fn collides(ball: Ball, brick: Brick) -> bool {
     let bx = brick.x;
     let by = brick.y;
 
@@ -56,7 +56,7 @@ fn collides(ball: Ball, brick: Brick) -> bool {
     xColl.and(yColl);
 }
 
-fn collides(ball: Ball, barPos: f32) -> bool {
+pub fn collides(ball: Ball, barPos: f32) -> bool {
     let bx = barPos;
     let by = HEIGHT.sub(BARHEIGHT);
 
@@ -66,7 +66,7 @@ fn collides(ball: Ball, barPos: f32) -> bool {
     xColl.and(yColl);
 }
 
-fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
+pub fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
     let xDiff1 = ball.x.sub(brick.x);
     let xDiff2 = brick.x.add(BRICKWIDTH).sub(ball.x);
     let yDiff1 = ball.y.sub(brick.y);

@@ -16,7 +16,7 @@ println("p ", p);
 
 println("moved ", move(p, 100));
 
-fn toString(p: Point) -> str {
+pub fn toString(p: Point) -> str {
     "("
     .add(p.x)
     .add(",")

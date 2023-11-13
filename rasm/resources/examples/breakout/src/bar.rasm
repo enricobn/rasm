@@ -1,10 +1,10 @@
-struct Bar {
+pub struct Bar {
     x: f32,
     velocity: i32,
     lastUpdate: TimeVal
 }
 
-fn update(bar: Bar, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
+pub fn update(bar: Bar, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
     let elapsed = elapsedTime(actualTime, bar.lastUpdate);
 
     let left = negate(count(keys, { k -> eq(k, 80);}));
