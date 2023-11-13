@@ -101,6 +101,7 @@ fn create_match_like_function(
         // TODO calculate, even if I don't know if it's useful
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
+        modifiers: enum_def.modifiers.clone(),
     };
 
     debug!("created function {function_def}");
@@ -154,6 +155,7 @@ fn create_constructors(
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: variant.index.clone(),
+            modifiers: enum_def.modifiers.clone(),
         };
 
         debug!("created function {function_def}");

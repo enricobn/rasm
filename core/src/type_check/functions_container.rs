@@ -778,13 +778,16 @@ impl FunctionsContainer {
             if functions.len() > 1 {
                 for function in functions.iter() {
                     for other_function in functions.iter() {
-                        if function.name != other_function.name && function.parameters.len() == other_function.parameters.len() && zip(&function.parameters, &other_function.parameters).all(
-                                    |(a, b)| {
-                                        a.ast_type == b.ast_type
-                                            || matches!(a.ast_type, ASTType::Generic(_))
-                                                && matches!(b.ast_type, ASTType::Generic(_))
-                                    },
-                                ) {
+                        if function.name != other_function.name
+                            && function.parameters.len() == other_function.parameters.len()
+                            && zip(&function.parameters, &other_function.parameters).all(
+                                |(a, b)| {
+                                    a.ast_type == b.ast_type
+                                        || matches!(a.ast_type, ASTType::Generic(_))
+                                            && matches!(b.ast_type, ASTType::Generic(_))
+                                },
+                            )
+                        {
                             panic!(
                                 "Duplicate function signature {} {}",
                                 function.index, other_function.index
@@ -801,8 +804,8 @@ impl FunctionsContainer {
 mod tests {
     use crate::parser::ast::ASTFunctionBody::ASMBody;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
-        ASTType, BuiltinTypeKind, ValueType,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
+        ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
@@ -1009,6 +1012,7 @@ mod tests {
             resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: name.into(),
             index: ASTIndex::none(),
+            modifiers: ASTModifiers::private(),
         }
     }
 
@@ -1031,6 +1035,7 @@ mod tests {
             return_type: ASTType::Builtin(BuiltinTypeKind::String),
             original_name: name.into(),
             index: ASTIndex::none(),
+            modifiers: ASTModifiers::private(),
         }
     }
 
@@ -1056,6 +1061,7 @@ mod tests {
             return_type: ASTType::Builtin(param_kind),
             original_name: "add".into(),
             index: ASTIndex::none(),
+            modifiers: ASTModifiers::private(),
         }
     }
 }

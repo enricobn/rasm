@@ -60,6 +60,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             // TODO calculate, even if I don't know if it is useful
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: struct_def.index.clone(),
+            modifiers: struct_def.modifiers.clone(),
         };
         module.add_function(function_def);
     }
@@ -289,6 +290,7 @@ fn create_functions_for_struct_get_property(
                 inline: false,
                 resolved_generic_types: ResolvedGenericTypes::new(),
                 index: property_def.index.clone(),
+                modifiers: struct_def.modifiers.clone(),
             },
         ]
     } else {
@@ -330,6 +332,7 @@ fn create_function_for_struct_get_property(
         inline: true,
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: property_def.index.clone(),
+        modifiers: struct_def.modifiers.clone(),
     }
 }
 
@@ -373,5 +376,6 @@ fn create_function_for_struct_set_property(
         inline: false,
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: struct_def.index.clone(),
+        modifiers: struct_def.modifiers.clone(),
     }
 }

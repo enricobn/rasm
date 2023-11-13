@@ -20,6 +20,7 @@ pub struct ASTFunctionDef {
     pub generic_types: Vec<String>,
     pub resolved_generic_types: ResolvedGenericTypes,
     pub index: ASTIndex,
+    pub modifiers: ASTModifiers,
 }
 
 impl Display for ASTFunctionDef {

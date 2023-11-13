@@ -1,6 +1,7 @@
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::parser::ast::{
-    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind,
+    ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
+    BuiltinTypeKind,
 };
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
@@ -21,6 +22,7 @@ pub fn str_functions_creator(module: &mut EnhancedASTModule) {
         generic_types: Vec::new(),
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
+        modifiers: ASTModifiers::public(),
     };
 
     module.add_function(name, function_def);
@@ -42,6 +44,7 @@ pub fn str_functions_creator(module: &mut EnhancedASTModule) {
         generic_types: Vec::new(),
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
+        modifiers: ASTModifiers::public(),
     };
 
     module.add_function(name, function_def);

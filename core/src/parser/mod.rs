@@ -17,11 +17,12 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef, ASTModule,
-    ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ValueType,
+    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
+    ASTModifiers, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
+    ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
-use crate::parser::matchers::generic_types_matcher;
+use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::struct_parser::StructParser;
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
@@ -47,6 +48,8 @@ lazy_static! {
     static ref STRUCT_PARSER: StructParser = StructParser::new();
     static ref FUNCTION_DEF_MATCHER: TokensMatcher = {
         let mut function_def_matcher = TokensMatcher::default();
+        function_def_matcher.add_matcher(modifiers_matcher());
+        function_def_matcher.add_kind(TokenKind::KeyWord(KeywordKind::Fn));
         function_def_matcher.add_alphanumeric();
         function_def_matcher.add_matcher(generic_types_matcher());
         function_def_matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
@@ -457,7 +460,9 @@ impl Parser {
             return Ok(false);
         } else if !self.parser_data.is_empty() {
             return Err(format!("Error: {}", self.get_index(0)));
-        } else if let Some((name_token, generic_types, next_i)) = self.try_parse_function_def()? {
+        } else if let Some((name_token, generic_types, modifiers, next_i)) =
+            self.try_parse_function_def()?
+        {
             let name = name_token.alpha().unwrap().clone();
             let name_len = name.len();
             self.parser_data
@@ -471,11 +476,12 @@ impl Parser {
                     generic_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
                     index: name_token.index().mv_left(name_len),
+                    modifiers,
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
-        } else if let Some((name_token, inline, param_types, next_i)) =
+        } else if let Some((name_token, inline, param_types, modifiers, next_i)) =
             AsmDefParser::new(self).try_parse()?
         {
             let name = name_token.alpha().unwrap();
@@ -491,6 +497,7 @@ impl Parser {
                     generic_types: param_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
                     index: name_token.index().mv_left(name_len),
+                    modifiers,
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -670,6 +677,7 @@ impl Parser {
                 generic_types: Vec::new(),
                 resolved_generic_types: ResolvedGenericTypes::new(),
                 index: ASTIndex::none(),
+                modifiers: ASTModifiers::public(),
             };
             self.parser_data
                 .push(ParserData::FunctionDef(fake_function_def));
@@ -1045,21 +1053,24 @@ impl Parser {
         }
     }
 
-    fn try_parse_function_def(&self) -> Result<Option<(Token, Vec<String>, usize)>, String> {
-        if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
-            if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 1) {
-                let param_types = matcher_result.group_alphas("type");
-                Ok(Some((
-                    matcher_result.tokens().first().unwrap().clone(),
-                    param_types,
-                    self.get_i() + matcher_result.next_n(),
-                )))
+    fn try_parse_function_def(
+        &self,
+    ) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
+        if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 0) {
+            let param_types = matcher_result.group_alphas("type");
+            let mut name_index = 1;
+            let modifiers = if matcher_result.group_tokens("modifiers").is_empty() {
+                ASTModifiers::private()
             } else {
-                Err(format!(
-                    "Cannot parse function definition: {}",
-                    self.get_index(0),
-                ))
-            }
+                name_index += 1;
+                ASTModifiers::public()
+            };
+            Ok(Some((
+                matcher_result.get_token_n(name_index).unwrap().clone(),
+                param_types,
+                modifiers,
+                self.get_i() + matcher_result.next_n(),
+            )))
         } else {
             Ok(None)
         }
@@ -1351,8 +1362,8 @@ mod tests {
     use crate::errors::CompilationError;
     use crate::lexer::Lexer;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
-        ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
+        ASTModule, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -1446,6 +1457,7 @@ mod tests {
             resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: "p".into(),
             index: ASTIndex::new(None, 1, 4),
+            modifiers: ASTModifiers::private(),
         };
 
         assert_eq!(module.functions, vec![function_def]);
