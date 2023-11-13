@@ -18,8 +18,8 @@ use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
-    ASTModifiers, ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
-    ValueType,
+    ASTModifiers, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
+    ASTTypeDef, ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
@@ -28,6 +28,7 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
+use crate::project::RasmProject;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::utils::{OptionDisplay, SliceDisplay};
 
@@ -180,7 +181,19 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
+    pub fn parse(
+        &mut self,
+        project: Option<&RasmProject>,
+        path: &Path,
+    ) -> (ASTModule, Vec<CompilationError>) {
+        let namespace = if let Some(p) = project {
+            ASTNameSpace::new(
+                p.config.package.name.clone(),
+                path.to_string_lossy().to_string(),
+            )
+        } else {
+            ASTNameSpace::new("".to_string(), path.to_string_lossy().to_string())
+        };
         if self.i > 0 {
             panic!("Cannot parse twice");
         }
@@ -192,7 +205,7 @@ impl Parser {
             count += 1;
             if count > (self.tokens.len() + 1) * 10 {
                 self.add_error("undefined parse error".to_string());
-                return self.get_return(path);
+                return self.get_return(&namespace, path);
             }
             let mut token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -245,7 +258,7 @@ impl Parser {
             }
 
             match self.get_state() {
-                None => match self.process_none(path, &token) {
+                None => match self.process_none(&namespace, path, &token) {
                     Ok(is_continue) => {
                         if is_continue {
                             continue;
@@ -397,7 +410,7 @@ impl Parser {
                     }
                     self.add_error("Error parsing lambda".to_string());
                 }
-                Some(ParserState::Expression) => match self.process_expression() {
+                Some(ParserState::Expression) => match self.process_expression(&namespace) {
                     Ok(_) => {
                         continue;
                     }
@@ -416,10 +429,14 @@ impl Parser {
 
         self.functions.append(&mut self.included_functions);
 
-        self.get_return(path)
+        self.get_return(&namespace, path)
     }
 
-    fn get_return(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
+    fn get_return(
+        &mut self,
+        namespace: &ASTNameSpace,
+        path: &Path,
+    ) -> (ASTModule, Vec<CompilationError>) {
         (
             ASTModule {
                 path: path.to_path_buf(),
@@ -430,6 +447,7 @@ impl Parser {
                 requires: self.requires.clone(),
                 externals: self.externals.clone(),
                 types: self.types.clone(),
+                namespace: namespace.clone(),
             },
             self.errors.clone(),
         )
@@ -452,7 +470,12 @@ impl Parser {
     ///
     /// returns true if the parser must continue
     ///
-    fn process_none(&mut self, path: &Path, token: &Token) -> Result<bool, String> {
+    fn process_none(
+        &mut self,
+        namespace: &ASTNameSpace,
+        path: &Path,
+        token: &Token,
+    ) -> Result<bool, String> {
         if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
             self.body.push(stmt);
             self.parser_data.pop();
@@ -477,6 +500,7 @@ impl Parser {
                     resolved_generic_types: ResolvedGenericTypes::new(),
                     index: name_token.index().mv_left(name_len),
                     modifiers,
+                    namespace: namespace.clone(),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -498,6 +522,7 @@ impl Parser {
                     resolved_generic_types: ResolvedGenericTypes::new(),
                     index: name_token.index().mv_left(name_len),
                     modifiers,
+                    namespace: namespace.clone(),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -511,7 +536,7 @@ impl Parser {
             match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
                     let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    let (mut module, errors) = parser.parse(source_file.as_path());
+                    let (mut module, errors) = parser.parse(None, source_file.as_path());
                     self.errors.extend(errors);
                     if !module.body.is_empty() {
                         return Err(format!(
@@ -635,7 +660,7 @@ impl Parser {
         Ok(())
     }
 
-    fn process_expression(&mut self) -> Result<(), String> {
+    fn process_expression(&mut self, namespace: &ASTNameSpace) -> Result<(), String> {
         if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
             self.state.pop();
         } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
@@ -678,6 +703,7 @@ impl Parser {
                 resolved_generic_types: ResolvedGenericTypes::new(),
                 index: ASTIndex::none(),
                 modifiers: ASTModifiers::public(),
+                namespace: namespace.clone(),
             };
             self.parser_data
                 .push(ParserData::FunctionDef(fake_function_def));
@@ -1363,7 +1389,7 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
-        ASTModule, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+        ASTModule, ASTNameSpace, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -1445,7 +1471,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(Path::new("."));
+        let (module, _) = parser.parse(None, Path::new("."));
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1458,6 +1484,7 @@ mod tests {
             original_name: "p".into(),
             index: ASTIndex::new(None, 1, 4),
             modifiers: ASTModifiers::private(),
+            namespace: ASTNameSpace::new("".to_string(), ".".to_string()),
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1497,7 +1524,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."));
+        let (module, errors) = parser.parse(None, Path::new("."));
 
         println!("{}", SliceDisplay(&errors));
 
@@ -1523,7 +1550,7 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path).0
+        parser.parse(None, path).0
     }
 
     fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
@@ -1531,6 +1558,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path)
+        parser.parse(None, path)
     }
 }

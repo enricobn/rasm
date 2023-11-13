@@ -4,10 +4,30 @@ use std::hash::Hash;
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use crate::project::RasmProject;
 use linked_hash_map::LinkedHashMap;
 
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ASTNameSpace {
+    lib: String,
+    path: String,
+}
+
+impl ASTNameSpace {
+    pub fn new(lib: String, path: String) -> Self {
+        Self { lib, path }
+    }
+
+    pub fn global() -> Self {
+        Self {
+            lib: "".to_string(),
+            path: "".to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionDef {
@@ -21,6 +41,7 @@ pub struct ASTFunctionDef {
     pub resolved_generic_types: ResolvedGenericTypes,
     pub index: ASTIndex,
     pub modifiers: ASTModifiers,
+    pub namespace: ASTNameSpace,
 }
 
 impl Display for ASTFunctionDef {
@@ -420,22 +441,10 @@ pub struct ASTModule {
     pub requires: HashSet<String>,
     pub externals: HashSet<String>,
     pub types: Vec<ASTTypeDef>,
+    pub namespace: ASTNameSpace,
 }
 
 impl ASTModule {
-    pub fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            body: Vec::new(),
-            functions: Vec::new(),
-            enums: Vec::new(),
-            structs: Vec::new(),
-            requires: HashSet::new(),
-            externals: HashSet::new(),
-            types: Vec::new(),
-        }
-    }
-
     pub fn add_function(&mut self, function_def: ASTFunctionDef) {
         self.functions.push(function_def);
     }

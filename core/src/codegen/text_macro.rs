@@ -1346,8 +1346,8 @@ mod tests {
     use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
-        BuiltinTypeKind,
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
     };
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -1619,6 +1619,7 @@ mod tests {
             index: ASTIndex::none(),
             resolved_generic_types: ResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
+            namespace: ASTNameSpace::global(),
         };
 
         let result = TextMacroEvaluator::new().get_macros(

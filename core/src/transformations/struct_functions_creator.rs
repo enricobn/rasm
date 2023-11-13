@@ -37,15 +37,25 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             .collect();
 
         for (i, property_def) in struct_def.properties.iter().enumerate() {
-            let property_functions =
-                create_functions_for_struct_get_property(backend, struct_def, property_def, i);
+            let property_functions = create_functions_for_struct_get_property(
+                backend,
+                struct_def,
+                property_def,
+                i,
+                module,
+            );
 
             for f in property_functions {
                 module.add_function(f);
             }
 
-            let property_setter_function =
-                create_function_for_struct_set_property(backend, struct_def, property_def, i);
+            let property_setter_function = create_function_for_struct_set_property(
+                backend,
+                struct_def,
+                property_def,
+                i,
+                module,
+            );
             module.add_function(property_setter_function);
         }
 
@@ -61,6 +71,7 @@ pub fn struct_functions_creator(backend: &dyn Backend, module: &mut ASTModule) {
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: struct_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
+            namespace: module.namespace.clone(),
         };
         module.add_function(function_def);
     }
@@ -218,6 +229,7 @@ fn create_functions_for_struct_get_property(
     struct_def: &ASTStructDef,
     property_def: &ASTStructPropertyDef,
     i: usize,
+    module: &ASTModule,
 ) -> Vec<ASTFunctionDef> {
     let param_types: Vec<ASTType> = struct_def
         .type_parameters
@@ -279,6 +291,7 @@ fn create_functions_for_struct_get_property(
                 i,
                 param_types,
                 format!("{name}Fn"),
+                module,
             ),
             ASTFunctionDef {
                 original_name: name.clone(),
@@ -291,6 +304,7 @@ fn create_functions_for_struct_get_property(
                 resolved_generic_types: ResolvedGenericTypes::new(),
                 index: property_def.index.clone(),
                 modifiers: struct_def.modifiers.clone(),
+                namespace: module.namespace.clone(),
             },
         ]
     } else {
@@ -301,6 +315,7 @@ fn create_functions_for_struct_get_property(
             i,
             param_types,
             name.to_owned(),
+            module,
         )]
     }
 }
@@ -312,6 +327,7 @@ fn create_function_for_struct_get_property(
     i: usize,
     param_types: Vec<ASTType>,
     name: String,
+    module: &ASTModule,
 ) -> ASTFunctionDef {
     ASTFunctionDef {
         original_name: name.clone(),
@@ -333,6 +349,7 @@ fn create_function_for_struct_get_property(
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: property_def.index.clone(),
         modifiers: struct_def.modifiers.clone(),
+        namespace: module.namespace.clone(),
     }
 }
 
@@ -341,6 +358,7 @@ fn create_function_for_struct_set_property(
     struct_def: &ASTStructDef,
     property_def: &ASTStructPropertyDef,
     i: usize,
+    module: &ASTModule,
 ) -> ASTFunctionDef {
     let param_types = struct_def
         .type_parameters
@@ -377,5 +395,6 @@ fn create_function_for_struct_set_property(
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: struct_def.index.clone(),
         modifiers: struct_def.modifiers.clone(),
+        namespace: module.namespace.clone(),
     }
 }

@@ -497,8 +497,8 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
-        BuiltinTypeKind,
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
     };
     use rasm_core::project::RasmProject;
     use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -554,6 +554,7 @@ mod tests {
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
+            namespace: ASTNameSpace::global(),
         };
 
         let mut function2 = function1.clone();

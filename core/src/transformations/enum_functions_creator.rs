@@ -102,6 +102,7 @@ fn create_match_like_function(
         resolved_generic_types: ResolvedGenericTypes::new(),
         index: ASTIndex::none(),
         modifiers: enum_def.modifiers.clone(),
+        namespace: module.namespace.clone(),
     };
 
     debug!("created function {function_def}");
@@ -156,6 +157,7 @@ fn create_constructors(
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: variant.index.clone(),
             modifiers: enum_def.modifiers.clone(),
+            namespace: module.namespace.clone(),
         };
 
         debug!("created function {function_def}");

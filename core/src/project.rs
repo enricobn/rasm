@@ -37,8 +37,8 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
-    ASTExpression, ASTFunctionCall, ASTIndex, ASTLambdaDef, ASTModule, ASTStatement, ASTType,
-    ValueType,
+    ASTExpression, ASTFunctionCall, ASTIndex, ASTLambdaDef, ASTModule, ASTNameSpace, ASTStatement,
+    ASTType, ValueType,
 };
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
@@ -46,7 +46,7 @@ use crate::transformations::enrich_module;
 #[derive(Debug)]
 pub struct RasmProject {
     root: PathBuf,
-    config: RasmConfig,
+    pub config: RasmConfig,
     from_file: bool,
 }
 
@@ -267,7 +267,7 @@ impl RasmProject {
             });
             let (test_modules, test_errors) = self.all_test_modules(backend, statics);
 
-            let test_module = Self::main_test_module(&mut errors, &test_modules);
+            let test_module = self.main_test_module(&mut errors, &test_modules);
 
             modules.push(test_module);
             modules.extend(test_modules);
@@ -278,6 +278,7 @@ impl RasmProject {
     }
 
     fn main_test_module(
+        &self,
         errors: &mut Vec<CompilationError>,
         test_modules: &Vec<ASTModule>,
     ) -> ASTModule {
@@ -390,6 +391,7 @@ impl RasmProject {
             requires: Default::default(),
             externals: Default::default(),
             types: vec![],
+            namespace: ASTNameSpace::new(self.config.package.name.clone(), "".to_string()),
         }
     }
 
@@ -410,9 +412,7 @@ impl RasmProject {
         source_folder: PathBuf,
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
-            vec![Self::module_from_file(&PathBuf::from(
-                &self.main_src_file().unwrap(),
-            ))]
+            vec![self.module_from_file(&PathBuf::from(&self.main_src_file().unwrap()))]
         } else {
             WalkDir::new(source_folder)
                 .into_iter()
@@ -425,7 +425,7 @@ impl RasmProject {
                     info!("including file {}", path.to_str().unwrap());
 
                     let (entry_module, mut module_errors) =
-                        Self::module_from_file(&path.canonicalize().unwrap());
+                        self.module_from_file(&path.canonicalize().unwrap());
                     // const statements are allowed
                     let has_body = entry_module.body.iter().any(|it| match it {
                         ASTStatement::Expression(_) => false,
@@ -519,12 +519,12 @@ impl RasmProject {
         result
     }
 
-    fn module_from_file(main_file: &PathBuf) -> (ASTModule, Vec<CompilationError>) {
+    fn module_from_file(&self, main_file: &PathBuf) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(&main_file);
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
                 let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
-                let (module, errors) = parser.parse(main_path);
+                let (module, errors) = parser.parse(Some(self), main_path);
                 (module, errors)
             }
             Err(err) => {

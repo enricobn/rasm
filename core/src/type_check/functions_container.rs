@@ -805,7 +805,7 @@ mod tests {
     use crate::parser::ast::ASTFunctionBody::ASMBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
-        ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
+        ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
@@ -1013,6 +1013,7 @@ mod tests {
             original_name: name.into(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
+            namespace: ASTNameSpace::global(),
         }
     }
 
@@ -1036,6 +1037,7 @@ mod tests {
             original_name: name.into(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
+            namespace: ASTNameSpace::global(),
         }
     }
 
@@ -1062,6 +1064,7 @@ mod tests {
             original_name: "add".into(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
+            namespace: ASTNameSpace::global(),
         }
     }
 }
