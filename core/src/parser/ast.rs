@@ -506,6 +506,7 @@ pub struct ASTStructDef {
     pub type_parameters: Vec<String>,
     pub properties: Vec<ASTStructPropertyDef>,
     pub index: ASTIndex,
+    pub modifiers: ASTModifiers,
 }
 
 impl Display for ASTStructDef {

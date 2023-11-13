@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use log::{debug, info};
+use toml::value::Index;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::debug_i;
@@ -456,7 +457,9 @@ impl Parser {
             return Ok(false);
         } else if !self.parser_data.is_empty() {
             return Err(format!("Error: {}", self.get_index(0)));
-        } else if let Some((name, generic_types, next_i)) = self.try_parse_function_def()? {
+        } else if let Some((name_token, generic_types, next_i)) = self.try_parse_function_def()? {
+            let name = name_token.alpha().unwrap().clone();
+            let name_len = name.len();
             self.parser_data
                 .push(ParserData::FunctionDef(ASTFunctionDef {
                     original_name: name.clone(),
@@ -467,14 +470,16 @@ impl Parser {
                     inline: false,
                     generic_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: self.get_index(1),
+                    index: name_token.index().mv_left(name_len),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
-        } else if let Some((name, inline, param_types, next_i)) =
+        } else if let Some((name_token, inline, param_types, next_i)) =
             AsmDefParser::new(self).try_parse()?
         {
+            let name = name_token.alpha().unwrap();
+            let name_len = name.len();
             self.parser_data
                 .push(ParserData::FunctionDef(ASTFunctionDef {
                     original_name: name.clone(),
@@ -485,7 +490,7 @@ impl Parser {
                     inline,
                     generic_types: param_types,
                     resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: self.get_index(next_i - self.i),
+                    index: name_token.index().mv_left(name_len),
                 }));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
@@ -535,12 +540,17 @@ impl Parser {
             }));
             self.state.push(ParserState::EnumDef);
             self.i = next_i;
-        } else if let Some((name_token, type_params, next_i)) = STRUCT_PARSER.try_parse(self) {
+        } else if let Some((name_token, type_params, modifiers, next_i)) =
+            STRUCT_PARSER.try_parse(self)
+        {
             self.parser_data.push(ParserData::StructDef(ASTStructDef {
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
-                index: token.index(),
+                index: name_token
+                    .index()
+                    .mv_left(name_token.alpha().unwrap().len()),
+                modifiers,
             }));
             self.state.push(StructDef);
             self.i = next_i;
@@ -1035,12 +1045,12 @@ impl Parser {
         }
     }
 
-    fn try_parse_function_def(&self) -> Result<Option<(String, Vec<String>, usize)>, String> {
+    fn try_parse_function_def(&self) -> Result<Option<(Token, Vec<String>, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::Fn)) = self.get_token_kind() {
             if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 1) {
                 let param_types = matcher_result.group_alphas("type");
                 Ok(Some((
-                    matcher_result.alphas().first().unwrap().to_string(),
+                    matcher_result.tokens().first().unwrap().clone(),
                     param_types,
                     self.get_i() + matcher_result.next_n(),
                 )))
@@ -1435,7 +1445,7 @@ mod tests {
             generic_types: vec!["T".into(), "T1".into()],
             resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: "p".into(),
-            index: ASTIndex::new(None, 1, 5),
+            index: ASTIndex::new(None, 1, 4),
         };
 
         assert_eq!(module.functions, vec![function_def]);

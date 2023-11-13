@@ -356,7 +356,7 @@ impl ReferenceFinder {
                     result.push(SelectableItem::new(
                         call.index.mv_left(call.original_function_name.len()),
                         call.original_function_name.len(),
-                        function.index.mv_left(call.original_function_name.len()),
+                        function.index.clone(),
                         Some(expr.clone()),
                         Some(function.return_type.clone()),
                         custom_type_index,
@@ -594,7 +594,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 13, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 6)]
+            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 6)],
         );
 
         assert_eq!(
@@ -603,7 +603,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 17, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 7)]
+            vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 8)],
         );
 
         assert_eq!(
@@ -612,7 +612,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 21, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 5)]
+            vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 5)],
         );
     }
 
@@ -626,8 +626,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            vec!(ASTIndex::new(file_name, 1, 7,)),
-            vec_selectable_item_to_vec_index(found)
+            vec_selectable_item_to_vec_index(found),
+            vec!(ASTIndex::new(file_name, 1, 8,)),
         );
     }
 
@@ -641,8 +641,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
+            vec_selectable_item_to_vec_index(found),
             vec!(ASTIndex::new(file_name, 13, 4,)),
-            vec_selectable_item_to_vec_index(found)
         );
     }
 
@@ -656,8 +656,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
+            vec_selectable_item_to_vec_index(found),
             vec!(ASTIndex::new(file_name, 5, 5,)),
-            vec_selectable_item_to_vec_index(found)
         );
     }
 

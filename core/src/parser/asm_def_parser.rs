@@ -1,4 +1,4 @@
-use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, TokenKind};
+use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, Token, TokenKind};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::ParserTrait;
 
@@ -11,7 +11,7 @@ impl<'a> AsmDefParser<'a> {
         Self { parser }
     }
 
-    pub fn try_parse(&self) -> Result<Option<(String, bool, Vec<String>, usize)>, String> {
+    pub fn try_parse(&self) -> Result<Option<(Token, bool, Vec<String>, usize)>, String> {
         if let Some(kind) = self.parser.get_token_kind() {
             if let TokenKind::KeyWord(KeywordKind::Inline) = kind {
                 if let Some((function_name, type_params, next_i)) = self.try_parse_no_inline(1)? {
@@ -26,16 +26,12 @@ impl<'a> AsmDefParser<'a> {
         Ok(None)
     }
 
-    fn try_parse_no_inline(
-        &self,
-        n: usize,
-    ) -> Result<Option<(String, Vec<String>, usize)>, String> {
+    fn try_parse_no_inline(&self, n: usize) -> Result<Option<(Token, Vec<String>, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::Asm)) = self.parser.get_token_kind_n(n) {
             let mut current_n = n + 1;
+            let name_token_o = self.parser.get_token_n(n + 1);
 
-            if let Some(TokenKind::AlphaNumeric(function_name)) =
-                self.parser.get_token_kind_n(current_n)
-            {
+            if let Some(TokenKind::AlphaNumeric(_)) = name_token_o.map(|it| &it.kind) {
                 let type_params_parser = TypeParamsParser::new(self.parser);
 
                 let type_params = if let Some((type_params, next_i_t)) =
@@ -51,7 +47,7 @@ impl<'a> AsmDefParser<'a> {
                     self.parser.get_token_kind_n(current_n + 1)
                 {
                     return Ok(Some((
-                        function_name.clone(),
+                        name_token_o.unwrap().clone(),
                         type_params,
                         self.parser.get_i() + current_n + 2,
                     )));
@@ -74,14 +70,20 @@ mod tests {
             "inline asm aFun<T>(o: Option<T>) /{
         }/",
         );
+        let expected_token = Token {
+            kind: TokenKind::AlphaNumeric("aFun".to_string()),
+            file_name: None,
+            row: 1,
+            column: 16,
+        };
 
         assert_eq!(
-            Some(("aFun".into(), true, vec!["T".into()], 7)),
+            Some((expected_token, true, vec!["T".into()], 7)),
             parse_result
         );
     }
 
-    fn try_parse(source: &str) -> Option<(String, bool, Vec<String>, usize)> {
+    fn try_parse(source: &str) -> Option<(Token, bool, Vec<String>, usize)> {
         let parser = get_parser(source);
 
         let sut = AsmDefParser::new(&parser);
