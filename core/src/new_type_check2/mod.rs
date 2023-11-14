@@ -1450,7 +1450,7 @@ mod tests {
 
         let (modules, _errors) = project.get_all_modules(&mut backend, &mut statics, false);
 
-        let module = EnhancedASTModule::new(modules, &project);
+        let module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 
         let mandatory_functions = type_mandatory_functions(&module);
 

@@ -1,3 +1,5 @@
+use crate::codegen::backend::Backend;
+use crate::codegen::statics::Statics;
 use log::debug;
 
 use crate::debug_i;
@@ -22,7 +24,12 @@ pub struct EnhancedASTModule {
 }
 
 impl EnhancedASTModule {
-    pub fn new(modules: Vec<ASTModule>, project: &RasmProject) -> Self {
+    pub fn new(
+        modules: Vec<ASTModule>,
+        project: &RasmProject,
+        backend: &dyn Backend,
+        statics: &mut Statics,
+    ) -> Self {
         let mut body = Vec::new();
         let mut enums = Vec::new();
         let mut structs = Vec::new();
@@ -94,7 +101,7 @@ impl EnhancedASTModule {
             "RASMTESTRESOURCEFOLDER",
             project.test_resource_folder(),
         );
-        str_functions_creator(&mut module);
+        str_functions_creator(&mut module, backend, statics);
 
         module
     }

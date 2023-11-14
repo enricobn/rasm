@@ -729,7 +729,7 @@ mod tests {
         let mut backend = BackendNasm386::new(false);
         let mut statics = Statics::new();
         let (modules, errors) = project.get_all_modules(&mut backend, &mut statics, false);
-        let enhanced_astmodule = EnhancedASTModule::new(modules, &project);
+        let enhanced_astmodule = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 
         ReferenceFinder::new(enhanced_astmodule).unwrap()
     }

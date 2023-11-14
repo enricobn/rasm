@@ -74,7 +74,8 @@ impl Compiler {
             panic!()
         }
 
-        let enhanced_ast_module = EnhancedASTModule::new(modules, &self.project);
+        let enhanced_ast_module =
+            EnhancedASTModule::new(modules, &self.project, &backend, &mut statics);
 
         info!("parse ended in {:?}", start.elapsed());
 
