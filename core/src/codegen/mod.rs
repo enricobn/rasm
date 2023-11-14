@@ -173,7 +173,7 @@ impl<'a> CodeGen<'a> {
         let mut after = String::new();
         let mut before = String::new();
 
-        for statement in &self.module.body.clone() {
+        for statement in &self.module.body {
             match statement {
                 ASTTypedStatement::Expression(e) => match e {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
