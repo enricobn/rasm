@@ -152,6 +152,7 @@ pub trait Backend: Send + Sync {
         comment: Option<&str>,
     );
 
+    /// the difference with call_function is that arguments are Strings and not &str
     fn call_function_owned(
         &self,
         out: &mut String,

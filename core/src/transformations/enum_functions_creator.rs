@@ -296,15 +296,7 @@ fn enum_match_body(name: &str, backend: &dyn Backend, enum_def: &ASTEnumDef) -> 
             ));
         }
 
-        backend.call_function(
-            &mut body,
-            "[ebx]",
-            &args
-                .iter()
-                .map(|(arg, comment)| (arg.as_str(), comment.as_deref()))
-                .collect::<Vec<_>>(),
-            None,
-        );
+        backend.call_function_owned(&mut body, "[ebx]", &args, None);
 
         CodeGen::add(&mut body, "jmp .end", None, true);
         CodeGen::add(&mut body, &format!(".variant{}:", variant_num), None, false);
