@@ -24,7 +24,7 @@ use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::val_context::TypedValContext;
-use rasm_core::codegen::{CodeGen, TypedValKind};
+use rasm_core::codegen::{get_typed_module, CodeGenAsm, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
 use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
@@ -151,8 +151,7 @@ impl CompletionService {
         statics: &mut Statics,
         backend: &dyn Backend,
     ) -> Result<Self, CompilationError> {
-        let typed_module =
-            CodeGen::get_typed_module(backend, module.clone(), false, true, false, statics)?;
+        let typed_module = get_typed_module(backend, module.clone(), false, true, false, statics)?;
 
         let mut completable_items = Vec::new();
 

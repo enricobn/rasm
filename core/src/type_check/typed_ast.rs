@@ -7,7 +7,6 @@ use log::{debug, info};
 use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
@@ -872,7 +871,7 @@ pub fn convert_to_typed_module(
         types: conv_context.type_defs,
     };
 
-    let evaluator = TextMacroEvaluator::new();
+    let evaluator = backend.get_evaluator();
 
     for (_name, function) in functions_by_name.iter_mut() {
         match &function.body {

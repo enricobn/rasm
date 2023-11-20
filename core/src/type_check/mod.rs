@@ -201,7 +201,7 @@ pub fn resolve_generic_types_from_effective_type(
                         TypeCheckError::new(
                             ASTIndex::none(),
                             format!(
-                                "in custom type gen type {generic_type} eff type {effective_type}"
+                                "{it}: in custom type gen type {generic_type} eff type {effective_type}"
                             ),
                             Vec::new(),
                         )

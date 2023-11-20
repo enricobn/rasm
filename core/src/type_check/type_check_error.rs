@@ -40,7 +40,7 @@ impl TypeCheckError {
 
 impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for (index, message, stack) in self.messages.iter() {
+        for (index, message, _stack) in self.messages.iter() {
             f.write_str(&format!("{} : {}\n", message, index))?;
             /*
             for i in stack {

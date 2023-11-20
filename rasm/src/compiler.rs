@@ -10,7 +10,7 @@ use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::backend::BackendNasm386;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::{CodeGen, CodeGenOptions};
+use rasm_core::codegen::{CodeGen, CodeGenAsm, CodeGenOptions};
 use rasm_core::project::RasmProject;
 
 pub struct Compiler {
@@ -79,8 +79,9 @@ impl Compiler {
 
         info!("parse ended in {:?}", start.elapsed());
 
-        let code_gen = CodeGen::new(
-            &backend,
+        let code_gen = CodeGenAsm::new(
+            Box::new(backend.clone()),
+            Box::new(backend.clone()),
             &mut statics,
             enhanced_ast_module,
             CodeGenOptions::default(),
@@ -88,7 +89,7 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let asm = code_gen.asm(statics);
+        let asm = code_gen.generate(statics);
 
         info!("code generation ended in {:?}", start.elapsed());
 

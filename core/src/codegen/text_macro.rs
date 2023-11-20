@@ -8,10 +8,10 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use regex::Regex;
 
-use crate::codegen::backend::Backend;
+use crate::codegen::backend::{Backend, BackendAsm};
+use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::CodeGen;
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
@@ -90,13 +90,7 @@ pub struct TextMacroEvaluator {
 }
 
 impl TextMacroEvaluator {
-    pub fn new() -> Self {
-        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
-        evaluators.insert("call".into(), Box::new(CallTextMacroEvaluator::new()));
-        evaluators.insert("ccall".into(), Box::new(CCallTextMacroEvaluator::new()));
-        evaluators.insert("addRef".into(), Box::new(AddRefMacro::new(false)));
-        evaluators.insert("deref".into(), Box::new(AddRefMacro::new(true)));
-        evaluators.insert("printRef".into(), Box::new(PrintRefMacro::new()));
+    pub fn new(evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>) -> Self {
         Self { evaluators }
     }
 
@@ -137,7 +131,6 @@ impl TextMacroEvaluator {
                 };
 
                 if let Some(s) = self.eval_macro(
-                    backend,
                     statics,
                     &text_macro,
                     typed_function_def,
@@ -532,7 +525,6 @@ impl TextMacroEvaluator {
 
     pub fn eval_macro(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
@@ -547,7 +539,6 @@ impl TextMacroEvaluator {
 
         if evaluator.is_pre_macro() == pre_macro {
             Some(evaluator.eval_macro(
-                backend,
                 statics,
                 &text_macro.parameters,
                 function_def,
@@ -621,10 +612,9 @@ impl ParserTrait for TypeParserHelper {
     }
 }
 
-trait TextMacroEval {
+pub trait TextMacroEval {
     fn eval_macro(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
@@ -635,18 +625,19 @@ trait TextMacroEval {
     fn is_pre_macro(&self) -> bool;
 }
 
-struct CallTextMacroEvaluator {}
+pub struct CallTextMacroEvaluator {
+    backend: Box<dyn BackendAsm>,
+}
 
 impl CallTextMacroEvaluator {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(backend: Box<dyn BackendAsm>) -> Self {
+        Self { backend }
     }
 }
 
-impl TextMacroEval for CallTextMacroEvaluator {
+impl<'a> TextMacroEval for CallTextMacroEvaluator {
     fn eval_macro(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
@@ -691,8 +682,8 @@ impl TextMacroEval for CallTextMacroEvaluator {
 
         result.push_str(&format!(
             "    add {}, {}\n",
-            backend.stack_pointer(),
-            (parameters.len() - 1) * backend.word_len()
+            self.backend.stack_pointer(),
+            (parameters.len() - 1) * self.backend.word_len()
         ));
 
         result
@@ -703,18 +694,19 @@ impl TextMacroEval for CallTextMacroEvaluator {
     }
 }
 
-struct CCallTextMacroEvaluator {}
+pub struct CCallTextMacroEvaluator {
+    backend: Box<dyn BackendAsm>,
+}
 
 impl CCallTextMacroEvaluator {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(backend: Box<dyn BackendAsm>) -> Self {
+        Self { backend }
     }
 }
 
 impl TextMacroEval for CCallTextMacroEvaluator {
     fn eval_macro(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         _function_def: Option<&ASTTypedFunctionDef>,
@@ -729,9 +721,9 @@ impl TextMacroEval for CCallTextMacroEvaluator {
             panic!("Error getting the function name");
         };
 
-        let ws = backend.word_size();
-        let sp = backend.stack_pointer();
-        let wl = backend.word_len();
+        let ws = self.backend.word_size();
+        let sp = self.backend.stack_pointer();
+        let wl = self.backend.word_len();
 
         let mut result = String::new();
 
@@ -848,13 +840,14 @@ fn get_type(
     }
 }
 
-struct AddRefMacro {
+pub struct AddRefMacro {
+    backend: Box<dyn Backend>,
     deref: bool,
 }
 
 impl AddRefMacro {
-    fn new(deref: bool) -> Self {
-        Self { deref }
+    pub fn new(backend: Box<dyn Backend>, deref: bool) -> Self {
+        Self { backend, deref }
     }
 
     fn function_name(function_def: Option<&ASTTypedFunctionDef>) -> String {
@@ -867,7 +860,6 @@ impl AddRefMacro {
 impl TextMacroEval for AddRefMacro {
     fn eval_macro(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
@@ -907,7 +899,7 @@ impl TextMacroEval for AddRefMacro {
             let mut result = String::new();
             let descr = &format!("addref macro type {type_name}");
             if self.deref {
-                result.push_str(&backend.call_deref(
+                result.push_str(&self.backend.call_deref(
                     address,
                     type_name,
                     descr,
@@ -915,7 +907,7 @@ impl TextMacroEval for AddRefMacro {
                     statics,
                 ));
             } else {
-                backend.call_add_ref(
+                self.backend.call_add_ref(
                     &mut result,
                     address,
                     type_name,
@@ -935,12 +927,13 @@ impl TextMacroEval for AddRefMacro {
     }
 }
 
-struct PrintRefMacro {}
+pub struct PrintRefMacro {
+    backend: Box<dyn BackendAsm>,
+}
 
 impl TextMacroEval for PrintRefMacro {
     fn eval_macro(
         &self,
-        backend: &dyn Backend,
         _statics: &mut Statics,
         parameters: &[MacroParam],
         function_def: Option<&ASTTypedFunctionDef>,
@@ -957,7 +950,6 @@ impl TextMacroEval for PrintRefMacro {
                     function_def,
                     type_def_provider,
                     0,
-                    backend,
                 ),
                 MacroParam::StringLiteral(_) => {
                     panic!("String is nt a valid parameter for printRef macro ")
@@ -969,7 +961,6 @@ impl TextMacroEval for PrintRefMacro {
                     function_def,
                     type_def_provider,
                     0,
-                    backend,
                 ),
             },
         };
@@ -983,8 +974,8 @@ impl TextMacroEval for PrintRefMacro {
 }
 
 impl PrintRefMacro {
-    fn new() -> Self {
-        Self {}
+    pub fn new(backend: Box<dyn BackendAsm>) -> Self {
+        Self { backend }
     }
 
     fn print_ref(
@@ -995,7 +986,6 @@ impl PrintRefMacro {
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
-        backend: &dyn Backend,
     ) -> String {
         if indent > 20 {
             return String::new();
@@ -1045,17 +1035,17 @@ impl PrintRefMacro {
             }
             ASTTypedType::Enum { name } => (
                 name.clone(),
-                self.print_ref_enum(&name, src, type_def_provider, indent + 1, backend),
+                self.print_ref_enum(&name, src, type_def_provider, indent + 1),
                 false,
             ),
             ASTTypedType::Struct { name } => (
                 name.clone(),
-                self.print_ref_struct(&name, src, type_def_provider, indent + 1, backend),
+                self.print_ref_struct(&name, src, type_def_provider, indent + 1),
                 true,
             ),
             ASTTypedType::Type { name } => (
                 name.clone(),
-                self.print_ref_type(&name, src, type_def_provider, indent + 1, backend),
+                self.print_ref_type(&name, src, type_def_provider, indent + 1),
                 true,
             ),
             _ => panic!("unsupported type {ast_typed_type}"),
@@ -1064,29 +1054,33 @@ impl PrintRefMacro {
         let mut result = String::new();
 
         let ident_string = " ".repeat(indent * 2);
-        CodeGen::add(
+        self.backend.add(
             &mut result,
             &format!("$call(print, \"{ident_string}{name} \")"),
             None,
             true,
         );
-        CodeGen::add(&mut result, &format!("$call(print,{src}:i32)"), None, true);
-        CodeGen::add(&mut result, "push    ebx", None, true);
-        CodeGen::add(
+        self.backend
+            .add(&mut result, &format!("$call(print,{src}:i32)"), None, true);
+        self.backend.add(&mut result, "push    ebx", None, true);
+        self.backend.add(
             &mut result,
-            &format!("push    {} {src}", backend.word_size()),
+            &format!("push    {} {src}", self.backend.word_size()),
             None,
             true,
         );
-        CodeGen::add(&mut result, "pop    ebx", None, true);
-        CodeGen::add(&mut result, "$call(print, \" refcount \")", None, true);
+        self.backend.add(&mut result, "pop    ebx", None, true);
+        self.backend
+            .add(&mut result, "$call(print, \" refcount \")", None, true);
         //CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
         if new_line {
-            CodeGen::add(&mut result, "$call(println,[ebx + 12])", None, true);
+            self.backend
+                .add(&mut result, "$call(println,[ebx + 12])", None, true);
         } else {
-            CodeGen::add(&mut result, "$call(print,[ebx + 12])", None, true);
+            self.backend
+                .add(&mut result, "$call(print,[ebx + 12])", None, true);
         }
-        CodeGen::add(&mut result, "pop    ebx", None, true);
+        self.backend.add(&mut result, "pop    ebx", None, true);
 
         result.push_str(&code);
 
@@ -1099,12 +1093,13 @@ impl PrintRefMacro {
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
-        backend: &dyn Backend,
     ) -> String {
         let mut result = String::new();
-        CodeGen::add(&mut result, "push    ebx", None, true);
-        CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
+        self.backend.add(&mut result, "push    ebx", None, true);
+        self.backend
+            .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        self.backend
+            .add(&mut result, "mov dword ebx, [ebx]", None, true);
         if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
             for (i, p) in s.properties.iter().enumerate() {
                 let ast_type_o = if matches!(
@@ -1117,13 +1112,12 @@ impl PrintRefMacro {
                 };
                 if ast_type_o.is_some() {
                     let par_result = self.print_ref(
-                        &format!("[ebx + {}]", i * backend.word_len()),
+                        &format!("[ebx + {}]", i * self.backend.word_len()),
                         &ast_type_o,
                         &None,
                         None,
                         type_def_provider,
                         indent + 1,
-                        backend,
                     );
                     result.push_str(&par_result);
                 }
@@ -1131,7 +1125,7 @@ impl PrintRefMacro {
         } else {
             panic!("Cannot find struct {name}");
         }
-        CodeGen::add(&mut result, "pop    ebx", None, true);
+        self.backend.add(&mut result, "pop    ebx", None, true);
         result
     }
 
@@ -1141,7 +1135,6 @@ impl PrintRefMacro {
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
-        backend: &dyn Backend,
     ) -> String {
         let count = COUNT.with(|count| {
             *count.borrow_mut() += 1;
@@ -1149,14 +1142,17 @@ impl PrintRefMacro {
         });
 
         let end_label_name = &format!("._{name}_end_{}", count);
-        let ws = backend.word_size();
-        let wl = backend.word_len();
+        let ws = self.backend.word_size();
+        let wl = self.backend.word_len();
 
         let mut result = String::new();
-        CodeGen::add(&mut result, "push    ebx", None, true);
-        CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        CodeGen::add(&mut result, "mov dword ebx, [ebx]", None, true);
-        CodeGen::add(&mut result, "$call(print, \" value \")", None, true);
+        self.backend.add(&mut result, "push    ebx", None, true);
+        self.backend
+            .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        self.backend
+            .add(&mut result, "mov dword ebx, [ebx]", None, true);
+        self.backend
+            .add(&mut result, "$call(print, \" value \")", None, true);
         if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
             for (i, variant) in s.variants.iter().enumerate() {
                 let count = COUNT.with(|count| {
@@ -1164,9 +1160,11 @@ impl PrintRefMacro {
                     *count.borrow()
                 });
                 let label_name = &format!("._{name}_{}_{}", variant.name, count);
-                CodeGen::add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                CodeGen::add(&mut result, &format!("jne {label_name}"), None, true);
-                CodeGen::add(
+                self.backend
+                    .add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                self.backend
+                    .add(&mut result, &format!("jne {label_name}"), None, true);
+                self.backend.add(
                     &mut result,
                     &format!("$call(println, \"{}\")", variant.name),
                     None,
@@ -1174,8 +1172,7 @@ impl PrintRefMacro {
                 );
 
                 for (j, par) in variant.parameters.iter().enumerate() {
-                    if CodeGen::get_reference_type_name(&par.ast_type, type_def_provider).is_some()
-                    {
+                    if get_reference_type_name(&par.ast_type, type_def_provider).is_some() {
                         let ast_type = if matches!(
                             &par.ast_type,
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
@@ -1192,22 +1189,27 @@ impl PrintRefMacro {
                             None,
                             type_def_provider,
                             indent + 1,
-                            backend,
                         );
                         result.push_str(&par_result);
                     }
                 }
-                CodeGen::add(&mut result, &format!("jmp {end_label_name}"), None, false);
-                CodeGen::add(&mut result, &format!("{label_name}:"), None, false);
+                self.backend
+                    .add(&mut result, &format!("jmp {end_label_name}"), None, false);
+                self.backend
+                    .add(&mut result, &format!("{label_name}:"), None, false);
             }
         } else {
             panic!("Cannot find enum {name}");
         }
-        CodeGen::add(&mut result, "$call(print, \"unknown \")", None, false);
-        CodeGen::add(&mut result, "$call(println, [ebx])", None, false);
-        CodeGen::add(&mut result, "$call(exitMain, 1)", None, false);
-        CodeGen::add(&mut result, &format!("{end_label_name}:"), None, false);
-        CodeGen::add(&mut result, "pop    ebx", None, true);
+        self.backend
+            .add(&mut result, "$call(print, \"unknown \")", None, false);
+        self.backend
+            .add(&mut result, "$call(println, [ebx])", None, false);
+        self.backend
+            .add(&mut result, "$call(exitMain, 1)", None, false);
+        self.backend
+            .add(&mut result, &format!("{end_label_name}:"), None, false);
+        self.backend.add(&mut result, "pop    ebx", None, true);
         result
     }
 
@@ -1217,7 +1219,6 @@ impl PrintRefMacro {
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
-        backend: &dyn Backend,
     ) -> String {
         if let Some(s) = type_def_provider.get_type_def_by_name(name) {
             let count = COUNT.with(|count| {
@@ -1227,65 +1228,69 @@ impl PrintRefMacro {
 
             let mut result = String::new();
 
-            CodeGen::add(
+            self.backend.add(
                 &mut result,
-                &format!("push  {} eax", backend.word_size()),
+                &format!("push  {} eax", self.backend.word_size()),
                 None,
                 true,
             );
-            CodeGen::add(
+            self.backend.add(
                 &mut result,
-                &format!("push  {} ebx", backend.word_size()),
+                &format!("push  {} ebx", self.backend.word_size()),
                 None,
                 true,
             );
-            CodeGen::add(
+            self.backend.add(
                 &mut result,
-                &format!("push  {} ecx", backend.word_size()),
+                &format!("push  {} ecx", self.backend.word_size()),
                 None,
                 true,
             );
             for (i, (generic_name, ast_typed_type)) in s.generic_types.iter().enumerate() {
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
                     &format!("$call({}References, {src}:i32,{i})", s.original_name),
                     None,
                     true,
                 );
 
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
-                    &format!("mov   {} eax,[eax]", backend.word_size()),
+                    &format!("mov   {} eax,[eax]", self.backend.word_size()),
                     None,
                     true,
                 );
 
                 // count
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
-                    &format!("mov   {} ebx,[eax]", backend.word_size()),
+                    &format!("mov   {} ebx,[eax]", self.backend.word_size()),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
-                    &format!("add {} eax,{}", backend.word_size(), backend.word_len()),
+                    &format!(
+                        "add {} eax,{}",
+                        self.backend.word_size(),
+                        self.backend.word_len()
+                    ),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
                     &format!(".loop_{name}_{generic_name}_{count}:"),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
-                    &format!("test {} ebx,ebx", backend.word_size()),
+                    &format!("test {} ebx,ebx", self.backend.word_size()),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
                     &format!("jz .end_{name}_{generic_name}_{count}"),
                     None,
@@ -1298,37 +1303,40 @@ impl PrintRefMacro {
                     None,
                     type_def_provider,
                     indent + 1,
-                    backend,
                 );
                 result.push_str(&inner_result);
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
-                    &format!("dec {} ebx", backend.word_size()),
+                    &format!("dec {} ebx", self.backend.word_size()),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
-                    &format!("add {} eax,{}", backend.word_size(), backend.word_len()),
+                    &format!(
+                        "add {} eax,{}",
+                        self.backend.word_size(),
+                        self.backend.word_len()
+                    ),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
                     &format!("jmp .loop_{name}_{generic_name}_{count}"),
                     None,
                     true,
                 );
-                CodeGen::add(
+                self.backend.add(
                     &mut result,
                     &format!(".end_{name}_{generic_name}_{count}:"),
                     None,
                     true,
                 );
             }
-            CodeGen::add(&mut result, "pop  ecx", None, true);
-            CodeGen::add(&mut result, "pop  ebx", None, true);
-            CodeGen::add(&mut result, "pop  eax", None, true);
+            self.backend.add(&mut result, "pop  ecx", None, true);
+            self.backend.add(&mut result, "pop  ebx", None, true);
+            self.backend.add(&mut result, "pop  eax", None, true);
 
             result
         } else {
@@ -1341,9 +1349,9 @@ impl PrintRefMacro {
 mod tests {
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::backend::BackendNasm386;
+    use crate::codegen::backend::{Backend, BackendNasm386};
     use crate::codegen::statics::{MemoryValue, Statics};
-    use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator, TypeParserHelper};
+    use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
@@ -1369,8 +1377,7 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new().eval_macro(
-            &backend,
+        let result = backend.get_evaluator().eval_macro(
             &mut statics,
             &text_macro,
             None,
@@ -1390,7 +1397,8 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new()
+        let result = backend
+            .get_evaluator()
             .translate(
                 &backend,
                 &mut statics,
@@ -1414,7 +1422,8 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new()
+        let result = backend
+            .get_evaluator()
             .translate(
                 &backend,
                 &mut statics,
@@ -1458,7 +1467,8 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = TextMacroEvaluator::new()
+        let result = backend
+            .get_evaluator()
             .translate(
                 &backend,
                 &mut statics,
@@ -1497,7 +1507,8 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = TextMacroEvaluator::new()
+        let result = backend
+            .get_evaluator()
             .translate(
                 &backend,
                 &mut statics,
@@ -1521,7 +1532,8 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new()
+        let result = backend
+            .get_evaluator()
             .translate(
                 &backend,
                 &mut statics,
@@ -1540,6 +1552,7 @@ mod tests {
     #[test]
     fn test_get_macros() {
         let backend = backend();
+        let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
             name: "aFun".into(),
@@ -1556,7 +1569,8 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let macros = TextMacroEvaluator::new()
+        let macros = backend
+            .get_evaluator()
             .get_macros(
                 &backend,
                 Some(&function_def),
@@ -1581,7 +1595,8 @@ mod tests {
         let backend = backend();
         let mut statics = Statics::new();
 
-        let result = TextMacroEvaluator::new()
+        let result = backend
+            .get_evaluator()
             .translate(
                 &backend,
                 &mut statics,
@@ -1603,6 +1618,7 @@ mod tests {
     #[test]
     fn translate_ref_to_par_overridden() {
         let backend = backend();
+        let mut statics = Statics::new();
 
         let function_def = ASTFunctionDef {
             name: "aFun".into(),
@@ -1622,7 +1638,7 @@ mod tests {
             namespace: ASTNameSpace::global(),
         };
 
-        let result = TextMacroEvaluator::new().get_macros(
+        let result = backend.get_evaluator().get_macros(
             &backend,
             None,
             Some(&function_def),

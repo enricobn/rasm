@@ -10,22 +10,20 @@ use log::{debug, info};
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 
-use crate::codegen::backend::Backend;
-use crate::codegen::function_call_parameters::FunctionCallParameters;
+use crate::codegen::backend::{Backend, BackendAsm};
+use crate::codegen::function_call_parameters::{
+    FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsm386,
+};
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::MemoryUnit::{Bytes, Words};
 use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
-use crate::parser::ast::{ASTIndex, ASTParameterDef, ASTType};
+use crate::parser::ast::{ASTIndex, ASTParameterDef, ASTType, ValueType};
 use crate::transformations::type_functions_creator::type_mandatory_functions;
-use crate::transformations::typed_enum_functions_creator::typed_enum_functions_creator;
-use crate::transformations::typed_struct_functions_creator::typed_struct_functions_creator;
-use crate::transformations::typed_type_functions_creator::typed_type_functions_creator;
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
@@ -54,7 +52,7 @@ pub struct CodeGenOptions {
     pub lambda_space_size: usize,
     pub heap_size: usize,
     pub heap_table_slots: usize,
-    pub debug_asm: bool,
+    pub debug: bool,
     pub print_memory_info: bool,
     pub dereference: bool,
     pub print_module: bool,
@@ -67,7 +65,7 @@ impl Default for CodeGenOptions {
             lambda_space_size: 1024 * 1024,
             heap_size: 64 * 1024 * 1024,
             heap_table_slots: 1024 * 1024,
-            debug_asm: false,
+            debug: false,
             print_memory_info: false,
             dereference: true,
             print_module: false,
@@ -76,9 +74,9 @@ impl Default for CodeGenOptions {
     }
 }
 
-pub struct CodeGen<'a> {
+pub struct CodeGenAsm {
     pub module: ASTTypedModule,
-    backend: &'a dyn Backend,
+    backend: Box<dyn BackendAsm>,
     options: CodeGenOptions,
 }
 
@@ -94,72 +92,45 @@ pub enum TypedValKind {
     LetRef(usize, ASTTypedType),
 }
 
-impl<'a> CodeGen<'a> {
-    pub fn new(
-        backend: &'a dyn Backend,
-        statics: &mut Statics,
-        module: EnhancedASTModule,
-        options: CodeGenOptions,
-    ) -> Self {
-        let start = Instant::now();
+pub fn get_typed_module(
+    backend: &dyn Backend,
+    module: EnhancedASTModule,
+    print_memory_info: bool,
+    dereference: bool,
+    print_module: bool,
+    statics: &mut Statics,
+) -> Result<ASTTypedModule, CompilationError> {
+    let mandatory_functions = type_mandatory_functions(&module);
+    let default_functions = get_default_functions(print_memory_info);
 
-        crate::utils::debug_indent::INDENT.with(|indent| {
-            *indent.borrow_mut() = 0;
-        });
+    let mut typed_module = convert_to_typed_module(
+        &module,
+        print_module,
+        mandatory_functions,
+        backend,
+        statics,
+        dereference,
+        default_functions,
+    )?;
+    backend
+        .typed_functions_creator()
+        .create(&mut typed_module, statics);
+    Ok(typed_module)
+}
 
-        let typed_module = Self::get_typed_module(
-            backend,
-            module,
-            options.print_memory_info,
-            options.dereference,
-            options.print_module,
-            statics,
-        )
-        .unwrap_or_else(|e| {
-            panic!("{e}");
-        });
+pub fn get_std_lib_path() -> String {
+    let current_dir = env::current_dir().unwrap();
+    env::var("RASM_STDLIB").unwrap_or(current_dir.join("stdlib").to_str().unwrap().to_owned())
+}
 
-        info!("type check ended in {:?}", start.elapsed());
+pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
+    fn backend(&self) -> &BACKEND;
 
-        Self {
-            module: typed_module,
-            backend,
-            options,
-        }
-    }
+    fn options(&self) -> &CodeGenOptions;
 
-    pub fn get_typed_module(
-        backend: &dyn Backend,
-        module: EnhancedASTModule,
-        print_memory_info: bool,
-        dereference: bool,
-        print_module: bool,
-        statics: &mut Statics,
-    ) -> Result<ASTTypedModule, CompilationError> {
-        let mandatory_functions = type_mandatory_functions(&module);
-        let default_functions = get_default_functions(print_memory_info);
+    fn module(&self) -> &ASTTypedModule;
 
-        let mut typed_module = convert_to_typed_module(
-            &module,
-            print_module,
-            mandatory_functions,
-            backend,
-            statics,
-            dereference,
-            default_functions,
-        )?;
-        typed_enum_functions_creator(backend, &mut typed_module, statics);
-        typed_struct_functions_creator(backend, &mut typed_module, statics);
-        typed_type_functions_creator(backend, &mut typed_module, statics);
-        Ok(typed_module)
-    }
-
-    pub fn get_std_lib_path() -> String {
-        let current_dir = env::current_dir().unwrap();
-        env::var("RASM_STDLIB").unwrap_or(current_dir.join("stdlib").to_str().unwrap().to_owned())
-    }
-
-    pub fn asm(&self, mut statics: Statics) -> String {
+    fn generate(&self, mut statics: Statics) -> String {
         let mut id: usize = 0;
         let mut body = String::new();
 
@@ -173,7 +144,7 @@ impl<'a> CodeGen<'a> {
         let mut after = String::new();
         let mut before = String::new();
 
-        for statement in &self.module.body {
+        for statement in &self.module().body {
             match statement {
                 ASTTypedStatement::Expression(e) => match e {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -221,7 +192,7 @@ impl<'a> CodeGen<'a> {
 
         body.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
-            &(stack.len_of_all() * self.backend.word_len()).to_string(),
+            &(stack.len_of_all() * self.backend().word_len()).to_string(),
         ));
         body.push_str(&after);
 
@@ -231,32 +202,35 @@ impl<'a> CodeGen<'a> {
         // TODO add a command line argument
         //Parser::print(&self.module);
 
-        let mut functions_asm = self.create_lambdas(lambdas, 0, &mut id, &mut statics);
+        let mut functions_generated_code = self.create_lambdas(lambdas, 0, &mut id, &mut statics);
 
-        functions_asm.extend(self.create_all_functions(&mut id, &mut statics));
+        functions_generated_code.extend(self.create_all_functions(&mut id, &mut statics));
 
-        let mut asm = String::new();
+        let mut generated_code = String::new();
 
-        self.backend.preamble(&mut asm);
+        self.backend().preamble(&mut generated_code);
 
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         statics.insert(
             "_heap_table".into(),
-            Mem((self.options.heap_table_slots + 1) * 20, Bytes),
+            Mem((self.options().heap_table_slots + 1) * 20, Bytes),
         );
         statics.insert(
             "_heap_table_size".into(),
-            I32Value(self.options.heap_table_slots as i32 * 20),
+            I32Value(self.options().heap_table_slots as i32 * 20),
         );
         statics.insert("_heap_table_next".into(), I32Value(0));
         statics.insert("_heap".into(), Mem(4, Bytes));
-        statics.insert("_heap_size".into(), I32Value(self.options.heap_size as i32));
-        statics.insert("_heap_buffer".into(), Mem(self.options.heap_size, Bytes));
+        statics.insert(
+            "_heap_size".into(),
+            I32Value(self.options().heap_size as i32),
+        );
+        statics.insert("_heap_buffer".into(), Mem(self.options().heap_size, Bytes));
 
         statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
         statics.insert(
             "_lambda_space_stack_buffer".into(),
-            Mem(self.options.lambda_space_size, Bytes),
+            Mem(self.options().lambda_space_size, Bytes),
         );
 
         let reusable_heap_table_size = 16 * 1024 * 1024;
@@ -276,172 +250,422 @@ impl<'a> CodeGen<'a> {
         statics.insert("_ESC".into(), I32Value(27));
         statics.insert("_for_nprint".into(), Mem(20, Bytes));
 
-        let (declarations, code) = self.backend.generate_statics_code(&statics);
+        let (static_declarations, static_code) = self.backend().generate_statics_code(&statics);
 
-        asm.push_str(&declarations);
+        generated_code.push_str(&static_declarations);
 
-        if self.options.debug_asm {
-            CodeGen::add(&mut asm, "%define LOG_DEBUG 1", None, false);
+        if self.options().debug {
+            self.backend().define_debug(&mut generated_code);
         }
 
-        let ws = self.backend.word_size();
-        CodeGen::add(
-            &mut asm,
-            &format!("mov     {ws} eax, _heap_buffer"),
-            None,
-            true,
-        );
-        CodeGen::add(&mut asm, &format!("mov     {ws} [_heap], eax"), None, true);
+        self.initialize_static_values(&mut generated_code);
 
-        CodeGen::add(
-            &mut asm,
-            &format!("mov     {ws} eax, _heap_table"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            &mut asm,
-            &format!("mov     {ws} [_heap_table_next],eax"),
-            None,
-            true,
-        );
+        let code = self.translate_static_code(&static_code);
 
-        CodeGen::add(
-            &mut asm,
-            &format!("mov     {ws} eax, _lambda_space_stack_buffer"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            &mut asm,
-            &format!("mov     {ws} [_lambda_space_stack], eax"),
-            None,
-            true,
-        );
+        self.backend().add(&mut generated_code, &code, None, true);
 
-        CodeGen::add(
-            &mut asm,
-            &format!("mov    {ws} eax, _reusable_heap_table"),
-            None,
-            true,
-        );
-        CodeGen::add(
-            &mut asm,
-            &format!("mov    {ws} [_reusable_heap_table_next],eax"),
-            None,
-            true,
-        );
+        self.create_command_line_arguments(&mut generated_code);
 
-        let mut temp_statics = Statics::new();
-        let evaluator = TextMacroEvaluator::new();
+        self.backend().add(&mut generated_code, "", None, true);
 
-        let code = evaluator
-            .translate(
-                self.backend,
-                &mut temp_statics,
-                None,
-                None,
-                &code,
-                self.options.dereference,
-                false,
-                &self.module,
-            )
-            .unwrap();
+        self.backend().function_preamble(&mut generated_code);
 
-        CodeGen::add(&mut asm, &code, None, true);
-
-        self.backend.call_function(
-            &mut asm,
-            "createCmdLineArguments_0",
-            &[
-                ("_rasm_args", None),
-                (
-                    &self.backend.stack_pointer(),
-                    Some("command line arguments"),
-                ),
-            ],
-            None,
-        );
-
-        CodeGen::add(&mut asm, "", None, true);
-
-        self.backend.function_preamble(&mut asm);
-
-        self.backend.reserve_local_vals(&stack, &mut asm);
+        self.backend()
+            .reserve_local_vals(&stack, &mut generated_code);
 
         // probably there is not a valid body from functions
-        for (_name, (_defs, bd)) in functions_asm.iter() {
+        for (_name, (_defs, bd)) in functions_generated_code.iter() {
             body.push_str(bd);
         }
 
         let new_body = self.translate_body(&body, &mut statics).unwrap();
 
-        asm.push_str(&new_body);
-        asm.push('\n');
+        generated_code.push_str(&new_body);
+        generated_code.push('\n');
 
-        self.backend.restore(&stack, &mut asm);
+        self.backend().restore(&stack, &mut generated_code);
 
-        self.backend.function_end(&mut asm, false);
+        self.backend().function_end(&mut generated_code, false);
 
-        if self.options.print_memory_info {
-            self.print_memory_info(&mut asm);
+        if self.options().print_memory_info {
+            self.print_memory_info(&mut generated_code);
         }
 
-        self.backend
-            .call_function(&mut asm, "exitMain_0", &[("0", None)], None);
+        self.backend()
+            .call_function(&mut generated_code, "exitMain_0", &[("0", None)], None);
 
-        let used_functions = self.get_used_functions(&functions_asm, &asm);
+        let used_functions = self.get_used_functions(&functions_generated_code, &generated_code);
 
         for (_, (defs, _bd)) in used_functions {
-            asm.push_str(defs);
+            generated_code.push_str(&defs);
         }
 
-        asm
+        generated_code
     }
 
-    fn get_used_functions(
+    fn create_command_line_arguments(&self, generated_code: &mut String);
+
+    fn translate_static_code(&self, static_code: &String) -> String;
+
+    fn call_lambda_parameter(
         &self,
-        functions_asm: &'a HashMap<String, (String, String)>,
-        asm: &String,
-    ) -> Vec<(&'a String, &'a (String, String))> {
-        if self.options.optimize_unused_functions {
-            let mut used_functions = UsedFunctions::find(&self.module, self.backend);
-            // those are probably lambdas
-            used_functions.extend(
-                functions_asm
-                    .keys()
-                    .filter(|it| !self.module.functions_by_name.contains_key(*it))
-                    .cloned()
-                    .collect::<Vec<_>>(),
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        stack_vals: &StackVals,
+        kind: &TypedValKind,
+    );
+
+    fn call_function_(
+        &self,
+        function_call: &&ASTTypedFunctionCall,
+        context: &TypedValContext,
+        parent_def: &Option<&ASTTypedFunctionDef>,
+        added_to_stack: String,
+        before: &mut String,
+        parameters: Vec<ASTTypedParameterDef>,
+        inline: bool,
+        body: Option<ASTTypedFunctionBody>,
+        address_to_call: String,
+        lambda_space_opt: Option<&LambdaSpace>,
+        indent: usize,
+        is_lambda: bool,
+        stack_vals: &StackVals,
+        after: &mut Vec<String>,
+        id: &mut usize,
+        statics: &mut Statics,
+    ) -> Vec<LambdaCall> {
+        let mut lambda_calls = Vec::new();
+
+        self.backend().add_empty_line(before);
+
+        if inline {
+            self.backend().add_comment(
+                before,
+                &format!(
+                    "inlining function {}, added to stack {}",
+                    function_call.function_name, added_to_stack
+                ),
+                true,
+            );
+        } else {
+            self.backend().add_comment(
+                before,
+                &format!(
+                    "calling function {}, added to stack {}",
+                    function_call.function_name, added_to_stack
+                ),
+                true,
+            );
+        }
+
+        let mut call_parameters =
+            self.function_call_parameters(&parameters, inline, false, stack_vals, *id);
+
+        *id += 1;
+
+        if !function_call.parameters.is_empty() {
+            // as for C calling conventions parameters are pushed in reverse order
+            for (param_index, expr) in function_call.parameters.iter().enumerate() {
+                let param_opt = parameters.get(param_index);
+                let param_name = param_opt
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Cannot find param {} : {:?} of function call {}",
+                            param_index, expr, function_call.function_name
+                        )
+                    })
+                    .name
+                    .clone();
+                let param_type = param_opt
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Cannot find param {} of function call {}",
+                            param_index, function_call.function_name
+                        )
+                    })
+                    .ast_type
+                    .clone();
+
+                debug!(
+                    "{}adding parameter {}: {:?}",
+                    " ".repeat(indent * 4),
+                    param_name,
+                    expr
+                );
+
+                match expr {
+                    ASTTypedExpression::StringLiteral(value) => {
+                        let label = statics.add_str(value);
+                        call_parameters.add_label(&param_name, label, None);
+                    }
+                    /*ASTTypedExpression::CharLiteral(c) => {
+                        let label = self.statics.add_char(c);
+                        call_parameters.add_string_literal(&param_name, label, None);
+                    }*/
+                    ASTTypedExpression::Value(value_type, _) => {
+                        call_parameters.add_value_type(&param_name, value_type)
+                    }
+                    ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                        let added_to_stack = self
+                            .added_to_stack_for_call_parameter(&added_to_stack, &call_parameters);
+
+                        let (bf, af, mut inner_lambda_calls) = self.call_function(
+                            call,
+                            context,
+                            *parent_def,
+                            added_to_stack,
+                            lambda_space_opt,
+                            indent + 1,
+                            false,
+                            stack_vals,
+                            id,
+                            statics,
+                        );
+
+                        call_parameters.push(&bf);
+
+                        //after.insert(0, af.join("\n"));
+                        call_parameters.add_on_top_of_after(&af.join("\n"));
+
+                        call_parameters.add_function_call(
+                            self.module(),
+                            &format!("{param_name} = {} : {}", &call.function_name, call.index),
+                            param_type.clone(),
+                            statics,
+                        );
+
+                        lambda_calls.append(&mut inner_lambda_calls);
+                    }
+                    ASTTypedExpression::ValueRef(name, index) => {
+                        let error_msg = format!(
+                            "Cannot find val {}, calling function {}",
+                            name, function_call.function_name
+                        );
+                        self.add_val(
+                            context,
+                            &lambda_space_opt,
+                            &indent,
+                            &mut call_parameters,
+                            &param_name,
+                            name,
+                            &error_msg,
+                            stack_vals,
+                            index,
+                            statics,
+                        );
+                    }
+                    ASTTypedExpression::Lambda(lambda_def) => {
+                        let (return_type, parameters_types) =
+                            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                return_type,
+                                parameters,
+                            }) = param_type
+                            {
+                                (return_type, parameters)
+                            } else {
+                                panic!("Parameter is not a lambda: {:?}", param_type);
+                            };
+
+                        if parameters_types.len() != lambda_def.parameter_names.len() {
+                            panic!("Lambda parameters do not match definition");
+                        }
+
+                        let rt = return_type.deref().clone();
+
+                        let name = format!("lambda{}", id);
+                        let mut def = ASTTypedFunctionDef {
+                            //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
+                            name: name.clone(),
+                            original_name: name,
+                            parameters: Vec::new(), // parametrs are calculated later
+                            return_type: rt,
+                            body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
+                            inline: false,
+                            generic_types: LinkedHashMap::new(),
+                            index: lambda_def.index.clone(),
+                        };
+
+                        *id += 1;
+
+                        debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
+
+                        let function_def = self
+                            .module()
+                            .functions_by_name
+                            .get(&function_call.function_name)
+                            .unwrap();
+
+                        let optimize = function_def.return_type.is_unit()
+                            || can_optimize_lambda_space(&function_def.return_type, self.module());
+
+                        let lambda_space = call_parameters.add_lambda(
+                            &def,
+                            lambda_space_opt,
+                            context,
+                            None,
+                            statics,
+                            self.module(),
+                            stack_vals,
+                            optimize,
+                        );
+
+                        // I add the parameters of the lambda itself
+                        for i in 0..parameters_types.len() {
+                            let (p_name, p_index) = lambda_def.parameter_names.get(i).unwrap();
+                            def.parameters.push(ASTTypedParameterDef {
+                                name: p_name.clone(),
+                                ast_type: parameters_types.get(i).unwrap().clone(),
+                                ast_index: p_index.clone(),
+                            });
+                            if context.get(p_name).is_some() {
+                                panic!(
+                                    "parameter {p_name} already used in this context: {p_index}"
+                                );
+                            }
+                        }
+
+                        let lambda_call = LambdaCall {
+                            def,
+                            space: lambda_space,
+                        };
+
+                        lambda_calls.push(lambda_call);
+                    }
+                }
+            }
+        }
+
+        //before.push_str(&call_parameters.before());
+        let string = call_parameters.before();
+        before.push_str(&string);
+
+        if inline {
+            if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
+                /*let mut added_to_stack = added_to_stack;
+                added_to_stack.push_str(&format!(
+                    " + {}",
+                    stack_vals.len() * self.backend.word_len()
+                ));
+
+                 */
+
+                before.push_str(&call_parameters.resolve_native_parameters(
+                    body,
+                    added_to_stack,
+                    indent,
+                ));
+                before.push('\n');
+            } else {
+                panic!("Only asm can be inlined, for now...");
+            }
+        } else if is_lambda {
+            if let Some(index_in_lambda_space) =
+                lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
+            {
+                if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
+                    self.backend()
+                        .add(before, &format!("mov eax, {address}"), None, true);
+                } else {
+                    panic!()
+                }
+                // we add the address to the "lambda space" as the last parameter of the lambda
+                self.backend().add(
+                    before,
+                    &format!(
+                        "add eax, {}",
+                        (index_in_lambda_space + 2) * self.backend().word_len()
+                    ),
+                    Some("address to the pointer to the allocation table of the lambda to call"),
+                    true,
+                );
+                self.backend().add(
+                    before,
+                    "mov eax, [eax]",
+                    Some("address of the allocation table of the function to call"),
+                    true,
+                );
+                self.backend().add(
+                    before,
+                    "mov eax, [eax]",
+                    Some("address to the \"lambda space\" of the function to call"),
+                    true,
+                );
+
+                self.backend().call_function(
+                    before,
+                    "[eax]",
+                    &[(
+                        "eax",
+                        Some("address to the \"lambda space\" of the function to call"),
+                    )],
+                    Some(&format!(
+                        "Calling function {} : {}",
+                        function_call.function_name, function_call.index
+                    )),
+                );
+            } else if let Some(kind) = context.get(&function_call.function_name) {
+                self.call_lambda_parameter(&function_call, before, stack_vals, kind);
+            } else {
+                panic!(
+                    "lambda space does not contain {}",
+                    function_call.function_name
+                );
+            }
+        } else {
+            self.backend().add_comment(
+                before,
+                &format!(
+                    "Calling function {} : {}",
+                    function_call.function_name, function_call.index
+                ),
+                true,
             );
 
-            used_functions.extend(UsedFunctions::get_used_functions(&asm));
-
-            let mut used_functions_in_defs = HashSet::new();
-
-            for (_name, (defs, _bd)) in functions_asm
-                .iter()
-                .filter(|(it, (_, _))| used_functions.contains(*it))
-            {
-                used_functions_in_defs.extend(UsedFunctions::get_used_functions(defs));
-            }
-
-            used_functions.extend(used_functions_in_defs);
-
-            functions_asm
-                .iter()
-                .filter(|(it, (_, _))| {
-                    let valid = used_functions.contains(*it);
-                    if !valid {
-                        debug!("unused function {it}");
-                    }
-                    valid
-                })
-                .collect::<Vec<_>>()
-        } else {
-            functions_asm.iter().collect::<Vec<_>>()
+            self.backend()
+                .call_function_simple(before, &address_to_call);
         }
+
+        self.restore_stack(&function_call, before, &mut call_parameters);
+
+        after.insert(0, call_parameters.after().join("\n"));
+
+        if inline {
+            self.backend().add_comment(
+                before,
+                &format!("end inlining function {}", function_call.function_name),
+                true,
+            );
+        } else {
+            self.backend().add_comment(
+                before,
+                &format!("end calling function {}", function_call.function_name),
+                true,
+            );
+        }
+        lambda_calls
     }
+
+    fn restore_stack(
+        &self,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        call_parameters: &mut FUNCTION_CALL_PARAMETERS,
+    );
+
+    fn added_to_stack_for_call_parameter(
+        &self,
+        added_to_stack: &String,
+        call_parameters: &FUNCTION_CALL_PARAMETERS,
+    ) -> String;
+
+    fn function_call_parameters(
+        &self,
+        parameters: &Vec<ASTTypedParameterDef>,
+        inline: bool,
+        immediate: bool,
+        stack_vals: &StackVals,
+        id: usize,
+    ) -> FUNCTION_CALL_PARAMETERS;
 
     fn add_let(
         &self,
@@ -458,9 +682,7 @@ impl<'a> CodeGen<'a> {
         body: &mut String,
         id: &mut usize,
     ) -> Vec<LambdaCall> {
-        let wl = self.backend.word_len();
-        let bp = self.backend.stack_base_pointer();
-        let ws = self.backend.word_size();
+        let wl = self.backend().word_len();
         let address_relative_to_bp = stack.reserve_local_val(name) * wl;
         let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -506,7 +728,7 @@ impl<'a> CodeGen<'a> {
                     )
                 } else {
                     (
-                        self.module
+                        self.module()
                             .functions_by_name
                             .get(&call.function_name.replace("::", "_"))
                             .unwrap()
@@ -529,61 +751,35 @@ impl<'a> CodeGen<'a> {
                 }
             }
             ASTTypedExpression::Value(value_type, index) => {
-                let value = self.backend.value_to_string(value_type);
                 let typed_type =
-                    get_type_of_typed_expression(&self.module, context, expr, None, statics)
+                    get_type_of_typed_expression(self.module(), context, expr, None, statics)
                         .unwrap();
 
-                if is_const {
-                    let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
-
-                    CodeGen::add(
-                        body,
-                        &format!("mov {ws} [{key}], {}", value),
-                        Some(""),
-                        true,
-                    );
-                } else {
-                    CodeGen::add(
-                        before,
-                        &format!(
-                            "mov {ws} [{bp} + {}], {}",
-                            -(address_relative_to_bp as i32),
-                            value
-                        ),
-                        Some(""),
-                        true,
-                    );
-                }
+                self.set_let_for_value(
+                    before,
+                    name,
+                    is_const,
+                    statics,
+                    body,
+                    address_relative_to_bp,
+                    value_type,
+                    &typed_type,
+                );
                 (typed_type, (String::new(), vec![], vec![]), index.clone())
             }
             ASTTypedExpression::StringLiteral(value) => {
-                let label = statics.add_str(value);
-
                 let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
 
-                CodeGen::add(body, "push ebx", None, true);
-
-                if is_const {
-                    let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
-
-                    self.backend.indirect_mov(
-                        body,
-                        &label,
-                        &key,
-                        "ebx",
-                        Some(&format!("const {name} string value")),
-                    );
-                } else {
-                    self.backend.indirect_mov(
-                        before,
-                        &label,
-                        &format!("{bp} + {}", -(address_relative_to_bp as i32),),
-                        "ebx",
-                        None,
-                    );
-                }
-                CodeGen::add(before, "pop   ebx", None, true);
+                self.set_let_for_string_literal(
+                    before,
+                    name,
+                    is_const,
+                    statics,
+                    body,
+                    address_relative_to_bp,
+                    value,
+                    &typed_type,
+                );
                 (
                     typed_type,
                     (String::new(), vec![], vec![]),
@@ -592,43 +788,13 @@ impl<'a> CodeGen<'a> {
             }
             ASTTypedExpression::ValueRef(val_name, index) => {
                 if let Some(typed_val_kind) = context.get(val_name) {
-                    let (i, typed_type, descr) = match typed_val_kind {
-                        TypedValKind::ParameterRef(i, def) => (
-                            *i as i32 + 2,
-                            def.ast_type.clone(),
-                            format!("par {val_name}"),
-                        ),
-                        TypedValKind::LetRef(_i, def) => {
-                            let relative_to_bp_found =
-                                stack.find_local_val_relative_to_bp(val_name).unwrap();
-                            let index_in_context = -(relative_to_bp_found as i32);
-                            (index_in_context, def.clone(), format!("let {val_name}"))
-                        }
-                    };
-                    CodeGen::add(before, "push   ebx", None, true);
-
-                    CodeGen::add(
+                    let typed_type = self.set_let_for_value_ref(
+                        stack,
                         before,
-                        &format!(
-                            "mov ebx, [{} + {}]",
-                            self.backend.stack_base_pointer(),
-                            i * self.backend.word_len() as i32
-                        ),
-                        Some(&format!("let reference to {descr}")),
-                        true,
+                        address_relative_to_bp,
+                        val_name,
+                        typed_val_kind,
                     );
-
-                    CodeGen::add(
-                        before,
-                        &format!(
-                            "mov {ws} [{bp} + {}], ebx",
-                            -(address_relative_to_bp as i32),
-                        ),
-                        Some(""),
-                        true,
-                    );
-
-                    CodeGen::add(before, "pop   ebx", None, true);
 
                     (typed_type, (String::new(), vec![], vec![]), index.clone())
                 } else {
@@ -645,21 +811,19 @@ impl<'a> CodeGen<'a> {
 
                 let key = statics.add_typed_const(name.to_owned(), ast_typed_type.clone());
 
-                CodeGen::add(body, &format!("mov {ws} [{key}], eax"), Some(""), true);
+                self.set_let_const_for_function_call_result(&key, body);
             }
 
-            if self.options.dereference {
-                if let Some(type_name) =
-                    CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
-                {
+            if self.options().dereference {
+                if let Some(type_name) = get_reference_type_name(&ast_typed_type, self.module()) {
                     let entry = statics.get_typed_const(name).unwrap();
 
-                    self.backend.call_add_ref(
+                    self.backend().call_add_ref(
                         body,
                         &format!("[{}]", entry.key),
                         &type_name,
                         &format!("for const {name} : {index}"),
-                        &self.module,
+                        self.module(),
                         statics,
                     );
                 }
@@ -668,36 +832,33 @@ impl<'a> CodeGen<'a> {
             context.insert_let(
                 name.into(),
                 ast_typed_type.clone(),
-                Some(address_relative_to_bp / self.backend.word_len()),
+                Some(address_relative_to_bp / self.backend().word_len()),
             );
 
             if !bf.is_empty() {
                 before.push_str(&bf);
-                self.backend
+                self.backend()
                     .store_function_result_in_stack(before, -(address_relative_to_bp as i32));
             }
 
-            if self.options.dereference {
-                if let Some(type_name) =
-                    CodeGen::get_reference_type_name(&ast_typed_type, &self.module)
-                {
-                    self.backend.call_add_ref(
+            if self.options().dereference {
+                if let Some(type_name) = get_reference_type_name(&ast_typed_type, self.module()) {
+                    self.call_add_ref_for_let_val(
+                        &name,
+                        &index,
                         before,
-                        &format!("[{bp} - {}]", address_relative_to_bp),
-                        &type_name,
-                        &format!("for let val {name} : {index}"),
-                        &self.module,
                         statics,
+                        &address_relative_to_bp,
+                        &type_name,
                     );
 
-                    let deref_str = &self.backend.call_deref(
-                        &format!("[{bp} - {}]", address_relative_to_bp),
-                        &type_name,
-                        &format!("for let val {name}"),
-                        &self.module,
+                    let deref_str = self.call_deref_for_let_val(
+                        &name,
                         statics,
+                        &address_relative_to_bp,
+                        &type_name,
                     );
-                    Self::insert_on_top(deref_str, after);
+                    Self::insert_on_top(&deref_str, after);
                 }
             }
 
@@ -711,153 +872,108 @@ impl<'a> CodeGen<'a> {
         new_lambda_calls
     }
 
-    fn translate_body(&self, body: &str, statics: &mut Statics) -> Result<String, String> {
-        let val_context = ValContext::new(None);
+    fn call_deref_for_let_val(
+        &self,
+        name: &str,
+        statics: &mut Statics,
+        address_relative_to_bp: &usize,
+        type_name: &String,
+    ) -> String;
 
-        let new_body = TextMacroEvaluator::new().translate(
-            self.backend,
-            statics,
-            None,
-            None,
-            body,
-            self.options.dereference,
-            true,
-            &self.module,
-        )?;
+    fn call_add_ref_for_let_val(
+        &self,
+        name: &str,
+        index: &ASTIndex,
+        before: &mut String,
+        statics: &mut Statics,
+        address_relative_to_bp: &usize,
+        type_name: &String,
+    );
 
-        let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+    fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String);
 
-        self.backend
-            .called_functions(None, None, &new_body, &val_context, &self.module)?
-            .iter()
-            .for_each(|(m, it)| {
-                debug_i!("native call to {:?}, in main", it);
-                if let Some(new_function_def) = self.module.functions_by_name.get(&it.name) {
-                    debug_i!("converted to {new_function_def}");
-                    if it.name != new_function_def.name {
-                        lines[it.i] = get_new_native_call(m, &new_function_def.name);
-                    }
-                } else {
-                    // panic!("cannot find call {function_call}");
-                    // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
-                    println!("cannot find call to {}", it.name);
+    fn set_let_for_value_ref(
+        &self,
+        stack: &StackVals,
+        before: &mut String,
+        address_relative_to_bp: usize,
+        val_name: &String,
+        typed_val_kind: &TypedValKind,
+    ) -> ASTTypedType;
+
+    fn set_let_for_string_literal(
+        &self,
+        before: &mut String,
+        name: &str,
+        is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        address_relative_to_bp: usize,
+        value: &String,
+        typed_type: &ASTTypedType,
+    );
+
+    fn set_let_for_value(
+        &self,
+        before: &mut String,
+        name: &str,
+        is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        address_relative_to_bp: usize,
+        value_type: &ValueType,
+        typed_type: &ASTTypedType,
+    );
+
+    fn add_val(
+        &self,
+        context: &TypedValContext,
+        lambda_space_opt: &Option<&LambdaSpace>,
+        indent: &usize,
+        call_parameters: &mut dyn FunctionCallParameters,
+        param_name: &str,
+        val_name: &str,
+        error_msg: &str,
+        stack_vals: &StackVals,
+        ast_index: &ASTIndex,
+        statics: &Statics,
+    ) {
+        if let Some(val_kind) = context.get(val_name) {
+            match val_kind {
+                TypedValKind::ParameterRef(index, _par) => {
+                    call_parameters.add_parameter_ref(
+                        param_name.into(),
+                        val_name,
+                        *index,
+                        lambda_space_opt,
+                        *indent,
+                        stack_vals,
+                    );
                 }
-            });
 
-        TextMacroEvaluator::new().translate(
-            self.backend,
-            statics,
-            None,
-            None,
-            &lines.join("\n"),
-            self.options.dereference,
-            false,
-            &self.module,
-        )
-    }
+                TypedValKind::LetRef(_index, _ast_typed_type) => {
+                    let index_in_context = stack_vals.find_local_val_relative_to_bp(val_name);
 
-    fn print_memory_info(&self, asm: &mut String) {
-        self.backend.call_function_simple(asm, "printAllocated_0");
-        self.backend
-            .call_function_simple(asm, "printTableSlotsAllocated_0");
-    }
-
-    fn create_all_functions(
-        &self,
-        id: &mut usize,
-        statics: &mut Statics,
-    ) -> HashMap<String, (String, String)> {
-        let mut result = HashMap::new();
-
-        for function_def in self.module.functions_by_name.values() {
-            // ValContext ???
-            if !function_def.inline {
-                let mut definitions = String::new();
-                let mut body = String::new();
-
-                let lambda_calls = self.add_function_def(
-                    function_def,
-                    None,
-                    &TypedValContext::new(None),
-                    0,
-                    false,
-                    &mut definitions,
-                    id,
-                    statics,
-                    &mut body,
-                );
-                result.extend(self.create_lambdas(lambda_calls, 0, id, statics));
-
-                result.insert(function_def.name.clone(), (definitions, body));
+                    call_parameters.add_let_val_ref(
+                        param_name.into(),
+                        val_name,
+                        index_in_context,
+                        lambda_space_opt,
+                        *indent,
+                        stack_vals,
+                        ast_index,
+                    )
+                }
             }
+        } else if let Some(entry) = statics.get_typed_const(val_name) {
+            call_parameters.add_label(
+                param_name,
+                entry.key.clone(),
+                Some(&format!("static {val_name}")),
+            )
+        } else {
+            panic!("Error adding val {}: {}", param_name, error_msg);
         }
-
-        result
-    }
-
-    fn create_lambdas(
-        &self,
-        lambdas: Vec<LambdaCall>,
-        indent: usize,
-        id: &mut usize,
-        statics: &mut Statics,
-    ) -> HashMap<String, (String, String)> {
-        let mut result = HashMap::new();
-
-        let mut lambda_calls = Vec::new();
-        for lambda_call in lambdas {
-            let mut definitions = String::new();
-            let mut body = String::new();
-
-            //debug!("Creating lambda {}", lambda_call.def.name);
-            lambda_calls.append(&mut self.add_function_def(
-                &lambda_call.def,
-                Some(&lambda_call.space),
-                lambda_call.space.get_context(),
-                indent,
-                true,
-                &mut definitions,
-                id,
-                statics,
-                &mut body,
-            ));
-
-            result.insert(lambda_call.def.name.clone(), (definitions, body));
-
-            //Parser::print_function_def(&lambda_call.def);
-            lambda_calls.extend(
-                lambda_call
-                    .space
-                    .get_ref_functions()
-                    .iter()
-                    .flat_map(|it| {
-                        let mut definitions = String::new();
-                        let mut body = String::new();
-
-                        let ls = self.add_function_def(
-                            it,
-                            None,
-                            lambda_call.space.get_context(),
-                            indent,
-                            false,
-                            &mut definitions,
-                            id,
-                            statics,
-                            &mut body,
-                        );
-
-                        result.insert(it.name.clone(), (definitions, body));
-
-                        ls
-                    })
-                    .collect::<Vec<_>>(),
-            );
-        }
-        if !lambda_calls.is_empty() {
-            result.extend(self.create_lambdas(lambda_calls, indent + 1, id, statics));
-        }
-
-        result
     }
 
     fn add_function_def(
@@ -881,38 +997,42 @@ impl<'a> CodeGen<'a> {
         let mut lambda_calls = Vec::new();
 
         if function_def.index.file_name.is_some() {
-            self.backend
+            self.backend()
                 .add_comment(definitions, &format!("{}", function_def.index), false);
         }
-        self.backend
+        self.backend()
             .add_comment(definitions, &format!("function {}", function_def), false);
-        CodeGen::add(definitions, &format!("{}:", function_def.name), None, false);
+        self.backend()
+            .add(definitions, &format!("{}:", function_def.name), None, false);
 
         let mut before = String::new();
 
-        self.backend.function_preamble(definitions);
+        self.backend().function_preamble(definitions);
 
         let stack = StackVals::new();
 
         if function_def.return_type.is_unit() {
-            stack.reserve_return_register(&mut before);
+            stack.reserve_return_register(self.backend().deref(), &mut before);
         }
 
+        /* TODO HENRY
         if is_lambda {
             let register =
-                stack.reserve_tmp_register(&mut before, self.backend, "lambda_space_address");
+                stack.reserve_tmp_register(&mut before, self.backend(), "lambda_space_address");
 
-            CodeGen::add(
+            self.backend().add(
                 &mut before,
                 &format!(
                     "mov     {register}, [{}+{}]",
-                    self.backend.stack_base_pointer(),
-                    self.backend.word_len() * 2
+                    self.backend().stack_base_pointer(),
+                    self.backend().word_len() * 2
                 ),
                 Some("The address to the lambda space for inline lambda param"),
                 true,
             );
         }
+
+         */
 
         let mut context = TypedValContext::new(Some(parent_context));
 
@@ -966,13 +1086,11 @@ impl<'a> CodeGen<'a> {
                                 ASTTypedExpression::ValueRef(val, index) => {
                                     // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
 
-                                    let mut parameters = FunctionCallParameters::new(
-                                        self.backend,
-                                        Vec::new(),
+                                    let mut parameters = self.function_call_parameters(
+                                        &Vec::new(),
                                         function_def.inline,
                                         true,
                                         &stack,
-                                        self.options.dereference,
                                         *id,
                                     );
 
@@ -996,17 +1114,7 @@ impl<'a> CodeGen<'a> {
                                     Self::insert_on_top(&parameters.after().join("\n"), &mut after);
                                 }
                                 ASTTypedExpression::StringLiteral(value) => {
-                                    let label = statics.add_str(value);
-
-                                    CodeGen::add(
-                                        &mut before,
-                                        &format!(
-                                            "mov     {} eax, [{label}]",
-                                            self.backend.word_size()
-                                        ),
-                                        None,
-                                        true,
-                                    );
+                                    self.string_literal_return(statics, &mut before, value);
                                 }
                                 ASTTypedExpression::Lambda(lambda_def) => {
                                     if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -1050,13 +1158,11 @@ impl<'a> CodeGen<'a> {
 
                                         *id += 1;
 
-                                        let mut parameters = FunctionCallParameters::new(
-                                            self.backend,
-                                            Vec::new(),
+                                        let mut parameters = self.function_call_parameters(
+                                            &Vec::new(),
                                             function_def.inline,
                                             true,
                                             &stack,
-                                            self.options.dereference,
                                             *id,
                                         );
 
@@ -1068,7 +1174,7 @@ impl<'a> CodeGen<'a> {
                                             &context,
                                             None,
                                             statics,
-                                            &self.module,
+                                            self.module(),
                                             &stack,
                                             false,
                                         );
@@ -1088,14 +1194,9 @@ impl<'a> CodeGen<'a> {
                                     }
                                 }
                                 ASTTypedExpression::Value(value_type, _) => {
-                                    let v = self.backend.value_to_string(value_type);
+                                    let v = self.backend().value_to_string(value_type);
 
-                                    CodeGen::add(
-                                        &mut before,
-                                        &format!("mov     {} eax, {}", self.backend.word_size(), v),
-                                        None,
-                                        true,
-                                    );
+                                    self.value_as_return(&mut before, &v);
                                 }
                             }
                         }
@@ -1120,39 +1221,559 @@ impl<'a> CodeGen<'a> {
                 }
             }
             ASTTypedFunctionBody::ASMBody(body) => {
-                let function_call_parameters = FunctionCallParameters::new(
-                    self.backend,
-                    function_def.parameters.clone(),
+                let function_call_parameters = self.function_call_parameters(
+                    &function_def.parameters,
                     false,
                     false,
                     &stack,
-                    self.options.dereference,
                     *id,
                 );
 
                 *id += 1;
 
                 let new_body =
-                    function_call_parameters.resolve_asm_parameters(body, "0".into(), indent);
+                    function_call_parameters.resolve_native_parameters(body, "0".into(), indent);
                 before.push_str(&new_body);
             }
         }
 
-        self.backend.reserve_local_vals(&stack, definitions);
+        self.backend().reserve_local_vals(&stack, definitions);
 
         definitions.push_str(&before.replace(
             STACK_VAL_SIZE_NAME,
-            &(stack.len_of_all() * self.backend.word_len()).to_string(),
+            &(stack.len_of_all() * self.backend().word_len()).to_string(),
         ));
 
         definitions.push_str(&after);
         definitions.push('\n');
 
-        self.backend.restore(&stack, definitions);
+        self.backend().restore(&stack, definitions);
 
-        self.backend.function_end(definitions, true);
+        self.backend().function_end(definitions, true);
 
         lambda_calls
+    }
+
+    fn value_as_return(&self, before: &mut String, v: &str);
+
+    fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
+
+    fn functions(&self) -> &LinkedHashMap<String, ASTTypedFunctionDef>;
+
+    fn insert_on_top(src: &str, dest: &mut String) {
+        for line in src.lines().rev() {
+            dest.insert_str(0, &(line.to_string() + "\n"));
+        }
+    }
+
+    fn call_function(
+        &self,
+        function_call: &ASTTypedFunctionCall,
+        context: &TypedValContext,
+        parent_def: Option<&ASTTypedFunctionDef>,
+        added_to_stack: String,
+        lambda_space: Option<&LambdaSpace>,
+        indent: usize,
+        is_lambda: bool,
+        stack_vals: &StackVals,
+        id: &mut usize,
+        statics: &mut Statics,
+    ) -> (String, Vec<String>, Vec<LambdaCall>);
+
+    fn create_lambdas(
+        &self,
+        lambdas: Vec<LambdaCall>,
+        indent: usize,
+        id: &mut usize,
+        statics: &mut Statics,
+    ) -> HashMap<String, (String, String)>;
+
+    fn create_all_functions(
+        &self,
+        id: &mut usize,
+        statics: &mut Statics,
+    ) -> HashMap<String, (String, String)>;
+
+    fn translate_body(&self, body: &str, statics: &mut Statics) -> Result<String, String>;
+
+    fn get_used_functions(
+        &self,
+        functions_asm: &HashMap<String, (String, String)>,
+        asm: &String,
+    ) -> Vec<(String, (String, String))>;
+
+    fn print_memory_info(&self, asm: &mut String);
+
+    fn initialize_static_values(&self, generated_code: &mut String);
+}
+
+pub fn get_reference_type_name(
+    ast_type: &ASTTypedType,
+    type_def_provider: &dyn TypeDefProvider,
+) -> Option<String> {
+    match ast_type {
+        ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
+        ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
+        ASTTypedType::Enum { name } => Some(name.clone()),
+        ASTTypedType::Struct { name } => Some(name.clone()),
+        ASTTypedType::Type { name } => {
+            if let Some(t) = type_def_provider.get_type_def_by_name(name) {
+                if t.is_ref {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            } else {
+                panic!("Cannot find type {name}");
+            }
+        }
+        _ => None,
+    }
+}
+
+pub fn can_optimize_lambda_space(
+    lambda_return_type: &ASTTypedType,
+    type_def_provider: &dyn TypeDefProvider,
+) -> bool {
+    let mut already_checked = HashSet::new();
+    can_optimize_lambda_space_(lambda_return_type, type_def_provider, &mut already_checked)
+}
+
+fn can_optimize_lambda_space_(
+    lambda_return_type: &ASTTypedType,
+    type_def_provider: &dyn TypeDefProvider,
+    already_checked: &mut HashSet<String>,
+) -> bool {
+    match lambda_return_type {
+        ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
+        ASTTypedType::Enum { name } => {
+            if already_checked.contains(name) {
+                return true;
+            }
+
+            already_checked.insert(name.to_owned());
+
+            if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
+                e.variants
+                    .iter()
+                    .flat_map(|it| it.parameters.iter())
+                    .all(|it| {
+                        can_optimize_lambda_space_(&it.ast_type, type_def_provider, already_checked)
+                    })
+            } else {
+                panic!();
+            }
+        }
+        ASTTypedType::Struct { name } => {
+            if already_checked.contains(name) {
+                return true;
+            }
+
+            already_checked.insert(name.to_owned());
+            if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
+                s.properties.iter().all(|it| {
+                    can_optimize_lambda_space_(&it.ast_type, type_def_provider, already_checked)
+                })
+            } else {
+                panic!()
+            }
+        }
+        _ => true,
+    }
+}
+
+impl CodeGenAsm {
+    pub fn new(
+        backend_asm: Box<dyn BackendAsm>,
+        backend: Box<dyn Backend>,
+        statics: &mut Statics,
+        module: EnhancedASTModule,
+        options: CodeGenOptions,
+    ) -> Self {
+        let start = Instant::now();
+
+        crate::utils::debug_indent::INDENT.with(|indent| {
+            *indent.borrow_mut() = 0;
+        });
+
+        let typed_module = get_typed_module(
+            backend.deref(),
+            module,
+            options.print_memory_info,
+            options.dereference,
+            options.print_module,
+            statics,
+        )
+        .unwrap_or_else(|e| {
+            panic!("{e}");
+        });
+
+        info!("type check ended in {:?}", start.elapsed());
+
+        Self {
+            module: typed_module,
+            backend: backend_asm,
+            options,
+        }
+    }
+}
+
+impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGenAsm {
+    fn backend(&self) -> &Box<dyn BackendAsm> {
+        &self.backend
+    }
+
+    fn options(&self) -> &CodeGenOptions {
+        &self.options
+    }
+
+    fn module(&self) -> &ASTTypedModule {
+        &self.module
+    }
+
+    fn create_command_line_arguments(&self, generated_code: &mut String) {
+        self.backend().call_function(
+            generated_code,
+            "createCmdLineArguments_0",
+            &[
+                ("_rasm_args", None),
+                (
+                    &self.backend().stack_pointer(),
+                    Some("command line arguments"),
+                ),
+            ],
+            None,
+        );
+    }
+
+    fn translate_static_code(&self, static_code: &String) -> String {
+        let mut temp_statics = Statics::new();
+        let evaluator = self.backend().get_evaluator();
+
+        let code = evaluator
+            .translate(
+                self.backend(),
+                &mut temp_statics,
+                None,
+                None,
+                &static_code,
+                self.options().dereference,
+                false,
+                self.module(),
+            )
+            .unwrap();
+        code
+    }
+
+    fn call_lambda_parameter(
+        &self,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        stack_vals: &StackVals,
+        kind: &TypedValKind,
+    ) {
+        let index = match kind {
+            TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
+            TypedValKind::LetRef(_, _) => {
+                let relative_to_bp_found = stack_vals
+                    .find_local_val_relative_to_bp(&function_call.function_name)
+                    .unwrap();
+                -(relative_to_bp_found as i32)
+            }
+        };
+
+        self.backend.add_comment(
+            before,
+            &format!(
+                "calling lambda parameter reference to {}",
+                &function_call.function_name
+            ),
+            true,
+        );
+
+        self.backend.add(
+            before,
+            &format!(
+                "mov eax, [{} + {}]",
+                self.backend().stack_base_pointer(),
+                index * self.backend().word_len() as i32
+            ),
+            None,
+            true,
+        );
+        self.backend.add(
+            before,
+            &format!("mov {} eax, [eax]", self.backend.word_size(),),
+            None,
+            true,
+        );
+        // we add the address to the "lambda space" as the last parameter to the lambda
+        self.backend.call_function(
+            before,
+            "[eax]",
+            &[("eax", Some("address to the \"lambda space\""))],
+            Some(&format!(
+                "Calling function {} : {}",
+                function_call.function_name, function_call.index
+            )),
+        );
+    }
+
+    fn restore_stack(
+        &self,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        call_parameters: &mut Box<dyn FunctionCallParametersAsm>,
+    ) {
+        if call_parameters.to_remove_from_stack() > 0 {
+            let sp = self.backend.stack_pointer();
+            let wl = self.backend.word_len();
+
+            self.backend.add(
+                before,
+                &format!(
+                    "add     {},{}",
+                    sp,
+                    wl * (call_parameters.to_remove_from_stack())
+                ),
+                Some(&format!(
+                    "restore stack for {}",
+                    function_call.function_name
+                )),
+                true,
+            );
+
+            //debug!("going to remove from stack {}/{}", parent_def_description, function_call.function_name);
+
+            //stack.remove(FunctionCallParameter, call_parameters.to_remove_from_stack());
+        }
+    }
+
+    fn added_to_stack_for_call_parameter(
+        &self,
+        added_to_stack: &String,
+        call_parameters: &Box<dyn FunctionCallParametersAsm>,
+    ) -> String {
+        let mut added_to_stack = added_to_stack.clone();
+        added_to_stack.push_str(" + ");
+        added_to_stack.push_str(&call_parameters.to_remove_from_stack_name());
+        added_to_stack
+    }
+
+    fn function_call_parameters<'a, 'b, 'c>(
+        &'a self,
+        parameters: &'b Vec<ASTTypedParameterDef>,
+        inline: bool,
+        immediate: bool,
+        stack_vals: &'c StackVals,
+        id: usize,
+    ) -> Box<dyn FunctionCallParametersAsm> {
+        let asm386 = FunctionCallParametersAsm386::new(
+            self.backend.deref(),
+            parameters.clone(),
+            inline,
+            immediate,
+            stack_vals,
+            self.options().dereference,
+            id,
+        );
+        Box::new(asm386)
+    }
+
+    fn call_deref_for_let_val(
+        &self,
+        name: &str,
+        statics: &mut Statics,
+        address_relative_to_bp: &usize,
+        type_name: &String,
+    ) -> String {
+        let bp = self.backend.stack_base_pointer();
+        self.backend.call_deref(
+            &format!("[{bp} - {}]", address_relative_to_bp),
+            &type_name,
+            &format!("for let val {name}"),
+            self.module(),
+            statics,
+        )
+    }
+
+    fn call_add_ref_for_let_val(
+        &self,
+        name: &str,
+        index: &ASTIndex,
+        before: &mut String,
+        statics: &mut Statics,
+        address_relative_to_bp: &usize,
+        type_name: &String,
+    ) {
+        let bp = self.backend.stack_base_pointer();
+        self.backend.call_add_ref(
+            before,
+            &format!("[{bp} - {}]", address_relative_to_bp),
+            &type_name,
+            &format!("for let val {name} : {index}"),
+            self.module(),
+            statics,
+        );
+    }
+
+    fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String) {
+        let ws = self.backend.word_size();
+        self.backend.add(
+            body,
+            &format!("mov {ws} [{statics_key}], eax"),
+            Some(""),
+            true,
+        );
+    }
+
+    fn set_let_for_value_ref(
+        &self,
+        stack: &StackVals,
+        before: &mut String,
+        address_relative_to_bp: usize,
+        val_name: &String,
+        typed_val_kind: &TypedValKind,
+    ) -> ASTTypedType {
+        let ws = self.backend.word_size();
+        let bp = self.backend.stack_base_pointer();
+        let (i, typed_type, descr) = match typed_val_kind {
+            TypedValKind::ParameterRef(i, def) => (
+                *i as i32 + 2,
+                def.ast_type.clone(),
+                format!("par {val_name}"),
+            ),
+            TypedValKind::LetRef(_i, def) => {
+                let relative_to_bp_found = stack.find_local_val_relative_to_bp(val_name).unwrap();
+                let index_in_context = -(relative_to_bp_found as i32);
+                (index_in_context, def.clone(), format!("let {val_name}"))
+            }
+        };
+        self.backend.add(before, "push   ebx", None, true);
+
+        self.backend.add(
+            before,
+            &format!(
+                "mov ebx, [{} + {}]",
+                self.backend().stack_base_pointer(),
+                i * self.backend().word_len() as i32
+            ),
+            Some(&format!("let reference to {descr}")),
+            true,
+        );
+
+        self.backend.add(
+            before,
+            &format!(
+                "mov {ws} [{bp} + {}], ebx",
+                -(address_relative_to_bp as i32),
+            ),
+            Some(""),
+            true,
+        );
+
+        self.backend.add(before, "pop   ebx", None, true);
+        typed_type
+    }
+
+    fn set_let_for_string_literal(
+        &self,
+        before: &mut String,
+        name: &str,
+        is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        address_relative_to_bp: usize,
+        value: &String,
+        typed_type: &ASTTypedType,
+    ) {
+        let bp = self.backend.stack_base_pointer();
+        let label = statics.add_str(value);
+
+        self.backend.add(body, "push ebx", None, true);
+
+        if is_const {
+            let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
+
+            self.backend.indirect_mov(
+                body,
+                &label,
+                &key,
+                "ebx",
+                Some(&format!("const {name} string value")),
+            );
+        } else {
+            self.backend.indirect_mov(
+                before,
+                &label,
+                &format!("{bp} + {}", -(address_relative_to_bp as i32),),
+                "ebx",
+                None,
+            );
+        }
+        self.backend.add(before, "pop   ebx", None, true);
+    }
+
+    fn set_let_for_value(
+        &self,
+        before: &mut String,
+        name: &str,
+        is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        address_relative_to_bp: usize,
+        value_type: &ValueType,
+        typed_type: &ASTTypedType,
+    ) {
+        let bp = self.backend().stack_base_pointer();
+        let ws = self.backend().word_size();
+        let value = self.backend().value_to_string(value_type);
+
+        if is_const {
+            let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
+
+            self.backend.add(
+                body,
+                &format!("mov {ws} [{key}], {}", value),
+                Some(""),
+                true,
+            );
+        } else {
+            self.backend.add(
+                before,
+                &format!(
+                    "mov {ws} [{bp} + {}], {}",
+                    -(address_relative_to_bp as i32),
+                    value
+                ),
+                Some(""),
+                true,
+            );
+        }
+    }
+
+    fn value_as_return(&self, before: &mut String, v: &str) {
+        self.backend().add(
+            before,
+            &format!("mov     {} eax, {}", self.backend().word_size(), v),
+            None,
+            true,
+        );
+    }
+
+    fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
+        let label = statics.add_str(value);
+
+        self.backend.add(
+            before,
+            &format!("mov     {} eax, [{label}]", self.backend().word_size()),
+            None,
+            true,
+        );
+    }
+
+    fn functions(&self) -> &LinkedHashMap<String, ASTTypedFunctionDef> {
+        &self.module().functions_by_name
     }
 
     fn call_function(
@@ -1340,591 +1961,257 @@ impl<'a> CodeGen<'a> {
         (before, after, lambda_calls)
     }
 
-    fn call_function_(
+    fn create_lambdas(
         &self,
-        function_call: &&ASTTypedFunctionCall,
-        context: &TypedValContext,
-        parent_def: &Option<&ASTTypedFunctionDef>,
-        added_to_stack: String,
-        before: &mut String,
-        parameters: Vec<ASTTypedParameterDef>,
-        inline: bool,
-        body: Option<ASTTypedFunctionBody>,
-        address_to_call: String,
-        lambda_space_opt: Option<&LambdaSpace>,
+        lambdas: Vec<LambdaCall>,
         indent: usize,
-        is_lambda: bool,
-        stack_vals: &StackVals,
-        after: &mut Vec<String>,
         id: &mut usize,
         statics: &mut Statics,
-    ) -> Vec<LambdaCall> {
+    ) -> HashMap<String, (String, String)> {
+        let mut result = HashMap::new();
+
         let mut lambda_calls = Vec::new();
+        for lambda_call in lambdas {
+            let mut definitions = String::new();
+            let mut body = String::new();
 
-        CodeGen::add_empty_line(before);
-
-        if inline {
-            self.backend.add_comment(
-                before,
-                &format!(
-                    "inlining function {}, added to stack {}",
-                    function_call.function_name, added_to_stack
-                ),
+            //debug!("Creating lambda {}", lambda_call.def.name);
+            lambda_calls.append(&mut self.add_function_def(
+                &lambda_call.def,
+                Some(&lambda_call.space),
+                lambda_call.space.get_context(),
+                indent,
                 true,
-            );
-        } else {
-            self.backend.add_comment(
-                before,
-                &format!(
-                    "calling function {}, added to stack {}",
-                    function_call.function_name, added_to_stack
-                ),
-                true,
-            );
-        }
+                &mut definitions,
+                id,
+                statics,
+                &mut body,
+            ));
 
-        let mut call_parameters = FunctionCallParameters::new(
-            self.backend,
-            parameters.clone(),
-            inline,
-            false,
-            stack_vals,
-            self.options.dereference,
-            *id,
-        );
+            result.insert(lambda_call.def.name.clone(), (definitions, body));
 
-        *id += 1;
+            //Parser::print_function_def(&lambda_call.def);
+            lambda_calls.extend(
+                lambda_call
+                    .space
+                    .get_ref_functions()
+                    .iter()
+                    .flat_map(|it| {
+                        let mut definitions = String::new();
+                        let mut body = String::new();
 
-        if !function_call.parameters.is_empty() {
-            // as for C calling conventions parameters are pushed in reverse order
-            for (param_index, expr) in function_call.parameters.iter().enumerate() {
-                let param_opt = parameters.get(param_index);
-                let param_name = param_opt
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Cannot find param {} : {:?} of function call {}",
-                            param_index, expr, function_call.function_name
-                        )
-                    })
-                    .name
-                    .clone();
-                let param_type = param_opt
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Cannot find param {} of function call {}",
-                            param_index, function_call.function_name
-                        )
-                    })
-                    .ast_type
-                    .clone();
-
-                debug!(
-                    "{}adding parameter {}: {:?}",
-                    " ".repeat(indent * 4),
-                    param_name,
-                    expr
-                );
-
-                match expr {
-                    ASTTypedExpression::StringLiteral(value) => {
-                        let label = statics.add_str(value);
-                        call_parameters.add_label(&param_name, label, None);
-                    }
-                    /*ASTTypedExpression::CharLiteral(c) => {
-                        let label = self.statics.add_char(c);
-                        call_parameters.add_string_literal(&param_name, label, None);
-                    }*/
-                    ASTTypedExpression::Value(value_type, _) => {
-                        call_parameters.add_value_type(&param_name, value_type)
-                    }
-                    ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                        let mut added_to_stack = added_to_stack.clone();
-                        added_to_stack.push_str(" + ");
-                        added_to_stack.push_str(&call_parameters.to_remove_from_stack_name());
-                        let (bf, af, mut inner_lambda_calls) = self.call_function(
-                            call,
-                            context,
-                            *parent_def,
-                            added_to_stack,
-                            lambda_space_opt,
-                            indent + 1,
+                        let ls = self.add_function_def(
+                            it,
+                            None,
+                            lambda_call.space.get_context(),
+                            indent,
                             false,
-                            stack_vals,
+                            &mut definitions,
                             id,
                             statics,
+                            &mut body,
                         );
 
-                        call_parameters.push(&bf);
+                        result.insert(it.name.clone(), (definitions, body));
 
-                        //after.insert(0, af.join("\n"));
-                        call_parameters.add_on_top_of_after(&af.join("\n"));
-
-                        call_parameters.add_function_call(
-                            &self.module,
-                            &format!("{param_name} = {} : {}", &call.function_name, call.index),
-                            param_type.clone(),
-                            statics,
-                        );
-
-                        lambda_calls.append(&mut inner_lambda_calls);
-                    }
-                    ASTTypedExpression::ValueRef(name, index) => {
-                        let error_msg = format!(
-                            "Cannot find val {}, calling function {}",
-                            name, function_call.function_name
-                        );
-                        self.add_val(
-                            context,
-                            &lambda_space_opt,
-                            &indent,
-                            &mut call_parameters,
-                            &param_name,
-                            name,
-                            &error_msg,
-                            stack_vals,
-                            index,
-                            statics,
-                        );
-                    }
-                    ASTTypedExpression::Lambda(lambda_def) => {
-                        let (return_type, parameters_types) =
-                            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                return_type,
-                                parameters,
-                            }) = param_type
-                            {
-                                (return_type, parameters)
-                            } else {
-                                panic!("Parameter is not a lambda: {:?}", param_type);
-                            };
-
-                        if parameters_types.len() != lambda_def.parameter_names.len() {
-                            panic!("Lambda parameters do not match definition");
-                        }
-
-                        let rt = return_type.deref().clone();
-
-                        let name = format!("lambda{}", id);
-                        let mut def = ASTTypedFunctionDef {
-                            //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
-                            name: name.clone(),
-                            original_name: name,
-                            parameters: Vec::new(), // parametrs are calculated later
-                            return_type: rt,
-                            body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
-                            inline: false,
-                            generic_types: LinkedHashMap::new(),
-                            index: lambda_def.index.clone(),
-                        };
-
-                        *id += 1;
-
-                        debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
-
-                        let function_def = self
-                            .module
-                            .functions_by_name
-                            .get(&function_call.function_name)
-                            .unwrap();
-
-                        let optimize = function_def.return_type.is_unit()
-                            || CodeGen::can_optimize_lambda_space(
-                                &function_def.return_type,
-                                &self.module,
-                            );
-
-                        let lambda_space = call_parameters.add_lambda(
-                            &def,
-                            lambda_space_opt,
-                            context,
-                            None,
-                            statics,
-                            &self.module,
-                            stack_vals,
-                            optimize,
-                        );
-
-                        // I add the parameters of the lambda itself
-                        for i in 0..parameters_types.len() {
-                            let (p_name, p_index) = lambda_def.parameter_names.get(i).unwrap();
-                            def.parameters.push(ASTTypedParameterDef {
-                                name: p_name.clone(),
-                                ast_type: parameters_types.get(i).unwrap().clone(),
-                                ast_index: p_index.clone(),
-                            });
-                            if context.get(p_name).is_some() {
-                                panic!(
-                                    "parameter {p_name} already used in this context: {p_index}"
-                                );
-                            }
-                        }
-
-                        let lambda_call = LambdaCall {
-                            def,
-                            space: lambda_space,
-                        };
-
-                        lambda_calls.push(lambda_call);
-                    }
-                }
-            }
-        }
-
-        //before.push_str(&call_parameters.before());
-        before.push_str(&call_parameters.before().replace(
-            &call_parameters.to_remove_from_stack_name(),
-            &(call_parameters.to_remove_from_stack() * self.backend.word_len()).to_string(),
-        ));
-
-        if inline {
-            if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
-                /*let mut added_to_stack = added_to_stack;
-                added_to_stack.push_str(&format!(
-                    " + {}",
-                    stack_vals.len() * self.backend.word_len()
-                ));
-
-                 */
-
-                before.push_str(&call_parameters.resolve_asm_parameters(
-                    body,
-                    added_to_stack,
-                    indent,
-                ));
-                before.push('\n');
-            } else {
-                panic!("Only asm can be inlined, for now...");
-            }
-        } else if is_lambda {
-            if let Some(index_in_lambda_space) =
-                lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
-            {
-                if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
-                    CodeGen::add(before, &format!("mov eax, {address}"), None, true);
-                } else {
-                    panic!()
-                }
-                // we add the address to the "lambda space" as the last parameter of the lambda
-                CodeGen::add(
-                    before,
-                    &format!(
-                        "add eax, {}",
-                        (index_in_lambda_space + 2) * self.backend.word_len()
-                    ),
-                    Some("address to the pointer to the allocation table of the lambda to call"),
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    "mov eax, [eax]",
-                    Some("address of the allocation table of the function to call"),
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    "mov eax, [eax]",
-                    Some("address to the \"lambda space\" of the function to call"),
-                    true,
-                );
-
-                self.backend.call_function(
-                    before,
-                    "[eax]",
-                    &[(
-                        "eax",
-                        Some("address to the \"lambda space\" of the function to call"),
-                    )],
-                    Some(&format!(
-                        "Calling function {} : {}",
-                        function_call.function_name, function_call.index
-                    )),
-                );
-            } else if let Some(kind) = context.get(&function_call.function_name) {
-                let index = match kind {
-                    TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
-                    TypedValKind::LetRef(_, _) => {
-                        let relative_to_bp_found = stack_vals
-                            .find_local_val_relative_to_bp(&function_call.function_name)
-                            .unwrap();
-                        -(relative_to_bp_found as i32)
-                    }
-                };
-
-                self.backend.add_comment(
-                    before,
-                    &format!(
-                        "calling lambda parameter reference to {}",
-                        &function_call.function_name
-                    ),
-                    true,
-                );
-
-                CodeGen::add(
-                    before,
-                    &format!(
-                        "mov eax, [{} + {}]",
-                        self.backend.stack_base_pointer(),
-                        index * self.backend.word_len() as i32
-                    ),
-                    None,
-                    true,
-                );
-                CodeGen::add(
-                    before,
-                    &format!("mov {} eax, [eax]", self.backend.word_size(),),
-                    None,
-                    true,
-                );
-                // we add the address to the "lambda space" as the last parameter to the lambda
-                self.backend.call_function(
-                    before,
-                    "[eax]",
-                    &[("eax", Some("address to the \"lambda space\""))],
-                    Some(&format!(
-                        "Calling function {} : {}",
-                        function_call.function_name, function_call.index
-                    )),
-                );
-            } else {
-                panic!(
-                    "lambda space does not contain {}",
-                    function_call.function_name
-                );
-            }
-        } else {
-            self.backend.add_comment(
-                before,
-                &format!(
-                    "Calling function {} : {}",
-                    function_call.function_name, function_call.index
-                ),
-                true,
-            );
-
-            self.backend.call_function_simple(before, &address_to_call);
-        }
-
-        if call_parameters.to_remove_from_stack() > 0 {
-            let sp = self.backend.stack_pointer();
-            let wl = self.backend.word_len();
-
-            CodeGen::add(
-                before,
-                &format!(
-                    "add     {},{}",
-                    sp,
-                    wl * (call_parameters.to_remove_from_stack())
-                ),
-                Some(&format!(
-                    "restore stack for {}",
-                    function_call.function_name
-                )),
-                true,
-            );
-
-            //debug!("going to remove from stack {}/{}", parent_def_description, function_call.function_name);
-
-            //stack.remove(FunctionCallParameter, call_parameters.to_remove_from_stack());
-        }
-
-        after.insert(0, call_parameters.after().join("\n"));
-
-        if inline {
-            self.backend.add_comment(
-                before,
-                &format!("end inlining function {}", function_call.function_name),
-                true,
-            );
-        } else {
-            self.backend.add_comment(
-                before,
-                &format!("end calling function {}", function_call.function_name),
-                true,
+                        ls
+                    })
+                    .collect::<Vec<_>>(),
             );
         }
-        lambda_calls
+        if !lambda_calls.is_empty() {
+            result.extend(self.create_lambdas(lambda_calls, indent + 1, id, statics));
+        }
+
+        result
     }
 
-    fn add_val(
+    fn create_all_functions(
         &self,
-        context: &TypedValContext,
-        lambda_space_opt: &Option<&LambdaSpace>,
-        indent: &usize,
-        call_parameters: &mut FunctionCallParameters,
-        param_name: &str,
-        val_name: &str,
-        error_msg: &str,
-        stack_vals: &StackVals,
-        ast_index: &ASTIndex,
-        statics: &Statics,
-    ) {
-        if let Some(val_kind) = context.get(val_name) {
-            match val_kind {
-                TypedValKind::ParameterRef(index, _par) => {
-                    call_parameters.add_parameter_ref(
-                        param_name.into(),
-                        val_name,
-                        *index,
-                        lambda_space_opt,
-                        *indent,
-                        stack_vals,
-                    );
-                }
+        id: &mut usize,
+        statics: &mut Statics,
+    ) -> HashMap<String, (String, String)> {
+        let mut result = HashMap::new();
 
-                TypedValKind::LetRef(_index, _ast_typed_type) => {
-                    let index_in_context = stack_vals.find_local_val_relative_to_bp(val_name);
+        for function_def in self.module.functions_by_name.values() {
+            // ValContext ???
+            if !function_def.inline {
+                let mut definitions = String::new();
+                let mut body = String::new();
 
-                    call_parameters.add_let_val_ref(
-                        param_name.into(),
-                        val_name,
-                        index_in_context,
-                        lambda_space_opt,
-                        *indent,
-                        stack_vals,
-                        ast_index,
-                    )
-                }
+                let lambda_calls = self.add_function_def(
+                    function_def,
+                    None,
+                    &TypedValContext::new(None),
+                    0,
+                    false,
+                    &mut definitions,
+                    id,
+                    statics,
+                    &mut body,
+                );
+                result.extend(self.create_lambdas(lambda_calls, 0, id, statics));
+
+                result.insert(function_def.name.clone(), (definitions, body));
             }
-        } else if let Some(entry) = statics.get_typed_const(val_name) {
-            call_parameters.add_label(
-                param_name,
-                entry.key.clone(),
-                Some(&format!("static {val_name}")),
-            )
-        } else {
-            panic!("Error adding val {}: {}", param_name, error_msg);
-        }
-    }
-
-    pub fn add_rows(out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
-        if let Some(_cm) = comment {
-            Self::add(out, "", comment, indent);
-        }
-        for row in code {
-            Self::add(out, row, None, indent);
-        }
-    }
-    pub fn add(out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
-        if code.is_empty() {
-            out.push('\n');
-        } else {
-            let max = 80;
-            let s = format!("{:width$}", code, width = max);
-            //assert_eq!(s.len(), max, "{}", s);
-            if indent {
-                out.push_str("    ");
-            }
-            out.push_str(&s);
         }
 
-        if let Some(c) = comment {
-            if code.is_empty() {
-                out.push_str("    ");
-            }
-            out.push_str("; ");
-            out.push_str(c);
-        }
-        out.push('\n');
+        result
     }
 
-    pub fn insert_on_top(src: &str, dest: &mut String) {
-        for line in src.lines().rev() {
-            dest.insert_str(0, &(line.to_string() + "\n"));
-        }
-    }
+    fn translate_body(&self, body: &str, statics: &mut Statics) -> Result<String, String> {
+        let val_context = ValContext::new(None);
 
-    pub fn get_reference_type_name(
-        ast_type: &ASTTypedType,
-        type_def_provider: &dyn TypeDefProvider,
-    ) -> Option<String> {
-        match ast_type {
-            ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
-            ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
-            ASTTypedType::Enum { name } => Some(name.clone()),
-            ASTTypedType::Struct { name } => Some(name.clone()),
-            ASTTypedType::Type { name } => {
-                if let Some(t) = type_def_provider.get_type_def_by_name(name) {
-                    if t.is_ref {
-                        Some(name.clone())
-                    } else {
-                        None
+        let evaluator = self.backend.get_evaluator();
+
+        let new_body = evaluator.translate(
+            self.backend(),
+            statics,
+            None,
+            None,
+            body,
+            self.options.dereference,
+            true,
+            &self.module,
+        )?;
+
+        let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+
+        self.backend
+            .called_functions(None, None, &new_body, &val_context, &self.module, statics)?
+            .iter()
+            .for_each(|(m, it)| {
+                debug_i!("native call to {:?}, in main", it);
+                if let Some(new_function_def) = self.module.functions_by_name.get(&it.name) {
+                    debug_i!("converted to {new_function_def}");
+                    if it.name != new_function_def.name {
+                        lines[it.i] = get_new_native_call(m, &new_function_def.name);
                     }
                 } else {
-                    panic!("Cannot find type {name}");
+                    // panic!("cannot find call {function_call}");
+                    // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
+                    println!("cannot find call to {}", it.name);
                 }
-            }
-            _ => None,
-        }
-    }
+            });
 
-    pub fn can_optimize_lambda_space(
-        lambda_return_type: &ASTTypedType,
-        type_def_provider: &dyn TypeDefProvider,
-    ) -> bool {
-        let mut already_checked = HashSet::new();
-        Self::can_optimize_lambda_space_(
-            lambda_return_type,
-            type_def_provider,
-            &mut already_checked,
+        evaluator.translate(
+            self.backend(),
+            statics,
+            None,
+            None,
+            &lines.join("\n"),
+            self.options.dereference,
+            false,
+            &self.module,
         )
     }
 
-    fn can_optimize_lambda_space_(
-        lambda_return_type: &ASTTypedType,
-        type_def_provider: &dyn TypeDefProvider,
-        already_checked: &mut HashSet<String>,
-    ) -> bool {
-        match lambda_return_type {
-            ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
-            ASTTypedType::Enum { name } => {
-                if already_checked.contains(name) {
-                    return true;
-                }
+    fn get_used_functions(
+        &self,
+        functions_asm: &HashMap<String, (String, String)>,
+        asm: &String,
+    ) -> Vec<(String, (String, String))> {
+        let result = if self.options.optimize_unused_functions {
+            let mut used_functions = UsedFunctions::find(&self.module, self.backend.deref());
+            // those are probably lambdas
+            used_functions.extend(
+                functions_asm
+                    .keys()
+                    .filter(|it| !self.module.functions_by_name.contains_key(*it))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
 
-                already_checked.insert(name.to_owned());
+            used_functions.extend(UsedFunctions::get_used_functions(&asm));
 
-                if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
-                    e.variants
-                        .iter()
-                        .flat_map(|it| it.parameters.iter())
-                        .all(|it| {
-                            Self::can_optimize_lambda_space_(
-                                &it.ast_type,
-                                type_def_provider,
-                                already_checked,
-                            )
-                        })
-                } else {
-                    panic!();
-                }
+            let mut used_functions_in_defs = HashSet::new();
+
+            for (_name, (defs, _bd)) in functions_asm
+                .iter()
+                .filter(|(it, (_, _))| used_functions.contains(*it))
+            {
+                used_functions_in_defs.extend(UsedFunctions::get_used_functions(defs));
             }
-            ASTTypedType::Struct { name } => {
-                if already_checked.contains(name) {
-                    return true;
-                }
 
-                already_checked.insert(name.to_owned());
-                if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
-                    s.properties.iter().all(|it| {
-                        Self::can_optimize_lambda_space_(
-                            &it.ast_type,
-                            type_def_provider,
-                            already_checked,
-                        )
-                    })
-                } else {
-                    panic!()
-                }
-            }
-            _ => true,
-        }
+            used_functions.extend(used_functions_in_defs);
+
+            functions_asm
+                .iter()
+                .filter(|(it, (_, _))| {
+                    let valid = used_functions.contains(*it);
+                    if !valid {
+                        debug!("unused function {it}");
+                    }
+                    valid
+                })
+                .collect::<Vec<_>>()
+        } else {
+            functions_asm.iter().collect::<Vec<_>>()
+        };
+        result
+            .iter()
+            .map(|(a1, (a2, a3))| (a1.clone().clone(), (a2.clone(), a3.clone())))
+            .collect::<Vec<_>>()
     }
 
-    pub fn add_empty_line(out: &mut String) {
-        out.push('\n');
+    fn print_memory_info(&self, asm: &mut String) {
+        self.backend.call_function_simple(asm, "printAllocated_0");
+        self.backend
+            .call_function_simple(asm, "printTableSlotsAllocated_0");
     }
 
-    fn functions(&self) -> &LinkedHashMap<String, ASTTypedFunctionDef> {
-        &self.module.functions_by_name
+    fn initialize_static_values(&self, generated_code: &mut String) {
+        let ws = self.backend.word_size();
+        self.backend().add(
+            generated_code,
+            &format!("mov     {ws} eax, _heap_buffer"),
+            None,
+            true,
+        );
+        self.backend().add(
+            generated_code,
+            &format!("mov     {ws} [_heap], eax"),
+            None,
+            true,
+        );
+
+        self.backend().add(
+            generated_code,
+            &format!("mov     {ws} eax, _heap_table"),
+            None,
+            true,
+        );
+        self.backend().add(
+            generated_code,
+            &format!("mov     {ws} [_heap_table_next],eax"),
+            None,
+            true,
+        );
+
+        self.backend().add(
+            generated_code,
+            &format!("mov     {ws} eax, _lambda_space_stack_buffer"),
+            None,
+            true,
+        );
+        self.backend().add(
+            generated_code,
+            &format!("mov     {ws} [_lambda_space_stack], eax"),
+            None,
+            true,
+        );
+
+        self.backend().add(
+            generated_code,
+            &format!("mov    {ws} eax, _reusable_heap_table"),
+            None,
+            true,
+        );
+        self.backend().add(
+            generated_code,
+            &format!("mov    {ws} [_reusable_heap_table_next],eax"),
+            None,
+            true,
+        );
     }
 }

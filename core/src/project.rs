@@ -31,8 +31,8 @@ use toml::{Table, Value};
 use walkdir::WalkDir;
 
 use crate::codegen::backend::Backend;
+use crate::codegen::get_std_lib_path;
 use crate::codegen::statics::Statics;
-use crate::codegen::CodeGen;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
@@ -582,10 +582,7 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
     let name = src_path.file_name().unwrap().to_string_lossy().to_string();
     let mut dependencies_map = Map::new();
     let mut stdlib = Map::new();
-    stdlib.insert(
-        "path".to_owned(),
-        Value::String(CodeGen::get_std_lib_path()),
-    );
+    stdlib.insert("path".to_owned(), Value::String(get_std_lib_path()));
     dependencies_map.insert("stdlib".to_owned(), Value::Table(stdlib));
 
     RasmConfig {

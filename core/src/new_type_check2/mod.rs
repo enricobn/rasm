@@ -772,6 +772,7 @@ impl TypeCheck {
                         asm_body,
                         &val_context,
                         &type_def_provider,
+                        statics,
                     )
                     .map_err(|it| {
                         TypeCheckError::new(

@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::backend::Backend;
+use crate::codegen::backend::BackendAsm;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::traverse_typed_ast::TraverseTypedAST;
 use crate::type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
@@ -29,19 +29,19 @@ lazy_static! {
 }
 
 pub struct UsedFunctions<'a> {
-    backend: &'a dyn Backend,
+    backend: &'a dyn BackendAsm,
     functions: HashSet<String>,
 }
 
 impl<'a> UsedFunctions<'a> {
-    fn new(backend: &'a dyn Backend) -> Self {
+    fn new(backend: &'a dyn BackendAsm) -> Self {
         Self {
             backend,
             functions: HashSet::new(),
         }
     }
 
-    pub fn find(module: &'a ASTTypedModule, backend: &'a dyn Backend) -> HashSet<String> {
+    pub fn find(module: &'a ASTTypedModule, backend: &'a dyn BackendAsm) -> HashSet<String> {
         let mut used_functions = Self::new(backend);
 
         used_functions.traverse(module);
@@ -55,11 +55,11 @@ impl<'a> TraverseTypedAST for UsedFunctions<'a> {
         self.functions.insert(call.function_name.clone());
     }
 
-    fn found_let(&mut self, name: &str, is_const: bool, index: &ASTIndex) {}
+    fn found_let(&mut self, _name: &str, _is_const: bool, _index: &ASTIndex) {}
 
-    fn found_function_def(&mut self, function: &ASTTypedFunctionDef) {}
+    fn found_function_def(&mut self, _function: &ASTTypedFunctionDef) {}
 
-    fn found_asm(&mut self, module: &ASTTypedModule, function: &ASTTypedFunctionDef, asm: &str) {
+    fn found_asm(&mut self, _module: &ASTTypedModule, _function: &ASTTypedFunctionDef, asm: &str) {
         let used_functions = Self::get_used_functions(asm);
 
         self.functions.extend(used_functions);

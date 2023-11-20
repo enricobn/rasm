@@ -1,3 +1,4 @@
+use impl_tools::autoimpl;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -12,17 +13,22 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
-use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
+use crate::codegen::text_macro::{
+    AddRefMacro, CCallTextMacroEvaluator, CallTextMacroEvaluator, MacroParam, PrintRefMacro,
+    TextMacro, TextMacroEval, TextMacroEvaluator,
+};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
-use crate::codegen::{CodeGen, TypedValKind, ValKind};
+use crate::codegen::{get_reference_type_name, TypedValKind, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{
     ASTFunctionDef, ASTIndex, ASTModule, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::transformations::typed_enum_functions_creator::enum_has_references;
-use crate::transformations::typed_struct_functions_creator::struct_has_references;
-use crate::transformations::typed_type_functions_creator::type_has_references;
+use crate::transformations::enum_functions_creator::{FunctionsCreator, FunctionsCreatorAsm};
+use crate::transformations::typed_functions_creator::{
+    enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
+    TypedFunctionsCreatorAsm,
+};
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
     BuiltinTypedTypeKind, DefaultFunctionCall,
@@ -30,6 +36,7 @@ use crate::type_check::typed_ast::{
 
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
+#[autoimpl(for<T: trait + ?Sized> Box<T>)]
 pub trait Backend: Send + Sync {
     fn address_from_base_pointer(&self, index: i8) -> String;
 
@@ -39,10 +46,6 @@ pub trait Backend: Send + Sync {
 
     fn word_len(&self) -> usize;
 
-    fn stack_base_pointer(&self) -> String;
-
-    fn stack_pointer(&self) -> String;
-
     fn compile_and_link(&self, source_file: &PathBuf);
 
     fn compile(&self, source_file: &PathBuf);
@@ -50,10 +53,6 @@ pub trait Backend: Send + Sync {
     fn link(&self, path: &Path);
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
-
-    fn pointer_size(&self) -> String;
-
-    fn word_size(&self) -> String;
 
     fn preamble(&self, code: &mut String);
 
@@ -71,6 +70,7 @@ pub trait Backend: Send + Sync {
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String>;
 
     fn remove_comments_from_line(&self, line: String) -> String;
@@ -171,15 +171,6 @@ pub trait Backend: Send + Sync {
         )
     }
 
-    fn indirect_mov(
-        &self,
-        out: &mut String,
-        source: &str,
-        dest: &str,
-        temporary_register: &str,
-        comment: Option<&str>,
-    );
-
     fn tmp_registers(&self) -> Vec<String>;
 
     fn allocate_lambda_space(
@@ -212,13 +203,48 @@ pub trait Backend: Send + Sync {
     );
 
     fn add_module(&mut self, module: &ASTModule);
+
+    fn get_evaluator(&self) -> TextMacroEvaluator;
+
+    fn define_debug(&self, out: &mut String);
+    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool);
+
+    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool);
+
+    fn add_empty_line(&self, out: &mut String);
+
+    fn typed_functions_creator(&self) -> Box<dyn TypedFunctionsCreator + '_>;
+
+    fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_>;
 }
 
+#[autoimpl(for<T: trait + ?Sized> Box<T>)]
+pub trait BackendAsm: Backend + Send + Sync {
+    fn stack_base_pointer(&self) -> String;
+
+    fn stack_pointer(&self) -> String;
+
+    fn pointer_size(&self) -> String;
+
+    fn word_size(&self) -> String;
+
+    fn indirect_mov(
+        &self,
+        out: &mut String,
+        source: &str,
+        dest: &str,
+        temporary_register: &str,
+        comment: Option<&str>,
+    );
+}
+
+#[derive(Clone)]
 enum Linker {
     Ld,
     Gcc,
 }
 
+#[derive(Clone)]
 pub struct BackendNasm386 {
     requires: HashSet<String>,
     externals: HashSet<String>,
@@ -285,14 +311,13 @@ impl BackendNasm386 {
                     TypedValKind::ParameterRef(_, def) => &def.ast_type,
                     TypedValKind::LetRef(_, typed_type) => typed_type,
                 };
-                if let Some(type_name) =
-                    CodeGen::get_reference_type_name(ast_typed_type, type_def_provider)
+                if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
                 {
                     if !initialized {
-                        CodeGen::add(&mut body, "push   ebx", None, true);
-                        CodeGen::add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
-                        CodeGen::add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
-                        CodeGen::add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
+                        self.add(&mut body, "push   ebx", None, true);
+                        self.add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
+                        self.add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
+                        self.add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
                         initialized = true;
                     }
                     if is_deref {
@@ -315,7 +340,7 @@ impl BackendNasm386 {
                     }
                 }
             }
-            CodeGen::add(&mut body, "pop   ebx", None, true);
+            self.add(&mut body, "pop   ebx", None, true);
         }
 
         if !initialized {
@@ -363,14 +388,6 @@ impl Backend for BackendNasm386 {
 
     fn word_len(&self) -> usize {
         4
-    }
-
-    fn stack_base_pointer(&self) -> String {
-        "ebp".to_string()
-    }
-
-    fn stack_pointer(&self) -> String {
-        "esp".to_string()
     }
 
     fn compile_and_link(&self, source_file: &PathBuf) {
@@ -471,26 +488,18 @@ impl Backend for BackendNasm386 {
         }
     }
 
-    fn pointer_size(&self) -> String {
-        "dword".into()
-    }
-
-    fn word_size(&self) -> String {
-        "dword".into()
-    }
-
     fn preamble(&self, code: &mut String) {
-        CodeGen::add(code, "%macro gotoOnSome 1", None, false);
-        CodeGen::add(code, "cmp dword eax,[_enum_Option_None]", None, true);
-        CodeGen::add(code, "jne %1", None, true);
-        CodeGen::add(code, "%endmacro", None, false);
+        self.add(code, "%macro gotoOnSome 1", None, false);
+        self.add(code, "cmp dword eax,[_enum_Option_None]", None, true);
+        self.add(code, "jne %1", None, true);
+        self.add(code, "%endmacro", None, false);
         if self.libc {
-            CodeGen::add(code, "%DEFINE LIBC 1", None, false);
-            CodeGen::add(code, "extern exit", None, true);
+            self.add(code, "%DEFINE LIBC 1", None, false);
+            self.add(code, "extern exit", None, true);
         }
 
         for e in self.externals.iter() {
-            CodeGen::add(code, &format!("extern {e}"), None, true);
+            self.add(code, &format!("extern {e}"), None, true);
         }
     }
 
@@ -508,11 +517,12 @@ impl Backend for BackendNasm386 {
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
+        _statics: &mut Statics,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
         let mut result = Vec::new();
 
         // TODO I don't like to create it
-        let evaluator = TextMacroEvaluator::new();
+        let evaluator = self.get_evaluator();
 
         for (m, i) in evaluator.get_macros(
             self,
@@ -621,7 +631,7 @@ impl Backend for BackendNasm386 {
         let ws = self.word_size();
         let bp = self.stack_base_pointer();
 
-        CodeGen::add(
+        self.add(
             code,
             &format!("mov {ws} [{bp} + {}], eax", address_relative_to_bp),
             Some(""),
@@ -650,7 +660,7 @@ impl Backend for BackendNasm386 {
 
         let key = statics.add_str(descr);
 
-        CodeGen::add(out, "", Some(&("add ref ".to_owned() + descr)), true);
+        self.add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
@@ -666,28 +676,28 @@ impl Backend for BackendNasm386 {
             };
 
         if "_fn" == type_name {
-            CodeGen::add(out, &format!("push     {ws} eax"), None, true);
+            self.add(out, &format!("push     {ws} eax"), None, true);
             // tmp value to store the source since it can be eax...
-            CodeGen::add(out, &format!("push     {ws} 0"), None, true);
-            CodeGen::add(out, &format!("mov      {ws} eax,{source}"), None, true);
-            CodeGen::add(
+            self.add(out, &format!("push     {ws} 0"), None, true);
+            self.add(out, &format!("mov      {ws} eax,{source}"), None, true);
+            self.add(
                 out,
                 &format!("mov      {ws} [{}],eax", self.stack_pointer()),
                 None,
                 true,
             );
-            CodeGen::add(out, &format!("mov      {ws} eax,[eax]"), None, true);
-            CodeGen::add(out, &format!("push     {ws} [{key}]"), None, true);
-            CodeGen::add(
+            self.add(out, &format!("mov      {ws} eax,[eax]"), None, true);
+            self.add(out, &format!("push     {ws} [{key}]"), None, true);
+            self.add(
                 out,
                 &format!("push     {ws} [{} + {wl}]", self.stack_pointer()),
                 None,
                 true,
             );
-            CodeGen::add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
+            self.add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
             // wl * 3 because we get reed even of the temp value in the stack
-            CodeGen::add(out, &format!("add      esp,{}", 3 * wl), None, true);
-            CodeGen::add(out, &format!("pop      {ws} eax"), None, true);
+            self.add(out, &format!("add      esp,{}", 3 * wl), None, true);
+            self.add(out, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {
                 "call     str_addRef_0".to_string()
@@ -695,19 +705,19 @@ impl Backend for BackendNasm386 {
                 format!("call     {type_name}_addRef")
             };
             if is_type {
-                CodeGen::add(out, &format!("push     {ws} [{key}]"), None, true);
+                self.add(out, &format!("push     {ws} [{key}]"), None, true);
             }
-            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(out, &call, None, true);
-            CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+            self.add(out, &format!("push     {ws} {source}"), None, true);
+            self.add(out, &call, None, true);
+            self.add(out, &format!("add      esp,{}", wl), None, true);
             if is_type {
-                CodeGen::add(out, &format!("add      esp,{}", wl), None, true);
+                self.add(out, &format!("add      esp,{}", wl), None, true);
             }
         } else {
-            CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
-            CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(out, "call     addRef_0", None, true);
-            CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+            self.add(out, &format!("push  {ws} [{key}]"), None, true);
+            self.add(out, &format!("push     {ws} {source}"), None, true);
+            self.add(out, "call     addRef_0", None, true);
+            self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
     }
 
@@ -730,12 +740,12 @@ impl Backend for BackendNasm386 {
 
         let key = statics.add_str(descr);
 
-        CodeGen::add(out, "", Some(&("add ref simple ".to_owned() + descr)), true);
+        self.add(out, "", Some(&("add ref simple ".to_owned() + descr)), true);
 
-        CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
-        CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(out, "call     addRef_0", None, true);
-        CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+        self.add(out, &format!("push  {ws} [{key}]"), None, true);
+        self.add(out, &format!("push     {ws} {source}"), None, true);
+        self.add(out, "call     addRef_0", None, true);
+        self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
     fn call_deref(
@@ -768,41 +778,41 @@ impl Backend for BackendNasm386 {
 
         let key = statics.add_str(descr);
 
-        CodeGen::add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
+        self.add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
 
         if "_fn" == type_name {
-            CodeGen::add(&mut result, &format!("push     {ws} eax"), None, true);
+            self.add(&mut result, &format!("push     {ws} eax"), None, true);
             // tmp value to store the source since it can be eax...
-            CodeGen::add(&mut result, &format!("push     {ws} 0"), None, true);
-            CodeGen::add(
+            self.add(&mut result, &format!("push     {ws} 0"), None, true);
+            self.add(
                 &mut result,
                 &format!("mov      {ws} eax,{source}"),
                 None,
                 true,
             );
-            CodeGen::add(
+            self.add(
                 &mut result,
                 &format!("mov      {ws} [{}],eax", self.stack_pointer()),
                 None,
                 true,
             );
-            CodeGen::add(&mut result, &format!("mov      {ws} eax,[eax]"), None, true);
-            CodeGen::add(&mut result, &format!("push     {ws} [{key}]"), None, true);
-            CodeGen::add(
+            self.add(&mut result, &format!("mov      {ws} eax,[eax]"), None, true);
+            self.add(&mut result, &format!("push     {ws} [{key}]"), None, true);
+            self.add(
                 &mut result,
                 &format!("push     {ws} [{} + {wl}]", self.stack_pointer()),
                 None,
                 true,
             );
-            CodeGen::add(
+            self.add(
                 &mut result,
                 &format!("call     {ws} [eax + 2 * {wl}]"),
                 None,
                 true,
             );
             // wl * 3 because we get reed even of the temp value in the stack
-            CodeGen::add(&mut result, &format!("add      esp,{}", wl * 3), None, true);
-            CodeGen::add(&mut result, &format!("pop      {ws} eax"), None, true);
+            self.add(&mut result, &format!("add      esp,{}", wl * 3), None, true);
+            self.add(&mut result, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {
                 "call     str_deref_0".to_string()
@@ -810,19 +820,19 @@ impl Backend for BackendNasm386 {
                 format!("call     {type_name}_deref")
             };
             if is_type {
-                CodeGen::add(&mut result, &format!("push     {ws} [{key}]"), None, true);
+                self.add(&mut result, &format!("push     {ws} [{key}]"), None, true);
             }
-            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(&mut result, &call, None, true);
-            CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+            self.add(&mut result, &format!("push     {ws} {source}"), None, true);
+            self.add(&mut result, &call, None, true);
+            self.add(&mut result, &format!("add      esp,{}", wl), None, true);
             if is_type {
-                CodeGen::add(&mut result, &format!("add      esp,{}", wl), None, true);
+                self.add(&mut result, &format!("add      esp,{}", wl), None, true);
             }
         } else {
-            CodeGen::add(&mut result, &format!("push  {ws} [{key}]"), None, true);
-            CodeGen::add(&mut result, &format!("push     {ws} {source}"), None, true);
-            CodeGen::add(&mut result, "call     deref_0", None, true);
-            CodeGen::add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
+            self.add(&mut result, &format!("push  {ws} [{key}]"), None, true);
+            self.add(&mut result, &format!("push     {ws} {source}"), None, true);
+            self.add(&mut result, "call     deref_0", None, true);
+            self.add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
         result.push('\n');
@@ -843,19 +853,19 @@ impl Backend for BackendNasm386 {
 
         let key = statics.add_str(descr);
 
-        CodeGen::add(out, "", Some(&("deref ".to_owned() + descr)), true);
-        CodeGen::add(out, &format!("push  {ws} [{key}]"), None, true);
-        CodeGen::add(out, &format!("push     {ws} {source}"), None, true);
-        CodeGen::add(out, "call     deref_0", None, true);
-        CodeGen::add(out, &format!("add      esp,{}", 2 * wl), None, true);
+        self.add(out, "", Some(&("deref ".to_owned() + descr)), true);
+        self.add(out, &format!("push  {ws} [{key}]"), None, true);
+        self.add(out, &format!("push     {ws} {source}"), None, true);
+        self.add(out, "call     deref_0", None, true);
+        self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
     fn function_preamble(&self, out: &mut String) {
         let sp = self.stack_pointer();
         let bp = self.stack_base_pointer();
 
-        CodeGen::add(out, &format!("push    {}", bp), None, true);
-        CodeGen::add(out, &format!("mov     {},{}", bp, sp), None, true);
+        self.add(out, &format!("push    {}", bp), None, true);
+        self.add(out, &format!("mov     {},{}", bp, sp), None, true);
     }
 
     fn restore(&self, stack: &StackVals, out: &mut String) {
@@ -866,7 +876,7 @@ impl Backend for BackendNasm386 {
                     local_vals_words += 1;
                 }
                 StackEntryType::TmpRegister(ref register) => {
-                    CodeGen::add(
+                    self.add(
                         out,
                         &format!("pop {register}"),
                         Some(&format!("restoring {}", entry.desc)),
@@ -874,8 +884,8 @@ impl Backend for BackendNasm386 {
                     );
                 }
                 StackEntryType::ReturnRegister => {
-                    CodeGen::add_empty_line(out);
-                    CodeGen::add(out, "pop eax", Some("restoring return register"), true);
+                    self.add_empty_line(out);
+                    self.add(out, "pop eax", Some("restoring return register"), true);
                 }
                 StackEntryType::LocalFakeAllocation(size) => {
                     local_vals_words += size;
@@ -885,7 +895,7 @@ impl Backend for BackendNasm386 {
 
         if local_vals_words > 0 {
             let sp = self.stack_pointer();
-            CodeGen::add(
+            self.add(
                 out,
                 &format!("add   {sp}, {}", local_vals_words * self.word_len()),
                 Some("restore stack local vals (let)"),
@@ -898,7 +908,7 @@ impl Backend for BackendNasm386 {
     fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {
         if stack.len_of_local_vals() > 0 {
             let sp = self.stack_pointer();
-            CodeGen::add(
+            self.add(
                 out,
                 &format!(
                     "sub   {sp}, {}",
@@ -908,15 +918,15 @@ impl Backend for BackendNasm386 {
                 true,
             );
         } else {
-            CodeGen::add(out, "", Some("NO local vals"), true);
+            self.add(out, "", Some("NO local vals"), true);
         }
     }
 
     fn function_end(&self, out: &mut String, add_return: bool) {
         let bp = self.stack_base_pointer();
-        CodeGen::add(out, &format!("pop     {}", bp), None, true);
+        self.add(out, &format!("pop     {}", bp), None, true);
         if add_return {
-            CodeGen::add(out, "ret", None, true);
+            self.add(out, "ret", None, true);
         }
     }
 
@@ -1014,12 +1024,12 @@ impl Backend for BackendNasm386 {
 
                         def.push_str(&result);
 
-                        CodeGen::add(&mut data, &def, None, true);
+                        self.add(&mut data, &def, None, true);
                     }
                     MemoryValue::I32Value(i) => {
                         def.push_str("dd    ");
                         def.push_str(&format!("{}", i));
-                        CodeGen::add(&mut data, &def, None, true);
+                        self.add(&mut data, &def, None, true);
                     }
                     Mem(len, unit) => {
                         match unit {
@@ -1027,7 +1037,7 @@ impl Backend for BackendNasm386 {
                             MemoryUnit::Words => def.push_str("resd "),
                         }
                         def.push_str(&format!("{}", len));
-                        CodeGen::add(&mut bss, &def, None, true);
+                        self.add(&mut bss, &def, None, true);
                     }
                 }
             }
@@ -1035,19 +1045,19 @@ impl Backend for BackendNasm386 {
 
         for (_, (key, value_key)) in statics.strings_map().iter() {
             // TODO _0
-            CodeGen::add(
+            self.add(
                 &mut code,
                 &format!("$call(addStaticStringToHeap_0, {value_key})"),
                 None,
                 true,
             );
 
-            CodeGen::add(&mut code, &format!("mov dword [{key}], eax"), None, true);
+            self.add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
 
         for (label_allocation, label_memory) in statics.static_allocation().iter() {
             // TODO _0
-            CodeGen::add(
+            self.add(
                 &mut code,
                 &format!(
                     "$call(addStaticAllocation_0, {label_allocation}, {label_memory}, {})",
@@ -1060,7 +1070,7 @@ impl Backend for BackendNasm386 {
 
         for (label, (descr_label, value)) in statics.heap().iter() {
             // TODO _0
-            CodeGen::add(
+            self.add(
                 &mut code,
                 &format!("$call(addHeap_0, {label}, {descr_label}: str, {value})"),
                 None,
@@ -1074,13 +1084,13 @@ impl Backend for BackendNasm386 {
         declarations.push_str("SECTION .bss\n");
         declarations.push_str(&bss);
         declarations.push_str("SECTION .text\n");
-        CodeGen::add(&mut declarations, "global  main", None, true);
+        self.add(&mut declarations, "global  main", None, true);
         declarations.push_str("main:\n");
         (declarations, code)
     }
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        CodeGen::add(out, &format!("; {comment}"), None, indent);
+        self.add(out, &format!("; {comment}"), None, indent);
     }
 
     fn strip_ifdef(&self, code: &str, def: &str) -> String {
@@ -1110,7 +1120,7 @@ impl Backend for BackendNasm386 {
     }
 
     fn call_function_simple(&self, out: &mut String, function_name: &str) {
-        CodeGen::add(out, &format!("call    {}", function_name), None, true);
+        self.add(out, &format!("call    {}", function_name), None, true);
     }
 
     fn call_function(
@@ -1128,15 +1138,15 @@ impl Backend for BackendNasm386 {
             if let Some(c) = comment {
                 self.add_comment(out, c, true);
             }
-            CodeGen::add(
+            self.add(
                 out,
                 &format!("push {} {arg}", self.word_size()),
                 None, //*comment,
                 true,
             );
         }
-        CodeGen::add(out, &format!("call    {}", function_name), None, true);
-        CodeGen::add(
+        self.add(out, &format!("call    {}", function_name), None, true);
+        self.add(
             out,
             &format!(
                 "add  {}, {}",
@@ -1144,38 +1154,6 @@ impl Backend for BackendNasm386 {
                 self.word_len() * args.len()
             ),
             None,
-            true,
-        );
-    }
-
-    fn indirect_mov(
-        &self,
-        out: &mut String,
-        source: &str,
-        dest: &str,
-        temporary_register: &str,
-        comment: Option<&str>,
-    ) {
-        CodeGen::add(
-            out,
-            &format!(
-                "mov  {} {}, [{}]",
-                self.word_size(),
-                temporary_register,
-                source
-            ),
-            comment,
-            true,
-        );
-        CodeGen::add(
-            out,
-            &format!(
-                "mov  {} [{}], {}",
-                self.word_size(),
-                dest,
-                temporary_register
-            ),
-            comment,
             true,
         );
     }
@@ -1202,7 +1180,7 @@ impl Backend for BackendNasm386 {
             Some("lambda space allocation"),
         );
 
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov    dword {register_to_store_result},eax",),
             None,
@@ -1237,13 +1215,13 @@ impl Backend for BackendNasm386 {
             slots,
         );
 
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov dword {register_to_store_result},{sbp}"),
             None,
             true,
         );
-        CodeGen::add(
+        self.add(
             out,
             &format!(
                 "sub dword {register_to_store_result},{}",
@@ -1252,8 +1230,8 @@ impl Backend for BackendNasm386 {
             None,
             true,
         );
-        CodeGen::add(out, &format!("mov dword {tmp_register},{sbp}"), None, true);
-        CodeGen::add(
+        self.add(out, &format!("mov dword {tmp_register},{sbp}"), None, true);
+        self.add(
             out,
             &format!(
                 "sub dword {tmp_register},{}",
@@ -1263,19 +1241,19 @@ impl Backend for BackendNasm386 {
             true,
         );
 
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov     dword [{register_to_store_result}], {tmp_register}"),
             None,
             true,
         );
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov     dword [{register_to_store_result} + 4], 1"),
             None,
             true,
         );
-        CodeGen::add(
+        self.add(
             out,
             &format!(
                 "mov     dword [{register_to_store_result} + 8], {}",
@@ -1284,20 +1262,20 @@ impl Backend for BackendNasm386 {
             None,
             true,
         );
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov     dword [{register_to_store_result} + 12], 1"),
             None,
             true,
         );
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov     dword [{register_to_store_result} + 16], 0"),
             None,
             true,
         );
 
-        stack_vals.release_tmp_register(out, "tmp_register");
+        stack_vals.release_tmp_register(self, out, "tmp_register");
     }
 
     fn push_to_scope_stack(&self, out: &mut String, what: &str, stack_vals: &StackVals) -> usize {
@@ -1306,16 +1284,16 @@ impl Backend for BackendNasm386 {
             COUNT.fetch_add(1, Ordering::Relaxed)
         )) * self.word_len();
 
-        CodeGen::add(out, "; scope push", None, true);
+        self.add(out, "; scope push", None, true);
         if what.contains('[') {
-            CodeGen::add(out, "push    ebx", None, true);
-            CodeGen::add(
+            self.add(out, "push    ebx", None, true);
+            self.add(
                 out,
                 &format!("mov     {} ebx, {what}", self.word_size(),),
                 None,
                 true,
             );
-            CodeGen::add(
+            self.add(
                 out,
                 &format!(
                     "mov     {} [{} - {}], ebx",
@@ -1326,9 +1304,9 @@ impl Backend for BackendNasm386 {
                 None,
                 true,
             );
-            CodeGen::add(out, "pop    ebx", None, true);
+            self.add(out, "pop    ebx", None, true);
         } else {
-            CodeGen::add(
+            self.add(
                 out,
                 &format!(
                     "mov     {} [{} - {}], {what}",
@@ -1344,7 +1322,7 @@ impl Backend for BackendNasm386 {
     }
 
     fn set_return_value(&self, out: &mut String, what: &str) {
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov {} eax, {what}", self.word_size()),
             None,
@@ -1363,14 +1341,14 @@ impl Backend for BackendNasm386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        CodeGen::add(
+        self.add(
             out,
             &format!("mov {} [{lambda_space_address}], {}", ws, function_name),
             None,
             true,
         );
 
-        CodeGen::add(
+        self.add(
             out,
             &format!(
                 "mov {} [{lambda_space_address} + {wl}], {add_ref_function}",
@@ -1379,7 +1357,7 @@ impl Backend for BackendNasm386 {
             None,
             true,
         );
-        CodeGen::add(
+        self.add(
             out,
             &format!(
                 "mov {} [{lambda_space_address} + 2 * {wl}], {deref_function}",
@@ -1396,17 +1374,138 @@ impl Backend for BackendNasm386 {
         let externals = module.externals.clone();
         self.externals.extend(&mut externals.into_iter());
     }
+
+    fn get_evaluator(&self) -> TextMacroEvaluator {
+        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
+
+        let call_text_macro_evaluator = CallTextMacroEvaluator::new(Box::new(self.clone()));
+        evaluators.insert("call".into(), Box::new(call_text_macro_evaluator));
+
+        let c_call_text_macro_evaluator = CCallTextMacroEvaluator::new(Box::new(self.clone()));
+        evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
+        evaluators.insert(
+            "addRef".into(),
+            Box::new(AddRefMacro::new(Box::new(self.clone()), false)),
+        );
+        evaluators.insert(
+            "deref".into(),
+            Box::new(AddRefMacro::new(Box::new(self.clone()), true)),
+        );
+        let print_ref_macro = PrintRefMacro::new(Box::new(self.clone()));
+        evaluators.insert("printRef".into(), Box::new(print_ref_macro));
+
+        TextMacroEvaluator::new(evaluators)
+    }
+
+    fn define_debug(&self, out: &mut String) {
+        self.add(out, "%define LOG_DEBUG 1", None, false);
+    }
+
+    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
+        if let Some(_cm) = comment {
+            self.add(out, "", comment, indent);
+        }
+        for row in code {
+            self.add(out, row, None, indent);
+        }
+    }
+    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
+        if code.is_empty() {
+            out.push('\n');
+        } else {
+            let max = 80;
+            let s = format!("{:width$}", code, width = max);
+            //assert_eq!(s.len(), max, "{}", s);
+            if indent {
+                out.push_str("    ");
+            }
+            out.push_str(&s);
+        }
+
+        if let Some(c) = comment {
+            if code.is_empty() {
+                out.push_str("    ");
+            }
+            out.push_str("; ");
+            out.push_str(c);
+        }
+        out.push('\n');
+    }
+
+    fn add_empty_line(&self, out: &mut String) {
+        out.push('\n');
+    }
+
+    fn typed_functions_creator(&self) -> Box<dyn TypedFunctionsCreator + '_> {
+        Box::new(TypedFunctionsCreatorAsm::new(Box::new(self)))
+    }
+
+    fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_> {
+        Box::new(FunctionsCreatorAsm::new(Box::new(self)))
+    }
+}
+
+impl BackendAsm for BackendNasm386 {
+    fn stack_base_pointer(&self) -> String {
+        "ebp".to_string()
+    }
+
+    fn stack_pointer(&self) -> String {
+        "esp".to_string()
+    }
+
+    fn pointer_size(&self) -> String {
+        "dword".into()
+    }
+
+    fn word_size(&self) -> String {
+        "dword".into()
+    }
+
+    fn indirect_mov(
+        &self,
+        out: &mut String,
+        source: &str,
+        dest: &str,
+        temporary_register: &str,
+        comment: Option<&str>,
+    ) {
+        self.add(
+            out,
+            &format!(
+                "mov  {} {}, [{}]",
+                self.word_size(),
+                temporary_register,
+                source
+            ),
+            comment,
+            true,
+        );
+        self.add(
+            out,
+            &format!(
+                "mov  {} [{}], {}",
+                self.word_size(),
+                dest,
+                temporary_register
+            ),
+            comment,
+            true,
+        );
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::codegen::backend::{Backend, BackendNasm386};
+    use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
 
     #[test]
     fn called_functions() {
         let sut = BackendNasm386::new(false);
+        let mut statics = Statics::new();
 
         assert_eq!(
             sut.called_functions(
@@ -1415,6 +1514,7 @@ mod tests {
                 "$call(something)",
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
+                &mut statics
             )
             .unwrap()
             .get(0)
@@ -1428,6 +1528,7 @@ mod tests {
     #[test]
     fn called_functions_in_comment() {
         let sut = BackendNasm386::new(false);
+        let mut statics = Statics::new();
 
         assert!(sut
             .called_functions(
@@ -1436,6 +1537,7 @@ mod tests {
                 "mov    eax, 1; $call(something)",
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
+                &mut statics
             )
             .unwrap()
             .is_empty());
@@ -1444,6 +1546,7 @@ mod tests {
     #[test]
     fn called_functions_external() {
         let mut sut = BackendNasm386::new(false);
+        let mut statics = Statics::new();
         sut.externals.insert("something".into());
 
         assert!(sut
@@ -1453,6 +1556,7 @@ mod tests {
                 "call something",
                 &ValContext::new(None),
                 &DummyTypeDefProvider::new(),
+                &mut statics
             )
             .unwrap()
             .is_empty());
