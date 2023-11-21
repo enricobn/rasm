@@ -1012,7 +1012,7 @@ pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParame
         let stack = StackVals::new();
 
         if function_def.return_type.is_unit() {
-            stack.reserve_return_register(self.backend().deref(), &mut before);
+            stack.reserve_return_register(self.backend(), &mut before);
         }
 
         /* TODO HENRY
@@ -1560,15 +1560,15 @@ impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGe
         added_to_stack
     }
 
-    fn function_call_parameters<'a, 'b, 'c>(
+    fn function_call_parameters<'a, 'b>(
         &'a self,
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack_vals: &'c StackVals,
+        stack_vals: &'a StackVals,
         id: usize,
     ) -> Box<dyn FunctionCallParametersAsm> {
-        let asm386 = FunctionCallParametersAsm386::new(
+        let asm386: FunctionCallParametersAsm386<'a> = FunctionCallParametersAsm386::new(
             self.backend.deref(),
             parameters.clone(),
             inline,

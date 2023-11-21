@@ -1,6 +1,6 @@
-use impl_tools::autoimpl;
+use auto_impl::auto_impl;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -36,7 +36,7 @@ use crate::type_check::typed_ast::{
 
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[autoimpl(for<T: trait + ?Sized> Box<T>)]
+#[auto_impl(Box)]
 pub trait Backend: Send + Sync {
     fn address_from_base_pointer(&self, index: i8) -> String;
 
@@ -46,9 +46,9 @@ pub trait Backend: Send + Sync {
 
     fn word_len(&self) -> usize;
 
-    fn compile_and_link(&self, source_file: &PathBuf);
+    fn compile_and_link(&self, source_file: &Path);
 
-    fn compile(&self, source_file: &PathBuf);
+    fn compile(&self, source_file: &Path);
 
     fn link(&self, path: &Path);
 
@@ -217,8 +217,35 @@ pub trait Backend: Send + Sync {
 
     fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_>;
 }
+/*
+trait CloneBackendAsm {
+    fn clone_boxed_backend_asm(&self) -> Box<dyn BackendAsm>;
+}
 
-#[autoimpl(for<T: trait + ?Sized> Box<T>)]
+impl<T> CloneBackendAsm for T
+where
+    T: BackendAsm + Clone + 'static + ?Sized,
+{
+    fn clone_boxed_backend_asm(&self) -> Box<dyn BackendAsm> {
+        println!(
+            "clone_boxed_backend_asm {:p}, {:?}",
+            self,
+            std::any::TypeId::of::<Self>()
+        );
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn BackendAsm> {
+    fn clone(&self) -> Self {
+        println!("clone {:p}, {:?}", self, std::any::TypeId::of::<Self>());
+        self.clone_boxed_backend_asm()
+    }
+}
+
+ */
+
+#[auto_impl(Box)]
 pub trait BackendAsm: Backend + Send + Sync {
     fn stack_base_pointer(&self) -> String;
 
@@ -390,14 +417,13 @@ impl Backend for BackendNasm386 {
         4
     }
 
-    fn compile_and_link(&self, source_file: &PathBuf) {
+    fn compile_and_link(&self, source_file: &Path) {
         self.compile(source_file);
 
-        let path = Path::new(&source_file);
-        self.link(path);
+        self.link(source_file);
     }
 
-    fn compile(&self, source_file: &PathBuf) {
+    fn compile(&self, source_file: &Path) {
         let start = Instant::now();
         info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");

@@ -456,6 +456,7 @@ fn test_showimage() {
     compile_example("resources/examples/showimage.rasm", true);
 }
 
+#[test]
 fn test_bouncing_quads() {
     compile_example("resources/examples/bouncing_quads.rasm", true);
 }

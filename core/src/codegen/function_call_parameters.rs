@@ -1,4 +1,4 @@
-use impl_tools::autoimpl;
+use auto_impl::auto_impl;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
@@ -14,7 +14,7 @@ use crate::type_check::typed_ast::{
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
 
-#[autoimpl(for<T: trait + ?Sized> Box<T>)]
+#[auto_impl(Box)]
 pub trait FunctionCallParameters {
     fn add_label(&mut self, param_name: &str, label: String, comment: Option<&str>);
 
@@ -77,7 +77,7 @@ pub trait FunctionCallParameters {
     ) -> String;
 }
 
-#[autoimpl(for<T: trait + ?Sized> Box<T>)]
+#[auto_impl(Box)]
 pub trait FunctionCallParametersAsm: FunctionCallParameters {
     fn body_references_to_context(
         &self,
