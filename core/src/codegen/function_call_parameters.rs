@@ -227,7 +227,7 @@ pub struct FunctionCallParametersAsm386<'a> {
     immediate: bool,
     has_inline_lambda_param: bool,
     //lambda_slots_to_deallocate: usize,
-    stack_vals: &'a StackVals,
+    stack_vals: StackVals,
     after: Vec<String>,
     dereference: bool,
     id: usize,
@@ -521,7 +521,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
             let pos = self.backend.push_to_scope_stack(
                 &mut self.before,
                 &lambda_space_address,
-                self.stack_vals,
+                &self.stack_vals,
             );
 
             let mut result = String::new();
@@ -750,7 +750,7 @@ impl<'a> FunctionCallParametersAsm386<'a> {
         parameters: Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack: &'a StackVals,
+        stack: StackVals,
         dereference: bool,
         id: usize,
     ) -> Self {
@@ -806,7 +806,7 @@ impl<'a> FunctionCallParametersAsm386<'a> {
                 .call_add_ref(&mut self.before, source, name, descr, module, statics);
             let pos = self
                 .backend
-                .push_to_scope_stack(&mut self.before, source, self.stack_vals);
+                .push_to_scope_stack(&mut self.before, source, &self.stack_vals);
 
             self.after.insert(
                 0,
