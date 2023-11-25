@@ -1573,7 +1573,7 @@ impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGe
             parameters.clone(),
             inline,
             immediate,
-            stack_vals,
+            stack_vals.clone(),
             self.options().dereference,
             id,
         );
