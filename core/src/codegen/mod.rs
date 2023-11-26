@@ -1418,7 +1418,7 @@ impl CodeGenAsm {
     }
 }
 
-impl<'a> CodeGen<'a, Box<dyn BackendAsm>, FunctionCallParametersAsm386<'a>> for CodeGenAsm {
+impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     fn backend(&self) -> &Box<dyn BackendAsm> {
         &self.backend
     }
@@ -1523,7 +1523,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, FunctionCallParametersAsm386<'a>> for 
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        call_parameters: &mut FunctionCallParametersAsm386,
+        call_parameters: &mut Box<dyn FunctionCallParametersAsm + 'a>,
     ) {
         if call_parameters.to_remove_from_stack() > 0 {
             let sp = self.backend.stack_pointer();
@@ -1552,7 +1552,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, FunctionCallParametersAsm386<'a>> for 
     fn added_to_stack_for_call_parameter(
         &self,
         added_to_stack: &String,
-        call_parameters: &FunctionCallParametersAsm386,
+        call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
     ) -> String {
         let mut added_to_stack = added_to_stack.clone();
         added_to_stack.push_str(" + ");
@@ -1567,7 +1567,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, FunctionCallParametersAsm386<'a>> for 
         immediate: bool,
         stack_vals: &'c StackVals,
         id: usize,
-    ) -> FunctionCallParametersAsm386<'a> {
+    ) -> Box<dyn FunctionCallParametersAsm + 'a> {
         let fcp = FunctionCallParametersAsm386::new(
             &self.backend,
             parameters.clone(),
@@ -1578,7 +1578,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, FunctionCallParametersAsm386<'a>> for 
             id,
         );
 
-        fcp
+        Box::new(fcp)
     }
 
     fn call_deref_for_let_val(
