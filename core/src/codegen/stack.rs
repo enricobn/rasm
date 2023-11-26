@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use crate::codegen::backend::{Backend, BackendAsm};
 
@@ -19,13 +20,13 @@ pub struct StackEntry {
 
 #[derive(Debug, Clone)]
 pub struct StackVals {
-    reserved_slots: RefCell<Vec<StackEntry>>,
+    reserved_slots: Rc<RefCell<Vec<StackEntry>>>,
 }
 
 impl StackVals {
     pub fn new() -> Self {
         Self {
-            reserved_slots: RefCell::new(Vec::new()),
+            reserved_slots: Rc::new(RefCell::new(Vec::new())),
         }
     }
 

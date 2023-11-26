@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::iter::zip;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
@@ -1015,24 +1015,9 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             stack.reserve_return_register(self.backend(), &mut before);
         }
 
-        /* TODO HENRY
         if is_lambda {
-            let register =
-                stack.reserve_tmp_register(&mut before, self.backend(), "lambda_space_address");
-
-            self.backend().add(
-                &mut before,
-                &format!(
-                    "mov     {register}, [{}+{}]",
-                    self.backend().stack_base_pointer(),
-                    self.backend().word_len() * 2
-                ),
-                Some("The address to the lambda space for inline lambda param"),
-                true,
-            );
+            self.reserve_lambda_space(&mut before, &stack);
         }
-
-         */
 
         let mut context = TypedValContext::new(Some(parent_context));
 
@@ -1253,6 +1238,8 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
         lambda_calls
     }
+
+    fn reserve_lambda_space(&'a self, before: &mut String, stack: &StackVals);
 
     fn value_as_return(&self, before: &mut String, v: &str);
 
@@ -1751,6 +1738,21 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 true,
             );
         }
+    }
+
+    fn reserve_lambda_space(&'a self, before: &mut String, stack: &StackVals) {
+        let register = stack.reserve_tmp_register(before, &self.backend, "lambda_space_address");
+
+        self.backend.add(
+            before,
+            &format!(
+                "mov     {register}, [{}+{}]",
+                self.backend.stack_base_pointer(),
+                self.backend.word_len() * 2
+            ),
+            Some("The address to the lambda space for inline lambda param"),
+            true,
+        );
     }
 
     fn value_as_return(&self, before: &mut String, v: &str) {
