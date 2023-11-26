@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::iter::zip;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
@@ -123,7 +123,7 @@ pub fn get_std_lib_path() -> String {
     env::var("RASM_STDLIB").unwrap_or(current_dir.join("stdlib").to_str().unwrap().to_owned())
 }
 
-pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
+pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn backend(&self) -> &BACKEND;
 
     fn options(&self) -> &CodeGenOptions;
@@ -316,7 +316,7 @@ pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParame
     );
 
     fn call_function_(
-        &self,
+        &'a self,
         function_call: &&ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: &Option<&ASTTypedFunctionDef>,
@@ -658,12 +658,12 @@ pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParame
         call_parameters: &FUNCTION_CALL_PARAMETERS,
     ) -> String;
 
-    fn function_call_parameters(
-        &self,
-        parameters: &Vec<ASTTypedParameterDef>,
+    fn function_call_parameters<'b, 'c>(
+        &'a self,
+        parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack_vals: &StackVals,
+        stack_vals: &'c StackVals,
         id: usize,
     ) -> FUNCTION_CALL_PARAMETERS;
 
@@ -930,7 +930,7 @@ pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParame
         context: &TypedValContext,
         lambda_space_opt: &Option<&LambdaSpace>,
         indent: &usize,
-        call_parameters: &mut dyn FunctionCallParameters,
+        call_parameters: &mut FUNCTION_CALL_PARAMETERS,
         param_name: &str,
         val_name: &str,
         error_msg: &str,
@@ -977,7 +977,7 @@ pub trait CodeGen<BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParame
     }
 
     fn add_function_def(
-        &self,
+        &'a self,
         function_def: &ASTTypedFunctionDef,
         lambda_space: Option<&LambdaSpace>,
         parent_context: &TypedValContext,
@@ -1418,7 +1418,7 @@ impl CodeGenAsm {
     }
 }
 
-impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGenAsm {
+impl<'a> CodeGen<'a, Box<dyn BackendAsm>, FunctionCallParametersAsm386<'a>> for CodeGenAsm {
     fn backend(&self) -> &Box<dyn BackendAsm> {
         &self.backend
     }
@@ -1523,7 +1523,7 @@ impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGe
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        call_parameters: &mut Box<dyn FunctionCallParametersAsm>,
+        call_parameters: &mut FunctionCallParametersAsm386,
     ) {
         if call_parameters.to_remove_from_stack() > 0 {
             let sp = self.backend.stack_pointer();
@@ -1552,7 +1552,7 @@ impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGe
     fn added_to_stack_for_call_parameter(
         &self,
         added_to_stack: &String,
-        call_parameters: &Box<dyn FunctionCallParametersAsm>,
+        call_parameters: &FunctionCallParametersAsm386,
     ) -> String {
         let mut added_to_stack = added_to_stack.clone();
         added_to_stack.push_str(" + ");
@@ -1560,16 +1560,16 @@ impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGe
         added_to_stack
     }
 
-    fn function_call_parameters<'a, 'b>(
+    fn function_call_parameters<'b, 'c>(
         &'a self,
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack_vals: &'a StackVals,
+        stack_vals: &'c StackVals,
         id: usize,
-    ) -> Box<dyn FunctionCallParametersAsm> {
-        let asm386: FunctionCallParametersAsm386<'a> = FunctionCallParametersAsm386::new(
-            self.backend.deref(),
+    ) -> FunctionCallParametersAsm386<'a> {
+        let fcp = FunctionCallParametersAsm386::new(
+            &self.backend,
             parameters.clone(),
             inline,
             immediate,
@@ -1577,7 +1577,8 @@ impl CodeGen<Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm>> for CodeGe
             self.options().dereference,
             id,
         );
-        Box::new(asm386)
+
+        fcp
     }
 
     fn call_deref_for_let_val(
