@@ -8,7 +8,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef,
+    ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
 pub trait TypedFunctionsCreator {
@@ -62,6 +62,7 @@ pub trait TypedFunctionsCreator {
             body,
             function_name_suffix,
             &struct_def.name,
+            false,
         );
     }
 
@@ -86,7 +87,14 @@ pub trait TypedFunctionsCreator {
         );
         let body = ASTTypedFunctionBody::ASMBody(body_str);
 
-        self.add_function(module, ast_type, body, function_name_suffix, &enum_def.name);
+        self.add_function(
+            module,
+            ast_type,
+            body,
+            function_name_suffix,
+            &enum_def.name,
+            false,
+        );
     }
 
     fn create_type_free(
@@ -116,6 +124,7 @@ pub trait TypedFunctionsCreator {
             body,
             function_name_suffix,
             &typed_type_def.name,
+            true,
         );
     }
 
@@ -126,17 +135,28 @@ pub trait TypedFunctionsCreator {
         body: ASTTypedFunctionBody,
         function_name_suffix: &str,
         name: &str,
+        with_descr: bool,
     ) {
         let fun_name = format!("{}_{function_name_suffix}", name);
+
+        let mut parameters = vec![ASTTypedParameterDef {
+            name: "address".into(),
+            ast_type,
+            ast_index: ASTIndex::none(),
+        }];
+
+        if with_descr {
+            parameters.push(ASTTypedParameterDef {
+                name: "descr".into(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
+            })
+        }
 
         let function_def = ASTTypedFunctionDef {
             name: fun_name.clone(),
             original_name: fun_name.clone(),
-            parameters: vec![ASTTypedParameterDef {
-                name: "address".into(),
-                ast_type,
-                ast_index: ASTIndex::none(),
-            }],
+            parameters,
             body,
             inline: false,
             return_type: ASTTypedType::Unit,
