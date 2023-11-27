@@ -7,7 +7,7 @@ use std::time::Instant;
 use log::info;
 
 use rasm_core::codegen::backend::Backend;
-use rasm_core::codegen::backend::BackendNasm386;
+use rasm_core::codegen::backend::BackendNasmI386;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::{CodeGen, CodeGenAsm, CodeGenOptions};
@@ -60,7 +60,7 @@ impl Compiler {
 
         let debug_asm = false;
 
-        let mut backend = BackendNasm386::new(debug_asm);
+        let mut backend = BackendNasmI386::new(debug_asm);
         let mut statics = Statics::new();
 
         let (modules, errors) =

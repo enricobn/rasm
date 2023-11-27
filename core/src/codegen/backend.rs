@@ -272,7 +272,7 @@ enum Linker {
 }
 
 #[derive(Clone)]
-pub struct BackendNasm386 {
+pub struct BackendNasmI386 {
     requires: HashSet<String>,
     externals: HashSet<String>,
     linker: Linker,
@@ -280,7 +280,7 @@ pub struct BackendNasm386 {
     debug_asm: bool,
 }
 
-impl BackendNasm386 {
+impl BackendNasmI386 {
     pub fn new(debug_asm: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
@@ -400,7 +400,7 @@ impl BackendNasm386 {
     }
 }
 
-impl Backend for BackendNasm386 {
+impl Backend for BackendNasmI386 {
     fn address_from_base_pointer(&self, index: i8) -> String {
         format!("[ebp+{}]", index * 4)
     }
@@ -434,7 +434,7 @@ impl Backend for BackendNasm386 {
             .arg("-F")
             .arg("dwarf")
             .arg(source_file);
-        BackendNasm386::log_command(&nasm_command);
+        BackendNasmI386::log_command(&nasm_command);
         let result = nasm_command
             .stderr(Stdio::inherit())
             .output()
@@ -460,7 +460,7 @@ impl Backend for BackendNasm386 {
                     .arg("/lib32/ld-linux.so.2")
                     .arg("-o")
                     .arg(path.with_extension(""));
-                BackendNasm386::log_command(&ld_command);
+                BackendNasmI386::log_command(&ld_command);
                 ld_command
                     .stderr(Stdio::inherit())
                     .output()
@@ -484,7 +484,7 @@ impl Backend for BackendNasm386 {
                     .arg(path.with_extension(""))
                     .arg(path.with_extension("o"))
                     .args(libraries);
-                BackendNasm386::log_command(&gcc_command);
+                BackendNasmI386::log_command(&gcc_command);
                 gcc_command
                     .stderr(Stdio::inherit())
                     .output()
@@ -1463,15 +1463,15 @@ impl Backend for BackendNasm386 {
     }
 
     fn typed_functions_creator(&self) -> Box<dyn TypedFunctionsCreator + '_> {
-        Box::new(TypedFunctionsCreatorAsm::new(Box::new(self)))
+        Box::new(TypedFunctionsCreatorAsm::new(self))
     }
 
     fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_> {
-        Box::new(FunctionsCreatorAsm::new(Box::new(self)))
+        Box::new(FunctionsCreatorAsm::new(self))
     }
 }
 
-impl BackendAsm for BackendNasm386 {
+impl BackendAsm for BackendNasmI386 {
     fn stack_base_pointer(&self) -> String {
         "ebp".to_string()
     }
@@ -1523,14 +1523,14 @@ impl BackendAsm for BackendNasm386 {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::backend::{Backend, BackendNasm386};
+    use crate::codegen::backend::{Backend, BackendNasmI386};
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
 
     #[test]
     fn called_functions() {
-        let sut = BackendNasm386::new(false);
+        let sut = BackendNasmI386::new(false);
         let mut statics = Statics::new();
 
         assert_eq!(
@@ -1553,7 +1553,7 @@ mod tests {
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = BackendNasm386::new(false);
+        let sut = BackendNasmI386::new(false);
         let mut statics = Statics::new();
 
         assert!(sut
@@ -1571,7 +1571,7 @@ mod tests {
 
     #[test]
     fn called_functions_external() {
-        let mut sut = BackendNasm386::new(false);
+        let mut sut = BackendNasmI386::new(false);
         let mut statics = Statics::new();
         sut.externals.insert("something".into());
 

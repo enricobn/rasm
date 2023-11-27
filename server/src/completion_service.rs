@@ -494,7 +494,7 @@ mod tests {
 
     use env_logger::Builder;
 
-    use rasm_core::codegen::backend::BackendNasm386;
+    use rasm_core::codegen::backend::BackendNasmI386;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::parser::ast::{
@@ -576,7 +576,7 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let mut backend = BackendNasm386::new(false);
+        let mut backend = BackendNasmI386::new(false);
 
         let mut statics = Statics::new();
 

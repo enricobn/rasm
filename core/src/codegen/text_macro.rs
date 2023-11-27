@@ -1349,7 +1349,7 @@ impl PrintRefMacro {
 mod tests {
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::backend::{Backend, BackendNasm386};
+    use crate::codegen::backend::{Backend, BackendNasmI386};
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
@@ -1670,7 +1670,7 @@ mod tests {
         }
     }
 
-    fn backend() -> BackendNasm386 {
-        BackendNasm386::new(false)
+    fn backend() -> BackendNasmI386 {
+        BackendNasmI386::new(false)
     }
 }

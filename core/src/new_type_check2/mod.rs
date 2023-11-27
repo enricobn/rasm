@@ -1185,7 +1185,7 @@ mod tests {
 
     use env_logger::Builder;
 
-    use crate::codegen::backend::BackendNasm386;
+    use crate::codegen::backend::BackendNasmI386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::new_type_check2::TypeCheck;
@@ -1446,7 +1446,7 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let mut backend = BackendNasm386::new(false);
+        let mut backend = BackendNasmI386::new(false);
         let mut statics = Statics::new();
 
         let (modules, _errors) = project.get_all_modules(&mut backend, &mut statics, false);

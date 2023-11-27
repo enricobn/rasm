@@ -397,11 +397,11 @@ pub trait FunctionsCreator {
 }
 
 pub struct FunctionsCreatorAsm<'a> {
-    backend: Box<&'a dyn BackendAsm>,
+    backend: &'a dyn BackendAsm,
 }
 
 impl<'a> FunctionsCreatorAsm<'a> {
-    pub fn new(backend: Box<&'a dyn BackendAsm>) -> Self {
+    pub fn new(backend: &'a dyn BackendAsm) -> Self {
         Self { backend }
     }
 }

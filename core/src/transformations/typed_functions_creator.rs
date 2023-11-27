@@ -198,11 +198,11 @@ pub trait TypedFunctionsCreator {
 }
 
 pub struct TypedFunctionsCreatorAsm<'a> {
-    backend: Box<&'a dyn BackendAsm>,
+    backend: &'a dyn BackendAsm,
 }
 
 impl<'a> TypedFunctionsCreatorAsm<'a> {
-    pub fn new(backend: Box<&'a dyn BackendAsm>) -> Self {
+    pub fn new(backend: &'a dyn BackendAsm) -> Self {
         Self { backend }
     }
 
