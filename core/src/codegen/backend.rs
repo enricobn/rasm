@@ -1200,7 +1200,7 @@ impl Backend for BackendNasmi386 {
         let label = statics.add_str("lambda space");
         self.call_function(
             out,
-            "malloc_0",
+            "rasmalloc_0",
             &[
                 (&format!("{}", slots * self.word_len()), None),
                 (&format!("[{label}]"), None),

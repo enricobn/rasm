@@ -211,7 +211,7 @@ typedef struct{
 pub asm keyEvent() -> Option<KeyEvent> /{
     push    ebx
 
-    $call(malloc, 56, " for temp mem for sdl keyEvent")
+    $call(rasmalloc, 56, " for temp mem for sdl keyEvent")
     $call(addRef, eax, "temp mem for sdl keyEvent")
     push    eax
 
@@ -316,7 +316,7 @@ asm sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i
     push    ebx
     push    ecx
 
-    $call(malloc, 5, " for temp mem for sdlRenderTextSolid") ; why 5???
+    $call(rasmalloc, 5, " for temp mem for sdlRenderTextSolid") ; why 5???
     push    eax
 
     mov     ecx, [eax]
@@ -344,7 +344,7 @@ pub asm sdlRenderTextSolid(font: SDLFont, message: str, color: SDLColor) -> SDLS
     mov     dword edx, $color
     mov     dword edx, [edx]
 
-    $call(malloc, 5, " for temp for sdlRenderTextSolid") ; why 5???
+    $call(rasmalloc, 5, " for temp for sdlRenderTextSolid") ; why 5???
     push    eax
 
     mov     ecx, [eax]

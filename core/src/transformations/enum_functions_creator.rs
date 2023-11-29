@@ -545,7 +545,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             vec![
                 "push ebx",
                 &format!(
-                    "$call(malloc, {}, \"{}\")",
+                    "$call(rasmalloc, {}, \"{}\")",
                     struct_def.properties.len() * wl,
                     descr
                 ),
@@ -673,7 +673,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         self.backend.add(
             &mut body,
             &format!(
-                "$call(malloc, {}, [{descr_label}]: str)",
+                "$call(rasmalloc, {}, [{descr_label}]: str)",
                 (variant.parameters.len() + 1) * word_len
             ),
             None,

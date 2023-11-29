@@ -37,7 +37,7 @@ pub asm add(s1: str, s2: str) -> str /{
     add     ebx, eax
     add     ebx, 1
 
-    $call(malloc,ebx, " for add(str,str)")
+    $call(rasmalloc,ebx, " for add(str,str)")
     push    eax
 
     mov     dword ebx,$s1
@@ -94,7 +94,7 @@ pub asm substr(s: str, pos: i32, len: i32) -> Option<str> /{
     jmp     .end
 .ok:
     add     ecx, 1
-    $call(malloc, ecx, " for substr")
+    $call(rasmalloc, ecx, " for substr")
     $addRef(eax: str)
     push    eax
     mov     dword ecx,[eax]
@@ -229,7 +229,7 @@ pub asm add(s: str, c: char) -> str /{
     mov     ebx, eax
     add     ebx, 5
 
-    $call(malloc,ebx, "for add(str,char)")
+    $call(rasmalloc,ebx, "for add(str,char)")
     push    eax
 
     mov     dword ecx,$s

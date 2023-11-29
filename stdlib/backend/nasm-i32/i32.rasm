@@ -39,7 +39,7 @@ pub asm toString(n: i32) -> str /{
     push    ecx
     push    edx
 
-    $call(malloc, 20, " temp for toString(i32)")
+    $call(rasmalloc, 20, " temp for toString(i32)")
     push eax
 
     $call(addRef, eax, "")
@@ -65,7 +65,7 @@ pub asm toString(n: i32) -> str /{
     jnz .next_digit     ; Repeat until eax==0
 
     inc    ecx          ; The length + 1, I think the 0 at the end...
-    $call(malloc, ecx, " for toString(i32)")
+    $call(rasmalloc, ecx, " for toString(i32)")
 
     $call(memcopy, esi, [eax], ecx)
 

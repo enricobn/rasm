@@ -1,5 +1,5 @@
 pub asm vecOf<T>(value: T) -> Vec<T> /{
-    $call(malloc, 8, " for vecOf")
+    $call(rasmalloc, 8, " for vecOf")
     push    eax
 
     mov     dword eax, [eax]
@@ -13,7 +13,7 @@ pub asm vecOf<T>(value: T) -> Vec<T> /{
 }/
 
 pub asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
-    $call(malloc, 12, " for vecOf 2")
+    $call(rasmalloc, 12, " for vecOf 2")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 2
@@ -29,7 +29,7 @@ pub asm vecOf<T>(v1: T, v2: T) -> Vec<T> /{
 }/
 
 pub asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
-    $call(malloc, 16, " for vecOf")
+    $call(rasmalloc, 16, " for vecOf")
     push    eax
 
     mov     dword eax, [eax]
@@ -47,7 +47,7 @@ pub asm vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
 }/
 
 pub asm vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
-    $call(malloc, 36, " for vecOf 8")
+    $call(rasmalloc, 36, " for vecOf 8")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 8
@@ -121,7 +121,7 @@ pub asm vecRange(start: i32, end: i32) -> Vec<i32> /{
     inc     ebx                 ; + 1 for the size
     add     ebx, ebx
     add     ebx, ebx
-    $call(malloc, ebx, " for vecRange")
+    $call(rasmalloc, ebx, " for vecRange")
     pop     ebx
     push    eax
     mov     dword ecx, [eax]
@@ -156,7 +156,7 @@ pub asm map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     inc     ecx                 ; + 1 for the size
     add     ecx, ecx
     add     ecx, ecx
-    $call(malloc, ecx, " for vec map)
+    $call(rasmalloc, ecx, " for vec map)
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     $call(addRef, eax, "for map")
     pop     ecx
@@ -267,7 +267,7 @@ pub asm filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     shl     ebx, 2
     ; add the space for the size
     add     ebx, 4
-    $call(malloc, ebx, " for vec filter")
+    $call(rasmalloc, ebx, " for vec filter")
     $call(addRef, eax, "for vec filter")
     pop     ebx
 
@@ -377,7 +377,7 @@ asm vecFlattenCreate(vec: i32) -> i32 /{
     push    edx
     inc     edx
     shl     edx,2
-    $call(malloc, edx, " for vecFlattenCreate")
+    $call(rasmalloc, edx, " for vecFlattenCreate")
     pop     edx
     push    eax
     mov     dword eax, [eax]
@@ -459,7 +459,7 @@ pub asm push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     add     edx, edx
     add     edx, edx
     ; now in edx we have the size, in bytes of the memory needed for the new vec
-    $call(malloc, edx, " for vec push)
+    $call(rasmalloc, edx, " for vec push)
     push    eax
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     ; $call(addRef, eax, "for map")
@@ -484,7 +484,7 @@ pub fn VecReferences(vec: i32, generic: i32) -> i32 {
 }
 
 pub asm Vec<T>() -> Vec<T> /{
-    $call(malloc, 4, " for Vec")
+    $call(rasmalloc, 4, " for Vec")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 0
@@ -507,7 +507,7 @@ pub asm zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T)
     inc     eax                 ; + 1 for the size
     add     eax, eax
     add     eax, eax
-    $call(malloc, eax, " for vec zip)
+    $call(rasmalloc, eax, " for vec zip)
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     $call(addRef, eax, "for vec zip")
     pop     ecx                 ; the size of the new vec
@@ -567,7 +567,7 @@ pub asm add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     inc     eax                 ; + 1 for the size
     add     eax, eax
     add     eax, eax
-    $call(malloc, eax, " for vec add")
+    $call(rasmalloc, eax, " for vec add")
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     $call(addRef, eax, "for vec add")
     pop     ecx                 ; the size of the new vec
@@ -615,7 +615,7 @@ pub asm charsVec(s: str) -> Vec<char> /{
     inc     ebx
     add     ebx, ebx
     add     ebx, ebx
-    $call(malloc, ebx, "for charsVec")
+    $call(rasmalloc, ebx, "for charsVec")
     ; we add a simple reference to avoid the reuse of the memory, but we cannot do it as a typed addRef, because we dont yet have nothing added to it...
     $call(addRef, eax, "for charsVec")
 

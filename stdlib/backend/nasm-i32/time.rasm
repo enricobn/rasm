@@ -9,7 +9,7 @@ pub asm now() -> TimeVal /{
     $call(TimeVal, 0, 0)
     push    dword eax
     mov     ebx, [eax]
-    $call(malloc, 8, " for TimeVal")
+    $call(rasmalloc, 8, " for TimeVal")
     $call(freeMem, eax)
     mov     dword ecx, [eax]  ; timezone
     mov     eax, 78           ; call number = gettimeofday

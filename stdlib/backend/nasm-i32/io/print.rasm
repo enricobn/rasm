@@ -30,7 +30,7 @@ pub asm print(file: File, n: i32) -> Option<IOError>/{
 
     ; TODO I cannot allocate memory here, because when we use print inside malloc for debug we enter in an infinite loop
     ;      but I don't like it because it is not thread safe
-    ; $call(malloc, 20, " temp for print(i32)")
+    ; $call(rasmalloc, 20, " temp for print(i32)")
     ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
     ; $call(freeMem, eax)
     ; mov     dword esi,[eax]

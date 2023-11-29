@@ -104,7 +104,7 @@ pub asm readFile(file: File) -> str /{
     mov     edx, eax
     add     edx, 1  ; we allocate one more byte for 0 at the end of the string
 
-    $call(malloc, edx, " for readFile")
+    $call(rasmalloc, edx, " for readFile")
     push    eax
 
     sub     edx,1   ; we subtract one for 0 at the end of the string
@@ -126,7 +126,7 @@ pub asm fileSize(descriptor: File) -> i32 /{
     push    ebx
     push    ecx
 
-    $call(malloc, 1024, " for fileSize")
+    $call(rasmalloc, 1024, " for fileSize")
     ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
     $call(freeMem, eax)
 

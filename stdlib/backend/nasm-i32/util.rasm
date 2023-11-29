@@ -1,5 +1,5 @@
 pub asm random() -> i32 /{
-    $call(malloc, 4, "random")
+    $call(rasmalloc, 4, "random")
     push    dword ebx
     push    dword ecx
     push    dword edx

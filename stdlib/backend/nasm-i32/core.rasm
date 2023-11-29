@@ -49,7 +49,7 @@ pub asm memcopy(source: i32, dest: i32, len: i32) /{
     pop     ecx
 }/
 
-pub asm malloc(size: i32, descr: str) -> i32 /{
+pub asm rasmalloc(size: i32, descr: str) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -621,7 +621,7 @@ pub asm copy<T>(o: T) -> T /{
 
     mov     dword ebx,$o
     mov     dword ecx,[ebx + 8] ; size
-    $call(malloc, ecx, "for clone")
+    $call(rasmalloc, ecx, "for clone")
     $call(memcopy, [ebx], [eax], ecx)
     ; $addRef(eax:T)
     ; $call(deref,eax:i32, "deref for clone")
@@ -649,7 +649,7 @@ pub asm addHeap(label: i32, descrLabel: i32, value: i32) /{
     push    ebx
 
     mov     dword ebx, $descrLabel
-    $call(malloc, 4, [ebx]: str)
+    $call(rasmalloc, 4, [ebx]: str)
     $call(addRef, eax, [ebx]: str)
     mov     dword ebx, $label
     mov     dword [ebx], eax

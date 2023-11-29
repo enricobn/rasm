@@ -947,7 +947,7 @@ fn compilation_error(
 
 pub fn get_default_functions(print_allocation: bool) -> Vec<DefaultFunction> {
     let mut default_functions = vec![
-        DefaultFunction::new_2("malloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+        DefaultFunction::new_2("rasmalloc", BuiltinTypeKind::I32, BuiltinTypeKind::String),
         DefaultFunction::new_1("exitMain", BuiltinTypeKind::I32),
         DefaultFunction::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
         DefaultFunction::new_3(
