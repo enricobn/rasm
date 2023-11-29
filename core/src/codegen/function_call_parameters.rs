@@ -75,10 +75,7 @@ pub trait FunctionCallParameters {
         to_remove_from_stack: String,
         ident: usize,
     ) -> String;
-}
 
-#[auto_impl(Box)]
-pub trait FunctionCallParametersAsm: FunctionCallParameters {
     fn body_references_to_context(
         &self,
         body: &ASTTypedFunctionBody,
@@ -211,7 +208,10 @@ pub trait FunctionCallParametersAsm: FunctionCallParameters {
                 .any(|it| self.statement_reads_from_context(it, context)),
         }
     }
+}
 
+#[auto_impl(Box)]
+pub trait FunctionCallParametersAsm: FunctionCallParameters {
     fn to_remove_from_stack_name(&self) -> String;
 
     fn to_remove_from_stack(&self) -> usize;
