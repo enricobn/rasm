@@ -12,7 +12,7 @@ use lambda::{LambdaCall, LambdaSpace};
 
 use crate::codegen::backend::{Backend, BackendAsm};
 use crate::codegen::function_call_parameters::{
-    FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsm386,
+    FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsmImpl,
 };
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::MemoryUnit::{Bytes, Words};
@@ -1555,7 +1555,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         stack_vals: &'c StackVals,
         id: usize,
     ) -> Box<dyn FunctionCallParametersAsm + 'a> {
-        let fcp = FunctionCallParametersAsm386::new(
+        let fcp = FunctionCallParametersAsmImpl::new(
             &self.backend,
             parameters.clone(),
             inline,

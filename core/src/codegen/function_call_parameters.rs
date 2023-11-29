@@ -217,7 +217,7 @@ pub trait FunctionCallParametersAsm: FunctionCallParameters {
     fn to_remove_from_stack(&self) -> usize;
 }
 
-pub struct FunctionCallParametersAsm386<'a> {
+pub struct FunctionCallParametersAsmImpl<'a> {
     parameters: Vec<ASTTypedParameterDef>,
     parameters_added: usize,
     before: String,
@@ -233,7 +233,7 @@ pub struct FunctionCallParametersAsm386<'a> {
     id: usize,
 }
 
-impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
+impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
     fn add_label(&mut self, param_name: &str, label: String, comment: Option<&str>) {
         if self.inline {
             self.parameters_values
@@ -727,7 +727,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
     }
 }
 
-impl<'a> FunctionCallParametersAsm386<'a> {
+impl<'a> FunctionCallParametersAsmImpl<'a> {
     ///
     ///
     /// # Arguments
@@ -955,7 +955,7 @@ impl<'a> FunctionCallParametersAsm386<'a> {
     }
 }
 
-impl<'a> FunctionCallParametersAsm for FunctionCallParametersAsm386<'a> {
+impl<'a> FunctionCallParametersAsm for FunctionCallParametersAsmImpl<'a> {
     fn to_remove_from_stack_name(&self) -> String {
         format!("$_to_remove_rom_stack{}", self.id)
     }
