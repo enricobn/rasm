@@ -76,6 +76,18 @@ type check ended in 117.623057ms
     type check ended in 66.804596ms
 */
 
+/*
+to sign a mark
+
+parse ended in 18.702616ms
+type check ended in 67.796837ms
+code generation ended in 31.794425ms
+assembler ended in 189.078683ms
+linker ended in 30.760407ms
+finished in 340.395027ms
+
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
