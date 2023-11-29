@@ -271,6 +271,10 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
         param_type: ASTTypedType,
         statics: &mut Statics,
     ) {
+        if self.immediate {
+            panic!();
+        }
+
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
@@ -281,9 +285,6 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
             Some(comment),
             true,
         );
-        if self.immediate {
-            panic!();
-        }
         if let Some(name) = get_reference_type_name(&param_type, module) {
             self.add_code_for_reference_type(module, &name, "eax", comment, statics);
         }
@@ -306,6 +307,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
         let sp = self.backend.stack_pointer();
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
+        let rr = self.backend.return_register();
 
         let mut references = self.body_references_to_context(&def.body, context);
         references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
@@ -376,7 +378,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
             // we save the allocation table address of the lambda space in the stack
             self.backend.add(
                 &mut self.before,
-                &format!("push  {} {lambda_space_address}", self.backend.word_size()),
+                &format!("push  {ws} {lambda_space_address}"),
                 comment,
                 true,
             );
@@ -384,7 +386,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
             // we put in lambda_space_address register the address of the lambda space
             self.backend.add(
                 &mut self.before,
-                &format!("mov    dword {lambda_space_address}, [{lambda_space_address}]"),
+                &format!("mov    {ws} {lambda_space_address}, [{lambda_space_address}]"),
                 None,
                 true,
             );
@@ -392,7 +394,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
             let tmp_register =
                 stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_register");
 
-            let mut need_eax = false;
+            let mut need_return_register = false;
 
             let mut i = 1;
 
@@ -419,24 +421,21 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
                     );
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
-                        if !need_eax {
-                            self.backend.add(
+                        if !need_return_register {
+                            self.backend.add_rows(
                                 &mut self.before,
-                                &format!("push  {} eax", self.backend.word_size()),
+                                vec![
+                                    &format!("push  {ws} {rr}"),
+                                    &format!("mov   {} {rr}, [{sbp} + {}]", ws, 2 * wl),
+                                ],
                                 comment,
                                 true,
                             );
-                            self.backend.add(
-                                &mut self.before,
-                                &format!("mov   {} eax, [{sbp} + {}]", ws, 2 * wl),
-                                None,
-                                true,
-                            );
-                            need_eax = true;
+                            need_return_register = true;
                         }
                         self.backend.indirect_mov(
                             &mut self.before,
-                            &format!("eax + {}", (parent_index + 2) * wl),
+                            &format!("{rr} + {}", (parent_index + 2) * wl),
                             &format!("{lambda_space_address} + {}", (i + 2) * wl),
                             &tmp_register,
                             Some(&format!("context parameter from parent {}", name)),
@@ -470,7 +469,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsm386<'a> {
                 lambda_space.add_ref_function(deref_function_def);
             }
 
-            if need_eax {
+            if need_return_register {
                 self.backend.add(&mut self.before, "pop   eax", None, true);
             }
             stack_vals.release_tmp_register(self.backend, &mut self.before, "tmp_register");

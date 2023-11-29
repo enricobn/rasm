@@ -247,13 +247,13 @@ impl Clone for Box<dyn BackendAsm> {
 
 #[auto_impl(Box)]
 pub trait BackendAsm: Backend + Send + Sync {
-    fn stack_base_pointer(&self) -> String;
+    fn stack_base_pointer(&self) -> &str;
 
-    fn stack_pointer(&self) -> String;
+    fn stack_pointer(&self) -> &str;
 
-    fn pointer_size(&self) -> String;
+    fn pointer_size(&self) -> &str;
 
-    fn word_size(&self) -> String;
+    fn word_size(&self) -> &str;
 
     fn indirect_mov(
         &self,
@@ -263,6 +263,8 @@ pub trait BackendAsm: Backend + Send + Sync {
         temporary_register: &str,
         comment: Option<&str>,
     );
+
+    fn return_register(&self) -> &str;
 }
 
 #[derive(Clone)]
@@ -1472,20 +1474,20 @@ impl Backend for BackendNasmi386 {
 }
 
 impl BackendAsm for BackendNasmi386 {
-    fn stack_base_pointer(&self) -> String {
-        "ebp".to_string()
+    fn stack_base_pointer(&self) -> &str {
+        "ebp"
     }
 
-    fn stack_pointer(&self) -> String {
-        "esp".to_string()
+    fn stack_pointer(&self) -> &str {
+        "esp"
     }
 
-    fn pointer_size(&self) -> String {
-        "dword".into()
+    fn pointer_size(&self) -> &str {
+        "dword"
     }
 
-    fn word_size(&self) -> String {
-        "dword".into()
+    fn word_size(&self) -> &str {
+        "dword"
     }
 
     fn indirect_mov(
@@ -1518,6 +1520,10 @@ impl BackendAsm for BackendNasmi386 {
             comment,
             true,
         );
+    }
+
+    fn return_register(&self) -> &str {
+        "eax"
     }
 }
 
