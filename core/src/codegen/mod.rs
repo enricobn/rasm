@@ -43,7 +43,7 @@ pub mod text_macro;
 pub mod typedef_provider;
 pub mod val_context;
 
-/// It's a constant that will be replaced by the code generator with the size (in bytes)
+/// It's a marker that will be replaced by the code generator with the size (in bytes)
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function
 /// generation, but we need that value during the code generation...   
 pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";

@@ -12,7 +12,7 @@ use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use rasm_core::codegen::backend::{Backend, BackendNasmI386};
+use rasm_core::codegen::backend::{Backend, BackendNasmi386};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
@@ -33,7 +33,7 @@ async fn main() {
 
     let project = RasmProject::new(src.clone());
 
-    let mut backend = BackendNasmI386::new(false);
+    let mut backend = BackendNasmi386::new(false);
     let server_state = ServerState::new(src, &mut backend).unwrap();
 
     let app_state = Arc::new(server_state);

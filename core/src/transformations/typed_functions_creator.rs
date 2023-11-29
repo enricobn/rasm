@@ -197,11 +197,11 @@ pub trait TypedFunctionsCreator {
     ) -> String;
 }
 
-pub struct TypedFunctionsCreatorAsm<'a> {
+pub struct TypedFunctionsCreatorNasmi386<'a> {
     backend: &'a dyn BackendAsm,
 }
 
-impl<'a> TypedFunctionsCreatorAsm<'a> {
+impl<'a> TypedFunctionsCreatorNasmi386<'a> {
     pub fn new(backend: &'a dyn BackendAsm) -> Self {
         Self { backend }
     }
@@ -214,9 +214,12 @@ impl<'a> TypedFunctionsCreatorAsm<'a> {
     ) -> String {
         let mut result = String::new();
 
-        self.backend.add(&mut result, "push  eax", None, true);
-        self.backend.add(&mut result, "push  ebx", None, true);
-        self.backend.add(&mut result, "push  ecx", None, true);
+        self.backend.add_rows(
+            &mut result,
+            vec!["push  eax", "push  ebx", "push  ecx"],
+            None,
+            true,
+        );
 
         self.backend.call_function(
             &mut result,
@@ -225,56 +228,33 @@ impl<'a> TypedFunctionsCreatorAsm<'a> {
             None,
         );
 
-        self.backend.add(
+        self.backend.add_rows(
             &mut result,
-            &format!("mov   {} ebx, [eax]", self.backend.word_size()),
+            vec![
+                &format!("mov   {} ebx, [eax]", self.backend.word_size()),
+                &format!("mov   {} ecx, [ebx]", self.backend.word_size()),
+                &format!("add   ebx, {}", self.backend.word_len()),
+                &format!(".loop_{generic_n}:"),
+                &format!("cmp   {} ecx, 0", self.backend.word_size()),
+                &format!("jz   .end_{generic_n}"),
+                &deref_function_call,
+                "\n",
+                &format!("add   ebx, {}", self.backend.word_len()),
+                "dec ecx",
+                &format!("jmp .loop_{generic_n}"),
+                &format!(".end_{generic_n}:"),
+                "pop  ecx",
+                "pop  ebx",
+                "pop  eax",
+            ],
             None,
             true,
         );
-        self.backend.add(
-            &mut result,
-            &format!("mov   {} ecx, [ebx]", self.backend.word_size()),
-            None,
-            true,
-        );
-        self.backend.add(
-            &mut result,
-            &format!("add   ebx, {}", self.backend.word_len()),
-            None,
-            true,
-        );
-        self.backend
-            .add(&mut result, &format!(".loop_{generic_n}:"), None, false);
-        self.backend.add(
-            &mut result,
-            &format!("cmp   {} ecx, 0", self.backend.word_size()),
-            None,
-            true,
-        );
-        self.backend
-            .add(&mut result, &format!("jz   .end_{generic_n}"), None, true);
-        result.push_str(&deref_function_call);
-        result.push('\n');
-        self.backend.add(
-            &mut result,
-            &format!("add   ebx, {}", self.backend.word_len()),
-            None,
-            true,
-        );
-        self.backend.add(&mut result, "dec ecx", None, true);
-        self.backend
-            .add(&mut result, &format!("jmp .loop_{generic_n}"), None, true);
-        self.backend
-            .add(&mut result, &format!(".end_{generic_n}:"), None, false);
-
-        self.backend.add(&mut result, "pop  ecx", None, true);
-        self.backend.add(&mut result, "pop  ebx", None, true);
-        self.backend.add(&mut result, "pop  eax", None, true);
         result
     }
 }
 
-impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorAsm<'a> {
+impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
@@ -304,12 +284,16 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorAsm<'a> {
         );
 
         if struct_has_references(struct_def, module) {
-            self.backend
-                .add(&mut result, &format!("push {ws} ebx"), None, true);
-            self.backend
-                .add(&mut result, &format!("mov {ws} ebx, $address"), None, true);
-            self.backend
-                .add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+            self.backend.add_rows(
+                &mut result,
+                vec![
+                    &format!("push {ws} ebx"),
+                    &format!("mov  {ws} ebx, $address"),
+                    &format!("mov  {ws} ebx, [ebx]"),
+                ],
+                None,
+                true,
+            );
             for (i, property) in struct_def.clone().properties.iter().enumerate() {
                 if let Some(name) = get_reference_type_name(&property.ast_type, module) {
                     let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
@@ -370,18 +354,27 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorAsm<'a> {
         );
 
         if enum_has_references(enum_def, module) {
-            self.backend
-                .add(&mut result, &format!("push {ws} ebx"), None, true);
-            self.backend
-                .add(&mut result, &format!("mov {ws} ebx,$address"), None, true);
-            self.backend
-                .add(&mut result, &format!("mov {ws} ebx, [ebx]"), None, true);
+            self.backend.add_rows(
+                &mut result,
+                vec![
+                    &format!("push {ws} ebx"),
+                    &format!("mov  {ws} ebx, $address"),
+                    &format!("mov  {ws} ebx, [ebx]"),
+                ],
+                None,
+                true,
+            );
             for (i, variant) in enum_def.clone().variants.iter().enumerate() {
                 if !variant.parameters.is_empty() {
-                    self.backend
-                        .add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                    self.backend
-                        .add(&mut result, &format!("jne ._variant_{i}"), None, true);
+                    self.backend.add_rows(
+                        &mut result,
+                        vec![
+                            &format!("cmp {ws} [ebx], {}", i),
+                            &format!("jne ._variant_{i}"),
+                        ],
+                        None,
+                        true,
+                    );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
                         if let Some(name) = get_reference_type_name(&par.ast_type, module) {
                             let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
@@ -406,13 +399,16 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorAsm<'a> {
                             }
                         }
                     }
-                    self.backend.add(&mut result, "jmp .end", None, true);
-                    self.backend
-                        .add(&mut result, &format!("._variant_{i}:"), None, false);
+                    self.backend.add_rows(
+                        &mut result,
+                        vec!["jmp .end", &format!("._variant_{i}:")],
+                        None,
+                        true,
+                    );
                 }
             }
-            self.backend.add(&mut result, ".end:", None, true);
-            self.backend.add(&mut result, "pop ebx", None, true);
+            self.backend
+                .add_rows(&mut result, vec![".end:", "pop ebx"], None, true);
         }
 
         result

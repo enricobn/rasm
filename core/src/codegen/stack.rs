@@ -230,7 +230,7 @@ impl StackVals {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::backend::BackendNasmI386;
+    use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::stack::StackVals;
 
     #[test]
@@ -238,11 +238,11 @@ mod tests {
         let mut out = String::new();
 
         let stack = StackVals::new();
-        let backend = BackendNasmI386::new(false);
+        let backend = BackendNasmi386::new(false);
         assert_eq!(1, stack.reserve_local_val("val1"));
         stack.reserve_return_register(&backend, &mut out);
         assert_eq!(2, stack.reserve_local_val("val2"));
-        let backend = BackendNasmI386::new(false);
+        let backend = BackendNasmi386::new(false);
         stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register");
         assert_eq!(3, stack.reserve_local_val("ref1"));
         assert_eq!(6, stack.reserve_local_space("spc", 3));

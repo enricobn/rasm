@@ -396,82 +396,42 @@ pub trait FunctionsCreator {
     ) -> String;
 }
 
-pub struct FunctionsCreatorAsm<'a> {
+pub struct FunctionsCreatorNasmi386<'a> {
     backend: &'a dyn BackendAsm,
 }
 
-impl<'a> FunctionsCreatorAsm<'a> {
+impl<'a> FunctionsCreatorNasmi386<'a> {
     pub fn new(backend: &'a dyn BackendAsm) -> Self {
         Self { backend }
     }
 }
 
-impl<'a> FunctionsCreator for FunctionsCreatorAsm<'a> {
+impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
         let word_len = self.backend.word_len();
-        let _sp = self.backend.stack_pointer();
         let word_size = self.backend.word_size();
         let mut body = String::new();
 
-        // for debug
-        /*
-        CodeGen::add(
+        self.backend.add_rows(
             &mut body,
-            &format!("$call(println,\"executing {}::{}\")", enum_def.name, name),
-            None,
-            true,
-        );
-
-         */
-
-        self.backend.add(&mut body, "push ebx", None, true);
-        self.backend.add(
-            &mut body,
-            &format!("mov {word_size} eax, $value"),
-            None,
-            true,
-        );
-        // the address is "inside" the allocation table
-        self.backend.add(
-            &mut body,
-            &format!("mov {word_size} eax, [eax]"),
+            vec![
+                "push ebx",
+                &format!("mov {word_size} eax, $value"),
+                &format!("mov {word_size} eax, [eax]"),
+            ],
             None,
             true,
         );
 
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-            self.backend.add(
+            self.backend.add_rows(
                 &mut body,
-                &format!("cmp {} [eax], {}", word_size, variant_num),
-                None,
-                true,
-            );
-            self.backend.add(
-                &mut body,
-                &format!("jnz .variant{}", variant_num),
-                None,
-                true,
-            );
-
-            // for debug
-            /*
-            CodeGen::add(
-                &mut body,
-                &format!(
-                    "$call(println,\"  executing {}::{}\")",
-                    enum_def.name, variant.name
-                ),
-                None,
-                true,
-            );
-
-             */
-
-            self.backend
-                .add(&mut body, &format!("mov ebx,${}", variant.name), None, true);
-            self.backend.add(
-                &mut body,
-                &format!("mov {} ebx,[ebx]", word_size),
+                vec![
+                    &format!("cmp {} [eax], {}", word_size, variant_num),
+                    &format!("jnz .variant{}", variant_num),
+                    &format!("mov ebx,${}", variant.name),
+                    &format!("mov {} ebx,[ebx]", word_size),
+                ],
                 None,
                 true,
             );
@@ -489,25 +449,28 @@ impl<'a> FunctionsCreator for FunctionsCreatorAsm<'a> {
             self.backend
                 .call_function_owned(&mut body, "[ebx]", &args, None);
 
-            self.backend.add(&mut body, "jmp .end", None, true);
-            self.backend
-                .add(&mut body, &format!(".variant{}:", variant_num), None, false);
+            self.backend.add_rows(
+                &mut body,
+                vec!["jmp .end", &format!(".variant{}:", variant_num)],
+                None,
+                true,
+            );
         }
-        self.backend.add(
+        self.backend.add_rows(
             &mut body,
-            &format!(
-                "$call(print, 1:File, \"{}::{}, invalid value \")",
-                enum_def.name, name
-            ),
+            vec![
+                &format!(
+                    "$call(print, 1:File, \"{}::{}, invalid value \")",
+                    enum_def.name, name
+                ),
+                "$call(print, 1:File, [eax])",
+                "$call(print, 1:File, \"\\n\")",
+                ".end:",
+                "pop ebx",
+            ],
             None,
             false,
         );
-        self.backend
-            .add(&mut body, "$call(print, 1:File, [eax])", None, false);
-        self.backend
-            .add(&mut body, "$call(print, 1:File, \"\\n\")", None, false);
-        self.backend.add(&mut body, ".end:", None, false);
-        self.backend.add(&mut body, "pop ebx", None, true);
 
         body
     }
