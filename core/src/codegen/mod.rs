@@ -562,47 +562,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             if let Some(index_in_lambda_space) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
-                    self.backend()
-                        .add(before, &format!("mov eax, {address}"), None, true);
-                } else {
-                    panic!()
-                }
-                // we add the address to the "lambda space" as the last parameter of the lambda
-                self.backend().add(
-                    before,
-                    &format!(
-                        "add eax, {}",
-                        (index_in_lambda_space + 2) * self.backend().word_len()
-                    ),
-                    Some("address to the pointer to the allocation table of the lambda to call"),
-                    true,
-                );
-                self.backend().add(
-                    before,
-                    "mov eax, [eax]",
-                    Some("address of the allocation table of the function to call"),
-                    true,
-                );
-                self.backend().add(
-                    before,
-                    "mov eax, [eax]",
-                    Some("address to the \"lambda space\" of the function to call"),
-                    true,
-                );
-
-                self.backend().call_function(
-                    before,
-                    "[eax]",
-                    &[(
-                        "eax",
-                        Some("address to the \"lambda space\" of the function to call"),
-                    )],
-                    Some(&format!(
-                        "Calling function {} : {}",
-                        function_call.function_name, function_call.index
-                    )),
-                );
+                self.call_lambda(&function_call, before, stack_vals, index_in_lambda_space);
             } else if let Some(kind) = context.get(&function_call.function_name) {
                 self.call_lambda_parameter(&function_call, before, stack_vals, kind);
             } else {
@@ -644,6 +604,14 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         }
         lambda_calls
     }
+
+    fn call_lambda(
+        &'a self,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        stack_vals: &StackVals,
+        index_in_lambda_space: usize,
+    );
 
     fn restore_stack(
         &self,
@@ -779,6 +747,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                     address_relative_to_bp,
                     value,
                     &typed_type,
+                    stack,
                 );
                 (
                     typed_type,
@@ -911,6 +880,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         address_relative_to_bp: usize,
         value: &String,
         typed_type: &ASTTypedType,
+        stack: &StackVals,
     );
 
     fn set_let_for_value(
@@ -1459,6 +1429,8 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         stack_vals: &StackVals,
         kind: &TypedValKind,
     ) {
+        let rr = self.backend.return_register();
+
         let index = match kind {
             TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
             TypedValKind::LetRef(_, _) => {
@@ -1481,7 +1453,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         self.backend.add(
             before,
             &format!(
-                "mov eax, [{} + {}]",
+                "mov {rr}, [{} + {}]",
                 self.backend().stack_base_pointer(),
                 index * self.backend().word_len() as i32
             ),
@@ -1490,15 +1462,67 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         );
         self.backend.add(
             before,
-            &format!("mov {} eax, [eax]", self.backend.word_size(),),
+            &format!("mov {} {rr}, [{rr}]", self.backend.word_size(),),
             None,
             true,
         );
         // we add the address to the "lambda space" as the last parameter to the lambda
         self.backend.call_function(
             before,
-            "[eax]",
-            &[("eax", Some("address to the \"lambda space\""))],
+            &format!("[{rr}]"),
+            &[(rr, Some("address to the \"lambda space\""))],
+            Some(&format!(
+                "Calling function {} : {}",
+                function_call.function_name, function_call.index
+            )),
+        );
+    }
+
+    fn call_lambda(
+        &'a self,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        stack_vals: &StackVals,
+        index_in_lambda_space: usize,
+    ) {
+        let rr = self.backend.return_register();
+
+        if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
+            self.backend()
+                .add(before, &format!("mov {rr}, {address}"), None, true);
+        } else {
+            panic!()
+        }
+        // we add the address to the "lambda space" as the last parameter of the lambda
+        self.backend.add(
+            before,
+            &format!(
+                "add {rr}, {}",
+                (index_in_lambda_space + 2) * self.backend().word_len()
+            ),
+            Some("address to the pointer to the allocation table of the lambda to call"),
+            true,
+        );
+        self.backend.add(
+            before,
+            &format!("mov {rr}, [{rr}]"),
+            Some("address of the allocation table of the function to call"),
+            true,
+        );
+        self.backend.add(
+            before,
+            &format!("mov {rr}, [{rr}]"),
+            Some("address to the \"lambda space\" of the function to call"),
+            true,
+        );
+
+        self.backend.call_function(
+            before,
+            &format!("[{rr}]"),
+            &[(
+                rr,
+                Some("address to the \"lambda space\" of the function to call"),
+            )],
             Some(&format!(
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
@@ -1607,9 +1631,10 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String) {
         let ws = self.backend.word_size();
+        let rr = self.backend.return_register();
         self.backend.add(
             body,
-            &format!("mov {ws} [{statics_key}], eax"),
+            &format!("mov {ws} [{statics_key}], {rr}"),
             Some(""),
             true,
         );
@@ -1637,12 +1662,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 (index_in_context, def.clone(), format!("let {val_name}"))
             }
         };
-        self.backend.add(before, "push   ebx", None, true);
+
+        let tmp_register =
+            stack.reserve_tmp_register(before, self.backend.deref(), "set_let_for_value_ref");
 
         self.backend.add(
             before,
             &format!(
-                "mov ebx, [{} + {}]",
+                "mov {tmp_register}, [{} + {}]",
                 self.backend().stack_base_pointer(),
                 i * self.backend().word_len() as i32
             ),
@@ -1653,14 +1680,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         self.backend.add(
             before,
             &format!(
-                "mov {ws} [{bp} + {}], ebx",
+                "mov {ws} [{bp} + {}], {tmp_register}",
                 -(address_relative_to_bp as i32),
             ),
             Some(""),
             true,
         );
 
-        self.backend.add(before, "pop   ebx", None, true);
+        stack.release_tmp_register(self.backend.deref(), before, "set_let_for_value_ref");
         typed_type
     }
 
@@ -1674,11 +1701,13 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         address_relative_to_bp: usize,
         value: &String,
         typed_type: &ASTTypedType,
+        stack: &StackVals,
     ) {
         let bp = self.backend.stack_base_pointer();
         let label = statics.add_str(value);
 
-        self.backend.add(body, "push ebx", None, true);
+        let tmp_reg =
+            stack.reserve_tmp_register(body, self.backend.deref(), "set_let_for_string_literal");
 
         if is_const {
             let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
@@ -1687,7 +1716,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 body,
                 &label,
                 &key,
-                "ebx",
+                &tmp_reg,
                 Some(&format!("const {name} string value")),
             );
         } else {
@@ -1695,11 +1724,12 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 before,
                 &label,
                 &format!("{bp} + {}", -(address_relative_to_bp as i32),),
-                "ebx",
+                &tmp_reg,
                 None,
             );
         }
-        self.backend.add(before, "pop   ebx", None, true);
+
+        stack.release_tmp_register(self.backend.deref(), body, "set_let_for_string_literal");
     }
 
     fn set_let_for_value(
@@ -1756,20 +1786,19 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     }
 
     fn value_as_return(&self, before: &mut String, v: &str) {
-        self.backend().add(
-            before,
-            &format!("mov     {} eax, {}", self.backend().word_size(), v),
-            None,
-            true,
-        );
+        let ws = self.backend.word_size();
+        let rr = self.backend.return_register();
+        self.backend()
+            .add(before, &format!("mov     {ws} {rr}, {v}"), None, true);
     }
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
         let label = statics.add_str(value);
+        let rr = self.backend.return_register();
 
         self.backend.add(
             before,
-            &format!("mov     {} eax, [{label}]", self.backend().word_size()),
+            &format!("mov     {} {rr}, [{label}]", self.backend().word_size()),
             None,
             true,
         );
