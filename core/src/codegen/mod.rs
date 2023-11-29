@@ -2165,54 +2165,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn initialize_static_values(&self, generated_code: &mut String) {
         let ws = self.backend.word_size();
-        self.backend().add(
+        self.backend.add_rows(
             generated_code,
-            &format!("mov     {ws} eax, _heap_buffer"),
-            None,
-            true,
-        );
-        self.backend().add(
-            generated_code,
-            &format!("mov     {ws} [_heap], eax"),
-            None,
-            true,
-        );
-
-        self.backend().add(
-            generated_code,
-            &format!("mov     {ws} eax, _heap_table"),
-            None,
-            true,
-        );
-        self.backend().add(
-            generated_code,
-            &format!("mov     {ws} [_heap_table_next],eax"),
-            None,
-            true,
-        );
-
-        self.backend().add(
-            generated_code,
-            &format!("mov     {ws} eax, _lambda_space_stack_buffer"),
-            None,
-            true,
-        );
-        self.backend().add(
-            generated_code,
-            &format!("mov     {ws} [_lambda_space_stack], eax"),
-            None,
-            true,
-        );
-
-        self.backend().add(
-            generated_code,
-            &format!("mov    {ws} eax, _reusable_heap_table"),
-            None,
-            true,
-        );
-        self.backend().add(
-            generated_code,
-            &format!("mov    {ws} [_reusable_heap_table_next],eax"),
+            vec![
+                &format!("mov     {ws} [_heap], _heap_buffer"),
+                &format!("mov     {ws} [_heap_table_next], _heap_table"),
+                &format!("mov     {ws} [_lambda_space_stack], _lambda_space_stack_buffer"),
+                &format!("mov     {ws} [_reusable_heap_table_next], _reusable_heap_table"),
+            ],
             None,
             true,
         );
