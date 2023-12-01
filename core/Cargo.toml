@@ -18,6 +18,7 @@ pad.workspace = true
 pathdiff.workspace = true
 rayon.workspace = true
 regex.workspace = true
+rust-embed.workspace = true
 serde_derive.workspace = true
 serde.workspace = true
 strum.workspace = true

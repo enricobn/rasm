@@ -1,5 +1,5 @@
 use auto_impl::auto_impl;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -8,6 +8,7 @@ use std::time::Instant;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use pad::PadStr;
+use rust_embed::{EmbeddedFile, RustEmbed};
 
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
@@ -216,6 +217,8 @@ pub trait Backend: Send + Sync {
     fn typed_functions_creator(&self) -> Box<dyn TypedFunctionsCreator + '_>;
 
     fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_>;
+
+    fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile>;
 }
 /*
 trait CloneBackendAsm {
@@ -272,6 +275,10 @@ enum Linker {
     Ld,
     Gcc,
 }
+
+#[derive(RustEmbed)]
+#[folder = "../core/resources/corelib/nasmi386"]
+struct Nasmi386CoreLibAssets;
 
 #[derive(Clone)]
 pub struct BackendNasmi386 {
@@ -1470,6 +1477,16 @@ impl Backend for BackendNasmi386 {
 
     fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_> {
         Box::new(FunctionsCreatorNasmi386::new(self))
+    }
+
+    fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
+        let mut result = HashMap::new();
+        Nasmi386CoreLibAssets::iter().for_each(|it| {
+            if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
+                result.insert(it.to_string(), asset);
+            }
+        });
+        result
     }
 }
 

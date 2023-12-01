@@ -204,6 +204,14 @@ impl Parser {
         } else {
             ASTNameSpace::new("".to_string(), path.to_string_lossy().to_string())
         };
+        self.parse_with_namespace(path, namespace)
+    }
+
+    pub fn parse_with_namespace(
+        &mut self,
+        path: &Path,
+        namespace: ASTNameSpace,
+    ) -> (ASTModule, Vec<CompilationError>) {
         if self.i > 0 {
             panic!("Cannot parse twice");
         }
