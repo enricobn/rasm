@@ -202,7 +202,8 @@ impl RasmProject {
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         info!("Reading tests");
 
-        let (mut modules, mut errors) = self.core_modules(backend, statics);
+        let mut modules = Vec::new();
+        let mut errors = Vec::new();
 
         self.get_modules(true, self.test_folder(), true)
             .into_iter()
