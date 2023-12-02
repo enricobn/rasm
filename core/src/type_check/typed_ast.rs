@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
@@ -13,7 +14,7 @@ use crate::codegen::TypedValKind;
 use crate::errors::CompilationErrorKind::Verify;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
-use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
+use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
@@ -76,7 +77,7 @@ impl Display for ASTTypedLambdaDef {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedFunctionBody {
     RASMBody(Vec<ASTTypedStatement>),
-    ASMBody(String),
+    NativeBody(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -270,6 +271,7 @@ pub struct ASTTypedModule {
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
     pub types: Vec<ASTTypedTypeDef>,
+    pub externals: HashSet<String>,
 }
 
 impl TypeDefProvider for ASTTypedModule {
@@ -817,6 +819,8 @@ pub fn convert_to_typed_module(
 ) -> Result<ASTTypedModule, CompilationError> {
     let type_check = TypeCheck::new(&original_module.body_namespace);
 
+    let externals = original_module.externals.clone();
+
     let module = type_check.type_check(
         original_module,
         backend,
@@ -869,6 +873,7 @@ pub fn convert_to_typed_module(
         enums: conv_context.enum_defs,
         functions_by_name: LinkedHashMap::new(),
         types: conv_context.type_defs,
+        externals,
     };
 
     let evaluator = backend.get_evaluator();
@@ -876,7 +881,7 @@ pub fn convert_to_typed_module(
     for (_name, function) in functions_by_name.iter_mut() {
         match &function.body {
             ASTTypedFunctionBody::RASMBody(_) => {}
-            ASTTypedFunctionBody::ASMBody(body) => {
+            ASTTypedFunctionBody::NativeBody(body) => {
                 let new_body = evaluator
                     .translate(
                         backend,
@@ -914,7 +919,7 @@ pub fn convert_to_typed_module(
                             Vec::new(),
                         )
                     })?;
-                function.body = ASTTypedFunctionBody::ASMBody(new_body);
+                function.body = ASTTypedFunctionBody::NativeBody(new_body);
             }
         }
     }
@@ -1450,7 +1455,7 @@ pub fn function_def(
 
     match &typed_function_def.body {
         ASTTypedFunctionBody::RASMBody(_) => {}
-        ASTTypedFunctionBody::ASMBody(body) => {
+        ASTTypedFunctionBody::NativeBody(body) => {
             let mut val_context = ValContext::new(None);
 
             for par in typed_function_def.parameters.iter() {
@@ -1551,7 +1556,7 @@ pub fn function_def(
             new_body = lines.join("\n");
 
             if body != &new_body {
-                typed_function_def.body = ASTTypedFunctionBody::ASMBody(new_body);
+                typed_function_def.body = ASTTypedFunctionBody::NativeBody(new_body);
             }
         }
 
@@ -1636,7 +1641,7 @@ fn body(conv_context: &mut ConvContext, body: &ASTFunctionBody) -> ASTTypedFunct
         RASMBody(body) => ASTTypedFunctionBody::RASMBody(
             body.iter().map(|it| statement(conv_context, it)).collect(),
         ),
-        ASMBody(body) => ASTTypedFunctionBody::ASMBody(body.clone()),
+        NativeBody(body) => ASTTypedFunctionBody::NativeBody(body.clone()),
     }
 }
 
@@ -1841,7 +1846,7 @@ pub fn print_typed_module(module: &ASTTypedModule) {
 pub fn print_function_def(f: &ASTTypedFunctionDef) {
     match &f.body {
         ASTTypedFunctionBody::RASMBody(_) => print!("fn {}", f),
-        ASTTypedFunctionBody::ASMBody(_) => print!("asm {}", f),
+        ASTTypedFunctionBody::NativeBody(_) => print!("native {}", f),
     }
     match &f.body {
         ASTTypedFunctionBody::RASMBody(expressions) => {
@@ -1851,7 +1856,7 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
             });
             println!("}}");
         }
-        ASTTypedFunctionBody::ASMBody(_) => println!(" {{...}}"),
+        ASTTypedFunctionBody::NativeBody(_) => println!(" {{...}}"),
     }
 }
 

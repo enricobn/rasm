@@ -29,8 +29,8 @@ pub trait TraverseTypedAST {
         for function in module.functions_by_name.values() {
             match &function.body {
                 ASTTypedFunctionBody::RASMBody(rasm_body) => self.traverse_body(rasm_body),
-                ASTTypedFunctionBody::ASMBody(asm) => {
-                    self.found_asm(module, function, asm);
+                ASTTypedFunctionBody::NativeBody(native_code) => {
+                    self.found_asm(module, function, native_code);
                 }
             }
             self.found_function_def(function);
@@ -76,5 +76,5 @@ pub trait TraverseTypedAST {
 
     fn found_function_def(&mut self, function: &ASTTypedFunctionDef);
 
-    fn found_asm(&mut self, module: &ASTTypedModule, function: &ASTTypedFunctionDef, asm: &str);
+    fn found_asm(&mut self, module: &ASTTypedModule, function: &ASTTypedFunctionDef, native_code: &str);
 }

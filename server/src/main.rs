@@ -212,7 +212,7 @@ async fn file(
 fn token_to_string(token: &Token) -> String {
     match &token.kind {
         TokenKind::AlphaNumeric(s) => s.clone(),
-        TokenKind::AsmBLock(s) => s.clone(),
+        TokenKind::NativeBLock(s) => s.clone(),
         TokenKind::Bracket(kind, status) => match kind {
             BracketKind::Angle => match status {
                 BracketStatus::Close => "&gt;".to_owned(),

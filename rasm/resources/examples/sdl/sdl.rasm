@@ -53,7 +53,7 @@ pub fn sdlErrorIfNull<T>(value: T, message: str) -> T {
     if(isSDLNull(value), { -> sdlFailure(message); value; }, { -> value; });
 }
 
-asm isSDLNull<T>(value: T) -> bool /{
+native isSDLNull<T>(value: T) -> bool /{
     mov dword   eax, $value
     cmp     eax,0
     je .null
@@ -64,76 +64,76 @@ asm isSDLNull<T>(value: T) -> bool /{
 .end:
 }/
 
-asm sdlFailure(message: str) /{
+native sdlFailure(message: str) /{
     $ccall(SDL_GetError)
     $ccall(printf, $message, eax)
     $ccall(SDL_Quit)
     $ccall(exit, 1)
 }/
 
-pub asm sdlInit() /{
+pub native sdlInit() /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
     $ccall(SDL_Init, 62001)
 }/
 
-pub asm sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> SDLWindow /{
+pub native sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> SDLWindow /{
     $ccall(SDL_CreateWindow, $title, $x, $y, $width, $height, 4)
 }/
 
-pub asm sdlDelay(millis: i32) /{
+pub native sdlDelay(millis: i32) /{
     $ccall(SDL_Delay, $millis)
 }/
 
-pub asm sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
+pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     ; SDL_RENDERER_ACCELERATED = 0x00000002
     ; SDL_RENDERER_PRESENTVSYNC = 0x00000004
     $ccall(SDL_CreateRenderer, $win, -1, 6)
 }/
 
-pub asm sdlLoadBMP(file: str) -> SDLSurface /{
+pub native sdlLoadBMP(file: str) -> SDLSurface /{
     $ccall(SDL_RWFromFile, $file, "rb")
     $ccall(SDL_LoadBMP_RW, eax, 1)
 }/
 
-pub asm sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
+pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
     $ccall(SDL_CreateTextureFromSurface, $ren, $surface)
 }/
 
-pub asm sdlFreeSurface(surface: SDLSurface) /{
+pub native sdlFreeSurface(surface: SDLSurface) /{
     $ccall(SDL_FreeSurface, $surface)
 }/
 
-pub asm sdlRenderClear(ren: SDLRenderer) /{
+pub native sdlRenderClear(ren: SDLRenderer) /{
     $ccall(SDL_RenderClear, $ren)
 }/
 
-pub asm sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
+pub native sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
     $ccall(SDL_RenderCopy, $ren, $tex, 0, 0)
 }/
 
-pub asm sdlRenderPresent(ren: SDLRenderer) /{
+pub native sdlRenderPresent(ren: SDLRenderer) /{
     $ccall(SDL_RenderPresent, $ren)
 }/
 
-pub asm sdlDestroyRenderer(ren: SDLRenderer) /{
+pub native sdlDestroyRenderer(ren: SDLRenderer) /{
     $ccall(SDL_DestroyRenderer, $ren)
 }/
 
-pub asm sdlDestroyTexture(tex: SDLTexture) /{
+pub native sdlDestroyTexture(tex: SDLTexture) /{
     $ccall(SDL_DestroyTexture, $tex)
 }/
 
-pub asm sdlDestroyWindow(win: SDLWindow) /{
+pub native sdlDestroyWindow(win: SDLWindow) /{
     $ccall(SDL_DestroyWindow, $win)
 }/
 
-asm sdlGetError() -> str /{
+native sdlGetError() -> str /{
     $ccall(SDL_GetError)
     ; TODO I don't know if it works or if it is correct: it is not a static string
     $call(addStaticStringToHeap, eax)
 }/
 
-pub asm sdlQuit() /{
+pub native sdlQuit() /{
     $ccall(SDL_Quit)
 }/
 
@@ -141,11 +141,11 @@ pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
     sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
 }
 
-pub asm sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
+pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
     $ccall(SDL_SetRenderDrawColor, $ren, $r, $g, $b, $a)
 }/
 
-pub asm sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
+pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     $ccall(SDL_RenderFillRect, $ren, $rect)
 }/
 
@@ -208,7 +208,7 @@ typedef struct{
 } SDL_keysym;
 
 */
-pub asm keyEvent() -> Option<KeyEvent> /{
+pub native keyEvent() -> Option<KeyEvent> /{
     push    ebx
 
     $call(rasmalloc, 56, " for temp mem for sdl keyEvent")
@@ -266,7 +266,7 @@ fn sdlSingleLoop<CTX,MODEL>(ctx: CTX, model: MODEL, updateFun: fn(Option<KeyEven
     newModel;
 }
 
-pub asm sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
+pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
     push    ebx
     push    ecx
     push    edx
@@ -304,15 +304,15 @@ pub asm sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, 
 
 // Text
 
-pub asm sdlTTFInit() -> i32 /{
+pub native sdlTTFInit() -> i32 /{
     $ccall(TTF_Init)
 }/
 
-pub asm sdlOpenFont(file: str, size: i32) -> SDLFont /{
+pub native sdlOpenFont(file: str, size: i32) -> SDLFont /{
     $ccall(TTF_OpenFont, $file, $size)
 }/
 
-asm sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
+native sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
     push    ebx
     push    ecx
 
@@ -336,7 +336,7 @@ asm sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i
     pop     ebx
 }/
 
-pub asm sdlRenderTextSolid(font: SDLFont, message: str, color: SDLColor) -> SDLSurface /{
+pub native sdlRenderTextSolid(font: SDLFont, message: str, color: SDLColor) -> SDLSurface /{
     push    ebx
     push    ecx
     push    edx
@@ -366,7 +366,7 @@ pub asm sdlRenderTextSolid(font: SDLFont, message: str, color: SDLColor) -> SDLS
     pop     ebx
 }/
 
-pub asm sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
+pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
     push    eax
     mov     dword eax, $rect
     $ccall(SDL_RenderCopy, $ren, $message, 0, [eax])

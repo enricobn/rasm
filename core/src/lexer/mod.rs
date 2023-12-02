@@ -16,8 +16,8 @@ pub mod tokens;
 enum LexStatus {
     None,
     AlphaNumeric,
-    AsmBlock,
     Comment,
+    NativeBlock,
     Numeric,
     String,
     StringEscape,
@@ -170,7 +170,7 @@ impl Lexer {
                         actual.push(c);
                     } else if actual == "/" && c == '{' {
                         actual.clear();
-                        status = LexStatus::AsmBlock;
+                        status = LexStatus::NativeBlock;
                     } else if let Some(punctuation) = self.get_punctuation(&actual, c) {
                         let token = self.some_token(punctuation);
                         self.column += 1;
@@ -313,9 +313,9 @@ impl Lexer {
                         }
                     }
                 }
-                LexStatus::AsmBlock => {
+                LexStatus::NativeBlock => {
                     if actual.ends_with("}/") {
-                        let token = self.some_token(TokenKind::AsmBLock(
+                        let token = self.some_token(TokenKind::NativeBLock(
                             actual.split_at(actual.len() - 2).0.into(),
                         ));
                         //self.chars.next_back();
@@ -481,12 +481,12 @@ mod tests {
         let lst: Vec<TokenKind> = tokens
             .into_iter()
             .map(|it| it.kind)
-            .filter(|it| matches!(it, TokenKind::AsmBLock(_)))
+            .filter(|it| matches!(it, TokenKind::NativeBLock(_)))
             .collect();
         assert_eq!(
             vec![
-                AsmBLock("\n    add assembler code\n".into()),
-                AsmBLock("\n    sub assembler code\n".into()),
+                NativeBLock("\n    add assembler code\n".into()),
+                NativeBLock("\n    sub assembler code\n".into()),
             ],
             lst
         );

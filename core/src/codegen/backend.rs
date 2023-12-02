@@ -22,9 +22,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_reference_type_name, TypedValKind, ValKind};
 use crate::debug_i;
-use crate::parser::ast::{
-    ASTFunctionDef, ASTIndex, ASTModule, ASTType, BuiltinTypeKind, ValueType,
-};
+use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind, ValueType};
 use crate::transformations::enum_functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
@@ -47,15 +45,15 @@ pub trait Backend: Send + Sync {
 
     fn word_len(&self) -> usize;
 
-    fn compile_and_link(&self, source_file: &Path);
+    fn compile_and_link(&self, source_file: &Path, requires: &HashSet<String>);
 
     fn compile(&self, source_file: &Path);
 
-    fn link(&self, path: &Path);
+    fn link(&self, path: &Path, requires: &HashSet<String>);
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
-    fn preamble(&self, code: &mut String);
+    fn preamble(&self, code: &mut String, externals: &HashSet<String>);
 
     /// Returns the name of the functions called in the code
     ///
@@ -203,8 +201,6 @@ pub trait Backend: Send + Sync {
         deref_function: &str,
     );
 
-    fn add_module(&mut self, module: &ASTModule);
-
     fn get_evaluator(&self) -> TextMacroEvaluator;
 
     fn define_debug(&self, out: &mut String);
@@ -282,8 +278,6 @@ struct Nasmi386CoreLibAssets;
 
 #[derive(Clone)]
 pub struct BackendNasmi386 {
-    requires: HashSet<String>,
-    externals: HashSet<String>,
     linker: Linker,
     libc: bool,
     debug_asm: bool,
@@ -293,8 +287,6 @@ impl BackendNasmi386 {
     pub fn new(debug_asm: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
-            requires: HashSet::new(),
-            externals: HashSet::new(),
             linker: if libc { Linker::Gcc } else { Linker::Ld },
             libc,
             debug_asm,
@@ -400,7 +392,7 @@ impl BackendNasmi386 {
             name: name.to_owned(),
             original_name: name.to_owned(),
             parameters,
-            body: ASTTypedFunctionBody::ASMBody(body),
+            body: ASTTypedFunctionBody::NativeBody(body),
             return_type: ASTTypedType::Unit,
             generic_types: LinkedHashMap::new(),
             inline: false,
@@ -426,10 +418,10 @@ impl Backend for BackendNasmi386 {
         4
     }
 
-    fn compile_and_link(&self, source_file: &Path) {
+    fn compile_and_link(&self, source_file: &Path, requires: &HashSet<String>) {
         self.compile(source_file);
 
-        self.link(source_file);
+        self.link(source_file, requires);
     }
 
     fn compile(&self, source_file: &Path) {
@@ -455,7 +447,7 @@ impl Backend for BackendNasmi386 {
         }
     }
 
-    fn link(&self, path: &Path) {
+    fn link(&self, path: &Path, requires: &HashSet<String>) {
         let start = Instant::now();
         let result = match self.linker {
             Linker::Ld => {
@@ -476,8 +468,7 @@ impl Backend for BackendNasmi386 {
                     .expect("failed to execute ld")
             }
             Linker::Gcc => {
-                let libraries = self
-                    .requires
+                let libraries = requires
                     .iter()
                     .filter(|it| *it != "libc")
                     .map(|it| format!("-l{it}"))
@@ -523,7 +514,7 @@ impl Backend for BackendNasmi386 {
         }
     }
 
-    fn preamble(&self, code: &mut String) {
+    fn preamble(&self, code: &mut String, externals: &HashSet<String>) {
         self.add(code, "%macro gotoOnSome 1", None, false);
         self.add(code, "cmp dword eax,[_enum_Option_None]", None, true);
         self.add(code, "jne %1", None, true);
@@ -533,7 +524,7 @@ impl Backend for BackendNasmi386 {
             self.add(code, "extern exit", None, true);
         }
 
-        for e in self.externals.iter() {
+        for e in externals.iter() {
             self.add(code, &format!("extern {e}"), None, true);
         }
     }
@@ -1402,13 +1393,6 @@ impl Backend for BackendNasmi386 {
             true,
         );
     }
-    fn add_module(&mut self, module: &ASTModule) {
-        let requires = module.requires.clone();
-        self.requires.extend(&mut requires.into_iter());
-
-        let externals = module.externals.clone();
-        self.externals.extend(&mut externals.into_iter());
-    }
 
     fn get_evaluator(&self) -> TextMacroEvaluator {
         let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
@@ -1594,9 +1578,8 @@ mod tests {
 
     #[test]
     fn called_functions_external() {
-        let mut sut = BackendNasmi386::new(false);
+        let sut = BackendNasmi386::new(false);
         let mut statics = Statics::new();
-        sut.externals.insert("something".into());
 
         assert!(sut
             .called_functions(

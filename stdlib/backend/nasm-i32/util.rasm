@@ -1,4 +1,4 @@
-pub asm random() -> i32 /{
+pub native random() -> i32 /{
     $call(rasmalloc, 4, "random")
     push    dword ebx
     push    dword ecx

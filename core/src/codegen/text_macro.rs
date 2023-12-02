@@ -1460,7 +1460,7 @@ mod tests {
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
                 ast_index: ASTIndex::none(),
             }],
-            body: ASTTypedFunctionBody::ASMBody("".into()),
+            body: ASTTypedFunctionBody::NativeBody("".into()),
             generic_types: LinkedHashMap::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
@@ -1500,7 +1500,7 @@ mod tests {
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
                 ast_index: ASTIndex::none(),
             }],
-            body: ASTTypedFunctionBody::ASMBody("".into()),
+            body: ASTTypedFunctionBody::NativeBody("".into()),
             generic_types: LinkedHashMap::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
@@ -1552,7 +1552,6 @@ mod tests {
     #[test]
     fn test_get_macros() {
         let backend = backend();
-        let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
             name: "aFun".into(),
@@ -1562,7 +1561,7 @@ mod tests {
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
                 ast_index: ASTIndex::none(),
             }],
-            body: ASTTypedFunctionBody::ASMBody("".into()),
+            body: ASTTypedFunctionBody::NativeBody("".into()),
             generic_types: LinkedHashMap::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
@@ -1618,7 +1617,6 @@ mod tests {
     #[test]
     fn translate_ref_to_par_overridden() {
         let backend = backend();
-        let mut statics = Statics::new();
 
         let function_def = ASTFunctionDef {
             name: "aFun".into(),
@@ -1628,7 +1626,7 @@ mod tests {
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
                 ast_index: ASTIndex::none(),
             }],
-            body: ASTFunctionBody::ASMBody("".into()),
+            body: ASTFunctionBody::NativeBody("".into()),
             generic_types: Vec::new(),
             return_type: ASTType::Unit,
             inline: false,

@@ -14,7 +14,7 @@ use crate::lexer::tokens::{
 use crate::lexer::Lexer;
 use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
-use crate::parser::ast::ASTFunctionBody::{ASMBody, RASMBody};
+use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
     ASTModifiers, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
@@ -534,7 +534,7 @@ impl Parser {
                     original_name: name.clone(),
                     name,
                     parameters: Vec::new(),
-                    body: ASMBody("".into()),
+                    body: NativeBody("".into()),
                     return_type: ASTType::Unit,
                     inline,
                     generic_types: param_types,
@@ -749,8 +749,8 @@ impl Parser {
                         // TODO try not to clone
                         statements.clone()
                     }
-                    ASMBody(_) => {
-                        return Err(format!("Expected function got asm:  {}", self.get_index(0)));
+                    NativeBody(_) => {
+                        return Err(format!("Expected function got native:  {}", self.get_index(0)));
                     }
                 };
                 statements.push(stmt);
@@ -900,7 +900,7 @@ impl Parser {
                 self.get_token_kind_n(1)
             {
                 self.i += 1;
-            } else if let Some(TokenKind::AsmBLock(_body)) = self.get_token_kind_n(1) {
+            } else if let Some(TokenKind::NativeBLock(_body)) = self.get_token_kind_n(1) {
                 self.i += 1;
             } else {
                 return Err(format!(
@@ -915,9 +915,9 @@ impl Parser {
             self.state.push(ParserState::FunctionBody);
             self.state.push(ParserState::Statement);
             self.i += 1;
-        } else if let TokenKind::AsmBLock(body) = &token.kind {
+        } else if let TokenKind::NativeBLock(body) = &token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                def.body = ASMBody(body.into());
+                def.body = NativeBody(body.into());
                 self.functions.push(def);
                 self.parser_data.pop();
                 self.state.pop();
@@ -983,7 +983,7 @@ impl Parser {
                 });
                 println!("}}");
             }
-            ASMBody(_) => println!(" {{...}}"),
+            NativeBody(_) => println!(" {{...}}"),
         }
     }
 

@@ -3,7 +3,7 @@ pub struct TimeVal {
     nano: i32
 }
 
-pub asm now() -> TimeVal /{
+pub native now() -> TimeVal /{
     push    ecx
     push    ebx
     $call(TimeVal, 0, 0)
@@ -59,7 +59,7 @@ pub fn eq(t1: TimeVal, t2: TimeVal) -> bool {
 }
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
-pub asm sleep(timeVal: TimeVal) -> i32 /{
+pub native sleep(timeVal: TimeVal) -> i32 /{
     push ebx
     push ecx
     mov dword ebx,$timeVal

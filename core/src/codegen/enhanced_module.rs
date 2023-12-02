@@ -1,6 +1,7 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use log::debug;
+use std::collections::HashSet;
 
 use crate::debug_i;
 use crate::parser::ast::{
@@ -21,6 +22,7 @@ pub struct EnhancedASTModule {
     pub structs: Vec<ASTStructDef>,
     pub types: Vec<ASTTypeDef>,
     pub body_namespace: ASTNameSpace,
+    pub externals: HashSet<String>,
 }
 
 impl EnhancedASTModule {
@@ -34,6 +36,7 @@ impl EnhancedASTModule {
         let mut enums = Vec::new();
         let mut structs = Vec::new();
         let mut types = Vec::new();
+        let mut externals = HashSet::new();
 
         let mut container = FunctionsContainer::new();
 
@@ -74,6 +77,7 @@ impl EnhancedASTModule {
             enums.extend(module.enums);
             structs.extend(module.structs);
             types.extend(module.types);
+            externals.extend(module.externals);
         }
 
         let mut module = Self {
@@ -93,6 +97,7 @@ impl EnhancedASTModule {
                     .clone()
                     .unwrap_or("".to_string()),
             ),
+            externals,
         };
 
         add_folder(&mut module, "RASMRESOURCEFOLDER", project.resource_folder());
@@ -232,7 +237,7 @@ impl EnhancedASTModule {
                         println!("  {s}");
                     }
                 }
-                ASTFunctionBody::ASMBody(_) => {
+                ASTFunctionBody::NativeBody(_) => {
                     println!();
                 }
             }

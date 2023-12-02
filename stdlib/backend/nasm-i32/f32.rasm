@@ -1,4 +1,4 @@
-pub asm tof32(n: i32) -> f32 /{
+pub native tof32(n: i32) -> f32 /{
     push    ebx
     push    ecx
 
@@ -30,7 +30,7 @@ pub asm tof32(n: i32) -> f32 /{
     pop     ebx
 }/
 
-asm countBits(n: i32) -> i32 /{
+native countBits(n: i32) -> i32 /{
     push    ebx
     mov     dword eax,0
     mov     dword ebx,$n
@@ -44,7 +44,7 @@ asm countBits(n: i32) -> i32 /{
     pop     ebx
 }/
 
-pub asm toi32(n: f32) -> Option<i32> /{
+pub native toi32(n: f32) -> Option<i32> /{
     push    ebx
     push    ecx
     push    edx
@@ -92,13 +92,13 @@ pub asm toi32(n: f32) -> Option<i32> /{
     pop     ebx
 }/
 
-pub asm negate(n: i32) -> i32 /{
+pub native negate(n: i32) -> i32 /{
     mov     dword eax,$n
     xor     dword eax,0xFFFFFFFF
     inc     dword eax
 }/
 
-asm getAligned(alignedMantissa: i32, intNumbersCount: i32) -> i32 /{
+native getAligned(alignedMantissa: i32, intNumbersCount: i32) -> i32 /{
     push    ecx
 
     mov     dword ecx, 24
@@ -110,7 +110,7 @@ asm getAligned(alignedMantissa: i32, intNumbersCount: i32) -> i32 /{
 }/
 
 // from https://stackoverflow.com/questions/42181811/how-to-add-two-numbers-integer-and-a-float-in-nasm
-pub asm mul(f1: f32, f2: f32) -> f32 /{
+pub native mul(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -126,7 +126,7 @@ pub asm mul(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-pub asm mul(f1: f32, n2: i32) -> f32 /{
+pub native mul(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -143,7 +143,7 @@ pub asm mul(f1: f32, n2: i32) -> f32 /{
 }/
 
 
-pub asm div(f1: f32, f2: f32) -> f32 /{
+pub native div(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -159,7 +159,7 @@ pub asm div(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-pub asm div(f1: f32, n2: i32) -> f32 /{
+pub native div(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -175,7 +175,7 @@ pub asm div(f1: f32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-pub asm divf(n1: i32, n2: i32) -> f32 /{
+pub native divf(n1: i32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$n1
@@ -191,7 +191,7 @@ pub asm divf(n1: i32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-pub asm add(f1: f32, f2: f32) -> f32 /{
+pub native add(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -207,7 +207,7 @@ pub asm add(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-pub asm sub(f1: f32, f2: f32) -> f32 /{
+pub native sub(f1: f32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -223,7 +223,7 @@ pub asm sub(f1: f32, f2: f32) -> f32 /{
     add     esp,4
 }/
 
-pub asm add(f1: f32, n2: i32) -> f32 /{
+pub native add(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$n2
@@ -239,7 +239,7 @@ pub asm add(f1: f32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-pub asm sub(f1: f32, n2: i32) -> f32 /{
+pub native sub(f1: f32, n2: i32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$f1
@@ -255,7 +255,7 @@ pub asm sub(f1: f32, n2: i32) -> f32 /{
     add     esp,4
 }/
 
-pub asm sub(n1: i32, f2: f32) -> f32 /{
+pub native sub(n1: i32, f2: f32) -> f32 /{
     sub     esp,4
 
     mov     dword eax,$n1
@@ -272,7 +272,7 @@ pub asm sub(n1: i32, f2: f32) -> f32 /{
 }/
 
 // false = 0 true = any other value
-pub asm greater(f1: f32, f2: f32) -> bool /{
+pub native greater(f1: f32, f2: f32) -> bool /{
     $call(cmp, $f1, $f2)
     cmp     dword eax,0
     je      .true
@@ -283,7 +283,7 @@ pub asm greater(f1: f32, f2: f32) -> bool /{
 .end:
 }/
 
-pub asm greater(f1: f32, n2: i32) -> bool /{
+pub native greater(f1: f32, n2: i32) -> bool /{
     $call(cmp, $f1, $n2)
     cmp     dword eax,0
     je      .true
@@ -294,7 +294,7 @@ pub asm greater(f1: f32, n2: i32) -> bool /{
 .end:
 }/
 
-pub asm less(f1: f32, f2: f32) -> bool /{
+pub native less(f1: f32, f2: f32) -> bool /{
     $call(cmp, $f1, $f2)
     cmp     dword eax,0x100
     je      .true
@@ -305,7 +305,7 @@ pub asm less(f1: f32, f2: f32) -> bool /{
 .end:
 }/
 
-pub asm less(f1: f32, n2: i32) -> bool /{
+pub native less(f1: f32, n2: i32) -> bool /{
     $call(cmp, $f1, $n2)
     cmp     dword eax,0x100
     je      .true
@@ -316,7 +316,7 @@ pub asm less(f1: f32, n2: i32) -> bool /{
 .end:
 }/
 
-pub asm cmp(f1: f32, f2: f32) -> i32 /{
+pub native cmp(f1: f32, f2: f32) -> i32 /{
     sub     esp,4
 
     finit
@@ -337,7 +337,7 @@ pub asm cmp(f1: f32, f2: f32) -> i32 /{
     add     esp,4
 }/
 
-pub asm cmp(f1: f32, n2: i32) -> i32 /{
+pub native cmp(f1: f32, n2: i32) -> i32 /{
     sub     esp,4
 
     finit
@@ -359,7 +359,7 @@ pub asm cmp(f1: f32, n2: i32) -> i32 /{
 }/
 
 // false = 0 true = any other value
-pub asm min(f1: f32, f2: f32) -> f32 /{
+pub native min(f1: f32, f2: f32) -> f32 /{
     $call(greater, $f1: f32, $f2: f32)
     cmp     dword eax,0
     jz      .false

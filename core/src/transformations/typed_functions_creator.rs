@@ -54,7 +54,7 @@ pub trait TypedFunctionsCreator {
             module,
             statics,
         );
-        let body = ASTTypedFunctionBody::ASMBody(body_str);
+        let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
             module,
@@ -85,7 +85,7 @@ pub trait TypedFunctionsCreator {
             module,
             statics,
         );
-        let body = ASTTypedFunctionBody::ASMBody(body_str);
+        let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
             module,
@@ -116,7 +116,7 @@ pub trait TypedFunctionsCreator {
             module,
             statics,
         );
-        let body = ASTTypedFunctionBody::ASMBody(body_str);
+        let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
             module,

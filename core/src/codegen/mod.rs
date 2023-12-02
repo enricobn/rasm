@@ -2,10 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
-use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, info};
+use log::debug;
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
@@ -35,7 +34,7 @@ use crate::utils::OptionDisplay;
 
 pub mod backend;
 pub mod enhanced_module;
-mod function_call_parameters;
+pub mod function_call_parameters;
 pub mod lambda;
 pub mod stack;
 pub mod statics;
@@ -208,7 +207,8 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
         let mut generated_code = String::new();
 
-        self.backend().preamble(&mut generated_code);
+        self.backend()
+            .preamble(&mut generated_code, &self.module().externals);
 
         // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         statics.insert(
@@ -540,7 +540,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         before.push_str(&string);
 
         if inline {
-            if let Some(ASTTypedFunctionBody::ASMBody(body)) = &body {
+            if let Some(ASTTypedFunctionBody::NativeBody(body)) = &body {
                 /*let mut added_to_stack = added_to_stack;
                 added_to_stack.push_str(&format!(
                     " + {}",
@@ -556,7 +556,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 ));
                 before.push('\n');
             } else {
-                panic!("Only asm can be inlined, for now...");
+                panic!("Only native  can be inlined, for now...");
             }
         } else if is_lambda {
             if let Some(index_in_lambda_space) =
@@ -1175,7 +1175,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                     }
                 }
             }
-            ASTTypedFunctionBody::ASMBody(body) => {
+            ASTTypedFunctionBody::NativeBody(body) => {
                 let function_call_parameters = self.function_call_parameters(
                     &function_def.parameters,
                     false,
@@ -1256,10 +1256,10 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
     fn get_used_functions(
         &self,
         functions_asm: &HashMap<String, (String, String)>,
-        asm: &String,
+        native_code: &str,
     ) -> Vec<(String, (String, String))>;
 
-    fn print_memory_info(&self, asm: &mut String);
+    fn print_memory_info(&self, native_code: &mut String);
 
     fn initialize_static_values(&self, generated_code: &mut String);
 }
@@ -1341,35 +1341,17 @@ fn can_optimize_lambda_space_(
 
 impl CodeGenAsm {
     pub fn new(
-        backend_asm: Box<dyn BackendAsm>,
-        backend: Box<dyn Backend>,
-        statics: &mut Statics,
-        module: EnhancedASTModule,
+        module: ASTTypedModule,
+        backend: Box<impl BackendAsm + 'static>,
         options: CodeGenOptions,
     ) -> Self {
-        let start = Instant::now();
-
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
         });
 
-        let typed_module = get_typed_module(
-            backend.deref(),
-            module,
-            options.print_memory_info,
-            options.dereference,
-            options.print_module,
-            statics,
-        )
-        .unwrap_or_else(|e| {
-            panic!("{e}");
-        });
-
-        info!("type check ended in {:?}", start.elapsed());
-
         Self {
-            module: typed_module,
-            backend: backend_asm,
+            module,
+            backend,
             options,
         }
     }
@@ -2141,7 +2123,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     fn get_used_functions(
         &self,
         functions_asm: &HashMap<String, (String, String)>,
-        asm: &String,
+        native_code: &str,
     ) -> Vec<(String, (String, String))> {
         let result = if self.options.optimize_unused_functions {
             let mut used_functions = UsedFunctions::find(&self.module, self.backend.deref());
@@ -2154,7 +2136,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                     .collect::<Vec<_>>(),
             );
 
-            used_functions.extend(UsedFunctions::get_used_functions(&asm));
+            used_functions.extend(UsedFunctions::get_used_functions(&native_code));
 
             let mut used_functions_in_defs = HashSet::new();
 
@@ -2186,16 +2168,17 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             .collect::<Vec<_>>()
     }
 
-    fn print_memory_info(&self, asm: &mut String) {
-        self.backend.call_function_simple(asm, "printAllocated_0");
+    fn print_memory_info(&self, native_code: &mut String) {
         self.backend
-            .call_function_simple(asm, "printTableSlotsAllocated_0");
+            .call_function_simple(native_code, "printAllocated_0");
+        self.backend
+            .call_function_simple(native_code, "printTableSlotsAllocated_0");
     }
 
-    fn initialize_static_values(&self, generated_code: &mut String) {
+    fn initialize_static_values(&self, native_code: &mut String) {
         let ws = self.backend.word_size();
         self.backend.add_rows(
-            generated_code,
+            native_code,
             vec![
                 &format!("mov     {ws} [_heap], _heap_buffer"),
                 &format!("mov     {ws} [_heap_table_next], _heap_table"),

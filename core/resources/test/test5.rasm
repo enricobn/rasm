@@ -1,7 +1,7 @@
 // test5.rasm file
-asm add(a: i32, b: i32) -> i32 /{
+native add(a: i32, b: i32) -> i32 /{
     add assembler code
 }/
-asm sub(a: i32, b: i32) -> i32 /{
+native sub(a: i32, b: i32) -> i32 /{
     sub assembler code
 }/

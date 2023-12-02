@@ -567,7 +567,7 @@ impl SelectableItem {
 #[cfg(test)]
 mod tests {
     use std::env;
-    use std::io::{Error, Write};
+    use std::io::Write;
     use std::path::{Path, PathBuf};
 
     use env_logger::Builder;

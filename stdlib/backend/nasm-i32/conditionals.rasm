@@ -1,4 +1,4 @@
-pub inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+pub inline native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+19
@@ -30,7 +30,7 @@ pub inline asm if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     ATTENTION: it is not short circuit, it always evaluates both arguments,
     if you need a short circuit then use the version with lambda
 **/
-pub inline asm if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
+pub inline native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
     push  ebx
     push  edx
 
@@ -51,7 +51,7 @@ pub inline asm if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
     ATTENTION: it is not completely short circuit, the true value is always evaluated,
     if you need a short circuit then use if function with lambda
 **/
-pub inline asm if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
+pub inline native if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     mov     eax,$cond
     cmp     eax, 0
     jz      $+11

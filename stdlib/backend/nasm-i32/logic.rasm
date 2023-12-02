@@ -1,14 +1,14 @@
-pub inline asm or(a: bool, b: bool) -> bool /{
+pub inline native or(a: bool, b: bool) -> bool /{
     mov     eax,$a
     or      dword eax,$b
 }/
 
-pub inline asm and(a: bool, b: bool) -> bool /{
+pub inline native and(a: bool, b: bool) -> bool /{
     mov     eax,$a
     and     dword eax,$b
 }/
 
-pub inline asm not(a: bool) -> bool /{
+pub inline native not(a: bool) -> bool /{
     mov     eax,$a
     xor     dword eax,1
 }/

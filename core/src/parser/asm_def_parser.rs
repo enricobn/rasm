@@ -41,7 +41,7 @@ impl<'a> AsmDefParser<'a> {
 
     fn try_parse_no_inline(&self, n: usize) -> Result<Option<(Token, Vec<String>, usize)>, String> {
         let mut current_n = n + 1;
-        if let Some(TokenKind::KeyWord(KeywordKind::Asm)) = self.parser.get_token_kind_n(n) {
+        if let Some(TokenKind::KeyWord(KeywordKind::Native)) = self.parser.get_token_kind_n(n) {
             let name_token_o = self.parser.get_token_n(n + 1);
 
             if let Some(TokenKind::AlphaNumeric(_)) = name_token_o.map(|it| &it.kind) {
@@ -80,14 +80,14 @@ mod tests {
     #[test]
     fn test() {
         let parse_result = try_parse(
-            "inline asm aFun<T>(o: Option<T>) /{
+            "inline native aFun<T>(o: Option<T>) /{
         }/",
         );
         let expected_token = Token {
             kind: TokenKind::AlphaNumeric("aFun".to_string()),
             file_name: None,
             row: 1,
-            column: 16,
+            column: 19,
         };
 
         assert_eq!(

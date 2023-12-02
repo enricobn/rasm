@@ -47,7 +47,7 @@ pub trait FunctionsCreator {
             };
             let return_type = ast_type;
             let body_str = self.struct_constructor_body(struct_def);
-            let body = ASTFunctionBody::ASMBody(body_str);
+            let body = ASTFunctionBody::NativeBody(body_str);
 
             let parameters = struct_def
                 .properties
@@ -108,7 +108,7 @@ pub trait FunctionsCreator {
     ) {
         let body = self.enum_match_body(name, enum_def);
 
-        let function_body = ASTFunctionBody::ASMBody(body);
+        let function_body = ASTFunctionBody::NativeBody(body);
         let param_types = enum_def
             .type_parameters
             .iter()
@@ -282,7 +282,7 @@ pub trait FunctionsCreator {
                 ast_index: ASTIndex::none(),
             }],
             return_type: property_def.ast_type.clone(),
-            body: ASTFunctionBody::ASMBody(self.struct_property_body(i)),
+            body: ASTFunctionBody::NativeBody(self.struct_property_body(i)),
             generic_types: struct_def.type_parameters.clone(),
             inline: true,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -328,7 +328,7 @@ pub trait FunctionsCreator {
                 },
             ],
             return_type: ast_type,
-            body: ASTFunctionBody::ASMBody(self.struct_setter_body(i)),
+            body: ASTFunctionBody::NativeBody(self.struct_setter_body(i)),
             generic_types: struct_def.type_parameters.clone(),
             inline: false,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -505,7 +505,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
                 let descr_label = statics.add_str(&descr);
                 self.enum_parametric_variant_constructor_body(&variant_num, variant, &descr_label)
             };
-            let body = ASTFunctionBody::ASMBody(body_str);
+            let body = ASTFunctionBody::NativeBody(body_str);
 
             let name = enum_def.name.clone() + "_" + &variant.name.clone();
             let function_def = ASTFunctionDef {

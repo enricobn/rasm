@@ -78,7 +78,7 @@ pub fn createFile(path: str, flags: Vec<FileFlag>) -> File {
     );
 }
 
-pub asm fileExists(path: str) -> bool /{
+pub native fileExists(path: str) -> bool /{
     $call(sysOpen, $path, 0, 0)
     cmp     dword eax, 0
     jb      .error
@@ -93,7 +93,7 @@ pub fn readFile(path: str) -> str {
     readFile(file);
 }
 
-pub asm readFile(file: File) -> str /{
+pub native readFile(file: File) -> str /{
     push    ebx
     push    ecx
     push    edx
@@ -122,7 +122,7 @@ pub asm readFile(file: File) -> str /{
     pop     ebx
 }/
 
-pub asm fileSize(descriptor: File) -> i32 /{
+pub native fileSize(descriptor: File) -> i32 /{
     push    ebx
     push    ecx
 
@@ -156,7 +156,7 @@ pub asm fileSize(descriptor: File) -> i32 /{
   mov  edx, 0777o                       ; 511 red/write/execute access
   mov  edx, 0666o                       ; 438 red/write access
 */
-asm sysOpen(path: str, flags: i32, mode: i32) -> File /{
+native sysOpen(path: str, flags: i32, mode: i32) -> File /{
     push    ebx
     push    ecx
     push    edx
@@ -177,7 +177,7 @@ fn sysOpen(path: str, flags: i32) -> File {
     sysOpen(path, flags, 0);
 }
 
-asm sysRead(descriptor: File, buffer: str, size: i32) /{
+native sysRead(descriptor: File, buffer: str, size: i32) /{
     push    ebx
     push    ecx
     push    edx
@@ -198,7 +198,7 @@ pub fn close(descriptor: File) {
     sysClose(descriptor);
 }
 
-asm sysClose(descriptor: File) /{
+native sysClose(descriptor: File) /{
     push    ebx
 
     mov     eax, 6         ; close syscall
@@ -212,7 +212,7 @@ pub fn delete(path: str) {
     sysUnlink(path);
 }
 
-asm sysUnlink(path: str) /{
+native sysUnlink(path: str) /{
     push    ebx
     push    ecx
     push    edx

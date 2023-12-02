@@ -29,7 +29,7 @@ lazy_static! {
 }
 
 pub struct UsedFunctions<'a> {
-    backend: &'a dyn BackendAsm,
+    backend: &'a dyn BackendAsm, // TODO remove
     functions: HashSet<String>,
 }
 
@@ -59,8 +59,13 @@ impl<'a> TraverseTypedAST for UsedFunctions<'a> {
 
     fn found_function_def(&mut self, _function: &ASTTypedFunctionDef) {}
 
-    fn found_asm(&mut self, _module: &ASTTypedModule, _function: &ASTTypedFunctionDef, asm: &str) {
-        let used_functions = Self::get_used_functions(asm);
+    fn found_asm(
+        &mut self,
+        _module: &ASTTypedModule,
+        _function: &ASTTypedFunctionDef,
+        native_code: &str,
+    ) {
+        let used_functions = Self::get_used_functions(native_code);
 
         self.functions.extend(used_functions);
         /*
@@ -86,10 +91,10 @@ impl<'a> TraverseTypedAST for UsedFunctions<'a> {
 }
 
 impl<'a> UsedFunctions<'a> {
-    pub fn get_used_functions(asm: &str) -> HashSet<String> {
+    pub fn get_used_functions(native_code: &str) -> HashSet<String> {
         let mut used_functions: HashSet<String> = HashSet::new();
 
-        for line in asm.lines() {
+        for line in native_code.lines() {
             let trimmed_line = if let Some(found) = line.find(';') {
                 &line[..found]
             } else {

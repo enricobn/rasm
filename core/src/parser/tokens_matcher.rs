@@ -408,7 +408,7 @@ mod tests {
         let parser = get_parser("enum Option<T> {");
 
         let mut matcher = TokensMatcher::default();
-        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Asm));
+        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Native));
 
         let match_result = matcher.match_tokens(&parser, 0);
 

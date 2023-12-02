@@ -20,7 +20,7 @@ pub fn str_functions_creator(
         &[("$s", None), (&message_key, None)],
         None,
     );
-    let body = ASTFunctionBody::ASMBody(body_src);
+    let body = ASTFunctionBody::NativeBody(body_src);
     let name: String = "str_deref".into();
     let function_def = ASTFunctionDef {
         original_name: name.clone(),
@@ -50,7 +50,7 @@ pub fn str_functions_creator(
         None,
     );
 
-    let body = ASTFunctionBody::ASMBody(body_src);
+    let body = ASTFunctionBody::NativeBody(body_src);
     let name: String = "str_addRef".into();
 
     let function_def = ASTFunctionDef {

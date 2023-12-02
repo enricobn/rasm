@@ -802,7 +802,7 @@ impl FunctionsContainer {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::ASTFunctionBody::ASMBody;
+    use crate::parser::ast::ASTFunctionBody::NativeBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
         ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
@@ -1004,7 +1004,7 @@ mod tests {
     fn simple_function_def(name: &str) -> ASTFunctionDef {
         ASTFunctionDef {
             name: name.into(),
-            body: ASTFunctionBody::ASMBody("".into()),
+            body: ASTFunctionBody::NativeBody("".into()),
             parameters: Vec::new(),
             return_type: ASTType::Unit,
             inline: false,
@@ -1024,7 +1024,7 @@ mod tests {
     ) -> ASTFunctionDef {
         ASTFunctionDef {
             name: name.into(),
-            body: ASMBody("".into()),
+            body: NativeBody("".into()),
             generic_types: vec![],
             parameters: vec![ASTParameterDef {
                 name: param_name.into(),
@@ -1044,7 +1044,7 @@ mod tests {
     fn create_add_function(param_name: &str, param_kind: BuiltinTypeKind) -> ASTFunctionDef {
         ASTFunctionDef {
             name: "add".into(),
-            body: ASMBody("".into()),
+            body: NativeBody("".into()),
             generic_types: vec![],
             parameters: vec![
                 ASTParameterDef {

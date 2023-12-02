@@ -6,7 +6,7 @@ extern "exit"
  *  esp:        the pointer to the initial esp, where in the first slot (dword) there is the count of arguments and in
  *              the subsequent slots there are the pointers to the strings
  */
-pub asm createCmdLineArguments(address: i32,esp: i32) -> i32 /{
+pub native createCmdLineArguments(address: i32,esp: i32) -> i32 /{
     push    eax
     push    ebx
     push    ecx
@@ -42,7 +42,7 @@ pub asm createCmdLineArguments(address: i32,esp: i32) -> i32 /{
     pop     eax
 }/
 
-pub asm exitMain(status: i32) /{
+pub native exitMain(status: i32) /{
     %ifdef LIBC
     push    dword $status
     call    exit
@@ -55,12 +55,12 @@ pub asm exitMain(status: i32) /{
     %endif
 }/
 
-pub asm argc() -> i32 /{
+pub native argc() -> i32 /{
     mov     eax,[_rasm_args]
 }/
 
 // TODO unsafe use Option
-pub asm argv(i: i32) -> str /{
+pub native argv(i: i32) -> str /{
     push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
@@ -76,7 +76,7 @@ pub asm argv(i: i32) -> str /{
     pop edx
 }/
 
-pub asm memcopy(source: i32, dest: i32, len: i32) /{
+pub native memcopy(source: i32, dest: i32, len: i32) /{
     push    ecx
     push    esi
     push    edi
@@ -91,7 +91,7 @@ pub asm memcopy(source: i32, dest: i32, len: i32) /{
     pop     ecx
 }/
 
-pub asm rasmalloc(size: i32, descr: str) -> i32 /{
+pub native rasmalloc(size: i32, descr: str) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -229,7 +229,7 @@ pub asm rasmalloc(size: i32, descr: str) -> i32 /{
     pop     ebx
 }/
 
-pub asm addStaticStringToHeap(s: i32) -> i32 /{
+pub native addStaticStringToHeap(s: i32) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -264,7 +264,7 @@ pub asm addStaticStringToHeap(s: i32) -> i32 /{
     pop     ebx
 }/
 
-pub asm deref(address: i32, descr: str) -> i32 /{
+pub native deref(address: i32, descr: str) -> i32 /{
     push    eax
     push    ebx
 
@@ -369,7 +369,7 @@ pub asm deref(address: i32, descr: str) -> i32 /{
 /**
  * given an address in the allocation table, dereferences that entry and adds it to the reusable table
  */
-pub asm freeMem(address: i32) /{
+pub native freeMem(address: i32) /{
     push    ebx
     push    eax
 
@@ -385,7 +385,7 @@ pub asm freeMem(address: i32) /{
     pop     ebx
 }/
 
-pub asm addRef(address: i32, descr: str) /{
+pub native addRef(address: i32, descr: str) /{
     push    eax
     push    ebx
 
@@ -461,7 +461,7 @@ pub asm addRef(address: i32, descr: str) /{
     pop     eax
 }/
 
-pub asm removeFromReused(address: i32) /{
+pub native removeFromReused(address: i32) /{
     push    eax
 
     %ifdef LOG_DEBUG
@@ -507,7 +507,7 @@ fn invalidAddress() {
     exitMain(1);
 }
 
-pub asm printAllocated() /{
+pub native printAllocated() /{
     push    eax
     push    ebx
     push    ecx
@@ -539,7 +539,7 @@ pub asm printAllocated() /{
 }/
 
 /* probably there's a faster way to do this: a simple diff... */
-pub asm printTotalMemory() /{
+pub native printTotalMemory() /{
     push    eax
     push    ebx
     push    ecx
@@ -567,7 +567,7 @@ pub asm printTotalMemory() /{
     pop     eax
 }/
 
-pub asm printTableSlotsAllocated() /{
+pub native printTableSlotsAllocated() /{
     push    eax
     push    ebx
 
@@ -594,7 +594,7 @@ fn derefAddressNotFound() {
 }
 
 /* checks if the address is used somewhere in memory, in that case it exits */
-asm checkAddress(address: i32) /{
+native checkAddress(address: i32) /{
     push    eax
     push    ebx
     push    ecx
@@ -624,7 +624,7 @@ asm checkAddress(address: i32) /{
     pop     eax
 }/
 
-asm memContains(startAddress: i32, len: i32, what: i32) /{
+native memContains(startAddress: i32, len: i32, what: i32) /{
     push    eax
     push    ebx
     push    ecx
@@ -657,7 +657,7 @@ asm memContains(startAddress: i32, len: i32, what: i32) /{
     pop     eax
 }/
 
-pub asm copy<T>(o: T) -> T /{
+pub native copy<T>(o: T) -> T /{
     push    ebx
     push    ecx
 
@@ -672,7 +672,7 @@ pub asm copy<T>(o: T) -> T /{
     pop     ebx
 }/
 
-pub asm addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
+pub native addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
     push    ebx
 
     mov     dword ebx, $labelMemory
@@ -687,7 +687,7 @@ pub asm addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /
     pop     ebx
 }/
 
-pub asm addHeap(label: i32, descrLabel: i32, value: i32) /{
+pub native addHeap(label: i32, descrLabel: i32, value: i32) /{
     push    ebx
 
     mov     dword ebx, $descrLabel

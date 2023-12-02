@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -6,21 +7,27 @@ use std::time::Instant;
 
 use log::info;
 
+use crate::CompileTarget;
 use rasm_core::codegen::backend::Backend;
-use rasm_core::codegen::backend::BackendNasmi386;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::{CodeGen, CodeGenAsm, CodeGenOptions};
+use rasm_core::codegen::CodeGenOptions;
 use rasm_core::project::RasmProject;
 
 pub struct Compiler {
     project: RasmProject,
     out: PathBuf,
     is_test: bool,
+    target: CompileTarget,
 }
 
 impl Compiler {
-    pub fn new(project: RasmProject, out: Option<&String>, is_test: bool) -> Self {
+    pub fn new(
+        project: RasmProject,
+        out: Option<&String>,
+        is_test: bool,
+        target: CompileTarget,
+    ) -> Self {
         let out = if let Some(o) = out {
             Path::new(o).to_path_buf()
         } else {
@@ -28,7 +35,7 @@ impl Compiler {
                 .out_file(is_test)
                 .expect("undefined out in rasm.toml")
         }
-        .with_extension("asm");
+        .with_extension(target.extension());
 
         info!("out: {}", out.with_extension("").to_string_lossy());
 
@@ -36,6 +43,7 @@ impl Compiler {
             project,
             out,
             is_test,
+            target,
         }
     }
 
@@ -60,12 +68,17 @@ impl Compiler {
 
         let debug_asm = false;
 
-        let mut backend = BackendNasmi386::new(debug_asm);
+        let backend = self.target.backend(debug_asm);
         let mut statics = Statics::new();
 
-        let (modules, errors) =
-            self.project
-                .get_all_modules(&mut backend, &mut statics, self.is_test);
+        let (modules, errors) = self
+            .project
+            .get_all_modules(&backend, &mut statics, self.is_test);
+
+        let requires = modules
+            .iter()
+            .flat_map(|it| it.requires.clone())
+            .collect::<HashSet<_>>();
 
         if !errors.is_empty() {
             for error in errors {
@@ -79,30 +92,23 @@ impl Compiler {
 
         info!("parse ended in {:?}", start.elapsed());
 
-        let code_gen = CodeGenAsm::new(
-            Box::new(backend.clone()),
-            Box::new(backend.clone()),
-            &mut statics,
+        let native_code = self.target.generate(
+            debug_asm,
+            statics,
             enhanced_ast_module,
             CodeGenOptions::default(),
         );
 
-        let start = Instant::now();
-
-        let asm = code_gen.generate(statics);
-
-        info!("code generation ended in {:?}", start.elapsed());
-
         let out_path = Path::new(&self.out);
         File::create(out_path)
             .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
-            .write_all(asm.as_bytes())
+            .write_all(native_code.as_bytes())
             .unwrap();
 
         if only_compile {
             backend.compile(&self.out);
         } else {
-            backend.compile_and_link(&self.out);
+            backend.compile_and_link(&self.out, &requires);
         }
     }
 }

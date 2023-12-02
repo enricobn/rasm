@@ -9,6 +9,10 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::debug;
 use log::info;
+use rasm_core::codegen::backend::{Backend, BackendNasmi386};
+use rasm_core::codegen::enhanced_module::EnhancedASTModule;
+use rasm_core::codegen::statics::Statics;
+use rasm_core::codegen::{get_typed_module, CodeGen, CodeGenAsm, CodeGenOptions};
 use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
@@ -16,6 +20,62 @@ use rasm_core::project::RasmProject;
 use crate::compiler::Compiler;
 
 pub mod compiler;
+
+pub enum CompileTarget {
+    Nasmi36,
+}
+
+impl CompileTarget {
+    pub fn extension(&self) -> String {
+        match self {
+            CompileTarget::Nasmi36 => "asm".to_string(),
+        }
+    }
+
+    pub fn backend(&self, debug: bool) -> impl Backend {
+        match self {
+            CompileTarget::Nasmi36 => BackendNasmi386::new(debug),
+        }
+    }
+
+    pub fn generate(
+        &self,
+        debug: bool,
+        mut statics: Statics,
+        enhanced_ast_module: EnhancedASTModule,
+        options: CodeGenOptions,
+    ) -> String {
+        match self {
+            CompileTarget::Nasmi36 => {
+                let backend = BackendNasmi386::new(debug);
+                let start = Instant::now();
+
+                let typed_module = get_typed_module(
+                    &backend,
+                    enhanced_ast_module,
+                    options.print_memory_info,
+                    options.dereference,
+                    options.print_module,
+                    &mut statics,
+                )
+                .unwrap_or_else(|e| {
+                    panic!("{e}");
+                });
+
+                info!("type check ended in {:?}", start.elapsed());
+
+                let start = Instant::now();
+
+                let generated_code =
+                    CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics);
+
+                info!("code generation ended in {:?}", start.elapsed());
+
+                generated_code
+            }
+        }
+    }
+}
 
 fn main() {
     let start = Instant::now();
@@ -89,7 +149,12 @@ fn main() {
     let resource_folder = project.resource_folder();
     info!("resource folder: {:?}", resource_folder);
 
-    let compiler = Compiler::new(project, matches.get_one::<String>("out"), action == "test");
+    let compiler = Compiler::new(
+        project,
+        matches.get_one::<String>("out"),
+        action == "test",
+        CompileTarget::Nasmi36,
+    );
     compiler.compile(matches.get_flag("compile"));
 
     info!("finished in {:?}", start.elapsed());

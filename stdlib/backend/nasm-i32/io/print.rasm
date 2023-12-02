@@ -1,4 +1,4 @@
-pub inline asm STDOut() -> File /{
+pub inline native STDOut() -> File /{
     mov dword eax, 1
 }/
 
@@ -22,7 +22,7 @@ pub fn println<T>(file: File, v: T) -> Option<IOError> {
  * Prints the number to the File specified.
  * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
  **/
-pub asm print(file: File, n: i32) -> Option<IOError>/{
+pub native print(file: File, n: i32) -> Option<IOError>/{
     push    esi
     push    ebx
     push    ecx
@@ -75,7 +75,7 @@ pub asm print(file: File, n: i32) -> Option<IOError>/{
 /**
  * Prints the number to the File specified.
   **/
-pub asm print(file: File, n: f32) -> Option<IOError> /{
+pub native print(file: File, n: f32) -> Option<IOError> /{
     push    ebx
     push    ecx
     push    edx
@@ -121,7 +121,7 @@ pub asm print(file: File, n: f32) -> Option<IOError> /{
     pop     ebx
 }/
 
-asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) -> Option<IOError> /{
+native printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) -> Option<IOError> /{
     push    ecx
 
     mov     dword ecx, 24
@@ -141,7 +141,7 @@ asm printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) -> Opti
     pop     ecx
 }/
 
-asm printDecimals(file: File, n: i32, count: i32) -> Option<IOError> /{
+native printDecimals(file: File, n: i32, count: i32) -> Option<IOError> /{
     ; local val for result
     sub     dword esp,4
 
@@ -211,7 +211,7 @@ asm printDecimals(file: File, n: i32, count: i32) -> Option<IOError> /{
     add    dword esp,4
 }/
 
-asm printPadLeft(file: File, n: i32, ch: char, count: i32) -> Option<IOError> /{
+native printPadLeft(file: File, n: i32, ch: char, count: i32) -> Option<IOError> /{
     push    ebx
 
     mov     dword ebx,$count
@@ -233,7 +233,7 @@ asm printPadLeft(file: File, n: i32, ch: char, count: i32) -> Option<IOError> /{
 
 // false = 0 true = any other value
 // false if not valid
-asm getNthBit(value: i32, n: i32) -> bool /{
+native getNthBit(value: i32, n: i32) -> bool /{
     push ecx
 
     mov     dword eax,1
@@ -254,14 +254,14 @@ asm getNthBit(value: i32, n: i32) -> bool /{
 /**
  * Prints a new line to file.
  */
-pub asm println(file: File) -> Option<IOError> /{
+pub native println(file: File) -> Option<IOError> /{
     $call(sysPrint, $file, _NEW_LINE: i32, 1)
 }/
 
 /**
  * Prints the string to the file.
  **/
-pub asm print(file: File, s: str) -> Option<IOError> /{
+pub native print(file: File, s: str) -> Option<IOError> /{
     push    ebx
 
     $call(slen, $s)
@@ -273,7 +273,7 @@ pub asm print(file: File, s: str) -> Option<IOError> /{
     pop     ebx
 }/
 
-pub asm printESC() /{
+pub native printESC() /{
     push    eax
     push    ebx
     push    ecx
@@ -291,7 +291,7 @@ pub asm printESC() /{
     pop     eax
 }/
 
-pub asm print(file: File, c: char) -> Option<IOError> /{
+pub native print(file: File, c: char) -> Option<IOError> /{
     push    ecx
     push    ebx
 
@@ -318,7 +318,7 @@ pub asm print(file: File, c: char) -> Option<IOError> /{
     pop     ecx
 }/
 
-asm sysPrint(file: File, s: i32, len: i32) -> Option<IOError> /{
+native sysPrint(file: File, s: i32, len: i32) -> Option<IOError> /{
     push    dword edx
     push    dword ecx
     push    dword ebx

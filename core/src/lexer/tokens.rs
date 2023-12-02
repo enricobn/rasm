@@ -48,7 +48,7 @@ impl Token {
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub enum TokenKind {
     AlphaNumeric(String),
-    AsmBLock(String),
+    NativeBLock(String),
     Bracket(BracketKind, BracketStatus),
     Comment(String),
     MultiLineComment(String),
@@ -67,8 +67,8 @@ impl Display for TokenKind {
             TokenKind::AlphaNumeric(s) => {
                 write!(f, "'{}'", s)
             }
-            TokenKind::AsmBLock(_) => {
-                write!(f, "asm")
+            TokenKind::NativeBLock(_) => {
+                write!(f, "native")
             }
             TokenKind::Bracket(kind, status) => match kind {
                 BracketKind::Angle => {
@@ -172,7 +172,6 @@ pub enum BracketStatus {
 
 #[derive(Debug, PartialEq, Eq, EnumIter, Clone)]
 pub enum KeywordKind {
-    Asm,
     Const,
     Enum,
     Extern,
@@ -181,6 +180,7 @@ pub enum KeywordKind {
     Include,
     Inline,
     Let,
+    Native,
     Pub,
     Requires,
     Struct,
@@ -191,7 +191,6 @@ pub enum KeywordKind {
 impl KeywordKind {
     pub fn name(&self) -> String {
         match self {
-            KeywordKind::Asm => "asm".into(),
             KeywordKind::Const => "const".into(),
             KeywordKind::Enum => "enum".into(),
             KeywordKind::Extern => "extern".into(),
@@ -200,6 +199,7 @@ impl KeywordKind {
             KeywordKind::Include => "include".into(),
             KeywordKind::Inline => "inline".into(),
             KeywordKind::Let => "let".into(),
+            KeywordKind::Native => "native".into(),
             KeywordKind::Pub => "pub".into(),
             KeywordKind::Requires => "requires".into(),
             KeywordKind::Struct => "struct".into(),

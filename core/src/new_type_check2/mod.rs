@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 use std::ops::Deref;
 
@@ -58,6 +58,7 @@ impl TypeCheck {
             structs: vec![],
             types: vec![],
             body_namespace: body_namespace.clone(),
+            externals: HashSet::new(),
         };
 
         Self {
@@ -763,7 +764,7 @@ impl TypeCheck {
                 )?;
                 Some(ASTFunctionBody::RASMBody(new_statements))
             }
-            ASTFunctionBody::ASMBody(asm_body) => {
+            ASTFunctionBody::NativeBody(asm_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
                 let called_functions = backend
                     .called_functions(
@@ -808,7 +809,7 @@ impl TypeCheck {
                         lines[f.i] = new_line;
                     }
 
-                    Some(ASTFunctionBody::ASMBody(lines.join("\n")))
+                    Some(ASTFunctionBody::NativeBody(lines.join("\n")))
                 }
             }
         };
@@ -1274,7 +1275,7 @@ mod tests {
                 },
             ],
             return_type: ASTType::Builtin(BuiltinTypeKind::I32),
-            body: ASTFunctionBody::ASMBody("".to_owned()),
+            body: ASTFunctionBody::NativeBody("".to_owned()),
             inline: false,
             generic_types: vec![],
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -1358,7 +1359,7 @@ mod tests {
                 },
             ],
             return_type: option_t.clone(),
-            body: ASTFunctionBody::ASMBody("".to_owned()),
+            body: ASTFunctionBody::NativeBody("".to_owned()),
             inline: false,
             generic_types: vec!["T".to_owned()],
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -1371,7 +1372,7 @@ mod tests {
             name: "Option::None".to_string(),
             parameters: vec![],
             return_type: option_t.clone(),
-            body: ASTFunctionBody::ASMBody("".to_owned()),
+            body: ASTFunctionBody::NativeBody("".to_owned()),
             inline: false,
             generic_types: vec!["T".to_owned()],
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -1388,7 +1389,7 @@ mod tests {
                 ast_index: ASTIndex::none(),
             }],
             return_type: option_t.clone(),
-            body: ASTFunctionBody::ASMBody("".to_owned()),
+            body: ASTFunctionBody::NativeBody("".to_owned()),
             inline: false,
             generic_types: vec!["T".to_owned()],
             resolved_generic_types: ResolvedGenericTypes::new(),

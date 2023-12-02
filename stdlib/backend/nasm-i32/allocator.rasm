@@ -1,5 +1,5 @@
 /*
-asm malloc(size: i32) -> i32 /{
+native malloc(size: i32) -> i32 /{
     push    ebx
     push    ecx
     push    edx
@@ -100,7 +100,7 @@ asm malloc(size: i32) -> i32 /{
     pop     ebx
 }/
 
-asm deref(address: i32, descr: str) -> i32 /{
+native deref(address: i32, descr: str) -> i32 /{
     push    eax
     push    ebx
 
@@ -163,7 +163,7 @@ asm deref(address: i32, descr: str) -> i32 /{
     pop     eax
 }/
 
-asm addRef(address: i32, descr: str) /{
+native addRef(address: i32, descr: str) /{
     push    eax
     push    ebx
 
@@ -278,7 +278,7 @@ fn reused() {
     println("  reused");
 }
 
-asm printAllocated() /{
+native printAllocated() /{
     push    eax
     push    ebx
     push    ecx
@@ -308,7 +308,7 @@ asm printAllocated() /{
     pop     eax
 }/
 
-asm printTableSlotsAllocated() /{
+native printTableSlotsAllocated() /{
     push    eax
     push    ebx
 

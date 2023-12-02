@@ -3,7 +3,7 @@ extern "printf"
 
 p("%s:\t\t%d\n", "number", 10);
 
-asm p(s1: str, s2: str, n: i32) /{
+native p(s1: str, s2: str, n: i32) /{
     $ccall(printf, "number:\t\t%d\n", $n)
     $ccall(printf, $s1, $s2, $n)
 }/

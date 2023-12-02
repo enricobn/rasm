@@ -118,7 +118,7 @@ impl Display for ASTLambdaDef {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTFunctionBody {
     RASMBody(Vec<ASTStatement>),
-    ASMBody(String),
+    NativeBody(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

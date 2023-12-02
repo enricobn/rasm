@@ -197,17 +197,16 @@ impl RasmProject {
 
     fn all_test_modules(
         &self,
-        backend: &mut dyn Backend,
+        backend: &dyn Backend,
         statics: &mut Statics,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         info!("Reading tests");
 
         let (mut modules, mut errors) = self.core_modules(backend, statics);
 
-        self.get_modules(true, self.test_folder(), true, backend)
+        self.get_modules(true, self.test_folder(), true)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
-                backend.add_module(&project_module);
                 enrich_module(backend, statics, &mut project_module);
                 modules.push(project_module);
                 errors.extend(module_errors);
@@ -218,15 +217,14 @@ impl RasmProject {
 
     fn all_modules(
         &self,
-        backend: &mut dyn Backend,
+        backend: &dyn Backend,
         statics: &mut Statics,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         let (mut modules, mut errors) = self.core_modules(backend, statics);
 
-        self.get_modules(true, self.source_folder(), false, backend)
+        self.get_modules(true, self.source_folder(), false)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
-                backend.add_module(&project_module);
                 enrich_module(backend, statics, &mut project_module);
                 modules.push(project_module);
                 errors.extend(module_errors);
@@ -237,12 +235,11 @@ impl RasmProject {
             .flat_map_iter(|dependency| {
                 info!("including dependency {}", dependency.config.package.name);
                 //TODO include tests?
-                dependency.get_modules(false, dependency.source_folder(), false, backend)
+                dependency.get_modules(false, dependency.source_folder(), false)
             })
             .collect::<Vec<_>>()
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
-                backend.add_module(&project_module);
                 enrich_module(backend, statics, &mut project_module);
                 modules.push(project_module);
                 errors.extend(module_errors);
@@ -253,7 +250,7 @@ impl RasmProject {
 
     fn core_modules(
         &self,
-        backend: &mut dyn Backend,
+        backend: &dyn Backend,
         statics: &mut Statics,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         let mut modules = Vec::new();
@@ -264,7 +261,6 @@ impl RasmProject {
             .iter()
             .map(|it| self.core_module(it.0, &it.1.data))
             .for_each(|(mut project_module, module_errors)| {
-                backend.add_module(&project_module);
                 enrich_module(backend, statics, &mut project_module);
                 modules.push(project_module);
                 errors.extend(module_errors);
@@ -274,7 +270,7 @@ impl RasmProject {
 
     pub fn get_all_modules(
         &self,
-        backend: &mut dyn Backend,
+        backend: &dyn Backend,
         statics: &mut Statics,
         for_tests: bool,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
@@ -442,7 +438,6 @@ impl RasmProject {
         body: bool,
         source_folder: PathBuf,
         for_tests: bool,
-        backend: &dyn Backend,
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
             vec![self.module_from_file(&PathBuf::from(&self.main_src_file().unwrap()), for_tests)]
