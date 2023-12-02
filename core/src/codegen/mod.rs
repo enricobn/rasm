@@ -9,7 +9,7 @@ use log::debug;
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 
-use crate::codegen::backend::{Backend, BackendAsm};
+use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::function_call_parameters::{
     FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsmImpl,
 };
@@ -47,6 +47,40 @@ pub mod val_context;
 /// generation, but we need that value during the code generation...   
 pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
 
+pub enum CompileTarget {
+    Nasmi36,
+}
+
+impl CompileTarget {
+    pub fn extension(&self) -> String {
+        match self {
+            CompileTarget::Nasmi36 => "asm".to_string(),
+        }
+    }
+
+    pub fn backend(&self, debug: bool) -> impl Backend {
+        match self {
+            CompileTarget::Nasmi36 => BackendNasmi386::new(debug),
+        }
+    }
+
+    pub fn generate(
+        &self,
+        debug: bool,
+        statics: Statics,
+        typed_module: ASTTypedModule,
+        options: CodeGenOptions,
+    ) -> String {
+        match self {
+            CompileTarget::Nasmi36 => {
+                let backend = BackendNasmi386::new(debug);
+
+                CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics)
+            }
+        }
+    }
+}
+
 pub struct CodeGenOptions {
     pub lambda_space_size: usize,
     pub heap_size: usize,
@@ -56,6 +90,7 @@ pub struct CodeGenOptions {
     pub dereference: bool,
     pub print_module: bool,
     pub optimize_unused_functions: bool,
+    pub target: CompileTarget,
 }
 
 impl Default for CodeGenOptions {
@@ -69,6 +104,7 @@ impl Default for CodeGenOptions {
             dereference: true,
             print_module: false,
             optimize_unused_functions: false,
+            target: CompileTarget::Nasmi36,
         }
     }
 }

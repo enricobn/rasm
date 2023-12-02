@@ -9,51 +9,14 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::debug;
 use log::info;
-use rasm_core::codegen::backend::{Backend, BackendNasmi386};
-use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::{CodeGen, CodeGenAsm, CodeGenOptions};
+use rasm_core::codegen::CodeGenOptions;
 use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
-use rasm_core::type_check::typed_ast::ASTTypedModule;
 
 use crate::compiler::Compiler;
 
 pub mod compiler;
-
-pub enum CompileTarget {
-    Nasmi36,
-}
-
-impl CompileTarget {
-    pub fn extension(&self) -> String {
-        match self {
-            CompileTarget::Nasmi36 => "asm".to_string(),
-        }
-    }
-
-    pub fn backend(&self, debug: bool) -> impl Backend {
-        match self {
-            CompileTarget::Nasmi36 => BackendNasmi386::new(debug),
-        }
-    }
-
-    pub fn generate(
-        &self,
-        debug: bool,
-        statics: Statics,
-        typed_module: ASTTypedModule,
-        options: CodeGenOptions,
-    ) -> String {
-        match self {
-            CompileTarget::Nasmi36 => {
-                let backend = BackendNasmi386::new(debug);
-
-                CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics)
-            }
-        }
-    }
-}
 
 fn main() {
     let start = Instant::now();
@@ -131,7 +94,7 @@ fn main() {
         project,
         matches.get_one::<String>("out"),
         action == "test",
-        CompileTarget::Nasmi36,
+        CodeGenOptions::default(),
     );
     compiler.compile(matches.get_flag("compile"));
 

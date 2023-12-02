@@ -7,7 +7,6 @@ use std::time::Instant;
 
 use log::info;
 
-use crate::CompileTarget;
 use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
@@ -18,7 +17,7 @@ pub struct Compiler {
     project: RasmProject,
     out: PathBuf,
     is_test: bool,
-    target: CompileTarget,
+    options: CodeGenOptions,
 }
 
 impl Compiler {
@@ -26,7 +25,7 @@ impl Compiler {
         project: RasmProject,
         out: Option<&String>,
         is_test: bool,
-        target: CompileTarget,
+        options: CodeGenOptions,
     ) -> Self {
         let out = if let Some(o) = out {
             Path::new(o).to_path_buf()
@@ -35,7 +34,7 @@ impl Compiler {
                 .out_file(is_test)
                 .expect("undefined out in rasm.toml")
         }
-        .with_extension(target.extension());
+        .with_extension(options.target.extension());
 
         info!("out: {}", out.with_extension("").to_string_lossy());
 
@@ -43,7 +42,7 @@ impl Compiler {
             project,
             out,
             is_test,
-            target,
+            options,
         }
     }
 
@@ -68,7 +67,7 @@ impl Compiler {
 
         let debug_asm = false;
 
-        let backend = self.target.backend(debug_asm);
+        let backend = self.options.target.backend(debug_asm);
         let mut statics = Statics::new();
 
         let (modules, errors) = self
@@ -94,14 +93,12 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let options = CodeGenOptions::default();
-
         let typed_module = get_typed_module(
             &backend,
             enhanced_ast_module,
-            options.print_memory_info,
-            options.dereference,
-            options.print_module,
+            self.options.print_memory_info,
+            self.options.dereference,
+            self.options.print_module,
             &mut statics,
         )
         .unwrap_or_else(|e| {
@@ -112,9 +109,12 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let native_code =
-            self.target
-                .generate(debug_asm, statics, typed_module, CodeGenOptions::default());
+        let native_code = self.options.target.generate(
+            debug_asm,
+            statics,
+            typed_module,
+            CodeGenOptions::default(),
+        );
 
         info!("code generation ended in {:?}", start.elapsed());
 
