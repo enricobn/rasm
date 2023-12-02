@@ -10,12 +10,12 @@ use env_logger::Builder;
 use log::debug;
 use log::info;
 use rasm_core::codegen::backend::{Backend, BackendNasmi386};
-use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::{get_typed_module, CodeGen, CodeGenAsm, CodeGenOptions};
+use rasm_core::codegen::{CodeGen, CodeGenAsm, CodeGenOptions};
 use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
+use rasm_core::type_check::typed_ast::ASTTypedModule;
 
 use crate::compiler::Compiler;
 
@@ -41,37 +41,15 @@ impl CompileTarget {
     pub fn generate(
         &self,
         debug: bool,
-        mut statics: Statics,
-        enhanced_ast_module: EnhancedASTModule,
+        statics: Statics,
+        typed_module: ASTTypedModule,
         options: CodeGenOptions,
     ) -> String {
         match self {
             CompileTarget::Nasmi36 => {
                 let backend = BackendNasmi386::new(debug);
-                let start = Instant::now();
 
-                let typed_module = get_typed_module(
-                    &backend,
-                    enhanced_ast_module,
-                    options.print_memory_info,
-                    options.dereference,
-                    options.print_module,
-                    &mut statics,
-                )
-                .unwrap_or_else(|e| {
-                    panic!("{e}");
-                });
-
-                info!("type check ended in {:?}", start.elapsed());
-
-                let start = Instant::now();
-
-                let generated_code =
-                    CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics);
-
-                info!("code generation ended in {:?}", start.elapsed());
-
-                generated_code
+                CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics)
             }
         }
     }
