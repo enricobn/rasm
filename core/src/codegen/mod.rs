@@ -2158,25 +2158,25 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn get_used_functions(
         &self,
-        functions_asm: &HashMap<String, (String, String)>,
+        functions_native_code: &HashMap<String, (String, String)>,
         native_code: &str,
     ) -> Vec<(String, (String, String))> {
         let result = if self.options.optimize_unused_functions {
-            let mut used_functions = UsedFunctions::find(&self.module, self.backend.deref());
+            let mut used_functions = UsedFunctions::find(&self.module);
             // those are probably lambdas
             used_functions.extend(
-                functions_asm
+                functions_native_code
                     .keys()
                     .filter(|it| !self.module.functions_by_name.contains_key(*it))
                     .cloned()
                     .collect::<Vec<_>>(),
             );
 
-            used_functions.extend(UsedFunctions::get_used_functions(&native_code));
+            used_functions.extend(UsedFunctions::get_used_functions(native_code));
 
             let mut used_functions_in_defs = HashSet::new();
 
-            for (_name, (defs, _bd)) in functions_asm
+            for (_name, (defs, _bd)) in functions_native_code
                 .iter()
                 .filter(|(it, (_, _))| used_functions.contains(*it))
             {
@@ -2185,7 +2185,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
             used_functions.extend(used_functions_in_defs);
 
-            functions_asm
+            functions_native_code
                 .iter()
                 .filter(|(it, (_, _))| {
                     let valid = used_functions.contains(*it);
@@ -2196,7 +2196,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 })
                 .collect::<Vec<_>>()
         } else {
-            functions_asm.iter().collect::<Vec<_>>()
+            functions_native_code.iter().collect::<Vec<_>>()
         };
         result
             .iter()

@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::backend::BackendAsm;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::traverse_typed_ast::TraverseTypedAST;
 use crate::type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
@@ -28,21 +27,19 @@ lazy_static! {
     static ref RE: Regex = Regex::new(r"call (.*)").unwrap();
 }
 
-pub struct UsedFunctions<'a> {
-    backend: &'a dyn BackendAsm, // TODO remove
+pub struct UsedFunctions {
     functions: HashSet<String>,
 }
 
-impl<'a> UsedFunctions<'a> {
-    fn new(backend: &'a dyn BackendAsm) -> Self {
+impl UsedFunctions {
+    fn new() -> Self {
         Self {
-            backend,
             functions: HashSet::new(),
         }
     }
 
-    pub fn find(module: &'a ASTTypedModule, backend: &'a dyn BackendAsm) -> HashSet<String> {
-        let mut used_functions = Self::new(backend);
+    pub fn find(module: &ASTTypedModule) -> HashSet<String> {
+        let mut used_functions = Self::new();
 
         used_functions.traverse(module);
 
@@ -50,7 +47,7 @@ impl<'a> UsedFunctions<'a> {
     }
 }
 
-impl<'a> TraverseTypedAST for UsedFunctions<'a> {
+impl TraverseTypedAST for UsedFunctions {
     fn found_call(&mut self, call: &ASTTypedFunctionCall) {
         self.functions.insert(call.function_name.clone());
     }
@@ -90,7 +87,7 @@ impl<'a> TraverseTypedAST for UsedFunctions<'a> {
     }
 }
 
-impl<'a> UsedFunctions<'a> {
+impl UsedFunctions {
     pub fn get_used_functions(native_code: &str) -> HashSet<String> {
         let mut used_functions: HashSet<String> = HashSet::new();
 
