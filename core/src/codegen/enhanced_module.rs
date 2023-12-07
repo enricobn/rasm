@@ -80,6 +80,12 @@ impl EnhancedASTModule {
             externals.extend(module.externals);
         }
 
+        let namespace_path = if let Some(p) = &project.config.package.main {
+            p.strip_suffix(".rasm").unwrap().to_string()
+        } else {
+            String::new()
+        };
+
         let mut module = Self {
             body,
             functions_by_name: container,
@@ -88,19 +94,15 @@ impl EnhancedASTModule {
             types,
             /*
             root_namespace: ASTNameSpace::root_namespace(project),*/
-            body_namespace: ASTNameSpace::new(
-                project.config.package.name.clone(),
-                project
-                    .config
-                    .package
-                    .main
-                    .clone()
-                    .unwrap_or("".to_string()),
-            ),
+            body_namespace: ASTNameSpace::new(project.config.package.name.clone(), namespace_path),
             externals,
         };
 
-        add_folder(&mut module, "RASMRESOURCEFOLDER", project.resource_folder());
+        add_folder(
+            &mut module,
+            "RASMRESOURCEFOLDER",
+            project.main_resource_folder(),
+        );
         add_folder(
             &mut module,
             "RASMTESTRESOURCEFOLDER",

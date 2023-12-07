@@ -17,21 +17,61 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 
 `sudo apt install gcc-multilib g++-multilib libc++-dev nasm`
 
+### Directory structure of a rasm project
+src  
+&nbsp;&nbsp;main  
+&nbsp;&nbsp;&nbsp;&nbsp;rasm  
+&nbsp;&nbsp;&nbsp;&nbsp;resources  
+&nbsp;&nbsp;nasmi386  
+&nbsp;&nbsp;...other arch  
+&nbsp;&nbsp;test  
+&nbsp;&nbsp;&nbsp;&nbsp;rasm  
+&nbsp;&nbsp;&nbsp;&nbsp;resources     
+rasm.toml
+
+### Structure of rasm.toml
+[package]  
+name=  
+version=  
+main=  
+out=  
+
+[dependencies]  
+"name" = { path = "path to the root of the library project" }
+
+
 ### Compile a rasm program
 
-`target/release/rasm "name".rasm` 
-it will produce a "name" executable
+Usage: rasm [OPTIONS] <ACTION>
 
-`target/release/rasm "name".rasm "executable name"`  
-it will produce a "executable name" executable
+Arguments:
+<ACTION>  The action to perform, that can be: build, run, test [possible values: build, run, test]
 
-for example:
-- `target/release/rasm rasm/resources/test/fibonacci.rasm`  
-  will produce the fibonacci executable file in the rasm/resources/test folder  
-- `target/release/rasm rasm/resources/test/fibonacci.rasm fibonacci`  
-  will produce the fibonacci executable file in the current folder, then you can run it with:  
-  `./fibonacci 40`  
-  it should print the fortieth fibonacci number (102334155)
+Options:
+-f <file>                              Sets the input directory or file to use
+-o <out>                               Sets the output file to use
+--compile                          produces .asm and .o files
+--message-format <message-format>  for vscode
+-h, --help                             Print help
+-V, --version                          Print version
+
+
+The simplest way is to build a project from its root :
+`rasmexecutable build`
+
+an executable will be created in the target folder
+
+### Examples
+
+# breakout
+`cargo run --release -- build -f rasm/resources/examples/breakout/ -o breakout`  
+
+a "breakout" executable file will be created in the current folder
+
+# fibonacci
+`cargo run --release -- build -f rasm/resources/test/fibonacci.rasm -o fibonacci`  
+`./fibonacci 40`  
+it should print the fortieth fibonacci number (102334155)
 
 ## SDL examples
 

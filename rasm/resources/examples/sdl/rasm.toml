@@ -1,8 +1,6 @@
 [package]
 name = "sdl"
 version = "0.1.0-alpha.0"
-source_folder = "."
-resource_folder = "."
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }

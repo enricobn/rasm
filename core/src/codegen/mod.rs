@@ -79,6 +79,12 @@ impl CompileTarget {
             }
         }
     }
+
+    pub fn folder(&self) -> &str {
+        match self {
+            CompileTarget::Nasmi36 => "nasmi386",
+        }
+    }
 }
 
 pub struct CodeGenOptions {
@@ -2199,8 +2205,8 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             functions_native_code.iter().collect::<Vec<_>>()
         };
         result
-            .iter()
-            .map(|(a1, (a2, a3))| (a1.clone().clone(), (a2.clone(), a3.clone())))
+            .into_iter()
+            .map(|(a1, (a2, a3))| (a1.clone(), (a2.clone(), a3.clone())))
             .collect::<Vec<_>>()
     }
 

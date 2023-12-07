@@ -1,4 +1,5 @@
-include "sdl/sdl.rasm"
+include "sdl/src/main/nasmi386/sdl.rasm"
+include "sdl/src/main/rasm/sdl.rasm"
 
 extern "printf"
 extern "exit"

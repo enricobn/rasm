@@ -497,6 +497,7 @@ mod tests {
     use rasm_core::codegen::backend::BackendNasmi386;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
+    use rasm_core::codegen::CompileTarget;
     use rasm_core::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
         ASTType, BuiltinTypeKind,
@@ -580,7 +581,8 @@ mod tests {
 
         let mut statics = Statics::new();
 
-        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics, false);
+        let (modules, errors) =
+            project.get_all_modules(&mut backend, &mut statics, false, &CompileTarget::Nasmi36);
 
         let module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 

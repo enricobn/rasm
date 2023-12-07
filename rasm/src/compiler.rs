@@ -70,9 +70,12 @@ impl Compiler {
         let backend = self.options.target.backend(debug_asm);
         let mut statics = Statics::new();
 
-        let (modules, errors) = self
-            .project
-            .get_all_modules(&backend, &mut statics, self.is_test);
+        let (modules, errors) = self.project.get_all_modules(
+            &backend,
+            &mut statics,
+            self.is_test,
+            &self.options.target,
+        );
 
         let requires = modules
             .iter()

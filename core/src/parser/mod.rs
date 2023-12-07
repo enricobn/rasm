@@ -27,7 +27,6 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
-use crate::project::RasmProject;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::utils::{OptionDisplay, SliceDisplay};
 
@@ -181,33 +180,6 @@ impl Parser {
     }
 
     pub fn parse(
-        &mut self,
-        project: Option<&RasmProject>,
-        path: &Path,
-        for_tests: bool,
-    ) -> (ASTModule, Vec<CompilationError>) {
-        let namespace = if let Some(p) = project {
-            ASTNameSpace::new(
-                p.config.package.name.clone(),
-                if for_tests {
-                    p.relative_to_root_test(path)
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string()
-                } else {
-                    p.relative_to_root_src(path)
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string()
-                },
-            )
-        } else {
-            ASTNameSpace::new("".to_string(), path.to_string_lossy().to_string())
-        };
-        self.parse_with_namespace(path, namespace)
-    }
-
-    pub fn parse_with_namespace(
         &mut self,
         path: &Path,
         namespace: ASTNameSpace,
@@ -555,7 +527,17 @@ impl Parser {
             match Lexer::from_file(source_file.as_path()) {
                 Ok(lexer) => {
                     let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    let (mut module, errors) = parser.parse(None, source_file.as_path(), false);
+                    // TODO include should be deprecated, but some tests relies on it
+                    //      this is a trick, we cannot know the exact namespace looking only at the file name
+                    let namespace = ASTNameSpace::new(
+                        "".to_string(),
+                        path.with_extension("")
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                    let (mut module, errors) = parser.parse(source_file.as_path(), namespace);
                     self.errors.extend(errors);
                     if !module.body.is_empty() {
                         return Err(format!(
@@ -750,7 +732,10 @@ impl Parser {
                         statements.clone()
                     }
                     NativeBody(_) => {
-                        return Err(format!("Expected function got native:  {}", self.get_index(0)));
+                        return Err(format!(
+                            "Expected function got native:  {}",
+                            self.get_index(0)
+                        ));
                     }
                 };
                 statements.push(stmt);
@@ -1500,7 +1485,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(None, Path::new("."), false);
+        let (module, _) = parser.parse(Path::new(""), ASTNameSpace::global());
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1513,7 +1498,7 @@ mod tests {
             original_name: "p".into(),
             index: ASTIndex::new(None, 1, 4),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::new("".to_string(), ".".to_string()),
+            namespace: ASTNameSpace::global(),
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1551,7 +1536,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(None, Path::new("."), false);
+        let (module, errors) = parser.parse(Path::new("."), ASTNameSpace::global());
 
         println!("{}", SliceDisplay(&errors));
 
@@ -1577,7 +1562,7 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(None, path, false).0
+        parser.parse(path, ASTNameSpace::global()).0
     }
 
     fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
@@ -1585,6 +1570,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(None, path, false)
+        parser.parse(path, ASTNameSpace::global())
     }
 }

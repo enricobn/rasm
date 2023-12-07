@@ -31,8 +31,8 @@ use toml::{Table, Value};
 use walkdir::WalkDir;
 
 use crate::codegen::backend::Backend;
-use crate::codegen::get_std_lib_path;
 use crate::codegen::statics::Statics;
+use crate::codegen::{get_std_lib_path, CompileTarget};
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
@@ -64,7 +64,7 @@ impl RasmProject {
             .package
             .main
             .clone()
-            .map(|it| self.source_folder().join(Path::new(&it)))
+            .map(|it| self.main_rasm_source_folder().join(Path::new(&it)))
     }
 
     pub fn out_file(&self, is_test: bool) -> Option<PathBuf> {
@@ -84,16 +84,37 @@ impl RasmProject {
         }
     }
 
-    pub fn source_folder(&self) -> PathBuf {
+    pub fn main_rasm_source_folder(&self) -> PathBuf {
         if self.is_dir() {
-            Path::new(&self.root).join(Path::new(
-                &self
-                    .config
-                    .package
-                    .source_folder
-                    .as_ref()
-                    .unwrap_or(&"src".to_string()),
-            ))
+            Path::new(&self.root).join(
+                Path::new(
+                    &self
+                        .config
+                        .package
+                        .source_folder
+                        .as_ref()
+                        .unwrap_or(&"src".to_string()),
+                )
+                .join("main/rasm"),
+            )
+        } else {
+            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
+    pub fn main_resource_folder(&self) -> PathBuf {
+        if self.is_dir() {
+            Path::new(&self.root).join(
+                Path::new(
+                    &self
+                        .config
+                        .package
+                        .source_folder
+                        .as_ref()
+                        .unwrap_or(&"src".to_string()),
+                )
+                .join("main/resources"),
+            )
         } else {
             Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
         }
@@ -101,43 +122,17 @@ impl RasmProject {
 
     pub fn test_folder(&self) -> PathBuf {
         if self.is_dir() {
-            Path::new(&self.root).join(Path::new(
-                &self
-                    .config
-                    .package
-                    .test_folder
-                    .as_ref()
-                    .unwrap_or(&"test".to_string()),
-            ))
-        } else {
-            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
-        }
-    }
-
-    pub fn resource_folder(&self) -> PathBuf {
-        if self.is_dir() {
-            Path::new(&self.root).join(Path::new(
-                &self
-                    .config
-                    .package
-                    .resource_folder
-                    .as_ref()
-                    .unwrap_or(&"resources".to_string()),
-            ))
-        } else {
-            Path::new(&self.config.package.resource_folder.as_ref().unwrap()).to_path_buf()
-        }
-    }
-
-    pub fn test_source_folder(&self) -> PathBuf {
-        if self.is_dir() {
-            Path::new(&self.root).join(Path::new(
-                self.config
-                    .package
-                    .source_folder
-                    .as_ref()
-                    .unwrap_or(&"test".to_string()),
-            ))
+            Path::new(&self.root).join(
+                Path::new(
+                    &self
+                        .config
+                        .package
+                        .source_folder
+                        .as_ref()
+                        .unwrap_or(&"src".to_string()),
+                )
+                .join("test/rasm"),
+            )
         } else {
             Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
         }
@@ -145,15 +140,38 @@ impl RasmProject {
 
     pub fn test_resource_folder(&self) -> PathBuf {
         if self.is_dir() {
-            Path::new(&self.root).join(Path::new(
-                self.config
-                    .package
-                    .resource_folder
-                    .as_ref()
-                    .unwrap_or(&"testresources".to_string()),
-            ))
+            Path::new(&self.root).join(
+                Path::new(
+                    self.config
+                        .package
+                        .source_folder
+                        .as_ref()
+                        .unwrap_or(&"src".to_string()),
+                )
+                .join("test/resources"),
+            )
         } else {
-            Path::new(self.config.package.resource_folder.as_ref().unwrap()).to_path_buf()
+            Path::new(self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
+    pub fn native_source_folder(&self, native: &str) -> Option<PathBuf> {
+        if self.is_dir() {
+            Some(
+                Path::new(&self.root).join(
+                    Path::new(
+                        self.config
+                            .package
+                            .source_folder
+                            .as_ref()
+                            .unwrap_or(&"src".to_string()),
+                    )
+                    .join("main")
+                    .join(native),
+                ),
+            )
+        } else {
+            None
         }
     }
 
@@ -176,7 +194,7 @@ impl RasmProject {
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
-                self.source_folder().canonicalize().unwrap()
+                self.main_rasm_source_folder().canonicalize().unwrap()
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
@@ -205,7 +223,7 @@ impl RasmProject {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(true, self.test_folder(), true)
+        self.get_modules(true, self.test_folder())
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
                 enrich_module(backend, statics, &mut project_module);
@@ -220,26 +238,57 @@ impl RasmProject {
         &self,
         backend: &dyn Backend,
         statics: &mut Statics,
+        target: &CompileTarget,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.core_modules(backend, statics);
+        let mut modules = Vec::new();
+        let mut errors = Vec::new();
+        let mut pairs = vec![self.core_modules(backend, statics)];
 
-        self.get_modules(true, self.source_folder(), false)
-            .into_iter()
-            .for_each(|(mut project_module, module_errors)| {
-                enrich_module(backend, statics, &mut project_module);
-                modules.push(project_module);
-                errors.extend(module_errors);
-            });
+        pairs.push(self.get_modules(true, self.main_rasm_source_folder()));
 
-        self.get_all_dependencies()
-            .into_par_iter()
-            .flat_map_iter(|dependency| {
-                info!("including dependency {}", dependency.config.package.name);
-                //TODO include tests?
-                dependency.get_modules(false, dependency.source_folder(), false)
-            })
-            .collect::<Vec<_>>()
+        if let Some(native_folder) = self.native_source_folder(target.folder()) {
+            if native_folder.exists() {
+                pairs.push(self.get_modules(true, native_folder));
+            }
+        }
+
+        pairs.append(
+            &mut self
+                .get_all_dependencies()
+                .into_par_iter()
+                .map(|dependency| {
+                    info!("including dependency {}", dependency.config.package.name);
+                    //TODO include tests?
+                    dependency.get_modules(false, dependency.main_rasm_source_folder())
+                })
+                .collect::<Vec<_>>(),
+        );
+
+        pairs.append(
+            &mut self
+                .get_all_dependencies()
+                .into_par_iter()
+                .filter_map(|dependency| {
+                    info!("including dependency {}", dependency.config.package.name);
+                    //TODO include tests?
+                    if let Some(native_source_folder) =
+                        dependency.native_source_folder(target.folder())
+                    {
+                        if native_source_folder.exists() {
+                            Some(dependency.get_modules(false, native_source_folder))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
+
+        pairs
             .into_iter()
+            .flatten()
             .for_each(|(mut project_module, module_errors)| {
                 enrich_module(backend, statics, &mut project_module);
                 modules.push(project_module);
@@ -253,20 +302,12 @@ impl RasmProject {
         &self,
         backend: &dyn Backend,
         statics: &mut Statics,
-    ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        let mut modules = Vec::new();
-        let mut errors = Vec::new();
-
+    ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         backend
             .get_core_lib_files()
             .iter()
             .map(|it| self.core_module(it.0, &it.1.data))
-            .for_each(|(mut project_module, module_errors)| {
-                enrich_module(backend, statics, &mut project_module);
-                modules.push(project_module);
-                errors.extend(module_errors);
-            });
-        (modules, errors)
+            .collect::<Vec<_>>()
     }
 
     pub fn get_all_modules(
@@ -274,8 +315,9 @@ impl RasmProject {
         backend: &dyn Backend,
         statics: &mut Statics,
         for_tests: bool,
+        target: &CompileTarget,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(backend, statics);
+        let (mut modules, mut errors) = self.all_modules(backend, statics, target);
 
         if for_tests {
             modules.iter_mut().for_each(|it| {
@@ -438,12 +480,23 @@ impl RasmProject {
         &self,
         body: bool,
         source_folder: PathBuf,
-        for_tests: bool,
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
-            vec![self.module_from_file(&PathBuf::from(&self.main_src_file().unwrap()), for_tests)]
+            let main_src_file = self.main_src_file().unwrap();
+            vec![self.module_from_file(
+                &PathBuf::from(&main_src_file),
+                ASTNameSpace::new(
+                    "".to_string(),
+                    main_src_file
+                        .with_extension("")
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string(),
+                ),
+            )]
         } else {
-            WalkDir::new(source_folder)
+            WalkDir::new(&source_folder)
                 .into_iter()
                 .collect::<Vec<_>>()
                 .into_par_iter()
@@ -451,10 +504,22 @@ impl RasmProject {
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
                 .map(|entry| {
                     let path = entry.path();
-                    info!("including file {}", path.to_str().unwrap());
+
+                    let namespace = ASTNameSpace::new(
+                        self.config.package.name.clone(),
+                        diff_paths(path, &source_folder)
+                            .unwrap()
+                            .with_extension("")
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                    info!(
+                        "including file {} namespace {namespace}",
+                        path.to_str().unwrap()
+                    );
 
                     let (entry_module, mut module_errors) =
-                        self.module_from_file(&path.canonicalize().unwrap(), for_tests);
+                        self.module_from_file(&path.canonicalize().unwrap(), namespace);
                     // const statements are allowed
                     let has_body = entry_module.body.iter().any(|it| match it {
                         ASTStatement::Expression(_) => false,
@@ -550,14 +615,14 @@ impl RasmProject {
 
     fn module_from_file(
         &self,
-        main_file: &PathBuf,
-        for_tests: bool,
+        file: &PathBuf,
+        namespace: ASTNameSpace,
     ) -> (ASTModule, Vec<CompilationError>) {
-        let main_path = Path::new(&main_file);
+        let main_path = Path::new(file);
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
-                let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
-                let (module, errors) = parser.parse(Some(self), main_path, for_tests);
+                let mut parser = Parser::new(lexer, Some(file.clone()));
+                let (module, errors) = parser.parse(main_path, namespace);
                 (module, errors)
             }
             Err(err) => {
@@ -571,9 +636,12 @@ impl RasmProject {
         let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap(), None);
 
         let mut parser = Parser::new(lexer, None);
-        let (module, errors) = parser.parse_with_namespace(
+        let (module, errors) = parser.parse(
             main_path,
-            ASTNameSpace::new("::core".to_string(), main_file.to_string()),
+            ASTNameSpace::new(
+                "::core".to_string(),
+                main_path.with_extension("").to_string_lossy().to_string(),
+            ),
         );
         (module, errors)
     }
@@ -586,9 +654,6 @@ pub struct RasmPackage {
     pub main: Option<String>,
     pub out: Option<String>,
     pub source_folder: Option<String>,
-    pub resource_folder: Option<String>,
-    pub test_folder: Option<String>,
-    pub test_resource_folder: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -607,7 +672,7 @@ fn get_rasm_config(src_path: &Path) -> RasmConfig {
 
 fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
     let parent = src_path.parent().unwrap().to_string_lossy().to_string();
-    let name = src_path.file_name().unwrap().to_string_lossy().to_string();
+    let main_name = src_path.file_name().unwrap().to_string_lossy().to_string();
     let mut dependencies_map = Map::new();
     let mut stdlib = Map::new();
     stdlib.insert("path".to_owned(), Value::String(get_std_lib_path()));
@@ -615,14 +680,11 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
 
     RasmConfig {
         package: RasmPackage {
-            name: name.to_owned(),
+            name: "".to_string(),
             version: "1.0.0".to_owned(),
             source_folder: Some(parent.to_owned()),
-            main: Some(name.to_owned()),
+            main: Some(main_name.to_string()),
             out: Some(src_path.with_extension("").to_string_lossy().to_string()),
-            resource_folder: Some(parent.to_owned()),
-            test_folder: Some(parent.to_owned()),
-            test_resource_folder: Some(parent.to_owned()),
         },
         dependencies: Some(dependencies_map),
     }

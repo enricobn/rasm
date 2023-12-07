@@ -87,7 +87,7 @@ fn main() {
 
     debug_i!("project {:?}", project);
 
-    let resource_folder = project.resource_folder();
+    let resource_folder = project.main_resource_folder();
     info!("resource folder: {:?}", resource_folder);
 
     let compiler = Compiler::new(

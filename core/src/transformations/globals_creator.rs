@@ -8,22 +8,24 @@ pub fn add_folder(
     source_folder_name: &str,
     resource_folder: PathBuf,
 ) {
-    module.body.insert(
-        0,
-        ASTStatement::LetStatement(
-            source_folder_name.to_owned(),
-            ASTExpression::StringLiteral(
-                resource_folder
-                    .canonicalize()
-                    .unwrap_or_else(|_| {
-                        panic!("Cannot find test resource folder: {:?}", resource_folder)
-                    })
-                    .to_str()
-                    .unwrap()
-                    .to_owned(),
+    if resource_folder.exists() {
+        module.body.insert(
+            0,
+            ASTStatement::LetStatement(
+                source_folder_name.to_owned(),
+                ASTExpression::StringLiteral(
+                    resource_folder
+                        .canonicalize()
+                        .unwrap_or_else(|_| {
+                            panic!("Cannot find resource folder: {:?}", resource_folder)
+                        })
+                        .to_str()
+                        .unwrap()
+                        .to_owned(),
+                ),
+                true,
+                ASTIndex::none(),
             ),
-            true,
-            ASTIndex::none(),
-        ),
-    );
+        );
+    }
 }

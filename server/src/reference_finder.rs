@@ -576,6 +576,7 @@ mod tests {
     use rasm_core::codegen::backend::BackendNasmi386;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
+    use rasm_core::codegen::CompileTarget;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::RasmProject;
 
@@ -626,7 +627,11 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 14, 23))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("option.rasm")), 1, 10)],
+            vec![ASTIndex::new(
+                Some(stdlib_path.join("src/main/rasm/option.rasm")),
+                1,
+                10
+            )],
         );
 
         assert_eq!(
@@ -644,7 +649,11 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 22, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(stdlib_path.join("vec.rasm")), 1, 10)],
+            vec![ASTIndex::new(
+                Some(stdlib_path.join("src/main/rasm/vec.rasm")),
+                1,
+                10
+            )],
         );
     }
 
@@ -728,7 +737,8 @@ mod tests {
 
         let mut backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
-        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics, false);
+        let (modules, errors) =
+            project.get_all_modules(&mut backend, &mut statics, false, &CompileTarget::Nasmi36);
         let enhanced_astmodule = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 
         ReferenceFinder::new(enhanced_astmodule).unwrap()

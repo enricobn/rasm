@@ -27,32 +27,6 @@ extern "TTF_Init"
 extern "TTF_OpenFont"
 extern "TTF_RenderText_Solid"
 
-pub struct SDLRect {
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32
-}
-
-pub struct SDLColor {
-    r: i32,
-    g: i32,
-    b: i32,
-    a: i32
-}
-
-pub type SDLRenderer(false);
-pub type SDLWindow(false);
-pub type SDLSurface(false);
-pub type SDLTexture(false);
-pub type SDLFont(false);
-
-/* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
-otherwise returns the value */
-pub fn sdlErrorIfNull<T>(value: T, message: str) -> T {
-    if(isSDLNull(value), { -> sdlFailure(message); value; }, { -> value; });
-}
-
 native isSDLNull<T>(value: T) -> bool /{
     mov dword   eax, $value
     cmp     eax,0
@@ -149,31 +123,6 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     $ccall(SDL_RenderFillRect, $ren, $rect)
 }/
 
-// Events
-
-pub enum KeyState {
-    Down,
-    Up
-}
-
-pub fn print(state: KeyState) {
-    run(state, { -> print("Down");}, { -> print("Up");});
-}
-
-pub struct KeyEvent {
-    key: i32,
-    state: KeyState
-}
-
-pub fn print(event: KeyEvent) {
-    let key = KeyEvent::key(event);
-    let state = KeyEvent::state(event);
-    print("key=");
-    print(key);
-    print(" state=");
-    print(state);
-}
-
 /*
 SDL C types:
 
@@ -249,22 +198,6 @@ pub native keyEvent() -> Option<KeyEvent> /{
 }/
 
 // LOOP
-
-fn sdlSingleLoop<CTX,MODEL>(ctx: CTX, model: MODEL, updateFun: fn(Option<KeyEvent>, MODEL) -> MODEL, renderFun: fn(CTX, MODEL) -> ()) -> MODEL {
-    // println("State in sdlSingleLoop");
-    // printRef(world);
-    let event = keyEvent();
-
-    match(event, { keyEvent ->
-        let key = key(keyEvent);
-        if(eq(key, 41), { -> exitMain(0);}, { -> }); // 41 -> ESC
-    }, { -> });
-
-    let newModel = updateFun(event, model);
-    renderFun(ctx, newModel);
-
-    newModel;
-}
 
 pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
     push    ebx
@@ -372,39 +305,3 @@ pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /
     $ccall(SDL_RenderCopy, $ren, $message, 0, [eax])
     pop     eax
 }/
-
-pub struct SDLText {
-    surface: SDLSurface,
-    texture: SDLTexture
-}
-
-pub fn createSDLText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
-    let surface = sdlRenderTextSolid(font, text, color);
-    let texture = sdlCreateTextureFromSurface(ren, surface);
-
-    SDLText(surface, texture);
-}
-
-pub fn render(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
-    sdlRenderText(ren, text.texture, rect);
-}
-
-pub fn renderAndRelease(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
-    let texture = text.texture;
-    sdlRenderText(ren, texture, rect);
-    sdlDestroyTexture(texture);
-    sdlFreeSurface(text.surface);
-}
-
-pub fn release(text: SDLText) {
-    release(text.texture);
-    release(text.surface);
-}
-
-pub fn release(texture: SDLTexture) {
-    sdlDestroyTexture(texture);
-}
-
-pub fn release(surface: SDLSurface) {
-    sdlFreeSurface(surface);
-}

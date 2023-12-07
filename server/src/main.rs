@@ -15,6 +15,7 @@ use walkdir::WalkDir;
 use rasm_core::codegen::backend::{Backend, BackendNasmi386};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
+use rasm_core::codegen::CompileTarget;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::ASTIndex;
@@ -69,7 +70,8 @@ impl ServerState {
         let project = RasmProject::new(src.clone());
 
         let mut statics = Statics::new();
-        let (modules, errors) = project.get_all_modules(backend, &mut statics, false);
+        let (modules, errors) =
+            project.get_all_modules(backend, &mut statics, false, &CompileTarget::Nasmi36);
 
         // TODO errors
 
@@ -108,7 +110,7 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let mut paths: Vec<PathBuf> = Vec::new();
 
-    for entry in WalkDir::new(&project.source_folder())
+    for entry in WalkDir::new(&project.main_rasm_source_folder())
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))

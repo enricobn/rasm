@@ -1,5 +1,3 @@
 [package]
 name = "stdlib"
 version = "0.1.0-alpha.0"
-source_folder = "."
-resource_folder = "."

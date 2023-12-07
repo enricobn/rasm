@@ -6,7 +6,8 @@
 // real    0m21,196s
 
 
-include "sdl/sdl.rasm"
+include "sdl/src/main/nasmi386/sdl.rasm"
+include "sdl/src/main/rasm/sdl.rasm"
 
 include "gameoflife_common.rasm"
 include "gameoflife_common_list.rasm"

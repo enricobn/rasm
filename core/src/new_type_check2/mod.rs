@@ -1189,6 +1189,7 @@ mod tests {
     use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
+    use crate::codegen::CompileTarget;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
@@ -1450,7 +1451,8 @@ mod tests {
         let mut backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
 
-        let (modules, _errors) = project.get_all_modules(&mut backend, &mut statics, false);
+        let (modules, _errors) =
+            project.get_all_modules(&mut backend, &mut statics, false, &CompileTarget::Nasmi36);
 
         let module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 

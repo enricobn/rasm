@@ -18,6 +18,12 @@ pub struct ASTNameSpace {
 
 impl ASTNameSpace {
     pub fn new(lib: String, path: String) -> Self {
+        if path.ends_with(".rasm") {
+            panic!("path should not end with .rasm {path}")
+        }
+        if lib.ends_with(".rasm") {
+            panic!("lib should not end with .rasm {lib}")
+        }
         Self { lib, path }
     }
 
