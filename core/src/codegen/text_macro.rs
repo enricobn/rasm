@@ -870,7 +870,7 @@ impl TextMacroEval for AddRefMacro {
             return String::new();
         }
         if let Some(fd) = function_def {
-            if fd.name == "addRef_0" {
+            if fd.name == "addRef" {
                 return String::new();
             }
 

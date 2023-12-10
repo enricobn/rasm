@@ -223,7 +223,7 @@ impl<'a> TypedFunctionsCreatorNasmi386<'a> {
 
         self.backend.call_function(
             &mut result,
-            &format!("{}References_0", type_def.original_name),
+            &format!("{}References", type_def.original_name),
             &[("$address", None), (&format!("{generic_n}"), None)],
             None,
         );
@@ -278,7 +278,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
 
         self.backend.call_function(
             &mut result,
-            &format!("{asm_function_name}_0"),
+            asm_function_name,
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
         );
@@ -348,7 +348,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
 
         self.backend.call_function(
             &mut result,
-            &format!("{asm_function_name}_0"),
+            asm_function_name,
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
         );
@@ -431,7 +431,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
 
         self.backend.call_function(
             &mut result,
-            &format!("{asm_function_name}_0"),
+            asm_function_name,
             &[("$address", None), ("$descr", None)],
             Some(&descr),
         );

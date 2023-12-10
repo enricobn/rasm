@@ -242,7 +242,7 @@ impl RasmProject {
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
-        let mut pairs = vec![self.core_modules(backend, statics)];
+        let mut pairs = vec![self.core_modules(backend)];
 
         pairs.push(self.get_modules(true, self.main_rasm_source_folder()));
 
@@ -298,11 +298,7 @@ impl RasmProject {
         (modules, errors)
     }
 
-    fn core_modules(
-        &self,
-        backend: &dyn Backend,
-        statics: &mut Statics,
-    ) -> Vec<(ASTModule, Vec<CompilationError>)> {
+    fn core_modules(&self, backend: &dyn Backend) -> Vec<(ASTModule, Vec<CompilationError>)> {
         backend
             .get_core_lib_files()
             .iter()

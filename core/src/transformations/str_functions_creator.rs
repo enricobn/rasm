@@ -16,7 +16,7 @@ pub fn str_functions_creator(
     let mut body_src = String::new();
     backend.call_function(
         &mut body_src,
-        "deref_0",
+        "deref",
         &[("$s", None), (&message_key, None)],
         None,
     );
@@ -45,7 +45,7 @@ pub fn str_functions_creator(
     let mut body_src = String::new();
     backend.call_function(
         &mut body_src,
-        "addRef_0",
+        "addRef",
         &[("$s", None), (&message_key, None)],
         None,
     );

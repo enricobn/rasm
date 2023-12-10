@@ -320,8 +320,8 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
 
         let mut lambda_space = LambdaSpace::new(context.clone());
 
-        let mut add_ref_function = "addRef_0".to_owned();
-        let mut deref_function = "deref_0".to_owned();
+        let mut add_ref_function = "addRef".to_owned();
+        let mut deref_function = "deref".to_owned();
 
         let lambda_space_address = stack_vals.reserve_tmp_register(
             &mut self.before,

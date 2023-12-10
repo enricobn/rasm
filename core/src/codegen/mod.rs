@@ -334,7 +334,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         }
 
         self.backend()
-            .call_function(&mut generated_code, "exitMain_0", &[("0", None)], None);
+            .call_function(&mut generated_code, "exitMain", &[("0", None)], None);
 
         let used_functions = self.get_used_functions(&functions_generated_code, &generated_code);
 
@@ -1415,7 +1415,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     fn create_command_line_arguments(&self, generated_code: &mut String) {
         self.backend().call_function(
             generated_code,
-            "createCmdLineArguments_0",
+            "createCmdLineArguments",
             &[
                 ("_rasm_args", None),
                 (

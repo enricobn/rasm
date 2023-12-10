@@ -726,7 +726,7 @@ impl Backend for BackendNasmi386 {
             self.add(out, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {
-                "call     str_addRef_0".to_string()
+                "call     str_addRef".to_string()
             } else {
                 format!("call     {type_name}_addRef")
             };
@@ -742,7 +742,7 @@ impl Backend for BackendNasmi386 {
         } else {
             self.add(out, &format!("push  {ws} [{key}]"), None, true);
             self.add(out, &format!("push     {ws} {source}"), None, true);
-            self.add(out, "call     addRef_0", None, true);
+            self.add(out, "call     addRef", None, true);
             self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
     }
@@ -770,7 +770,7 @@ impl Backend for BackendNasmi386 {
 
         self.add(out, &format!("push  {ws} [{key}]"), None, true);
         self.add(out, &format!("push     {ws} {source}"), None, true);
-        self.add(out, "call     addRef_0", None, true);
+        self.add(out, "call     addRef", None, true);
         self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
@@ -841,7 +841,7 @@ impl Backend for BackendNasmi386 {
             self.add(&mut result, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {
-                "call     str_deref_0".to_string()
+                "call     str_deref".to_string()
             } else {
                 format!("call     {type_name}_deref")
             };
@@ -857,7 +857,7 @@ impl Backend for BackendNasmi386 {
         } else {
             self.add(&mut result, &format!("push  {ws} [{key}]"), None, true);
             self.add(&mut result, &format!("push     {ws} {source}"), None, true);
-            self.add(&mut result, "call     deref_0", None, true);
+            self.add(&mut result, "call     deref", None, true);
             self.add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
@@ -882,7 +882,7 @@ impl Backend for BackendNasmi386 {
         self.add(out, "", Some(&("deref ".to_owned() + descr)), true);
         self.add(out, &format!("push  {ws} [{key}]"), None, true);
         self.add(out, &format!("push     {ws} {source}"), None, true);
-        self.add(out, "call     deref_0", None, true);
+        self.add(out, "call     deref", None, true);
         self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
@@ -1073,7 +1073,7 @@ impl Backend for BackendNasmi386 {
             // TODO _0
             self.add(
                 &mut code,
-                &format!("$call(addStaticStringToHeap_0, {value_key})"),
+                &format!("$call(addStaticStringToHeap, {value_key})"),
                 None,
                 true,
             );
@@ -1086,7 +1086,7 @@ impl Backend for BackendNasmi386 {
             self.add(
                 &mut code,
                 &format!(
-                    "$call(addStaticAllocation_0, {label_allocation}, {label_memory}, {})",
+                    "$call(addStaticAllocation, {label_allocation}, {label_memory}, {})",
                     self.word_len()
                 ),
                 None,
@@ -1098,7 +1098,7 @@ impl Backend for BackendNasmi386 {
             // TODO _0
             self.add(
                 &mut code,
-                &format!("$call(addHeap_0, {label}, {descr_label}: str, {value})"),
+                &format!("$call(addHeap, {label}, {descr_label}: str, {value})"),
                 None,
                 true,
             );
@@ -1198,7 +1198,7 @@ impl Backend for BackendNasmi386 {
         let label = statics.add_str("lambda space");
         self.call_function(
             out,
-            "rasmalloc_0",
+            "rasmalloc",
             &[
                 (&format!("{}", slots * self.word_len()), None),
                 (&format!("[{label}]"), None),

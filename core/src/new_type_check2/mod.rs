@@ -94,15 +94,10 @@ impl TypeCheck {
                 module.find_precise_function(&call.original_function_name, &call.function_name)
             {
                 // TODO check error
-                let mut def = f.clone();
-
-                let new_function_name = self.new_function_name(&call);
-                def.name = new_function_name.clone();
-
                 self.module
                     .functions_by_name
-                    .add_function(call.original_function_name.clone(), def);
-                self.functions_stack.insert(new_function_name, vec![]);
+                    .add_function(call.original_function_name.clone(), f.clone());
+                self.functions_stack.insert(f.name.clone(), vec![]);
             } else {
                 return Err(Self::compilation_error(format!(
                     "Cannot find default function {}",
@@ -181,20 +176,6 @@ impl TypeCheck {
             index: ASTIndex::none(),
             error_kind: CompilationErrorKind::TypeCheck(message, Vec::new()),
         }
-    }
-
-    fn new_function_name(&self, call: &ASTFunctionCall) -> String {
-        let count = self
-            .module
-            .functions_by_name
-            .count_by_original_name(&call.original_function_name);
-
-        let new_function_name = format!(
-            "{}_{}",
-            call.original_function_name.replace("::", "_"),
-            count
-        );
-        new_function_name
     }
 
     fn transform_statement(
@@ -327,9 +308,6 @@ impl TypeCheck {
 
         debug_i!("found valid function {new_function_def}");
 
-        let new_function_name = self.new_function_name(call);
-        new_function_def.name = new_function_name.clone();
-
         if !new_function_def.generic_types.is_empty() {
             for p in new_function_def.parameters.iter_mut() {
                 if let Some(new_t) = substitute(&p.ast_type, &resolved_generic_types) {
@@ -372,6 +350,10 @@ impl TypeCheck {
             new_function_def.generic_types = Vec::new();
         }
 
+        let new_function_name = Self::unique_function_name(&new_function_def);
+
+        new_function_def.name = new_function_name.clone();
+
         let mut new_call = call.clone();
         new_call.parameters = new_expressions;
 
@@ -406,6 +388,59 @@ impl TypeCheck {
         dedent!();
         self.stack.pop();
         Ok(new_call)
+    }
+
+    fn unique_function_name(new_function_def: &ASTFunctionDef) -> String {
+        let name = new_function_def.original_name.replace("::", "_");
+
+        format!(
+            "{name}_{}_{}",
+            new_function_def
+                .parameters
+                .iter()
+                .map(|it| Self::unique_type_name(&it.ast_type))
+                .collect::<Vec<_>>()
+                .join("_"),
+            Self::unique_type_name(&new_function_def.return_type)
+        )
+    }
+
+    fn unique_type_name(ast_type: &ASTType) -> String {
+        match ast_type {
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    format!(
+                        "fn{}{}",
+                        parameters
+                            .iter()
+                            .map(Self::unique_type_name)
+                            .collect::<Vec<_>>()
+                            .join(""),
+                        Self::unique_type_name(return_type)
+                    )
+                }
+                _ => format!("{ast_type}"),
+            },
+            ASTType::Generic(_) => panic!(),
+            ASTType::Custom {
+                name,
+                param_types,
+                index: _,
+            } => {
+                format!(
+                    "{name}{}",
+                    param_types
+                        .iter()
+                        .map(Self::unique_type_name)
+                        .collect::<Vec<_>>()
+                        .join("")
+                )
+            }
+            ASTType::Unit => "Unit".to_string(),
+        }
     }
 
     fn get_valid_function(
