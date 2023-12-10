@@ -1,0 +1,15 @@
+enum Animal {
+    Dog,
+    Cat,
+    Cow
+}
+
+Animal::Dog().matchDog(
+    { -> println("Found"); },
+    { -> println("NotFound"); }
+);
+
+Animal::Cow().matchDog(
+    { -> println("Found"); },
+    { -> println("NotFound"); }
+);

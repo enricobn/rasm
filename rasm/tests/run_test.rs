@@ -429,6 +429,11 @@ fn assertions() {
     run_test("assertions", Vec::new(), "");
 }
 
+#[test]
+fn single_match() {
+    run_test("single_match", Vec::new(), "Found\nNotFound\n");
+}
+
 // Compile tests
 
 #[test]

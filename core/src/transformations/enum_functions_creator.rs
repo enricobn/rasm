@@ -13,23 +13,32 @@ use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 pub trait FunctionsCreator {
     fn create(&self, module: &mut ASTModule, statics: &mut Statics) {
         for enum_def in module.enums.clone().iter() {
-            let param_types: Vec<ASTType> = enum_def
+            let generic_types: Vec<ASTType> = enum_def
                 .type_parameters
                 .iter()
                 .map(|it| ASTType::Generic(it.into()))
                 .collect();
 
-            self.enum_constructors(module, enum_def, &param_types, statics);
+            self.enum_constructors(module, enum_def, &generic_types, statics);
 
             self.create_match_like_function(
                 module,
-                &enum_def,
+                enum_def,
                 "match",
                 ASTType::Generic("_T".into()),
                 Some("_T".into()),
             );
 
-            //create_match_like_function(backend, module, &enum_def, "run", ASTType::Unit, None);
+            for variant in enum_def.variants.iter() {
+                self.create_match_one_like_function(
+                    module,
+                    enum_def,
+                    &format!("match{}", variant.name),
+                    ASTType::Generic("_T".into()),
+                    Some("_T".into()),
+                    variant,
+                );
+            }
         }
 
         for struct_def in &module.structs.clone() {
@@ -101,7 +110,7 @@ pub trait FunctionsCreator {
     fn create_match_like_function(
         &self,
         module: &mut ASTModule,
-        enum_def: &&ASTEnumDef,
+        enum_def: &ASTEnumDef,
         name: &str,
         return_type: ASTType,
         extra_generic: Option<String>,
@@ -109,36 +118,95 @@ pub trait FunctionsCreator {
         let body = self.enum_match_body(name, enum_def);
 
         let function_body = ASTFunctionBody::NativeBody(body);
-        let param_types = enum_def
+
+        let generic_types = enum_def
             .type_parameters
             .iter()
             .map(|it| ASTType::Generic(it.into()))
             .collect();
+
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
             ast_type: ASTType::Custom {
                 name: enum_def.name.clone(),
-                param_types,
+                param_types: generic_types,
                 // TODO for now there's not a source for generated functions
                 index: ASTIndex::none(),
             },
             ast_index: ASTIndex::none(),
         }];
         for variant in enum_def.variants.iter() {
-            let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-                return_type: Box::new(return_type.clone()),
-                parameters: variant
-                    .parameters
-                    .iter()
-                    .map(|it| it.ast_type.clone())
-                    .collect(),
-            });
-            parameters.push(ASTParameterDef {
-                name: variant.name.clone(),
-                ast_type,
-                ast_index: ASTIndex::none(),
-            });
+            let ast_parameter_def = variant_lambda_parameter(&return_type, variant);
+            parameters.push(ast_parameter_def);
         }
+        let mut param_types = enum_def.type_parameters.clone();
+
+        if let Some(g) = extra_generic {
+            param_types.push(g);
+        }
+
+        let function_def = ASTFunctionDef {
+            original_name: name.to_owned(),
+            name: name.to_owned(),
+            parameters,
+            body: function_body,
+            inline: false,
+            return_type,
+            generic_types: param_types,
+            // TODO calculate, even if I don't know if it's useful
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: enum_def.modifiers.clone(),
+            namespace: module.namespace.clone(),
+        };
+
+        debug!("created function {function_def}");
+
+        module.add_function(function_def);
+    }
+
+    fn create_match_one_like_function(
+        &self,
+        module: &mut ASTModule,
+        enum_def: &ASTEnumDef,
+        name: &str,
+        return_type: ASTType,
+        extra_generic: Option<String>,
+        variant: &ASTEnumVariantDef,
+    ) {
+        let body = self.enum_match_one_body(name, enum_def, variant);
+
+        let function_body = ASTFunctionBody::NativeBody(body);
+
+        let generic_types = enum_def
+            .type_parameters
+            .iter()
+            .map(|it| ASTType::Generic(it.into()))
+            .collect();
+
+        let mut parameters = vec![ASTParameterDef {
+            name: "value".into(),
+            ast_type: ASTType::Custom {
+                name: enum_def.name.clone(),
+                param_types: generic_types,
+                // TODO for now there's not a source for generated functions
+                index: ASTIndex::none(),
+            },
+            ast_index: ASTIndex::none(),
+        }];
+        let ast_parameter_def = variant_lambda_parameter(&return_type, variant);
+        parameters.push(ast_parameter_def);
+
+        let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            return_type: Box::new(return_type.clone()),
+            parameters: Vec::new(),
+        });
+
+        parameters.push(ASTParameterDef {
+            name: "else".to_string(),
+            ast_type,
+            ast_index: ASTIndex::none(),
+        });
         let mut param_types = enum_def.type_parameters.clone();
 
         if let Some(g) = extra_generic {
@@ -374,6 +442,13 @@ pub trait FunctionsCreator {
 
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String;
 
+    fn enum_match_one_body(
+        &self,
+        name: &str,
+        enum_def: &ASTEnumDef,
+        variant: &ASTEnumVariantDef,
+    ) -> String;
+
     fn enum_constructors(
         &self,
         module: &mut ASTModule,
@@ -394,6 +469,22 @@ pub trait FunctionsCreator {
         variant: &ASTEnumVariantDef,
         descr_label: &str,
     ) -> String;
+}
+
+fn variant_lambda_parameter(return_type: &ASTType, variant: &ASTEnumVariantDef) -> ASTParameterDef {
+    let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        return_type: Box::new(return_type.clone()),
+        parameters: variant
+            .parameters
+            .iter()
+            .map(|it| it.ast_type.clone())
+            .collect(),
+    });
+    ASTParameterDef {
+        name: variant.name.clone(),
+        ast_type,
+        ast_index: ASTIndex::none(),
+    }
 }
 
 pub struct FunctionsCreatorNasmi386<'a> {
@@ -471,6 +562,81 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             None,
             false,
         );
+
+        body
+    }
+
+    fn enum_match_one_body(
+        &self,
+        name: &str,
+        enum_def: &ASTEnumDef,
+        variant: &ASTEnumVariantDef,
+    ) -> String {
+        let word_len = self.backend.word_len();
+        let word_size = self.backend.word_size();
+        let mut body = String::new();
+
+        self.backend.add_rows(
+            &mut body,
+            vec![
+                "push ebx",
+                &format!("mov {word_size} eax, $value"),
+                &format!("mov {word_size} eax, [eax]"),
+            ],
+            None,
+            true,
+        );
+
+        let variant_num = enum_def
+            .variants
+            .iter()
+            .enumerate()
+            .find(|(i, it)| it == &variant)
+            .unwrap()
+            .0;
+
+        self.backend.add_rows(
+            &mut body,
+            vec![
+                &format!("cmp {} [eax], {}", word_size, variant_num),
+                "jnz .else",
+                &format!("mov ebx,${}", variant.name),
+                &format!("mov {} ebx,[ebx]", word_size),
+            ],
+            None,
+            true,
+        );
+
+        let mut args = Vec::new();
+        args.push(("ebx".to_owned(), None));
+
+        for (i, param) in variant.parameters.iter().enumerate() {
+            args.push((
+                format!("[eax + {}]", (variant.parameters.len() - i) * word_len),
+                Some(format!("param {}", param.name)),
+            ));
+        }
+
+        self.backend
+            .call_function_owned(&mut body, "[ebx]", &args, None);
+
+        self.backend.add_rows(
+            &mut body,
+            vec![
+                "jmp .end",
+                ".else:",
+                "mov ebx,$else",
+                &format!("mov {} ebx,[ebx]", word_size),
+            ],
+            None,
+            true,
+        );
+
+        self.backend
+            .call_function_owned(&mut body, "[ebx]", &[], None);
+
+        self.backend
+            .add_rows(&mut body, vec![".end:", "pop ebx"], None, false);
 
         body
     }
