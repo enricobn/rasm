@@ -519,7 +519,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
                 &mut body,
                 vec![
                     &format!("cmp {} [eax], {}", word_size, variant_num),
-                    &format!("jnz .variant{}", variant_num),
+                    &format!("jne .variant{}", variant_num),
                     &format!("mov ebx,${}", variant.name),
                     &format!("mov {} ebx,[ebx]", word_size),
                 ],
@@ -599,7 +599,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             &mut body,
             vec![
                 &format!("cmp {} [eax], {}", word_size, variant_num),
-                "jnz .else",
+                "jne .else",
                 &format!("mov ebx,${}", variant.name),
                 &format!("mov {} ebx,[ebx]", word_size),
             ],
@@ -607,7 +607,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             true,
         );
 
-        let mut args = Vec::new();
+        let mut args: Vec<(String, Option<String>)> = Vec::new();
         args.push(("ebx".to_owned(), None));
 
         for (i, param) in variant.parameters.iter().enumerate() {
@@ -632,8 +632,11 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             true,
         );
 
+        let mut args: Vec<(String, Option<String>)> = Vec::new();
+        args.push(("ebx".to_owned(), None));
+
         self.backend
-            .call_function_owned(&mut body, "[ebx]", &[], None);
+            .call_function_owned(&mut body, "[ebx]", &args, None);
 
         self.backend
             .add_rows(&mut body, vec![".end:", "pop ebx"], None, false);
