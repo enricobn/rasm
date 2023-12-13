@@ -1,0 +1,7 @@
+pub fn testResource(path: str) -> str {
+    add(RASMTESTRESOURCEFOLDER, path);
+}
+
+pub fn resource(path: str) -> str {
+    add(RASMRESOURCEFOLDER, path);
+}

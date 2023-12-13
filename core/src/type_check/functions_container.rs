@@ -697,7 +697,6 @@ impl FunctionsContainer {
                                 return_type: Box::new(lrt.clone()),
                             });
 
-                            println!("lambda {lambda}");
                             resolved_generic_types.insert(name.to_owned(), lambda);
                             Ok(true)
                         } else {

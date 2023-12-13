@@ -30,7 +30,7 @@ const YELLOW = SDLColor(255, 255, 0, 255);
 sdlInit();
 if(sdlTTFInit().eq(1), { -> panic("TTFInit error."); }, { -> });
 
-let font = sdlErrorIfNull(sdlOpenFont(add(RASMRESOURCEFOLDER, "/breakout/src/main/resources/DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
+let font = sdlErrorIfNull(sdlOpenFont(resource("/breakout/src/main/resources/DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
 let quads = vecRange(0, QUADS).map({ it ->
                     let x = random(WIDTH);
                     let y = random(HEIGHT);

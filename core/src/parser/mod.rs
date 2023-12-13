@@ -1011,6 +1011,12 @@ impl Parser {
                 } else {
                     (f_name.clone(), 1)
                 };
+            let context_generic_types =
+                if let Some(function_def) = self.last_parser_data_function_def() {
+                    function_def.generic_types.clone()
+                } else {
+                    Vec::new()
+                };
             let mut generic_types = Vec::new();
             let mut n = next_n;
             if let Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open)) =
@@ -1030,7 +1036,7 @@ impl Parser {
                         n += 1;
                         continue;
                     }
-                    match TypeParser::new(self).try_parse_ast_type(n, &[]) {
+                    match TypeParser::new(self).try_parse_ast_type(n, &context_generic_types) {
                         Ok(Some((ast_type, next_i))) => {
                             generic_types.push(ast_type);
                             n = next_i - self.i;
@@ -1061,6 +1067,21 @@ impl Parser {
             }
         }
         None
+    }
+
+    fn last_parser_data_function_def(&self) -> Option<&ASTFunctionDef> {
+        if let Some(ParserData::FunctionDef(def)) = self.parser_data.iter().rev().find(|it| {
+            if let ParserData::FunctionDef(def) = it {
+                // def.is_empty is a fake lambda function def
+                !def.name.is_empty()
+            } else {
+                false
+            }
+        }) {
+            Some(def)
+        } else {
+            None
+        }
     }
 
     fn try_parse_enum_constructor(&self) -> Option<(String, usize)> {
@@ -1555,6 +1576,37 @@ mod tests {
             module.body.first().unwrap(),
             &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
         );
+    }
+
+    #[test]
+    fn function_call_with_generics_1() {
+        let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it); }".into(), None);
+
+        let mut parser = Parser::new(lexer, None);
+
+        let (module, errors) = parser.parse(Path::new("."), ASTNameSpace::global());
+
+        println!("{}", SliceDisplay(&errors));
+
+        let function_call = ASTFunctionCall {
+            function_name: "println".to_string(),
+            original_function_name: "println".to_string(),
+            parameters: vec![ASTExpression::ValueRef(
+                "it".to_string(),
+                ASTIndex::new(None, 1, 38),
+            )],
+            generics: vec![ASTType::Generic("T".to_string())],
+            index: ASTIndex::new(None, 1, 32),
+        };
+
+        if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
+            assert_eq!(
+                body.first().unwrap(),
+                &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
+            );
+        } else {
+            panic!()
+        }
     }
 
     fn parse(source: &str) -> ASTModule {

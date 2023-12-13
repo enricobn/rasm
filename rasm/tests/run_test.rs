@@ -397,7 +397,7 @@ fn test_error_handling1() {
 }
 
 #[test]
-fn list_pop_replace() {
+fn test_list_pop_replace() {
     run_test(
         "list_pop_replace",
         Vec::new(),
@@ -406,7 +406,7 @@ fn list_pop_replace() {
 }
 
 #[test]
-fn result() {
+fn test_result() {
     run_test(
         "result",
         Vec::new(),
@@ -420,18 +420,23 @@ fn test_if() {
 }
 
 #[test]
-fn curry() {
+fn test_curry() {
     run_test("curry", Vec::new(), "");
 }
 
 #[test]
-fn assertions() {
+fn terst_assertions() {
     run_test("assertions", Vec::new(), "");
 }
 
 #[test]
-fn single_match() {
+fn test_single_match() {
     run_test("single_match", Vec::new(), "Found\nNotFound\n");
+}
+
+#[test]
+fn test_call_with_generics() {
+    run_test("call_with_generics", Vec::new(), "Ok\nError: an error\n");
 }
 
 // Compile tests
