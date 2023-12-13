@@ -184,7 +184,7 @@ impl Display for ASTType {
                     ))
                 }
             },
-            ASTType::Generic(name) => f.write_str(&format!("'{name}'")),
+            ASTType::Generic(name) => f.write_str(name),
             ASTType::Custom {
                 name,
                 param_types,
