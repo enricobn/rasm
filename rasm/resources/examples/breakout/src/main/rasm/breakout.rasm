@@ -203,7 +203,7 @@ fn loadHighScores() -> Vec<HighScore> {
     if(fileExists("scores.txt"), { ->
         let scores = readFile("scores.txt");
         let lines = lines(scores);
-        listToVec(fmap(lines, { line ->
+        toVec(fmap(lines, { line ->
             let splitted = splitToList(line, ",");
             let result = map3(splitted, { score, sec, nano -> HighScore(atoi(score), TimeVal(atoi(sec), atoi(nano)));});
             toList(result);

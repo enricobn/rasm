@@ -70,3 +70,7 @@ pub fn panic(message: str) {
     println(message);
     exitMain(1);
 }
+
+pub fn toString(b: bool) -> str {
+    if(b, "true", "false");
+}

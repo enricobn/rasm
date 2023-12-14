@@ -10,7 +10,3 @@ fn check(c: str) -> Vec<Option<str>> {
         { -> vecOf(Option::Some("third"), Option::Some("third"), Option::Some("third"));}
     );
 }
-
-pub fn toString<T>(o: Option<T>) -> str {
-   o.match({ v -> "Some(".add(v).add(")");}, { -> "None";});
-}

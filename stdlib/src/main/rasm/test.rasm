@@ -46,7 +46,7 @@ pub fn assertEquals<T>(assertions: Assertions, message: str, expected: T, curren
 
 pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
     if(expected.eq(current).not,{ ->
-        assertions.fail("assertion failed");
+        assertions.fail("assertion failed, expected ".add(expected).add(" but found ").add(current));
     }, { -> assertions; });
 }
 

@@ -26,7 +26,7 @@ println(flatten(vecOfVecs));
 
 println(fmap(vecOf(1, 2), { n -> vecOf(n, add(n, 10));}));
 
-println(listToVec(listOf(0, 1, 2)));
+println(toVec(listOf(0, 1, 2)));
 
 println(foldLeft(vecRange(0, 5), 0, { prev, act -> add(prev, act);}));
 
@@ -37,3 +37,8 @@ let vecOfOpt = vecOf(Option::Some("Hello"));
 println(first(vecOfOpt));
 
 println(push(vecOf(1), 2));
+
+let popped = vecOf(1, 2).pop;
+
+println(popped.first);
+println(popped.second);

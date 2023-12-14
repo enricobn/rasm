@@ -10,8 +10,8 @@ pub fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
     flatten(map(l, f));
 }
 
-pub fn listToVec<T>(l: List<T>) -> Vec<T> {
-    match(l, { head, tail -> flatten(vecOf(vecOf(head), listToVec(tail)));},
+pub fn toVec<T>(l: List<T>) -> Vec<T> {
+    match(l, { head, tail -> flatten(vecOf(vecOf(head), toVec(tail)));},
         { -> Vec(); });
 }
 
@@ -81,4 +81,15 @@ pub fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
 
 pub fn isEmpty<T>(vec: Vec<T>) -> bool {
     vec.len.eq(0);
+}
+
+// TODO slow
+pub fn toList<T>(v: Vec<T>) -> List<T> {
+    v.foldLeft(List::Empty<T>(), { prev, o -> prev.push(o); });
+}
+
+// TODO slow
+pub fn pop<T>(v: Vec<T>) -> Pair<Option<T>,Vec<T>> {
+    let popped = v.toList.pop;
+    Pair(popped.first, popped.second.toVec);
 }

@@ -7,7 +7,7 @@ pub fn readCellFile(file: str) -> Vec<Cell> {
     let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
 
     let l = fmap(linesEnumerate, { line -> lineCells(line); });
-    listToVec(l);
+    toVec(l);
 }
 
 pub fn allCells(width: i32, height: i32) -> Vec<FullCell> {

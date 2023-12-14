@@ -252,7 +252,7 @@ fn test_vec() {
     run_test(
         "vec",
         vec![],
-        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n1,2,\n",
+        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n1,2,\nSome(2)\n1,\n",
     );
 }
 
