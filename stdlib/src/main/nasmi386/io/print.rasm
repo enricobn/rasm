@@ -331,7 +331,7 @@ native sysPrint(file: File, s: i32, len: i32) -> Option<IOError> /{
 
     cmp     dword eax, 0xfffff000   ; unsigned 2^32 - 4096, aka signed -4096
     ja      .error
-    mov     dword eax, [_enum_Option_None]
+    mov     dword eax, [_enum_stdlib_option_Option_None]
     jmp     .end
 .error:
     $call(someIOError, "Error writing to file.")

@@ -171,7 +171,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
     mov     dword eax,[ebx] ; here we have the event type
     cmp     eax, 768        ; keyDown
     jne     .noKeyDown
-    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Down]: KeyState)
+    $call(KeyEvent, [ebx + 16], [_enum_sdl_sdl_KeyState_Down]: KeyState)
     $addRef(eax:KeyEvent)
     push    eax
     $call(Option::Some, eax: KeyEvent)
@@ -181,7 +181,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
 .noKeyDown:
     cmp     eax, 769        ; keyUp
     jne     .noKey
-    $call(KeyEvent, [ebx + 16], [_enum_KeyState_Up]: KeyState)
+    $call(KeyEvent, [ebx + 16], [_enum_sdl_sdl_KeyState_Up]: KeyState)
     $addRef(eax:KeyEvent)
     push    eax
     $call(Option::Some, eax: KeyEvent)
@@ -189,7 +189,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
     $deref(ebx:KeyEvent)
     jmp     .end
 .noKey:
-    mov     dword eax, [_enum_Option_None]
+    mov     dword eax, [_enum_stdlib_option_Option_None]
 .end:
     pop     ebx
     $call(freeMem, ebx)

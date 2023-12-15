@@ -60,7 +60,7 @@ pub native toi32(n: f32) -> Option<i32> /{
     cmp     dword ebx, 255
     jne     .defined
 .undefined:
-    mov     dword eax,[_enum_Option_None]
+    mov     dword eax,[_enum_stdlib_option_Option_None]
     jmp     .end
 .defined:
     cmp     dword ebx, 0

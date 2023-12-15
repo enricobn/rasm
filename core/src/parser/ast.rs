@@ -10,7 +10,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTNameSpace {
     lib: String,
     path: String,
@@ -36,6 +36,10 @@ impl ASTNameSpace {
             lib: "".to_string(),
             path: "".to_string(),
         }
+    }
+
+    pub fn safe_name(&self) -> String {
+        format!("{self}").replace('/', "_").replace(':', "_")
     }
 }
 

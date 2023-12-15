@@ -516,7 +516,12 @@ impl Backend for BackendNasmi386 {
 
     fn preamble(&self, code: &mut String, externals: &HashSet<String>) {
         self.add(code, "%macro gotoOnSome 1", None, false);
-        self.add(code, "cmp dword eax,[_enum_Option_None]", None, true);
+        self.add(
+            code,
+            "cmp dword eax,[_enum_stdlib_option_Option_None]",
+            None,
+            true,
+        );
         self.add(code, "jne %1", None, true);
         self.add(code, "%endmacro", None, false);
         if self.libc {

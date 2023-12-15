@@ -9,7 +9,7 @@ pub native lines(s: str) -> List<str> /{
 
     mov ebx, 0 ; pos of start of line
     mov edx, 0 ; actual pos
-    mov eax, [_enum_List_Empty]
+    mov eax, [_enum_stdlib_list_List_Empty]
     mov     dword [ebp -4], eax
 .loop:
     mov dword ecx, $s
@@ -97,7 +97,7 @@ pub native chars(s: str) -> List<str> /{
     mov dword ebx, [ebx]
     mov ecx,0
 
-    mov eax, [_enum_List_Empty]
+    mov eax, [_enum_stdlib_list_List_Empty]
 
 .loop:
     cmp     byte [ebx], 0

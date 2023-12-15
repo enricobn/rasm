@@ -425,7 +425,7 @@ fn test_curry() {
 }
 
 #[test]
-fn terst_assertions() {
+fn test_assertions() {
     run_test("assertions", Vec::new(), "");
 }
 

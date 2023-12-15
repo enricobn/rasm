@@ -90,7 +90,7 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
 
     cmp     ebx, eax
     jle     .ok
-    mov     dword eax, [_enum_Option_None]
+    mov     dword eax, [_enum_stdlib_option_Option_None]
     jmp     .end
 .ok:
     add     ecx, 1

@@ -666,7 +666,12 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             };
 
             let body_str = if variant.parameters.is_empty() {
-                let label = format!("_enum_{}_{}", enum_def.name, variant.name);
+                let label = format!(
+                    "_enum_{}_{}_{}",
+                    module.namespace.safe_name(),
+                    enum_def.name,
+                    variant.name
+                );
                 statics.insert_value_in_heap(&label, &descr, variant_num as i32);
 
                 format!("    mov    eax, [{}]\n", label)

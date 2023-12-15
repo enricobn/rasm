@@ -438,7 +438,7 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     $call(Option::Some, eax:T)
     jmp     .end
 .empty:
-    mov     dword eax, [_enum_Option_None]
+    mov     dword eax, [_enum_stdlib_option_Option_None]
 .end:
     pop     ebx
 }/

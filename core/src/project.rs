@@ -346,7 +346,7 @@ impl RasmProject {
     fn main_test_module(
         &self,
         errors: &mut Vec<CompilationError>,
-        test_modules: &Vec<ASTModule>,
+        test_modules: &[ASTModule],
     ) -> ASTModule {
         let mut test_main_module_body = Vec::new();
         let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
@@ -354,7 +354,7 @@ impl RasmProject {
         test_modules
             .iter()
             .flat_map(|it| it.functions.iter())
-            .filter(|it| it.name.starts_with("test"))
+            .filter(|it| it.modifiers.public && it.name.starts_with("test"))
             .for_each(|it| {
                 let valid = if let ASTType::Custom {
                     name,
@@ -376,7 +376,7 @@ impl RasmProject {
                     });
                 } else {
                     let test_call = ASTFunctionCall {
-                        original_function_name: it.original_name.to_string(),
+                        original_function_name: it.original_name.clone(),
                         function_name: it.name.clone(),
                         parameters: Vec::new(),
                         index: ASTIndex::none(),

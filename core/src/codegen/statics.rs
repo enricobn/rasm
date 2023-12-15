@@ -101,7 +101,10 @@ impl Statics {
     }
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {
-        assert!(self.statics.insert(key, value).is_none())
+        if let Some(oldValue) = self.statics.insert(key.clone(), value) {
+            panic!("already added value for {key}");
+        }
+
         //assert!(self.statics.insert(key.clone(), value.clone()).is_none(), "{key} {:?}", value)
     }
 
