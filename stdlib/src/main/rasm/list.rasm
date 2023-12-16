@@ -115,12 +115,12 @@ pub fn foldLeft<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 pub fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    foldLeft(listReverse(l), zero, accum);
+    foldLeft(reverse(l), zero, accum);
 }
 
-pub fn listReverse<T>(l: List<T>) -> List<T> {
+pub fn reverse<T>(l: List<T>) -> List<T> {
     match(l, { head, tail ->
-        listAppend(listReverse(tail), listOf(head));
+        listAppend(reverse(tail), listOf(head));
     }, { -> List::Empty(); });
 }
 

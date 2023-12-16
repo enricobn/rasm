@@ -1,6 +1,6 @@
 println(range(0, atoi(argv(1))));
 
-println(listReverse(range(0, atoi(argv(1)))));
+println(reverse(range(0, atoi(argv(1)))));
 
 println(count(listOf(1, 5, 3, 8, 4, 2), { it -> less(it, 5); }));
 
