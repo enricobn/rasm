@@ -1470,11 +1470,13 @@ impl Backend for BackendNasmi386 {
 
     fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
         let mut result = HashMap::new();
-        Nasmi386CoreLibAssets::iter().for_each(|it| {
-            if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
-                result.insert(it.to_string(), asset);
-            }
-        });
+        Nasmi386CoreLibAssets::iter()
+            .filter(|it| it.ends_with(".rasm"))
+            .for_each(|it| {
+                if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
+                    result.insert(it.to_string(), asset);
+                }
+            });
         result
     }
 }

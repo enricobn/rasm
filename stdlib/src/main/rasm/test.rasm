@@ -51,12 +51,18 @@ pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Asser
 }
 
 pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
+    println("Running ".add(name));
     testRun().failed.first.match(
         { error ->
-            let message = add(add(add("Failed ", name), " : "), index);
+            let message = "test failed ".add(" : ").add(index);
             println(message);
             println(error);
             true;
-        }, { -> false; }
+        },
+        { ->
+            println("test OK");
+            println();
+            false;
+        }
     );
 }

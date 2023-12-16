@@ -25,6 +25,7 @@ use std::path::{Path, PathBuf};
 use log::info;
 use pathdiff::diff_paths;
 use rayon::prelude::*;
+use rust_embed::RustEmbed;
 use serde::Deserialize;
 use toml::map::Map;
 use toml::{Table, Value};
@@ -49,6 +50,9 @@ pub struct RasmProject {
     pub config: RasmConfig,
     from_file: bool,
 }
+#[derive(RustEmbed)]
+#[folder = "../core/resources/corelib/rasm"]
+struct RasmCoreLibAssets;
 
 impl RasmProject {
     pub fn new(root: PathBuf) -> Self {
@@ -299,11 +303,26 @@ impl RasmProject {
     }
 
     fn core_modules(&self, backend: &dyn Backend) -> Vec<(ASTModule, Vec<CompilationError>)> {
-        backend
-            .get_core_lib_files()
-            .iter()
-            .map(|it| self.core_module(it.0, &it.1.data))
-            .collect::<Vec<_>>()
+        let mut result = RasmCoreLibAssets::iter()
+            .filter(|it| it.ends_with(".rasm"))
+            .map(|it| {
+                if let Some(asset) = RasmCoreLibAssets::get(&it) {
+                    self.core_module(&it, &asset.data)
+                } else {
+                    panic!()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        result.append(
+            &mut backend
+                .get_core_lib_files()
+                .iter()
+                .map(|it| self.core_module(it.0, &it.1.data))
+                .collect::<Vec<_>>(),
+        );
+
+        result
     }
 
     pub fn get_all_modules(

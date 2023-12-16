@@ -10,11 +10,6 @@ pub fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
     flatten(map(l, f));
 }
 
-pub fn toVec<T>(l: List<T>) -> Vec<T> {
-    match(l, { head, tail -> flatten(vecOf(vecOf(head), toVec(tail)));},
-        { -> Vec(); });
-}
-
 pub fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
     forEach(v, { n -> printFunction(n); print(",");});
 }
@@ -81,6 +76,11 @@ pub fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
 
 pub fn isEmpty<T>(vec: Vec<T>) -> bool {
     vec.len.eq(0);
+}
+
+pub fn toVec<T>(l: List<T>) -> Vec<T> {
+    match(l, { head, tail -> flatten(vecOf(vecOf(head), toVec(tail)));},
+        { -> Vec(); });
 }
 
 // TODO slow
