@@ -1028,7 +1028,7 @@ impl Backend for BackendNasmi386 {
 
             for id in keys.iter() {
                 let mut def = String::new();
-                def.push_str(&id.pad_to_width(50));
+                def.push_str(&id.pad_to_width(100));
 
                 match statics.statics().get(*id).unwrap() {
                     MemoryValue::StringValue(s) => {
