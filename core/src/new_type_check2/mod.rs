@@ -153,7 +153,7 @@ impl TypeCheck {
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
-                            format!("transforming function {function}"),
+                            format!("transforming function {function}:{}", function.index),
                             vec![it],
                         ),
                     })?
@@ -645,8 +645,10 @@ impl TypeCheck {
             Err(TypeCheckError::new(
                 call.index.clone(),
                 format!(
-                    "call {} \ncannot find a valid function for namespace {namespace} \n{}",
+                    "call {} : {} \nexpected return type {}\ncannot find a valid function for namespace {namespace} \n{}",
                     call.original_function_name,
+                    call.index,
+                    OptionDisplay(&expected_return_type),
                     SliceDisplay(&errors.iter().map(|it| format!("{it}")).collect::<Vec<_>>())
                 ),
                 self.stack.clone(),

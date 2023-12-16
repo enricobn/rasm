@@ -124,7 +124,16 @@ pub fn resolve_generic_types_from_effective_type(
                             return Err(type_check_error("Invalid parameters count.".to_string()));
                         }
                         for (i, p_p) in p_parameters.iter().enumerate() {
-                            let e_p = e_parameters.get(i).unwrap();
+                            let e_p = if let Some(p) = e_parameters.get(i) {
+                                p
+                            } else {
+                                return Err(TypeCheckError::new(
+                                    ASTIndex::none(),
+                                    format!("Cannot find parameter {i}"),
+                                    Vec::new(),
+                                ));
+                            };
+
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                             .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
 
@@ -193,7 +202,15 @@ pub fn resolve_generic_types_from_effective_type(
                 }
 
                 for (i, p_p) in p_param_types.iter().enumerate() {
-                    let e_p = e_param_types.get(i).unwrap();
+                    let e_p = if let Some(p) = e_param_types.get(i) {
+                        p
+                    } else {
+                        return Err(TypeCheckError::new(
+                            ASTIndex::none(),
+                            format!("Cannot find parameter {i}"),
+                            Vec::new(),
+                        ));
+                    };
                     let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                         .map_err(|e| e.add(ASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"), Vec::new()))?;
 
