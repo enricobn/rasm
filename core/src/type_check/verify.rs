@@ -53,7 +53,14 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
         }
 
         if let ASTTypedFunctionBody::RASMBody(expressions) = &function_def.body {
-            verify_statements(module, statics, &function_def, &mut context, expressions)?;
+            verify_statements(
+                module,
+                statics,
+                &mut context,
+                expressions,
+                &function_def.return_type,
+                &function_def.index,
+            )?;
         }
     }
     Ok(())
@@ -62,9 +69,10 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
 fn verify_statements(
     module: &ASTTypedModule,
     statics: &mut Statics,
-    function_def: &ASTTypedFunctionDef,
     mut context: &mut TypedValContext,
     expressions: &Vec<ASTTypedStatement>,
+    expected_return_type: &ASTTypedType,
+    index: &ASTIndex,
 ) -> Result<(), CompilationError> {
     for (i, statement) in expressions.iter().enumerate() {
         verify_statement(module, &mut context, statement, statics)?;
@@ -85,7 +93,7 @@ fn verify_statements(
                 module,
                 &context,
                 e,
-                Some(&function_def.return_type),
+                Some(&expected_return_type),
                 statics,
             )?,
             ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
@@ -102,12 +110,12 @@ fn verify_statements(
         ASTTypedType::Unit
     };
 
-    if function_def.return_type != real_return_type {
+    if expected_return_type != &real_return_type {
         return Err(verify_error(
-            function_def.index.clone(),
+            index.clone(),
             format!(
                 "Expected return type {} but got {}",
-                function_def.return_type, real_return_type
+                expected_return_type, real_return_type
             ),
         ));
     }
@@ -214,7 +222,7 @@ fn verify_expression(
     context: &mut TypedValContext,
     expr: &ASTTypedExpression,
     statics: &mut Statics,
-    //    expected_return_type: Option<ASTTypedType>
+    //expected__type: Option<&ASTTypedType>,
 ) -> Result<(), CompilationError> {
     match expr {
         ASTTypedExpression::StringLiteral(_) => Ok(()),
