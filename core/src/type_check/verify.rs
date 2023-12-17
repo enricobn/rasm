@@ -24,17 +24,19 @@ use crate::errors::CompilationErrorKind::Verify;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast;
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
-    ASTTypedModule, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use crate::utils::OptionDisplay;
 use log::debug;
+use std::iter::zip;
 use std::ops::Deref;
 
 pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), CompilationError> {
     let mut context = TypedValContext::new(None);
 
     for statement in module.body.iter() {
-        verify_statement(module, &mut context, statement, statics)?;
+        verify_statement(module, &mut context, statement, statics, None)?;
         if let ASTTypedStatement::Expression(e) = statement {
             let typed_type =
                 typed_ast::get_type_of_typed_expression(module, &context, e, None, statics)?;
@@ -69,27 +71,22 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
 fn verify_statements(
     module: &ASTTypedModule,
     statics: &mut Statics,
-    mut context: &mut TypedValContext,
+    context: &mut TypedValContext,
     expressions: &Vec<ASTTypedStatement>,
     expected_return_type: &ASTTypedType,
     index: &ASTIndex,
 ) -> Result<(), CompilationError> {
     for (i, statement) in expressions.iter().enumerate() {
-        verify_statement(module, &mut context, statement, statics)?;
-        if i != expressions.len() - 1 {
-            if let ASTTypedStatement::Expression(e) = statement {
-                let typed_type =
-                    typed_ast::get_type_of_typed_expression(module, &context, e, None, statics)?;
-
-                if typed_type != ASTTypedType::Unit {
-                    return Err(expression_return_value_is_not_used(statement));
-                }
-            }
-        }
+        let ert = if i != expressions.len() - 1 {
+            &ASTTypedType::Unit
+        } else {
+            expected_return_type
+        };
+        verify_statement(module, context, statement, statics, Some(ert))?;
     }
     let real_return_type = if let Some(last) = expressions.iter().last() {
         match last {
-            ASTTypedStatement::Expression(e) => typed_ast::get_type_of_typed_expression(
+            ASTTypedStatement::Expression(e) => get_type_of_typed_expression(
                 module,
                 &context,
                 e,
@@ -97,7 +94,7 @@ fn verify_statements(
                 statics,
             )?,
             ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
-                typed_ast::get_type_of_typed_expression(
+                get_type_of_typed_expression(
                     module,
                     &context,
                     e,
@@ -135,12 +132,14 @@ pub fn verify_statement(
     context: &mut TypedValContext,
     statement: &ASTTypedStatement,
     statics: &mut Statics,
-    //expected_return_type: Option<ASTTypedType>,
+    expected_return_type: Option<&ASTTypedType>,
 ) -> Result<(), CompilationError> {
     match statement {
-        ASTTypedStatement::Expression(e) => verify_expression(module, context, e, statics),
+        ASTTypedStatement::Expression(e) => {
+            verify_expression(module, context, e, statics, expected_return_type)
+        }
         ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
-            verify_expression(module, context, e, statics)?;
+            verify_expression(module, context, e, statics, None)?;
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
                 let ast_typed_type =
                     if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
@@ -222,26 +221,92 @@ fn verify_expression(
     context: &mut TypedValContext,
     expr: &ASTTypedExpression,
     statics: &mut Statics,
-    //expected__type: Option<&ASTTypedType>,
+    expected_type: Option<&ASTTypedType>,
 ) -> Result<(), CompilationError> {
     match expr {
-        ASTTypedExpression::StringLiteral(_) => Ok(()),
-        ASTTypedExpression::ASTFunctionCallExpression(call) => {
-            verify_function_call(module, context, call, statics)?;
-            Ok(())
-        }
-        ASTTypedExpression::ValueRef(_, _) => Ok(()),
-        ASTTypedExpression::Value(_, _) => Ok(()),
         ASTTypedExpression::Lambda(def) => {
-            //TODO HENRY
-            Ok(())
+            if let Some(et) = expected_type {
+                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                }) = et
+                {
+                    let mut lambda_context = TypedValContext::new(Some(context));
+
+                    if def.parameter_names.len() != parameters.len() {
+                        return Err(verify_error(
+                            def.index.clone(),
+                            format!(
+                                "Expected {} params, but {}",
+                                def.parameter_names.len(),
+                                parameters.len()
+                            ),
+                        ));
+                    }
+
+                    for (i, ((param_name, param_index), param_type)) in
+                        zip(def.parameter_names.iter(), parameters.iter()).enumerate()
+                    {
+                        lambda_context.insert(
+                            param_name.clone(),
+                            TypedValKind::ParameterRef(
+                                i,
+                                ASTTypedParameterDef {
+                                    name: param_name.clone(),
+                                    ast_type: param_type.clone(),
+                                    ast_index: param_index.clone(),
+                                },
+                            ),
+                        )
+                    }
+
+                    verify_statements(
+                        module,
+                        statics,
+                        &mut lambda_context,
+                        &def.body,
+                        return_type.deref(),
+                        &def.index,
+                    )
+                } else {
+                    Err(verify_error(
+                        def.index.clone(),
+                        format!("Expected lambda but got {}", OptionDisplay(&expected_type)),
+                    ))
+                }
+            } else {
+                Err(verify_error(
+                    def.index.clone(),
+                    "Expected type but got None".to_string(),
+                ))
+            }
+        }
+        _ => {
+            if let ASTTypedExpression::ASTFunctionCallExpression(call) = expr {
+                verify_function_call(module, context, call, statics)?;
+            }
+            if let Some(et) = expected_type {
+                let real_type =
+                    get_type_of_typed_expression(module, context, expr, expected_type, statics)?;
+
+                if &real_type != et {
+                    Err(verify_error(
+                        expr.get_index().unwrap_or(ASTIndex::none()),
+                        format!("Expected {et} but got {real_type}"),
+                    ))
+                } else {
+                    Ok(())
+                }
+            } else {
+                Ok(())
+            }
         }
     }
 }
 
 fn verify_function_call(
     module: &ASTTypedModule,
-    context: &TypedValContext,
+    context: &mut TypedValContext,
     call: &ASTTypedFunctionCall,
     statics: &mut Statics,
 ) -> Result<(), CompilationError> {
@@ -300,6 +365,9 @@ fn verify_function_call(
 
     for (i, expr) in call.parameters.iter().enumerate() {
         let par_type = parameters_types.get(i).unwrap().clone();
+
+        verify_expression(module, context, expr, statics, Some(&par_type))?;
+
         let typed_type = typed_ast::get_type_of_typed_expression(
             module,
             context,

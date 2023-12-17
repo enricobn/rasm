@@ -1103,10 +1103,6 @@ pub fn get_type_of_typed_expression(
                 context.insert_par(name.clone(), i, parameter_def);
             }
 
-            for statement in lambda_def.body.iter() {
-                verify::verify_statement(module, &mut context, statement, statics)?;
-            }
-
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {
                 match last {
                     ASTTypedStatement::Expression(e) => {
