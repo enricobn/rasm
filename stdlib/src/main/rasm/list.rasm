@@ -204,6 +204,15 @@ pub fn pop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
     );
 }
 
+pub fn popTop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
+    list.match(
+        { head, tail ->
+            Pair(Option::Some(head), tail);
+        },
+        { -> Pair(Option::None(), list);}
+    );
+}
+
 pub fn replace<T>(list: List<T>, new: T) -> Pair<Option<T>, List<T>> {
     let current = list.pop();
     current.first.match(
