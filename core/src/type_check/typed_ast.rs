@@ -276,117 +276,16 @@ pub struct ASTTypedModule {
 }
 
 impl TypeDefProvider for ASTTypedModule {
-    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
-        self.enums.iter().find(|it| it.name == name)
+    fn enums(&self) -> &[ASTTypedEnumDef] {
+        &self.enums
     }
 
-    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
-        self.structs.iter().find(|it| it.name == name)
+    fn structs(&self) -> &[ASTTypedStructDef] {
+        &self.structs
     }
 
-    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        self.types.iter().find(|it| it.name == name)
-    }
-
-    fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
-        find_one(self.enums.iter(), |it| it.name.starts_with(name))
-    }
-
-    fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
-        find_one(self.structs.iter(), |it| it.name.starts_with(name))
-    }
-
-    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        find_one(self.types.iter(), |it| it.name == name)
-    }
-
-    fn get_type_from_custom_typed_type(
-        &self,
-        typed_type_to_find: &ASTTypedType,
-    ) -> Option<ASTType> {
-        if let Some(e) = find_one(self.enums.iter(), |it| {
-            &it.ast_typed_type == typed_type_to_find
-        }) {
-            Some(e.clone().ast_type)
-        } else if let Some(s) = find_one(self.structs.iter(), |it| {
-            &it.ast_typed_type == typed_type_to_find
-        }) {
-            Some(s.clone().ast_type)
-        } else {
-            find_one(self.types.iter(), |it| {
-                &it.ast_typed_type == typed_type_to_find
-            })
-            .map(|t| t.clone().ast_type)
-        }
-    }
-
-    fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
-        if let Some(e) = find_one(self.enums.iter(), |it| {
-            if let ASTType::Custom {
-                name: ast_type_name,
-                param_types: _,
-                index: _,
-            } = &it.ast_type
-            {
-                ast_type_name == name
-            } else {
-                panic!()
-            }
-        }) {
-            Some(e.clone().ast_typed_type)
-        } else if let Some(s) = find_one(self.structs.iter(), |it| {
-            if let ASTType::Custom {
-                name: ast_type_name,
-                param_types: _,
-                index: _,
-            } = &it.ast_type
-            {
-                ast_type_name == name
-            } else {
-                panic!()
-            }
-        }) {
-            Some(s.clone().ast_typed_type)
-        } else {
-            find_one(self.types.iter(), |it| {
-                if let ASTType::Custom {
-                    name: ast_type_name,
-                    param_types: _,
-                    index: _,
-                } = &it.ast_type
-                {
-                    ast_type_name == name
-                } else {
-                    panic!()
-                }
-            })
-            .map(|t| t.clone().ast_typed_type)
-        }
-    }
-
-    fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
-        if let Some(e) = find_one(self.enums.iter(), |it| &it.ast_type == ast_type) {
-            Some(e.clone().ast_typed_type)
-        } else if let Some(s) = find_one(self.structs.iter(), |it| &it.ast_type == ast_type) {
-            Some(s.clone().ast_typed_type)
-        } else {
-            find_one(self.types.iter(), |it| &it.ast_type == ast_type)
-                .map(|t| t.clone().ast_typed_type)
-        }
-    }
-
-    fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
-        find_one(self.types.iter(), |it| match &it.ast_type {
-            ASTType::Builtin(_) => false,
-            ASTType::Generic(_) => false,
-            ASTType::Custom {
-                name,
-                param_types: _,
-                index: _,
-            } => name == type_to_find,
-            ASTType::Unit => false,
-        })
-        .cloned()
+    fn types(&self) -> &[ASTTypedTypeDef] {
+        &self.types
     }
 
     fn name(&self) -> String {
@@ -501,87 +400,16 @@ pub struct ConvContext<'a> {
 }
 
 impl<'a> TypeDefProvider for ConvContext<'a> {
-    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
-        self.enum_defs.iter().find(|it| it.name == name)
+    fn enums(&self) -> &[ASTTypedEnumDef] {
+        &self.enum_defs
     }
 
-    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
-        self.struct_defs.iter().find(|it| it.name == name)
+    fn structs(&self) -> &[ASTTypedStructDef] {
+        &self.struct_defs
     }
 
-    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        self.type_defs.iter().find(|it| it.name == name)
-    }
-
-    fn get_enum_def_like_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
-        find_one(self.enum_defs.iter(), |it| it.name.starts_with(name))
-    }
-
-    fn get_struct_def_like_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
-        find_one(self.struct_defs.iter(), |it| it.name.starts_with(name))
-    }
-
-    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        find_one(self.type_defs.iter(), |it| it.name.starts_with(name))
-    }
-
-    fn get_type_from_custom_typed_type(
-        &self,
-        typed_type_to_find: &ASTTypedType,
-    ) -> Option<ASTType> {
-        if let Some((ast_type, _ast_typed_type)) = self
-            .enums
-            .iter()
-            .find(|(_ast_type, ast_typed_type)| ast_typed_type == &typed_type_to_find)
-        {
-            Some(ast_type.clone())
-        } else if let Some((ast_type, _ast_typed_type)) = self
-            .structs
-            .iter()
-            .find(|(_ast_type, ast_typed_type)| ast_typed_type == &typed_type_to_find)
-        {
-            Some(ast_type.clone())
-        } else if let Some((ast_type, _ast_typed_type)) = self
-            .types
-            .iter()
-            .find(|(_ast_type, ast_typed_type)| ast_typed_type == &typed_type_to_find)
-        {
-            Some(ast_type.clone())
-        } else {
-            None
-        }
-    }
-
-    fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
-        self.type_defs
-            .iter()
-            .find(|it| it.original_name == name)
-            .map(|it| it.ast_typed_type.clone())
-    }
-
-    fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
-        if let Some(e) = find_one(self.enum_defs.iter(), |it| &it.ast_type == ast_type) {
-            Some(e.clone().ast_typed_type)
-        } else if let Some(s) = find_one(self.struct_defs.iter(), |it| &it.ast_type == ast_type) {
-            Some(s.clone().ast_typed_type)
-        } else {
-            find_one(self.type_defs.iter(), |it| &it.ast_type == ast_type)
-                .map(|t| t.clone().ast_typed_type)
-        }
-    }
-
-    fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
-        find_one(self.type_defs.iter(), |it| match &it.ast_type {
-            ASTType::Builtin(_) => false,
-            ASTType::Generic(_) => false,
-            ASTType::Custom {
-                name,
-                param_types: _,
-                index: _,
-            } => name == type_to_find,
-            ASTType::Unit => false,
-        })
-        .cloned()
+    fn types(&self) -> &[ASTTypedTypeDef] {
+        &self.type_defs
     }
 
     fn name(&self) -> String {
@@ -605,11 +433,6 @@ impl<'a> ConvContext<'a> {
 
     pub fn add_enum(&mut self, enum_type: &ASTType, _enum_def: &ASTEnumDef) -> ASTTypedType {
         debug!("add_enum {enum_type}");
-        self.count += 1;
-        if self.count > 100 {
-            // TODO why???
-            panic!();
-        }
         match enum_type {
             ASTType::Custom {
                 name,
@@ -629,7 +452,9 @@ impl<'a> ConvContext<'a> {
                     generic_to_type.insert(p.clone(), cloned_param_types.get(i).unwrap().clone());
                 }
 
-                let new_name = format!("{name}_{}", self.enums.len());
+                self.count += 1;
+                let new_name = format!("{name}_{}", self.count);
+
                 let enum_typed_type = ASTTypedType::Enum {
                     name: new_name.clone(),
                 };
@@ -678,11 +503,6 @@ impl<'a> ConvContext<'a> {
 
     pub fn add_struct(&mut self, struct_type: &ASTType) -> ASTTypedType {
         debug!("add_struct {struct_type}");
-        self.count += 1;
-        if self.count > 100 {
-            // TODO why???
-            panic!();
-        }
         match struct_type {
             ASTType::Custom {
                 name,
@@ -710,7 +530,9 @@ impl<'a> ConvContext<'a> {
                     );
                 }
 
-                let new_name = format!("{name}_{}", self.structs.len());
+                self.count += 1;
+                let new_name = format!("{name}_{}", self.count);
+
                 let struct_typed_type = ASTTypedType::Struct {
                     name: new_name.clone(),
                 };
@@ -746,11 +568,6 @@ impl<'a> ConvContext<'a> {
 
     pub fn add_type(&mut self, ast_type: &ASTType, is_ref: bool) -> ASTTypedType {
         debug!("add_type {ast_type}");
-        self.count += 1;
-        if self.count > 100 {
-            // TODO why???
-            panic!();
-        }
         match ast_type {
             ASTType::Custom {
                 name,
@@ -779,7 +596,9 @@ impl<'a> ConvContext<'a> {
                     );
                 }
 
-                let new_name = format!("{name}_{}", self.types.len());
+                self.count += 1;
+                let new_name = format!("{name}_{}", self.count);
+
                 let type_typed_type = ASTTypedType::Type {
                     name: new_name.clone(),
                 };
@@ -906,7 +725,9 @@ pub fn convert_to_typed_module(
                             &par.name,
                             conv_context
                                 .get_type_from_typed_type(&par.ast_type)
-                                .unwrap(),
+                                .unwrap_or_else(|| {
+                                    panic!("Cannot get type from typed type {}", &par.ast_type)
+                                }),
                             par.ast_index.clone(),
                         ),
                     );
