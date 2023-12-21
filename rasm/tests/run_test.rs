@@ -439,6 +439,11 @@ fn test_call_with_generics() {
     run_test("call_with_generics", Vec::new(), "Ok\nError: an error\n");
 }
 
+#[test]
+fn test_printref() {
+    run_test_no_verify("printref", Vec::new());
+}
+
 // Compile tests
 
 #[test]
@@ -482,6 +487,19 @@ fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
 
     let executable = compile(&dir, &main, false);
     execute(&executable.unwrap(), args, Some(expected_output));
+}
+
+fn run_test_no_verify(test_name: &str, args: Vec<&str>) {
+    let dir = TempDir::new("rasm_int_test").unwrap();
+
+    let mut main = format!("resources/test/{}", test_name);
+
+    if !Path::new(&main).is_dir() {
+        main = format!("{main}.rasm");
+    }
+
+    let executable = compile(&dir, &main, false);
+    execute(&executable.unwrap(), args, None);
 }
 
 fn run(source: &str, args: Vec<&str>, expected_output: Option<&str>) {

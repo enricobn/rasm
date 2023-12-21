@@ -47,6 +47,7 @@ pub mod val_context;
 /// generation, but we need that value during the code generation...   
 pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
 
+#[derive(Clone)]
 pub enum CompileTarget {
     Nasmi36,
 }
@@ -66,14 +67,13 @@ impl CompileTarget {
 
     pub fn generate(
         &self,
-        debug: bool,
         statics: Statics,
         typed_module: ASTTypedModule,
         options: CodeGenOptions,
     ) -> String {
         match self {
             CompileTarget::Nasmi36 => {
-                let backend = BackendNasmi386::new(debug);
+                let backend = BackendNasmi386::new(options.debug);
 
                 CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics)
             }
@@ -87,6 +87,7 @@ impl CompileTarget {
     }
 }
 
+#[derive(Clone)]
 pub struct CodeGenOptions {
     pub lambda_space_size: usize,
     pub heap_size: usize,
@@ -2131,10 +2132,21 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             &self.module,
         )?;
 
-        let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+        let result = evaluator.translate(
+            self.backend(),
+            statics,
+            None,
+            None,
+            &new_body,
+            self.options.dereference,
+            false,
+            &self.module,
+        )?;
+
+        let mut lines: Vec<String> = result.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
         self.backend
-            .called_functions(None, None, &new_body, &val_context, &self.module, statics)?
+            .called_functions(None, None, &result, &val_context, &self.module, statics)?
             .iter()
             .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);
@@ -2146,20 +2158,13 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 } else {
                     // panic!("cannot find call {function_call}");
                     // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
-                    println!("cannot find call to {}", it.name);
+                    println!("translate_body: cannot find call to {}", it.name);
                 }
             });
 
-        evaluator.translate(
-            self.backend(),
-            statics,
-            None,
-            None,
-            &lines.join("\n"),
-            self.options.dereference,
-            false,
-            &self.module,
-        )
+        let result = lines.join("\n");
+
+        Ok(result)
     }
 
     fn get_used_functions(

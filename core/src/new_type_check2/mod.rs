@@ -843,6 +843,51 @@ impl TypeCheck {
             }
             ASTFunctionBody::NativeBody(asm_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
+
+                let evaluator = backend.get_evaluator();
+                let text_macro_names = evaluator
+                    .get_macros(
+                        backend,
+                        None,
+                        Some(new_function_def),
+                        asm_body,
+                        &type_def_provider,
+                    )
+                    .map_err(|it| {
+                        TypeCheckError::new(
+                            new_function_def.index.clone(),
+                            format!("Error getting macros for {new_function_def}, {it}"),
+                            self.stack.clone(),
+                        )
+                    })?
+                    .iter()
+                    .map(|(m, i)| m.name.clone())
+                    .collect::<HashSet<_>>();
+
+                for text_macro_name in text_macro_names {
+                    let default_function_calls = evaluator
+                        .default_function_calls(&text_macro_name)
+                        .map_err(|it| {
+                            TypeCheckError::new(
+                                new_function_def.index.clone(),
+                                format!("Error getting macros for {new_function_def}, {it}"),
+                                self.stack.clone(),
+                            )
+                        })?;
+                    for f in default_function_calls {
+                        let call = f.to_call(new_function_def);
+                        let _new_call = self.transform_call(
+                            module,
+                            &call,
+                            &mut val_context,
+                            statics,
+                            None,
+                            &new_function_def.namespace,
+                            Some(new_function_def),
+                        )?;
+                    }
+                }
+
                 let called_functions = backend
                     .called_functions(
                         None,

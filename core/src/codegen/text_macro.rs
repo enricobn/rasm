@@ -20,7 +20,9 @@ use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::substitute;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind};
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+};
 
 thread_local! {
     static COUNT : RefCell<usize> = RefCell::new(0);
@@ -585,6 +587,17 @@ impl TextMacroEvaluator {
         }
         Ok(result)
     }
+
+    pub fn default_function_calls(
+        &self,
+        macro_name: &str,
+    ) -> Result<Vec<DefaultFunctionCall>, String> {
+        if let Some(tme) = self.evaluators.get(macro_name) {
+            Ok(tme.default_function_calls())
+        } else {
+            Err("Cannot find macro {macro_name}".to_string())
+        }
+    }
 }
 
 struct TypeParserHelper {
@@ -623,6 +636,8 @@ pub trait TextMacroEval {
     ) -> String;
 
     fn is_pre_macro(&self) -> bool;
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall>;
 }
 
 pub struct CallTextMacroEvaluator {
@@ -691,6 +706,10 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
 
     fn is_pre_macro(&self) -> bool {
         false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
     }
 }
 
@@ -788,6 +807,10 @@ impl TextMacroEval for CCallTextMacroEvaluator {
 
     fn is_pre_macro(&self) -> bool {
         false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
     }
 }
 
@@ -925,6 +948,10 @@ impl TextMacroEval for AddRefMacro {
     fn is_pre_macro(&self) -> bool {
         false
     }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
 }
 
 pub struct PrintRefMacro {
@@ -970,6 +997,20 @@ impl TextMacroEval for PrintRefMacro {
 
     fn is_pre_macro(&self) -> bool {
         true
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        vec![
+            DefaultFunctionCall::new("print", vec![ASTType::Builtin(BuiltinTypeKind::I32)], 0),
+            DefaultFunctionCall::new("println", vec![ASTType::Builtin(BuiltinTypeKind::I32)], 0),
+            DefaultFunctionCall::new("print", vec![ASTType::Builtin(BuiltinTypeKind::String)], 0),
+            DefaultFunctionCall::new(
+                "println",
+                vec![ASTType::Builtin(BuiltinTypeKind::String)],
+                0,
+            ),
+            DefaultFunctionCall::new("println", Vec::new(), 0),
+        ]
     }
 }
 
@@ -1054,14 +1095,9 @@ impl PrintRefMacro {
         let mut result = String::new();
 
         let ident_string = " ".repeat(indent * 2);
-        self.backend.add(
-            &mut result,
-            &format!("$call(print, \"{ident_string}{name} \")"),
-            None,
-            true,
-        );
-        self.backend
-            .add(&mut result, &format!("$call(print,{src}:i32)"), None, true);
+        self.print_str(&mut result, &format!("{ident_string}{name} "));
+
+        self.print_i32(&mut result, src);
         self.backend.add(&mut result, "push    ebx", None, true);
         self.backend.add(
             &mut result,
@@ -1070,21 +1106,57 @@ impl PrintRefMacro {
             true,
         );
         self.backend.add(&mut result, "pop    ebx", None, true);
-        self.backend
-            .add(&mut result, "$call(print, \" refcount \")", None, true);
-        //CodeGen::add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        self.print_str(&mut result, " refcount ");
         if new_line {
-            self.backend
-                .add(&mut result, "$call(println,[ebx + 12])", None, true);
+            self.println_i32(&mut result, "[ebx + 12]");
         } else {
-            self.backend
-                .add(&mut result, "$call(print,[ebx + 12])", None, true);
+            self.print_i32(&mut result, "[ebx + 12]");
         }
         self.backend.add(&mut result, "pop    ebx", None, true);
 
         result.push_str(&code);
 
         result
+    }
+
+    fn println_i32(&self, out: &mut String, value: &str) {
+        self.backend.add(
+            out,
+            //&format!("$call(println_i32_Unit,{value}:i32)"),
+            &format!("$call(println,{value}:i32)"),
+            None,
+            true,
+        );
+    }
+
+    fn print_i32(&self, out: &mut String, value: &str) {
+        self.backend.add(
+            out,
+            //&format!("$call(print_i32_Unit,{value}:i32)"),
+            &format!("$call(print,{value}:i32)"),
+            None,
+            true,
+        );
+    }
+
+    fn print_str(&self, out: &mut String, value: &str) {
+        self.backend.add(
+            out,
+            //&format!("$call(print_str_Unit,\"{value}\")"),
+            &format!("$call(print,\"{value}\")"),
+            None,
+            true,
+        );
+    }
+
+    fn println_str(&self, out: &mut String, value: &str) {
+        self.backend.add(
+            out,
+            //&format!("$call(println_str_Unit,\"{value}\")"),
+            &format!("$call(println,\"{value}\")"),
+            None,
+            true,
+        );
     }
 
     fn print_ref_struct(
@@ -1151,8 +1223,7 @@ impl PrintRefMacro {
             .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
         self.backend
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
-        self.backend
-            .add(&mut result, "$call(print, \" value \")", None, true);
+        self.print_str(&mut result, " value ");
         if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
             for (i, variant) in s.variants.iter().enumerate() {
                 let count = COUNT.with(|count| {
@@ -1164,12 +1235,7 @@ impl PrintRefMacro {
                     .add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
                 self.backend
                     .add(&mut result, &format!("jne {label_name}"), None, true);
-                self.backend.add(
-                    &mut result,
-                    &format!("$call(println, \"{}\")", variant.name),
-                    None,
-                    true,
-                );
+                self.println_str(&mut result, &variant.name);
 
                 for (j, par) in variant.parameters.iter().enumerate() {
                     if get_reference_type_name(&par.ast_type, type_def_provider).is_some() {
@@ -1201,10 +1267,8 @@ impl PrintRefMacro {
         } else {
             panic!("Cannot find enum {name}");
         }
-        self.backend
-            .add(&mut result, "$call(print, \"unknown \")", None, false);
-        self.backend
-            .add(&mut result, "$call(println, [ebx])", None, false);
+        self.print_str(&mut result, "unknown ");
+        self.println_i32(&mut result, "[ebx]");
         self.backend
             .add(&mut result, "$call(exitMain, 1)", None, false);
         self.backend

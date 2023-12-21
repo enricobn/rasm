@@ -69,6 +69,14 @@ fn main() {
                 .long("message-format")
                 .required(false),
         )
+        .arg(
+            Arg::new("debug")
+                .help("Debug information at runtime (verbose)")
+                .long("debug")
+                .short('d')
+                .action(ArgAction::SetTrue)
+                .required(false),
+        )
         .get_matches();
 
     let current_path = env::current_dir().unwrap();
@@ -90,11 +98,16 @@ fn main() {
     let resource_folder = project.main_resource_folder();
     info!("resource folder: {:?}", resource_folder);
 
+    let debug = matches.get_flag("debug");
+
     let compiler = Compiler::new(
         project,
         matches.get_one::<String>("out"),
         action == "test",
-        CodeGenOptions::default(),
+        CodeGenOptions {
+            debug,
+            ..CodeGenOptions::default()
+        },
     );
     compiler.compile(matches.get_flag("compile"));
 

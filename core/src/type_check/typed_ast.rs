@@ -9,8 +9,9 @@ use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::TypedValContext;
+use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::TypedValKind;
+use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
@@ -19,9 +20,10 @@ use crate::parser::ast::{
     ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
     BuiltinTypeKind, ValueType,
 };
+use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
-use crate::type_check::{substitute, verify};
+use crate::type_check::{get_new_native_call, substitute, verify};
 use crate::utils::{find_one, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -830,6 +832,12 @@ pub fn convert_to_typed_module(
 
     let mut conv_context = ConvContext::new(&module);
 
+    let body = module
+        .body
+        .iter()
+        .map(|it| statement(&mut conv_context, it))
+        .collect();
+
     let mut functions_by_name = LinkedHashMap::new();
 
     // TODO enable?
@@ -862,19 +870,6 @@ pub fn convert_to_typed_module(
         );
     }
 
-    let mut result = ASTTypedModule {
-        body: module
-            .body
-            .iter()
-            .map(|it| statement(&mut conv_context, it))
-            .collect(),
-        structs: conv_context.struct_defs,
-        enums: conv_context.enum_defs,
-        functions_by_name: LinkedHashMap::new(),
-        types: conv_context.type_defs,
-        externals,
-    };
-
     let evaluator = backend.get_evaluator();
 
     for (_name, function) in functions_by_name.iter_mut() {
@@ -890,7 +885,7 @@ pub fn convert_to_typed_module(
                         body,
                         dereference,
                         true,
-                        &result,
+                        &conv_context,
                     )
                     .map_err(|it| {
                         compilation_error(
@@ -899,6 +894,70 @@ pub fn convert_to_typed_module(
                             Vec::new(),
                         )
                     })?;
+
+                let mut lines: Vec<String> =
+                    new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+
+                let mut val_context = ValContext::new(None);
+                for par in function.parameters.iter() {
+                    val_context.insert_par(
+                        par.name.clone(),
+                        ASTParameterDef::new(
+                            &par.name,
+                            conv_context
+                                .get_type_from_typed_type(&par.ast_type)
+                                .unwrap(),
+                            par.ast_index.clone(),
+                        ),
+                    );
+                }
+
+                backend
+                    .called_functions(
+                        Some(function),
+                        None,
+                        &new_body,
+                        &val_context,
+                        &conv_context,
+                        statics,
+                    )
+                    .map_err(|err| CompilationError {
+                        index: function.index.clone(),
+                        error_kind: CompilationErrorKind::Generic(err.clone()),
+                    })?
+                    .iter()
+                    .for_each(|(m, it)| {
+                        debug_i!("native call to {:?}, in {}", it, function);
+
+                        let filters = it
+                            .param_types
+                            .iter()
+                            .map(|it| TypeFilter::Exact(it.clone()))
+                            .collect::<Vec<_>>();
+                        if let Some(new_function_def) = module
+                            .functions_by_name
+                            .find_call(
+                                &it.name,
+                                &it.name,
+                                filters,
+                                None,
+                                false,
+                                &it.index(&function.index),
+                            )
+                            .unwrap()
+                        {
+                            debug_i!("converted to {new_function_def}");
+                            if it.name != new_function_def.name {
+                                lines[it.i] = get_new_native_call(m, &new_function_def.name);
+                            }
+                        } else {
+                            // panic!("cannot find call {function_call}");
+                            // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
+                            debug_i!("convert_to_typed_module: cannot find call to {}", it.name);
+                        }
+                    });
+
+                let new_body = lines.join("\n");
 
                 let new_body = evaluator
                     .translate(
@@ -909,7 +968,7 @@ pub fn convert_to_typed_module(
                         &new_body,
                         dereference,
                         false,
-                        &result,
+                        &conv_context,
                     )
                     .map_err(|it| {
                         compilation_error(
@@ -923,7 +982,14 @@ pub fn convert_to_typed_module(
         }
     }
 
-    result.functions_by_name = functions_by_name;
+    let result = ASTTypedModule {
+        body,
+        structs: conv_context.struct_defs,
+        enums: conv_context.enum_defs,
+        functions_by_name,
+        types: conv_context.type_defs,
+        externals,
+    };
 
     if print_module {
         print_typed_module(&result);

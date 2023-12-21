@@ -17,7 +17,7 @@ pub fn str_functions_creator(
     backend.call_function(
         &mut body_src,
         "deref",
-        &[("$s", None), (&message_key, None)],
+        &[("$s", None), (&format!("[{message_key}]"), None)],
         None,
     );
     let body = ASTFunctionBody::NativeBody(body_src);
@@ -46,7 +46,7 @@ pub fn str_functions_creator(
     backend.call_function(
         &mut body_src,
         "addRef",
-        &[("$s", None), (&message_key, None)],
+        &[("$s", None), (&format!("[{message_key}]"), None)],
         None,
     );
 

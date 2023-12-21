@@ -65,9 +65,7 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let debug_asm = false;
-
-        let backend = self.options.target.backend(debug_asm);
+        let backend = self.options.target.backend(self.options.debug);
         let mut statics = Statics::new();
 
         let (modules, errors) = self.project.get_all_modules(
@@ -112,12 +110,10 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let native_code = self.options.target.generate(
-            debug_asm,
-            statics,
-            typed_module,
-            CodeGenOptions::default(),
-        );
+        let native_code = self
+            .options
+            .target
+            .generate(statics, typed_module, self.options.clone());
 
         info!("code generation ended in {:?}", start.elapsed());
 
