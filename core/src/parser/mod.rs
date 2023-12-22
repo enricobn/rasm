@@ -565,6 +565,7 @@ impl Parser {
             self.i = next_i;
         } else if let Some((name, type_params, modifiers, next_i)) = ENUM_PARSER.try_parse(self) {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
+                namespace: namespace.clone(),
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
@@ -577,6 +578,7 @@ impl Parser {
             STRUCT_PARSER.try_parse(self)
         {
             self.parser_data.push(ParserData::StructDef(ASTStructDef {
+                namespace: namespace.clone(),
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),

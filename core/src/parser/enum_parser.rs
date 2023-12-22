@@ -5,7 +5,9 @@ use linked_hash_map::LinkedHashMap;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModifiers, ASTParameterDef};
+use crate::parser::ast::{
+    ASTEnumDef, ASTEnumVariantDef, ASTModifiers, ASTNameSpace, ASTParameterDef,
+};
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
@@ -55,6 +57,7 @@ impl EnumParser {
 
     pub fn try_parse_enum(
         &self,
+        namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
     ) -> Result<Option<(ASTEnumDef, usize)>, String> {
         if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
@@ -63,6 +66,7 @@ impl EnumParser {
             {
                 return Ok(Some((
                     ASTEnumDef {
+                        namespace: namespace.clone(),
                         name: token.alpha().unwrap(),
                         type_parameters,
                         variants,
@@ -286,6 +290,7 @@ mod tests {
     #[test]
     fn test() {
         let parse_result = try_parse_enum(
+            &ASTNameSpace::global(),
             "enum Option<T> {
             Empty,
             Some(value: T)
@@ -312,6 +317,7 @@ mod tests {
             parse_result,
             Some((
                 ASTEnumDef {
+                    namespace: ASTNameSpace::global(),
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
@@ -611,6 +617,7 @@ mod tests {
     #[test]
     fn test_pub() {
         let parse_result = try_parse_enum(
+            &ASTNameSpace::global(),
             "pub enum Option<T> {
             Empty,
             Some(value: T)
@@ -637,6 +644,7 @@ mod tests {
             parse_result,
             Some((
                 ASTEnumDef {
+                    namespace: ASTNameSpace::global(),
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
@@ -656,12 +664,12 @@ mod tests {
         sut.try_parse(&parser)
     }
 
-    fn try_parse_enum(source: &str) -> Option<(ASTEnumDef, usize)> {
+    fn try_parse_enum(namespace: &ASTNameSpace, source: &str) -> Option<(ASTEnumDef, usize)> {
         let parser = get_parser(source);
 
         let sut = EnumParser::new();
 
-        sut.try_parse_enum(&parser).unwrap()
+        sut.try_parse_enum(namespace, &parser).unwrap()
     }
 
     fn parse_variants(

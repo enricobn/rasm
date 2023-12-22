@@ -493,6 +493,7 @@ impl ASTModule {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTEnumDef {
+    pub namespace: ASTNameSpace,
     pub name: String,
     pub type_parameters: Vec<String>,
     pub variants: Vec<ASTEnumVariantDef>,
@@ -543,6 +544,7 @@ impl Display for ASTEnumVariantDef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTStructDef {
+    pub namespace: ASTNameSpace,
     pub name: String,
     pub type_parameters: Vec<String>,
     pub properties: Vec<ASTStructPropertyDef>,

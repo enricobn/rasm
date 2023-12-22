@@ -1,7 +1,7 @@
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{ASTModifiers, ASTStructDef, ASTStructPropertyDef};
+use crate::parser::ast::{ASTModifiers, ASTNameSpace, ASTStructDef, ASTStructPropertyDef};
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
@@ -48,6 +48,7 @@ impl StructParser {
 
     pub fn try_parse_struct(
         &self,
+        namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
     ) -> Result<Option<(ASTStructDef, usize)>, String> {
         if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
@@ -57,6 +58,7 @@ impl StructParser {
                 {
                     return Ok(Some((
                         ASTStructDef {
+                            namespace: namespace.clone(),
                             name,
                             type_parameters,
                             properties,
@@ -144,7 +146,7 @@ impl StructParser {
 mod tests {
     use crate::parser::ast::ASTType::{Builtin, Generic};
     use crate::parser::ast::{
-        ASTIndex, ASTModifiers, ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind,
+        ASTIndex, ASTModifiers, ASTNameSpace, ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind,
     };
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
@@ -152,6 +154,7 @@ mod tests {
     #[test]
     fn test() {
         let parse_result = try_parse_struct(
+            &ASTNameSpace::global(),
             "struct Point {
             x: i32,
             y: i32
@@ -174,6 +177,7 @@ mod tests {
             parse_result,
             Some((
                 ASTStructDef {
+                    namespace: ASTNameSpace::global(),
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
@@ -188,6 +192,7 @@ mod tests {
     #[test]
     fn test_parametric() {
         let parse_result = try_parse_struct(
+            &ASTNameSpace::global(),
             "struct EnumerateEntry<T> {
             index: i32,
             value: T
@@ -210,6 +215,7 @@ mod tests {
             parse_result,
             Some((
                 ASTStructDef {
+                    namespace: ASTNameSpace::global(),
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],
@@ -221,11 +227,11 @@ mod tests {
         );
     }
 
-    fn try_parse_struct(source: &str) -> Option<(ASTStructDef, usize)> {
+    fn try_parse_struct(namespace: &ASTNameSpace, source: &str) -> Option<(ASTStructDef, usize)> {
         let parser = get_parser(source);
 
         let sut = StructParser::new();
 
-        sut.try_parse_struct(&parser).unwrap()
+        sut.try_parse_struct(namespace, &parser).unwrap()
     }
 }

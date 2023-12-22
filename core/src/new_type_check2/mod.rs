@@ -415,10 +415,11 @@ impl TypeCheck {
     }
 
     fn unique_function_name(new_function_def: &ASTFunctionDef) -> String {
+        let namespace = new_function_def.namespace.safe_name();
         let name = new_function_def.original_name.replace("::", "_");
 
         format!(
-            "{name}_{}_{}",
+            "{namespace}_{name}_{}_{}",
             new_function_def
                 .parameters
                 .iter()
