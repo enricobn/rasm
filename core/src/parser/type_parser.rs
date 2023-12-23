@@ -2,7 +2,7 @@ use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Generic};
-use crate::parser::ast::{ASTType, BuiltinTypeKind};
+use crate::parser::ast::{ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::parser::ParserTrait;
 
 pub struct TypeParser<'a> {
@@ -16,19 +16,23 @@ impl<'a> TypeParser<'a> {
 
     pub fn try_parse_ast_type(
         &self,
+        namespace: &ASTNameSpace,
         n: usize,
         context_generic_types: &[String],
     ) -> Result<Option<(ASTType, usize)>, String> {
-        self.try_parse_ast_type_rec(n, context_generic_types, 0)
+        self.try_parse_ast_type_rec(namespace, n, context_generic_types, 0)
     }
 
     fn try_parse_ast_type_rec(
         &self,
+        namespace: &ASTNameSpace,
         n: usize,
         context_generic_types: &[String],
         rec: usize,
     ) -> Result<Option<(ASTType, usize)>, String> {
-        if let Some((ast_type, next_i)) = self.try_parse(n, context_generic_types, rec)? {
+        if let Some((ast_type, next_i)) =
+            self.try_parse(namespace, n, context_generic_types, rec)?
+        {
             return Ok(Some((ast_type, next_i)));
         }
         Ok(None)
@@ -36,6 +40,7 @@ impl<'a> TypeParser<'a> {
 
     fn try_parse(
         &self,
+        namespace: &ASTNameSpace,
         n: usize,
         context_generic_types: &[String],
         rec: usize,
@@ -56,8 +61,8 @@ impl<'a> TypeParser<'a> {
                 } else if context_generic_types.contains(type_name) {
                     Some((Generic(type_name.into()), next_i))
                 } else {
-                    let (param_types, next_i) = if let Some((param_types, next_i)) =
-                        self.try_parse_parameter_types(n + 1, context_generic_types, rec)?
+                    let (param_types, next_i) = if let Some((param_types, next_i)) = self
+                        .try_parse_parameter_types(namespace, n + 1, context_generic_types, rec)?
                     {
                         (param_types, next_i)
                     } else {
@@ -66,6 +71,7 @@ impl<'a> TypeParser<'a> {
 
                     Some((
                         Custom {
+                            namespace: namespace.clone(),
                             name: type_name.into(),
                             param_types,
                             index: self.parser.get_index(n),
@@ -74,14 +80,13 @@ impl<'a> TypeParser<'a> {
                     ))
                 }
             } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
-                Some(self.parse_fn(n + 1, context_generic_types, rec)?)
-            } else if matches!(
-                kind,
-                TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)
-            ) && matches!(
-                self.parser.get_token_kind_n(n + 1),
-                Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close))
-            ) {
+                Some(self.parse_fn(namespace, n + 1, context_generic_types, rec)?)
+            } else if matches!(kind, TokenKind::Bracket(Round, Open))
+                && matches!(
+                    self.parser.get_token_kind_n(n + 1),
+                    Some(TokenKind::Bracket(Round, Close))
+                )
+            {
                 Some((ASTType::Unit, next_i + 1))
             } else {
                 None
@@ -95,6 +100,7 @@ impl<'a> TypeParser<'a> {
 
     fn try_parse_parameter_types(
         &self,
+        namspace: &ASTNameSpace,
         n: usize,
         context_param_types: &[String],
         rec: usize,
@@ -120,7 +126,7 @@ impl<'a> TypeParser<'a> {
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = kind {
                     inner_n += 1;
                 } else if let Some((ast_type, inner_next_i)) =
-                    self.try_parse_ast_type(inner_n, context_param_types)?
+                    self.try_parse_ast_type(namspace, inner_n, context_param_types)?
                 {
                     types.push(ast_type);
                     next_i = inner_next_i;
@@ -140,6 +146,7 @@ impl<'a> TypeParser<'a> {
 
     fn parse_fn(
         &self,
+        namespace: &ASTNameSpace,
         out_n: usize,
         context_param_types: &[String],
         rec: usize,
@@ -168,7 +175,7 @@ impl<'a> TypeParser<'a> {
                 }
 
                 if let Some((t, next_i)) =
-                    self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
+                    self.try_parse_ast_type_rec(namespace, n, context_param_types, rec + 1)?
                 {
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
@@ -202,7 +209,7 @@ impl<'a> TypeParser<'a> {
                 n += 2;
                 ASTType::Unit
             } else if let Some((t, next_i)) =
-                self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
+                self.try_parse_ast_type_rec(namespace, n, context_param_types, rec + 1)?
             {
                 n = next_i - self.parser.get_i();
                 t
@@ -272,6 +279,7 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
+                    namespace: ASTNameSpace::global(),
                     name: "Dummy".into(),
                     param_types: vec![Generic("T".into()), Generic("T1".into()),],
                     index: ASTIndex::new(None, 1, 6)
@@ -294,6 +302,7 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
+                    namespace: ASTNameSpace::global(),
                     name: "T".into(),
                     param_types: vec![],
                     index: ASTIndex::new(None, 1, 2)
@@ -308,6 +317,7 @@ mod tests {
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
         let option_t = Custom {
+            namespace: ASTNameSpace::global(),
             name: "Option".into(),
             param_types: vec![Generic("T".into())],
             index: ASTIndex::new(None, 1, 12),
@@ -315,6 +325,7 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
+                    namespace: ASTNameSpace::global(),
                     name: "List".into(),
                     param_types: vec![option_t],
                     index: ASTIndex::new(None, 1, 5)
@@ -334,6 +345,7 @@ mod tests {
 
         let sut = TypeParser::new(&parser);
 
-        sut.try_parse(0, context, 0).unwrap()
+        sut.try_parse(&ASTNameSpace::global(), 0, context, 0)
+            .unwrap()
     }
 }

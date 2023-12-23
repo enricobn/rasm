@@ -17,8 +17,8 @@ use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTIndex, ASTLambdaDef, ASTParameterDef, ASTStatement, ASTStructPropertyDef, ASTType,
-    BuiltinTypeKind, ValueType,
+    ASTIndex, ASTLambdaDef, ASTModifiers, ASTNameSpace, ASTParameterDef, ASTStatement,
+    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, BuiltinTypeKind, ValueType,
 };
 use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -28,6 +28,7 @@ use crate::utils::{find_one, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
+    pub namespace: ASTNameSpace,
     pub name: String,
     pub original_name: String,
     pub parameters: Vec<ASTTypedParameterDef>,
@@ -97,9 +98,18 @@ pub enum BuiltinTypedTypeKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ASTTypedType {
     Builtin(BuiltinTypedTypeKind),
-    Enum { name: String },
-    Struct { name: String },
-    Type { name: String },
+    Enum {
+        namespace: ASTNameSpace,
+        name: String,
+    },
+    Struct {
+        namespace: ASTNameSpace,
+        name: String,
+    },
+    Type {
+        namespace: ASTNameSpace,
+        name: String,
+    },
     Unit,
 }
 
@@ -137,9 +147,9 @@ impl Display for ASTTypedType {
                     ))
                 }
             },
-            ASTTypedType::Enum { name } => f.write_str(&name.to_string()),
-            ASTTypedType::Struct { name } => f.write_str(&name.to_string()),
-            ASTTypedType::Type { name } => f.write_str(&name.to_string()),
+            ASTTypedType::Enum { namespace, name } => f.write_str(&name.to_string()),
+            ASTTypedType::Struct { namespace, name } => f.write_str(&name.to_string()),
+            ASTTypedType::Type { namespace, name } => f.write_str(&name.to_string()),
             ASTTypedType::Unit => f.write_str("()"),
         }
     }
@@ -297,6 +307,8 @@ impl ASTTypedModule {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedEnumDef {
+    pub namespace: ASTNameSpace,
+    pub modifiers: ASTModifiers,
     pub name: String,
     pub variants: Vec<ASTTypedEnumVariantDef>,
     pub ast_type: ASTType,
@@ -346,6 +358,8 @@ impl Display for ASTTypedEnumVariantDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedStructDef {
+    pub namespace: ASTNameSpace,
+    pub modifiers: ASTModifiers,
     pub name: String,
     pub properties: Vec<ASTTypedStructPropertyDef>,
     pub ast_type: ASTType,
@@ -367,6 +381,8 @@ impl Display for ASTTypedStructDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedTypeDef {
+    pub namespace: ASTNameSpace,
+    pub modifiers: ASTModifiers,
     pub original_name: String,
     pub name: String,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
@@ -431,20 +447,23 @@ impl<'a> ConvContext<'a> {
         }
     }
 
-    pub fn add_enum(&mut self, enum_type: &ASTType, _enum_def: &ASTEnumDef) -> ASTTypedType {
+    pub fn add_enum(&mut self, enum_type: &ASTType, enum_def: &ASTEnumDef) -> ASTTypedType {
         debug!("add_enum {enum_type}");
         match enum_type {
             ASTType::Custom {
+                namespace,
                 name,
                 param_types,
                 index: _,
             } => {
-                let enum_def = self
-                    .module
-                    .enums
-                    .iter()
-                    .find(|it| &it.name == name)
-                    .unwrap();
+                /*let enum_def = self
+                   .module
+                   .enums
+                   .iter()
+                   .find(|it| &it.name == name)
+                   .unwrap();
+
+                */
 
                 let cloned_param_types = param_types.clone();
                 let mut generic_to_type = ResolvedGenericTypes::new();
@@ -456,6 +475,7 @@ impl<'a> ConvContext<'a> {
                 let new_name = format!("{name}_{}", self.count);
 
                 let enum_typed_type = ASTTypedType::Enum {
+                    namespace: enum_def.namespace.clone(),
                     name: new_name.clone(),
                 };
 
@@ -471,13 +491,15 @@ impl<'a> ConvContext<'a> {
                     self.enums
                         .values()
                         .find(|it| match it {
-                            ASTTypedType::Enum { name } => name == &found.name,
+                            ASTTypedType::Enum { namespace, name } => name == &found.name,
                             _ => panic!(),
                         })
                         .unwrap()
                         .clone()
                 } else {
                     self.enum_defs.push(ASTTypedEnumDef {
+                        namespace: enum_def.namespace.clone(),
+                        modifiers: enum_def.modifiers.clone(),
                         name: new_name,
                         variants,
                         ast_type: enum_type.clone(),
@@ -501,21 +523,15 @@ impl<'a> ConvContext<'a> {
         self.enums.get(enum_type).cloned()
     }
 
-    pub fn add_struct(&mut self, struct_type: &ASTType) -> ASTTypedType {
+    pub fn add_struct(&mut self, struct_type: &ASTType, struct_def: &ASTStructDef) -> ASTTypedType {
         debug!("add_struct {struct_type}");
         match struct_type {
             ASTType::Custom {
+                namespace,
                 name,
                 param_types,
                 index: _,
             } => {
-                let struct_def = self
-                    .module
-                    .structs
-                    .iter()
-                    .find(|it| &it.name == name)
-                    .unwrap();
-
                 let cloned_param_types = param_types.clone();
                 let mut generic_to_type = ResolvedGenericTypes::new();
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
@@ -534,6 +550,7 @@ impl<'a> ConvContext<'a> {
                 let new_name = format!("{name}_{}", self.count);
 
                 let struct_typed_type = ASTTypedType::Struct {
+                    namespace: struct_def.namespace.clone(),
                     name: new_name.clone(),
                 };
 
@@ -547,6 +564,8 @@ impl<'a> ConvContext<'a> {
                     .collect();
 
                 self.struct_defs.push(ASTTypedStructDef {
+                    namespace: struct_def.namespace.clone(),
+                    modifiers: struct_def.modifiers.clone(),
                     name: new_name,
                     properties,
                     ast_type: struct_type.clone(),
@@ -566,21 +585,15 @@ impl<'a> ConvContext<'a> {
         self.structs.get(enum_type).cloned()
     }
 
-    pub fn add_type(&mut self, ast_type: &ASTType, is_ref: bool) -> ASTTypedType {
+    pub fn add_type(&mut self, ast_type: &ASTType, type_def: &ASTTypeDef) -> ASTTypedType {
         debug!("add_type {ast_type}");
         match ast_type {
             ASTType::Custom {
+                namespace,
                 name,
                 param_types,
                 index: _,
             } => {
-                let type_def = self
-                    .module
-                    .types
-                    .iter()
-                    .find(|it| &it.name == name)
-                    .unwrap();
-
                 let cloned_param_types = param_types.clone();
                 let mut generic_types = LinkedHashMap::new();
                 for (i, p) in type_def.type_parameters.iter().enumerate() {
@@ -600,17 +613,20 @@ impl<'a> ConvContext<'a> {
                 let new_name = format!("{name}_{}", self.count);
 
                 let type_typed_type = ASTTypedType::Type {
+                    namespace: type_def.namespace.clone(),
                     name: new_name.clone(),
                 };
 
                 self.type_defs.push(ASTTypedTypeDef {
+                    namespace: type_def.namespace.clone(),
                     original_name: name.clone(),
                     name: new_name,
                     generic_types,
-                    is_ref,
+                    is_ref: type_def.is_ref,
                     ast_type: ast_type.clone(),
                     ast_typed_type: type_typed_type.clone(),
                     index: type_def.index.clone(),
+                    modifiers: type_def.modifiers.clone(),
                 });
 
                 self.types.insert(ast_type.clone(), type_typed_type.clone());
@@ -1071,6 +1087,7 @@ pub fn function_def(
         &format!("function {} return type", def.name),
     );
     let typed_function_def = ASTTypedFunctionDef {
+        namespace: def.namespace.clone(),
         name: def.name.clone(),
         original_name: def.original_name.clone(),
         body: body(conv_context, &def.body),
@@ -1223,17 +1240,20 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
                 },
             }),
         },
-        ASTTypedType::Enum { name } => ASTType::Custom {
+        ASTTypedType::Enum { namespace, name } => ASTType::Custom {
+            namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),
             index: ASTIndex::none(),
         },
-        ASTTypedType::Struct { name } => ASTType::Custom {
+        ASTTypedType::Struct { namespace, name } => ASTType::Custom {
+            namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),
             index: ASTIndex::none(),
         },
-        ASTTypedType::Type { name } => ASTType::Custom {
+        ASTTypedType::Type { namespace, name } => ASTType::Custom {
+            namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),
             index: ASTIndex::none(),
@@ -1412,32 +1432,40 @@ fn typed_type(conv_context: &mut ConvContext, ast_type: &ASTType, message: &str)
             panic!("Unresolved generic type '{p}': {message}");
         }
         ASTType::Custom {
+            namespace,
             name,
             param_types: _,
             index: _,
         } => {
-            if let Some(enum_def) = conv_context.module.enums.iter().find(|it| &it.name == name) {
+            if let Some(enum_def) =
+                conv_context.module.enums.iter().find(|it| {
+                    (it.modifiers.public || &it.namespace == namespace) && &it.name == name
+                })
+            {
                 if let Some(e) = conv_context.get_enum(ast_type) {
                     e
                 } else {
                     conv_context.add_enum(ast_type, enum_def)
                 }
-            } else if conv_context
-                .module
-                .structs
-                .iter()
-                .any(|it| &it.name == name)
+            } else if let Some(struct_def) =
+                conv_context.module.structs.iter().find(|it| {
+                    (it.modifiers.public || &it.namespace == namespace) && &it.name == name
+                })
             {
                 if let Some(e) = conv_context.get_struct(ast_type) {
                     e
                 } else {
-                    conv_context.add_struct(ast_type)
+                    conv_context.add_struct(ast_type, struct_def)
                 }
-            } else if let Some(t) = conv_context.module.types.iter().find(|it| &it.name == name) {
+            } else if let Some(t) =
+                conv_context.module.types.iter().find(|it| {
+                    (it.modifiers.public || &it.namespace == namespace) && &it.name == name
+                })
+            {
                 if let Some(e) = conv_context.get_type(ast_type) {
                     e
                 } else {
-                    conv_context.add_type(ast_type, t.is_ref)
+                    conv_context.add_type(ast_type, t)
                 }
             } else {
                 println!(
@@ -1612,6 +1640,7 @@ impl DefaultFunction {
                     },
                     ASTType::Generic(_) => panic!(),
                     ASTType::Custom {
+                        namespace: _,
                         name: _,
                         param_types: _,
                         index: _,

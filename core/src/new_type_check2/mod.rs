@@ -451,6 +451,7 @@ impl TypeCheck {
             },
             ASTType::Generic(_) => panic!(),
             ASTType::Custom {
+                namespace,
                 name,
                 param_types,
                 index: _,
@@ -792,6 +793,7 @@ impl TypeCheck {
                 ASTType::Builtin(_) => 0,
                 ASTType::Generic(_) => coeff,
                 ASTType::Custom {
+                    namespace: _,
                     name: _,
                     param_types,
                     index: _,
@@ -1343,7 +1345,7 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::CompileTarget;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
@@ -1382,6 +1384,7 @@ mod tests {
         assert_eq!(
             0,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
+                namespace: ASTNameSpace::global(),
                 param_types: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
                 name: "".to_owned(),
                 index: ASTIndex::none()
@@ -1394,6 +1397,7 @@ mod tests {
         assert_eq!(
             usize::MAX / 100 / 100,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
+                namespace: ASTNameSpace::global(),
                 param_types: vec![ASTType::Generic("".to_owned())],
                 name: "".to_owned(),
                 index: ASTIndex::none()

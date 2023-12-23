@@ -621,6 +621,7 @@ impl FunctionsContainer {
                         }
                     }
                     ASTType::Custom {
+                        namespace: expected_namespace,
                         param_types: expected_param_types,
                         name: expected_type_name,
                         index: _,
@@ -629,10 +630,12 @@ impl FunctionsContainer {
                             ASTType::Builtin(_) => Ok(false),
                             ASTType::Generic(_) => Ok(true), // TODO
                             ASTType::Custom {
+                                namespace,
                                 param_types,
                                 name: type_name,
                                 index: _,
-                            } => Ok(type_name == expected_type_name
+                            } => Ok(namespace == expected_namespace
+                                && type_name == expected_type_name
                                 && param_types.len() == expected_param_types.len()
                                 && param_types
                                     .iter()

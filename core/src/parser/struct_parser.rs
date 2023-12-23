@@ -26,24 +26,27 @@ impl StructParser {
 
     pub fn try_parse(
         &self,
+        namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
     ) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
-        self.matcher.match_tokens(parser, 0).map(|result| {
-            let mut i = 1;
-            let modifiers = if result.group_tokens("modifiers").is_empty() {
-                ASTModifiers::private()
-            } else {
-                i += 1;
-                ASTModifiers::public()
-            };
-            let param_types = result.group_alphas("type");
-            (
-                result.tokens().get(i).unwrap().clone(),
-                param_types,
-                modifiers,
-                parser.get_i() + result.next_n(),
-            )
-        })
+        self.matcher
+            .match_tokens(namespace, parser, 0)
+            .map(|result| {
+                let mut i = 1;
+                let modifiers = if result.group_tokens("modifiers").is_empty() {
+                    ASTModifiers::private()
+                } else {
+                    i += 1;
+                    ASTModifiers::public()
+                };
+                let param_types = result.group_alphas("type");
+                (
+                    result.tokens().get(i).unwrap().clone(),
+                    param_types,
+                    modifiers,
+                    parser.get_i() + result.next_n(),
+                )
+            })
     }
 
     pub fn try_parse_struct(
@@ -51,11 +54,16 @@ impl StructParser {
         namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
     ) -> Result<Option<(ASTStructDef, usize)>, String> {
-        if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
+        if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(namespace, parser)
+        {
             if let Some(name) = token.alpha() {
-                if let Some((properties, next_i)) =
-                    self.parse_properties(parser, &type_parameters, &name, next_i - parser.get_i())?
-                {
+                if let Some((properties, next_i)) = self.parse_properties(
+                    namespace,
+                    parser,
+                    &type_parameters,
+                    &name,
+                    next_i - parser.get_i(),
+                )? {
                     return Ok(Some((
                         ASTStructDef {
                             namespace: namespace.clone(),
@@ -98,13 +106,14 @@ impl StructParser {
 
     pub fn parse_properties(
         &self,
+        namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
         generic_types: &[String],
         name: &str,
         n: usize,
     ) -> Result<Option<(Vec<ASTStructPropertyDef>, usize)>, String> {
         if let Some(result) = Self::properties_matcher("properties", Quantifier::One, generic_types)
-            .match_tokens(parser, n)
+            .match_tokens(namespace, parser, n)
         {
             let parameters_tokens = result.group_tokens("parameter");
             let type_result = result.group_results("parameter_type");
@@ -116,7 +125,7 @@ impl StructParser {
                 let type_parser = TypeParser::new(parser);
                 let token = parameters_tokens.get(i).unwrap().clone();
                 if let Some((ast_type, _next_i)) =
-                    type_parser.try_parse_ast_type(0, generic_types)?
+                    type_parser.try_parse_ast_type(namespace, 0, generic_types)?
                 {
                     parameters.push(ASTStructPropertyDef {
                         name: token.alpha().unwrap(),

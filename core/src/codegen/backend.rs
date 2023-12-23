@@ -22,7 +22,9 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_reference_type_name, TypedValKind, ValKind};
 use crate::debug_i;
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind, ValueType};
+use crate::parser::ast::{
+    ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind, ValueType,
+};
 use crate::transformations::enum_functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
@@ -78,6 +80,7 @@ pub trait Backend: Send + Sync {
 
     fn call_add_ref(
         &self,
+        namespace: &ASTNameSpace,
         out: &mut String,
         source: &str,
         type_name: &str,
@@ -97,6 +100,7 @@ pub trait Backend: Send + Sync {
 
     fn call_deref(
         &self,
+        namespace: &ASTNameSpace,
         source: &str,
         type_name: &str,
         descr: &str,
@@ -119,6 +123,7 @@ pub trait Backend: Send + Sync {
 
     fn create_lambda_addref(
         &self,
+        namespace: &ASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -127,6 +132,7 @@ pub trait Backend: Send + Sync {
 
     fn create_lambda_deref(
         &self,
+        namespace: &ASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -315,6 +321,7 @@ impl BackendNasmi386 {
 
     fn create_lambda_add_ref_like_function(
         &self,
+        namespace: &ASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -339,7 +346,8 @@ impl BackendNasmi386 {
                     TypedValKind::ParameterRef(_, def) => &def.ast_type,
                     TypedValKind::LetRef(_, typed_type) => typed_type,
                 };
-                if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
+                if let Some(type_name) =
+                    get_reference_type_name(namespace, ast_typed_type, type_def_provider)
                 {
                     if !initialized {
                         self.add(&mut body, "push   ebx", None, true);
@@ -350,6 +358,7 @@ impl BackendNasmi386 {
                     }
                     if is_deref {
                         body.push_str(&self.call_deref(
+                            &ASTNameSpace::global(), // is it correct?
                             &format!("[ebx + {}]", i * self.word_len()),
                             &type_name,
                             &format!("\"{val_name}\" in lambda context"),
@@ -358,6 +367,7 @@ impl BackendNasmi386 {
                         ));
                     } else {
                         self.call_add_ref(
+                            &ASTNameSpace::global(), // TOD is it correct?
                             &mut body,
                             &format!("[ebx + {}]", i * self.word_len()),
                             &type_name,
@@ -389,6 +399,7 @@ impl BackendNasmi386 {
         ];
 
         Some(ASTTypedFunctionDef {
+            namespace: ASTNameSpace::global(), // TOD is correct?
             name: name.to_owned(),
             original_name: name.to_owned(),
             parameters,
@@ -606,6 +617,7 @@ impl Backend for BackendNasmi386 {
                                 }
                             }
                             ASTType::Custom {
+                                namespace,
                                 name,
                                 param_types: _,
                                 index: _,
@@ -615,8 +627,8 @@ impl Backend for BackendNasmi386 {
                                         type_def_provider
                                             .get_type_from_typed_type(t)
                                             .ok_or(format!("name {name} t {t}"))
-                                    } else if let Some(t) =
-                                        type_def_provider.get_type_from_typed_type_name(name)
+                                    } else if let Some(t) = type_def_provider
+                                        .get_type_from_typed_type_name(namespace, name)
                                     {
                                         Ok(t)
                                     } else {
@@ -672,6 +684,7 @@ impl Backend for BackendNasmi386 {
 
     fn call_add_ref(
         &self,
+        namespace: &ASTNameSpace,
         out: &mut String,
         source: &str,
         type_name: &str,
@@ -693,18 +706,21 @@ impl Backend for BackendNasmi386 {
 
         self.add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
-        let (has_references, is_type) =
-            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (struct_has_references(struct_def, type_def_provider), false)
-            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (enum_has_references(enum_def, type_def_provider), false)
-            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_has_references(type_def), true)
-            } else if "str" == type_name || "_fn" == type_name {
-                (true, false)
-            } else {
-                panic!("cannot find type {descr} {type_name}");
-            };
+        let (has_references, is_type) = if let Some(struct_def) =
+            type_def_provider.get_struct_def_by_name(namespace, type_name)
+        {
+            (struct_has_references(struct_def, type_def_provider), false)
+        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(namespace, type_name)
+        {
+            (enum_has_references(enum_def, type_def_provider), false)
+        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(namespace, type_name)
+        {
+            (type_has_references(type_def), true)
+        } else if "str" == type_name || "_fn" == type_name {
+            (true, false)
+        } else {
+            panic!("cannot find type {descr} {type_name}");
+        };
 
         if "_fn" == type_name {
             self.add(out, &format!("push     {ws} eax"), None, true);
@@ -781,6 +797,7 @@ impl Backend for BackendNasmi386 {
 
     fn call_deref(
         &self,
+        namespace: &ASTNameSpace,
         source: &str,
         type_name: &str,
         descr_for_debug: &str,
@@ -794,18 +811,21 @@ impl Backend for BackendNasmi386 {
 
         let mut result = String::new();
 
-        let (has_references, is_type) =
-            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (struct_has_references(struct_def, type_def_provider), false)
-            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (enum_has_references(enum_def, type_def_provider), false)
-            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_has_references(type_def), true)
-            } else if "str" == type_name || "_fn" == type_name {
-                (true, false)
-            } else {
-                panic!("cannot find type {descr} {type_name}");
-            };
+        let (has_references, is_type) = if let Some(struct_def) =
+            type_def_provider.get_struct_def_by_name(namespace, type_name)
+        {
+            (struct_has_references(struct_def, type_def_provider), false)
+        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(namespace, type_name)
+        {
+            (enum_has_references(enum_def, type_def_provider), false)
+        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(namespace, type_name)
+        {
+            (type_has_references(type_def), true)
+        } else if "str" == type_name || "_fn" == type_name {
+            (true, false)
+        } else {
+            panic!("cannot find type {descr} {type_name}");
+        };
 
         let key = statics.add_str(descr);
 
@@ -981,12 +1001,14 @@ impl Backend for BackendNasmi386 {
 
     fn create_lambda_addref(
         &self,
+        namespace: &ASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
     ) -> Option<ASTTypedFunctionDef> {
         self.create_lambda_add_ref_like_function(
+            namespace,
             lambda_space,
             type_def_provider,
             statics,
@@ -997,12 +1019,14 @@ impl Backend for BackendNasmi386 {
 
     fn create_lambda_deref(
         &self,
+        namespace: &ASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         name: &str,
     ) -> Option<ASTTypedFunctionDef> {
         self.create_lambda_add_ref_like_function(
+            namespace,
             lambda_space,
             type_def_provider,
             statics,

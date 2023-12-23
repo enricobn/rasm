@@ -182,7 +182,7 @@ impl Parser {
     pub fn parse(
         &mut self,
         path: &Path,
-        namespace: ASTNameSpace,
+        namespace: &ASTNameSpace,
     ) -> (ASTModule, Vec<CompilationError>) {
         if self.i > 0 {
             panic!("Cannot parse twice");
@@ -210,7 +210,8 @@ impl Parser {
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                 if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
                     self.i += 1;
-                    if let Some((function_name, generics, next_i)) = self.try_parse_function_call()
+                    if let Some((function_name, generics, next_i)) =
+                        self.try_parse_function_call(namespace)
                     {
                         self.parser_data.pop();
                         let call = ASTFunctionCall {
@@ -273,7 +274,7 @@ impl Parser {
                     Err(message) => self.add_error(message),
                 },
                 Some(ParserState::FunctionDefParameter) => {
-                    match self.process_function_def_parameter(&token) {
+                    match self.process_function_def_parameter(namespace, &token) {
                         Ok(_) => {
                             continue;
                         }
@@ -288,7 +289,11 @@ impl Parser {
                 },
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                        match TypeParser::new(self).try_parse_ast_type(0, &def.generic_types) {
+                        match TypeParser::new(self).try_parse_ast_type(
+                            &namespace,
+                            0,
+                            &def.generic_types,
+                        ) {
                             Ok(result) => {
                                 if let Some((ast_type, next_i)) = result {
                                     self.i = next_i;
@@ -308,7 +313,8 @@ impl Parser {
                 }
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
-                        match ENUM_PARSER.parse_variants(self, &def.type_parameters, 0) {
+                        match ENUM_PARSER.parse_variants(&namespace, self, &def.type_parameters, 0)
+                        {
                             Ok(result) => {
                                 if let Some((variants, next_i)) = result {
                                     def.variants = variants;
@@ -330,6 +336,7 @@ impl Parser {
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
                         match STRUCT_PARSER.parse_properties(
+                            namespace,
                             self,
                             &def.type_parameters,
                             &def.name,
@@ -475,7 +482,7 @@ impl Parser {
         } else if !self.parser_data.is_empty() {
             return Err(format!("Error: {}", self.get_index(0)));
         } else if let Some((name_token, generic_types, modifiers, next_i)) =
-            self.try_parse_function_def()?
+            self.try_parse_function_def(namespace)?
         {
             let name = name_token.alpha().unwrap().clone();
             let name_len = name.len();
@@ -537,7 +544,7 @@ impl Parser {
                             .to_string_lossy()
                             .to_string(),
                     );
-                    let (mut module, errors) = parser.parse(source_file.as_path(), namespace);
+                    let (mut module, errors) = parser.parse(source_file.as_path(), &namespace);
                     self.errors.extend(errors);
                     if !module.body.is_empty() {
                         return Err(format!(
@@ -563,7 +570,9 @@ impl Parser {
             }
 
             self.i = next_i;
-        } else if let Some((name, type_params, modifiers, next_i)) = ENUM_PARSER.try_parse(self) {
+        } else if let Some((name, type_params, modifiers, next_i)) =
+            ENUM_PARSER.try_parse(namespace, self)
+        {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
                 namespace: namespace.clone(),
                 name: name.alpha().unwrap(),
@@ -575,7 +584,7 @@ impl Parser {
             self.state.push(ParserState::EnumDef);
             self.i = next_i;
         } else if let Some((name_token, type_params, modifiers, next_i)) =
-            STRUCT_PARSER.try_parse(self)
+            STRUCT_PARSER.try_parse(namespace, self)
         {
             self.parser_data.push(ParserData::StructDef(ASTStructDef {
                 namespace: namespace.clone(),
@@ -603,7 +612,7 @@ impl Parser {
             } else {
                 return Err(format!("Cannot parse external: {}", self.get_index(0)));
             }
-        } else if let Some((type_def, next_i)) = self.parse_type_def()? {
+        } else if let Some((type_def, next_i)) = self.parse_type_def(namespace)? {
             let token = self.get_token_kind_n(next_i - self.i);
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
                 self.types.push(type_def);
@@ -670,7 +679,9 @@ impl Parser {
         {
             self.state.pop();
             self.i += 1;
-        } else if let Some((function_name, generics, next_i)) = self.try_parse_function_call() {
+        } else if let Some((function_name, generics, next_i)) =
+            self.try_parse_function_call(namespace)
+        {
             let call = ASTFunctionCall {
                 original_function_name: function_name.clone(),
                 function_name,
@@ -794,13 +805,17 @@ impl Parser {
         Ok(())
     }
 
-    fn process_function_def_parameter(&mut self, token: &Token) -> Result<(), String> {
+    fn process_function_def_parameter(
+        &mut self,
+        namespace: &ASTNameSpace,
+        token: &Token,
+    ) -> Result<(), String> {
         if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
             if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
                 let _n = next_i - self.i;
                 self.i = next_i;
                 if let Some((ast_type, next_i)) =
-                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)?
+                    TypeParser::new(self).try_parse_ast_type(namespace, 0, &def.generic_types)?
                 {
                     self.i = next_i;
                     self.parser_data
@@ -1005,7 +1020,10 @@ impl Parser {
         debug!("data {}", SliceDisplay(&self.parser_data));
     }
 
-    fn try_parse_function_call(&mut self) -> Option<(String, Vec<ASTType>, usize)> {
+    fn try_parse_function_call(
+        &mut self,
+        namespace: &ASTNameSpace,
+    ) -> Option<(String, Vec<ASTType>, usize)> {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
             let (function_name, next_n) =
                 if let Some((variant, next_n)) = self.try_parse_enum_constructor() {
@@ -1038,7 +1056,11 @@ impl Parser {
                         n += 1;
                         continue;
                     }
-                    match TypeParser::new(self).try_parse_ast_type(n, &context_generic_types) {
+                    match TypeParser::new(self).try_parse_ast_type(
+                        namespace,
+                        n,
+                        &context_generic_types,
+                    ) {
                         Ok(Some((ast_type, next_i))) => {
                             generic_types.push(ast_type);
                             n = next_i - self.i;
@@ -1104,8 +1126,9 @@ impl Parser {
 
     fn try_parse_function_def(
         &self,
+        namespace: &ASTNameSpace,
     ) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
-        if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 0) {
+        if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(namespace, self, 0) {
             let param_types = matcher_result.group_alphas("type");
             let mut name_index = 1;
             let modifiers = if matcher_result.group_tokens("modifiers").is_empty() {
@@ -1314,7 +1337,10 @@ impl Parser {
         Ok(None)
     }
 
-    fn parse_type_def(&self) -> Result<Option<(ASTTypeDef, usize)>, String> {
+    fn parse_type_def(
+        &self,
+        namespace: &ASTNameSpace,
+    ) -> Result<Option<(ASTTypeDef, usize)>, String> {
         let mut base_n = 0;
         let modifiers = if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
             base_n += 1;
@@ -1354,11 +1380,12 @@ impl Parser {
                     {
                         Ok(Some((
                             ASTTypeDef {
+                                namespace: namespace.clone(),
                                 type_parameters,
                                 name: name.clone(),
                                 is_ref,
                                 index: self.get_index(base_n + 1).mv_left(name.len()),
-                                modifiers: modifiers.clone(),
+                                modifiers,
                             },
                             self.get_i() + n + 3,
                         )))
@@ -1508,7 +1535,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(Path::new(""), ASTNameSpace::global());
+        let (module, _) = parser.parse(Path::new(""), &ASTNameSpace::global());
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1559,7 +1586,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), ASTNameSpace::global());
+        let (module, errors) = parser.parse(Path::new("."), &ASTNameSpace::global());
 
         println!("{}", SliceDisplay(&errors));
 
@@ -1586,7 +1613,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), ASTNameSpace::global());
+        let (module, errors) = parser.parse(Path::new("."), &ASTNameSpace::global());
 
         println!("{}", SliceDisplay(&errors));
 
@@ -1616,7 +1643,7 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path, ASTNameSpace::global()).0
+        parser.parse(path, &ASTNameSpace::global()).0
     }
 
     fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
@@ -1624,6 +1651,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path, ASTNameSpace::global())
+        parser.parse(path, &ASTNameSpace::global())
     }
 }

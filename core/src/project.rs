@@ -376,6 +376,7 @@ impl RasmProject {
             .filter(|it| it.modifiers.public && it.name.starts_with("test"))
             .for_each(|it| {
                 let valid = if let ASTType::Custom {
+                    namespace,
                     name,
                     param_types: _,
                     index: _,
@@ -637,7 +638,7 @@ impl RasmProject {
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
                 let mut parser = Parser::new(lexer, Some(file.clone()));
-                let (module, errors) = parser.parse(main_path, namespace);
+                let (module, errors) = parser.parse(main_path, &namespace);
                 (module, errors)
             }
             Err(err) => {
@@ -653,7 +654,7 @@ impl RasmProject {
         let mut parser = Parser::new(lexer, None);
         let (module, errors) = parser.parse(
             main_path,
-            ASTNameSpace::new(
+            &ASTNameSpace::new(
                 "::core".to_string(),
                 main_path.with_extension("").to_string_lossy().to_string(),
             ),

@@ -21,7 +21,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
-use crate::parser::ast::{ASTIndex, ASTParameterDef, ASTType, ValueType};
+use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTParameterDef, ASTType, ValueType};
 use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
@@ -191,6 +191,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 ASTTypedStatement::Expression(e) => match e {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let (bf, af, mut lambda_calls) = self.call_function(
+                            &ASTNameSpace::global(), // TODO is it right?
                             call,
                             &context,
                             None,
@@ -214,6 +215,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 },
                 ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                     let mut new_lambda_calls = self.add_let(
+                        &ASTNameSpace::global(), // TODO is it right?
                         &mut context,
                         &stack,
                         &mut after,
@@ -360,6 +362,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn call_function_(
         &'a self,
+        namespace: &ASTNameSpace,
         function_call: &&ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: &Option<&ASTTypedFunctionDef>,
@@ -453,6 +456,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                             .added_to_stack_for_call_parameter(&added_to_stack, &call_parameters);
 
                         let (bf, af, mut inner_lambda_calls) = self.call_function(
+                            namespace,
                             call,
                             context,
                             *parent_def,
@@ -471,6 +475,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                         call_parameters.add_on_top_of_after(&af.join("\n"));
 
                         call_parameters.add_function_call(
+                            namespace,
                             self.module(),
                             &format!("{param_name} = {} : {}", &call.function_name, call.index),
                             param_type.clone(),
@@ -517,6 +522,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
                         let name = format!("lambda{}", id);
                         let mut def = ASTTypedFunctionDef {
+                            namespace: ASTNameSpace::global(), // TODO is correct?
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: name.clone(),
                             original_name: name,
@@ -680,6 +686,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn add_let(
         &self,
+        namespace: &ASTNameSpace,
         context: &mut TypedValContext,
         stack: &StackVals,
         after: &mut String,
@@ -724,6 +731,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                     (
                         typed_type,
                         self.call_function(
+                            namespace,
                             call,
                             context,
                             function_def,
@@ -746,6 +754,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                             .return_type
                             .clone(),
                         self.call_function(
+                            namespace,
                             call,
                             context,
                             function_def,
@@ -827,10 +836,13 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             }
 
             if self.options().dereference {
-                if let Some(type_name) = get_reference_type_name(&ast_typed_type, self.module()) {
+                if let Some(type_name) =
+                    get_reference_type_name(namespace, &ast_typed_type, self.module())
+                {
                     let entry = statics.get_typed_const(name).unwrap();
 
                     self.backend().call_add_ref(
+                        namespace,
                         body,
                         &format!("[{}]", entry.key),
                         &type_name,
@@ -854,8 +866,11 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             }
 
             if self.options().dereference {
-                if let Some(type_name) = get_reference_type_name(&ast_typed_type, self.module()) {
+                if let Some(type_name) =
+                    get_reference_type_name(namespace, &ast_typed_type, self.module())
+                {
                     self.call_add_ref_for_let_val(
+                        namespace,
                         &name,
                         &index,
                         before,
@@ -865,6 +880,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                     );
 
                     let deref_str = self.call_deref_for_let_val(
+                        namespace,
                         &name,
                         statics,
                         &address_relative_to_bp,
@@ -886,6 +902,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn call_deref_for_let_val(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -894,6 +911,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn call_add_ref_for_let_val(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         index: &ASTIndex,
         before: &mut String,
@@ -1063,6 +1081,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                             match expr {
                                 ASTTypedExpression::ASTFunctionCallExpression(call_expression) => {
                                     let (bf, af, mut lambda_calls_) = self.call_function(
+                                        &function_def.namespace,
                                         call_expression,
                                         &context,
                                         Some(function_def),
@@ -1141,6 +1160,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
                                         let name = format!("lambda{}", id);
                                         let def = ASTTypedFunctionDef {
+                                            namespace: ASTNameSpace::global(), // TODO is correct?
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                             name: name.clone(),
                                             original_name: name,
@@ -1200,6 +1220,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                         }
                         ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                             let mut new_lambda_calls = self.add_let(
+                                &function_def.namespace,
                                 &mut context,
                                 &stack,
                                 &mut after,
@@ -1268,6 +1289,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn call_function(
         &self,
+        namespace: &ASTNameSpace,
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: Option<&ASTTypedFunctionDef>,
@@ -1308,16 +1330,17 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 }
 
 pub fn get_reference_type_name(
+    namespace: &ASTNameSpace,
     ast_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> Option<String> {
     match ast_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
-        ASTTypedType::Enum { name } => Some(name.clone()),
-        ASTTypedType::Struct { name } => Some(name.clone()),
-        ASTTypedType::Type { name } => {
-            if let Some(t) = type_def_provider.get_type_def_by_name(name) {
+        ASTTypedType::Enum { namespace, name } => Some(name.clone()),
+        ASTTypedType::Struct { namespace, name } => Some(name.clone()),
+        ASTTypedType::Type { namespace, name } => {
+            if let Some(t) = type_def_provider.get_type_def_by_name(namespace, name) {
                 if t.is_ref {
                     Some(name.clone())
                 } else {
@@ -1346,14 +1369,14 @@ fn can_optimize_lambda_space_(
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
-        ASTTypedType::Enum { name } => {
+        ASTTypedType::Enum { namespace, name } => {
             if already_checked.contains(name) {
                 return true;
             }
 
             already_checked.insert(name.to_owned());
 
-            if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
+            if let Some(e) = type_def_provider.get_enum_def_by_name(namespace, name) {
                 e.variants
                     .iter()
                     .flat_map(|it| it.parameters.iter())
@@ -1364,13 +1387,13 @@ fn can_optimize_lambda_space_(
                 panic!();
             }
         }
-        ASTTypedType::Struct { name } => {
+        ASTTypedType::Struct { namespace, name } => {
             if already_checked.contains(name) {
                 return true;
             }
 
             already_checked.insert(name.to_owned());
-            if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
+            if let Some(s) = type_def_provider.get_struct_def_by_name(namespace, name) {
                 s.properties.iter().all(|it| {
                     can_optimize_lambda_space_(&it.ast_type, type_def_provider, already_checked)
                 })
@@ -1619,6 +1642,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn call_deref_for_let_val(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -1626,6 +1650,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     ) -> String {
         let bp = self.backend.stack_base_pointer();
         self.backend.call_deref(
+            namespace,
             &format!("[{bp} - {}]", address_relative_to_bp),
             &type_name,
             &format!("for let val {name}"),
@@ -1636,6 +1661,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn call_add_ref_for_let_val(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         index: &ASTIndex,
         before: &mut String,
@@ -1645,6 +1671,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     ) {
         let bp = self.backend.stack_base_pointer();
         self.backend.call_add_ref(
+            namespace,
             before,
             &format!("[{bp} - {}]", address_relative_to_bp),
             &type_name,
@@ -1835,6 +1862,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn call_function(
         &self,
+        namespace: &ASTNameSpace,
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: Option<&ASTTypedFunctionDef>,
@@ -1868,6 +1896,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 lambda_space
             );
             self.call_function_(
+                namespace,
                 &function_call,
                 context,
                 &parent_def,
@@ -1905,6 +1934,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 lambda_space
             );
             self.call_function_(
+                namespace,
                 &function_call,
                 context,
                 &parent_def,
@@ -1987,6 +2017,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 );
 
                 self.call_function_(
+                    namespace,
                     &function_call,
                     context,
                     &parent_def,

@@ -49,6 +49,7 @@ pub trait FunctionsCreator {
                 .collect();
 
             let ast_type = ASTType::Custom {
+                namespace: struct_def.namespace.clone(),
                 name: struct_def.name.clone(),
                 param_types: param_types.clone(),
                 // TODO for now here's no source fo generated functions
@@ -128,6 +129,7 @@ pub trait FunctionsCreator {
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
             ast_type: ASTType::Custom {
+                namespace: enum_def.namespace.clone(),
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 // TODO for now there's not a source for generated functions
@@ -187,6 +189,7 @@ pub trait FunctionsCreator {
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
             ast_type: ASTType::Custom {
+                namespace: enum_def.namespace.clone(),
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 // TODO for now there's not a source for generated functions
@@ -256,6 +259,7 @@ pub trait FunctionsCreator {
             let mut f_parameters = vec![ASTParameterDef {
                 name: "v".into(),
                 ast_type: ASTType::Custom {
+                    namespace: struct_def.namespace.clone(),
                     name: struct_def.name.clone(),
                     param_types: param_types.clone(),
                     index: ASTIndex::none(),
@@ -342,6 +346,7 @@ pub trait FunctionsCreator {
             parameters: vec![ASTParameterDef {
                 name: "v".into(),
                 ast_type: ASTType::Custom {
+                    namespace: struct_def.namespace.clone(),
                     name: struct_def.name.clone(),
                     param_types,
                     // TODO for now here's no source for generated functions
@@ -375,6 +380,7 @@ pub trait FunctionsCreator {
 
         let name = &property_def.name;
         let ast_type = ASTType::Custom {
+            namespace: struct_def.namespace.clone(),
             name: struct_def.name.clone(),
             param_types,
             // TODO for now here's no source fo generated functions
@@ -653,6 +659,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
     ) {
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             let ast_type = ASTType::Custom {
+                namespace: enum_def.namespace.clone(),
                 name: enum_def.name.clone(),
                 param_types: param_types.to_vec(),
                 // TODO for now here's no source fo generated functions

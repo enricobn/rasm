@@ -223,23 +223,29 @@ impl CompletionService {
             CompletableItemResult::Found(item) => {
                 let index = match &item.ast_typed_type {
                     ASTTypedType::Builtin(_) => None,
-                    ASTTypedType::Enum { name } => self
+                    ASTTypedType::Enum { namespace, name } => self
                         .typed_module
                         .enums
                         .iter()
-                        .find(|it| &it.name == name)
+                        .find(|it| {
+                            &it.name == name && (it.modifiers.public || &it.namespace == namespace)
+                        })
                         .map(|it| it.index.clone()),
-                    ASTTypedType::Struct { name } => self
+                    ASTTypedType::Struct { namespace, name } => self
                         .typed_module
                         .structs
                         .iter()
-                        .find(|it| &it.name == name)
+                        .find(|it| {
+                            &it.name == name && (it.modifiers.public || &it.namespace == namespace)
+                        })
                         .map(|it| it.index.clone()),
-                    ASTTypedType::Type { name } => self
+                    ASTTypedType::Type { namespace, name } => self
                         .typed_module
                         .types
                         .iter()
-                        .find(|it| &it.name == name)
+                        .find(|it| {
+                            &it.name == name && (it.modifiers.public || &it.namespace == namespace)
+                        })
                         .map(|it| it.index.clone()),
                     ASTTypedType::Unit => None,
                 };

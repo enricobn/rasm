@@ -15,7 +15,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
+use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -263,6 +263,7 @@ impl TextMacroEvaluator {
                     }
                     Some(f) => {
                         let (par_name, par_type, _par_typed_type) = self.parse_typed_argument(
+                            &f.namespace,
                             name,
                             None,
                             type_def_provider,
@@ -295,6 +296,7 @@ impl TextMacroEvaluator {
                         .find(|par| par.name == name)
                         .map(|it| it.ast_type.clone());
                     let (par_name, par_type, par_typed_type) = self.parse_typed_argument(
+                        &f.namespace,
                         name,
                         par_typed_type,
                         type_def_provider,
@@ -315,6 +317,7 @@ impl TextMacroEvaluator {
         } else {
             let (par_name, par_type, par_typed_type) = if let Some(f) = function_def {
                 self.parse_typed_argument(
+                    &f.namespace,
                     p,
                     None,
                     type_def_provider,
@@ -323,6 +326,7 @@ impl TextMacroEvaluator {
                 )?
             } else {
                 self.parse_typed_argument(
+                    &ASTNameSpace::global(), // TODO is it correct?
                     p,
                     None,
                     type_def_provider,
@@ -356,6 +360,7 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
         if let ASTType::Custom {
+            namespace,
             name,
             param_types,
             index: _,
@@ -404,6 +409,7 @@ impl TextMacroEvaluator {
                     .collect::<Vec<_>>();
 
                 type_def_provider.get_ast_typed_type_from_ast_type(&ASTType::Custom {
+                    namespace: namespace.clone(),
                     name: name.clone(),
                     param_types: resolved_types,
                     index: ASTIndex::none(),
@@ -416,6 +422,7 @@ impl TextMacroEvaluator {
 
     fn parse_typed_argument(
         &self,
+        namespace: &ASTNameSpace,
         p: &str,
         typed_type: Option<ASTTypedType>,
         type_def_provider: &dyn TypeDefProvider,
@@ -454,7 +461,7 @@ impl TextMacroEvaluator {
 
                 let type_parser = TypeParser::new(&parser);
 
-                match type_parser.try_parse_ast_type(0, context_generic_types)? {
+                match type_parser.try_parse_ast_type(namespace, 0, context_generic_types)? {
                     None => {
                         panic!("Unsupported type {par_type_name}")
                     }
@@ -512,14 +519,14 @@ impl TextMacroEvaluator {
                     )),
                 }),
             },
-            ASTTypedType::Enum { name } => type_def_provider
-                .get_type_from_typed_type_name(name)
+            ASTTypedType::Enum { namespace, name } => type_def_provider
+                .get_type_from_typed_type_name(namespace, name)
                 .unwrap(),
-            ASTTypedType::Struct { name } => type_def_provider
-                .get_type_from_typed_type_name(name)
+            ASTTypedType::Struct { namespace, name } => type_def_provider
+                .get_type_from_typed_type_name(namespace, name)
                 .unwrap(),
-            ASTTypedType::Type { name } => type_def_provider
-                .get_type_from_typed_type_name(name)
+            ASTTypedType::Type { namespace, name } => type_def_provider
+                .get_type_from_typed_type_name(namespace, name)
                 .unwrap(),
             ASTTypedType::Unit => ASTType::Unit,
         }
@@ -818,6 +825,7 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
     if let ASTType::Builtin(BuiltinTypeKind::String) = ast_type {
         true
     } else if let ASTType::Custom {
+        namespace,
         name,
         param_types: _,
         index: _,
@@ -834,6 +842,7 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
 }
 
 fn get_type(
+    namespace: &ASTNameSpace,
     orig_name: &str,
     type_def_provider: &dyn TypeDefProvider,
     function_def_opt: Option<&ASTTypedFunctionDef>,
@@ -844,16 +853,19 @@ fn get_type(
         }
     }
 
-    if let Some(s) = type_def_provider.get_struct_def_like_name(orig_name) {
+    if let Some(s) = type_def_provider.get_struct_def_like_name(namespace, orig_name) {
         ASTTypedType::Struct {
+            namespace: namespace.clone(),
             name: s.name.clone(),
         }
-    } else if let Some(s) = type_def_provider.get_enum_def_like_name(orig_name) {
+    } else if let Some(s) = type_def_provider.get_enum_def_like_name(namespace, orig_name) {
         ASTTypedType::Enum {
+            namespace: namespace.clone(),
             name: s.name.clone(),
         }
     } else if let Some(s) = type_def_provider.get_type_def_like_name(orig_name) {
         ASTTypedType::Type {
+            namespace: namespace.clone(),
             name: s.name.clone(),
         }
     } else if orig_name == "str" {
@@ -911,11 +923,13 @@ impl TextMacroEval for AddRefMacro {
                 ),
             };
 
-            let type_name = match ast_typed_type {
-                ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str",
-                ASTTypedType::Struct { name } => name,
-                ASTTypedType::Enum { name } => name,
-                ASTTypedType::Type { name } => name,
+            let (namespace, type_name) = match ast_typed_type {
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => {
+                    (ASTNameSpace::global(), "str".to_string())
+                }
+                ASTTypedType::Struct { namespace, name } => (namespace.clone(), name.clone()),
+                ASTTypedType::Enum { namespace, name } => (namespace.clone(), name.clone()),
+                ASTTypedType::Type { namespace, name } => (namespace.clone(), name.clone()),
                 _ => return String::new(),
             };
 
@@ -923,17 +937,19 @@ impl TextMacroEval for AddRefMacro {
             let descr = &format!("addref macro type {type_name}");
             if self.deref {
                 result.push_str(&self.backend.call_deref(
+                    &namespace,
                     address,
-                    type_name,
+                    &type_name,
                     descr,
                     type_def_provider,
                     statics,
                 ));
             } else {
                 self.backend.call_add_ref(
+                    &namespace,
                     &mut result,
                     address,
-                    type_name,
+                    &type_name,
                     descr,
                     type_def_provider,
                     statics,
@@ -1058,10 +1074,11 @@ impl PrintRefMacro {
                             },
                         },
                         ASTType::Custom {
+                            namespace,
                             name: custom_type_name,
                             param_types: _,
                             index: _,
-                        } => get_type(custom_type_name, type_def_provider, function_def),
+                        } => get_type(namespace, custom_type_name, type_def_provider, function_def),
                         _ => panic!("printRef macro: unsupported type {ast_type}"),
                     },
                 }
@@ -1074,19 +1091,19 @@ impl PrintRefMacro {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => {
                 ("str".to_owned(), String::new(), true)
             }
-            ASTTypedType::Enum { name } => (
+            ASTTypedType::Enum { namespace, name } => (
                 name.clone(),
-                self.print_ref_enum(&name, src, type_def_provider, indent + 1),
+                self.print_ref_enum(&namespace, &name, src, type_def_provider, indent + 1),
                 false,
             ),
-            ASTTypedType::Struct { name } => (
+            ASTTypedType::Struct { namespace, name } => (
                 name.clone(),
-                self.print_ref_struct(&name, src, type_def_provider, indent + 1),
+                self.print_ref_struct(&namespace, &name, src, type_def_provider, indent + 1),
                 true,
             ),
-            ASTTypedType::Type { name } => (
+            ASTTypedType::Type { namespace, name } => (
                 name.clone(),
-                self.print_ref_type(&name, src, type_def_provider, indent + 1),
+                self.print_ref_type(&namespace, &name, src, type_def_provider, indent + 1),
                 true,
             ),
             _ => panic!("unsupported type {ast_typed_type}"),
@@ -1161,6 +1178,7 @@ impl PrintRefMacro {
 
     fn print_ref_struct(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
@@ -1172,7 +1190,7 @@ impl PrintRefMacro {
             .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
         self.backend
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
-        if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
+        if let Some(s) = type_def_provider.get_struct_def_by_name(namespace, name) {
             for (i, p) in s.properties.iter().enumerate() {
                 let ast_type_o = if matches!(
                     p.ast_type,
@@ -1203,6 +1221,7 @@ impl PrintRefMacro {
 
     fn print_ref_enum(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
@@ -1224,7 +1243,7 @@ impl PrintRefMacro {
         self.backend
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
         self.print_str(&mut result, " value ");
-        if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
+        if let Some(s) = type_def_provider.get_enum_def_by_name(namespace, name) {
             for (i, variant) in s.variants.iter().enumerate() {
                 let count = COUNT.with(|count| {
                     *count.borrow_mut() += 1;
@@ -1238,7 +1257,9 @@ impl PrintRefMacro {
                 self.println_str(&mut result, &variant.name);
 
                 for (j, par) in variant.parameters.iter().enumerate() {
-                    if get_reference_type_name(&par.ast_type, type_def_provider).is_some() {
+                    if get_reference_type_name(namespace, &par.ast_type, type_def_provider)
+                        .is_some()
+                    {
                         let ast_type = if matches!(
                             &par.ast_type,
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
@@ -1279,12 +1300,13 @@ impl PrintRefMacro {
 
     fn print_ref_type(
         &self,
+        namespace: &ASTNameSpace,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
     ) -> String {
-        if let Some(s) = type_def_provider.get_type_def_by_name(name) {
+        if let Some(s) = type_def_provider.get_type_def_by_name(namespace, name) {
             let count = COUNT.with(|count| {
                 *count.borrow_mut() += 1;
                 *count.borrow()
@@ -1517,6 +1539,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
+            namespace: ASTNameSpace::global(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1557,6 +1580,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
+            namespace: ASTNameSpace::global(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1618,6 +1642,7 @@ mod tests {
         let backend = backend();
 
         let function_def = ASTTypedFunctionDef {
+            namespace: ASTNameSpace::global(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1719,11 +1744,15 @@ mod tests {
         let parser = TypeParserHelper::new(None, "List<str>");
         let type_parser = TypeParser::new(&parser);
 
-        match type_parser.try_parse_ast_type(0, &[]).unwrap() {
+        match type_parser
+            .try_parse_ast_type(&ASTNameSpace::global(), 0, &[])
+            .unwrap()
+        {
             None => panic!("Unsupported type"),
             Some((ast_type, _)) => assert_eq!(
                 ast_type,
                 ASTType::Custom {
+                    namespace: ASTNameSpace::global(),
                     name: "List".into(),
                     param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
                     index: ASTIndex::none()
