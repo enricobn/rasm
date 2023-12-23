@@ -1,6 +1,6 @@
 use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
-use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, TokenKind};
+use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Generic};
 use crate::parser::ast::{ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::parser::ParserTrait;
@@ -71,7 +71,6 @@ impl<'a> TypeParser<'a> {
 
                     Some((
                         Custom {
-                            namespace: namespace.clone(),
                             name: type_name.into(),
                             param_types,
                             index: self.parser.get_index(n),
@@ -279,7 +278,6 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: ASTNameSpace::global(),
                     name: "Dummy".into(),
                     param_types: vec![Generic("T".into()), Generic("T1".into()),],
                     index: ASTIndex::new(None, 1, 6)
@@ -302,7 +300,6 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: ASTNameSpace::global(),
                     name: "T".into(),
                     param_types: vec![],
                     index: ASTIndex::new(None, 1, 2)
@@ -317,7 +314,6 @@ mod tests {
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
         let option_t = Custom {
-            namespace: ASTNameSpace::global(),
             name: "Option".into(),
             param_types: vec![Generic("T".into())],
             index: ASTIndex::new(None, 1, 12),
@@ -325,7 +321,6 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: ASTNameSpace::global(),
                     name: "List".into(),
                     param_types: vec![option_t],
                     index: ASTIndex::new(None, 1, 5)

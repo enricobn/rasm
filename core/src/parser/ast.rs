@@ -151,7 +151,6 @@ pub enum ASTType {
     Builtin(BuiltinTypeKind),
     Generic(String),
     Custom {
-        namespace: ASTNameSpace,
         name: String,
         param_types: Vec<ASTType>,
         #[derivative(PartialEq = "ignore")]
@@ -191,14 +190,12 @@ impl Display for ASTType {
             },
             ASTType::Generic(name) => f.write_str(name),
             ASTType::Custom {
-                namespace,
                 name,
                 param_types,
                 index: _,
             } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
-                f.write_str(&format!("{namespace}::"))?;
                 if pars.is_empty() {
                     f.write_str(name)
                 } else {
@@ -601,18 +598,16 @@ mod tests {
     #[test]
     fn display() {
         let inner_type = ASTType::Custom {
-            namespace: ASTNameSpace::global(),
             name: "Option".to_owned(),
             param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
             index: ASTIndex::none(),
         };
 
         let ast_type = ASTType::Custom {
-            namespace: ASTNameSpace::global(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
             index: ASTIndex::none(),
         };
-        assert_eq!(format!("{ast_type}"), ":::List<:::Option<str>>");
+        assert_eq!(format!("{ast_type}"), "List<Option<str>>");
     }
 }

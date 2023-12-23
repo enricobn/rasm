@@ -617,7 +617,6 @@ impl Backend for BackendNasmi386 {
                                 }
                             }
                             ASTType::Custom {
-                                namespace,
                                 name,
                                 param_types: _,
                                 index: _,
@@ -628,7 +627,7 @@ impl Backend for BackendNasmi386 {
                                             .get_type_from_typed_type(t)
                                             .ok_or(format!("name {name} t {t}"))
                                     } else if let Some(t) = type_def_provider
-                                        .get_type_from_typed_type_name(namespace, name)
+                                        .get_type_from_typed_type_name(&f.namespace, name)
                                     {
                                         Ok(t)
                                     } else {

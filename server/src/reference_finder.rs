@@ -124,10 +124,15 @@ impl ReferenceFinder {
                 par.ast_index.clone(),
                 TypeFilter::Exact(par.ast_type.clone()),
             );
-            Self::process_type(module, &par.ast_type, &mut result);
+            Self::process_type(&function.namespace, module, &par.ast_type, &mut result);
         }
 
-        Self::process_type(module, &function.return_type, &mut result);
+        Self::process_type(
+            &function.namespace,
+            module,
+            &function.return_type,
+            &mut result,
+        );
 
         if let ASTFunctionBody::RASMBody(statements) = &function.body {
             Self::process_statements(
@@ -144,12 +149,12 @@ impl ReferenceFinder {
     }
 
     fn process_type(
+        namespace: &ASTNameSpace,
         module: &EnhancedASTModule,
         ast_type: &ASTType,
         result: &mut Vec<SelectableItem>,
     ) {
         if let ASTType::Custom {
-            namespace,
             name,
             param_types,
             index,
@@ -158,7 +163,7 @@ impl ReferenceFinder {
             Self::process_custom_type(module, result, name, index, ast_type, namespace);
             param_types
                 .iter()
-                .for_each(|it| Self::process_type(module, it, result));
+                .for_each(|it| Self::process_type(namespace, module, it, result));
         }
     }
 
@@ -442,7 +447,6 @@ impl ReferenceFinder {
         ast_type: &ASTType,
     ) -> Option<ASTIndex> {
         if let ASTType::Custom {
-            namespace,
             name,
             param_types,
             index,

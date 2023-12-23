@@ -451,7 +451,6 @@ impl TypeCheck {
             },
             ASTType::Generic(_) => panic!(),
             ASTType::Custom {
-                namespace,
                 name,
                 param_types,
                 index: _,
@@ -793,7 +792,6 @@ impl TypeCheck {
                 ASTType::Builtin(_) => 0,
                 ASTType::Generic(_) => coeff,
                 ASTType::Custom {
-                    namespace: _,
                     name: _,
                     param_types,
                     index: _,
@@ -1384,7 +1382,6 @@ mod tests {
         assert_eq!(
             0,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
-                namespace: ASTNameSpace::global(),
                 param_types: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
                 name: "".to_owned(),
                 index: ASTIndex::none()
@@ -1397,7 +1394,6 @@ mod tests {
         assert_eq!(
             usize::MAX / 100 / 100,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
-                namespace: ASTNameSpace::global(),
                 param_types: vec![ASTType::Generic("".to_owned())],
                 name: "".to_owned(),
                 index: ASTIndex::none()

@@ -376,7 +376,6 @@ impl RasmProject {
             .filter(|it| it.modifiers.public && it.name.starts_with("test"))
             .for_each(|it| {
                 let valid = if let ASTType::Custom {
-                    namespace,
                     name,
                     param_types: _,
                     index: _,

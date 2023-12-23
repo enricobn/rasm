@@ -431,7 +431,6 @@ mod tests {
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
-                                namespace: ASTNameSpace::global(),
                                 name: "List".into(),
                                 param_types: vec![Generic("T".into())],
                                 index: ASTIndex::none()
@@ -554,7 +553,6 @@ mod tests {
                         ASTParameterDef {
                             name: "tail".into(),
                             ast_type: ASTType::Custom {
-                                namespace: ASTNameSpace::global(),
                                 name: "List".into(),
                                 param_types: vec![Generic("T".into())],
                                 index: ASTIndex::new(None, 2, 39),
