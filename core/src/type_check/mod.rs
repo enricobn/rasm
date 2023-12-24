@@ -82,6 +82,7 @@ pub fn is_generic_type(ast_type: &ASTType) -> bool {
         },
         ASTType::Generic(_p) => true,
         ASTType::Custom {
+            namespace: _,
             name: _,
             param_types: pt,
             index: _,
@@ -186,11 +187,13 @@ pub fn resolve_generic_types_from_effective_type(
             }
         }
         ASTType::Custom {
+            namespace: p_namespace,
             name: p_name,
             param_types: p_param_types,
             index: _,
         } => match effective_type {
             ASTType::Custom {
+                namespace: e_namespace,
                 name: e_name,
                 param_types: e_param_types,
                 index: _,
@@ -297,6 +300,7 @@ pub fn substitute(
             }
         }
         ASTType::Custom {
+            namespace,
             name,
             param_types,
             index,
@@ -306,16 +310,18 @@ pub fn substitute(
                 let new_index = if new_param_types.is_empty() {
                     index.clone()
                 } else if let Some(ASTType::Custom {
+                    namespace: _,
                     name: _,
                     param_types: _,
                     index: ast_index,
                 }) = new_param_types.last()
                 {
-                    ast_index.mv(1)
+                    ast_index.mv_right(1)
                 } else {
                     index.clone()
                 };
                 ASTType::Custom {
+                    namespace: namespace.clone(),
                     name: name.clone(),
                     param_types: new_param_types,
                     index: new_index,
@@ -383,11 +389,13 @@ mod tests {
     #[test]
     fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
         let generic_type = ASTType::Custom {
+            namespace: ASTNameSpace::global(),
             name: "List".into(),
             param_types: vec![generic("T")],
             index: ASTIndex::none(),
         };
         let effective_type = ASTType::Custom {
+            namespace: ASTNameSpace::global(),
             name: "List".into(),
             param_types: vec![i32()],
             index: ASTIndex::none(),

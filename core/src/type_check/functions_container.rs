@@ -621,6 +621,7 @@ impl FunctionsContainer {
                         }
                     }
                     ASTType::Custom {
+                        namespace: expected_namespace,
                         param_types: expected_param_types,
                         name: expected_type_name,
                         index: _,
@@ -629,10 +630,12 @@ impl FunctionsContainer {
                             ASTType::Builtin(_) => Ok(false),
                             ASTType::Generic(_) => Ok(true), // TODO
                             ASTType::Custom {
+                                namespace,
                                 param_types,
                                 name: type_name,
                                 index: _,
                             } => Ok(type_name == expected_type_name
+                                //&& namespace == expected_namespace
                                 && param_types.len() == expected_param_types.len()
                                 && param_types
                                     .iter()
@@ -926,6 +929,7 @@ mod tests {
         assert!(result.is_some());
 
         let call = ASTFunctionCall {
+            namespace: ASTNameSpace::global(),
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![

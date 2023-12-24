@@ -369,6 +369,7 @@ impl RasmProject {
     ) -> ASTModule {
         let mut test_main_module_body = Vec::new();
         let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
+        let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
 
         test_modules
             .iter()
@@ -376,6 +377,7 @@ impl RasmProject {
             .filter(|it| it.modifiers.public && it.name.starts_with("test"))
             .for_each(|it| {
                 let valid = if let ASTType::Custom {
+                    namespace: _,
                     name,
                     param_types: _,
                     index: _,
@@ -395,6 +397,7 @@ impl RasmProject {
                     });
                 } else {
                     let test_call = ASTFunctionCall {
+                        namespace: namespace.clone(),
                         original_function_name: it.original_name.clone(),
                         function_name: it.name.clone(),
                         parameters: Vec::new(),
@@ -409,6 +412,7 @@ impl RasmProject {
                         index: ASTIndex::none(),
                     };
                     let run_test_call = ASTFunctionCall {
+                        namespace: namespace.clone(),
                         original_function_name: "runTest".to_string(),
                         function_name: "runTest".to_string(),
                         parameters: vec![
@@ -419,8 +423,11 @@ impl RasmProject {
                         index: ASTIndex::none(),
                         generics: Vec::new(),
                     };
-                    expr =
-                        Self::or_expression(expr.clone(), ASTFunctionCallExpression(run_test_call));
+                    expr = Self::or_expression(
+                        &namespace,
+                        expr.clone(),
+                        ASTFunctionCallExpression(run_test_call),
+                    );
                 }
             });
 
@@ -432,6 +439,7 @@ impl RasmProject {
         ));
 
         let panic_call = ASTFunctionCall {
+            namespace: namespace.clone(),
             original_function_name: "panic".to_string(),
             function_name: "panic".to_string(),
             parameters: vec![ASTExpression::StringLiteral("Tests failed.".to_string())],
@@ -452,6 +460,7 @@ impl RasmProject {
         };
 
         let if_call = ASTFunctionCall {
+            namespace: namespace.clone(),
             original_function_name: "if".to_string(),
             function_name: "if".to_string(),
             parameters: vec![
@@ -476,12 +485,17 @@ impl RasmProject {
             requires: Default::default(),
             externals: Default::default(),
             types: vec![],
-            namespace: ASTNameSpace::new(self.config.package.name.clone(), "".to_string()),
+            namespace,
         }
     }
 
-    fn or_expression(e1: ASTExpression, e2: ASTExpression) -> ASTExpression {
+    fn or_expression(
+        namespace: &ASTNameSpace,
+        e1: ASTExpression,
+        e2: ASTExpression,
+    ) -> ASTExpression {
         let call = ASTFunctionCall {
+            namespace: namespace.clone(),
             original_function_name: "or".to_string(),
             function_name: "or".to_string(),
             parameters: vec![e1, e2],

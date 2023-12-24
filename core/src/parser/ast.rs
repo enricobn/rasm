@@ -151,6 +151,7 @@ pub enum ASTType {
     Builtin(BuiltinTypeKind),
     Generic(String),
     Custom {
+        namespace: ASTNameSpace,
         name: String,
         param_types: Vec<ASTType>,
         #[derivative(PartialEq = "ignore")]
@@ -163,6 +164,18 @@ pub enum ASTType {
 impl ASTType {
     pub fn is_unit(&self) -> bool {
         self == &ASTType::Unit
+    }
+
+    pub fn namespace(&self) -> ASTNameSpace {
+        match self {
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => namespace.clone(),
+            _ => ASTNameSpace::global(),
+        }
     }
 }
 
@@ -190,12 +203,14 @@ impl Display for ASTType {
             },
             ASTType::Generic(name) => f.write_str(name),
             ASTType::Custom {
+                namespace,
                 name,
                 param_types,
                 index: _,
             } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
+                f.write_str(&format!("{namespace}:"))?;
                 if pars.is_empty() {
                     f.write_str(name)
                 } else {
@@ -245,6 +260,7 @@ impl ASTParameterDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionCall {
+    pub namespace: ASTNameSpace,
     pub original_function_name: String,
     pub function_name: String,
     pub parameters: Vec<ASTExpression>,
@@ -284,11 +300,11 @@ impl ASTIndex {
         }
     }
 
-    pub fn mv(&self, offset: i32) -> Self {
+    pub fn mv_right(&self, offset: usize) -> Self {
         Self {
             file_name: self.file_name.clone(),
             row: self.row,
-            column: (self.column as i32 + offset) as usize,
+            column: self.column + offset,
         }
     }
 
@@ -297,6 +313,14 @@ impl ASTIndex {
             file_name: self.file_name.clone(),
             row: self.row,
             column: (self.column as i32 - (offset as i32)) as usize,
+        }
+    }
+
+    pub fn mv_down(&self, offset: usize) -> Self {
+        Self {
+            file_name: self.file_name.clone(),
+            row: self.row + offset,
+            column: self.column,
         }
     }
 }
@@ -560,7 +584,7 @@ impl Display for ASTStructDef {
             .map(|it| format!("{it}"))
             .collect::<Vec<_>>()
             .join(",");
-        f.write_str(&format!("struct {}({pars})", self.name))
+        f.write_str(&format!("struct {}:{}({pars})", self.namespace, self.name))
     }
 }
 
@@ -598,12 +622,14 @@ mod tests {
     #[test]
     fn display() {
         let inner_type = ASTType::Custom {
+            namespace: ASTNameSpace::global(),
             name: "Option".to_owned(),
             param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
             index: ASTIndex::none(),
         };
 
         let ast_type = ASTType::Custom {
+            namespace: ASTNameSpace::global(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
             index: ASTIndex::none(),

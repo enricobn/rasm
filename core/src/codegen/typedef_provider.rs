@@ -33,9 +33,7 @@ pub trait TypeDefProvider {
         namespace: &ASTNameSpace,
         name: &str,
     ) -> Option<&ASTTypedEnumDef> {
-        self.enums()
-            .iter()
-            .find(|it| (it.modifiers.public || &it.namespace == namespace) && it.name == name)
+        self.enums().iter().find(|it| it.name == name)
     }
 
     fn get_struct_def_by_name(
@@ -43,9 +41,7 @@ pub trait TypeDefProvider {
         namespace: &ASTNameSpace,
         name: &str,
     ) -> Option<&ASTTypedStructDef> {
-        self.structs()
-            .iter()
-            .find(|it| (it.modifiers.public || &it.namespace == namespace) && it.name == name)
+        self.structs().iter().find(|it| it.name == name)
     }
 
     fn get_type_def_by_name(
@@ -53,9 +49,7 @@ pub trait TypeDefProvider {
         namespace: &ASTNameSpace,
         name: &str,
     ) -> Option<&ASTTypedTypeDef> {
-        self.types()
-            .iter()
-            .find(|it| (it.modifiers.public || &it.namespace == namespace) && it.name == name)
+        self.types().iter().find(|it| it.name == name)
     }
 
     fn get_enum_def_like_name(
@@ -119,6 +113,7 @@ pub trait TypeDefProvider {
     ) -> Option<ASTTypedType> {
         if let Some(e) = find_one(self.enums().iter(), |it| {
             if let ASTType::Custom {
+                namespace,
                 name: ast_type_name,
                 param_types: _,
                 index: _,
@@ -132,6 +127,7 @@ pub trait TypeDefProvider {
             Some(e.clone().ast_typed_type)
         } else if let Some(s) = find_one(self.structs().iter(), |it| {
             if let ASTType::Custom {
+                namespace,
                 name: ast_type_name,
                 param_types: _,
                 index: _,
@@ -146,6 +142,7 @@ pub trait TypeDefProvider {
         } else {
             find_one(self.types().iter(), |it| {
                 if let ASTType::Custom {
+                    namespace,
                     name: ast_type_name,
                     param_types: _,
                     index: _,
@@ -172,15 +169,29 @@ pub trait TypeDefProvider {
     }
 
     fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
-        find_one(self.types().iter(), |it| match &it.ast_type {
-            ASTType::Builtin(_) => false,
-            ASTType::Generic(_) => false,
-            ASTType::Custom {
-                name,
-                param_types: _,
-                index: _,
-            } => name == type_to_find,
-            ASTType::Unit => false,
+        println!("get_typed_type_def_from_type_name({type_to_find})");
+
+        find_one(self.types().iter(), |it| {
+            println!("inside find_one {it}");
+            match &it.ast_type {
+                ASTType::Builtin(_) => false,
+                ASTType::Generic(_) => false,
+                ASTType::Custom {
+                    namespace: ast_type_namespace,
+                    name,
+                    param_types: _,
+                    index: _,
+                } => {
+                    let result = it.original_name == type_to_find && (it.modifiers.public || &it.namespace == ast_type_namespace);
+
+                    if !result && it.original_name == type_to_find {
+                        println!("get_typed_type_def_from_type_name it.namespace {}, ast_type_namespace {ast_type_namespace}", it.namespace);
+                    }
+
+                    result
+                }
+                ASTType::Unit => false,
+            }
         })
         .cloned()
     }

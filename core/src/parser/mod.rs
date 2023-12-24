@@ -215,6 +215,7 @@ impl Parser {
                     {
                         self.parser_data.pop();
                         let call = ASTFunctionCall {
+                            namespace: namespace.clone(),
                             original_function_name: function_name.clone(),
                             function_name,
                             parameters: vec![expr],
@@ -230,6 +231,7 @@ impl Parser {
                     {
                         self.parser_data.pop();
                         let call = ASTFunctionCall {
+                            namespace: namespace.clone(),
                             original_function_name: name.clone(),
                             function_name: name.clone(),
                             parameters: vec![expr],
@@ -426,7 +428,7 @@ impl Parser {
 
         self.functions.append(&mut self.included_functions);
 
-        self.get_return(&namespace, path)
+        self.get_return(namespace, path)
     }
 
     fn get_return(
@@ -446,7 +448,13 @@ impl Parser {
             namespace: namespace.clone(),
         };
 
-        //Parser::print_module(&module);
+        /*
+        println!("Module: {}", path.to_string_lossy());
+        println!("-----------------------");
+        Parser::print_module(&module);
+        println!("-----------------------");
+        println!();
+         */
 
         (module, self.errors.clone())
     }
@@ -683,6 +691,7 @@ impl Parser {
             self.try_parse_function_call(namespace)
         {
             let call = ASTFunctionCall {
+                namespace: namespace.clone(),
                 original_function_name: function_name.clone(),
                 function_name,
                 parameters: Vec::new(),
@@ -1591,6 +1600,7 @@ mod tests {
         println!("{}", SliceDisplay(&errors));
 
         let function_call = ASTFunctionCall {
+            namespace: ASTNameSpace::global(),
             function_name: "println".to_string(),
             original_function_name: "println".to_string(),
             parameters: vec![ASTExpression::Value(
@@ -1618,6 +1628,7 @@ mod tests {
         println!("{}", SliceDisplay(&errors));
 
         let function_call = ASTFunctionCall {
+            namespace: ASTNameSpace::global(),
             function_name: "println".to_string(),
             original_function_name: "println".to_string(),
             parameters: vec![ASTExpression::ValueRef(

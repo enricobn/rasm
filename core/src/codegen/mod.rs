@@ -191,7 +191,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 ASTTypedStatement::Expression(e) => match e {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let (bf, af, mut lambda_calls) = self.call_function(
-                            &ASTNameSpace::global(), // TODO is it right?
+                            &call.namespace,
                             call,
                             &context,
                             None,
@@ -1347,7 +1347,7 @@ pub fn get_reference_type_name(
                     None
                 }
             } else {
-                panic!("Cannot find type {name}");
+                panic!("get_reference_type_name, cannot find type {name}");
             }
         }
         _ => None,

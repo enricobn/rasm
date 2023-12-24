@@ -617,6 +617,7 @@ impl Backend for BackendNasmi386 {
                                 }
                             }
                             ASTType::Custom {
+                                namespace,
                                 name,
                                 param_types: _,
                                 index: _,
@@ -718,7 +719,7 @@ impl Backend for BackendNasmi386 {
         } else if "str" == type_name || "_fn" == type_name {
             (true, false)
         } else {
-            panic!("cannot find type {descr} {type_name}");
+            panic!("call_add_ref, cannot find type {descr} {type_name} for namespace {namespace}");
         };
 
         if "_fn" == type_name {
@@ -823,7 +824,7 @@ impl Backend for BackendNasmi386 {
         } else if "str" == type_name || "_fn" == type_name {
             (true, false)
         } else {
-            panic!("cannot find type {descr} {type_name}");
+            panic!("call_deref, cannot find type {descr} {type_name}");
         };
 
         let key = statics.add_str(descr);

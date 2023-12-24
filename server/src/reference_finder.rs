@@ -155,6 +155,7 @@ impl ReferenceFinder {
         result: &mut Vec<SelectableItem>,
     ) {
         if let ASTType::Custom {
+            namespace: _,
             name,
             param_types,
             index,
@@ -447,6 +448,7 @@ impl ReferenceFinder {
         ast_type: &ASTType,
     ) -> Option<ASTIndex> {
         if let ASTType::Custom {
+            namespace: _,
             name,
             param_types,
             index,

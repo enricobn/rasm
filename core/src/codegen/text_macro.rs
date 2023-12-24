@@ -68,6 +68,7 @@ impl Display for MacroParam {
 pub struct TextMacro {
     pub name: String,
     pub parameters: Vec<MacroParam>,
+    pub index: ASTIndex,
 }
 
 impl Display for TextMacro {
@@ -107,11 +108,16 @@ impl TextMacroEvaluator {
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
+        let index = typed_function_def
+            .map(|tfd| &tfd.index)
+            .or_else(|| function_def.map(|fd| &fd.index))
+            .unwrap();
+
         let mut result = Vec::new();
 
         let lines = body.lines();
 
-        for s in lines {
+        for (i, s) in lines.enumerate() {
             let stripped_comments = backend.remove_comments_from_line(s.to_string());
             let matches = RE.captures_iter(&stripped_comments);
 
@@ -123,6 +129,7 @@ impl TextMacroEvaluator {
                 let parameters = cap.get(2).unwrap().as_str();
 
                 let text_macro = TextMacro {
+                    index: index.mv_down(i),
                     name: name.into(),
                     parameters: self.parse_params(
                         parameters,
@@ -360,6 +367,7 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
         if let ASTType::Custom {
+            namespace,
             name,
             param_types,
             index: _,
@@ -408,6 +416,7 @@ impl TextMacroEvaluator {
                     .collect::<Vec<_>>();
 
                 type_def_provider.get_ast_typed_type_from_ast_type(&ASTType::Custom {
+                    namespace: ast_type.namespace(),
                     name: name.clone(),
                     param_types: resolved_types,
                     index: ASTIndex::none(),
@@ -427,6 +436,7 @@ impl TextMacroEvaluator {
         context_generic_types: &[String],
         resolved_generic_types: &ResolvedGenericTypes,
     ) -> Result<(String, Option<ASTType>, Option<ASTTypedType>), String> {
+        println!("parse_typed_argument namespace {namespace}, p {p}");
         // TODO the check of :: is a trick since function names could have ::, try to do it better
         let (par_name, par_type, par_typed_type) = if p.contains(':') && !p.contains("::") {
             let vec = p.split(':').collect::<Vec<_>>();
@@ -464,6 +474,7 @@ impl TextMacroEvaluator {
                         panic!("Unsupported type {par_type_name}")
                     }
                     Some((ast_type, _)) => {
+                        println!("parse_typed_argument {ast_type}");
                         let t = if let ASTType::Generic(_name) = &ast_type {
                             if let Some(t) = substitute(&ast_type, resolved_generic_types) {
                                 t
@@ -547,7 +558,7 @@ impl TextMacroEvaluator {
         if evaluator.is_pre_macro() == pre_macro {
             Some(evaluator.eval_macro(
                 statics,
-                &text_macro.parameters,
+                &text_macro,
                 function_def,
                 dereference,
                 type_def_provider,
@@ -565,6 +576,11 @@ impl TextMacroEvaluator {
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
+        let index = typed_function_def
+            .map(|tfd| &tfd.index)
+            .or_else(|| function_def.map(|fd| &fd.index))
+            .unwrap();
+
         let mut result = Vec::new();
 
         let lines = body.lines();
@@ -578,6 +594,7 @@ impl TextMacroEvaluator {
                 let parameters = cap.get(2).unwrap().as_str();
 
                 let text_macro = TextMacro {
+                    index: index.mv_down(i),
                     name: name.into(),
                     parameters: self.parse_params(
                         parameters,
@@ -634,7 +651,7 @@ pub trait TextMacroEval {
     fn eval_macro(
         &self,
         statics: &mut Statics,
-        parameters: &[MacroParam],
+        text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
@@ -659,24 +676,25 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
     fn eval_macro(
         &self,
         statics: &mut Statics,
-        parameters: &[MacroParam],
+        text_macro: &TextMacro,
         _function_def: Option<&ASTTypedFunctionDef>,
         _dereference: bool,
         _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
-        let function_name = if let Some(MacroParam::Plain(function_name, _, _)) = parameters.get(0)
-        {
-            function_name
-        } else {
-            panic!("Error getting the function name");
-        };
+        let function_name =
+            if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
+                function_name
+            } else {
+                panic!("Error getting the function name");
+            };
 
         let mut result = String::new();
 
         result.push_str(&format!("; call macro, calling {function_name}\n"));
 
         result.push_str(
-            &parameters
+            &text_macro
+                .parameters
                 .iter()
                 .skip(1)
                 .rev()
@@ -703,7 +721,7 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
         result.push_str(&format!(
             "    add {}, {}\n",
             self.backend.stack_pointer(),
-            (parameters.len() - 1) * self.backend.word_len()
+            (text_macro.parameters.len() - 1) * self.backend.word_len()
         ));
 
         result
@@ -732,18 +750,18 @@ impl TextMacroEval for CCallTextMacroEvaluator {
     fn eval_macro(
         &self,
         statics: &mut Statics,
-        parameters: &[MacroParam],
+        text_macro: &TextMacro,
         _function_def: Option<&ASTTypedFunctionDef>,
         _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         debug_i!("translate macro fun {:?}", _function_def);
-        let function_name = if let Some(MacroParam::Plain(function_name, _, _)) = parameters.get(0)
-        {
-            function_name
-        } else {
-            panic!("Error getting the function name");
-        };
+        let function_name =
+            if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
+                function_name
+            } else {
+                panic!("Error getting the function name");
+            };
 
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
@@ -758,13 +776,13 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         result.push_str(&format!("    mov   {ws} ebx, esp\n"));
         result.push_str(&format!(
             "    sub   {sp}, {}\n",
-            wl * (parameters.len() - 1)
+            wl * (text_macro.parameters.len() - 1)
         ));
         // stack 16 bytes alignment
         result.push_str("    and   esp,0xfffffff0\n");
 
         result.push_str(
-            &parameters
+            &text_macro.parameters
                 .iter().enumerate()
                 .skip(1)
                 .rev()
@@ -823,6 +841,7 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
     if let ASTType::Builtin(BuiltinTypeKind::String) = ast_type {
         true
     } else if let ASTType::Custom {
+        namespace,
         name,
         param_types: _,
         index: _,
@@ -893,7 +912,7 @@ impl TextMacroEval for AddRefMacro {
     fn eval_macro(
         &self,
         statics: &mut Statics,
-        parameters: &[MacroParam],
+        text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
@@ -906,7 +925,7 @@ impl TextMacroEval for AddRefMacro {
                 return String::new();
             }
 
-            let (address, ast_typed_type) = match parameters.get(0) {
+            let (address, ast_typed_type) = match text_macro.parameters.get(0) {
                 Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
                     (address, ast_typed_type)
                 }
@@ -914,9 +933,10 @@ impl TextMacroEval for AddRefMacro {
                     (address, ast_typed_type)
                 }
                 _ => panic!(
-                    "Error: addRef/deref macro, a type must be specified in {} but got {:?}",
+                    "Error: addRef/deref macro, a type must be specified in {} but got {:?}: {}",
                     Self::function_name(function_def),
-                    parameters.get(0)
+                    text_macro.parameters.get(0),
+                    text_macro.index
                 ),
             };
 
@@ -975,7 +995,7 @@ impl TextMacroEval for PrintRefMacro {
     fn eval_macro(
         &self,
         _statics: &mut Statics,
-        parameters: &[MacroParam],
+        text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
@@ -985,7 +1005,7 @@ impl TextMacroEval for PrintRefMacro {
         } else {
             ASTNameSpace::global()
         };
-        let result = match parameters.get(0) {
+        let result = match text_macro.parameters.get(0) {
             None => panic!("cannot find parameter for printRef macro"),
             Some(par) => match par {
                 MacroParam::Plain(name, ast_type, ast_typed_type) => self.print_ref(
@@ -1079,6 +1099,7 @@ impl PrintRefMacro {
                             },
                         },
                         ASTType::Custom {
+                            namespace,
                             name: custom_type_name,
                             param_types: _,
                             index: _,
@@ -1433,7 +1454,7 @@ impl PrintRefMacro {
 
             result
         } else {
-            panic!("Cannot find type {name}");
+            panic!("print_ref_type, cannot find type {name}");
         }
     }
 }
@@ -1460,6 +1481,7 @@ mod tests {
     #[test]
     fn call() {
         let text_macro = TextMacro {
+            index: ASTIndex::none(),
             name: "call".into(),
             parameters: vec![
                 MacroParam::Plain("println".into(), None, None),
@@ -1759,6 +1781,7 @@ mod tests {
             Some((ast_type, _)) => assert_eq!(
                 ast_type,
                 ASTType::Custom {
+                    namespace: ASTNameSpace::global(),
                     name: "List".into(),
                     param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
                     index: ASTIndex::none()

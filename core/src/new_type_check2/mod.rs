@@ -88,7 +88,7 @@ impl TypeCheck {
         self.module.functions_by_name = FunctionsContainer::new();
 
         for default_function in default_functions {
-            let call = default_function.to_call();
+            let call = default_function.to_call(&ASTNameSpace::global());
 
             if let Some(f) =
                 module.find_precise_function(&call.original_function_name, &call.function_name)
@@ -451,6 +451,7 @@ impl TypeCheck {
             },
             ASTType::Generic(_) => panic!(),
             ASTType::Custom {
+                namespace,
                 name,
                 param_types,
                 index: _,
@@ -646,7 +647,7 @@ impl TypeCheck {
             Err(TypeCheckError::new(
                 call.index.clone(),
                 format!(
-                    "call {} : {} \nexpected return type {}\ncannot find a valid function for namespace {namespace} \n{}",
+                    "cannot find a valid function from namespace {namespace} \nfor call {} : {} \nexpected return type {}\n{}",
                     call.original_function_name,
                     call.index,
                     OptionDisplay(&expected_return_type),
@@ -792,6 +793,7 @@ impl TypeCheck {
                 ASTType::Builtin(_) => 0,
                 ASTType::Generic(_) => coeff,
                 ASTType::Custom {
+                    namespace: _,
                     name: _,
                     param_types,
                     index: _,
@@ -1382,6 +1384,7 @@ mod tests {
         assert_eq!(
             0,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
+                namespace: ASTNameSpace::global(),
                 param_types: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
                 name: "".to_owned(),
                 index: ASTIndex::none()
@@ -1394,6 +1397,7 @@ mod tests {
         assert_eq!(
             usize::MAX / 100 / 100,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
+                namespace: ASTNameSpace::global(),
                 param_types: vec![ASTType::Generic("".to_owned())],
                 name: "".to_owned(),
                 index: ASTIndex::none()
