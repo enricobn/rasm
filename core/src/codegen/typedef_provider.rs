@@ -72,8 +72,14 @@ pub trait TypeDefProvider {
         })
     }
 
-    fn get_type_def_like_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
-        find_one(self.types().iter(), |it| it.name == name)
+    fn get_type_def_like_name(
+        &self,
+        namespace: &ASTNameSpace,
+        name: &str,
+    ) -> Option<&ASTTypedTypeDef> {
+        find_one(self.types().iter(), |it| {
+            (it.modifiers.public || &it.namespace == namespace) && it.name.starts_with(name)
+        })
     }
 
     fn get_type_from_custom_typed_type(
@@ -158,7 +164,6 @@ pub trait TypeDefProvider {
     }
 
     fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
-        println!("get_ast_typed_type_from_ast_type {ast_type}");
         if let Some(e) = find_one(self.enums().iter(), |it| {
             it.ast_type.equals_excluding_namespace(ast_type)
                 && (it.modifiers.public || it.namespace == ast_type.namespace())
@@ -171,7 +176,6 @@ pub trait TypeDefProvider {
             Some(s.clone().ast_typed_type)
         } else {
             find_one(self.types().iter(), |it| {
-                println!("get_ast_typed_type_from_ast_type {it}");
                 it.ast_type.equals_excluding_namespace(ast_type)
                     && (it.modifiers.public || it.namespace == ast_type.namespace())
             })

@@ -383,7 +383,6 @@ impl TextMacroEvaluator {
                 let resolved_types = param_types
                     .iter()
                     .map(|it| {
-                        println!("resolve_type inner loop {it}");
                         if let Some(typed_type) =
                             Self::resolve_type(it, function_def, type_def_provider)
                         {
@@ -882,7 +881,7 @@ fn get_type(
             namespace: namespace.clone(),
             name: s.name.clone(),
         }
-    } else if let Some(s) = type_def_provider.get_type_def_like_name(orig_name) {
+    } else if let Some(s) = type_def_provider.get_type_def_like_name(namespace, orig_name) {
         ASTTypedType::Type {
             namespace: namespace.clone(),
             name: s.name.clone(),

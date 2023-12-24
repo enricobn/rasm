@@ -348,6 +348,24 @@ impl ASTTypedEnumDef {
     }
 }
 
+impl CustomTypedTypeDef for ASTTypedEnumDef {
+    fn modifiers(&self) -> &ASTModifiers {
+        &self.modifiers
+    }
+
+    fn namespace(&self) -> &ASTNameSpace {
+        &self.namespace
+    }
+
+    fn ast_typed_type(&self) -> &ASTTypedType {
+        &self.ast_typed_type
+    }
+
+    fn ast_type(&self) -> &ASTType {
+        &self.ast_type
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedEnumVariantDef {
     pub name: String,
@@ -377,6 +395,24 @@ pub struct ASTTypedStructDef {
     pub index: ASTIndex,
 }
 
+impl CustomTypedTypeDef for ASTTypedStructDef {
+    fn modifiers(&self) -> &ASTModifiers {
+        &self.modifiers
+    }
+
+    fn namespace(&self) -> &ASTNameSpace {
+        &self.namespace
+    }
+
+    fn ast_typed_type(&self) -> &ASTTypedType {
+        &self.ast_typed_type
+    }
+
+    fn ast_type(&self) -> &ASTType {
+        &self.ast_type
+    }
+}
+
 impl Display for ASTTypedStructDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self
@@ -400,6 +436,39 @@ pub struct ASTTypedTypeDef {
     pub ast_type: ASTType,
     pub ast_typed_type: ASTTypedType,
     pub index: ASTIndex,
+}
+
+pub trait CustomTypedTypeDef {
+    fn modifiers(&self) -> &ASTModifiers;
+
+    fn namespace(&self) -> &ASTNameSpace;
+
+    fn ast_typed_type(&self) -> &ASTTypedType;
+
+    fn ast_type(&self) -> &ASTType;
+
+    fn is_compatible_with(&self, ast_type: &ASTType) -> bool {
+        self.ast_type().equals_excluding_namespace(ast_type)
+            && (self.modifiers().public || self.namespace() == &ast_type.namespace())
+    }
+}
+
+impl CustomTypedTypeDef for ASTTypedTypeDef {
+    fn modifiers(&self) -> &ASTModifiers {
+        &self.modifiers
+    }
+
+    fn namespace(&self) -> &ASTNameSpace {
+        &self.namespace
+    }
+
+    fn ast_typed_type(&self) -> &ASTTypedType {
+        &self.ast_typed_type
+    }
+
+    fn ast_type(&self) -> &ASTType {
+        &self.ast_type
+    }
 }
 
 impl Display for ASTTypedTypeDef {
@@ -543,6 +612,7 @@ impl<'a> ConvContext<'a> {
     }
 
     pub fn get_enum(&self, enum_def: &ASTEnumDef, enum_type: &ASTType) -> Option<ASTTypedType> {
+        /*
         self.enums
             .iter()
             .find(|(ast_type, ast_typed_type)| match ast_type {
@@ -561,6 +631,12 @@ impl<'a> ConvContext<'a> {
             })
             .map(|(_ast_type, ast_typed_type)| ast_typed_type)
             .cloned()
+
+         */
+        self.enum_defs
+            .iter()
+            .find(|typed_type_def| typed_type_def.is_compatible_with(enum_type))
+            .map(|it| it.ast_typed_type.clone())
     }
 
     pub fn add_struct(
@@ -617,9 +693,6 @@ impl<'a> ConvContext<'a> {
                     ast_typed_type: struct_typed_type.clone(),
                     index: struct_def.index.clone(),
                 };
-                if name == "IOError" {
-                    println!("add_struct added struct {new_struct_def}");
-                }
 
                 self.struct_defs.push(new_struct_def);
 
@@ -636,6 +709,7 @@ impl<'a> ConvContext<'a> {
         struct_def: &ASTStructDef,
         struct_type: &ASTType,
     ) -> Option<ASTTypedType> {
+        /*
         self.structs
             .iter()
             .find(|(ast_type, ast_typed_type)| match ast_type {
@@ -654,6 +728,11 @@ impl<'a> ConvContext<'a> {
             })
             .map(|(_ast_type, ast_typed_type)| ast_typed_type)
             .cloned()
+         */
+        self.struct_defs
+            .iter()
+            .find(|typed_type_def| typed_type_def.is_compatible_with(struct_type))
+            .map(|it| it.ast_typed_type.clone())
     }
 
     pub fn add_type(
@@ -717,24 +796,10 @@ impl<'a> ConvContext<'a> {
     }
 
     pub fn get_type(&self, type_def: &ASTTypeDef, type_def_type: &ASTType) -> Option<ASTTypedType> {
-        self.types
+        self.type_defs
             .iter()
-            .find(|(ast_type, ast_typed_type)| match ast_type {
-                ASTType::Builtin(_) => false,
-                ASTType::Generic(_) => false,
-                ASTType::Custom {
-                    namespace,
-                    name,
-                    param_types: _,
-                    index: _,
-                } => {
-                    name == &type_def.name
-                        && (type_def.modifiers.public || &type_def.namespace == namespace)
-                }
-                ASTType::Unit => false,
-            })
-            .map(|(_ast_type, ast_typed_type)| ast_typed_type)
-            .cloned()
+            .find(|typed_type_def| typed_type_def.is_compatible_with(type_def_type))
+            .map(|it| it.ast_typed_type.clone())
     }
 }
 
