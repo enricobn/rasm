@@ -109,9 +109,9 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
         let index = typed_function_def
-            .map(|tfd| &tfd.index)
-            .or_else(|| function_def.map(|fd| &fd.index))
-            .unwrap();
+            .map(|tfd| tfd.index.clone())
+            .or_else(|| function_def.map(|fd| fd.index.clone()))
+            .unwrap_or(ASTIndex::none());
 
         let mut result = Vec::new();
 
@@ -366,6 +366,7 @@ impl TextMacroEvaluator {
         function_def: &ASTTypedFunctionDef,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
+        // println!("resolve_type {ast_type}");
         if let ASTType::Custom {
             namespace,
             name,
@@ -373,6 +374,7 @@ impl TextMacroEvaluator {
             index: _,
         } = ast_type
         {
+            // println!("it's custom");
             if let Some(typed_type) = function_def.generic_types.get(name) {
                 Some(typed_type.clone())
             } else if param_types.is_empty() {
@@ -381,6 +383,7 @@ impl TextMacroEvaluator {
                 let resolved_types = param_types
                     .iter()
                     .map(|it| {
+                        println!("resolve_type inner loop {it}");
                         if let Some(typed_type) =
                             Self::resolve_type(it, function_def, type_def_provider)
                         {
@@ -436,7 +439,7 @@ impl TextMacroEvaluator {
         context_generic_types: &[String],
         resolved_generic_types: &ResolvedGenericTypes,
     ) -> Result<(String, Option<ASTType>, Option<ASTTypedType>), String> {
-        println!("parse_typed_argument namespace {namespace}, p {p}");
+        //println!("parse_typed_argument namespace {namespace}, p {p}");
         // TODO the check of :: is a trick since function names could have ::, try to do it better
         let (par_name, par_type, par_typed_type) = if p.contains(':') && !p.contains("::") {
             let vec = p.split(':').collect::<Vec<_>>();
@@ -474,7 +477,7 @@ impl TextMacroEvaluator {
                         panic!("Unsupported type {par_type_name}")
                     }
                     Some((ast_type, _)) => {
-                        println!("parse_typed_argument {ast_type}");
+                        //println!("parse_typed_argument {ast_type}");
                         let t = if let ASTType::Generic(_name) = &ast_type {
                             if let Some(t) = substitute(&ast_type, resolved_generic_types) {
                                 t
@@ -577,9 +580,9 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
         let index = typed_function_def
-            .map(|tfd| &tfd.index)
-            .or_else(|| function_def.map(|fd| &fd.index))
-            .unwrap();
+            .map(|tfd| tfd.index.clone())
+            .or_else(|| function_def.map(|fd| fd.index.clone()))
+            .unwrap_or(ASTIndex::none());
 
         let mut result = Vec::new();
 

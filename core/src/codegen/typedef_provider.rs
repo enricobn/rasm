@@ -158,21 +158,32 @@ pub trait TypeDefProvider {
     }
 
     fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
-        if let Some(e) = find_one(self.enums().iter(), |it| &it.ast_type == ast_type) {
+        println!("get_ast_typed_type_from_ast_type {ast_type}");
+        if let Some(e) = find_one(self.enums().iter(), |it| {
+            it.ast_type.equals_excluding_namespace(ast_type)
+                && (it.modifiers.public || it.namespace == ast_type.namespace())
+        }) {
             Some(e.clone().ast_typed_type)
-        } else if let Some(s) = find_one(self.structs().iter(), |it| &it.ast_type == ast_type) {
+        } else if let Some(s) = find_one(self.structs().iter(), |it| {
+            it.ast_type.equals_excluding_namespace(ast_type)
+                && (it.modifiers.public || it.namespace == ast_type.namespace())
+        }) {
             Some(s.clone().ast_typed_type)
         } else {
-            find_one(self.types().iter(), |it| &it.ast_type == ast_type)
-                .map(|t| t.clone().ast_typed_type)
+            find_one(self.types().iter(), |it| {
+                println!("get_ast_typed_type_from_ast_type {it}");
+                it.ast_type.equals_excluding_namespace(ast_type)
+                    && (it.modifiers.public || it.namespace == ast_type.namespace())
+            })
+            .map(|t| t.clone().ast_typed_type)
         }
     }
 
     fn get_typed_type_def_from_type_name(&self, type_to_find: &str) -> Option<ASTTypedTypeDef> {
-        println!("get_typed_type_def_from_type_name({type_to_find})");
+        //println!("get_typed_type_def_from_type_name({type_to_find})");
 
         find_one(self.types().iter(), |it| {
-            println!("inside find_one {it}");
+            //println!("inside find_one {it}");
             match &it.ast_type {
                 ASTType::Builtin(_) => false,
                 ASTType::Generic(_) => false,
@@ -182,11 +193,14 @@ pub trait TypeDefProvider {
                     param_types: _,
                     index: _,
                 } => {
-                    let result = it.original_name == type_to_find && (it.modifiers.public || &it.namespace == ast_type_namespace);
+                    let result = it.original_name == type_to_find
+                        && (it.modifiers.public || &it.namespace == ast_type_namespace);
 
+                    /*
                     if !result && it.original_name == type_to_find {
                         println!("get_typed_type_def_from_type_name it.namespace {}, ast_type_namespace {ast_type_namespace}", it.namespace);
                     }
+                     */
 
                     result
                 }

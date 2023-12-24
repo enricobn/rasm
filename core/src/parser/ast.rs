@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -175,6 +176,31 @@ impl ASTType {
                 index,
             } => namespace.clone(),
             _ => ASTNameSpace::global(),
+        }
+    }
+
+    pub fn equals_excluding_namespace(&self, other: &Self) -> bool {
+        match self {
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => match other {
+                ASTType::Custom {
+                    namespace,
+                    name: other_name,
+                    param_types: other_param_types,
+                    index,
+                } => {
+                    name == other_name
+                        && param_types.len() == other_param_types.len()
+                        && zip(param_types.iter(), other_param_types.iter())
+                            .all(|(first, second)| first.equals_excluding_namespace(second))
+                }
+                _ => false,
+            },
+            _ => self == other,
         }
     }
 }

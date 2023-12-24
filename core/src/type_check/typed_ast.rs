@@ -490,7 +490,7 @@ impl<'a> ConvContext<'a> {
                 let new_name = format!("{name}_{}", self.count);
 
                 let enum_typed_type = ASTTypedType::Enum {
-                    namespace: namespace.clone(),
+                    namespace: enum_def.namespace.clone(),
                     name: new_name.clone(),
                 };
 
@@ -499,7 +499,7 @@ impl<'a> ConvContext<'a> {
                     .iter()
                     .map(|it| {
                         enum_variant(
-                            namespace,
+                            &enum_def.namespace,
                             self,
                             it,
                             &generic_to_type,
@@ -521,7 +521,7 @@ impl<'a> ConvContext<'a> {
                         .clone()
                 } else {
                     self.enum_defs.push(ASTTypedEnumDef {
-                        namespace: namespace.clone(),
+                        namespace: enum_def.namespace.clone(),
                         modifiers: enum_def.modifiers.clone(),
                         name: new_name,
                         variants,
@@ -542,8 +542,25 @@ impl<'a> ConvContext<'a> {
         }
     }
 
-    pub fn get_enum(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
-        self.enums.get(enum_type).cloned()
+    pub fn get_enum(&self, enum_def: &ASTEnumDef, enum_type: &ASTType) -> Option<ASTTypedType> {
+        self.enums
+            .iter()
+            .find(|(ast_type, ast_typed_type)| match ast_type {
+                ASTType::Builtin(_) => false,
+                ASTType::Generic(_) => false,
+                ASTType::Custom {
+                    namespace,
+                    name,
+                    param_types: _,
+                    index: _,
+                } => {
+                    name == &enum_def.name
+                        && (enum_def.modifiers.public || &enum_def.namespace == namespace)
+                }
+                ASTType::Unit => false,
+            })
+            .map(|(_ast_type, ast_typed_type)| ast_typed_type)
+            .cloned()
     }
 
     pub fn add_struct(
@@ -591,11 +608,6 @@ impl<'a> ConvContext<'a> {
                     .map(|it| struct_property(&struct_def.namespace, self, it, &generic_to_type))
                     .collect();
 
-                if name == "IOError" {
-                    println!("add_struct namespace {namespace}");
-                    println!("add_struct struct_def.namespace {}", struct_def.namespace);
-                }
-
                 let new_struct_def = ASTTypedStructDef {
                     namespace: struct_def.namespace.clone(),
                     modifiers: struct_def.modifiers.clone(),
@@ -632,19 +644,24 @@ impl<'a> ConvContext<'a> {
                 ASTType::Custom {
                     namespace,
                     name,
-                    param_types,
-                    index,
+                    param_types: _,
+                    index: _,
                 } => {
                     name == &struct_def.name
                         && (struct_def.modifiers.public || &struct_def.namespace == namespace)
                 }
                 ASTType::Unit => false,
             })
-            .map(|(ast_type, ast_typed_type)| ast_typed_type)
+            .map(|(_ast_type, ast_typed_type)| ast_typed_type)
             .cloned()
     }
 
-    pub fn add_type(&mut self, ast_type: &ASTType, type_def: &ASTTypeDef) -> ASTTypedType {
+    pub fn add_type(
+        &mut self,
+        namespace: &ASTNameSpace,
+        ast_type: &ASTType,
+        type_def: &ASTTypeDef,
+    ) -> ASTTypedType {
         debug!("add_type {ast_type}");
         match ast_type {
             ASTType::Custom {
@@ -699,8 +716,25 @@ impl<'a> ConvContext<'a> {
         }
     }
 
-    pub fn get_type(&self, type_def_type: &ASTType) -> Option<ASTTypedType> {
-        self.types.get(type_def_type).cloned()
+    pub fn get_type(&self, type_def: &ASTTypeDef, type_def_type: &ASTType) -> Option<ASTTypedType> {
+        self.types
+            .iter()
+            .find(|(ast_type, ast_typed_type)| match ast_type {
+                ASTType::Builtin(_) => false,
+                ASTType::Generic(_) => false,
+                ASTType::Custom {
+                    namespace,
+                    name,
+                    param_types: _,
+                    index: _,
+                } => {
+                    name == &type_def.name
+                        && (type_def.modifiers.public || &type_def.namespace == namespace)
+                }
+                ASTType::Unit => false,
+            })
+            .map(|(_ast_type, ast_typed_type)| ast_typed_type)
+            .cloned()
     }
 }
 
@@ -1523,6 +1557,7 @@ fn typed_type(
             param_types: _,
             index: _,
         } => {
+            /*
             if name == "IOError" {
                 println!("namespace {namespace}, custom_namespace {custom_namespace}");
                 let struct_def = conv_context.module.structs.iter().find(|it| {
@@ -1530,12 +1565,13 @@ fn typed_type(
                 });
                 println!("struct_def {}", OptionDisplay(&struct_def));
             }
+             */
             if let Some(enum_def) =
                 conv_context.module.enums.iter().find(|it| {
                     (it.modifiers.public || &it.namespace == namespace) && &it.name == name
                 })
             {
-                if let Some(e) = conv_context.get_enum(ast_type) {
+                if let Some(e) = conv_context.get_enum(enum_def, ast_type) {
                     e
                 } else {
                     conv_context.add_enum(namespace, ast_type, enum_def)
@@ -1545,7 +1581,7 @@ fn typed_type(
                     (it.modifiers.public || &it.namespace == namespace) && &it.name == name
                 })
             {
-                if let Some(e) = conv_context.get_struct(&struct_def, ast_type) {
+                if let Some(e) = conv_context.get_struct(struct_def, ast_type) {
                     e
                 } else {
                     conv_context.add_struct(namespace, ast_type, struct_def)
@@ -1555,10 +1591,10 @@ fn typed_type(
                     (it.modifiers.public || &it.namespace == namespace) && &it.name == name
                 })
             {
-                if let Some(e) = conv_context.get_type(ast_type) {
+                if let Some(e) = conv_context.get_type(t, ast_type) {
                     e
                 } else {
-                    conv_context.add_type(ast_type, t)
+                    conv_context.add_type(namespace, ast_type, t)
                 }
             } else {
                 println!(
