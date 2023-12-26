@@ -812,6 +812,7 @@ mod tests {
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use crate::utils::test_namespace;
 
     #[test]
     fn test() {
@@ -929,7 +930,7 @@ mod tests {
         assert!(result.is_some());
 
         let call = ASTFunctionCall {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![
@@ -1016,7 +1017,7 @@ mod tests {
             original_name: name.into(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
         }
     }
 
@@ -1040,7 +1041,7 @@ mod tests {
             original_name: name.into(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
         }
     }
 
@@ -1067,7 +1068,7 @@ mod tests {
             original_name: "add".into(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
         }
     }
 }

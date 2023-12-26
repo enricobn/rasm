@@ -276,6 +276,7 @@ mod tests {
     use crate::parser::ast::{ASTEnumVariantDef, ASTIndex, ASTParameterDef, ASTType};
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
+    use crate::utils::test_namespace;
 
     use super::*;
 
@@ -300,7 +301,7 @@ mod tests {
     #[test]
     fn test() {
         let parse_result = try_parse_enum(
-            &ASTNameSpace::global(),
+            &test_namespace(),
             "enum Option<T> {
             Empty,
             Some(value: T)
@@ -327,7 +328,7 @@ mod tests {
             parse_result,
             Some((
                 ASTEnumDef {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
@@ -431,7 +432,7 @@ mod tests {
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
-                                namespace: ASTNameSpace::global(),
+                                namespace: test_namespace(),
                                 name: "List".into(),
                                 param_types: vec![Generic("T".into())],
                                 index: ASTIndex::none()
@@ -554,7 +555,7 @@ mod tests {
                         ASTParameterDef {
                             name: "tail".into(),
                             ast_type: ASTType::Custom {
-                                namespace: ASTNameSpace::global(),
+                                namespace: test_namespace(),
                                 name: "List".into(),
                                 param_types: vec![Generic("T".into())],
                                 index: ASTIndex::new(None, 2, 39),
@@ -629,7 +630,7 @@ mod tests {
     #[test]
     fn test_pub() {
         let parse_result = try_parse_enum(
-            &ASTNameSpace::global(),
+            &test_namespace(),
             "pub enum Option<T> {
             Empty,
             Some(value: T)
@@ -656,7 +657,7 @@ mod tests {
             parse_result,
             Some((
                 ASTEnumDef {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
@@ -673,7 +674,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.try_parse(&ASTNameSpace::global(), &parser)
+        sut.try_parse(&test_namespace(), &parser)
     }
 
     fn try_parse_enum(namespace: &ASTNameSpace, source: &str) -> Option<(ASTEnumDef, usize)> {
@@ -693,7 +694,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.parse_variants(&ASTNameSpace::global(), &parser, type_parameters, n)
+        sut.parse_variants(&test_namespace(), &parser, type_parameters, n)
             .unwrap()
     }
 
@@ -701,6 +702,6 @@ mod tests {
         let parser = get_parser(source);
 
         let matcher = EnumParser::variant_matcher("", Quantifier::One, type_parameters);
-        matcher.match_tokens(&ASTNameSpace::global(), &parser, 0)
+        matcher.match_tokens(&test_namespace(), &parser, 0)
     }
 }

@@ -29,7 +29,12 @@ impl ASTNameSpace {
     }
 
     pub fn root_namespace(project: &RasmProject) -> Self {
-        Self::new(project.config.package.name.clone(), "".to_string())
+        let namespace_path = if let Some(p) = &project.config.package.main {
+            p.strip_suffix(".rasm").unwrap().to_string()
+        } else {
+            String::new()
+        };
+        Self::new(project.config.package.name.clone(), namespace_path)
     }
 
     pub fn global() -> Self {
@@ -541,6 +546,25 @@ impl ASTModule {
     }
 }
 
+pub trait CustomTypeDef {
+    fn name(&self) -> &str;
+    fn modifiers(&self) -> &ASTModifiers;
+
+    fn namespace(&self) -> &ASTNameSpace;
+
+    fn is_compatible_with(&self, ast_type: &ASTType) -> bool {
+        match ast_type {
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types: _param_types,
+                index,
+            } => self.name() == name && (self.modifiers().public || self.namespace() == namespace),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTEnumDef {
     pub namespace: ASTNameSpace,
@@ -549,6 +573,20 @@ pub struct ASTEnumDef {
     pub variants: Vec<ASTEnumVariantDef>,
     pub index: ASTIndex,
     pub modifiers: ASTModifiers,
+}
+
+impl CustomTypeDef for ASTEnumDef {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn modifiers(&self) -> &ASTModifiers {
+        &self.modifiers
+    }
+
+    fn namespace(&self) -> &ASTNameSpace {
+        &self.namespace
+    }
 }
 
 impl Display for ASTEnumDef {
@@ -602,6 +640,20 @@ pub struct ASTStructDef {
     pub modifiers: ASTModifiers,
 }
 
+impl CustomTypeDef for ASTStructDef {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn modifiers(&self) -> &ASTModifiers {
+        &self.modifiers
+    }
+
+    fn namespace(&self) -> &ASTNameSpace {
+        &self.namespace
+    }
+}
+
 impl Display for ASTStructDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self
@@ -624,6 +676,20 @@ pub struct ASTTypeDef {
     pub modifiers: ASTModifiers,
 }
 
+impl CustomTypeDef for ASTTypeDef {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn modifiers(&self) -> &ASTModifiers {
+        &self.modifiers
+    }
+
+    fn namespace(&self) -> &ASTNameSpace {
+        &self.namespace
+    }
+}
+
 impl Display for ASTTypeDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("type {}", self.name))
@@ -644,22 +710,26 @@ pub fn lambda_unit() -> ASTType {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
+    use crate::utils::test_namespace;
 
     #[test]
     fn display() {
         let inner_type = ASTType::Custom {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "Option".to_owned(),
             param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
             index: ASTIndex::none(),
         };
 
         let ast_type = ASTType::Custom {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
             index: ASTIndex::none(),
         };
-        assert_eq!(format!("{ast_type}"), "List<Option<str>>");
+        assert_eq!(
+            format!("{ast_type}"),
+            "test:test:List<test:test:Option<str>>"
+        );
     }
 }

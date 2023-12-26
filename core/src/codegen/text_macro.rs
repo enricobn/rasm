@@ -1479,6 +1479,7 @@ mod tests {
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
+    use crate::utils::test_namespace;
 
     #[test]
     fn call() {
@@ -1570,7 +1571,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1611,7 +1612,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1673,7 +1674,7 @@ mod tests {
         let backend = backend();
 
         let function_def = ASTTypedFunctionDef {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1753,7 +1754,7 @@ mod tests {
             index: ASTIndex::none(),
             resolved_generic_types: ResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
         };
 
         let result = backend.get_evaluator().get_macros(
@@ -1765,7 +1766,7 @@ mod tests {
         );
 
         assert_eq!(
-            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)] }, 0)])",
+            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: ASTIndex { file_name: None, row: 0, column: 0 } }, 0)])",
             &format!("{:?}", result),
         );
     }
@@ -1776,14 +1777,14 @@ mod tests {
         let type_parser = TypeParser::new(&parser);
 
         match type_parser
-            .try_parse_ast_type(&ASTNameSpace::global(), 0, &[])
+            .try_parse_ast_type(&test_namespace(), 0, &[])
             .unwrap()
         {
             None => panic!("Unsupported type"),
             Some((ast_type, _)) => assert_eq!(
                 ast_type,
                 ASTType::Custom {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "List".into(),
                     param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
                     index: ASTIndex::none()

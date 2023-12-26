@@ -159,11 +159,12 @@ mod tests {
     };
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
+    use crate::utils::test_namespace;
 
     #[test]
     fn test() {
         let parse_result = try_parse_struct(
-            &ASTNameSpace::global(),
+            &test_namespace(),
             "struct Point {
             x: i32,
             y: i32
@@ -186,7 +187,7 @@ mod tests {
             parse_result,
             Some((
                 ASTStructDef {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
@@ -201,7 +202,7 @@ mod tests {
     #[test]
     fn test_parametric() {
         let parse_result = try_parse_struct(
-            &ASTNameSpace::global(),
+            &test_namespace(),
             "struct EnumerateEntry<T> {
             index: i32,
             value: T
@@ -224,7 +225,7 @@ mod tests {
             parse_result,
             Some((
                 ASTStructDef {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],

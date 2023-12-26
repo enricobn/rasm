@@ -215,7 +215,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 },
                 ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                     let mut new_lambda_calls = self.add_let(
-                        &ASTNameSpace::global(), // TODO is it right?
+                        &expr.namespace(),
                         &mut context,
                         &stack,
                         &mut after,
@@ -522,7 +522,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
                         let name = format!("lambda{}", id);
                         let mut def = ASTTypedFunctionDef {
-                            namespace: ASTNameSpace::global(), // TODO is correct?
+                            namespace: function_call.namespace.clone(),
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: name.clone(),
                             original_name: name,
@@ -1160,7 +1160,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
                                         let name = format!("lambda{}", id);
                                         let def = ASTTypedFunctionDef {
-                                            namespace: ASTNameSpace::global(), // TODO is correct?
+                                            namespace: function_def.namespace.clone(),
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                             name: name.clone(),
                                             original_name: name,

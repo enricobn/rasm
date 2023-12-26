@@ -367,6 +367,7 @@ mod tests {
     use crate::type_check::resolve_generic_types_from_effective_type;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
+    use crate::utils::test_namespace;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -389,13 +390,13 @@ mod tests {
     #[test]
     fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
         let generic_type = ASTType::Custom {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "List".into(),
             param_types: vec![generic("T")],
             index: ASTIndex::none(),
         };
         let effective_type = ASTType::Custom {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "List".into(),
             param_types: vec![i32()],
             index: ASTIndex::none(),

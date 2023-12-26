@@ -358,7 +358,7 @@ impl BackendNasmi386 {
                     }
                     if is_deref {
                         body.push_str(&self.call_deref(
-                            &ASTNameSpace::global(), // is it correct?
+                            namespace,
                             &format!("[ebx + {}]", i * self.word_len()),
                             &type_name,
                             &format!("\"{val_name}\" in lambda context"),
@@ -367,7 +367,7 @@ impl BackendNasmi386 {
                         ));
                     } else {
                         self.call_add_ref(
-                            &ASTNameSpace::global(), // TOD is it correct?
+                            namespace,
                             &mut body,
                             &format!("[ebx + {}]", i * self.word_len()),
                             &type_name,
@@ -399,7 +399,7 @@ impl BackendNasmi386 {
         ];
 
         Some(ASTTypedFunctionDef {
-            namespace: ASTNameSpace::global(), // TOD is correct?
+            namespace: namespace.clone(),
             name: name.to_owned(),
             original_name: name.to_owned(),
             parameters,

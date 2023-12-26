@@ -1466,7 +1466,7 @@ mod tests {
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::SliceDisplay;
+    use crate::utils::{test_namespace, SliceDisplay};
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1544,7 +1544,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(Path::new(""), &ASTNameSpace::global());
+        let (module, _) = parser.parse(Path::new(""), &test_namespace());
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1557,7 +1557,7 @@ mod tests {
             original_name: "p".into(),
             index: ASTIndex::new(None, 1, 4),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1595,12 +1595,12 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), &ASTNameSpace::global());
+        let (module, errors) = parser.parse(Path::new("."), &test_namespace());
 
         println!("{}", SliceDisplay(&errors));
 
         let function_call = ASTFunctionCall {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             function_name: "println".to_string(),
             original_function_name: "println".to_string(),
             parameters: vec![ASTExpression::Value(
@@ -1623,12 +1623,12 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), &ASTNameSpace::global());
+        let (module, errors) = parser.parse(Path::new("."), &test_namespace());
 
         println!("{}", SliceDisplay(&errors));
 
         let function_call = ASTFunctionCall {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             function_name: "println".to_string(),
             original_function_name: "println".to_string(),
             parameters: vec![ASTExpression::ValueRef(
@@ -1654,7 +1654,7 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path, &ASTNameSpace::global()).0
+        parser.parse(path, &test_namespace()).0
     }
 
     fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
@@ -1662,6 +1662,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path, &ASTNameSpace::global())
+        parser.parse(path, &test_namespace())
     }
 }

@@ -240,6 +240,7 @@ impl<'a> TypeParser<'a> {
 mod tests {
     use crate::parser::ast::{lambda_unit, ASTIndex};
     use crate::parser::test_utils::get_parser;
+    use crate::utils::test_namespace;
 
     use super::*;
 
@@ -279,7 +280,7 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "Dummy".into(),
                     param_types: vec![Generic("T".into()), Generic("T1".into()),],
                     index: ASTIndex::new(None, 1, 6)
@@ -302,7 +303,7 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "T".into(),
                     param_types: vec![],
                     index: ASTIndex::new(None, 1, 2)
@@ -317,7 +318,7 @@ mod tests {
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
         let option_t = Custom {
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(),
             name: "Option".into(),
             param_types: vec![Generic("T".into())],
             index: ASTIndex::new(None, 1, 12),
@@ -325,7 +326,7 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: ASTNameSpace::global(),
+                    namespace: test_namespace(),
                     name: "List".into(),
                     param_types: vec![option_t],
                     index: ASTIndex::new(None, 1, 5)
@@ -345,7 +346,6 @@ mod tests {
 
         let sut = TypeParser::new(&parser);
 
-        sut.try_parse(&ASTNameSpace::global(), 0, context, 0)
-            .unwrap()
+        sut.try_parse(&test_namespace(), 0, context, 0).unwrap()
     }
 }

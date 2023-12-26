@@ -287,6 +287,7 @@ mod tests {
 
     use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind};
     use crate::parser::test_utils::get_parser;
+    use crate::utils::test_namespace;
 
     use super::*;
 
@@ -344,7 +345,7 @@ mod tests {
         matcher.add_alphanumeric();
         matcher.add_alphanumeric();
 
-        if let Some(match_result) = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(vec!["n1", "n2"], match_result.alphas());
         } else {
             panic!()
@@ -361,7 +362,7 @@ mod tests {
         matcher.add_alphanumeric();
         matcher.end_group();
 
-        if let Some(match_result) = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(vec!["n1"], match_result.alphas());
             assert_eq!(vec!["n2"], match_result.group_alphas("g1"));
         } else {
@@ -381,7 +382,7 @@ mod tests {
         matcher.add_matcher(g1);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        if let Some(match_result) = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(vec!["n1"], match_result.alphas());
             assert_eq!(vec!["n2", "n3"], match_result.group_alphas("g1"));
         } else {
@@ -401,7 +402,7 @@ mod tests {
         matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        if let Some(match_result) = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(
                 vec![
                     TokenKind::KeyWord(KeywordKind::Enum),
@@ -426,7 +427,7 @@ mod tests {
         let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Native));
 
-        let match_result = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0);
+        let match_result = matcher.match_tokens(&test_namespace(), &parser, 0);
 
         assert!(match_result.is_none());
     }
@@ -439,7 +440,7 @@ mod tests {
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
 
-        let match_result = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0);
+        let match_result = matcher.match_tokens(&test_namespace(), &parser, 0);
 
         assert!(match_result.is_none());
     }
@@ -466,7 +467,7 @@ mod tests {
 
         let parser = get_parser("enum Option {");
 
-        if let Some(match_result) = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(
                 vec![
                     TokenKind::KeyWord(KeywordKind::Enum),
@@ -485,7 +486,7 @@ mod tests {
 
         let parser = get_parser("enum Option<T,Y> {");
 
-        if let Some(match_result) = matcher.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(
                 vec![
                     TokenKind::KeyWord(KeywordKind::Enum),
@@ -520,7 +521,7 @@ mod tests {
 
         let parser = get_parser("");
 
-        if let Some(match_result) = param_types.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = param_types.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(Vec::<String>::new(), match_result.alphas());
         } else {
             panic!()
@@ -528,7 +529,7 @@ mod tests {
 
         let parser = get_parser("<T>");
 
-        if let Some(match_result) = param_types.match_tokens(&ASTNameSpace::global(), &parser, 0) {
+        if let Some(match_result) = param_types.match_tokens(&test_namespace(), &parser, 0) {
             assert_eq!(vec!["T"], match_result.alphas());
             assert_eq!(3, match_result.next_n());
         } else {

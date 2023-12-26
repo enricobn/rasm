@@ -1,3 +1,4 @@
+use crate::parser::ast::ASTNameSpace;
 use std::fmt;
 use std::fmt::Display;
 use std::slice::Iter;
@@ -65,4 +66,9 @@ where
         return None;
     }
     filter.get(0).cloned()
+}
+
+#[cfg(test)]
+pub fn test_namespace() -> ASTNameSpace {
+    ASTNameSpace::new("test".to_string(), "test".to_string())
 }

@@ -581,6 +581,7 @@ mod tests {
     use rasm_core::codegen::CompileTarget;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::RasmProject;
+    use rasm_core::utils::SliceDisplay;
 
     use crate::reference_finder::{CompletionResult, ReferenceFinder, SelectableItem};
 
@@ -711,9 +712,8 @@ mod tests {
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
         match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17)) {
             Ok(CompletionResult::Found(items)) => {
-                assert!(
-                    format_collection_items(items).contains(&"anI32(v:AStruct) -> i32".to_string())
-                );
+                assert!(format_collection_items(&items)
+                    .contains(&"anI32(v::types:AStruct) -> i32".to_string()));
             }
             Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
             Err(error) => {
@@ -722,7 +722,7 @@ mod tests {
         }
     }
 
-    fn format_collection_items(items: Vec<CompletionItem>) -> Vec<String> {
+    fn format_collection_items(items: &[CompletionItem]) -> Vec<String> {
         items.iter().map(|it| it.descr.clone()).collect::<Vec<_>>()
     }
 

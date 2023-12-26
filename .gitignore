@@ -3,3 +3,4 @@ target/
 /.swp
 /local/
 /.vscode/launch.json
+debug.log.xml

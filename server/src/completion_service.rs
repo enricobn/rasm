@@ -562,7 +562,7 @@ mod tests {
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: ASTNameSpace::global(),
+            namespace: test_namespace(), // HENRY
         };
 
         let mut function2 = function1.clone();
@@ -610,5 +610,9 @@ mod tests {
             })
             .try_init()
             .unwrap_or(());
+    }
+
+    pub fn test_namespace() -> ASTNameSpace {
+        ASTNameSpace::new("test".to_string(), "test".to_string())
     }
 }

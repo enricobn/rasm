@@ -1350,6 +1350,7 @@ mod tests {
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::{convert_to_typed_module, get_default_functions};
+    use crate::utils::test_namespace;
 
     #[test]
     pub fn fibonacci() {
@@ -1384,7 +1385,7 @@ mod tests {
         assert_eq!(
             0,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
-                namespace: ASTNameSpace::global(),
+                namespace: test_namespace(),
                 param_types: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
                 name: "".to_owned(),
                 index: ASTIndex::none()
@@ -1397,7 +1398,7 @@ mod tests {
         assert_eq!(
             usize::MAX / 100 / 100,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
-                namespace: ASTNameSpace::global(),
+                namespace: test_namespace(),
                 param_types: vec![ASTType::Generic("".to_owned())],
                 name: "".to_owned(),
                 index: ASTIndex::none()
