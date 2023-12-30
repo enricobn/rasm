@@ -551,8 +551,9 @@ impl RasmProject {
                         self.module_from_file(&path.canonicalize().unwrap(), namespace);
                     // const statements are allowed
                     let has_body = entry_module.body.iter().any(|it| match it {
-                        ASTStatement::Expression(_) => false,
+                        ASTStatement::Expression(ASTFunctionCallExpression(_)) => true,
                         ASTStatement::LetStatement(_, _, is_const, _) => !is_const,
+                        _ => false,
                     });
 
                     if body {

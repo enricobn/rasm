@@ -240,7 +240,7 @@ impl<'a> TypeParser<'a> {
 mod tests {
     use crate::parser::ast::{lambda_unit, ASTIndex};
     use crate::parser::test_utils::get_parser;
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     use super::*;
 

@@ -807,12 +807,12 @@ mod tests {
     use crate::parser::ast::ASTFunctionBody::NativeBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
-        ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
+        ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     #[test]
     fn test() {

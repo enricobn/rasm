@@ -193,7 +193,7 @@ impl ASTType {
                 index,
             } => match other {
                 ASTType::Custom {
-                    namespace,
+                    namespace: other_namespace,
                     name: other_name,
                     param_types: other_param_types,
                     index,
@@ -206,6 +206,26 @@ impl ASTType {
                 _ => false,
             },
             _ => self == other,
+        }
+    }
+
+    pub fn with_namespace(&self, namespace: &ASTNameSpace) -> Self {
+        match self {
+            ASTType::Custom {
+                namespace: _,
+                name,
+                param_types,
+                index,
+            } => ASTType::Custom {
+                namespace: namespace.clone(),
+                name: name.clone(),
+                param_types: param_types
+                    .iter()
+                    .map(|it| it.with_namespace(namespace))
+                    .collect::<Vec<_>>(),
+                index: index.clone(),
+            },
+            _ => self.clone(),
         }
     }
 }
@@ -303,7 +323,12 @@ impl Display for ASTFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
 
-        f.write_str(&format!("{}({})", self.function_name, pars.join(",")))
+        f.write_str(&format!(
+            "{}::{}({})",
+            self.namespace,
+            self.function_name,
+            pars.join(",")
+        ))
     }
 }
 
@@ -428,9 +453,14 @@ impl Display for ASTExpression {
         match self {
             ASTExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
             ASTExpression::ASTFunctionCallExpression(call) => {
-                let pars: Vec<String> =
+                /*let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
+
+
                 f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
+
+                 */
+                f.write_str(&format!("{call}"))
             }
             ASTExpression::ValueRef(name, _index) => f.write_str(name),
             ASTExpression::Value(val_type, _) => match val_type {
@@ -546,7 +576,7 @@ impl ASTModule {
     }
 }
 
-pub trait CustomTypeDef {
+pub trait CustomTypeDef: Display {
     fn name(&self) -> &str;
     fn modifiers(&self) -> &ASTModifiers;
 
@@ -709,8 +739,8 @@ pub fn lambda_unit() -> ASTType {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
-    use crate::utils::test_namespace;
+    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::utils::tests::test_namespace;
 
     #[test]
     fn display() {

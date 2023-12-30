@@ -159,7 +159,7 @@ mod tests {
     };
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     #[test]
     fn test() {

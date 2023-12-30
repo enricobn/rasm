@@ -1,4 +1,3 @@
-use crate::parser::ast::ASTNameSpace;
 use std::fmt;
 use std::fmt::Display;
 use std::slice::Iter;
@@ -69,6 +68,10 @@ where
 }
 
 #[cfg(test)]
-pub fn test_namespace() -> ASTNameSpace {
-    ASTNameSpace::new("test".to_string(), "test".to_string())
+pub mod tests {
+    use crate::parser::ast::ASTNameSpace;
+
+    pub fn test_namespace() -> ASTNameSpace {
+        ASTNameSpace::new("test".to_string(), "test".to_string())
+    }
 }

@@ -17,6 +17,7 @@
  */
 
 use crate::codegen::statics::Statics;
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
 use crate::errors::CompilationError;
@@ -292,7 +293,13 @@ fn verify_expression(
                 if &real_type != et {
                     Err(verify_error(
                         expr.get_index().unwrap_or(ASTIndex::none()),
-                        format!("Expected {et} but got {real_type}"),
+                        format!(
+                            "Expected {} ({}) but got {} ({})",
+                            et,
+                            module.get_type_from_typed_type(et).unwrap(),
+                            real_type,
+                            module.get_type_from_typed_type(&real_type).unwrap(),
+                        ),
                     ))
                 } else {
                     Ok(())

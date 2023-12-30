@@ -581,7 +581,6 @@ mod tests {
     use rasm_core::codegen::CompileTarget;
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::RasmProject;
-    use rasm_core::utils::SliceDisplay;
 
     use crate::reference_finder::{CompletionResult, ReferenceFinder, SelectableItem};
 

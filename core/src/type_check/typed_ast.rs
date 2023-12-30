@@ -1,5 +1,6 @@
 use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
+use std::iter::zip;
 use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
@@ -25,7 +26,7 @@ use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{get_new_native_call, substitute, verify};
-use crate::utils::{find_one, OptionDisplay, SliceDisplay};
+use crate::utils::SliceDisplay;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -446,7 +447,7 @@ pub struct ASTTypedTypeDef {
     pub index: ASTIndex,
 }
 
-pub trait CustomTypedTypeDef {
+pub trait CustomTypedTypeDef: Display + Debug {
     fn modifiers(&self) -> &ASTModifiers;
 
     fn namespace(&self) -> &ASTNameSpace;
@@ -454,11 +455,6 @@ pub trait CustomTypedTypeDef {
     fn ast_typed_type(&self) -> &ASTTypedType;
 
     fn ast_type(&self) -> &ASTType;
-
-    fn is_compatible_with(&self, ast_type: &ASTType) -> bool {
-        self.ast_type().equals_excluding_namespace(ast_type)
-            && (self.modifiers().public || self.namespace() == &ast_type.namespace())
-    }
 }
 
 impl CustomTypedTypeDef for ASTTypedTypeDef {
@@ -576,7 +572,7 @@ impl<'a> ConvContext<'a> {
                     .iter()
                     .map(|it| {
                         enum_variant(
-                            &enum_def.namespace,
+                            namespace,
                             self,
                             it,
                             &generic_to_type,
@@ -587,8 +583,16 @@ impl<'a> ConvContext<'a> {
                     })
                     .collect();
 
+                /*
+                   during enum variants generation we could generate the same enum type
+                */
+                if let Some(enum_typed_type) = self.get_enum(enum_def, enum_type) {
+                    return enum_typed_type;
+                }
+
+                /*
                 if let Some(found) = self.enum_defs.iter().find(|it| it.variants == variants) {
-                    println!("found enum {found}");
+                    //println!("found enum {found}");
                     self.enums
                         .values()
                         .find(|it| match it {
@@ -598,21 +602,23 @@ impl<'a> ConvContext<'a> {
                         .unwrap()
                         .clone()
                 } else {
-                    self.enum_defs.push(ASTTypedEnumDef {
-                        namespace: enum_def.namespace.clone(),
-                        modifiers: enum_def.modifiers.clone(),
-                        name: new_name,
-                        variants,
-                        ast_type: enum_type.clone(),
-                        ast_typed_type: enum_typed_type.clone(),
-                        index: enum_def.index.clone(),
-                    });
 
-                    self.enums
-                        .insert(enum_type.clone(), enum_typed_type.clone());
+                 */
+                self.enum_defs.push(ASTTypedEnumDef {
+                    namespace: enum_def.namespace.clone(),
+                    modifiers: enum_def.modifiers.clone(),
+                    name: new_name,
+                    variants,
+                    ast_type: enum_type.clone(),
+                    ast_typed_type: enum_typed_type.clone(),
+                    index: enum_def.index.clone(),
+                });
 
-                    enum_typed_type
-                }
+                self.enums
+                    .insert(enum_type.clone(), enum_typed_type.clone());
+
+                enum_typed_type
+                // }
             }
             _ => {
                 panic!()
@@ -621,11 +627,13 @@ impl<'a> ConvContext<'a> {
     }
 
     pub fn get_enum(&self, enum_def: &ASTEnumDef, enum_type: &ASTType) -> Option<ASTTypedType> {
-        //Self::get_def_typed_type(enum_def, &self.enums)
-        self.enum_defs
-            .iter()
-            .find(|typed_type_def| typed_type_def.is_compatible_with(enum_type))
-            .map(|it| it.ast_typed_type.clone())
+        self.get_def_typed_type(enum_def, enum_type, &self.enums)
+        /*self.enum_defs
+           .iter()
+           .find(|typed_type_def| typed_type_def.is_compatible_with(enum_type))
+           .map(|it| it.ast_typed_type.clone())
+
+        */
     }
 
     pub fn add_struct(
@@ -698,7 +706,7 @@ impl<'a> ConvContext<'a> {
         struct_def: &ASTStructDef,
         struct_type: &ASTType,
     ) -> Option<ASTTypedType> {
-        Self::get_def_typed_type(struct_def, &self.structs)
+        self.get_def_typed_type(struct_def, struct_type, &self.structs)
 
         /*self.struct_defs
            .iter()
@@ -769,33 +777,124 @@ impl<'a> ConvContext<'a> {
     }
 
     pub fn get_type(&self, type_def: &ASTTypeDef, type_def_type: &ASTType) -> Option<ASTTypedType> {
-        //Self::get_def_typed_type(type_def, &self.types)
-        self.type_defs
-            .iter()
-            .find(|typed_type_def| typed_type_def.is_compatible_with(type_def_type))
-            .map(|it| it.ast_typed_type.clone())
+        self.get_def_typed_type(type_def, type_def_type, &self.types)
+        /*self.type_defs
+           .iter()
+           .find(|typed_type_def| typed_type_def.is_compatible_with(type_def_type))
+           .map(|it| it.ast_typed_type.clone())
+
+        */
     }
 
     fn get_def_typed_type(
+        &self,
         type_def: &dyn CustomTypeDef,
-        ast_ty_to_ast_typed_type_map: &LinkedHashMap<ASTType, ASTTypedType>,
+        ast_type: &ASTType,
+        ast_type_to_ast_typed_type_map: &LinkedHashMap<ASTType, ASTTypedType>,
     ) -> Option<ASTTypedType> {
-        ast_ty_to_ast_typed_type_map
-            .iter()
-            .find(|(ast_type, _ast_typed_type)| match ast_type {
-                ASTType::Custom {
-                    namespace,
-                    name,
-                    param_types: _,
-                    index: _,
-                } => {
-                    name == type_def.name()
-                        && (type_def.modifiers().public || type_def.namespace() == namespace)
+        match ast_type {
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => ast_type_to_ast_typed_type_map
+                .iter()
+                .find(
+                    |(type_def_ast_type, _ast_typed_type)| match type_def_ast_type {
+                        ASTType::Custom {
+                            namespace: candidate_namespace,
+                            name: candidate_name,
+                            param_types: candidate_param_types,
+                            index: _,
+                        } => {
+                            name == candidate_name
+                                && (type_def.modifiers().public
+                                    || type_def.namespace() == candidate_namespace)
+                                && param_types.len() == candidate_param_types.len()
+                                && zip(param_types.iter(), candidate_param_types.iter()).all(
+                                    |(param_type, candidate_param_type)| {
+                                        if param_type
+                                            .equals_excluding_namespace(candidate_param_type)
+                                        {
+                                            if let ASTType::Custom { .. } = param_type {
+                                                if let Some(p_type_def) =
+                                                    self.get_type_def(param_type)
+                                                {
+                                                    p_type_def.modifiers().public
+                                                        || p_type_def.namespace()
+                                                            == &candidate_param_type.namespace()
+                                                } else {
+                                                    panic!()
+                                                }
+                                            } else {
+                                                true
+                                            }
+                                        } else {
+                                            false
+                                        }
+                                    },
+                                )
+                        }
+                        _ => false,
+                    },
+                )
+                .map(|(ast_type, ast_typed_type)| ast_typed_type)
+                .cloned(),
+            _ => {
+                panic!()
+            }
+        }
+    }
+
+    pub fn get_type_def(&self, ast_type: &ASTType) -> Option<&dyn CustomTypeDef> {
+        //println!("get_type_def {ast_type}");
+        if let ASTType::Custom {
+            namespace,
+            name,
+            param_types,
+            index,
+        } = ast_type
+        {
+            if !param_types.iter().all(|param_type| {
+                if let ASTType::Custom { .. } = param_type {
+                    if let Some(p_type_def) = self.get_type_def(param_type) {
+                        p_type_def.modifiers().public
+                            || p_type_def.namespace() == &param_type.namespace()
+                    } else {
+                        panic!()
+                    }
+                } else {
+                    true
                 }
-                _ => false,
-            })
-            .map(|(_ast_type, ast_typed_type)| ast_typed_type)
-            .cloned()
+            }) {
+                return None;
+            }
+
+            if let Some(enum_def) =
+                self.module.enums.iter().find(|it| {
+                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
+                })
+            {
+                Some(enum_def)
+            } else if let Some(struct_def) =
+                self.module.structs.iter().find(|it| {
+                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
+                })
+            {
+                Some(struct_def)
+            } else if let Some(t) =
+                self.module.types.iter().find(|it| {
+                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
+                })
+            {
+                Some(t)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -1243,6 +1342,11 @@ pub fn function_def(
         &def.return_type,
         &format!("function {} return type", def.name),
     );
+
+    if def.name == "stdlib_vec_map_stdlib_vecVeci32_fni32stdlib_optionOptionstdlib_io_printIOError_stdlib_vecVecstdlib_optionOptionstdlib_io_printIOError" {
+        println!("function_return_type {function_return_type}");
+    }
+
     let typed_function_def = ASTTypedFunctionDef {
         namespace: def.namespace.clone(),
         name: def.name.clone(),
@@ -1516,12 +1620,7 @@ fn enum_variant(
                     } else {
                         ASTTypedParameterDef {
                             name: it.name.clone(),
-                            ast_type: typed_type(
-                                &new_type.namespace(),
-                                conv_context,
-                                &new_type,
-                                "",
-                            ),
+                            ast_type: typed_type(namespace, conv_context, &new_type, ""),
                             ast_index: it.ast_index.clone(),
                         }
                     }
@@ -1579,7 +1678,14 @@ fn typed_type(
     ast_type: &ASTType,
     message: &str,
 ) -> ASTTypedType {
-    match ast_type {
+    /*
+    if format!("{ast_type}").contains("TestModel") {
+        println!("typed_type {namespace} {ast_type}");
+    }
+
+     */
+
+    let result = match ast_type {
         ASTType::Builtin(kind) => match kind {
             BuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             BuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
@@ -1618,6 +1724,7 @@ fn typed_type(
             param_types: _,
             index: _,
         } => {
+            /*
             if name == "TestModel" {
                 let struct_defs = conv_context
                     .struct_defs
@@ -1626,34 +1733,34 @@ fn typed_type(
                     .collect::<Vec<_>>();
                 println!("TestModel struct: {}", SliceDisplay(&struct_defs));
             }
-            if let Some(enum_def) =
-                conv_context.module.enums.iter().find(|it| {
-                    (it.modifiers.public || &it.namespace == namespace) && &it.name == name
-                })
-            {
+
+             */
+
+            if let Some(enum_def) = conv_context.module.enums.iter().find(|it| {
+                (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
+            }) {
                 if let Some(e) = conv_context.get_enum(enum_def, ast_type) {
                     e
                 } else {
                     conv_context.add_enum(namespace, ast_type, enum_def)
                 }
-            } else if let Some(struct_def) =
-                conv_context.module.structs.iter().find(|it| {
-                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
-                })
-            {
+            } else if let Some(struct_def) = conv_context.module.structs.iter().find(|it| {
+                &it.name == name && (it.modifiers.public || it.namespace == ast_type.namespace())
+            }) {
                 if let Some(e) = conv_context.get_struct(struct_def, ast_type) {
                     e
                 } else {
                     conv_context.add_struct(namespace, ast_type, struct_def)
                 }
-            } else if let Some(t) =
-                conv_context.module.types.iter().find(|it| {
-                    (it.modifiers.public || &it.namespace == namespace) && &it.name == name
-                })
-            {
+            } else if let Some(t) = conv_context.module.types.iter().find(|it| {
+                (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
+            }) {
+                /*
                 if name == "TestModel" {
                     println!("found TestModel");
                 }
+
+                 */
                 if let Some(e) = conv_context.get_type(t, ast_type) {
                     e
                 } else {
@@ -1673,7 +1780,16 @@ fn typed_type(
             }
         }
         ASTType::Unit => ASTTypedType::Unit,
+    };
+
+    /*
+    if format!("{ast_type}").contains("TestModel") {
+        println!("  result {result}");
     }
+
+     */
+
+    result
 }
 
 pub fn print_typed_module(module: &ASTTypedModule) {
@@ -1846,6 +1962,179 @@ impl DefaultFunction {
                 .collect(),
             index: ASTIndex::none(),
             generics: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::codegen::enhanced_module::EnhancedASTModule;
+    use crate::parser::ast::{
+        ASTEnumDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTStructDef, ASTType,
+    };
+    use crate::type_check::functions_container::FunctionsContainer;
+    use crate::type_check::typed_ast::{typed_type, ASTTypedType, ConvContext};
+    use linked_hash_map::LinkedHashMap;
+
+    #[test]
+    pub fn get_def_typed_type() {
+        let first_namespace = ASTNameSpace::new("".to_string(), "first".to_string());
+
+        let second_namespace = ASTNameSpace::new("".to_string(), "second".to_string());
+
+        let module = enhanced_module();
+        let sut = ConvContext::new(&module);
+
+        let result_first_ast_type = result_ast_type(
+            &first_namespace,
+            &simple_custom_ast_type("TestModel", &first_namespace),
+        );
+        let result_first_typed_type = ASTTypedType::Enum {
+            namespace: first_namespace.clone(),
+            name: "Result_1".to_string(),
+        };
+
+        let result_second_ast_type = result_ast_type(
+            &second_namespace,
+            &simple_custom_ast_type("TestModel", &second_namespace),
+        );
+        let result_second_typed_type = ASTTypedType::Enum {
+            namespace: second_namespace.clone(),
+            name: "Result_2".to_string(),
+        };
+
+        let mut ast_type_to_ast_typed_type_map = LinkedHashMap::new();
+        ast_type_to_ast_typed_type_map
+            .insert(result_first_ast_type.clone(), result_first_typed_type);
+        ast_type_to_ast_typed_type_map
+            .insert(result_second_ast_type.clone(), result_second_typed_type);
+
+        let result = sut.get_def_typed_type(
+            &result_type_def(),
+            &result_first_ast_type,
+            &ast_type_to_ast_typed_type_map,
+        );
+
+        assert_eq!(format!("{}", result.unwrap()), "Result_1");
+
+        let result = sut.get_def_typed_type(
+            &result_type_def(),
+            &result_second_ast_type,
+            &ast_type_to_ast_typed_type_map,
+        );
+
+        assert_eq!(format!("{}", result.unwrap()), "Result_2");
+    }
+
+    #[test]
+    fn test_typed_type() {
+        let first_namespace = ASTNameSpace::new("".to_string(), "first".to_string());
+
+        let second_namespace = ASTNameSpace::new("".to_string(), "second".to_string());
+
+        let module = enhanced_module();
+        let mut sut = ConvContext::new(&module);
+
+        let result = typed_type(
+            &first_namespace,
+            &mut sut,
+            &simple_custom_ast_type("TestModel", &first_namespace),
+            "",
+        );
+
+        println!("{result}");
+
+        let result = typed_type(
+            &second_namespace,
+            &mut sut,
+            &simple_custom_ast_type("TestModel", &second_namespace),
+            "",
+        );
+
+        println!("{result}");
+
+        let result = typed_type(
+            &first_namespace,
+            &mut sut,
+            &result_ast_type(
+                &first_namespace,
+                &simple_custom_ast_type("TestModel", &first_namespace),
+            ),
+            "",
+        );
+
+        println!("{result}");
+
+        let result = typed_type(
+            &second_namespace,
+            &mut sut,
+            &result_ast_type(
+                &second_namespace,
+                &simple_custom_ast_type("TestModel", &second_namespace),
+            ),
+            "",
+        );
+
+        println!("{result}");
+    }
+
+    fn result_ast_type(namespace: &ASTNameSpace, ast_type: &ASTType) -> ASTType {
+        ASTType::Custom {
+            namespace: namespace.clone(),
+            name: "Result".to_string(),
+            param_types: vec![ast_type.clone()],
+            index: ASTIndex::none(),
+        }
+    }
+
+    fn enhanced_module() -> EnhancedASTModule {
+        let result_type_def = result_type_def();
+        let first_namespace = ASTNameSpace::new("".to_string(), "first".to_string());
+
+        let second_namespace = ASTNameSpace::new("".to_string(), "second".to_string());
+
+        EnhancedASTModule {
+            body: vec![],
+            functions_by_name: FunctionsContainer::new(),
+            enums: vec![result_type_def.clone()],
+            structs: vec![
+                simple_struct_def("TestModel", &first_namespace),
+                simple_struct_def("TestModel", &second_namespace),
+            ],
+            types: vec![],
+            body_namespace: ASTNameSpace::global(),
+            externals: Default::default(),
+        }
+    }
+
+    fn result_type_def() -> ASTEnumDef {
+        ASTEnumDef {
+            namespace: ASTNameSpace::new("std".to_string(), "result".to_string()),
+            name: "Result".to_string(),
+            modifiers: ASTModifiers::public(),
+            variants: vec![],
+            type_parameters: vec!["T".to_string()],
+            index: ASTIndex::none(),
+        }
+    }
+
+    fn simple_custom_ast_type(name: &str, namespace: &ASTNameSpace) -> ASTType {
+        ASTType::Custom {
+            namespace: namespace.clone(),
+            name: name.to_string(),
+            param_types: vec![],
+            index: ASTIndex::none(),
+        }
+    }
+
+    fn simple_struct_def(name: &str, namespace: &ASTNameSpace) -> ASTStructDef {
+        ASTStructDef {
+            namespace: namespace.clone(),
+            name: name.to_string(),
+            type_parameters: vec![],
+            properties: vec![],
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers::private(),
         }
     }
 }

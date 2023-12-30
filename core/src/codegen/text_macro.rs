@@ -23,6 +23,7 @@ use crate::type_check::substitute;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
 };
+use crate::utils::OptionDisplay;
 
 thread_local! {
     static COUNT : RefCell<usize> = RefCell::new(0);
@@ -38,29 +39,30 @@ pub enum MacroParam {
 impl Display for MacroParam {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            MacroParam::Plain(name, type_o, typed_type_o) => {
-                f.write_str(name)?;
-                if let Some(t) = type_o {
-                    f.write_str(&format!(": {t}"))?;
-                }
-                if let Some(t) = typed_type_o {
-                    f.write_str(&format!(": {t}"))?;
-                }
-            }
-            MacroParam::StringLiteral(s) => {
-                f.write_str(&format!("\"{s}\""))?;
-            }
-            MacroParam::Ref(name, type_o, typed_type_o) => {
-                f.write_str(name)?;
-                if let Some(t) = type_o {
-                    f.write_str(&format!(": {t}"))?;
-                }
-                if let Some(t) = typed_type_o {
-                    f.write_str(&format!(": {t}"))?;
-                }
-            }
+            MacroParam::Plain(name, type_o, typed_type_o) => f.write_str(&format!(
+                "Plain({name}, {}, {})",
+                OptionDisplay(type_o),
+                OptionDisplay(typed_type_o)
+            )),
+            MacroParam::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
+            MacroParam::Ref(name, type_o, typed_type_o) => f.write_str(&format!(
+                "Ref({name}, {}, {})",
+                OptionDisplay(type_o),
+                OptionDisplay(typed_type_o)
+            )),
         }
-        Ok(())
+    }
+}
+
+impl MacroParam {
+    pub fn render(&self) -> String {
+        match self {
+            MacroParam::Plain(name, type_o, typed_type_o) => name.clone(),
+            MacroParam::StringLiteral(s) => {
+                format!("\"{s}\"")
+            }
+            MacroParam::Ref(name, type_o, typed_type_o) => name.clone(),
+        }
     }
 }
 
@@ -81,6 +83,18 @@ impl Display for TextMacro {
             .collect::<Vec<String>>();
         f.write_str(&parameters.join(", "))?;
         f.write_str(")")
+    }
+}
+
+impl TextMacro {
+    pub fn render(&self) -> String {
+        let parameters = self
+            .parameters
+            .iter()
+            .map(|it| it.render())
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!("${}({parameters})", self.name)
     }
 }
 
@@ -366,7 +380,6 @@ impl TextMacroEvaluator {
         function_def: &ASTTypedFunctionDef,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
-        // println!("resolve_type {ast_type}");
         if let ASTType::Custom {
             namespace,
             name,
@@ -374,7 +387,6 @@ impl TextMacroEvaluator {
             index: _,
         } = ast_type
         {
-            // println!("it's custom");
             if let Some(typed_type) = function_def.generic_types.get(name) {
                 Some(typed_type.clone())
             } else if param_types.is_empty() {
@@ -417,12 +429,14 @@ impl TextMacroEvaluator {
                     })
                     .collect::<Vec<_>>();
 
-                type_def_provider.get_ast_typed_type_from_ast_type(&ASTType::Custom {
+                let ast_type_to_resolve = ASTType::Custom {
                     namespace: ast_type.namespace(),
                     name: name.clone(),
                     param_types: resolved_types,
                     index: ASTIndex::none(),
-                })
+                };
+
+                type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
             }
         } else {
             None
@@ -935,9 +949,9 @@ impl TextMacroEval for AddRefMacro {
                     (address, ast_typed_type)
                 }
                 _ => panic!(
-                    "Error: addRef/deref macro, a type must be specified in {} but got {:?}: {}",
-                    Self::function_name(function_def),
-                    text_macro.parameters.get(0),
+                    "Error: addRef/deref macro, a typed type must be specified in function {} but got {}: {}",
+                    OptionDisplay(&function_def),
+                    text_macro.parameters.get(0).unwrap(),
                     text_macro.index
                 ),
             };
@@ -1470,8 +1484,8 @@ mod tests {
     use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
+        BuiltinTypeKind,
     };
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -1479,7 +1493,7 @@ mod tests {
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     #[test]
     fn call() {

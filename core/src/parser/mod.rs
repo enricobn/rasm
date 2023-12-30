@@ -448,14 +448,6 @@ impl Parser {
             namespace: namespace.clone(),
         };
 
-        /*
-        println!("Module: {}", path.to_string_lossy());
-        println!("-----------------------");
-        Parser::print_module(&module);
-        println!("-----------------------");
-        println!();
-         */
-
         (module, self.errors.clone())
     }
 
@@ -989,8 +981,8 @@ impl Parser {
         match &f.body {
             RASMBody(expressions) => {
                 println!(" {{");
-                expressions.iter().for_each(|call| {
-                    println!("  {}", call);
+                expressions.iter().for_each(|statement| {
+                    println!("  {statement}");
                 });
                 println!("}}");
             }
@@ -1462,11 +1454,12 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
-        ASTModule, ASTNameSpace, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+        ASTModule, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::{test_namespace, SliceDisplay};
+    use crate::utils::tests::test_namespace;
+    use crate::utils::SliceDisplay;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();

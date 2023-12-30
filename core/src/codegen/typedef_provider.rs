@@ -176,6 +176,7 @@ pub trait TypeDefProvider {
             Some(s.clone().ast_typed_type)
         } else {
             find_one(self.types().iter(), |it| {
+                // println!("found type {it}");
                 it.ast_type.equals_excluding_namespace(ast_type)
                     && (it.modifiers.public || it.namespace == ast_type.namespace())
             })

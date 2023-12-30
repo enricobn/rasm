@@ -381,6 +381,10 @@ impl TypeCheck {
         let mut new_call = call.clone();
         new_call.parameters = new_expressions;
 
+        if new_function_name == "stdlib_vec_map_stdlib_vecVeci32_fni32stdlib_optionOptionstdlib_io_printIOError_stdlib_vecVecstdlib_optionOptionstdlib_io_printIOError" {
+            println!("new_function {new_function_def}");
+        }
+
         let filters = new_function_def
             .parameters
             .iter()
@@ -457,7 +461,8 @@ impl TypeCheck {
                 index: _,
             } => {
                 format!(
-                    "{name}{}",
+                    "{}{name}{}",
+                    namespace.safe_name(),
                     param_types
                         .iter()
                         .map(Self::unique_type_name)
@@ -491,11 +496,6 @@ impl TypeCheck {
             .find_functions_by_original_name(&call.original_function_name)
             .iter()
             .filter(|it| {
-                /*
-                if !it.modifiers.public && &it.namespace != namespace {
-                    println!("different namespaces {} {}", it, namespace);
-                }
-                 */
                 (it.modifiers.public || &it.namespace == namespace)
                     && it.parameters.len() == call.parameters.len()
             });
@@ -561,6 +561,7 @@ impl TypeCheck {
                 count += 1;
                 something_resolved = false;
 
+                dedent!();
                 result = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
                         if !valid {
@@ -581,6 +582,7 @@ impl TypeCheck {
                             &param.ast_type
                         };
                         debug_i!("real expression : {expr}");
+
                         debug_i!("real type of expression : {param_type}");
 
                         let (t, e) = self.get_filter(
@@ -603,7 +605,6 @@ impl TypeCheck {
                         Ok(e)
                     })
                     .collect();
-                dedent!();
             }
 
             let result = result
@@ -1181,6 +1182,7 @@ impl TypeCheck {
                     def,
                     &expected_type,
                     &mut lambda_val_context,
+                    namespace,
                 )?;
 
                 for (i, statement) in def.body.iter().enumerate() {
@@ -1262,7 +1264,12 @@ impl TypeCheck {
 
         let mut val_context = ValContext::new(Some(val_context));
 
-        self.add_lambda_parameters_to_val_context(lambda_def, &expected_type, &mut val_context)?;
+        self.add_lambda_parameters_to_val_context(
+            lambda_def,
+            &expected_type,
+            &mut val_context,
+            namespace,
+        )?;
 
         let ert = if let Some(et) = expected_type {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -1302,6 +1309,7 @@ impl TypeCheck {
         lambda_def: &ASTLambdaDef,
         expected_type: &Option<&ASTType>,
         val_context: &mut ValContext,
+        namespace: &ASTNameSpace,
     ) -> Result<(), TypeCheckError> {
         if !lambda_def.parameter_names.is_empty() {
             if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -1345,12 +1353,12 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::CompileTarget;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
     use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::{convert_to_typed_module, get_default_functions};
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     #[test]
     pub fn fibonacci() {

@@ -370,6 +370,11 @@ fn test_oop() {
 }
 
 #[test]
+fn test_namespaces() {
+    run_test("namespaces", vec![], "");
+}
+
+#[test]
 fn test_option() {
     run_test(
         "option",

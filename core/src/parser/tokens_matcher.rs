@@ -287,7 +287,7 @@ mod tests {
 
     use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind};
     use crate::parser::test_utils::get_parser;
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     use super::*;
 

@@ -34,11 +34,11 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
                     if matches!(t, ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) {
                         value.to_string()
                     } else {
-                        format!("{it}")
+                        it.render()
                     }
                 }
             },
-            MacroParam::StringLiteral(_) => format!("{it}"),
+            MacroParam::StringLiteral(_) => it.render(),
             MacroParam::Ref(value, ast_type, _) => match ast_type {
                 None => value.to_string(),
                 // TODO duplicated code
@@ -46,7 +46,7 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
                     if matches!(t, ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) {
                         value.to_string()
                     } else {
-                        format!("{it}")
+                        it.render()
                     }
                 }
             },
@@ -103,7 +103,8 @@ pub fn resolve_generic_types_from_effective_type(
         return Ok(result);
     }
 
-    debug_i!("extract_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}");
+    debug_i!("resolve_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}");
+    //println!("resolve_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}");
     indent!();
 
     match generic_type {
@@ -127,7 +128,10 @@ pub fn resolve_generic_types_from_effective_type(
                         }
                         for (i, p_p) in p_parameters.iter().enumerate() {
                             let e_p = if let Some(p) = e_parameters.get(i) {
-                                p
+                                if p.namespace() != effective_type.namespace() {
+                                    println!("resolve_generic_types_from_effective_type different namespace {p} {}", effective_type.namespace());
+                                }
+                                p.with_namespace(&effective_type.namespace())
                             } else {
                                 return Err(TypeCheckError::new(
                                     ASTIndex::none(),
@@ -136,7 +140,7 @@ pub fn resolve_generic_types_from_effective_type(
                                 ));
                             };
 
-                            let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
+                            let inner_result = resolve_generic_types_from_effective_type(p_p, &e_p)
                             .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
 
                             result
@@ -363,11 +367,11 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::type_check::resolve_generic_types_from_effective_type;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
-    use crate::utils::test_namespace;
+    use crate::utils::tests::test_namespace;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();

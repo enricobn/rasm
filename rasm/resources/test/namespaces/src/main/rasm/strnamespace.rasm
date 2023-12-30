@@ -1,0 +1,11 @@
+struct TestModel {
+    value: str
+}
+
+fn getstr() -> Result<TestModel,str> {
+    Result::Ok(TestModel("value"));
+}
+
+pub fn printstr() {
+    getstr().match( { v -> println("str ok");}, {error -> println("str error");});
+}
