@@ -29,11 +29,17 @@ use crate::type_check::typed_ast::{
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use crate::utils::OptionDisplay;
+use crate::{debug_i, dedent, indent};
 use log::debug;
 use std::iter::zip;
 use std::ops::Deref;
 
 pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), CompilationError> {
+    /*
+    println!("printing typed module");
+    print_typed_module(module);
+     */
+
     let mut context = TypedValContext::new(None);
 
     for statement in module.body.iter() {
@@ -224,6 +230,10 @@ fn verify_expression(
     statics: &mut Statics,
     expected_type: Option<&ASTTypedType>,
 ) -> Result<(), CompilationError> {
+    debug_i!(
+        "verify_expression {expr} expected_type {}",
+        OptionDisplay(&expected_type)
+    );
     match expr {
         ASTTypedExpression::Lambda(def) => {
             if let Some(et) = expected_type {
@@ -317,7 +327,8 @@ fn verify_function_call(
     call: &ASTTypedFunctionCall,
     statics: &mut Statics,
 ) -> Result<(), CompilationError> {
-    debug!("verify_function_call {call}");
+    debug_i!("verify_function_call {call}");
+    indent!();
 
     let parameters_types =
         if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
@@ -358,12 +369,14 @@ fn verify_function_call(
             {
                 parameters.to_vec()
             } else {
+                dedent!();
                 return Err(verify_error(
                     call.index.clone(),
                     format!("{} is not a lambda", call.function_name),
                 ));
             }
         } else {
+            dedent!();
             return Err(verify_error(
                 call.index.clone(),
                 format!("cannot find function for call {call}"),
@@ -383,15 +396,17 @@ fn verify_function_call(
             statics,
         )?;
 
-        debug!(
+        debug_i!(
             "expected {par_type}, got {typed_type} in {call} : {} for parameter {i}",
             call.index
         );
         if typed_type != par_type {
+            dedent!();
             return Err(verify_error(call.index.clone(), format!("expected {par_type}, but got {typed_type} expression in call {} for parameter {i}", call.original_function_name)));
         }
     }
 
+    dedent!();
     Ok(())
 }
 

@@ -61,7 +61,7 @@ impl ReferenceFinder {
                         }
                         if !function.parameters.is_empty() {
                             let parameter_type = &function.parameters.get(0).unwrap().ast_type;
-                            if let Ok(value) = filter.almost_equal(parameter_type) {
+                            if let Ok(value) = filter.almost_equal(parameter_type, &self.module) {
                                 if value {
                                     if let Some(item) = CompletionItem::for_function(function) {
                                         items.push(item);
@@ -220,6 +220,7 @@ impl ReferenceFinder {
                     reference_context,
                     reference_static_context,
                     &module.functions_by_name,
+                    module,
                 )?;
                 reference_context.add(name.clone(), index.clone(), filter.clone());
                 if *is_const {
@@ -250,6 +251,7 @@ impl ReferenceFinder {
         reference_context: &ReferenceContext,
         reference_static_context: &ReferenceContext,
         functions_container: &FunctionsContainer,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<TypeFilter, TypeCheckError> {
         let result = match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
@@ -262,10 +264,17 @@ impl ReferenceFinder {
                             reference_context,
                             reference_static_context,
                             functions_container,
+                            enhanced_astmodule,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
-                let functions = functions_container.find_call_vec(call, filters, None, false)?;
+                let functions = functions_container.find_call_vec(
+                    call,
+                    filters,
+                    None,
+                    false,
+                    enhanced_astmodule,
+                )?;
                 if functions.len() == 1 {
                     TypeFilter::Exact(functions.first().unwrap().return_type.clone())
                 } else {
@@ -364,13 +373,14 @@ impl ReferenceFinder {
                             reference_context,
                             reference_static_context,
                             &module.functions_by_name,
+                            module,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
 
                 let mut functions = module
                     .functions_by_name
-                    .find_call_vec(call, &filters, None, false)
+                    .find_call_vec(call, &filters, None, false, module)
                     .unwrap();
 
                 if functions.len() == 1 {

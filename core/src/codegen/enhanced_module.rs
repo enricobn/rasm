@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use crate::debug_i;
 use crate::parser::ast::{
     ASTEnumDef, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
-    ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
+    ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
 };
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
@@ -147,6 +147,7 @@ impl EnhancedASTModule {
         parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         index: &ASTIndex,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Option<&ASTFunctionDef>, TypeCheckError> {
         self.functions_by_name.find_call(
             function_name,
@@ -155,6 +156,7 @@ impl EnhancedASTModule {
             return_type_filter,
             false,
             index,
+            enhanced_astmodule,
         )
     }
 
@@ -170,6 +172,7 @@ impl EnhancedASTModule {
             parameter_types_filter,
             return_type_filter,
             false,
+            self,
         )
     }
 
@@ -179,7 +182,7 @@ impl EnhancedASTModule {
         parameter_types_filter: Vec<ASTType>,
     ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
         self.functions_by_name
-            .find_default_call(name, parameter_types_filter)
+            .find_default_call(name, parameter_types_filter, self)
     }
 
     pub fn functions(&self) -> Vec<&ASTFunctionDef> {
@@ -235,6 +238,56 @@ impl EnhancedASTModule {
                     println!();
                 }
             }
+        }
+    }
+
+    pub fn get_type_def(&self, ast_type: &ASTType) -> Option<&dyn CustomTypeDef> {
+        //println!("get_type_def {ast_type}");
+        if let ASTType::Custom {
+            namespace,
+            name,
+            param_types,
+            index,
+        } = ast_type
+        {
+            if !param_types.iter().all(|param_type| {
+                if let ASTType::Custom { .. } = param_type {
+                    if let Some(p_type_def) = self.get_type_def(param_type) {
+                        p_type_def.modifiers().public
+                            || p_type_def.namespace() == &param_type.namespace()
+                    } else {
+                        panic!()
+                    }
+                } else {
+                    true
+                }
+            }) {
+                return None;
+            }
+
+            if let Some(enum_def) = self
+                .enums
+                .iter()
+                .find(|it| &it.name == name && (it.modifiers.public || &it.namespace == namespace))
+            {
+                Some(enum_def)
+            } else if let Some(struct_def) = self
+                .structs
+                .iter()
+                .find(|it| &it.name == name && (it.modifiers.public || &it.namespace == namespace))
+            {
+                Some(struct_def)
+            } else if let Some(t) = self
+                .types
+                .iter()
+                .find(|it| &it.name == name && (it.modifiers.public || &it.namespace == namespace))
+            {
+                Some(t)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }

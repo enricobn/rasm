@@ -46,9 +46,9 @@ use crate::transformations::enrich_module;
 
 #[derive(Debug)]
 pub struct RasmProject {
-    root: PathBuf,
+    pub root: PathBuf,
     pub config: RasmConfig,
-    from_file: bool,
+    pub from_file: bool,
 }
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/rasm"]

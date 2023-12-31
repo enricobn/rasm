@@ -5,6 +5,7 @@ use std::ops::Deref;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind,
 };
@@ -27,12 +28,17 @@ pub enum TypeFilter {
 }
 
 impl TypeFilter {
-    pub fn almost_equal(&self, ast_type: &ASTType) -> Result<bool, TypeCheckError> {
+    pub fn almost_equal(
+        &self,
+        ast_type: &ASTType,
+        enhanced_astmodule: &EnhancedASTModule,
+    ) -> Result<bool, TypeCheckError> {
         FunctionsContainer::almost_same_type(
             ast_type,
             self,
             &mut LinkedHashMap::new(),
             &ASTIndex::none(),
+            enhanced_astmodule,
         )
         /*
         match self {
@@ -208,6 +214,7 @@ impl FunctionsContainer {
         return_type_filter: Option<ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Option<&ASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
@@ -223,6 +230,7 @@ impl FunctionsContainer {
                     filter_on_name,
                     index,
                     functions,
+                    enhanced_astmodule,
                 )?;
 
                 let count = matching_functions.len();
@@ -254,6 +262,7 @@ impl FunctionsContainer {
         filter_on_name: bool,
         index: &ASTIndex,
         functions: &'a [ASTFunctionDef],
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Vec<&'a ASTFunctionDef>, TypeCheckError> {
         let lambda = |it: &&ASTFunctionDef| {
             debug_i!(
@@ -277,6 +286,7 @@ impl FunctionsContainer {
                 parameter_types_filter,
                 &mut resolved_generic_types,
                 &it.index,
+                enhanced_astmodule,
             )
             .and_then(|verify_params| {
                 if !verify_params {
@@ -293,6 +303,7 @@ impl FunctionsContainer {
                                     rt,
                                     &mut resolved_generic_types,
                                     index,
+                                    enhanced_astmodule,
                                 )
                             }
                         }
@@ -313,6 +324,7 @@ impl FunctionsContainer {
         parameter_types_filter: &Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         filter_only_on_name: bool,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Vec<&ASTFunctionDef>, TypeCheckError> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
@@ -334,6 +346,7 @@ impl FunctionsContainer {
                         filter_only_on_name,
                         &ASTIndex::none(),
                         functions,
+                        enhanced_astmodule,
                     )
                     /*
                     let mut resolved_generic_types = LinkedHashMap::new();
@@ -393,6 +406,7 @@ impl FunctionsContainer {
         &self,
         name: String,
         parameter_types_filter: Vec<ASTType>,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(&name) {
             if functions.is_empty() {
@@ -418,6 +432,7 @@ impl FunctionsContainer {
                                 .collect(),
                             &mut resolved_generic_types,
                             &it.index,
+                            enhanced_astmodule,
                         )
                         .map(|b| (it.clone(), b))
                     }
@@ -454,6 +469,7 @@ impl FunctionsContainer {
         parameter_types_filter: &Vec<TypeFilter>,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         let result = if parameter_types.len() != parameter_types_filter.len() {
             debug_i!("not matching parameter length");
@@ -464,6 +480,7 @@ impl FunctionsContainer {
                 parameter_types_filter,
                 resolved_generic_types,
                 index,
+                enhanced_astmodule,
             )?
         };
         Ok(result)
@@ -474,6 +491,7 @@ impl FunctionsContainer {
         parameter_types_filter: &[TypeFilter],
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         let result = zip(parameter_types.iter(), parameter_types_filter.iter())
             .map(|(parameter_type, parameter_type_filter)| {
@@ -482,6 +500,7 @@ impl FunctionsContainer {
                     parameter_type_filter,
                     resolved_generic_types,
                     index,
+                    enhanced_astmodule,
                 )
             })
             .collect::<Result<Vec<bool>, TypeCheckError>>()?
@@ -496,6 +515,7 @@ impl FunctionsContainer {
         expected_return_type: &ASTType,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         Self::almost_same_type_internal(
             actual_return_type,
@@ -503,6 +523,7 @@ impl FunctionsContainer {
             resolved_generic_types,
             index,
             true,
+            enhanced_astmodule,
         )
     }
 
@@ -511,6 +532,7 @@ impl FunctionsContainer {
         parameter_type_filter: &TypeFilter,
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         Self::almost_same_type_internal(
             parameter_type,
@@ -518,6 +540,7 @@ impl FunctionsContainer {
             resolved_generic_types,
             index,
             false,
+            enhanced_astmodule,
         )
     }
     fn almost_same_type_internal(
@@ -526,6 +549,7 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
         index: &ASTIndex,
         return_type: bool,
+        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         debug_i!("almost_same_type {parameter_type} filter {parameter_type_filter} return_type: {return_type}");
         indent!();
@@ -558,6 +582,7 @@ impl FunctionsContainer {
                                                 resolved_generic_types,
                                                 index,
                                                 return_type,
+                                                enhanced_astmodule,
                                             )
                                         })
                                         .collect::<Result<Vec<_>, TypeCheckError>>()?
@@ -569,6 +594,7 @@ impl FunctionsContainer {
                                     &filter_rt.deref().clone(),
                                     resolved_generic_types,
                                     index,
+                                    enhanced_astmodule,
                                 )?;
 
                                 Ok(parameter_same && return_type_same)
@@ -634,26 +660,39 @@ impl FunctionsContainer {
                                 param_types,
                                 name: type_name,
                                 index: _,
-                            } => Ok(type_name == expected_type_name
-                                //&& namespace == expected_namespace
-                                && param_types.len() == expected_param_types.len()
-                                && param_types
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(i, pt)| {
-                                        Self::almost_same_type_internal(
-                                            pt,
-                                            &TypeFilter::Exact(
-                                                expected_param_types.get(i).unwrap().clone(),
-                                            ),
-                                            resolved_generic_types,
-                                            index,
-                                            false,
-                                        )
-                                    })
-                                    .collect::<Result<Vec<_>, TypeCheckError>>()?
-                                    .into_iter()
-                                    .all(|it| it)),
+                            } => {
+                                if let Some(type_def) =
+                                    enhanced_astmodule.get_type_def(parameter_type)
+                                {
+                                    Ok(type_name == expected_type_name &&
+                                        (type_def.modifiers().public || (type_def.namespace() == expected_namespace)) //&& namespace == expected_namespace
+                                        && param_types.len() == expected_param_types.len()
+                                        && param_types
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(i, pt)| {
+                                            Self::almost_same_type_internal(
+                                                pt,
+                                                &TypeFilter::Exact(
+                                                    expected_param_types.get(i).unwrap().clone(),
+                                                ),
+                                                resolved_generic_types,
+                                                index,
+                                                false,
+                                                enhanced_astmodule
+                                            )
+                                        })
+                                        .collect::<Result<Vec<_>, TypeCheckError>>()?
+                                        .into_iter()
+                                        .all(|it| it))
+                                } else {
+                                    Err(TypeCheckError::new(
+                                        index.clone(),
+                                        format!("Cannot find custom type {type_name} definition"),
+                                        vec![],
+                                    )) // TODO stack?
+                                }
+                            }
                             ASTType::Unit => {
                                 if !return_type {
                                     return Self::unit_type_is_not_allowed_here(index);
@@ -804,15 +843,20 @@ impl FunctionsContainer {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::backend::BackendNasmi386;
+    use crate::codegen::enhanced_module::EnhancedASTModule;
+    use crate::codegen::statics::Statics;
     use crate::parser::ast::ASTFunctionBody::NativeBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
         ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
     };
+    use crate::project::{RasmConfig, RasmPackage, RasmProject};
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
+    use std::path::PathBuf;
 
     #[test]
     fn test() {
@@ -959,6 +1003,27 @@ mod tests {
             generics: Vec::new(),
         };
 
+        let project = RasmProject {
+            root: PathBuf::new(),
+            config: RasmConfig {
+                package: RasmPackage {
+                    name: "".to_string(),
+                    version: "".to_string(),
+                    main: None,
+                    out: None,
+                    source_folder: Some("".to_string()),
+                },
+                dependencies: None,
+            },
+            from_file: false,
+        };
+
+        let backend = BackendNasmi386::new(false);
+
+        let mut statics = Statics::new();
+
+        let module = EnhancedASTModule::new(vec![], &project, &backend, &mut statics);
+
         let result = sut.find_call(
             &call.function_name,
             &call.original_function_name,
@@ -969,6 +1034,7 @@ mod tests {
             None,
             false,
             &ASTIndex::none(),
+            &module,
         );
 
         assert!(result.unwrap().is_some());

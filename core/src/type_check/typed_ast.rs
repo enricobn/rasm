@@ -12,7 +12,6 @@ use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::TypedValKind;
-use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
@@ -27,6 +26,7 @@ use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{get_new_native_call, substitute, verify};
 use crate::utils::SliceDisplay;
+use crate::{debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -536,8 +536,10 @@ impl<'a> ConvContext<'a> {
         enum_type: &ASTType,
         enum_def: &ASTEnumDef,
     ) -> ASTTypedType {
-        debug!("add_enum {enum_type}");
-        match enum_type {
+        debug_i!("add_enum {enum_type}");
+        indent!();
+
+        let result = match enum_type {
             ASTType::Custom {
                 namespace: _,
                 name,
@@ -587,6 +589,7 @@ impl<'a> ConvContext<'a> {
                    during enum variants generation we could generate the same enum type
                 */
                 if let Some(enum_typed_type) = self.get_enum(enum_def, enum_type) {
+                    dedent!();
                     return enum_typed_type;
                 }
 
@@ -623,7 +626,10 @@ impl<'a> ConvContext<'a> {
             _ => {
                 panic!()
             }
-        }
+        };
+
+        dedent!();
+        result
     }
 
     pub fn get_enum(&self, enum_def: &ASTEnumDef, enum_type: &ASTType) -> Option<ASTTypedType> {
@@ -642,8 +648,9 @@ impl<'a> ConvContext<'a> {
         struct_type: &ASTType,
         struct_def: &ASTStructDef,
     ) -> ASTTypedType {
-        debug!("add_struct {struct_type}");
-        match struct_type {
+        debug_i!("add_struct {struct_type}");
+        indent!();
+        let result = match struct_type {
             ASTType::Custom {
                 namespace: _,
                 name,
@@ -698,7 +705,10 @@ impl<'a> ConvContext<'a> {
             _ => {
                 panic!()
             }
-        }
+        };
+
+        dedent!();
+        result
     }
 
     pub fn get_struct(
@@ -722,8 +732,9 @@ impl<'a> ConvContext<'a> {
         ast_type: &ASTType,
         type_def: &ASTTypeDef,
     ) -> ASTTypedType {
-        debug!("add_type {ast_type}");
-        match ast_type {
+        debug_i!("add_type {ast_type}");
+        indent!();
+        let result = match ast_type {
             ASTType::Custom {
                 namespace: _,
                 name,
@@ -773,7 +784,10 @@ impl<'a> ConvContext<'a> {
             _ => {
                 panic!()
             }
-        }
+        };
+
+        dedent!();
+        result
     }
 
     pub fn get_type(&self, type_def: &ASTTypeDef, type_def_type: &ASTType) -> Option<ASTTypedType> {
@@ -1034,6 +1048,7 @@ pub fn convert_to_typed_module(
                                 None,
                                 false,
                                 &it.index(&function.index),
+                                &module,
                             )
                             .unwrap()
                         {
@@ -1158,25 +1173,26 @@ pub fn get_type_of_typed_expression(
     ast_type: Option<&ASTTypedType>,
     statics: &mut Statics,
 ) -> Result<ASTTypedType, CompilationError> {
-    debug!("get_type_of_typed_expression {expr} {:?}", ast_type);
+    debug_i!("get_type_of_typed_expression {expr} {:?}", ast_type);
+    indent!();
     let result = match expr {
         ASTTypedExpression::StringLiteral(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
-            debug!("function call expression");
+            debug_i!("function call expression");
 
             if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
-                debug!("found function in module");
+                debug_i!("found function in module");
                 function_def.return_type.clone()
             } else if let Some(function_def) = module
                 .functions_by_name
                 .get(&call.function_name.replace("::", "_"))
             {
-                debug!("found function in module");
+                debug_i!("found function in module");
                 function_def.return_type.clone()
             } else if let Some(TypedValKind::ParameterRef(_, par)) =
                 context.get(&call.function_name)
             {
-                debug!("found function in context");
+                debug_i!("found function in context");
 
                 if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                     parameters: _,
@@ -1185,13 +1201,14 @@ pub fn get_type_of_typed_expression(
                 {
                     return_type.as_ref().clone()
                 } else {
+                    dedent!();
                     return Err(verify::verify_error(
                         call.index.clone(),
                         format!("{} is not a lambda", call.function_name),
                     ));
                 }
             } else if let Some(TypedValKind::LetRef(_, t)) = context.get(&call.function_name) {
-                debug!("found function in context");
+                debug_i!("found function in context");
 
                 if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                     parameters: _,
@@ -1200,12 +1217,14 @@ pub fn get_type_of_typed_expression(
                 {
                     return_type.as_ref().clone()
                 } else {
+                    dedent!();
                     return Err(verify::verify_error(
                         call.index.clone(),
                         format!("{} is not a lambda", call.function_name),
                     ));
                 }
             } else {
+                dedent!();
                 return Err(verify::verify_error(
                     call.index.clone(),
                     format!("Cannot find function {}", &call.function_name),
@@ -1220,6 +1239,7 @@ pub fn get_type_of_typed_expression(
             } else if let Some(entry) = statics.get_typed_const(name) {
                 entry.ast_typed_type.clone()
             } else {
+                dedent!();
                 return Err(verify::verify_error(
                     index.clone(),
                     format!("Unknown val {name}",),
@@ -1232,10 +1252,11 @@ pub fn get_type_of_typed_expression(
 
             let (parameters, return_type) = match ast_type {
                 None => {
+                    dedent!();
                     return Err(verify::verify_error(
                         lambda_def.index.clone(),
                         "Error in lambda".to_string(),
-                    ))
+                    ));
                 }
                 Some(t) => match t {
                     ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -1243,10 +1264,11 @@ pub fn get_type_of_typed_expression(
                         return_type,
                     }) => (parameters, return_type),
                     _ => {
+                        dedent!();
                         return Err(verify::verify_error(
                             lambda_def.index.clone(),
                             "Not a lambda".to_string(),
-                        ))
+                        ));
                     }
                 },
             };
@@ -1281,12 +1303,13 @@ pub fn get_type_of_typed_expression(
             );
 
              */
-            assert_eq!(
-                return_type.deref(),
-                &real_return_type,
-                "expression {:?}",
-                expr
-            );
+            if return_type.deref() != &real_return_type {
+                dedent!();
+                return Err(verify::verify_error(
+                    expr.get_index().unwrap(),
+                    format!("Expected {return_type} but got {real_return_type}"),
+                ));
+            }
 
             ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters: parameters.clone(),
@@ -1295,6 +1318,7 @@ pub fn get_type_of_typed_expression(
         }
     };
 
+    dedent!();
     Ok(result)
 }
 
@@ -1591,17 +1615,19 @@ fn enum_variant(
     enum_typed_type: &ASTTypedType,
     message: &str,
 ) -> ASTTypedEnumVariantDef {
-    debug!(
+    debug_i!(
         "variant {variant}, enum_type {enum_type}, enum_typed_type {:?}, {:?}",
-        enum_typed_type, generic_to_type
+        enum_typed_type,
+        generic_to_type
     );
-    ASTTypedEnumVariantDef {
+    indent!();
+    let result = ASTTypedEnumVariantDef {
         name: variant.name.clone(),
         parameters: variant
             .parameters
             .iter()
             .map(|it| {
-                debug!("param {it} {enum_type}");
+                debug_i!("param {it} {enum_type}");
                 if &it.ast_type == enum_type {
                     ASTTypedParameterDef {
                         name: it.name.clone(),
@@ -1609,7 +1635,7 @@ fn enum_variant(
                         ast_index: it.ast_index.clone(),
                     }
                 } else if let Some(new_type) = substitute(&it.ast_type, generic_to_type) {
-                    debug!("new_type {new_type}");
+                    debug_i!("new_type {new_type}");
 
                     if &new_type == enum_type {
                         ASTTypedParameterDef {
@@ -1634,7 +1660,10 @@ fn enum_variant(
                 }
             })
             .collect(),
-    }
+    };
+    dedent!();
+
+    result
 }
 
 fn function_call(

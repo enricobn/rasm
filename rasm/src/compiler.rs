@@ -11,7 +11,6 @@ use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::{get_typed_module, CodeGenOptions};
-use rasm_core::parser::Parser;
 use rasm_core::project::RasmProject;
 
 pub struct Compiler {
@@ -76,6 +75,7 @@ impl Compiler {
             &self.options.target,
         );
 
+        /*
         for module in modules.iter() {
             if module.namespace.to_string().contains("namespace") {
                 println!("Module: {}", module.path.to_string_lossy());
@@ -85,6 +85,7 @@ impl Compiler {
                 println!();
             }
         }
+         */
 
         let requires = modules
             .iter()

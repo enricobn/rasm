@@ -196,6 +196,7 @@ impl CompletionService {
                                             "cannot convert {}",
                                             completable_item.ast_typed_type
                                         )),
+                                    &self.module,
                                 )
                                 .unwrap()
                     })

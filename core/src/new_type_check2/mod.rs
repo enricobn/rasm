@@ -286,7 +286,6 @@ impl TypeCheck {
 
         if let Some((_return_type, parameters_types)) = val_context.get_lambda(&call.function_name)
         {
-            dedent!();
             let new_expressions: Vec<ASTExpression> =
                 zip(call.parameters.iter(), parameters_types.clone().iter())
                     .map(|(it, ast_type)| {
@@ -302,6 +301,7 @@ impl TypeCheck {
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()
                     .map_err(|it| {
+                        dedent!();
                         it.add(
                             call.index.clone(),
                             format!(
@@ -314,6 +314,7 @@ impl TypeCheck {
 
             let mut new_call = call.clone();
             new_call.parameters = new_expressions;
+            dedent!();
             return Ok(new_call);
         }
 
@@ -380,10 +381,6 @@ impl TypeCheck {
 
         let mut new_call = call.clone();
         new_call.parameters = new_expressions;
-
-        if new_function_name == "stdlib_vec_map_stdlib_vecVeci32_fni32stdlib_optionOptionstdlib_io_printIOError_stdlib_vecVecstdlib_optionOptionstdlib_io_printIOError" {
-            println!("new_function {new_function_def}");
-        }
 
         let filters = new_function_def
             .parameters
@@ -528,7 +525,7 @@ impl TypeCheck {
             }
 
             if let Some(rt) = expected_return_type {
-                if !TypeFilter::Exact(function.return_type.clone()).almost_equal(rt)? {
+                if !TypeFilter::Exact(function.return_type.clone()).almost_equal(rt, module)? {
                     dedent!();
                     continue;
                 }
@@ -537,6 +534,7 @@ impl TypeCheck {
                         resolve_generic_types_from_effective_type(&function.return_type, rt)
                     {
                         resolved_generic_types.extend(result).map_err(|e| {
+                            dedent!();
                             TypeCheckError::new(
                                 function.index.clone(),
                                 format!(
@@ -561,7 +559,6 @@ impl TypeCheck {
                 count += 1;
                 something_resolved = false;
 
-                dedent!();
                 result = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
                         if !valid {
@@ -599,12 +596,13 @@ impl TypeCheck {
                             something_resolved = true;
                         }
                         debug_i!("filter {t}");
-                        if !t.almost_equal(param_type)? {
+                        if !t.almost_equal(param_type, module)? {
                             valid = false
                         }
                         Ok(e)
                     })
                     .collect();
+                dedent!();
             }
 
             let result = result
@@ -623,7 +621,7 @@ impl TypeCheck {
                     //let rt = substitute(rt, &resolved_generic_types).unwrap_or(rt.clone());
                     valid = valid
                         && TypeFilter::Exact(rt.clone())
-                            .almost_equal(&function.return_type)
+                            .almost_equal(&function.return_type, module)
                             .unwrap_or(false);
                 }
             }
@@ -858,6 +856,7 @@ impl TypeCheck {
                         &type_def_provider,
                     )
                     .map_err(|it| {
+                        dedent!();
                         TypeCheckError::new(
                             new_function_def.index.clone(),
                             format!("Error getting macros for {new_function_def}, {it}"),
@@ -872,6 +871,7 @@ impl TypeCheck {
                     let default_function_calls = evaluator
                         .default_function_calls(&text_macro_name)
                         .map_err(|it| {
+                            dedent!();
                             TypeCheckError::new(
                                 new_function_def.index.clone(),
                                 format!("Error getting macros for {new_function_def}, {it}"),
@@ -902,6 +902,7 @@ impl TypeCheck {
                         statics,
                     )
                     .map_err(|it| {
+                        dedent!();
                         TypeCheckError::new(
                             new_function_def.index.clone(),
                             format!(
@@ -1055,14 +1056,15 @@ impl TypeCheck {
                             ValKind::LetRef(_, t, _index) => t.clone(),
                         };
 
-                        dedent!();
                         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                             parameters: _,
                             return_type,
                         }) = lambda
                         {
+                            dedent!();
                             return Ok(TypeFilter::Exact(return_type.deref().clone()));
                         } else {
+                            dedent!();
                             return Err(TypeCheckError::new(
                                 call.index.clone(),
                                 "It should not happen!!!".to_string(),
@@ -1119,7 +1121,7 @@ impl TypeCheck {
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
                 let functions = module
                     .functions_by_name
-                    .find_call_vec(call, &filters, None, false)?;
+                    .find_call_vec(call, &filters, None, false, module)?;
 
                 if functions.len() == 1 {
                     if let Some(f) = functions.first() {
@@ -1164,6 +1166,7 @@ impl TypeCheck {
             },
             ASTExpression::Lambda(def) => {
                 if def.body.is_empty() {
+                    dedent!();
                     return Ok(TypeFilter::Lambda(
                         def.parameter_names.len(),
                         Some(Box::new(TypeFilter::Exact(ASTType::Unit))),
