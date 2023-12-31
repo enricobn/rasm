@@ -187,13 +187,13 @@ impl ASTType {
     pub fn equals_excluding_namespace(&self, other: &Self) -> bool {
         match self {
             ASTType::Custom {
-                namespace,
+                namespace: _,
                 name,
                 param_types,
                 index,
             } => match other {
                 ASTType::Custom {
-                    namespace: other_namespace,
+                    namespace: _,
                     name: other_name,
                     param_types: other_param_types,
                     index,

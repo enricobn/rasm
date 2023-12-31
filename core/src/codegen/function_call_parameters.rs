@@ -8,7 +8,7 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, TypedValKind};
-use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
+use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
@@ -20,7 +20,6 @@ pub trait FunctionCallParameters {
 
     fn add_function_call(
         &mut self,
-        namespace: &ASTNameSpace,
         module: &ASTTypedModule,
         comment: &str,
         param_type: ASTTypedType,
@@ -267,7 +266,6 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
 
     fn add_function_call(
         &mut self,
-        namespace: &ASTNameSpace,
         module: &ASTTypedModule,
         comment: &str,
         param_type: ASTTypedType,
@@ -287,8 +285,8 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             Some(comment),
             true,
         );
-        if let Some(name) = get_reference_type_name(namespace, &param_type, module) {
-            self.add_code_for_reference_type(namespace, module, &name, "eax", comment, statics);
+        if let Some(name) = get_reference_type_name(&param_type, module) {
+            self.add_code_for_reference_type(module, &name, "eax", comment, statics);
         }
         self.parameter_added_to_stack();
     }
@@ -801,7 +799,6 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
 
     fn add_code_for_reference_type(
         &mut self,
-        namespace: &ASTNameSpace,
         module: &ASTTypedModule,
         name: &str,
         source: &str,
@@ -810,15 +807,8 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
     ) {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
-            self.backend.call_add_ref(
-                namespace,
-                &mut self.before,
-                source,
-                name,
-                descr,
-                module,
-                statics,
-            );
+            self.backend
+                .call_add_ref(&mut self.before, source, name, descr, module, statics);
             let pos = self
                 .backend
                 .push_to_scope_stack(&mut self.before, source, &self.stack_vals);
@@ -826,7 +816,6 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
             self.after.insert(
                 0,
                 Self::pop_from_scope_stack_and_deref(
-                    namespace,
                     module,
                     self.backend,
                     name,
@@ -952,7 +941,6 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
     }
 
     fn pop_from_scope_stack_and_deref(
-        namespace: &ASTNameSpace,
         module: &ASTTypedModule,
         backend: &dyn BackendAsm,
         type_name: &str,
@@ -963,7 +951,6 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
         let mut result = String::new();
         backend.add(&mut result, "; scope pop", None, true);
         result.push_str(&backend.call_deref(
-            namespace,
             &format!("[{} - {}]", backend.stack_base_pointer(), pos),
             type_name,
             descr,

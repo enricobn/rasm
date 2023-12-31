@@ -475,7 +475,6 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                         call_parameters.add_on_top_of_after(&af.join("\n"));
 
                         call_parameters.add_function_call(
-                            namespace,
                             self.module(),
                             &format!("{param_name} = {} : {}", &call.function_name, call.index),
                             param_type.clone(),
@@ -836,13 +835,10 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             }
 
             if self.options().dereference {
-                if let Some(type_name) =
-                    get_reference_type_name(namespace, &ast_typed_type, self.module())
-                {
+                if let Some(type_name) = get_reference_type_name(&ast_typed_type, self.module()) {
                     let entry = statics.get_typed_const(name).unwrap();
 
                     self.backend().call_add_ref(
-                        namespace,
                         body,
                         &format!("[{}]", entry.key),
                         &type_name,
@@ -866,11 +862,8 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             }
 
             if self.options().dereference {
-                if let Some(type_name) =
-                    get_reference_type_name(namespace, &ast_typed_type, self.module())
-                {
+                if let Some(type_name) = get_reference_type_name(&ast_typed_type, self.module()) {
                     self.call_add_ref_for_let_val(
-                        namespace,
                         &name,
                         &index,
                         before,
@@ -880,7 +873,6 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                     );
 
                     let deref_str = self.call_deref_for_let_val(
-                        namespace,
                         &name,
                         statics,
                         &address_relative_to_bp,
@@ -902,7 +894,6 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn call_deref_for_let_val(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -911,7 +902,6 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn call_add_ref_for_let_val(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         index: &ASTIndex,
         before: &mut String,
@@ -1330,16 +1320,15 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 }
 
 pub fn get_reference_type_name(
-    namespace: &ASTNameSpace,
     ast_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> Option<String> {
     match ast_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
-        ASTTypedType::Enum { namespace, name } => Some(name.clone()),
-        ASTTypedType::Struct { namespace, name } => Some(name.clone()),
-        ASTTypedType::Type { namespace, name } => {
+        ASTTypedType::Enum { namespace: _, name } => Some(name.clone()),
+        ASTTypedType::Struct { namespace: _, name } => Some(name.clone()),
+        ASTTypedType::Type { namespace: _, name } => {
             if let Some(t) = type_def_provider.get_type_def_by_name(name) {
                 if t.is_ref {
                     Some(name.clone())
@@ -1369,7 +1358,7 @@ fn can_optimize_lambda_space_(
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
-        ASTTypedType::Enum { namespace, name } => {
+        ASTTypedType::Enum { namespace: _, name } => {
             if already_checked.contains(name) {
                 return true;
             }
@@ -1642,7 +1631,6 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn call_deref_for_let_val(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -1650,7 +1638,6 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     ) -> String {
         let bp = self.backend.stack_base_pointer();
         self.backend.call_deref(
-            namespace,
             &format!("[{bp} - {}]", address_relative_to_bp),
             &type_name,
             &format!("for let val {name}"),
@@ -1661,7 +1648,6 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn call_add_ref_for_let_val(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         index: &ASTIndex,
         before: &mut String,
@@ -1671,7 +1657,6 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     ) {
         let bp = self.backend.stack_base_pointer();
         self.backend.call_add_ref(
-            namespace,
             before,
             &format!("[{bp} - {}]", address_relative_to_bp),
             &type_name,

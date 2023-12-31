@@ -118,15 +118,6 @@ impl ASTTypedType {
     pub fn is_unit(&self) -> bool {
         self == &ASTTypedType::Unit
     }
-
-    pub fn namespace(&self) -> ASTNameSpace {
-        match self {
-            ASTTypedType::Enum { namespace, name } => namespace.clone(),
-            ASTTypedType::Struct { namespace, name } => namespace.clone(),
-            ASTTypedType::Type { namespace, name } => namespace.clone(),
-            _ => ASTNameSpace::global(),
-        }
-    }
 }
 
 impl Display for ASTTypedType {
@@ -157,9 +148,9 @@ impl Display for ASTTypedType {
                     ))
                 }
             },
-            ASTTypedType::Enum { namespace, name } => f.write_str(&name.to_string()),
-            ASTTypedType::Struct { namespace, name } => f.write_str(&name.to_string()),
-            ASTTypedType::Type { namespace, name } => f.write_str(&name.to_string()),
+            ASTTypedType::Enum { namespace: _, name } => f.write_str(&name.to_string()),
+            ASTTypedType::Struct { namespace: _, name } => f.write_str(&name.to_string()),
+            ASTTypedType::Type { namespace: _, name } => f.write_str(&name.to_string()),
             ASTTypedType::Unit => f.write_str("()"),
         }
     }

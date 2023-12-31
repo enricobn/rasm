@@ -544,14 +544,14 @@ impl TextMacroEvaluator {
                     )),
                 }),
             },
-            ASTTypedType::Enum { namespace, name } => type_def_provider
-                .get_type_from_typed_type_name(namespace, name)
+            ASTTypedType::Enum { namespace: _, name } => type_def_provider
+                .get_type_from_typed_type_name(name)
                 .unwrap(),
-            ASTTypedType::Struct { namespace, name } => type_def_provider
-                .get_type_from_typed_type_name(namespace, name)
+            ASTTypedType::Struct { namespace: _, name } => type_def_provider
+                .get_type_from_typed_type_name(name)
                 .unwrap(),
-            ASTTypedType::Type { namespace, name } => type_def_provider
-                .get_type_from_typed_type_name(namespace, name)
+            ASTTypedType::Type { namespace: _, name } => type_def_provider
+                .get_type_from_typed_type_name(name)
                 .unwrap(),
             ASTTypedType::Unit => ASTType::Unit,
         }
@@ -956,13 +956,11 @@ impl TextMacroEval for AddRefMacro {
                 ),
             };
 
-            let (namespace, type_name) = match ast_typed_type {
-                ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => {
-                    (ASTNameSpace::global(), "str".to_string())
-                }
-                ASTTypedType::Struct { namespace, name } => (namespace.clone(), name.clone()),
-                ASTTypedType::Enum { namespace, name } => (namespace.clone(), name.clone()),
-                ASTTypedType::Type { namespace, name } => (namespace.clone(), name.clone()),
+            let type_name = match ast_typed_type {
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str".to_string(),
+                ASTTypedType::Struct { namespace: _, name } => name.clone(),
+                ASTTypedType::Enum { namespace: _, name } => name.clone(),
+                ASTTypedType::Type { namespace: _, name } => name.clone(),
                 _ => return String::new(),
             };
 
@@ -970,7 +968,6 @@ impl TextMacroEval for AddRefMacro {
             let descr = &format!("addref macro type {type_name}");
             if self.deref {
                 result.push_str(&self.backend.call_deref(
-                    &namespace,
                     address,
                     &type_name,
                     descr,
@@ -979,7 +976,6 @@ impl TextMacroEval for AddRefMacro {
                 ));
             } else {
                 self.backend.call_add_ref(
-                    &namespace,
                     &mut result,
                     address,
                     &type_name,
@@ -1016,11 +1012,6 @@ impl TextMacroEval for PrintRefMacro {
         _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
-        let namespace = if let Some(f) = function_def {
-            f.namespace.clone()
-        } else {
-            ASTNameSpace::global()
-        };
         let result = match text_macro.parameters.get(0) {
             None => panic!("cannot find parameter for printRef macro"),
             Some(par) => match par {
@@ -1129,19 +1120,19 @@ impl PrintRefMacro {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => {
                 ("str".to_owned(), String::new(), true)
             }
-            ASTTypedType::Enum { namespace, name } => (
+            ASTTypedType::Enum { namespace: _, name } => (
                 name.clone(),
-                self.print_ref_enum(&namespace, &name, src, type_def_provider, indent + 1),
+                self.print_ref_enum(&name, src, type_def_provider, indent + 1),
                 false,
             ),
-            ASTTypedType::Struct { namespace, name } => (
+            ASTTypedType::Struct { namespace: _, name } => (
                 name.clone(),
-                self.print_ref_struct(&namespace, &name, src, type_def_provider, indent + 1),
+                self.print_ref_struct(&name, src, type_def_provider, indent + 1),
                 true,
             ),
-            ASTTypedType::Type { namespace, name } => (
+            ASTTypedType::Type { namespace: _, name } => (
                 name.clone(),
-                self.print_ref_type(&namespace, &name, src, type_def_provider, indent + 1),
+                self.print_ref_type(&name, src, type_def_provider, indent + 1),
                 true,
             ),
             _ => panic!("unsupported type {ast_typed_type}"),
@@ -1216,7 +1207,6 @@ impl PrintRefMacro {
 
     fn print_ref_struct(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
@@ -1259,7 +1249,6 @@ impl PrintRefMacro {
 
     fn print_ref_enum(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
@@ -1295,9 +1284,7 @@ impl PrintRefMacro {
                 self.println_str(&mut result, &variant.name);
 
                 for (j, par) in variant.parameters.iter().enumerate() {
-                    if get_reference_type_name(namespace, &par.ast_type, type_def_provider)
-                        .is_some()
-                    {
+                    if get_reference_type_name(&par.ast_type, type_def_provider).is_some() {
                         let ast_type = if matches!(
                             &par.ast_type,
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
@@ -1338,7 +1325,6 @@ impl PrintRefMacro {
 
     fn print_ref_type(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         src: &str,
         type_def_provider: &dyn TypeDefProvider,

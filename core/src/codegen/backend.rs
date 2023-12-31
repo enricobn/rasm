@@ -80,7 +80,6 @@ pub trait Backend: Send + Sync {
 
     fn call_add_ref(
         &self,
-        namespace: &ASTNameSpace,
         out: &mut String,
         source: &str,
         type_name: &str,
@@ -100,7 +99,6 @@ pub trait Backend: Send + Sync {
 
     fn call_deref(
         &self,
-        namespace: &ASTNameSpace,
         source: &str,
         type_name: &str,
         descr: &str,
@@ -346,8 +344,7 @@ impl BackendNasmi386 {
                     TypedValKind::ParameterRef(_, def) => &def.ast_type,
                     TypedValKind::LetRef(_, typed_type) => typed_type,
                 };
-                if let Some(type_name) =
-                    get_reference_type_name(namespace, ast_typed_type, type_def_provider)
+                if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
                 {
                     if !initialized {
                         self.add(&mut body, "push   ebx", None, true);
@@ -358,7 +355,6 @@ impl BackendNasmi386 {
                     }
                     if is_deref {
                         body.push_str(&self.call_deref(
-                            namespace,
                             &format!("[ebx + {}]", i * self.word_len()),
                             &type_name,
                             &format!("\"{val_name}\" in lambda context"),
@@ -367,7 +363,6 @@ impl BackendNasmi386 {
                         ));
                     } else {
                         self.call_add_ref(
-                            namespace,
                             &mut body,
                             &format!("[ebx + {}]", i * self.word_len()),
                             &type_name,
@@ -627,8 +622,8 @@ impl Backend for BackendNasmi386 {
                                         type_def_provider
                                             .get_type_from_typed_type(t)
                                             .ok_or(format!("name {name} t {t}"))
-                                    } else if let Some(t) = type_def_provider
-                                        .get_type_from_typed_type_name(&f.namespace, name)
+                                    } else if let Some(t) =
+                                        type_def_provider.get_type_from_typed_type_name(name)
                                     {
                                         Ok(t)
                                     } else {
@@ -684,7 +679,6 @@ impl Backend for BackendNasmi386 {
 
     fn call_add_ref(
         &self,
-        namespace: &ASTNameSpace,
         out: &mut String,
         source: &str,
         type_name: &str,
@@ -706,19 +700,18 @@ impl Backend for BackendNasmi386 {
 
         self.add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
-        let (has_references, is_type) = if let Some(struct_def) =
-            type_def_provider.get_struct_def_by_name(type_name)
-        {
-            (struct_has_references(struct_def, type_def_provider), false)
-        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-            (enum_has_references(enum_def, type_def_provider), false)
-        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-            (type_has_references(type_def), true)
-        } else if "str" == type_name || "_fn" == type_name {
-            (true, false)
-        } else {
-            panic!("call_add_ref, cannot find type {descr} {type_name} for namespace {namespace}");
-        };
+        let (has_references, is_type) =
+            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+                (struct_has_references(struct_def, type_def_provider), false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (enum_has_references(enum_def, type_def_provider), false)
+            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+                (type_has_references(type_def), true)
+            } else if "str" == type_name || "_fn" == type_name {
+                (true, false)
+            } else {
+                panic!("call_add_ref, cannot find type {descr} {type_name}");
+            };
 
         if "_fn" == type_name {
             self.add(out, &format!("push     {ws} eax"), None, true);
@@ -795,7 +788,6 @@ impl Backend for BackendNasmi386 {
 
     fn call_deref(
         &self,
-        namespace: &ASTNameSpace,
         source: &str,
         type_name: &str,
         descr_for_debug: &str,

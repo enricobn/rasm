@@ -303,13 +303,10 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                 true,
             );
             for (i, property) in struct_def.clone().properties.iter().enumerate() {
-                if let Some(name) =
-                    get_reference_type_name(&struct_def.namespace, &property.ast_type, module)
-                {
+                if let Some(name) = get_reference_type_name(&property.ast_type, module) {
                     let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
                     if function_name == "deref" {
                         result.push_str(&self.backend.call_deref(
-                            &struct_def.namespace,
                             &format!("[ebx + {}]", i * wl),
                             &name,
                             descr,
@@ -319,7 +316,6 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                         result.push('\n');
                     } else {
                         self.backend.call_add_ref(
-                            &struct_def.namespace,
                             &mut result,
                             &format!("[ebx + {}]", i * wl),
                             &name,
@@ -388,13 +384,10 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                         true,
                     );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
-                        if let Some(name) =
-                            get_reference_type_name(&enum_def.namespace, &par.ast_type, module)
-                        {
+                        if let Some(name) = get_reference_type_name(&par.ast_type, module) {
                             let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
                             if function_name == "deref" {
                                 result.push_str(&self.backend.call_deref(
-                                    &enum_def.namespace,
                                     &format!("[ebx + {}]", (j + 1) * wl),
                                     &name,
                                     descr,
@@ -404,7 +397,6 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                                 result.push('\n');
                             } else {
                                 self.backend.call_add_ref(
-                                    &enum_def.namespace,
                                     &mut result,
                                     &format!("[ebx + {}]", (j + 1) * wl),
                                     &name,
@@ -455,30 +447,15 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
         if type_has_references(type_def) {
             for (i, (_generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate()
             {
-                if let Some(name) =
-                    get_reference_type_name(&type_def.namespace, generic_type_def, module)
-                {
+                if let Some(name) = get_reference_type_name(generic_type_def, module) {
                     let descr = "$descr";
                     let call_deref = if function_name == "deref" {
-                        self.backend.call_deref(
-                            &type_def.namespace,
-                            "[ebx]",
-                            &name,
-                            descr,
-                            module,
-                            statics,
-                        )
+                        self.backend
+                            .call_deref("[ebx]", &name, descr, module, statics)
                     } else {
                         let mut s = String::new();
-                        self.backend.call_add_ref(
-                            &type_def.namespace,
-                            &mut s,
-                            "[ebx]",
-                            &name,
-                            descr,
-                            module,
-                            statics,
-                        );
+                        self.backend
+                            .call_add_ref(&mut s, "[ebx]", &name, descr, module, statics);
                         s
                     };
 
@@ -496,9 +473,10 @@ pub fn struct_has_references(
     struct_def: &ASTTypedStructDef,
     type_def_provider: &dyn TypeDefProvider,
 ) -> bool {
-    struct_def.properties.iter().any(|it| {
-        get_reference_type_name(&struct_def.namespace, &it.ast_type, type_def_provider).is_some()
-    })
+    struct_def
+        .properties
+        .iter()
+        .any(|it| get_reference_type_name(&it.ast_type, type_def_provider).is_some())
 }
 
 pub fn enum_has_references(
@@ -509,9 +487,7 @@ pub fn enum_has_references(
         .variants
         .iter()
         .flat_map(|it| it.parameters.iter())
-        .any(|it| {
-            get_reference_type_name(&enum_def.namespace, &it.ast_type, type_def_provider).is_some()
-        })
+        .any(|it| get_reference_type_name(&it.ast_type, type_def_provider).is_some())
 }
 
 pub fn type_has_references(type_def: &ASTTypedTypeDef) -> bool {
