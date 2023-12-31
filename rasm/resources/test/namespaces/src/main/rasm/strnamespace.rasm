@@ -9,3 +9,11 @@ fn getstr() -> Result<TestModel,str> {
 pub fn printstr() {
     getstr().match( { v -> println("str ok");}, {error -> println("str error");});
 }
+
+fn getstr2() -> Result<TestModel,str> {
+    if(true, { -> Result::Ok(TestModel("value"));}).else({ -> Result::Error("error");}).call();
+}
+
+pub fn printstr2() {
+    getstr2().match( { v -> println("str ok");}, {error -> println("str ".add(error));});
+}

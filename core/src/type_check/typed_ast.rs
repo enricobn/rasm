@@ -593,20 +593,6 @@ impl<'a> ConvContext<'a> {
                     return enum_typed_type;
                 }
 
-                /*
-                if let Some(found) = self.enum_defs.iter().find(|it| it.variants == variants) {
-                    //println!("found enum {found}");
-                    self.enums
-                        .values()
-                        .find(|it| match it {
-                            ASTTypedType::Enum { namespace, name } => name == &found.name,
-                            _ => panic!(),
-                        })
-                        .unwrap()
-                        .clone()
-                } else {
-
-                 */
                 self.enum_defs.push(ASTTypedEnumDef {
                     namespace: enum_def.namespace.clone(),
                     modifiers: enum_def.modifiers.clone(),
@@ -814,45 +800,11 @@ impl<'a> ConvContext<'a> {
                 index,
             } => ast_type_to_ast_typed_type_map
                 .iter()
-                .find(
-                    |(type_def_ast_type, _ast_typed_type)| match type_def_ast_type {
-                        ASTType::Custom {
-                            namespace: candidate_namespace,
-                            name: candidate_name,
-                            param_types: candidate_param_types,
-                            index: _,
-                        } => {
-                            name == candidate_name
-                                && (type_def.modifiers().public
-                                    || type_def.namespace() == candidate_namespace)
-                                && param_types.len() == candidate_param_types.len()
-                                && zip(param_types.iter(), candidate_param_types.iter()).all(
-                                    |(param_type, candidate_param_type)| {
-                                        if param_type
-                                            .equals_excluding_namespace(candidate_param_type)
-                                        {
-                                            if let ASTType::Custom { .. } = param_type {
-                                                if let Some(p_type_def) =
-                                                    self.get_type_def(param_type)
-                                                {
-                                                    p_type_def.modifiers().public
-                                                        || p_type_def.namespace()
-                                                            == &candidate_param_type.namespace()
-                                                } else {
-                                                    panic!()
-                                                }
-                                            } else {
-                                                true
-                                            }
-                                        } else {
-                                            false
-                                        }
-                                    },
-                                )
-                        }
-                        _ => false,
-                    },
-                )
+                .find(|(type_def_ast_type, _ast_typed_type)| {
+                    TypeFilter::Exact(type_def_ast_type.clone().clone())
+                        .almost_equal(ast_type, self.module)
+                        .unwrap_or(false)
+                })
                 .map(|(ast_type, ast_typed_type)| ast_typed_type)
                 .cloned(),
             _ => {
@@ -1784,12 +1736,6 @@ fn typed_type(
             } else if let Some(t) = conv_context.module.types.iter().find(|it| {
                 (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
             }) {
-                /*
-                if name == "TestModel" {
-                    println!("found TestModel");
-                }
-
-                 */
                 if let Some(e) = conv_context.get_type(t, ast_type) {
                     e
                 } else {

@@ -25,8 +25,9 @@ use crate::errors::CompilationErrorKind::Verify;
 use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast;
 use crate::type_check::typed_ast::{
-    get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
-    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    get_type_of_typed_expression, print_typed_module, ASTTypedExpression, ASTTypedFunctionBody,
+    ASTTypedFunctionCall, ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
+    BuiltinTypedTypeKind,
 };
 use crate::utils::OptionDisplay;
 use crate::{debug_i, dedent, indent};
@@ -35,10 +36,8 @@ use std::iter::zip;
 use std::ops::Deref;
 
 pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), CompilationError> {
-    /*
-    println!("printing typed module");
-    print_typed_module(module);
-     */
+    // println!("printing typed module");
+    // print_typed_module(module);
 
     let mut context = TypedValContext::new(None);
 

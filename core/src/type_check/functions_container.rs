@@ -664,27 +664,31 @@ impl FunctionsContainer {
                                 if let Some(type_def) =
                                     enhanced_astmodule.get_type_def(parameter_type)
                                 {
-                                    Ok(type_name == expected_type_name &&
-                                        (type_def.modifiers().public || (type_def.namespace() == expected_namespace)) //&& namespace == expected_namespace
+                                    Ok(type_name == expected_type_name
+                                        && (type_def.modifiers().public
+                                            || (type_def.namespace() == expected_namespace))
                                         && param_types.len() == expected_param_types.len()
                                         && param_types
-                                        .iter()
-                                        .enumerate()
-                                        .map(|(i, pt)| {
-                                            Self::almost_same_type_internal(
-                                                pt,
-                                                &TypeFilter::Exact(
-                                                    expected_param_types.get(i).unwrap().clone(),
-                                                ),
-                                                resolved_generic_types,
-                                                index,
-                                                false,
-                                                enhanced_astmodule
-                                            )
-                                        })
-                                        .collect::<Result<Vec<_>, TypeCheckError>>()?
-                                        .into_iter()
-                                        .all(|it| it))
+                                            .iter()
+                                            .enumerate()
+                                            .map(|(i, pt)| {
+                                                Self::almost_same_type_internal(
+                                                    pt,
+                                                    &TypeFilter::Exact(
+                                                        expected_param_types
+                                                            .get(i)
+                                                            .unwrap()
+                                                            .clone(),
+                                                    ),
+                                                    resolved_generic_types,
+                                                    index,
+                                                    false,
+                                                    enhanced_astmodule,
+                                                )
+                                            })
+                                            .collect::<Result<Vec<_>, TypeCheckError>>()?
+                                            .into_iter()
+                                            .all(|it| it))
                                 } else {
                                     Err(TypeCheckError::new(
                                         index.clone(),

@@ -371,7 +371,7 @@ fn test_oop() {
 
 #[test]
 fn test_namespaces() {
-    run_test("namespaces", vec![], "str ok\ni32 ok\n");
+    run_test("namespaces", vec![], "str ok\ni32 ok\nstr ok\ni32 ok\n");
 }
 
 #[test]

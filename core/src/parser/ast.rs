@@ -208,26 +208,6 @@ impl ASTType {
             _ => self == other,
         }
     }
-
-    pub fn with_namespace(&self, namespace: &ASTNameSpace) -> Self {
-        match self {
-            ASTType::Custom {
-                namespace: _,
-                name,
-                param_types,
-                index,
-            } => ASTType::Custom {
-                namespace: namespace.clone(),
-                name: name.clone(),
-                param_types: param_types
-                    .iter()
-                    .map(|it| it.with_namespace(namespace))
-                    .collect::<Vec<_>>(),
-                index: index.clone(),
-            },
-            _ => self.clone(),
-        }
-    }
 }
 
 impl Display for ASTType {
@@ -581,18 +561,6 @@ pub trait CustomTypeDef: Display {
     fn modifiers(&self) -> &ASTModifiers;
 
     fn namespace(&self) -> &ASTNameSpace;
-
-    fn is_compatible_with(&self, ast_type: &ASTType) -> bool {
-        match ast_type {
-            ASTType::Custom {
-                namespace,
-                name,
-                param_types: _param_types,
-                index,
-            } => self.name() == name && (self.modifiers().public || self.namespace() == namespace),
-            _ => false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

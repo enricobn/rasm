@@ -131,7 +131,7 @@ pub fn resolve_generic_types_from_effective_type(
                                 if p.namespace() != effective_type.namespace() {
                                     println!("resolve_generic_types_from_effective_type different namespace {p} {}", effective_type.namespace());
                                 }
-                                p.with_namespace(&effective_type.namespace())
+                                p.clone()
                             } else {
                                 return Err(TypeCheckError::new(
                                     ASTIndex::none(),

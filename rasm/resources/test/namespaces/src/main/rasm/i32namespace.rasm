@@ -9,3 +9,11 @@ fn geti32() -> Result<TestModel,str> {
 pub fn printi32() {
     geti32().match( { v -> println("i32 ok");}, {error -> println("i32 error");});
 }
+
+fn geti322() -> Result<TestModel,str> {
+    if(true, { -> Result::Ok(TestModel(20));}).else({ -> Result::Error("Error");}).call();
+}
+
+pub fn printi322() {
+    geti322().match( { v -> println("i32 ok");}, {error -> println("i32 ".add(error));});
+}
