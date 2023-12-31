@@ -381,7 +381,7 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
         if let ASTType::Custom {
-            namespace,
+            namespace: _,
             name,
             param_types,
             index: _,
@@ -857,7 +857,7 @@ fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> 
     if let ASTType::Builtin(BuiltinTypeKind::String) = ast_type {
         true
     } else if let ASTType::Custom {
-        namespace,
+        namespace: _,
         name,
         param_types: _,
         index: _,
@@ -1025,7 +1025,6 @@ impl TextMacroEval for PrintRefMacro {
             None => panic!("cannot find parameter for printRef macro"),
             Some(par) => match par {
                 MacroParam::Plain(name, ast_type, ast_typed_type) => self.print_ref(
-                    &namespace,
                     name,
                     ast_type,
                     ast_typed_type,
@@ -1037,7 +1036,6 @@ impl TextMacroEval for PrintRefMacro {
                     panic!("String is nt a valid parameter for printRef macro ")
                 }
                 MacroParam::Ref(name, ast_type, ast_typed_type) => self.print_ref(
-                    &namespace,
                     name,
                     ast_type,
                     ast_typed_type,
@@ -1077,7 +1075,6 @@ impl PrintRefMacro {
 
     fn print_ref(
         &self,
-        namespace: &ASTNameSpace,
         src: &str,
         ast_type_o: &Option<ASTType>,
         ast_typed_type_o: &Option<ASTTypedType>,
@@ -1231,7 +1228,7 @@ impl PrintRefMacro {
             .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
         self.backend
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
-        if let Some(s) = type_def_provider.get_struct_def_by_name(namespace, name) {
+        if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
             for (i, p) in s.properties.iter().enumerate() {
                 let ast_type_o = if matches!(
                     p.ast_type,
@@ -1243,7 +1240,6 @@ impl PrintRefMacro {
                 };
                 if ast_type_o.is_some() {
                     let par_result = self.print_ref(
-                        namespace,
                         &format!("[ebx + {}]", i * self.backend.word_len()),
                         &ast_type_o,
                         &None,
@@ -1285,7 +1281,7 @@ impl PrintRefMacro {
         self.backend
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
         self.print_str(&mut result, " value ");
-        if let Some(s) = type_def_provider.get_enum_def_by_name(namespace, name) {
+        if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
             for (i, variant) in s.variants.iter().enumerate() {
                 let count = COUNT.with(|count| {
                     *count.borrow_mut() += 1;
@@ -1312,7 +1308,6 @@ impl PrintRefMacro {
                         };
 
                         let par_result = self.print_ref(
-                            namespace,
                             &format!("[ebx + {}]", (variant.parameters.len() - j) * wl),
                             &ast_type,
                             &None,
@@ -1349,7 +1344,7 @@ impl PrintRefMacro {
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
     ) -> String {
-        if let Some(s) = type_def_provider.get_type_def_by_name(namespace, name) {
+        if let Some(s) = type_def_provider.get_type_def_by_name(name) {
             let count = COUNT.with(|count| {
                 *count.borrow_mut() += 1;
                 *count.borrow()
@@ -1426,7 +1421,6 @@ impl PrintRefMacro {
                     true,
                 );
                 let inner_result = self.print_ref(
-                    namespace,
                     "[eax]",
                     &None,
                     &Some(ast_typed_type.clone()),

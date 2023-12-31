@@ -617,7 +617,7 @@ impl Backend for BackendNasmi386 {
                                 }
                             }
                             ASTType::Custom {
-                                namespace,
+                                namespace: _,
                                 name,
                                 param_types: _,
                                 index: _,
@@ -707,14 +707,12 @@ impl Backend for BackendNasmi386 {
         self.add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
         let (has_references, is_type) = if let Some(struct_def) =
-            type_def_provider.get_struct_def_by_name(namespace, type_name)
+            type_def_provider.get_struct_def_by_name(type_name)
         {
             (struct_has_references(struct_def, type_def_provider), false)
-        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(namespace, type_name)
-        {
+        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
             (enum_has_references(enum_def, type_def_provider), false)
-        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(namespace, type_name)
-        {
+        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
             (type_has_references(type_def), true)
         } else if "str" == type_name || "_fn" == type_name {
             (true, false)
@@ -811,21 +809,18 @@ impl Backend for BackendNasmi386 {
 
         let mut result = String::new();
 
-        let (has_references, is_type) = if let Some(struct_def) =
-            type_def_provider.get_struct_def_by_name(namespace, type_name)
-        {
-            (struct_has_references(struct_def, type_def_provider), false)
-        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(namespace, type_name)
-        {
-            (enum_has_references(enum_def, type_def_provider), false)
-        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(namespace, type_name)
-        {
-            (type_has_references(type_def), true)
-        } else if "str" == type_name || "_fn" == type_name {
-            (true, false)
-        } else {
-            panic!("call_deref, cannot find type {descr} {type_name}");
-        };
+        let (has_references, is_type) =
+            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+                (struct_has_references(struct_def, type_def_provider), false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (enum_has_references(enum_def, type_def_provider), false)
+            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+                (type_has_references(type_def), true)
+            } else if "str" == type_name || "_fn" == type_name {
+                (true, false)
+            } else {
+                panic!("call_deref, cannot find type {descr} {type_name}");
+            };
 
         let key = statics.add_str(descr);
 

@@ -28,27 +28,15 @@ pub trait TypeDefProvider {
 
     fn types(&self) -> &[ASTTypedTypeDef];
 
-    fn get_enum_def_by_name(
-        &self,
-        namespace: &ASTNameSpace,
-        name: &str,
-    ) -> Option<&ASTTypedEnumDef> {
+    fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
         self.enums().iter().find(|it| it.name == name)
     }
 
-    fn get_struct_def_by_name(
-        &self,
-        namespace: &ASTNameSpace,
-        name: &str,
-    ) -> Option<&ASTTypedStructDef> {
+    fn get_struct_def_by_name(&self, name: &str) -> Option<&ASTTypedStructDef> {
         self.structs().iter().find(|it| it.name == name)
     }
 
-    fn get_type_def_by_name(
-        &self,
-        namespace: &ASTNameSpace,
-        name: &str,
-    ) -> Option<&ASTTypedTypeDef> {
+    fn get_type_def_by_name(&self, name: &str) -> Option<&ASTTypedTypeDef> {
         self.types().iter().find(|it| it.name == name)
     }
 
@@ -252,12 +240,12 @@ pub trait TypeDefProvider {
         namespace: &ASTNameSpace,
         typed_type_to_find: &str,
     ) -> Option<ASTType> {
-        if let Some(t) = self.get_enum_def_by_name(namespace, typed_type_to_find) {
+        if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
             Some(t.ast_type.clone())
-        } else if let Some(t) = self.get_struct_def_by_name(namespace, typed_type_to_find) {
+        } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {
             Some(t.ast_type.clone())
         } else {
-            self.get_type_def_by_name(namespace, typed_type_to_find)
+            self.get_type_def_by_name(typed_type_to_find)
                 .map(|t| t.ast_type.clone())
         }
     }
@@ -267,12 +255,12 @@ pub trait TypeDefProvider {
         namespace: &ASTNameSpace,
         typed_type_to_find: &str,
     ) -> Option<ASTNameSpace> {
-        if let Some(t) = self.get_enum_def_by_name(namespace, typed_type_to_find) {
+        if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
             Some(t.namespace.clone())
-        } else if let Some(t) = self.get_struct_def_by_name(namespace, typed_type_to_find) {
+        } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {
             Some(t.namespace.clone())
         } else {
-            self.get_type_def_by_name(namespace, typed_type_to_find)
+            self.get_type_def_by_name(typed_type_to_find)
                 .map(|t| t.namespace.clone().clone())
         }
     }

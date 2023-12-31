@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
-use std::iter::zip;
 use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;

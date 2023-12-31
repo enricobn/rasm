@@ -1340,7 +1340,7 @@ pub fn get_reference_type_name(
         ASTTypedType::Enum { namespace, name } => Some(name.clone()),
         ASTTypedType::Struct { namespace, name } => Some(name.clone()),
         ASTTypedType::Type { namespace, name } => {
-            if let Some(t) = type_def_provider.get_type_def_by_name(namespace, name) {
+            if let Some(t) = type_def_provider.get_type_def_by_name(name) {
                 if t.is_ref {
                     Some(name.clone())
                 } else {
@@ -1376,7 +1376,7 @@ fn can_optimize_lambda_space_(
 
             already_checked.insert(name.to_owned());
 
-            if let Some(e) = type_def_provider.get_enum_def_by_name(namespace, name) {
+            if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
                 e.variants
                     .iter()
                     .flat_map(|it| it.parameters.iter())
@@ -1393,7 +1393,7 @@ fn can_optimize_lambda_space_(
             }
 
             already_checked.insert(name.to_owned());
-            if let Some(s) = type_def_provider.get_struct_def_by_name(namespace, name) {
+            if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
                 s.properties.iter().all(|it| {
                     can_optimize_lambda_space_(&it.ast_type, type_def_provider, already_checked)
                 })
