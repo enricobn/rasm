@@ -52,11 +52,19 @@ pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Asser
 
 pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
     println("Running ".add(name));
-    testRun().failed.first.match(
+    let startTime = now();
+    let runResult = testRun();
+    let elapsedTime = elapsedTime(now(), startTime);
+    print("test run in ");
+    print(elapsedTime.div(1000));
+    println(" ms");
+
+    runResult.failed.first.match(
         { error ->
             let message = "test failed ".add(" : ").add(index);
-            println(message);
+            print(message);
             println(error);
+            println();
             true;
         },
         { ->

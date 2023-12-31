@@ -1185,7 +1185,6 @@ impl TypeCheck {
                     def,
                     &expected_type,
                     &mut lambda_val_context,
-                    namespace,
                 )?;
 
                 for (i, statement) in def.body.iter().enumerate() {
@@ -1267,12 +1266,7 @@ impl TypeCheck {
 
         let mut val_context = ValContext::new(Some(val_context));
 
-        self.add_lambda_parameters_to_val_context(
-            lambda_def,
-            &expected_type,
-            &mut val_context,
-            namespace,
-        )?;
+        self.add_lambda_parameters_to_val_context(lambda_def, &expected_type, &mut val_context)?;
 
         let ert = if let Some(et) = expected_type {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -1312,7 +1306,6 @@ impl TypeCheck {
         lambda_def: &ASTLambdaDef,
         expected_type: &Option<&ASTType>,
         val_context: &mut ValContext,
-        namespace: &ASTNameSpace,
     ) -> Result<(), TypeCheckError> {
         if !lambda_def.parameter_names.is_empty() {
             if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {

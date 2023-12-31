@@ -578,7 +578,7 @@ impl<'a> ConvContext<'a> {
                 /*
                    during enum variants generation we could generate the same enum type
                 */
-                if let Some(enum_typed_type) = self.get_enum(enum_def, enum_type) {
+                if let Some(enum_typed_type) = self.get_enum(enum_type) {
                     dedent!();
                     return enum_typed_type;
                 }
@@ -608,8 +608,8 @@ impl<'a> ConvContext<'a> {
         result
     }
 
-    pub fn get_enum(&self, enum_def: &ASTEnumDef, enum_type: &ASTType) -> Option<ASTTypedType> {
-        self.get_def_typed_type(enum_def, enum_type, &self.enums)
+    pub fn get_enum(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
+        self.get_def_typed_type(enum_type, &self.enums)
         /*self.enum_defs
            .iter()
            .find(|typed_type_def| typed_type_def.is_compatible_with(enum_type))
@@ -687,7 +687,7 @@ impl<'a> ConvContext<'a> {
         struct_def: &ASTStructDef,
         struct_type: &ASTType,
     ) -> Option<ASTTypedType> {
-        self.get_def_typed_type(struct_def, struct_type, &self.structs)
+        self.get_def_typed_type(struct_type, &self.structs)
 
         /*self.struct_defs
            .iter()
@@ -757,7 +757,7 @@ impl<'a> ConvContext<'a> {
     }
 
     pub fn get_type(&self, type_def: &ASTTypeDef, type_def_type: &ASTType) -> Option<ASTTypedType> {
-        self.get_def_typed_type(type_def, type_def_type, &self.types)
+        self.get_def_typed_type(type_def_type, &self.types)
         /*self.type_defs
            .iter()
            .find(|typed_type_def| typed_type_def.is_compatible_with(type_def_type))
@@ -768,16 +768,15 @@ impl<'a> ConvContext<'a> {
 
     fn get_def_typed_type(
         &self,
-        type_def: &dyn CustomTypeDef,
         ast_type: &ASTType,
         ast_type_to_ast_typed_type_map: &LinkedHashMap<ASTType, ASTTypedType>,
     ) -> Option<ASTTypedType> {
         match ast_type {
             ASTType::Custom {
-                namespace,
-                name,
-                param_types,
-                index,
+                namespace: _,
+                name: _,
+                param_types: _,
+                index: _,
             } => ast_type_to_ast_typed_type_map
                 .iter()
                 .find(|(type_def_ast_type, _ast_typed_type)| {
@@ -785,7 +784,7 @@ impl<'a> ConvContext<'a> {
                         .almost_equal(ast_type, self.module)
                         .unwrap_or(false)
                 })
-                .map(|(ast_type, ast_typed_type)| ast_typed_type)
+                .map(|(_ast_type, ast_typed_type)| ast_typed_type)
                 .cloned(),
             _ => {
                 panic!()
@@ -1693,7 +1692,7 @@ fn typed_type(
             if let Some(enum_def) = conv_context.module.enums.iter().find(|it| {
                 (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
             }) {
-                if let Some(e) = conv_context.get_enum(enum_def, ast_type) {
+                if let Some(e) = conv_context.get_enum(ast_type) {
                     e
                 } else {
                     conv_context.add_enum(namespace, ast_type, enum_def)
@@ -1957,19 +1956,13 @@ mod tests {
         ast_type_to_ast_typed_type_map
             .insert(result_second_ast_type.clone(), result_second_typed_type);
 
-        let result = sut.get_def_typed_type(
-            &result_type_def(),
-            &result_first_ast_type,
-            &ast_type_to_ast_typed_type_map,
-        );
+        let result =
+            sut.get_def_typed_type(&result_first_ast_type, &ast_type_to_ast_typed_type_map);
 
         assert_eq!(format!("{}", result.unwrap()), "Result_1");
 
-        let result = sut.get_def_typed_type(
-            &result_type_def(),
-            &result_second_ast_type,
-            &ast_type_to_ast_typed_type_map,
-        );
+        let result =
+            sut.get_def_typed_type(&result_second_ast_type, &ast_type_to_ast_typed_type_map);
 
         assert_eq!(format!("{}", result.unwrap()), "Result_2");
     }
