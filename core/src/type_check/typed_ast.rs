@@ -618,12 +618,7 @@ impl<'a> ConvContext<'a> {
         */
     }
 
-    pub fn add_struct(
-        &mut self,
-        namespace: &ASTNameSpace,
-        struct_type: &ASTType,
-        struct_def: &ASTStructDef,
-    ) -> ASTTypedType {
+    pub fn add_struct(&mut self, struct_type: &ASTType, struct_def: &ASTStructDef) -> ASTTypedType {
         debug_i!("add_struct {struct_type}");
         indent!();
         let result = match struct_type {
@@ -702,12 +697,7 @@ impl<'a> ConvContext<'a> {
         */
     }
 
-    pub fn add_type(
-        &mut self,
-        namespace: &ASTNameSpace,
-        ast_type: &ASTType,
-        type_def: &ASTTypeDef,
-    ) -> ASTTypedType {
+    pub fn add_type(&mut self, ast_type: &ASTType, type_def: &ASTTypeDef) -> ASTTypedType {
         debug_i!("add_type {ast_type}");
         indent!();
         let result = match ast_type {
@@ -1649,13 +1639,6 @@ fn typed_type(
     ast_type: &ASTType,
     message: &str,
 ) -> ASTTypedType {
-    /*
-    if format!("{ast_type}").contains("TestModel") {
-        println!("typed_type {namespace} {ast_type}");
-    }
-
-     */
-
     let result = match ast_type {
         ASTType::Builtin(kind) => match kind {
             BuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
@@ -1721,7 +1704,7 @@ fn typed_type(
                 if let Some(e) = conv_context.get_struct(struct_def, ast_type) {
                     e
                 } else {
-                    conv_context.add_struct(namespace, ast_type, struct_def)
+                    conv_context.add_struct(ast_type, struct_def)
                 }
             } else if let Some(t) = conv_context.module.types.iter().find(|it| {
                 (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
@@ -1729,7 +1712,7 @@ fn typed_type(
                 if let Some(e) = conv_context.get_type(t, ast_type) {
                     e
                 } else {
-                    conv_context.add_type(namespace, ast_type, t)
+                    conv_context.add_type(ast_type, t)
                 }
             } else {
                 println!(

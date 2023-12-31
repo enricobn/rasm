@@ -1376,7 +1376,7 @@ fn can_optimize_lambda_space_(
                 panic!();
             }
         }
-        ASTTypedType::Struct { namespace, name } => {
+        ASTTypedType::Struct { namespace: _, name } => {
             if already_checked.contains(name) {
                 return true;
             }

@@ -656,7 +656,7 @@ impl FunctionsContainer {
                             ASTType::Builtin(_) => Ok(false),
                             ASTType::Generic(_) => Ok(true), // TODO
                             ASTType::Custom {
-                                namespace,
+                                namespace: _,
                                 param_types,
                                 name: type_name,
                                 index: _,

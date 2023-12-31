@@ -100,11 +100,7 @@ pub trait TypeDefProvider {
         }
     }
 
-    fn get_ast_typed_type_from_type_name(
-        &self,
-        namespace: &ASTNameSpace,
-        name: &str,
-    ) -> Option<ASTTypedType> {
+    fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
         if let Some(e) = find_one(self.enums().iter(), |it| {
             if let ASTType::Custom {
                 namespace,
@@ -235,21 +231,6 @@ pub trait TypeDefProvider {
         } else {
             self.get_type_def_by_name(typed_type_to_find)
                 .map(|t| t.ast_type.clone())
-        }
-    }
-
-    fn get_namespace_from_typed_type_name(
-        &self,
-        namespace: &ASTNameSpace,
-        typed_type_to_find: &str,
-    ) -> Option<ASTNameSpace> {
-        if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
-            Some(t.namespace.clone())
-        } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {
-            Some(t.namespace.clone())
-        } else {
-            self.get_type_def_by_name(typed_type_to_find)
-                .map(|t| t.namespace.clone().clone())
         }
     }
 
