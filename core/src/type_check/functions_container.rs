@@ -142,11 +142,10 @@ impl FunctionsContainer {
     }
 
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
-        let found = self
-            .functions()
-            .iter()
+        let functions = self.functions();
+        let found = functions
+            .into_iter()
             .filter(|it| it.name == name || it.name == name.replace("::", "_"))
-            .copied()
             .collect::<Vec<_>>();
 
         if found.len() > 1 {
