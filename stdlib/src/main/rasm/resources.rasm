@@ -3,5 +3,5 @@ pub fn testResource(path: str) -> str {
 }
 
 pub fn resource(path: str) -> str {
-    add(RASMRESOURCEFOLDER, path);
+    RASMRESOURCEFOLDER.add("/").add(path);
 }

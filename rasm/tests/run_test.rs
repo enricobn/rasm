@@ -478,7 +478,7 @@ fn test_showimage() {
 
 #[test]
 fn test_bouncing_quads() {
-    compile_example("resources/examples/bouncing_quads.rasm", true);
+    compile_example("resources/examples/bouncing_quads", true);
 }
 
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
