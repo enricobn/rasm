@@ -127,20 +127,9 @@ pub fn resolve_generic_types_from_effective_type(
                             return Err(type_check_error("Invalid parameters count.".to_string()));
                         }
                         for (i, p_p) in p_parameters.iter().enumerate() {
-                            let e_p = if let Some(p) = e_parameters.get(i) {
-                                if p.namespace() != effective_type.namespace() {
-                                    println!("resolve_generic_types_from_effective_type different namespace {p} {}", effective_type.namespace());
-                                }
-                                p.clone()
-                            } else {
-                                return Err(TypeCheckError::new(
-                                    ASTIndex::none(),
-                                    format!("Cannot find parameter {i}"),
-                                    Vec::new(),
-                                ));
-                            };
+                            let e_p = e_parameters.get(i).unwrap();
 
-                            let inner_result = resolve_generic_types_from_effective_type(p_p, &e_p)
+                            let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
                             .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
 
                             result
