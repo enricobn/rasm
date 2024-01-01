@@ -1173,7 +1173,7 @@ pub fn get_type_of_typed_expression(
                 dedent!();
                 return Err(verify::verify_error(
                     index.clone(),
-                    format!("Unknown val {name}",),
+                    format!("Unknown val {name}"),
                 ));
             }
         }
@@ -1211,6 +1211,26 @@ pub fn get_type_of_typed_expression(
                     ast_index: index.clone(),
                 };
                 context.insert_par(name.clone(), i, parameter_def);
+            }
+
+            for statement in lambda_def.body.iter() {
+                match statement {
+                    ASTTypedStatement::Expression(_) => {}
+                    ASTTypedStatement::LetStatement(name, let_expr, is_const, index) => {
+                        let type_of_expr = get_type_of_typed_expression(
+                            module, &context, let_expr, None, statics,
+                        )?;
+
+                        if *is_const {
+                            return Err(verify::verify_error(
+                                lambda_def.index.clone(),
+                                "Const not allowed here".to_string(),
+                            ));
+                        }
+
+                        context.insert_let(name.to_string(), type_of_expr, None);
+                    }
+                }
             }
 
             let real_return_type = if let Some(last) = lambda_def.body.iter().last() {

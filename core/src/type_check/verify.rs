@@ -43,8 +43,7 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
     for statement in module.body.iter() {
         verify_statement(module, &mut context, statement, statics, None)?;
         if let ASTTypedStatement::Expression(e) = statement {
-            let typed_type =
-                typed_ast::get_type_of_typed_expression(module, &context, e, None, statics)?;
+            let typed_type = get_type_of_typed_expression(module, &context, e, None, statics)?;
 
             if typed_type != ASTTypedType::Unit {
                 return Err(expression_return_value_is_not_used(statement));
@@ -87,21 +86,42 @@ fn verify_statements(
         } else {
             expected_return_type
         };
+
+        /*
+        match statement {
+            ASTTypedStatement::Expression(_) => {}
+            ASTTypedStatement::LetStatement(name, let_expr, is_const, index) => {
+                if *is_const {
+                    return Err(verify_error(
+                        index.clone(),
+                        "const not allowed here".to_string(),
+                    ));
+                }
+
+                let type_of_expr =
+                    get_type_of_typed_expression(module, context, let_expr, None, statics)?;
+
+                context.insert_let(name.to_string(), type_of_expr, None);
+            }
+        }
+
+         */
+
         verify_statement(module, context, statement, statics, Some(ert))?;
     }
     let real_return_type = if let Some(last) = expressions.iter().last() {
         match last {
             ASTTypedStatement::Expression(e) => get_type_of_typed_expression(
                 module,
-                &context,
+                context,
                 e,
-                Some(&expected_return_type),
+                Some(expected_return_type),
                 statics,
             )?,
             ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
                 get_type_of_typed_expression(
                     module,
-                    &context,
+                    context,
                     e,
                     Some(&ASTTypedType::Unit),
                     statics,
