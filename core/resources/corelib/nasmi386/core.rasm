@@ -663,10 +663,10 @@ pub native copy<T>(o: T) -> T /{
 
     mov     dword ebx,$o
     mov     dword ecx,[ebx + 8] ; size
-    $call(rasmalloc, ecx, "for clone")
+    $call(rasmalloc, ecx, "for copy")
     $call(memcopy, [ebx], [eax], ecx)
     ; $addRef(eax:T)
-    ; $call(deref,eax:i32, "deref for clone")
+    ; $call(deref,eax:i32, "deref for copy")
 
     pop     ecx
     pop     ebx

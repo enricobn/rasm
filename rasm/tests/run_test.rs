@@ -449,6 +449,15 @@ fn test_printref() {
     run_test_no_verify("printref", Vec::new());
 }
 
+#[test]
+fn test_structpropertysetter1() {
+    run_test(
+        "structpropertysetter1",
+        Vec::new(),
+        "p (Some(10),Some(20))\np1 (Some(20),Some(20))\n",
+    );
+}
+
 // Compile tests
 
 #[test]

@@ -1318,10 +1318,6 @@ pub fn function_def(
         &format!("function {} return type", def.name),
     );
 
-    if def.name == "stdlib_vec_map_stdlib_vecVeci32_fni32stdlib_optionOptionstdlib_io_printIOError_stdlib_vecVecstdlib_optionOptionstdlib_io_printIOError" {
-        println!("function_return_type {function_return_type}");
-    }
-
     let typed_function_def = ASTTypedFunctionDef {
         namespace: def.namespace.clone(),
         name: def.name.clone(),

@@ -88,6 +88,14 @@ pub trait FunctionsCreator {
                     module,
                 );
                 module.add_function(property_setter_function);
+
+                let property_setter_function = self.create_function_for_struct_set_lambda_property(
+                    struct_def,
+                    property_def,
+                    i,
+                    module,
+                );
+                module.add_function(property_setter_function);
             }
 
             let function_def = ASTFunctionDef {
@@ -413,6 +421,61 @@ pub trait FunctionsCreator {
         }
     }
 
+    fn create_function_for_struct_set_lambda_property(
+        &self,
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+        i: usize,
+        module: &ASTModule,
+    ) -> ASTFunctionDef {
+        let param_types = struct_def
+            .type_parameters
+            .iter()
+            .map(|it| ASTType::Generic(it.into()))
+            .collect();
+
+        let name = &property_def.name;
+        let ast_type = ASTType::Custom {
+            namespace: struct_def.namespace.clone(),
+            name: struct_def.name.clone(),
+            param_types,
+            // TODO for now here's no source fo generated functions
+            index: ASTIndex::none(),
+        };
+
+        let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters: vec![property_def.ast_type.clone()],
+            return_type: Box::new(property_def.ast_type.clone()),
+        });
+
+        ASTFunctionDef {
+            original_name: name.clone(),
+            name: name.clone(),
+            parameters: vec![
+                ASTParameterDef {
+                    name: "receiver".into(),
+                    ast_type: ast_type.clone(),
+                    ast_index: ASTIndex::none(),
+                },
+                ASTParameterDef {
+                    name: "f".into(),
+                    ast_type: lambda,
+                    ast_index: ASTIndex::none(),
+                },
+            ],
+            return_type: ast_type,
+            body: ASTFunctionBody::NativeBody(
+                self.struct_setter_lambda_body(i, &property_def.ast_type),
+            ),
+            generic_types: struct_def.type_parameters.clone(),
+            inline: false,
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: struct_def.index.clone(),
+            modifiers: struct_def.modifiers.clone(),
+            namespace: module.namespace.clone(),
+        }
+    }
+
     fn struct_lambda_property_rasm_body(
         &self,
         namespace: &ASTNameSpace,
@@ -472,6 +535,8 @@ pub trait FunctionsCreator {
     fn struct_property_body(&self, i: usize) -> String;
 
     fn struct_setter_body(&self, i: usize) -> String;
+
+    fn struct_setter_lambda_body(&self, i: usize, property_type: &ASTType) -> String;
 
     fn enum_parametric_variant_constructor_body(
         &self,
@@ -790,7 +855,6 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
 
         let mut body = String::new();
         self.backend.add(&mut body, "push   ebx", None, true);
-        self.backend.add(&mut body, "push   ecx", None, true);
 
         if optimize_copy {
             self.backend
@@ -840,8 +904,39 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
 
         self.backend.add(&mut body, "pop   eax", None, true);
 
-        self.backend.add(&mut body, "pop   ecx", None, true);
         self.backend.add(&mut body, "pop   ebx", None, true);
+        body
+    }
+
+    fn struct_setter_lambda_body(&self, i: usize, property_type: &ASTType) -> String {
+        let ws = self.backend.word_size();
+        let wl = self.backend.word_len();
+
+        let mut body = String::new();
+        self.backend.add_rows(
+            &mut body,
+            vec![
+                "push   ebx",
+                "$call(copy,$receiver)",
+                "push   eax", // saving return value to the stack
+                &format!("mov   {ws} eax, [eax]"),
+                &format!("push  {ws} [eax + {}]", i * self.backend.word_len()),
+                &format!("mov   {ws} ebx, $f"),
+                &format!("mov   {ws} ebx, [ebx]"),
+                "push   ebx",
+                "call   [ebx]",
+                &format!("add     esp, {}", 2 * wl),
+                "pop    ebx", // in ebx we have the return value
+                "push   ebx", // we push it back to the stack
+                &format!("mov {ws} ebx,[ebx]"),
+                &format!("mov {ws}  [ebx + {}], eax", i * self.backend.word_len()),
+                "pop    eax",
+                "pop    ebx",
+            ],
+            None,
+            true,
+        );
+
         body
     }
 

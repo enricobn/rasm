@@ -1,0 +1,24 @@
+struct Point {
+    x: Option<i32>,
+    y: Option<i32>
+}
+
+let p = Point(Option::Some(10), Option::Some(20));
+let p1 = p.x({ xo -> xo.map({ x -> x.add(10);}); });
+
+println("p ", p);
+println("p1 ", p1);
+
+pub fn toString(p: Point) -> str {
+    "("
+    .add(p.x)
+    .add(",")
+    .add(p.y)
+    .add(")");
+}
+
+fn move(point: Point, diff: i32) -> Point {
+    point
+        .x(point.x.add(diff))
+        .y(point.y.add(diff));
+}
