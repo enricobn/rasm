@@ -354,13 +354,6 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
 
         let key = statics.add_str(&descr);
 
-        self.backend.call_function(
-            &mut result,
-            asm_function_name,
-            &[("$address", None), (&format!("[{key}]"), None)],
-            Some(&descr),
-        );
-
         if enum_has_references(enum_def, module) {
             self.backend.add_rows(
                 &mut result,
@@ -382,6 +375,12 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                         ],
                         None,
                         true,
+                    );
+                    self.backend.call_function(
+                        &mut result,
+                        asm_function_name,
+                        &[("$address", None), (&format!("[{key}]"), None)],
+                        Some(&descr),
                     );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
                         if let Some(name) = get_reference_type_name(&par.ast_type, module) {
