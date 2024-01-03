@@ -109,7 +109,7 @@ impl Compiler {
         let typed_module = get_typed_module(
             &backend,
             enhanced_ast_module,
-            self.options.print_memory_info,
+            self.options.print_memory,
             self.options.dereference,
             self.options.print_module,
             &mut statics,

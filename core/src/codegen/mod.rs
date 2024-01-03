@@ -93,11 +93,11 @@ pub struct CodeGenOptions {
     pub heap_size: usize,
     pub heap_table_slots: usize,
     pub debug: bool,
-    pub print_memory_info: bool,
     pub dereference: bool,
     pub print_module: bool,
     pub optimize_unused_functions: bool,
     pub target: CompileTarget,
+    pub print_memory: bool,
 }
 
 impl Default for CodeGenOptions {
@@ -107,7 +107,7 @@ impl Default for CodeGenOptions {
             heap_size: 64 * 1024 * 1024,
             heap_table_slots: 1024 * 1024,
             debug: false,
-            print_memory_info: false,
+            print_memory: false,
             dereference: true,
             print_module: false,
             optimize_unused_functions: false,
@@ -332,7 +332,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
         self.backend().function_end(&mut generated_code, false);
 
-        if self.options().print_memory_info {
+        if self.options().print_memory {
             self.print_memory_info(&mut generated_code);
         }
 
@@ -2233,9 +2233,9 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
 
     fn print_memory_info(&self, native_code: &mut String) {
         self.backend
-            .call_function_simple(native_code, "printAllocated_0");
+            .call_function_simple(native_code, "printAllocated");
         self.backend
-            .call_function_simple(native_code, "printTableSlotsAllocated_0");
+            .call_function_simple(native_code, "printTableSlotsAllocated");
     }
 
     fn initialize_static_values(&self, native_code: &mut String) {

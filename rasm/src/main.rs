@@ -77,6 +77,14 @@ fn main() {
                 .action(ArgAction::SetTrue)
                 .required(false),
         )
+        .arg(
+            Arg::new("memoryinfo")
+                .help("Print memory informations")
+                .long("memoryinfo")
+                .short('m')
+                .action(ArgAction::SetTrue)
+                .required(false),
+        )
         .get_matches();
 
     let current_path = env::current_dir().unwrap();
@@ -99,6 +107,7 @@ fn main() {
     info!("resource folder: {:?}", resource_folder);
 
     let debug = matches.get_flag("debug");
+    let print_memory = matches.get_flag("memoryinfo");
 
     let compiler = Compiler::new(
         project,
@@ -106,6 +115,7 @@ fn main() {
         action == "test",
         CodeGenOptions {
             debug,
+            print_memory,
             ..CodeGenOptions::default()
         },
     );
