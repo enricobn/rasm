@@ -85,6 +85,14 @@ fn main() {
                 .action(ArgAction::SetTrue)
                 .required(false),
         )
+        .arg(
+            Arg::new("printcode")
+                .help("Print code")
+                .long("printcode")
+                .short('p')
+                .action(ArgAction::SetTrue)
+                .required(false),
+        )
         .get_matches();
 
     let current_path = env::current_dir().unwrap();
@@ -108,6 +116,7 @@ fn main() {
 
     let debug = matches.get_flag("debug");
     let print_memory = matches.get_flag("memoryinfo");
+    let print_code = matches.get_flag("printcode");
 
     let compiler = Compiler::new(
         project,
@@ -116,6 +125,7 @@ fn main() {
         CodeGenOptions {
             debug,
             print_memory,
+            print_module: print_code,
             ..CodeGenOptions::default()
         },
     );

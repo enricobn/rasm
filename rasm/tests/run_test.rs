@@ -356,7 +356,7 @@ fn test_allocation() {
     run_test(
         "allocation",
         vec![],
-        "56 bytes allocated\n1,2\n56 bytes allocated\n",
+        "56 bytes allocated and referenced\n1,2\n56 bytes allocated and referenced\n",
     );
 }
 

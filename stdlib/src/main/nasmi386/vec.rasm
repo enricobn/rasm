@@ -408,15 +408,17 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 .loop:
     cmp     ebx, 0
     jz      .end
-    push    dword [ecx]
     push    eax
     $addRef(eax: T1)
-    ; TODO I must dereference it
+    push    dword [ecx]
+    push    eax
     mov     dword edx, $accum
     mov     dword edx,[edx]
     push    dword edx
     call    [edx]
     add     esp, 12
+    pop     edx
+    $deref(edx: T1)
     add     ecx, 4
     dec     ebx
     jmp     .loop

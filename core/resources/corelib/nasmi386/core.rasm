@@ -521,15 +521,18 @@ pub native printAllocated() /{
     jge     .end
     mov     dword edx,[eax + 4] ; 1 == allocated
     cmp     dword edx,0
-    jz      .not_allocated
+    jz      .skip
+    mov     dword edx,[eax + 12] ; refcount
+    cmp     dword edx,0
+    jz      .skip
     add     dword ecx,[eax + 8] ; size
-.not_allocated:
+.skip:
     add     eax, 5 * 4
     add     ebx, 5 * 4
     jmp     .loop
 .end:
     $call(print, 1:File, ecx)
-    $call(print, 1:File, " bytes allocated")
+    $call(print, 1:File, " bytes allocated and referenced")
     $call(print, 1:File, "\n")
 
     pop     edx
