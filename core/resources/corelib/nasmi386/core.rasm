@@ -175,6 +175,7 @@ pub native rasmalloc(size: i32, descr: str) -> i32 /{
 
     mov     dword ecx,[_heap]
     sub     ecx,_heap_buffer
+    add     ecx, $size
     cmp     ecx,[_heap_size]
     jb      .new_address_ok
     $call(print, 1:File, "Out of memory")
