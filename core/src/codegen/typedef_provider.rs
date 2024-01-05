@@ -19,7 +19,7 @@ use crate::parser::ast::{ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
-use crate::utils::{find_one, SliceDisplay};
+use crate::utils::find_one;
 
 pub trait TypeDefProvider {
     fn enums(&self) -> &[ASTTypedEnumDef];
@@ -87,14 +87,6 @@ pub trait TypeDefProvider {
                 &it.ast_typed_type == typed_type_to_find
             })
             .map(|t| t.clone().ast_type);
-
-            if result.is_none() {
-                println!(
-                    "{} enums: {}",
-                    typed_type_to_find,
-                    SliceDisplay(self.enums())
-                )
-            }
 
             result
         }

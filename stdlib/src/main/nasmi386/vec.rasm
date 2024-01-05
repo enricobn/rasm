@@ -398,31 +398,33 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     push    ebx
     push    ecx
     push    edx
+    push    esi
 
-    mov     dword eax, $vec
-    mov     dword ecx, [eax]
-    mov     dword ebx, [ecx]    ; the size of the vector
-    add     ecx, 4              ; the address of the value in the vector
-    mov     eax, $zero          ; the actual value
-
-.loop:
-    cmp     ebx, 0
+    mov     dword ecx, $vec
+    mov     dword ecx, [ecx]    ; the address of the value in the vector
+    mov     dword esi, [ecx]    ; the size of the vector
+    cmp     esi,0
     jz      .end
+
+    mov     dword ebx, $accum
+    mov     dword ebx,[ebx]     ; the lambda space
+
+    mov     eax, $zero          ; the actual value
+.loop:
+    add     ecx, 4
     push    eax
     $addRef(eax: T1)
     push    dword [ecx]
     push    eax
-    mov     dword edx, $accum
-    mov     dword edx,[edx]
-    push    dword edx
-    call    [edx]
+    push    dword ebx
+    call    [ebx]
     add     esp, 12
     pop     edx
     $deref(edx: T1)
-    add     ecx, 4
-    dec     ebx
-    jmp     .loop
+    dec     esi
+    jnz     .loop
 .end:
+    pop     esi
     pop     edx
     pop     ecx
     pop     ebx
