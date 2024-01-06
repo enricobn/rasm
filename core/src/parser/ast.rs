@@ -176,9 +176,9 @@ impl ASTType {
         match self {
             ASTType::Custom {
                 namespace,
-                name,
-                param_types,
-                index,
+                name: _,
+                param_types: _,
+                index: _,
             } => namespace.clone(),
             _ => ASTNameSpace::global(),
         }
@@ -190,13 +190,13 @@ impl ASTType {
                 namespace: _,
                 name,
                 param_types,
-                index,
+                index: _,
             } => match other {
                 ASTType::Custom {
                     namespace: _,
                     name: other_name,
                     param_types: other_param_types,
-                    index,
+                    index: _,
                 } => {
                     name == other_name
                         && param_types.len() == other_param_types.len()

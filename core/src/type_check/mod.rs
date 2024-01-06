@@ -180,13 +180,13 @@ pub fn resolve_generic_types_from_effective_type(
             }
         }
         ASTType::Custom {
-            namespace: p_namespace,
+            namespace: _,
             name: p_name,
             param_types: p_param_types,
             index: _,
         } => match effective_type {
             ASTType::Custom {
-                namespace: e_namespace,
+                namespace: _,
                 name: e_name,
                 param_types: e_param_types,
                 index: _,

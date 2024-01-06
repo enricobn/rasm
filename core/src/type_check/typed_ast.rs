@@ -17,8 +17,7 @@ use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTIndex, ASTLambdaDef, ASTModifiers, ASTNameSpace, ASTParameterDef, ASTStatement,
-    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, BuiltinTypeKind, CustomTypeDef,
-    ValueType,
+    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, BuiltinTypeKind, ValueType,
 };
 use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -610,12 +609,6 @@ impl<'a> ConvContext<'a> {
 
     pub fn get_enum(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
         self.get_def_typed_type(enum_type, &self.enums)
-        /*self.enum_defs
-           .iter()
-           .find(|typed_type_def| typed_type_def.is_compatible_with(enum_type))
-           .map(|it| it.ast_typed_type.clone())
-
-        */
     }
 
     pub fn add_struct(&mut self, struct_type: &ASTType, struct_def: &ASTStructDef) -> ASTTypedType {
@@ -682,19 +675,8 @@ impl<'a> ConvContext<'a> {
         result
     }
 
-    pub fn get_struct(
-        &self,
-        struct_def: &ASTStructDef,
-        struct_type: &ASTType,
-    ) -> Option<ASTTypedType> {
+    pub fn get_struct(&self, struct_type: &ASTType) -> Option<ASTTypedType> {
         self.get_def_typed_type(struct_type, &self.structs)
-
-        /*self.struct_defs
-           .iter()
-           .find(|typed_type_def| typed_type_def.is_compatible_with(struct_type))
-           .map(|it| it.ast_typed_type.clone())
-
-        */
     }
 
     pub fn add_type(&mut self, ast_type: &ASTType, type_def: &ASTTypeDef) -> ASTTypedType {
@@ -756,14 +738,8 @@ impl<'a> ConvContext<'a> {
         result
     }
 
-    pub fn get_type(&self, type_def: &ASTTypeDef, type_def_type: &ASTType) -> Option<ASTTypedType> {
+    pub fn get_type(&self, type_def_type: &ASTType) -> Option<ASTTypedType> {
         self.get_def_typed_type(type_def_type, &self.types)
-        /*self.type_defs
-           .iter()
-           .find(|typed_type_def| typed_type_def.is_compatible_with(type_def_type))
-           .map(|it| it.ast_typed_type.clone())
-
-        */
     }
 
     fn get_def_typed_type(
@@ -789,56 +765,6 @@ impl<'a> ConvContext<'a> {
             _ => {
                 panic!()
             }
-        }
-    }
-
-    pub fn get_type_def(&self, ast_type: &ASTType) -> Option<&dyn CustomTypeDef> {
-        //println!("get_type_def {ast_type}");
-        if let ASTType::Custom {
-            namespace,
-            name,
-            param_types,
-            index,
-        } = ast_type
-        {
-            if !param_types.iter().all(|param_type| {
-                if let ASTType::Custom { .. } = param_type {
-                    if let Some(p_type_def) = self.get_type_def(param_type) {
-                        p_type_def.modifiers().public
-                            || p_type_def.namespace() == &param_type.namespace()
-                    } else {
-                        panic!()
-                    }
-                } else {
-                    true
-                }
-            }) {
-                return None;
-            }
-
-            if let Some(enum_def) =
-                self.module.enums.iter().find(|it| {
-                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
-                })
-            {
-                Some(enum_def)
-            } else if let Some(struct_def) =
-                self.module.structs.iter().find(|it| {
-                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
-                })
-            {
-                Some(struct_def)
-            } else if let Some(t) =
-                self.module.types.iter().find(|it| {
-                    &it.name == name && (it.modifiers.public || &it.namespace == namespace)
-                })
-            {
-                Some(t)
-            } else {
-                None
-            }
-        } else {
-            None
         }
     }
 }
@@ -1216,7 +1142,7 @@ pub fn get_type_of_typed_expression(
             for statement in lambda_def.body.iter() {
                 match statement {
                     ASTTypedStatement::Expression(_) => {}
-                    ASTTypedStatement::LetStatement(name, let_expr, is_const, index) => {
+                    ASTTypedStatement::LetStatement(name, let_expr, is_const, _index) => {
                         let type_of_expr = get_type_of_typed_expression(
                             module, &context, let_expr, None, statics,
                         )?;
@@ -1688,23 +1614,11 @@ fn typed_type(
             panic!("Unresolved generic type '{p}': {message}");
         }
         ASTType::Custom {
-            namespace: custom_namespace,
+            namespace: _,
             name,
             param_types: _,
             index: _,
         } => {
-            /*
-            if name == "TestModel" {
-                let struct_defs = conv_context
-                    .struct_defs
-                    .iter()
-                    .filter(|it| it.name.starts_with("TestModel"))
-                    .collect::<Vec<_>>();
-                println!("TestModel struct: {}", SliceDisplay(&struct_defs));
-            }
-
-             */
-
             if let Some(enum_def) = conv_context.module.enums.iter().find(|it| {
                 (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
             }) {
@@ -1716,7 +1630,7 @@ fn typed_type(
             } else if let Some(struct_def) = conv_context.module.structs.iter().find(|it| {
                 &it.name == name && (it.modifiers.public || it.namespace == ast_type.namespace())
             }) {
-                if let Some(e) = conv_context.get_struct(struct_def, ast_type) {
+                if let Some(e) = conv_context.get_struct(ast_type) {
                     e
                 } else {
                     conv_context.add_struct(ast_type, struct_def)
@@ -1724,7 +1638,7 @@ fn typed_type(
             } else if let Some(t) = conv_context.module.types.iter().find(|it| {
                 (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
             }) {
-                if let Some(e) = conv_context.get_type(t, ast_type) {
+                if let Some(e) = conv_context.get_type(ast_type) {
                     e
                 } else {
                     conv_context.add_type(ast_type, t)

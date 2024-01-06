@@ -233,7 +233,7 @@ where
 {
     fn match_tokens(
         &self,
-        namespace: &ASTNameSpace,
+        _namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
         n: usize,
     ) -> Option<TokensMatcherResult> {

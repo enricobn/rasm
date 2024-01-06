@@ -184,7 +184,7 @@ pub trait FunctionsCreator {
         extra_generic: Option<String>,
         variant: &ASTEnumVariantDef,
     ) {
-        let body = self.enum_match_one_body(name, enum_def, variant);
+        let body = self.enum_match_one_body(enum_def, variant);
 
         let function_body = ASTFunctionBody::NativeBody(body);
 
@@ -464,9 +464,7 @@ pub trait FunctionsCreator {
                 },
             ],
             return_type: ast_type,
-            body: ASTFunctionBody::NativeBody(
-                self.struct_setter_lambda_body(i, &property_def.ast_type),
-            ),
+            body: ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i)),
             generic_types: struct_def.type_parameters.clone(),
             inline: false,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -515,12 +513,7 @@ pub trait FunctionsCreator {
 
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String;
 
-    fn enum_match_one_body(
-        &self,
-        name: &str,
-        enum_def: &ASTEnumDef,
-        variant: &ASTEnumVariantDef,
-    ) -> String;
+    fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String;
 
     fn enum_constructors(
         &self,
@@ -536,7 +529,7 @@ pub trait FunctionsCreator {
 
     fn struct_setter_body(&self, i: usize) -> String;
 
-    fn struct_setter_lambda_body(&self, i: usize, property_type: &ASTType) -> String;
+    fn struct_setter_lambda_body(&self, i: usize) -> String;
 
     fn enum_parametric_variant_constructor_body(
         &self,
@@ -641,12 +634,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         body
     }
 
-    fn enum_match_one_body(
-        &self,
-        name: &str,
-        enum_def: &ASTEnumDef,
-        variant: &ASTEnumVariantDef,
-    ) -> String {
+    fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String {
         let word_len = self.backend.word_len();
         let word_size = self.backend.word_size();
         let mut body = String::new();
@@ -666,7 +654,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             .variants
             .iter()
             .enumerate()
-            .find(|(i, it)| it == &variant)
+            .find(|(_i, it)| it == &variant)
             .unwrap()
             .0;
 
@@ -908,7 +896,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         body
     }
 
-    fn struct_setter_lambda_body(&self, i: usize, property_type: &ASTType) -> String {
+    fn struct_setter_lambda_body(&self, i: usize) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 

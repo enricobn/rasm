@@ -247,7 +247,7 @@ impl EnhancedASTModule {
             namespace,
             name,
             param_types,
-            index,
+            index: _,
         } = ast_type
         {
             if !param_types.iter().all(|param_type| {

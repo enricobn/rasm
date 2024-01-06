@@ -61,7 +61,7 @@ pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
 
     runResult.failed.first.match(
         { error ->
-            let message = "test failed ".add(" : ").add(index);
+            let message = "test failed ".add(index).add(" : ");
             print(message);
             println(error);
             println();

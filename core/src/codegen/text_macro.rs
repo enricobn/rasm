@@ -57,11 +57,11 @@ impl Display for MacroParam {
 impl MacroParam {
     pub fn render(&self) -> String {
         match self {
-            MacroParam::Plain(name, type_o, typed_type_o) => name.clone(),
+            MacroParam::Plain(name, _type_o, _typed_type_o) => name.clone(),
             MacroParam::StringLiteral(s) => {
                 format!("\"{s}\"")
             }
-            MacroParam::Ref(name, type_o, typed_type_o) => name.clone(),
+            MacroParam::Ref(name, _type_o, _typed_type_o) => name.clone(),
         }
     }
 }
@@ -915,12 +915,6 @@ pub struct AddRefMacro {
 impl AddRefMacro {
     pub fn new(backend: Box<dyn Backend>, deref: bool) -> Self {
         Self { backend, deref }
-    }
-
-    fn function_name(function_def: Option<&ASTTypedFunctionDef>) -> String {
-        function_def
-            .map(|it| it.name.clone())
-            .unwrap_or_else(|| "unknown function".to_owned())
     }
 }
 

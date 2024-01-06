@@ -66,7 +66,6 @@ pub fn toString(error: IOError) -> str {
 }
 
 pub fn panic(message: str) {
-    print("PANIC: ");
     println(message);
     exitMain(1);
 }
