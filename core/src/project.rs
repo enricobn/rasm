@@ -263,29 +263,16 @@ impl RasmProject {
                 .map(|dependency| {
                     info!("including dependency {}", dependency.config.package.name);
                     //TODO include tests?
-                    dependency.get_modules(false, dependency.main_rasm_source_folder())
-                })
-                .collect::<Vec<_>>(),
-        );
-
-        pairs.append(
-            &mut self
-                .get_all_dependencies()
-                .into_par_iter()
-                .filter_map(|dependency| {
-                    info!("including dependency {}", dependency.config.package.name);
-                    //TODO include tests?
+                    let mut dep_modules =
+                        dependency.get_modules(false, dependency.main_rasm_source_folder());
                     if let Some(native_source_folder) =
                         dependency.native_source_folder(target.folder())
                     {
                         if native_source_folder.exists() {
-                            Some(dependency.get_modules(false, native_source_folder))
-                        } else {
-                            None
+                            dep_modules.extend(dependency.get_modules(false, native_source_folder));
                         }
-                    } else {
-                        None
                     }
+                    dep_modules
                 })
                 .collect::<Vec<_>>(),
         );
