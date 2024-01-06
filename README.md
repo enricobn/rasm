@@ -88,10 +88,10 @@ Only executables produced with libc support can be run with valgrind.
 `sudo apt-get install libc6-dbg:i386`
 
 ## profiling build
-sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
 CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -p rasm build -f rasm/resources/examples/breakout
 
 ## profiling executable
-sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
-valgrind --tool=callgrind "executable"
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
+valgrind --tool=callgrind "executable"  
 callgrind_annotate --auto=yes callgrind.out."pid"
