@@ -1,0 +1,13 @@
+pub struct Shape {
+    center: fn() -> Point,
+    move: fn(i32,i32) -> Shape,
+    toString: fn() -> str
+}
+
+pub fn toShape<T>(inner: T) -> Shape {
+    Shape(
+        { -> inner.center; },
+        { dx, dy -> inner.move(dx, dy);},
+        { -> inner.toString; }
+    );
+}

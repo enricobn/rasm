@@ -370,6 +370,15 @@ fn test_oop() {
 }
 
 #[test]
+fn test_oopv2() {
+    run_test(
+        "oopv2",
+        vec![],
+        "Circle(1,1,2),Rect(10,20,5,5),Point(4,5),\nCircle(101,101,2),Rect(110,120,5,5),Point(104,105),\nPoint(1,1),Point(12,22),Point(4,5),\n",
+    );
+}
+
+#[test]
 fn test_namespaces() {
     run_test("namespaces", vec![], "str ok\ni32 ok\nstr ok\ni32 ok\n");
 }

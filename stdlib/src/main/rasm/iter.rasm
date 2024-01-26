@@ -1,0 +1,3 @@
+struct Iter<T> {
+    next: fn() -> T
+}

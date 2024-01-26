@@ -1,0 +1,23 @@
+pub struct Rect {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32
+}
+
+pub fn center(rect: Rect) -> Point {
+    Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2)));
+}
+
+pub fn move(rect: Rect, dx: i32, dy: i32) -> Shape {
+    toShape(Rect(add(rect.x, dx), add(rect.y, dy), rect.width, rect.height));
+}
+
+pub fn toString(rect: Rect) -> str {
+    "Rect("
+        .add(rect.x)
+        .add(",").add(rect.y)
+        .add(",").add(rect.width)
+        .add(",").add(rect.height)
+    .add(")");
+}

@@ -1,0 +1,10 @@
+let v = vecOf(toShape(Circle(1, 1, 2)), toShape(Rect(10, 20, 5, 5)), toShape(Point(4, 5)));
+
+println(v);
+
+println(v.map({ shape -> shape.move(100, 100);}));
+
+// TODO println(map(v, { shape -> center(shape);})); does not work
+let v1 = v.map({ shape -> shape.center;});
+
+println(v1);
