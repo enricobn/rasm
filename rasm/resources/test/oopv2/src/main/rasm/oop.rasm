@@ -4,7 +4,4 @@ println(v);
 
 println(v.map({ shape -> shape.move(100, 100);}));
 
-// TODO println(map(v, { shape -> center(shape);})); does not work
-let v1 = v.map({ shape -> shape.center;});
-
-println(v1);
+println(map(v, { shape -> shape.center;}));
