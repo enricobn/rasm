@@ -208,6 +208,39 @@ impl ASTType {
             _ => self == other,
         }
     }
+
+    pub fn is_generic(&self) -> bool {
+        return match self {
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::String => false,
+                BuiltinTypeKind::I32 => false,
+                BuiltinTypeKind::Bool => false,
+                BuiltinTypeKind::Char => false,
+                BuiltinTypeKind::F32 => false,
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    let mut par_types: bool = parameters.iter().any(Self::is_generic);
+                    if !return_type.is_unit() {
+                        par_types = par_types || Self::is_generic(return_type.deref());
+                    }
+                    par_types
+                }
+            },
+            ASTType::Generic(_p) => true,
+            ASTType::Custom {
+                namespace: _,
+                name: _,
+                param_types: pt,
+                index: _,
+            } => pt.iter().any(|it| match it {
+                ASTType::Generic(_name) => true,
+                _ => Self::is_generic(it),
+            }),
+            ASTType::Unit => false,
+        };
+    }
 }
 
 impl Display for ASTType {

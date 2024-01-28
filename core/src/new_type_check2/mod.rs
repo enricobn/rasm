@@ -37,7 +37,7 @@ use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::typed_ast::DefaultFunction;
-use crate::type_check::{is_generic_type, resolve_generic_types_from_effective_type, substitute};
+use crate::type_check::{resolve_generic_types_from_effective_type, substitute};
 use crate::utils::{OptionDisplay, SliceDisplay};
 
 type InputModule = EnhancedASTModule;
@@ -153,7 +153,7 @@ impl TypeCheck {
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
-                            format!("transforming function {function}:{}", function.index),
+                            format!("transforming function {function}"),
                             vec![it],
                         ),
                     })?
@@ -338,7 +338,7 @@ impl TypeCheck {
                 if let Some(new_t) = substitute(&p.ast_type, &resolved_generic_types) {
                     p.ast_type = new_t;
                 }
-                if is_generic_type(&p.ast_type) {
+                if p.ast_type.is_generic() {
                     self.stack.pop();
                     dedent!();
                     return Err(TypeCheckError::new(
@@ -357,7 +357,7 @@ impl TypeCheck {
                 new_function_def.return_type = new_t;
             }
 
-            if is_generic_type(&new_function_def.return_type) {
+            if new_function_def.return_type.is_generic() {
                 self.stack.pop();
                 dedent!();
                 return Err(TypeCheckError::new(
@@ -529,7 +529,7 @@ impl TypeCheck {
                     dedent!();
                     continue;
                 }
-                if !is_generic_type(rt) && is_generic_type(&function.return_type) {
+                if !rt.is_generic() && function.return_type.is_generic() {
                     if let Ok(result) =
                         resolve_generic_types_from_effective_type(&function.return_type, rt)
                     {
@@ -646,19 +646,17 @@ impl TypeCheck {
             Err(TypeCheckError::new(
                 call.index.clone(),
                 format!(
-                    "cannot find a valid function from namespace {namespace} \nfor call {} : {} \nexpected return type {}\n{}",
+                    "cannot find a valid function from namespace {namespace} \nfor call {} : {} \nexpected return type {}",
                     call.original_function_name,
                     call.index,
-                    OptionDisplay(&expected_return_type),
-                    SliceDisplay(&errors.iter().map(|it| format!("{it}")).collect::<Vec<_>>())
-                ),
+                    OptionDisplay(&expected_return_type)),
                 self.stack.clone(),
-            ))
+            ).add_errors(errors))
         } else if valid_functions.len() > 1 {
             // we must disambiguate.
-            // For now we get the function that has the minimal generic coefficient, if there's only one with that coefficient.
+            // For now, we get the function that has the minimal generic coefficient, if there's only one with that coefficient.
             // The coefficient is the sum of the parameter's type generic coefficient, the coefficient
-            // of <T> is more generic than Option<T> that is more generic than Option<List<T>>
+            // of <T> is higher than Option<T> that is higher than Option<List<T>>
             let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
             let mut dis_valid_functions = valid_functions
@@ -741,7 +739,7 @@ impl TypeCheck {
             inside_function,
         )?;
         if let TypeFilter::Exact(et) = &t {
-            if !is_generic_type(et) {
+            if !et.is_generic() {
                 resolved_generic_types
                     .extend(resolve_generic_types_from_effective_type(param_type, et)?)
                     .map_err(|it| {
@@ -754,7 +752,7 @@ impl TypeCheck {
             }
         } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
             if let TypeFilter::Exact(et) = lrt.deref() {
-                if !is_generic_type(et) {
+                if !et.is_generic() {
                     if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                         parameters: _,
                         return_type,
@@ -787,7 +785,7 @@ impl TypeCheck {
     }
 
     fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
-        if is_generic_type(ast_type) {
+        if ast_type.is_generic() {
             match ast_type {
                 ASTType::Builtin(_) => 0,
                 ASTType::Generic(_) => coeff,

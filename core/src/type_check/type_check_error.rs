@@ -36,6 +36,18 @@ impl TypeCheckError {
         result.push((index, message, stack));
         TypeCheckError { messages: result }
     }
+
+    pub fn add_errors(self, errors: Vec<TypeCheckError>) -> Self {
+        let mut result = self.messages.clone();
+
+        result.append(
+            &mut errors
+                .into_iter()
+                .flat_map(|it| it.messages.into_iter())
+                .collect::<Vec<_>>(),
+        );
+        TypeCheckError { messages: result }
+    }
 }
 
 impl Display for TypeCheckError {

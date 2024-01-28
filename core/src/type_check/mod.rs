@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use log::debug;
 
 use type_check_error::TypeCheckError;
@@ -61,45 +59,12 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
     }
 }
 
-pub fn is_generic_type(ast_type: &ASTType) -> bool {
-    return match ast_type {
-        ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::String => false,
-            BuiltinTypeKind::I32 => false,
-            BuiltinTypeKind::Bool => false,
-            BuiltinTypeKind::Char => false,
-            BuiltinTypeKind::F32 => false,
-            BuiltinTypeKind::Lambda {
-                parameters,
-                return_type,
-            } => {
-                let mut par_types: bool = parameters.iter().any(is_generic_type);
-                if !return_type.is_unit() {
-                    par_types = par_types || is_generic_type(return_type.deref());
-                }
-                par_types
-            }
-        },
-        ASTType::Generic(_p) => true,
-        ASTType::Custom {
-            namespace: _,
-            name: _,
-            param_types: pt,
-            index: _,
-        } => pt.iter().any(|it| match it {
-            ASTType::Generic(_name) => true,
-            _ => is_generic_type(it),
-        }),
-        ASTType::Unit => false,
-    };
-}
-
 pub fn resolve_generic_types_from_effective_type(
     generic_type: &ASTType,
     effective_type: &ASTType,
 ) -> Result<ResolvedGenericTypes, TypeCheckError> {
     let mut result = ResolvedGenericTypes::new();
-    if generic_type == effective_type || !is_generic_type(generic_type) {
+    if generic_type == effective_type || !generic_type.is_generic() {
         return Ok(result);
     }
 
@@ -247,7 +212,7 @@ pub fn substitute(
     ast_type: &ASTType,
     resolved_param_types: &ResolvedGenericTypes,
 ) -> Option<ASTType> {
-    if !is_generic_type(ast_type) {
+    if !ast_type.is_generic() {
         return None;
     }
 
