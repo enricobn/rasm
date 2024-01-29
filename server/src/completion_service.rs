@@ -564,6 +564,7 @@ mod tests {
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(), // HENRY
+            rank: 0,
         };
 
         let mut function2 = function1.clone();

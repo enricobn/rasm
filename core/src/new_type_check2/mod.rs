@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 use std::ops::Deref;
@@ -495,7 +496,8 @@ impl TypeCheck {
             .filter(|it| {
                 (it.modifiers.public || &it.namespace == namespace)
                     && it.parameters.len() == call.parameters.len()
-            });
+            })
+            .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank));
 
         for function in original_functions {
             debug_i!("verifying function {function}");
@@ -627,15 +629,15 @@ impl TypeCheck {
             }
 
             if valid {
-                let generic_types_coeff: usize = Self::function_generic_coeff(function);
-
                 valid_functions.push((
                     function.clone(),
-                    generic_types_coeff,
+                    function.rank,
                     resolved_generic_types,
                     result.unwrap(),
                 ));
-                debug_i!("it's valid with generic_types_coeff {generic_types_coeff}");
+                debug_i!("it's valid with rank {}", function.rank);
+                // since function are already sorted by rank, we don't need to look at the other functions
+                break;
             }
             dedent!();
         }
@@ -653,10 +655,8 @@ impl TypeCheck {
                 self.stack.clone(),
             ).add_errors(errors))
         } else if valid_functions.len() > 1 {
-            // we must disambiguate.
-            // For now, we get the function that has the minimal generic coefficient, if there's only one with that coefficient.
-            // The coefficient is the sum of the parameter's type generic coefficient, the coefficient
-            // of <T> is higher than Option<T> that is higher than Option<List<T>>
+            // we must disambiguate, but it should not happen because we break when we found a valid one.
+            // We get the function that has the minimal rank, if there's only one with that coefficient.
             let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
             let mut dis_valid_functions = valid_functions

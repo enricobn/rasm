@@ -5,6 +5,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
 use linked_hash_map::LinkedHashMap;
 
@@ -68,6 +69,11 @@ pub struct ASTFunctionDef {
     pub index: ASTIndex,
     pub modifiers: ASTModifiers,
     pub namespace: ASTNameSpace,
+    ///
+    /// The rank is the sum of the parameter's type generic coefficient, the coefficient
+    /// of <T> is higher than Option<T> that is higher than Option<List<T>>
+    /// So less is the rank, best suited is the function
+    pub rank: usize,
 }
 
 impl Display for ASTFunctionDef {
@@ -102,6 +108,12 @@ impl Display for ASTFunctionDef {
             "{}{} {} {}{generic_types}({args}) -> {rt}",
             modifiers, fun_or_asm, self.namespace, self.name
         ))
+    }
+}
+
+impl ASTFunctionDef {
+    pub fn update_calculated_properties(&mut self) {
+        self.rank = TypeCheck::function_generic_coeff(self);
     }
 }
 

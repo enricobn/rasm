@@ -1743,6 +1743,7 @@ mod tests {
             resolved_generic_types: ResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
+            rank: 0,
         };
 
         let result = backend.get_evaluator().get_macros(

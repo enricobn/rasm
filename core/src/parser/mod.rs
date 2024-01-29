@@ -486,20 +486,21 @@ impl Parser {
         {
             let name = name_token.alpha().unwrap().clone();
             let name_len = name.len();
-            self.parser_data
-                .push(ParserData::FunctionDef(ASTFunctionDef {
-                    original_name: name.clone(),
-                    name,
-                    parameters: Vec::new(),
-                    body: RASMBody(Vec::new()),
-                    return_type: ASTType::Unit,
-                    inline: false,
-                    generic_types,
-                    resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: name_token.index().mv_left(name_len),
-                    modifiers,
-                    namespace: namespace.clone(),
-                }));
+            let function_def = ASTFunctionDef {
+                original_name: name.clone(),
+                name,
+                parameters: Vec::new(),
+                body: RASMBody(Vec::new()),
+                return_type: ASTType::Unit,
+                inline: false,
+                generic_types,
+                resolved_generic_types: ResolvedGenericTypes::new(),
+                index: name_token.index().mv_left(name_len),
+                modifiers,
+                namespace: namespace.clone(),
+                rank: 0,
+            };
+            self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
@@ -508,20 +509,21 @@ impl Parser {
         {
             let name = name_token.alpha().unwrap();
             let name_len = name.len();
-            self.parser_data
-                .push(ParserData::FunctionDef(ASTFunctionDef {
-                    original_name: name.clone(),
-                    name,
-                    parameters: Vec::new(),
-                    body: NativeBody("".into()),
-                    return_type: ASTType::Unit,
-                    inline,
-                    generic_types: param_types,
-                    resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: name_token.index().mv_left(name_len),
-                    modifiers,
-                    namespace: namespace.clone(),
-                }));
+            let function_def = ASTFunctionDef {
+                original_name: name.clone(),
+                name,
+                parameters: Vec::new(),
+                body: NativeBody("".into()),
+                return_type: ASTType::Unit,
+                inline,
+                generic_types: param_types,
+                resolved_generic_types: ResolvedGenericTypes::new(),
+                index: name_token.index().mv_left(name_len),
+                modifiers,
+                namespace: namespace.clone(),
+                rank: 0,
+            };
+            self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
@@ -718,6 +720,7 @@ impl Parser {
                 index: ASTIndex::none(),
                 modifiers: ASTModifiers::public(),
                 namespace: namespace.clone(),
+                rank: 0, // TODO must be calculated?
             };
             self.parser_data
                 .push(ParserData::FunctionDef(fake_function_def));
@@ -1551,6 +1554,7 @@ mod tests {
             index: ASTIndex::new(None, 1, 4),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
+            rank: 0,
         };
 
         assert_eq!(module.functions, vec![function_def]);

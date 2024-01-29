@@ -38,6 +38,7 @@ pub fn str_functions_creator(
         index: ASTIndex::none(),
         modifiers: ASTModifiers::public(),
         namespace: ASTNameSpace::global(),
+        rank: 0,
     };
 
     module.add_function(name, function_def);
@@ -69,6 +70,7 @@ pub fn str_functions_creator(
         index: ASTIndex::none(),
         modifiers: ASTModifiers::public(),
         namespace: ASTNameSpace::global(),
+        rank: 0,
     };
 
     module.add_function(name, function_def);

@@ -41,7 +41,7 @@ impl EnhancedASTModule {
         let mut container = FunctionsContainer::new();
 
         for module in modules {
-            module.functions.into_iter().for_each(|it| {
+            module.functions.into_iter().for_each(|mut it| {
                 /*
                    let similar_functions = container
                        .find_functions_by_original_name(&it.original_name)
@@ -71,6 +71,7 @@ impl EnhancedASTModule {
                    }
 
                 */
+                it.update_calculated_properties();
                 container.add_function(it.original_name.clone(), it);
             });
             body.extend(module.body);

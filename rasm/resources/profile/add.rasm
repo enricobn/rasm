@@ -1,0 +1,11 @@
+// compilation time (type check)
+//
+// parse ended in 13.873279ms
+// type check ended in 14.88413ms
+// code generation ended in 1.537104ms
+// assembler ended in 17.649371ms
+// linker ended in 14.285406ms
+// finished in 62.526188ms
+
+
+let s = "(".add(1).add(",").add(2).add(",").add(3).add(",").add(4).add(")");

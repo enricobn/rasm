@@ -11,6 +11,7 @@ license = "GPL-3.0-or-later"
 [workspace.dependencies]
 rasm-core = { path = "./core" }
 
+auto_impl = "1.1.0"
 backtrace = "0.3"
 clap = "4.2.1"
 chrono = "0.4"
@@ -18,7 +19,7 @@ debug-cell = "0.1"
 derivative = "2.2"
 dyn-clone = "1.0.16"
 env_logger = "0.10"
-auto_impl = "1.1.0"
+itertools = "0.12.0"
 lazy_static = "1.4.0"
 linked-hash-map = "0.5"
 log = "0.4"

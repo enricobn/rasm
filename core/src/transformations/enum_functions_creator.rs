@@ -111,6 +111,7 @@ pub trait FunctionsCreator {
                 index: struct_def.index.clone(),
                 modifiers: struct_def.modifiers.clone(),
                 namespace: module.namespace.clone(),
+                rank: 0,
             };
             module.add_function(function_def);
         }
@@ -168,6 +169,7 @@ pub trait FunctionsCreator {
             index: ASTIndex::none(),
             modifiers: enum_def.modifiers.clone(),
             namespace: module.namespace.clone(),
+            rank: 0,
         };
 
         debug!("created function {function_def}");
@@ -237,6 +239,7 @@ pub trait FunctionsCreator {
             index: ASTIndex::none(),
             modifiers: enum_def.modifiers.clone(),
             namespace: module.namespace.clone(),
+            rank: 0,
         };
 
         debug!("created function {function_def}");
@@ -305,6 +308,21 @@ pub trait FunctionsCreator {
 
              */
 
+            let function_def = ASTFunctionDef {
+                original_name: name.clone(),
+                name: name.clone(),
+                parameters: f_parameters,
+                return_type: lambda_return_type.clone(),
+                body: ASTFunctionBody::RASMBody(body),
+                generic_types: struct_def.type_parameters.clone(),
+                inline: false,
+                resolved_generic_types: ResolvedGenericTypes::new(),
+                index: property_def.index.clone(),
+                modifiers: struct_def.modifiers.clone(),
+                namespace: module.namespace.clone(),
+                rank: 0,
+            };
+
             vec![
                 self.create_function_for_struct_get_property(
                     struct_def,
@@ -314,19 +332,7 @@ pub trait FunctionsCreator {
                     format!("{name}Fn"),
                     module,
                 ),
-                ASTFunctionDef {
-                    original_name: name.clone(),
-                    name: name.clone(),
-                    parameters: f_parameters,
-                    return_type: lambda_return_type.clone(),
-                    body: ASTFunctionBody::RASMBody(body),
-                    generic_types: struct_def.type_parameters.clone(),
-                    inline: false,
-                    resolved_generic_types: ResolvedGenericTypes::new(),
-                    index: property_def.index.clone(),
-                    modifiers: struct_def.modifiers.clone(),
-                    namespace: module.namespace.clone(),
-                },
+                function_def,
             ]
         } else {
             vec![self.create_function_for_struct_get_property(
@@ -371,6 +377,7 @@ pub trait FunctionsCreator {
             index: property_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
             namespace: module.namespace.clone(),
+            rank: 0,
         }
     }
 
@@ -395,6 +402,7 @@ pub trait FunctionsCreator {
             // TODO for now here's no source fo generated functions
             index: ASTIndex::none(),
         };
+
         ASTFunctionDef {
             original_name: name.clone(),
             name: name.clone(),
@@ -418,6 +426,7 @@ pub trait FunctionsCreator {
             index: struct_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
             namespace: module.namespace.clone(),
+            rank: 0,
         }
     }
 
@@ -471,6 +480,7 @@ pub trait FunctionsCreator {
             index: struct_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
             namespace: module.namespace.clone(),
+            rank: 0,
         }
     }
 
@@ -760,8 +770,8 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
                 index: variant.index.clone(),
                 modifiers: enum_def.modifiers.clone(),
                 namespace: module.namespace.clone(),
+                rank: 0,
             };
-
             debug!("created function {function_def}");
 
             module.add_function(function_def);

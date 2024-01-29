@@ -1087,6 +1087,7 @@ mod tests {
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
+            rank: 0,
         }
     }
 
@@ -1111,6 +1112,7 @@ mod tests {
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
+            rank: 0,
         }
     }
 
@@ -1138,6 +1140,7 @@ mod tests {
             index: ASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
+            rank: 0,
         }
     }
 }
