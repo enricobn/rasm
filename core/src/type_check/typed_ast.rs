@@ -1165,7 +1165,7 @@ pub fn get_type_of_typed_expression(
                         get_type_of_typed_expression(module, &context, e, ast_type, statics)?
                     }
                     ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
-                        get_type_of_typed_expression(module, &context, e, None, statics)?
+                        ASTTypedType::Unit
                     }
                 }
             } else {

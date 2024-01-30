@@ -40,16 +40,14 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
 
     let mut context = TypedValContext::new(None);
 
-    for statement in module.body.iter() {
-        verify_statement(module, &mut context, statement, statics, None)?;
-        if let ASTTypedStatement::Expression(e) = statement {
-            let typed_type = get_type_of_typed_expression(module, &context, e, None, statics)?;
-
-            if typed_type != ASTTypedType::Unit {
-                return Err(expression_return_value_is_not_used(statement));
-            }
-        }
-    }
+    verify_statements(
+        module,
+        statics,
+        &mut context,
+        &module.body,
+        &ASTTypedType::Unit,
+        ASTIndex::none(),
+    )?;
 
     for function_def in module.functions_by_name.values() {
         let mut context = TypedValContext::new(None);
@@ -65,7 +63,7 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
                 &mut context,
                 expressions,
                 &function_def.return_type,
-                &function_def.index,
+                function_def.index.clone(),
             )?;
         }
     }
@@ -78,14 +76,19 @@ fn verify_statements(
     context: &mut TypedValContext,
     expressions: &Vec<ASTTypedStatement>,
     expected_return_type: &ASTTypedType,
-    index: &ASTIndex,
+    initial_index: ASTIndex,
 ) -> Result<(), CompilationError> {
+    let mut last_index = initial_index;
     for (i, statement) in expressions.iter().enumerate() {
         let ert = if i != expressions.len() - 1 {
             &ASTTypedType::Unit
         } else {
             expected_return_type
         };
+
+        if let Some(li) = statement.get_index() {
+            last_index = li;
+        }
 
         /*
         match statement {
@@ -118,15 +121,7 @@ fn verify_statements(
                 Some(expected_return_type),
                 statics,
             )?,
-            ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
-                get_type_of_typed_expression(
-                    module,
-                    context,
-                    e,
-                    Some(&ASTTypedType::Unit),
-                    statics,
-                )?
-            }
+            ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => ASTTypedType::Unit,
         }
     } else {
         ASTTypedType::Unit
@@ -134,7 +129,7 @@ fn verify_statements(
 
     if expected_return_type != &real_return_type {
         return Err(verify_error(
-            index.clone(),
+            last_index,
             format!(
                 "Expected return type {} but got {}",
                 expected_return_type, real_return_type
@@ -295,7 +290,7 @@ fn verify_expression(
                         &mut lambda_context,
                         &def.body,
                         return_type.deref(),
-                        &def.index,
+                        def.index.clone(),
                     )
                 } else {
                     Err(verify_error(

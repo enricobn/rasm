@@ -637,6 +637,7 @@ impl TypeCheck {
                 ));
                 debug_i!("it's valid with rank {}", function.rank);
                 // since function are already sorted by rank, we don't need to look at the other functions
+                dedent!();
                 break;
             }
             dedent!();
@@ -655,7 +656,7 @@ impl TypeCheck {
                 self.stack.clone(),
             ).add_errors(errors))
         } else if valid_functions.len() > 1 {
-            // we must disambiguate, but it should not happen because we break when we found a valid one.
+            // we must disambiguate, but it should not happen because we break when we found a valid function.
             // We get the function that has the minimal rank, if there's only one with that coefficient.
             let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
