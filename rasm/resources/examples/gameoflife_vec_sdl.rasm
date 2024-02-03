@@ -22,6 +22,9 @@
 // 88302 table slots allocated
 //
 // real    0m1,803s
+//
+// some changes...
+// real    0m1,530s
 
 include "sdl/src/main/nasmi386/sdl.rasm"
 include "sdl/src/main/rasm/sdl.rasm"

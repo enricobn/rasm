@@ -1,5 +1,6 @@
-use log::debug;
 use std::ops::Deref;
+
+use log::debug;
 
 use crate::codegen::backend::BackendAsm;
 use crate::codegen::statics::Statics;
@@ -56,7 +57,7 @@ pub trait FunctionsCreator {
                 index: ASTIndex::none(),
             };
             let return_type = ast_type;
-            let body_str = self.struct_constructor_body(struct_def);
+            let body_str = self.struct_constructor_body(struct_def, statics, &module);
             let body = ASTFunctionBody::NativeBody(body_str);
 
             let parameters = struct_def
@@ -533,7 +534,12 @@ pub trait FunctionsCreator {
         statics: &mut Statics,
     );
 
-    fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
+    fn struct_constructor_body(
+        &self,
+        struct_def: &ASTStructDef,
+        statics: &mut Statics,
+        module: &ASTModule,
+    ) -> String;
 
     fn struct_property_body(&self, i: usize) -> String;
 
@@ -778,7 +784,12 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         }
     }
 
-    fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
+    fn struct_constructor_body(
+        &self,
+        struct_def: &ASTStructDef,
+        statics: &mut Statics,
+        module: &ASTModule,
+    ) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
         let mut body = String::new();
@@ -805,10 +816,22 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         );
 
         for (i, par) in struct_def.properties.iter().enumerate() {
+            /*
+            let mut add_ref_code = String::new();
+            if par.ast_type.is_reference_by_module(module) {
+                self.backend.call_add_ref_simple(
+                    &mut add_ref_code,
+                    "ebx",
+                    &format!(" for {} property {}", struct_def.name, par.name),
+                    statics,
+                );
+            }
+             */
             self.backend.add_rows(
                 &mut body,
                 vec![
                     &format!("mov   ebx, ${}", par.name),
+                    // &add_ref_code,
                     &format!(
                         "mov {}  [eax + {}], ebx",
                         self.backend.pointer_size(),

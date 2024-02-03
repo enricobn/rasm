@@ -815,7 +815,7 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                         MacroParam::Ref(s, t, _) => {
                             let is_ref =
                             if let Some(tt) = t {
-                                is_reference(tt, type_def_provider)
+                                tt.is_reference(type_def_provider)
                             } else {
                                 false
                             };
@@ -850,26 +850,6 @@ impl TextMacroEval for CCallTextMacroEvaluator {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
-    }
-}
-
-fn is_reference(ast_type: &ASTType, type_def_provider: &dyn TypeDefProvider) -> bool {
-    if let ASTType::Builtin(BuiltinTypeKind::String) = ast_type {
-        true
-    } else if let ASTType::Custom {
-        namespace: _,
-        name,
-        param_types: _,
-        index: _,
-    } = ast_type
-    {
-        if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
-            t.is_ref
-        } else {
-            true
-        }
-    } else {
-        false
     }
 }
 

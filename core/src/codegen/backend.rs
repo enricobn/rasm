@@ -25,7 +25,7 @@ use crate::debug_i;
 use crate::parser::ast::{
     ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::transformations::enum_functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
+use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
     TypedFunctionsCreatorNasmi386,

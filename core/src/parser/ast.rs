@@ -5,6 +5,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
 use linked_hash_map::LinkedHashMap;
@@ -252,6 +253,46 @@ impl ASTType {
             }),
             ASTType::Unit => false,
         };
+    }
+
+    pub fn is_reference(&self, type_def_provider: &dyn TypeDefProvider) -> bool {
+        if let ASTType::Builtin(BuiltinTypeKind::String) = self {
+            true
+        } else if let ASTType::Custom {
+            namespace: _,
+            name,
+            param_types: _,
+            index: _,
+        } = self
+        {
+            if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
+                t.is_ref
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn is_reference_by_module(&self, module: &ASTModule) -> bool {
+        if let ASTType::Builtin(BuiltinTypeKind::String) = self {
+            true
+        } else if let ASTType::Custom {
+            namespace: _,
+            name,
+            param_types: _,
+            index: _,
+        } = self
+        {
+            if let Some(t) = module.types.iter().find(|it| &it.name == name) {
+                t.is_ref
+            } else {
+                true
+            }
+        } else {
+            false
+        }
     }
 }
 
