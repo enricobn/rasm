@@ -210,7 +210,7 @@ impl Parser {
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                 if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
                     self.i += 1;
-                    if let Some((function_name, generics, next_i)) =
+                    if let Some((function_name, generics, next_i, function_name_i)) =
                         self.try_parse_function_call(namespace)
                     {
                         self.parser_data.pop();
@@ -219,7 +219,7 @@ impl Parser {
                             original_function_name: function_name.clone(),
                             function_name,
                             parameters: vec![expr],
-                            index: self.get_index(0),
+                            index: self.get_index(function_name_i),
                             generics,
                         };
                         self.parser_data.push(ParserData::FunctionCall(call));
@@ -681,7 +681,7 @@ impl Parser {
         {
             self.state.pop();
             self.i += 1;
-        } else if let Some((function_name, generics, next_i)) =
+        } else if let Some((function_name, generics, next_i, function_name_index)) =
             self.try_parse_function_call(namespace)
         {
             let call = ASTFunctionCall {
@@ -689,7 +689,7 @@ impl Parser {
                 original_function_name: function_name.clone(),
                 function_name,
                 parameters: Vec::new(),
-                index: self.get_index(0),
+                index: self.get_index(function_name_index),
                 generics,
             };
             self.parser_data.push(ParserData::FunctionCall(call));
@@ -1027,13 +1027,13 @@ impl Parser {
     fn try_parse_function_call(
         &mut self,
         namespace: &ASTNameSpace,
-    ) -> Option<(String, Vec<ASTType>, usize)> {
+    ) -> Option<(String, Vec<ASTType>, usize, usize)> {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
-            let (function_name, next_n) =
+            let (function_name, next_n, mut function_name_n) =
                 if let Some((variant, next_n)) = self.try_parse_enum_constructor() {
-                    (f_name.clone() + "::" + &variant, next_n)
+                    (f_name.clone() + "::" + &variant, next_n, next_n - 1)
                 } else {
-                    (f_name.clone(), 1)
+                    (f_name.clone(), 1, 0)
                 };
             let context_generic_types =
                 if let Some(function_def) = self.last_parser_data_function_def() {
@@ -1091,7 +1091,12 @@ impl Parser {
             if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
                 self.get_token_kind_n(n)
             {
-                return Some((function_name.clone(), generic_types, self.i + n + 1));
+                return Some((
+                    function_name.clone(),
+                    generic_types,
+                    self.i + n + 1,
+                    function_name_n,
+                ));
             }
         }
         None
@@ -1644,6 +1649,34 @@ mod tests {
         } else {
             panic!()
         }
+    }
+
+    #[test]
+    fn enum_constructor() {
+        let lexer = Lexer::new("Option::Some(20);".into(), None);
+
+        let mut parser = Parser::new(lexer, None);
+
+        let (module, errors) = parser.parse(Path::new("."), &test_namespace());
+
+        println!("{}", SliceDisplay(&errors));
+
+        let function_call = ASTFunctionCall {
+            namespace: test_namespace(),
+            function_name: "Option::Some".to_string(),
+            original_function_name: "Option::Some".to_string(),
+            parameters: vec![ASTExpression::Value(
+                ValueType::I32(20),
+                ASTIndex::new(None, 1, 16),
+            )],
+            generics: Vec::new(),
+            index: ASTIndex::new(None, 1, 13),
+        };
+
+        assert_eq!(
+            module.body.first().unwrap(),
+            &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
+        );
     }
 
     fn parse(source: &str) -> ASTModule {

@@ -1,15 +1,19 @@
 use std::fmt::{Display, Formatter};
 use std::io;
+use std::iter::zip;
 use std::path::PathBuf;
 
 use log::warn;
 
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
+use rasm_core::codegen::statics::Statics;
+use rasm_core::codegen::val_context::ValContext;
+use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTNameSpace,
-    ASTStatement, ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
+    ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
 };
-use rasm_core::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_core::utils::SliceDisplay;
 
@@ -83,6 +87,8 @@ impl ReferenceFinder {
     fn process_module(module: &EnhancedASTModule) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
+        let mut val_context = ValContext::new(None);
+        let mut statics = Statics::new();
 
         let mut result = Vec::new();
 
@@ -93,6 +99,9 @@ impl ReferenceFinder {
             &mut reference_context,
             &mut reference_static_context,
             &module.body_namespace,
+            &mut val_context,
+            &mut statics,
+            None,
         )?;
 
         result.append(
@@ -100,8 +109,15 @@ impl ReferenceFinder {
                 .functions()
                 .iter()
                 .flat_map(|it| {
-                    Self::process_function(it, module, &reference_static_context)
-                        .unwrap_or_default()
+                    let mut function_val_context = ValContext::new(None);
+                    Self::process_function(
+                        it,
+                        module,
+                        &reference_static_context,
+                        &mut function_val_context,
+                        &mut statics,
+                    )
+                    .unwrap_or_default()
                 })
                 .collect(),
         );
@@ -113,17 +129,27 @@ impl ReferenceFinder {
         function: &ASTFunctionDef,
         module: &EnhancedASTModule,
         reference_static_context: &ReferenceContext,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+        if function.name == "doSomething1" {
+            println!();
+        }
         let mut result = Vec::new();
 
-        let mut val_context = ReferenceContext::new(Some(reference_static_context));
+        let mut reference_context = ReferenceContext::new(Some(reference_static_context));
 
         for par in function.parameters.iter() {
-            val_context.add(
+            reference_context.add(
                 par.name.clone(),
                 par.ast_index.clone(),
                 TypeFilter::Exact(par.ast_type.clone()),
             );
+            val_context
+                .insert_par(par.name.clone(), par.clone())
+                .map_err(|err| {
+                    TypeCheckError::new(par.ast_index.clone(), err.clone(), Vec::new())
+                })?;
             Self::process_type(&function.namespace, module, &par.ast_type, &mut result);
         }
 
@@ -139,9 +165,12 @@ impl ReferenceFinder {
                 module,
                 statements,
                 &mut result,
-                &mut val_context,
+                &mut reference_context,
                 &mut ReferenceContext::new(None),
                 &function.namespace,
+                val_context,
+                statics,
+                Some(&function),
             )?;
         }
 
@@ -212,28 +241,55 @@ impl ReferenceFinder {
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         namespace: &ASTNameSpace,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        inside_function: Option<&ASTFunctionDef>,
     ) -> Result<(), TypeCheckError> {
         for stmt in statements {
             if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
                 let filter = Self::get_filter_of_expression(
                     expr,
-                    reference_context,
-                    reference_static_context,
-                    &module.functions_by_name,
                     module,
+                    val_context,
+                    statics,
+                    None,
+                    namespace,
+                    inside_function,
                 )?;
+
                 reference_context.add(name.clone(), index.clone(), filter.clone());
+
                 if *is_const {
+                    if let TypeFilter::Exact(ref ast_type) = filter {
+                        statics.add_const(name.clone(), ast_type.clone());
+                    } else {
+                        statics.add_const(name.clone(), ASTType::Generic("UNKNOWN".to_string()));
+                    }
                     reference_static_context.add(name.clone(), index.clone(), filter);
+                } else if let TypeFilter::Exact(ref ast_type) = filter {
+                    val_context
+                        .insert_let(name.clone(), ast_type.clone(), index)
+                        .map_err(|err| {
+                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                        })?;
+                } else {
+                    val_context
+                        .insert_let(name.clone(), ASTType::Generic("UNKNOWN".to_string()), index)
+                        .map_err(|err| {
+                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                        })?;
                 }
             }
 
-            match Self::get_selectable_items_stmt(
+            match Self::process_statement(
                 stmt,
                 reference_context,
                 reference_static_context,
                 module,
                 namespace,
+                val_context,
+                statics,
+                inside_function,
             ) {
                 Ok(mut inner) => {
                     result.append(&mut inner);
@@ -248,11 +304,25 @@ impl ReferenceFinder {
 
     fn get_filter_of_expression(
         expr: &ASTExpression,
-        reference_context: &ReferenceContext,
-        reference_static_context: &ReferenceContext,
-        functions_container: &FunctionsContainer,
-        enhanced_astmodule: &EnhancedASTModule,
+        enhanced_ast_module: &EnhancedASTModule,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        expected_type: Option<&ASTType>,
+        namespace: &ASTNameSpace,
+        inside_function: Option<&ASTFunctionDef>,
     ) -> Result<TypeFilter, TypeCheckError> {
+        let type_check = TypeCheck::new(&enhanced_ast_module.body_namespace);
+
+        type_check.type_of_expression(
+            enhanced_ast_module,
+            expr,
+            val_context,
+            statics,
+            expected_type,
+            namespace,
+            inside_function,
+        )
+        /*
         let result = match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
                 let filters = &call
@@ -262,9 +332,9 @@ impl ReferenceFinder {
                         Self::get_filter_of_expression(
                             it,
                             reference_context,
-                            reference_static_context,
+                            static_reference_context,
                             functions_container,
-                            enhanced_astmodule,
+                            enhanced_ast_module,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
@@ -273,7 +343,7 @@ impl ReferenceFinder {
                     filters,
                     None,
                     false,
-                    enhanced_astmodule,
+                    enhanced_ast_module,
                 )?;
                 if functions.len() == 1 {
                     TypeFilter::Exact(functions.first().unwrap().return_type.clone())
@@ -287,7 +357,7 @@ impl ReferenceFinder {
             }
             ASTExpression::ValueRef(name, index) => reference_context
                 .get(name)
-                .or_else(|| reference_static_context.get(name))
+                .or_else(|| static_reference_context.get(name))
                 .ok_or_else(|| {
                     TypeCheckError::new(
                         index.clone(),
@@ -302,78 +372,73 @@ impl ReferenceFinder {
         };
 
         Ok(result)
+
+         */
     }
 
-    fn get_selectable_items_stmt(
+    fn process_statement(
         stmt: &ASTStatement,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &ASTNameSpace,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        inside_function: Option<&ASTFunctionDef>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
-            ASTStatement::Expression(expr) => Self::get_selectable_items_expr(
+            ASTStatement::Expression(expr) => Self::process_expression(
                 expr,
                 reference_context,
                 reference_static_context,
                 module,
                 namespace,
+                val_context,
+                statics,
+                inside_function,
+                None,
             ),
-            ASTStatement::LetStatement(name, expr, _, index) => Self::get_selectable_items_expr(
+            ASTStatement::LetStatement(name, expr, _, index) => Self::process_expression(
                 expr,
                 reference_context,
                 reference_static_context,
                 module,
                 namespace,
+                val_context,
+                statics,
+                inside_function,
+                None,
             ),
         }
     }
 
-    fn get_selectable_items_expr(
+    fn process_expression(
         expr: &ASTExpression,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &ASTNameSpace,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        inside_function: Option<&ASTFunctionDef>,
+        expected_type: Option<&ASTType>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
             ASTExpression::StringLiteral(_) => {}
             ASTExpression::ASTFunctionCallExpression(call) => {
-                // TODO call
-                let mut v = call
-                    .parameters
-                    .iter()
-                    .flat_map(|it| {
-                        match Self::get_selectable_items_expr(
-                            it,
-                            reference_context,
-                            reference_static_context,
-                            module,
-                            namespace,
-                        ) {
-                            Ok(inner) => inner,
-                            Err(e) => {
-                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
-                                eprintln!("{e}");
-                                Vec::new()
-                            }
-                        }
-                        .into_iter()
-                    })
-                    .collect::<Vec<_>>();
-                result.append(&mut v);
-
                 let filters: Vec<TypeFilter> = call
                     .parameters
                     .iter()
                     .map(|it| {
                         Self::get_filter_of_expression(
                             it,
-                            reference_context,
-                            reference_static_context,
-                            &module.functions_by_name,
                             module,
+                            val_context,
+                            statics,
+                            None,
+                            namespace,
+                            inside_function,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
@@ -398,7 +463,64 @@ impl ReferenceFinder {
                         custom_type_index,
                         namespace.clone(),
                     ));
+
+                    let mut v = zip(call.parameters.iter(), &function.parameters)
+                        .flat_map(|(it, par)| {
+                            match Self::process_expression(
+                                it,
+                                reference_context,
+                                reference_static_context,
+                                module,
+                                namespace,
+                                val_context,
+                                statics,
+                                inside_function,
+                                Some(&par.ast_type),
+                            ) {
+                                Ok(inner) => inner,
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error evaluating expr {expr} : {}",
+                                        expr.get_index()
+                                    );
+                                    eprintln!("{e}");
+                                    Vec::new()
+                                }
+                            }
+                            .into_iter()
+                        })
+                        .collect::<Vec<_>>();
+                    result.append(&mut v);
                 } else {
+                    let mut v = call
+                        .parameters
+                        .iter()
+                        .flat_map(|it| {
+                            match Self::process_expression(
+                                it,
+                                reference_context,
+                                reference_static_context,
+                                module,
+                                namespace,
+                                val_context,
+                                statics,
+                                inside_function,
+                                None,
+                            ) {
+                                Ok(inner) => inner,
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error evaluating expr {expr} : {}",
+                                        expr.get_index()
+                                    );
+                                    eprintln!("{e}");
+                                    Vec::new()
+                                }
+                            }
+                            .into_iter()
+                        })
+                        .collect::<Vec<_>>();
+                    result.append(&mut v);
                     warn!(
                         "Cannot find function for call {call} with filters {} : {}",
                         SliceDisplay(&filters),
@@ -431,20 +553,62 @@ impl ReferenceFinder {
             }
             ASTExpression::Value(value_type, index) => {}
             ASTExpression::Lambda(def) => {
-                let mut lambda_context = ReferenceContext::new(Some(reference_context));
+                let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
+                let mut lambda_val_context = ValContext::new(Some(val_context));
 
                 for (name, index) in def.parameter_names.iter() {
-                    lambda_context.add(name.clone(), index.clone(), TypeFilter::Any);
+                    lambda_reference_context.add(name.clone(), index.clone(), TypeFilter::Any);
                 }
 
+                if let Some(et) = expected_type {
+                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters,
+                        return_type,
+                    }) = et
+                    {
+                        for ((par_name, par_index), par_type) in
+                            zip(def.parameter_names.iter(), parameters.iter())
+                        {
+                            let par = ASTParameterDef {
+                                name: par_name.clone(),
+                                ast_type: par_type.clone(),
+                                ast_index: par_index.clone(),
+                            };
+                            let par_index = par.ast_index.clone();
+                            lambda_val_context
+                                .insert_par(par_name.clone(), par)
+                                .map_err(|err| {
+                                    TypeCheckError::new(par_index, err.clone(), Vec::new())
+                                })?;
+                        }
+                    }
+                } else {
+                    for (name, index) in def.parameter_names.iter() {
+                        lambda_val_context
+                            .insert_par(
+                                name.clone(),
+                                ASTParameterDef {
+                                    name: name.to_string(),
+                                    ast_index: index.clone(),
+                                    ast_type: ASTType::Generic("UNKNOWN".to_string()),
+                                },
+                            )
+                            .map_err(|err| {
+                                TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                            })?;
+                    }
+                }
                 let mut lambda_result = Vec::new();
                 Self::process_statements(
                     module,
                     &def.body,
                     &mut lambda_result,
-                    &mut lambda_context,
+                    &mut lambda_reference_context,
                     &mut ReferenceContext::new(None),
                     namespace,
+                    &mut lambda_val_context,
+                    statics,
+                    inside_function,
                 )?;
                 result.append(&mut lambda_result);
             }
@@ -584,7 +748,6 @@ mod tests {
 
     use env_logger::Builder;
 
-    use crate::completion_service::CompletionItem;
     use rasm_core::codegen::backend::BackendNasmi386;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
@@ -592,6 +755,7 @@ mod tests {
     use rasm_core::parser::ast::ASTIndex;
     use rasm_core::project::RasmProject;
 
+    use crate::completion_service::CompletionItem;
     use crate::reference_finder::{CompletionResult, ReferenceFinder, SelectableItem};
 
     #[test]
@@ -599,6 +763,12 @@ mod tests {
         let finder = get_reference_finder("resources/test/simple.rasm");
 
         let file_name = Path::new("resources/test/simple.rasm");
+
+        let project = RasmProject::new(file_name.to_path_buf());
+        let stdlib_path = project
+            .from_relative_to_root(Path::new("../../../stdlib"))
+            .canonicalize()
+            .unwrap();
 
         assert_eq!(
             vec_selectable_item_to_vec_index(
@@ -616,6 +786,41 @@ mod tests {
                     .unwrap()
             ),
             vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 16)]
+        );
+
+        assert_eq!(
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 2,))
+                    .unwrap()
+            ),
+            vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 4)]
+        );
+
+        assert_eq!(
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 9,))
+                    .unwrap()
+            ),
+            vec![ASTIndex::new(
+                Some(stdlib_path.join("src/main/rasm/std.rasm")),
+                10,
+                8
+            )]
+        );
+
+        assert_eq!(
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 10, 15,))
+                    .unwrap()
+            ),
+            vec![ASTIndex::new(
+                Some(stdlib_path.join("src/main/rasm/option.rasm")),
+                2,
+                7
+            )]
         );
     }
 

@@ -28,17 +28,22 @@ impl ValContext {
         }
     }
 
-    pub fn insert_par(&mut self, key: String, par: ASTParameterDef) -> Option<ValKind> {
+    pub fn insert_par(
+        &mut self,
+        key: String,
+        par: ASTParameterDef,
+    ) -> Result<Option<ValKind>, String> {
         let result = self.value_to_address.insert(
             key.clone(),
             ValKind::ParameterRef(self.par_index, par.clone()),
         );
         self.par_index += 1;
         if result.is_some() {
-            panic!("already added {key}: {}", par.ast_index);
+            Err(format!("already added {key}: {}", par.ast_index))
+        } else {
+            debug_i!("added parameter {key} -> {par} to context");
+            Ok(result)
         }
-        debug_i!("added parameter {key} -> {par} to context");
-        result
     }
 
     pub fn insert_let(
@@ -46,7 +51,7 @@ impl ValContext {
         key: String,
         ast_type: ASTType,
         ast_index: &ASTIndex,
-    ) -> Option<ValKind> {
+    ) -> Result<Option<ValKind>, String> {
         debug_i!("adding let val {key} of type {ast_type} to context");
 
         let result = self.value_to_address.insert(
@@ -55,9 +60,10 @@ impl ValContext {
         );
         self.let_index += 1;
         if result.is_some() {
-            panic!("already added {key}: {}", ast_index);
+            Err(format!("already added {key}: {}", ast_index))
+        } else {
+            Ok(result)
         }
-        result
     }
 
     pub fn get(&self, key: &str) -> Option<&ValKind> {

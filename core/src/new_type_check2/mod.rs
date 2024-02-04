@@ -1028,8 +1028,8 @@ impl TypeCheck {
         })
     }
 
-    fn type_of_expression(
-        &mut self,
+    pub fn type_of_expression(
+        &self,
         module: &InputModule,
         typed_expression: &ASTExpression,
         val_context: &mut ValContext,
@@ -1080,28 +1080,30 @@ impl TypeCheck {
                     dedent!();
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 }
+                /*
+                               if let Ok(transformed_call) = self.transform_call(
+                                   module,
+                                   call,
+                                   val_context,
+                                   statics,
+                                   expected_type,
+                                   namespace,
+                                   inside_function,
+                               ) {
+                                   if let Some(f) = self
+                                       .module
+                                       .find_precise_function(
+                                           &transformed_call.original_function_name,
+                                           &transformed_call.function_name,
+                                       )
+                                       .cloned()
+                                   {
+                                       dedent!();
+                                       return Ok(TypeFilter::Exact(f.return_type.clone()));
+                                   }
+                               }
 
-                if let Ok(transformed_call) = self.transform_call(
-                    module,
-                    call,
-                    val_context,
-                    statics,
-                    expected_type,
-                    namespace,
-                    inside_function,
-                ) {
-                    if let Some(f) = self
-                        .module
-                        .find_precise_function(
-                            &transformed_call.original_function_name,
-                            &transformed_call.function_name,
-                        )
-                        .cloned()
-                    {
-                        dedent!();
-                        return Ok(TypeFilter::Exact(f.return_type.clone()));
-                    }
-                }
+                */
 
                 let filters = call
                     .parameters

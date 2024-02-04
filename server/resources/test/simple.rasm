@@ -5,3 +5,7 @@ doSomething(anI32);
 fn doSomething(value: i32) {
     println(value);
 }
+
+fn doSomething1() -> Option<i32> {
+    Option::Some(10);
+}
