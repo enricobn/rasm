@@ -737,7 +737,6 @@ impl TypeCheck {
             statics,
             Some(param_type),
             namespace,
-            inside_function,
         )?;
         if let TypeFilter::Exact(et) = &t {
             if !et.is_generic() {
@@ -826,7 +825,11 @@ impl TypeCheck {
         let mut val_context = ValContext::new(None);
 
         for parameter in new_function_def.parameters.iter() {
-            val_context.insert_par(parameter.name.clone(), parameter.clone());
+            val_context
+                .insert_par(parameter.name.clone(), parameter.clone())
+                .map_err(|e| {
+                    TypeCheckError::new(parameter.ast_index.clone(), e.clone(), self.stack.clone())
+                })?;
         }
 
         let new_body = match &new_function_def.body {
@@ -979,15 +982,9 @@ impl TypeCheck {
                 );
 
                 if let Ok(ASTStatement::LetStatement(name, expr, is_cons, index)) = &new_statement {
-                    if let Ok(type_of_expr) = self.type_of_expression(
-                        module,
-                        expr,
-                        val_context,
-                        statics,
-                        None,
-                        namespace,
-                        inside_function,
-                    ) {
+                    if let Ok(type_of_expr) =
+                        self.type_of_expression(module, expr, val_context, statics, None, namespace)
+                    {
                         if let TypeFilter::Exact(ast_type) = type_of_expr {
                             if *is_cons {
                                 statics.add_const(name.clone(), ast_type);
@@ -1036,7 +1033,6 @@ impl TypeCheck {
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
     ) -> Result<TypeFilter, TypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
@@ -1109,15 +1105,7 @@ impl TypeCheck {
                     .parameters
                     .iter()
                     .map(|it| {
-                        self.type_of_expression(
-                            module,
-                            it,
-                            val_context,
-                            statics,
-                            None,
-                            namespace,
-                            inside_function,
-                        )
+                        self.type_of_expression(module, it, val_context, statics, None, namespace)
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()?;
                 let functions = module
@@ -1197,7 +1185,6 @@ impl TypeCheck {
                             statics,
                             None,
                             namespace,
-                            inside_function,
                         )?;
 
                         if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -1226,7 +1213,6 @@ impl TypeCheck {
                                 statics,
                                 None,
                                 namespace,
-                                inside_function,
                             )?));
                         }
                     }
@@ -1316,14 +1302,18 @@ impl TypeCheck {
             {
                 for ((name, index), t) in zip(lambda_def.parameter_names.iter(), parameters.iter())
                 {
-                    val_context.insert_par(
-                        name.to_owned(),
-                        ASTParameterDef {
-                            name: name.to_owned(),
-                            ast_type: t.clone(),
-                            ast_index: index.clone(),
-                        },
-                    );
+                    val_context
+                        .insert_par(
+                            name.to_owned(),
+                            ASTParameterDef {
+                                name: name.to_owned(),
+                                ast_type: t.clone(),
+                                ast_index: index.clone(),
+                            },
+                        )
+                        .map_err(|e| {
+                            TypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
+                        })?;
                 }
             } else {
                 return Err(TypeCheckError::new(

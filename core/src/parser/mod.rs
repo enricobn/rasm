@@ -1029,7 +1029,7 @@ impl Parser {
         namespace: &ASTNameSpace,
     ) -> Option<(String, Vec<ASTType>, usize, usize)> {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
-            let (function_name, next_n, mut function_name_n) =
+            let (function_name, next_n, function_name_n) =
                 if let Some((variant, next_n)) = self.try_parse_enum_constructor() {
                     (f_name.clone() + "::" + &variant, next_n, next_n - 1)
                 } else {

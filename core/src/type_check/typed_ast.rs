@@ -860,18 +860,27 @@ pub fn convert_to_typed_module(
 
                 let mut val_context = ValContext::new(None);
                 for par in function.parameters.iter() {
-                    val_context.insert_par(
-                        par.name.clone(),
-                        ASTParameterDef::new(
-                            &par.name,
-                            conv_context
-                                .get_type_from_typed_type(&par.ast_type)
-                                .unwrap_or_else(|| {
-                                    panic!("Cannot get type from typed type {}", &par.ast_type)
-                                }),
-                            par.ast_index.clone(),
-                        ),
-                    );
+                    val_context
+                        .insert_par(
+                            par.name.clone(),
+                            ASTParameterDef::new(
+                                &par.name,
+                                conv_context
+                                    .get_type_from_typed_type(&par.ast_type)
+                                    .unwrap_or_else(|| {
+                                        panic!("Cannot get type from typed type {}", &par.ast_type)
+                                    }),
+                                par.ast_index.clone(),
+                            ),
+                        )
+                        .map_err(|e| {
+                            let tce =
+                                TypeCheckError::new(par.ast_index.clone(), e.clone(), Vec::new());
+                            CompilationError {
+                                index: par.ast_index.clone(),
+                                error_kind: CompilationErrorKind::TypeCheck(e.clone(), vec![tce]),
+                            }
+                        })?;
                 }
 
                 backend
@@ -1164,7 +1173,7 @@ pub fn get_type_of_typed_expression(
                     ASTTypedStatement::Expression(e) => {
                         get_type_of_typed_expression(module, &context, e, ast_type, statics)?
                     }
-                    ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => {
+                    ASTTypedStatement::LetStatement(_, _expr, _is_const, _let_index) => {
                         ASTTypedType::Unit
                     }
                 }
