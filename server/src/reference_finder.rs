@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::iter::zip;
@@ -23,17 +24,39 @@ use crate::reference_context::ReferenceContext;
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
     module: EnhancedASTModule,
+    lookup_tables: ReferenceFinderLookupTables,
+}
+
+struct ReferenceFinderLookupTables {
+    functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
+    types_by_index: HashMap<ASTIndex, ASTType>,
+    parameters_by_index: HashMap<ASTIndex, ASTParameterDef>,
+    let_by_index: HashMap<ASTIndex, ASTType>,
+}
+
+impl ReferenceFinderLookupTables {
+    fn new() -> Self {
+        Self {
+            functions_by_index: Default::default(),
+            types_by_index: Default::default(),
+            parameters_by_index: Default::default(),
+            let_by_index: Default::default(),
+        }
+    }
 }
 
 impl ReferenceFinder {
     pub fn new(module: EnhancedASTModule) -> Result<Self, TypeCheckError> {
-        let selectable_items = Self::process_module(&module)?;
+        let mut lookup_tables = ReferenceFinderLookupTables::new();
+
+        let selectable_items = Self::process_module(&module, &mut lookup_tables)?;
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
         Ok(Self {
             selectable_items,
             module,
+            lookup_tables,
         })
     }
 
@@ -84,7 +107,14 @@ impl ReferenceFinder {
         ))
     }
 
-    fn process_module(module: &EnhancedASTModule) -> Result<Vec<SelectableItem>, TypeCheckError> {
+    pub fn find_function(&self, index: &ASTIndex) -> Option<&ASTFunctionDef> {
+        self.lookup_tables.functions_by_index.get(index)
+    }
+
+    fn process_module(
+        module: &EnhancedASTModule,
+        lookup_tables: &mut ReferenceFinderLookupTables,
+    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
         let mut val_context = ValContext::new(None);
@@ -101,6 +131,7 @@ impl ReferenceFinder {
             &module.body_namespace,
             &mut val_context,
             &mut statics,
+            lookup_tables,
         )?;
 
         result.append(
@@ -115,6 +146,7 @@ impl ReferenceFinder {
                         &reference_static_context,
                         &mut function_val_context,
                         &mut statics,
+                        lookup_tables,
                     )
                     .unwrap_or_default()
                 })
@@ -130,7 +162,12 @@ impl ReferenceFinder {
         reference_static_context: &ReferenceContext,
         val_context: &mut ValContext,
         statics: &mut Statics,
+        lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+        lookup_tables
+            .functions_by_index
+            .insert(function.index.clone(), function.clone());
+
         if function.name == "doSomething1" {
             println!();
         }
@@ -169,6 +206,7 @@ impl ReferenceFinder {
                 &function.namespace,
                 val_context,
                 statics,
+                lookup_tables,
             )?;
         }
 
@@ -214,6 +252,7 @@ impl ReferenceFinder {
                 Some(ast_type.clone()),
                 Some(custom_type_index),
                 namespace.clone(),
+                SelectableItemTarget::Type,
             );
 
             result.push(item);
@@ -241,6 +280,7 @@ impl ReferenceFinder {
         namespace: &ASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
+        lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<(), TypeCheckError> {
         for stmt in statements {
             if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
@@ -285,6 +325,7 @@ impl ReferenceFinder {
                 namespace,
                 val_context,
                 statics,
+                lookup_tables,
             ) {
                 Ok(mut inner) => {
                     result.append(&mut inner);
@@ -325,6 +366,7 @@ impl ReferenceFinder {
         namespace: &ASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
+        lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
             ASTStatement::Expression(expr) => Self::process_expression(
@@ -336,6 +378,7 @@ impl ReferenceFinder {
                 val_context,
                 statics,
                 None,
+                lookup_tables,
             ),
             ASTStatement::LetStatement(name, expr, _, index) => Self::process_expression(
                 expr,
@@ -346,6 +389,7 @@ impl ReferenceFinder {
                 val_context,
                 statics,
                 None,
+                lookup_tables,
             ),
         }
     }
@@ -359,6 +403,7 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
+        lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
@@ -398,6 +443,7 @@ impl ReferenceFinder {
                         Some(function.return_type.clone()),
                         custom_type_index,
                         namespace.clone(),
+                        SelectableItemTarget::Function,
                     ));
 
                     let mut v = zip(call.parameters.iter(), &function.parameters)
@@ -411,6 +457,7 @@ impl ReferenceFinder {
                                 val_context,
                                 statics,
                                 Some(&par.ast_type),
+                                lookup_tables,
                             ) {
                                 Ok(inner) => inner,
                                 Err(e) => {
@@ -440,6 +487,7 @@ impl ReferenceFinder {
                                 val_context,
                                 statics,
                                 None,
+                                lookup_tables,
                             ) {
                                 Ok(inner) => inner,
                                 Err(e) => {
@@ -482,6 +530,7 @@ impl ReferenceFinder {
                         ast_type,
                         ast_type_index,
                         namespace.clone(),
+                        SelectableItemTarget::Ref,
                     ));
                 }
             }
@@ -544,6 +593,7 @@ impl ReferenceFinder {
                     namespace,
                     &mut lambda_val_context,
                     statics,
+                    lookup_tables,
                 )?;
                 result.append(&mut lambda_result);
             }
@@ -642,6 +692,14 @@ pub struct SelectableItem {
     pub ast_type: Option<ASTType>,
     pub ast_type_index: Option<ASTIndex>,
     pub namespace: ASTNameSpace,
+    pub target: SelectableItemTarget,
+}
+
+#[derive(Debug, Clone)]
+pub enum SelectableItemTarget {
+    Ref,
+    Function,
+    Type,
 }
 
 impl Display for SelectableItem {
@@ -659,6 +717,7 @@ impl SelectableItem {
         ast_type: Option<ASTType>,
         ast_type_index: Option<ASTIndex>,
         namespace: ASTNameSpace,
+        target: SelectableItemTarget,
     ) -> Self {
         SelectableItem {
             file_token: FileToken::new(start, len),
@@ -667,6 +726,7 @@ impl SelectableItem {
             ast_type,
             ast_type_index,
             namespace,
+            target,
         }
     }
 
@@ -762,16 +822,9 @@ mod tests {
     #[test]
     fn types() {
         let finder = get_reference_finder("resources/test/types.rasm");
-
         let file_name = Path::new("resources/test/types.rasm");
         let source_file = Path::new(&file_name);
-
-        let project = RasmProject::new(file_name.to_path_buf());
-
-        let stdlib_path = project
-            .from_relative_to_root(Path::new("../../../stdlib"))
-            .canonicalize()
-            .unwrap();
+        let stdlib_path = stdlib_path(file_name);
 
         assert_eq!(
             vec_selectable_item_to_vec_index(
@@ -807,6 +860,34 @@ mod tests {
                 10
             )],
         );
+    }
+
+    #[test]
+    fn struct_constructor() {
+        let finder = get_reference_finder("resources/test/types.rasm");
+        let file_name = Path::new("resources/test/types.rasm");
+        let source_file = Path::new(&file_name);
+        let stdlib_path = stdlib_path(file_name);
+
+        assert_eq!(
+            vec_selectable_item_to_vec_index(
+                finder
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
+                    .unwrap()
+            ),
+            vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 8)],
+        );
+    }
+
+    fn stdlib_path(file_name: &Path) -> PathBuf {
+        let project = RasmProject::new(file_name.to_path_buf());
+
+        let stdlib_path = project
+            .from_relative_to_root(Path::new("../../../stdlib"))
+            .canonicalize()
+            .unwrap();
+
+        stdlib_path
     }
 
     #[test]
@@ -862,7 +943,7 @@ mod tests {
         match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17)) {
             Ok(CompletionResult::Found(items)) => {
                 assert!(format_collection_items(&items)
-                    .contains(&"anI32(v::types:AStruct) -> i32".to_string()));
+                    .contains(&"anI32(v:AStruct) -> i32".to_string()));
             }
             Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
             Err(error) => {

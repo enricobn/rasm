@@ -96,7 +96,7 @@ impl Display for ASTFunctionDef {
         let fun_or_asm = if let ASTFunctionBody::RASMBody(_) = self.body {
             "fn"
         } else {
-            "asm"
+            "native"
         };
 
         let args = self
@@ -106,8 +106,8 @@ impl Display for ASTFunctionDef {
             .collect::<Vec<String>>()
             .join(",");
         f.write_str(&format!(
-            "{}{} {} {}{generic_types}({args}) -> {rt}",
-            modifiers, fun_or_asm, self.namespace, self.name
+            "{}{} {}{generic_types}({args}) -> {rt}",
+            modifiers, fun_or_asm, self.name
         ))
     }
 }
@@ -320,14 +320,13 @@ impl Display for ASTType {
             },
             ASTType::Generic(name) => f.write_str(name),
             ASTType::Custom {
-                namespace,
+                namespace: _,
                 name,
                 param_types,
                 index: _,
             } => {
                 let pars: Vec<String> = param_types.iter().map(|it| format!("{it}")).collect();
 
-                f.write_str(&format!("{namespace}:"))?;
                 if pars.is_empty() {
                     f.write_str(name)
                 } else {
@@ -811,9 +810,6 @@ mod tests {
             param_types: vec![inner_type],
             index: ASTIndex::none(),
         };
-        assert_eq!(
-            format!("{ast_type}"),
-            "test:test:List<test:test:Option<str>>"
-        );
+        assert_eq!(format!("{ast_type}"), "List<Option<str>>");
     }
 }
