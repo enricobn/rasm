@@ -283,40 +283,6 @@ impl ReferenceFinder {
         lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<(), TypeCheckError> {
         for stmt in statements {
-            if let ASTStatement::LetStatement(name, expr, is_const, index) = stmt {
-                let filter = Self::get_filter_of_expression(
-                    expr,
-                    module,
-                    val_context,
-                    statics,
-                    None,
-                    namespace,
-                )?;
-
-                reference_context.add(name.clone(), index.clone(), filter.clone());
-
-                if *is_const {
-                    if let TypeFilter::Exact(ref ast_type) = filter {
-                        statics.add_const(name.clone(), ast_type.clone());
-                    } else {
-                        statics.add_const(name.clone(), ASTType::Generic("UNKNOWN".to_string()));
-                    }
-                    reference_static_context.add(name.clone(), index.clone(), filter);
-                } else if let TypeFilter::Exact(ref ast_type) = filter {
-                    val_context
-                        .insert_let(name.clone(), ast_type.clone(), index)
-                        .map_err(|err| {
-                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
-                        })?;
-                } else {
-                    val_context
-                        .insert_let(name.clone(), ASTType::Generic("UNKNOWN".to_string()), index)
-                        .map_err(|err| {
-                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
-                        })?;
-                }
-            }
-
             match Self::process_statement(
                 stmt,
                 reference_context,
@@ -380,17 +346,51 @@ impl ReferenceFinder {
                 None,
                 lookup_tables,
             ),
-            ASTStatement::LetStatement(name, expr, _, index) => Self::process_expression(
-                expr,
-                reference_context,
-                reference_static_context,
-                module,
-                namespace,
-                val_context,
-                statics,
-                None,
-                lookup_tables,
-            ),
+            ASTStatement::LetStatement(name, expr, is_const, index) => {
+                let filter = Self::get_filter_of_expression(
+                    expr,
+                    module,
+                    val_context,
+                    statics,
+                    None,
+                    namespace,
+                )?;
+
+                reference_context.add(name.clone(), index.clone(), filter.clone());
+
+                if *is_const {
+                    if let TypeFilter::Exact(ref ast_type) = filter {
+                        statics.add_const(name.clone(), ast_type.clone());
+                    } else {
+                        statics.add_const(name.clone(), ASTType::Generic("UNKNOWN".to_string()));
+                    }
+                    reference_static_context.add(name.clone(), index.clone(), filter);
+                } else if let TypeFilter::Exact(ref ast_type) = filter {
+                    val_context
+                        .insert_let(name.clone(), ast_type.clone(), index)
+                        .map_err(|err| {
+                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                        })?;
+                } else {
+                    val_context
+                        .insert_let(name.clone(), ASTType::Generic("UNKNOWN".to_string()), index)
+                        .map_err(|err| {
+                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                        })?;
+                }
+
+                Self::process_expression(
+                    expr,
+                    reference_context,
+                    reference_static_context,
+                    module,
+                    namespace,
+                    val_context,
+                    statics,
+                    None,
+                    lookup_tables,
+                )
+            }
         }
     }
 
