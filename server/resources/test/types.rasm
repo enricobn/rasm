@@ -26,3 +26,7 @@ fn doSomething(value: Vec<i32>) {
 fn doSomething(value: Vec<AStruct>) {
     println("aStruct");
 }
+
+fn lambda(vec: Vec<AStruct>) -> Vec<AStruct> {
+    vec.map({ it -> it;});
+}

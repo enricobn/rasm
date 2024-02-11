@@ -11,8 +11,9 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::ValContext;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTNameSpace,
-    ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, BuiltinTypeKind,
+    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
+    ASTLambdaDef, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
+    BuiltinTypeKind,
 };
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::type_check_error::TypeCheckError;
@@ -64,6 +65,12 @@ impl ReferenceFinder {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
+            /*
+            if selectable_item.file_token.start.row == 31 {
+                println!("{selectable_item}");
+            }
+
+             */
             if selectable_item.contains(index)? {
                 //println!("found {:?}", selectable_item);
                 result.push(selectable_item.clone());
@@ -409,197 +416,253 @@ impl ReferenceFinder {
         match expr {
             ASTExpression::StringLiteral(_) => {}
             ASTExpression::ASTFunctionCallExpression(call) => {
-                let filters: Vec<TypeFilter> = call
-                    .parameters
-                    .iter()
-                    .map(|it| {
-                        Self::get_filter_of_expression(
-                            it,
-                            module,
-                            val_context,
-                            statics,
-                            None,
-                            namespace,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, TypeCheckError>>()?;
-
-                let mut functions = module
-                    .functions_by_name
-                    .find_call_vec(call, &filters, None, false, module)
-                    .unwrap();
-
-                if functions.len() == 1 {
-                    let function = functions.remove(0);
-
-                    let custom_type_index =
-                        Self::get_if_custom_type_index(module, &function.return_type);
-
-                    result.push(SelectableItem::new(
-                        call.index.mv_left(call.original_function_name.len()),
-                        call.original_function_name.len(),
-                        function.index.clone(),
-                        Some(expr.clone()),
-                        Some(function.return_type.clone()),
-                        custom_type_index,
-                        namespace.clone(),
-                        SelectableItemTarget::Function,
-                    ));
-
-                    let mut v = zip(call.parameters.iter(), &function.parameters)
-                        .flat_map(|(it, par)| {
-                            match Self::process_expression(
-                                it,
-                                reference_context,
-                                reference_static_context,
-                                module,
-                                namespace,
-                                val_context,
-                                statics,
-                                Some(&par.ast_type),
-                                lookup_tables,
-                            ) {
-                                Ok(inner) => inner,
-                                Err(e) => {
-                                    eprintln!(
-                                        "Error evaluating expr {expr} : {}",
-                                        expr.get_index()
-                                    );
-                                    eprintln!("{e}");
-                                    Vec::new()
-                                }
-                            }
-                            .into_iter()
-                        })
-                        .collect::<Vec<_>>();
-                    result.append(&mut v);
-                } else {
-                    let mut v = call
-                        .parameters
-                        .iter()
-                        .flat_map(|it| {
-                            match Self::process_expression(
-                                it,
-                                reference_context,
-                                reference_static_context,
-                                module,
-                                namespace,
-                                val_context,
-                                statics,
-                                None,
-                                lookup_tables,
-                            ) {
-                                Ok(inner) => inner,
-                                Err(e) => {
-                                    eprintln!(
-                                        "Error evaluating expr {expr} : {}",
-                                        expr.get_index()
-                                    );
-                                    eprintln!("{e}");
-                                    Vec::new()
-                                }
-                            }
-                            .into_iter()
-                        })
-                        .collect::<Vec<_>>();
-                    result.append(&mut v);
-                    warn!(
-                        "Cannot find function for call {call} with filters {} : {}",
-                        SliceDisplay(&filters),
-                        call.index
-                    );
-                    warn!("{}", SliceDisplay(&functions));
-                }
+                Self::process_function_call(
+                    expr,
+                    reference_context,
+                    reference_static_context,
+                    module,
+                    namespace,
+                    val_context,
+                    statics,
+                    lookup_tables,
+                    &mut result,
+                    call,
+                )?;
             }
             ASTExpression::ValueRef(name, index) => {
-                if let Some(v) = reference_context.get(name) {
-                    let ast_type = match &v.filter {
-                        TypeFilter::Exact(ast_type) => Some(ast_type.clone()),
-                        _ => None,
-                    };
-
-                    let ast_type_index = ast_type
-                        .as_ref()
-                        .and_then(|t| Self::get_if_custom_type_index(module, t));
-
-                    result.push(SelectableItem::new(
-                        index.mv_left(name.len()),
-                        name.len(),
-                        v.index.mv_left(name.len()).clone(),
-                        Some(expr.clone()),
-                        ast_type,
-                        ast_type_index,
-                        namespace.clone(),
-                        SelectableItemTarget::Ref,
-                    ));
-                }
+                Self::process_value_ref(
+                    expr,
+                    reference_context,
+                    module,
+                    namespace,
+                    &mut result,
+                    name,
+                    index,
+                );
             }
             ASTExpression::Value(value_type, index) => {}
             ASTExpression::Lambda(def) => {
-                let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
-                let mut lambda_val_context = ValContext::new(Some(val_context));
-
-                if let Some(et) = expected_type {
-                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                        parameters,
-                        return_type,
-                    }) = et
-                    {
-                        for ((par_name, par_index), par_type) in
-                            zip(def.parameter_names.iter(), parameters.iter())
-                        {
-                            let par = ASTParameterDef {
-                                name: par_name.clone(),
-                                ast_type: par_type.clone(),
-                                ast_index: par_index.clone(),
-                            };
-                            let par_index = par.ast_index.clone();
-                            lambda_val_context
-                                .insert_par(par_name.clone(), par)
-                                .map_err(|err| {
-                                    TypeCheckError::new(par_index.clone(), err.clone(), Vec::new())
-                                })?;
-                            lambda_reference_context.add(
-                                par_name.clone(),
-                                par_index,
-                                TypeFilter::Exact(par_type.clone()),
-                            );
-                        }
-                    }
-                } else {
-                    for (name, index) in def.parameter_names.iter() {
-                        lambda_val_context
-                            .insert_par(
-                                name.clone(),
-                                ASTParameterDef {
-                                    name: name.to_string(),
-                                    ast_index: index.clone(),
-                                    ast_type: ASTType::Generic("UNKNOWN".to_string()),
-                                },
-                            )
-                            .map_err(|err| {
-                                TypeCheckError::new(index.clone(), err.clone(), Vec::new())
-                            })?;
-                        lambda_reference_context.add(name.clone(), index.clone(), TypeFilter::Any);
-                    }
-                }
-                let mut lambda_result = Vec::new();
-                Self::process_statements(
+                Self::process_lambda(
+                    reference_context,
                     module,
-                    &def.body,
-                    &mut lambda_result,
-                    &mut lambda_reference_context,
-                    &mut ReferenceContext::new(None),
                     namespace,
-                    &mut lambda_val_context,
+                    val_context,
                     statics,
+                    expected_type,
                     lookup_tables,
+                    &mut result,
+                    &def,
                 )?;
-                result.append(&mut lambda_result);
             }
             ASTExpression::Any(_) => {}
         }
         Ok(result)
+    }
+
+    fn process_value_ref(
+        expr: &ASTExpression,
+        reference_context: &mut ReferenceContext,
+        module: &EnhancedASTModule,
+        namespace: &ASTNameSpace,
+        result: &mut Vec<SelectableItem>,
+        name: &String,
+        index: &ASTIndex,
+    ) {
+        if let Some(v) = reference_context.get(name) {
+            let ast_type = match &v.filter {
+                TypeFilter::Exact(ast_type) => Some(ast_type.clone()),
+                _ => None,
+            };
+
+            let ast_type_index = ast_type
+                .as_ref()
+                .and_then(|t| Self::get_if_custom_type_index(module, t));
+
+            result.push(SelectableItem::new(
+                index.mv_left(name.len()),
+                name.len(),
+                v.index.mv_left(name.len()).clone(),
+                Some(expr.clone()),
+                ast_type,
+                ast_type_index,
+                namespace.clone(),
+                SelectableItemTarget::Ref,
+            ));
+        }
+    }
+
+    fn process_lambda(
+        reference_context: &mut ReferenceContext,
+        module: &EnhancedASTModule,
+        namespace: &ASTNameSpace,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        expected_type: Option<&ASTType>,
+        lookup_tables: &mut ReferenceFinderLookupTables,
+        result: &mut Vec<SelectableItem>,
+        def: &&ASTLambdaDef,
+    ) -> Result<(), TypeCheckError> {
+        let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
+        let mut lambda_val_context = ValContext::new(Some(val_context));
+
+        if let Some(et) = expected_type {
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) = et
+            {
+                for ((par_name, par_index), par_type) in
+                    zip(def.parameter_names.iter(), parameters.iter())
+                {
+                    let par = ASTParameterDef {
+                        name: par_name.clone(),
+                        ast_type: par_type.clone(),
+                        ast_index: par_index.clone(),
+                    };
+                    let par_index = par.ast_index.clone();
+                    lambda_val_context
+                        .insert_par(par_name.clone(), par)
+                        .map_err(|err| {
+                            TypeCheckError::new(par_index.clone(), err.clone(), Vec::new())
+                        })?;
+                    lambda_reference_context.add(
+                        par_name.clone(),
+                        par_index,
+                        TypeFilter::Exact(par_type.clone()),
+                    );
+                }
+            }
+        } else {
+            for (name, index) in def.parameter_names.iter() {
+                lambda_val_context
+                    .insert_par(
+                        name.clone(),
+                        ASTParameterDef {
+                            name: name.to_string(),
+                            ast_index: index.clone(),
+                            ast_type: ASTType::Generic("UNKNOWN".to_string()),
+                        },
+                    )
+                    .map_err(|err| TypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
+                lambda_reference_context.add(name.clone(), index.clone(), TypeFilter::Any);
+            }
+        }
+        let mut lambda_result = Vec::new();
+        Self::process_statements(
+            module,
+            &def.body,
+            &mut lambda_result,
+            &mut lambda_reference_context,
+            &mut ReferenceContext::new(None),
+            namespace,
+            &mut lambda_val_context,
+            statics,
+            lookup_tables,
+        )?;
+        result.append(&mut lambda_result);
+        Ok(())
+    }
+
+    fn process_function_call(
+        expr: &ASTExpression,
+        reference_context: &mut ReferenceContext,
+        reference_static_context: &mut ReferenceContext,
+        module: &EnhancedASTModule,
+        namespace: &ASTNameSpace,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        lookup_tables: &mut ReferenceFinderLookupTables,
+        result: &mut Vec<SelectableItem>,
+        call: &ASTFunctionCall,
+    ) -> Result<(), TypeCheckError> {
+        let filters: Vec<TypeFilter> = call
+            .parameters
+            .iter()
+            .map(|it| {
+                Self::get_filter_of_expression(it, module, val_context, statics, None, namespace)
+            })
+            .collect::<Result<Vec<_>, TypeCheckError>>()?;
+
+        let mut functions = module
+            .functions_by_name
+            .find_call_vec(call, &filters, None, false, module)
+            .unwrap();
+
+        if functions.len() == 1 {
+            let function = functions.remove(0);
+
+            let custom_type_index = Self::get_if_custom_type_index(module, &function.return_type);
+
+            result.push(SelectableItem::new(
+                call.index.mv_left(call.original_function_name.len()),
+                call.original_function_name.len(),
+                function.index.clone(),
+                Some(expr.clone()),
+                Some(function.return_type.clone()),
+                custom_type_index,
+                namespace.clone(),
+                SelectableItemTarget::Function,
+            ));
+
+            let mut v = zip(call.parameters.iter(), &function.parameters)
+                .flat_map(|(it, par)| {
+                    match Self::process_expression(
+                        it,
+                        reference_context,
+                        reference_static_context,
+                        module,
+                        namespace,
+                        val_context,
+                        statics,
+                        Some(&par.ast_type),
+                        lookup_tables,
+                    ) {
+                        Ok(inner) => inner,
+                        Err(e) => {
+                            eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                            eprintln!("{e}");
+                            Vec::new()
+                        }
+                    }
+                    .into_iter()
+                })
+                .collect::<Vec<_>>();
+            result.append(&mut v);
+        } else {
+            let mut v = call
+                .parameters
+                .iter()
+                .flat_map(|it| {
+                    match Self::process_expression(
+                        it,
+                        reference_context,
+                        reference_static_context,
+                        module,
+                        namespace,
+                        val_context,
+                        statics,
+                        None,
+                        lookup_tables,
+                    ) {
+                        Ok(inner) => inner,
+                        Err(e) => {
+                            eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                            eprintln!("{e}");
+                            Vec::new()
+                        }
+                    }
+                    .into_iter()
+                })
+                .collect::<Vec<_>>();
+            result.append(&mut v);
+            warn!(
+                "Cannot find function for call {call} with filters {} : {}",
+                SliceDisplay(&filters),
+                call.index
+            );
+            warn!("{}", SliceDisplay(&functions));
+        }
+        Ok(())
     }
 
     fn get_if_custom_type_index(
@@ -747,8 +810,9 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::CompileTarget;
-    use rasm_core::parser::ast::ASTIndex;
+    use rasm_core::parser::ast::{ASTIndex, ASTType};
     use rasm_core::project::RasmProject;
+    use rasm_core::utils::OptionDisplay;
 
     use crate::completion_service::CompletionItem;
     use crate::reference_finder::{CompletionResult, ReferenceFinder, SelectableItem};
@@ -940,6 +1004,7 @@ mod tests {
         let finder = get_reference_finder("resources/test/types.rasm");
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+
         match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17)) {
             Ok(CompletionResult::Found(items)) => {
                 assert!(format_collection_items(&items)
@@ -948,6 +1013,40 @@ mod tests {
             Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
             Err(error) => {
                 panic!("{error}")
+            }
+        }
+    }
+
+    #[test]
+    fn types_type() {
+        let finder = get_reference_finder("resources/test/types.rasm");
+
+        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+
+        match finder.find(&ASTIndex::new(file_name.clone(), 31, 22)) {
+            Ok(mut selectable_items) => {
+                if selectable_items.len() == 1 {
+                    let selectable_item = selectable_items.remove(0);
+                    if let Some(ASTType::Custom {
+                        namespace: _,
+                        name,
+                        param_types: _,
+                        index: _,
+                    }) = selectable_item.ast_type
+                    {
+                        assert_eq!("AStruct", name);
+                    } else {
+                        panic!(
+                            "Expected some Custom type but got {}",
+                            OptionDisplay(&selectable_item.ast_type)
+                        );
+                    }
+                } else {
+                    panic!("Found {} elements", selectable_items.len());
+                }
+            }
+            Err(e) => {
+                panic!("{e}");
             }
         }
     }
