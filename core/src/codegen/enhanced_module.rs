@@ -257,7 +257,8 @@ impl EnhancedASTModule {
                         p_type_def.modifiers().public
                             || p_type_def.namespace() == &param_type.namespace()
                     } else {
-                        panic!()
+                        // TODO we have not found the type definition, should we return an error?
+                        false
                     }
                 } else {
                     true

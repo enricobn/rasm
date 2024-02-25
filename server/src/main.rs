@@ -7,7 +7,7 @@ use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{routing::get, Router};
-use clap::{Arg, Command};
+use clap::{Arg, ArgMatches, Command};
 use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
@@ -29,13 +29,35 @@ async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
 
-    let src = Path::new(&get_src()).to_path_buf();
-    info!("starting server for {:?}", src);
+    let command = Command::new("RASM server")
+        .version("0.1.0-alpha.0")
+        .arg(
+            Arg::new("PROJECT")
+                .help("Sets the project root")
+                .required(true)
+                .index(1),
+        )
+        .arg(
+            Arg::new("MODULE")
+                .help("Sets the input file")
+                .required(true)
+                .index(1),
+        )
+        .arg(
+            Arg::new("message-format")
+                .help("for vscode")
+                .long("message-format")
+                .required(false),
+        );
 
-    let project = RasmProject::new(src.clone());
+    let matches = command.get_matches();
+
+    let project = Path::new(&get_project(&matches)).to_path_buf();
+    let module_file = Path::new(&get_module(&matches)).to_path_buf();
+    info!("starting server for {:?}", project);
 
     let mut backend = BackendNasmi386::new(false);
-    let server_state = ServerState::new(src, &mut backend).unwrap();
+    let server_state = ServerState::new(project, module_file, &mut backend).unwrap();
 
     let app_state = Arc::new(server_state);
 
@@ -66,19 +88,27 @@ struct ServerState {
 }
 
 impl ServerState {
-    fn new(src: PathBuf, backend: &mut dyn Backend) -> Result<Self, TypeCheckError> {
-        let project = RasmProject::new(src.clone());
+    fn new(
+        project_folder: PathBuf,
+        module_path: PathBuf,
+        backend: &mut dyn Backend,
+    ) -> Result<Self, TypeCheckError> {
+        let project = RasmProject::new(project_folder.clone());
 
         let mut statics = Statics::new();
-        let (modules, errors) =
-            project.get_all_modules(backend, &mut statics, false, &CompileTarget::Nasmi36);
+        let target = CompileTarget::Nasmi36;
+        let (modules, errors) = project.get_all_modules(backend, &mut statics, false, &target);
 
         // TODO errors
 
         let enhanced_astmodule = EnhancedASTModule::new(modules, &project, backend, &mut statics);
 
-        let finder = ReferenceFinder::new(enhanced_astmodule)?;
-        Ok(Self { src, finder })
+        let (module, errors) = project.get_module(module_path.as_path(), &target).unwrap();
+        let finder = ReferenceFinder::new(&enhanced_astmodule, &module)?;
+        Ok(Self {
+            src: project_folder,
+            finder,
+        })
     }
 }
 
@@ -140,7 +170,7 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
     result
 }
 
-async fn file(
+async fn file<'a>(
     //axum::extract::Path(src): axum::extract::Path<String>,
     src: Query<FileQueryParams>,
     State(state): State<Arc<ServerState>>,
@@ -254,22 +284,10 @@ fn token_to_string(token: &Token) -> String {
     }
 }
 
-fn get_src() -> String {
-    let matches = Command::new("RASM server")
-        .version("0.1.0-alpha.0")
-        .arg(
-            Arg::new("SRC")
-                .help("Sets the input file to use")
-                .required(true)
-                .index(1),
-        )
-        .arg(
-            Arg::new("message-format")
-                .help("for vscode")
-                .long("message-format")
-                .required(false),
-        )
-        .get_matches();
+fn get_project(matches: &ArgMatches) -> String {
+    matches.get_one::<String>("PROJECT").unwrap().to_owned()
+}
 
-    matches.get_one::<String>("SRC").unwrap().to_owned()
+fn get_module(matches: &ArgMatches) -> String {
+    matches.get_one::<String>("MODULE").unwrap().to_owned()
 }

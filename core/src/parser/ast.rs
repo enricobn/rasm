@@ -626,6 +626,20 @@ pub struct ASTModule {
 }
 
 impl ASTModule {
+    pub fn empty(namespace: ASTNameSpace) -> Self {
+        ASTModule {
+            path: Default::default(),
+            body: vec![],
+            functions: vec![],
+            enums: vec![],
+            structs: vec![],
+            requires: Default::default(),
+            externals: Default::default(),
+            types: vec![],
+            namespace,
+        }
+    }
+
     pub fn add_function(&mut self, function_def: ASTFunctionDef) {
         self.functions.push(function_def);
     }

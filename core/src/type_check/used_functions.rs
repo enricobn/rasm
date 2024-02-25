@@ -112,14 +112,19 @@ mod tests {
     use regex::Regex;
 
     #[test]
+    #[ignore]
     fn test() {
         let re = Regex::new(r"[^;]+.*call (.*)").unwrap();
+
+        let mut functions = Vec::new();
 
         for (_, [name]) in re
             .captures_iter("call pippo\ncall pluto\n")
             .map(|c| c.extract())
         {
-            println!("{name}");
+            functions.push(name);
         }
+
+        assert_eq!(vec!["pippo", "pluto"], functions);
     }
 }

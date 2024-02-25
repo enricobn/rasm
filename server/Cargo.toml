@@ -9,6 +9,7 @@ clap.workspace = true
 env_logger.workspace = true
 chrono.workspace = true
 log.workspace = true
+rayon.workspace = true
 # local deps
 rasm-core.workspace = true
 # others

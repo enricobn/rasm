@@ -221,13 +221,14 @@ impl RasmProject {
         &self,
         backend: &dyn Backend,
         statics: &mut Statics,
+        target: &CompileTarget,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         info!("Reading tests");
 
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(true, self.test_folder())
+        self.get_modules(self.test_folder(), target)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
                 enrich_module(backend, statics, &mut project_module);
@@ -248,11 +249,11 @@ impl RasmProject {
         let mut errors = Vec::new();
         let mut pairs = vec![self.core_modules(backend)];
 
-        pairs.push(self.get_modules(true, self.main_rasm_source_folder()));
+        pairs.push(self.get_modules(self.main_rasm_source_folder(), target));
 
         if let Some(native_folder) = self.native_source_folder(target.folder()) {
             if native_folder.exists() {
-                pairs.push(self.get_modules(true, native_folder));
+                pairs.push(self.get_modules(native_folder, target));
             }
         }
 
@@ -264,12 +265,13 @@ impl RasmProject {
                     info!("including dependency {}", dependency.config.package.name);
                     //TODO include tests?
                     let mut dep_modules =
-                        dependency.get_modules(false, dependency.main_rasm_source_folder());
+                        dependency.get_modules(dependency.main_rasm_source_folder(), target);
                     if let Some(native_source_folder) =
                         dependency.native_source_folder(target.folder())
                     {
                         if native_source_folder.exists() {
-                            dep_modules.extend(dependency.get_modules(false, native_source_folder));
+                            dep_modules
+                                .extend(dependency.get_modules(native_source_folder, target));
                         }
                     }
                     dep_modules
@@ -337,7 +339,7 @@ impl RasmProject {
                     .collect::<Vec<_>>();
                 it.body = new_body;
             });
-            let (test_modules, test_errors) = self.all_test_modules(backend, statics);
+            let (test_modules, test_errors) = self.all_test_modules(backend, statics, target);
 
             let test_module = self.main_test_module(&mut errors, &test_modules);
 
@@ -494,13 +496,13 @@ impl RasmProject {
 
     fn get_modules(
         &self,
-        body: bool,
         source_folder: PathBuf,
+        target: &CompileTarget,
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
             let main_src_file = self.main_src_file().unwrap();
-            vec![self.module_from_file(
-                &PathBuf::from(&main_src_file),
+            vec![Self::module_from_file(
+                &PathBuf::from(&main_src_file).canonicalize().unwrap(),
                 ASTNameSpace::new(
                     "".to_string(),
                     main_src_file
@@ -512,74 +514,121 @@ impl RasmProject {
                 ),
             )]
         } else {
-            WalkDir::new(&source_folder)
+            WalkDir::new(source_folder)
                 .into_iter()
                 .collect::<Vec<_>>()
                 .into_par_iter()
                 .filter_map(Result::ok)
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
-                .map(|entry| {
+                .filter_map(|entry| {
                     let path = entry.path();
 
-                    let namespace = ASTNameSpace::new(
-                        self.config.package.name.clone(),
-                        diff_paths(path, &source_folder)
-                            .unwrap()
-                            .with_extension("")
-                            .to_string_lossy()
-                            .to_string(),
-                    );
-                    info!(
-                        "including file {} namespace {namespace}",
-                        path.to_str().unwrap()
-                    );
-
-                    let (entry_module, mut module_errors) =
-                        self.module_from_file(&path.canonicalize().unwrap(), namespace);
-                    // const statements are allowed
-                    let has_body = entry_module.body.iter().any(|it| match it {
-                        ASTStatement::Expression(ASTFunctionCallExpression(_)) => true,
-                        ASTStatement::LetStatement(_, _, is_const, _) => !is_const,
-                        _ => false,
-                    });
-
-                    if body {
-                        let is_main = if let Some(main_src_file) = self.main_src_file() {
-                            path.canonicalize().unwrap_or_else(|_| {
-                                panic!("Cannot find {}", path.to_string_lossy())
-                            }) == main_src_file
-                                .canonicalize()
-                                .expect("Cannot find main source file")
-                        } else {
-                            false
-                        };
-
-                        if is_main {
-                            if !has_body {
-                                Self::add_generic_error(
-                                    path,
-                                    &mut module_errors,
-                                    "Main file should have a body",
-                                );
-                            }
-                        } else if has_body {
-                            Self::add_generic_error(
-                                path,
-                                &mut module_errors,
-                                "Only main file should have a body",
-                            );
-                        }
-                    } else if has_body {
-                        Self::add_generic_error(
-                            path,
-                            &mut module_errors,
-                            "Only main file should have a body",
-                        );
-                    }
-                    (entry_module, module_errors)
+                    self.get_module(path, target)
                 })
                 .collect::<Vec<_>>()
         }
+    }
+
+    fn get_natives(&self) -> Vec<PathBuf> {
+        fs::read_dir(
+            Path::new(&self.root).join(
+                Path::new(
+                    self.config
+                        .package
+                        .source_folder
+                        .as_ref()
+                        .unwrap_or(&"src".to_string()),
+                )
+                .join("main"),
+            ),
+        )
+        .unwrap()
+        .map(|it| it.unwrap().path())
+        .collect()
+    }
+
+    pub fn get_module(
+        &self,
+        path: &Path,
+        target: &CompileTarget,
+    ) -> Option<(ASTModule, Vec<CompilationError>)> {
+        let (source_folder, body) = if path.starts_with(self.main_rasm_source_folder()) {
+            let body = if let Some(main_src_file) = self.main_src_file() {
+                path == main_src_file.as_path()
+            } else {
+                false
+            };
+            (self.main_rasm_source_folder(), body)
+        } else if path.starts_with(self.test_folder()) {
+            (self.test_folder(), false)
+        } else {
+            if let Some(native_source_folder) = self.native_source_folder(target.folder()) {
+                (native_source_folder, false)
+            } else {
+                return self
+                    .get_dependencies()
+                    .iter()
+                    .filter_map(|project| project.get_module(path, target))
+                    .next();
+            }
+        };
+
+        let namespace = ASTNameSpace::new(
+            self.config.package.name.clone(),
+            diff_paths(path, source_folder)
+                .unwrap()
+                .with_extension("")
+                .to_string_lossy()
+                .to_string(),
+        );
+        info!(
+            "including file {} namespace {namespace}",
+            path.to_str().unwrap()
+        );
+
+        let (entry_module, mut module_errors) =
+            Self::module_from_file(&path.canonicalize().unwrap(), namespace);
+        // const statements are allowed
+        let first_body_statement = entry_module.body.iter().find(|it| match it {
+            ASTStatement::Expression(ASTFunctionCallExpression(_)) => true,
+            ASTStatement::LetStatement(_, _, is_const, _) => !is_const,
+            _ => false,
+        });
+
+        if body {
+            let is_main = if let Some(main_src_file) = self.main_src_file() {
+                path.canonicalize()
+                    .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
+                    == main_src_file
+                        .canonicalize()
+                        .expect("Cannot find main source file")
+            } else {
+                false
+            };
+
+            if is_main {
+                if first_body_statement.is_none() {
+                    Self::add_generic_error(
+                        path,
+                        &mut module_errors,
+                        "Main file should have a body",
+                    );
+                }
+            } else if let Some(fbs) = first_body_statement {
+                Self::add_generic_error(
+                    path,
+                    &mut module_errors,
+                    &format!("Only main file should have a body {}", fbs.get_index()),
+                );
+            }
+        } else if let Some(fbs) = first_body_statement {
+            Self::add_generic_error(
+                path,
+                &mut module_errors,
+                &format!("Only main file should have a body {}", fbs.get_index()),
+            );
+        }
+        Some((entry_module, module_errors))
     }
 
     fn add_generic_error(path: &Path, module_errors: &mut Vec<CompilationError>, message: &str) {
@@ -630,8 +679,43 @@ impl RasmProject {
         result
     }
 
+    fn get_dependencies(&self) -> Vec<RasmProject> {
+        let mut result = Vec::new();
+
+        if let Some(dependencies) = &self.config.dependencies {
+            for dependency in dependencies.values() {
+                if let Value::Table(table) = dependency {
+                    if let Some(path_value) = table.get("path") {
+                        if let Value::String(path) = path_value {
+                            let path_from_relative_to_root =
+                                self.from_relative_to_root(Path::new(path));
+                            let path_buf = path_from_relative_to_root
+                                .canonicalize()
+                                .unwrap_or_else(|_| {
+                                    panic!(
+                                        "error canonicalizing {path}, path_from_relative_to_root {}, root {}",
+                                        path_from_relative_to_root.to_string_lossy(),
+                                        self.root.to_string_lossy()
+                                    )
+                                });
+
+                            let dependency_project = RasmProject::new(path_buf);
+                            result.push(dependency_project);
+                        } else {
+                            panic!("Unsupported path value for {dependency} : {path_value}");
+                        }
+                    } else {
+                        panic!("Cannot find path for {dependency}");
+                    }
+                } else {
+                    panic!("Unsupported dependency type {dependency}");
+                }
+            }
+        }
+        result
+    }
+
     fn module_from_file(
-        &self,
         file: &PathBuf,
         namespace: ASTNameSpace,
     ) -> (ASTModule, Vec<CompilationError>) {
@@ -735,11 +819,9 @@ mod tests {
     #[test]
     fn test_canonilize() {
         let current_dir = env::current_dir().unwrap();
-        println!("current dir {:?}", current_dir);
 
         let path = Path::new("resources/test/../test/./test1.rasm");
 
-        println!("path {:?}", path.canonicalize().unwrap());
         assert_eq!(
             path.canonicalize().unwrap(),
             current_dir.join(PathBuf::from("resources/test/test1.rasm"))

@@ -1578,9 +1578,6 @@ mod tests {
         let (module, errors) = parse_with_errors("resources/test/test14.rasm");
 
         assert!(!errors.is_empty());
-        for error in errors {
-            println!("{error}");
-        }
 
         let function_names = module
             .functions

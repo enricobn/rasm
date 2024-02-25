@@ -1,35 +1,38 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::io;
 use std::iter::zip;
+use std::ops::Deref;
 use std::path::PathBuf;
+use std::time::Instant;
 
 use log::warn;
 
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::ValContext;
+use rasm_core::codegen::ValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
-    ASTLambdaDef, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef,
-    BuiltinTypeKind,
+    ASTLambdaDef, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
+    ASTTypeDef, BuiltinTypeKind,
 };
 use rasm_core::type_check::functions_container::TypeFilter;
+use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
-use rasm_core::utils::SliceDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult};
 use crate::reference_context::ReferenceContext;
+use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
-    module: EnhancedASTModule,
     lookup_tables: ReferenceFinderLookupTables,
+    path: PathBuf,
 }
 
 struct ReferenceFinderLookupTables {
-    functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
+    functions_by_index: HashMap<ASTIndex, String>,
     types_by_index: HashMap<ASTIndex, ASTType>,
     parameters_by_index: HashMap<ASTIndex, ASTParameterDef>,
     let_by_index: HashMap<ASTIndex, ASTType>,
@@ -47,17 +50,18 @@ impl ReferenceFinderLookupTables {
 }
 
 impl ReferenceFinder {
-    pub fn new(module: EnhancedASTModule) -> Result<Self, TypeCheckError> {
+    pub fn new(module: &EnhancedASTModule, ast_module: &ASTModule) -> Result<Self, TypeCheckError> {
         let mut lookup_tables = ReferenceFinderLookupTables::new();
 
-        let selectable_items = Self::process_module(&module, &mut lookup_tables)?;
+        let path = ast_module.path.clone();
+        let selectable_items = Self::process_module(module, ast_module, &mut lookup_tables)?;
 
         //println!("selectable_items {}", SliceDisplay(&selectable_items));
 
         Ok(Self {
             selectable_items,
-            module,
             lookup_tables,
+            path,
         })
     }
 
@@ -80,14 +84,18 @@ impl ReferenceFinder {
         Ok(result)
     }
 
-    pub fn get_completions(&self, index: &ASTIndex) -> Result<CompletionResult, io::Error> {
+    pub fn get_completions(
+        &self,
+        index: &ASTIndex,
+        enhanched_module: &EnhancedASTModule,
+    ) -> Result<CompletionResult, io::Error> {
         let index = index.mv_left(2);
         for selectable_item in self.selectable_items.iter() {
             if selectable_item.contains(&index)? {
                 if let Some(ref ast_type) = selectable_item.ast_type {
                     let filter = TypeFilter::Exact(ast_type.clone());
                     let mut items = Vec::new();
-                    for function in self.module.functions() {
+                    for function in enhanched_module.functions() {
                         if !function.modifiers.public
                             && function.namespace != selectable_item.namespace
                         {
@@ -95,7 +103,8 @@ impl ReferenceFinder {
                         }
                         if !function.parameters.is_empty() {
                             let parameter_type = &function.parameters.get(0).unwrap().ast_type;
-                            if let Ok(value) = filter.almost_equal(parameter_type, &self.module) {
+                            if let Ok(value) = filter.almost_equal(parameter_type, enhanched_module)
+                            {
                                 if value {
                                     if let Some(item) = CompletionItem::for_function(function) {
                                         items.push(item);
@@ -114,12 +123,17 @@ impl ReferenceFinder {
         ))
     }
 
-    pub fn find_function(&self, index: &ASTIndex) -> Option<&ASTFunctionDef> {
+    pub fn find_function(&self, index: &ASTIndex) -> Option<&String> {
         self.lookup_tables.functions_by_index.get(index)
     }
 
+    pub fn is_path(&self, path: &PathBuf) -> bool {
+        &self.path == path
+    }
+
     fn process_module(
-        module: &EnhancedASTModule,
+        enhanced_module: &EnhancedASTModule,
+        module: &ASTModule,
         lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
@@ -129,31 +143,43 @@ impl ReferenceFinder {
 
         let mut result = Vec::new();
 
+        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace, false);
+
         Self::process_statements(
-            module,
+            enhanced_module,
             &module.body,
             &mut result,
             &mut reference_context,
             &mut reference_static_context,
-            &module.body_namespace,
+            &module.namespace,
             &mut val_context,
             &mut statics,
             lookup_tables,
+            Some(&ASTType::Unit),
+            None,
+            &mut type_check,
         )?;
+
+        module.functions.iter().for_each(|function| {
+            lookup_tables
+                .functions_by_index
+                .insert(function.index.clone(), format!("{function}"));
+        });
 
         result.append(
             &mut module
-                .functions()
+                .functions
                 .iter()
                 .flat_map(|it| {
                     let mut function_val_context = ValContext::new(None);
                     Self::process_function(
                         it,
-                        module,
+                        enhanced_module,
                         &reference_static_context,
                         &mut function_val_context,
                         &mut statics,
                         lookup_tables,
+                        &mut type_check,
                     )
                     .unwrap_or_default()
                 })
@@ -170,14 +196,11 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         lookup_tables: &mut ReferenceFinderLookupTables,
+        type_check: &mut TypeCheck,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
-        lookup_tables
-            .functions_by_index
-            .insert(function.index.clone(), function.clone());
+        // println!("Processing function {function}");
+        let time = Instant::now();
 
-        if function.name == "doSomething1" {
-            println!();
-        }
         let mut result = Vec::new();
 
         let mut reference_context = ReferenceContext::new(Some(reference_static_context));
@@ -214,8 +237,13 @@ impl ReferenceFinder {
                 val_context,
                 statics,
                 lookup_tables,
+                Some(&function.return_type),
+                Some(function),
+                type_check,
             )?;
         }
+
+        // println!("time: {:#?}", Instant::now().duration_since(time));
 
         Ok(result)
     }
@@ -288,8 +316,16 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         lookup_tables: &mut ReferenceFinderLookupTables,
+        expected_return_type: Option<&ASTType>,
+        inside_function: Option<&ASTFunctionDef>,
+        type_check: &mut TypeCheck,
     ) -> Result<(), TypeCheckError> {
-        for stmt in statements {
+        for (i, stmt) in statements.iter().enumerate() {
+            let expected_type = if i == statements.len() - 1 {
+                expected_return_type
+            } else {
+                None
+            };
             match Self::process_statement(
                 stmt,
                 reference_context,
@@ -299,6 +335,9 @@ impl ReferenceFinder {
                 val_context,
                 statics,
                 lookup_tables,
+                expected_type,
+                inside_function,
+                type_check,
             ) {
                 Ok(mut inner) => {
                     result.append(&mut inner);
@@ -318,9 +357,8 @@ impl ReferenceFinder {
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
+        type_check: &mut TypeCheck,
     ) -> Result<TypeFilter, TypeCheckError> {
-        let type_check = TypeCheck::new(&enhanced_ast_module.body_namespace);
-
         type_check.type_of_expression(
             enhanced_ast_module,
             expr,
@@ -340,6 +378,9 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         lookup_tables: &mut ReferenceFinderLookupTables,
+        expected_type: Option<&ASTType>,
+        inside_function: Option<&ASTFunctionDef>,
+        type_check: &mut TypeCheck,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
             ASTStatement::Expression(expr) => Self::process_expression(
@@ -350,8 +391,10 @@ impl ReferenceFinder {
                 namespace,
                 val_context,
                 statics,
-                None,
+                expected_type,
                 lookup_tables,
+                inside_function,
+                type_check,
             ),
             ASTStatement::LetStatement(name, expr, is_const, index) => {
                 let filter = Self::get_filter_of_expression(
@@ -361,6 +404,7 @@ impl ReferenceFinder {
                     statics,
                     None,
                     namespace,
+                    type_check,
                 )?;
 
                 reference_context.add(name.clone(), index.clone(), filter.clone());
@@ -396,6 +440,8 @@ impl ReferenceFinder {
                     statics,
                     None,
                     lookup_tables,
+                    inside_function,
+                    type_check,
                 )
             }
         }
@@ -411,6 +457,8 @@ impl ReferenceFinder {
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         lookup_tables: &mut ReferenceFinderLookupTables,
+        inside_function: Option<&ASTFunctionDef>,
+        type_check: &mut TypeCheck,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
@@ -427,6 +475,9 @@ impl ReferenceFinder {
                     lookup_tables,
                     &mut result,
                     call,
+                    expected_type,
+                    inside_function,
+                    type_check,
                 )?;
             }
             ASTExpression::ValueRef(name, index) => {
@@ -451,7 +502,8 @@ impl ReferenceFinder {
                     expected_type,
                     lookup_tables,
                     &mut result,
-                    &def,
+                    def,
+                    type_check,
                 )?;
             }
             ASTExpression::Any(_) => {}
@@ -500,12 +552,13 @@ impl ReferenceFinder {
         expected_type: Option<&ASTType>,
         lookup_tables: &mut ReferenceFinderLookupTables,
         result: &mut Vec<SelectableItem>,
-        def: &&ASTLambdaDef,
+        def: &ASTLambdaDef,
+        type_check: &mut TypeCheck,
     ) -> Result<(), TypeCheckError> {
         let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
         let mut lambda_val_context = ValContext::new(Some(val_context));
 
-        if let Some(et) = expected_type {
+        let expected_lambda_return_type = if let Some(et) = expected_type {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters,
                 return_type,
@@ -531,6 +584,9 @@ impl ReferenceFinder {
                         TypeFilter::Exact(par_type.clone()),
                     );
                 }
+                Some(return_type.deref())
+            } else {
+                None
             }
         } else {
             for (name, index) in def.parameter_names.iter() {
@@ -546,7 +602,8 @@ impl ReferenceFinder {
                     .map_err(|err| TypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
                 lambda_reference_context.add(name.clone(), index.clone(), TypeFilter::Any);
             }
-        }
+            None
+        };
         let mut lambda_result = Vec::new();
         Self::process_statements(
             module,
@@ -558,6 +615,9 @@ impl ReferenceFinder {
             &mut lambda_val_context,
             statics,
             lookup_tables,
+            expected_lambda_return_type,
+            None, // TODO
+            type_check,
         )?;
         result.append(&mut lambda_result);
         Ok(())
@@ -574,93 +634,166 @@ impl ReferenceFinder {
         lookup_tables: &mut ReferenceFinderLookupTables,
         result: &mut Vec<SelectableItem>,
         call: &ASTFunctionCall,
+        expected_return_type: Option<&ASTType>,
+        inside_function: Option<&ASTFunctionDef>,
+        type_check: &mut TypeCheck,
     ) -> Result<(), TypeCheckError> {
-        let filters: Vec<TypeFilter> = call
-            .parameters
-            .iter()
-            .map(|it| {
-                Self::get_filter_of_expression(it, module, val_context, statics, None, namespace)
-            })
-            .collect::<Result<Vec<_>, TypeCheckError>>()?;
+        if let Some(val_kind) = val_context.get(&call.function_name) {
+            let (index, ast_type) = match val_kind {
+                ValKind::ParameterRef(_, par) => {
+                    // TODO process parameters
+                    (par.ast_index.clone(), par.ast_type.clone())
+                }
+                ValKind::LetRef(_, ast_type, index) => {
+                    // TODO process parameters
+                    (index.clone(), ast_type.clone())
+                }
+            };
 
-        let mut functions = module
-            .functions_by_name
-            .find_call_vec(call, &filters, None, false, module)
-            .unwrap();
-
-        if functions.len() == 1 {
-            let function = functions.remove(0);
-
-            let custom_type_index = Self::get_if_custom_type_index(module, &function.return_type);
+            let custom_type_index = Self::get_if_custom_type_index(module, &ast_type);
 
             result.push(SelectableItem::new(
                 call.index.mv_left(call.original_function_name.len()),
                 call.original_function_name.len(),
-                function.index.clone(),
+                index,
                 Some(expr.clone()),
-                Some(function.return_type.clone()),
+                Some(ast_type.clone()),
                 custom_type_index,
                 namespace.clone(),
-                SelectableItemTarget::Function,
+                SelectableItemTarget::Ref,
             ));
 
-            let mut v = zip(call.parameters.iter(), &function.parameters)
-                .flat_map(|(it, par)| {
-                    match Self::process_expression(
-                        it,
-                        reference_context,
-                        reference_static_context,
-                        module,
-                        namespace,
-                        val_context,
-                        statics,
-                        Some(&par.ast_type),
-                        lookup_tables,
-                    ) {
-                        Ok(inner) => inner,
-                        Err(e) => {
-                            eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
-                            eprintln!("{e}");
-                            Vec::new()
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) = ast_type
+            {
+                let mut v = zip(call.parameters.iter(), &parameters)
+                    .flat_map(|(it, par)| {
+                        match Self::process_expression(
+                            it,
+                            reference_context,
+                            reference_static_context,
+                            module,
+                            namespace,
+                            val_context,
+                            statics,
+                            Some(par),
+                            lookup_tables,
+                            inside_function,
+                            type_check,
+                        ) {
+                            Ok(inner) => inner,
+                            Err(e) => {
+                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!("{e}");
+                                Vec::new()
+                            }
                         }
-                    }
-                    .into_iter()
-                })
-                .collect::<Vec<_>>();
-            result.append(&mut v);
-        } else {
-            let mut v = call
-                .parameters
-                .iter()
-                .flat_map(|it| {
-                    match Self::process_expression(
-                        it,
-                        reference_context,
-                        reference_static_context,
-                        module,
-                        namespace,
-                        val_context,
-                        statics,
-                        None,
-                        lookup_tables,
-                    ) {
-                        Ok(inner) => inner,
-                        Err(e) => {
-                            eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
-                            eprintln!("{e}");
-                            Vec::new()
+                        .into_iter()
+                    })
+                    .collect::<Vec<_>>();
+                result.append(&mut v);
+            }
+
+            return Ok(());
+        }
+
+        match type_check.get_valid_function(
+            module,
+            call,
+            val_context,
+            statics,
+            expected_return_type,
+            namespace,
+            inside_function,
+        ) {
+            Ok((function_def, resolved_generic_types, expressions)) => {
+                // println!("expressions {}", SliceDisplay(&expressions));
+                let custom_type_index =
+                    Self::get_if_custom_type_index(module, &function_def.return_type);
+                let mut fd = function_def.clone();
+                fd.name = fd.original_name.clone();
+
+                lookup_tables
+                    .functions_by_index
+                    .insert(function_def.index.clone(), format!("{fd}"));
+                result.push(SelectableItem::new(
+                    call.index.mv_left(call.original_function_name.len()),
+                    call.original_function_name.len(),
+                    function_def.index.clone(),
+                    Some(expr.clone()),
+                    Some(function_def.return_type.clone()),
+                    custom_type_index,
+                    namespace.clone(),
+                    SelectableItemTarget::Function,
+                ));
+
+                let mut v = zip(expressions.iter(), &function_def.parameters)
+                    .flat_map(|(it, par)| {
+                        let par_ast_type = if let Some(new_t) =
+                            substitute(&par.ast_type, &resolved_generic_types)
+                        {
+                            new_t
+                        } else {
+                            par.ast_type.clone()
+                        };
+                        match Self::process_expression(
+                            it,
+                            reference_context,
+                            reference_static_context,
+                            module,
+                            namespace,
+                            val_context,
+                            statics,
+                            Some(&par_ast_type),
+                            lookup_tables,
+                            inside_function,
+                            type_check,
+                        ) {
+                            Ok(inner) => inner,
+                            Err(e) => {
+                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!("{e}");
+                                Vec::new()
+                            }
                         }
-                    }
-                    .into_iter()
-                })
-                .collect::<Vec<_>>();
-            result.append(&mut v);
-            warn!(
-                "Cannot find function for call {call} with filters {} : {}",
-                SliceDisplay(&filters),
-                call.index
-            );
-            warn!("{}", SliceDisplay(&functions));
+                        .into_iter()
+                    })
+                    .collect::<Vec<_>>();
+                result.append(&mut v);
+            }
+            Err(e) => {
+                let mut v = call
+                    .parameters
+                    .iter()
+                    .flat_map(|it| {
+                        match Self::process_expression(
+                            it,
+                            reference_context,
+                            reference_static_context,
+                            module,
+                            namespace,
+                            val_context,
+                            statics,
+                            None,
+                            lookup_tables,
+                            inside_function,
+                            type_check,
+                        ) {
+                            Ok(inner) => inner,
+                            Err(e) => {
+                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!("{e}");
+                                Vec::new()
+                            }
+                        }
+                        .into_iter()
+                    })
+                    .collect::<Vec<_>>();
+                result.append(&mut v);
+                warn!("Cannot find function for call {call}");
+            }
         }
         Ok(())
     }
@@ -695,109 +828,6 @@ impl ReferenceFinder {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FileToken {
-    start: ASTIndex,
-    len: usize,
-}
-
-impl FileToken {
-    pub fn new(start: ASTIndex, len: usize) -> Self {
-        Self { start, len }
-    }
-
-    pub fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
-        Ok(index.row == self.start.row
-            && index.column >= self.start.column
-            && index.column <= (self.start.column + self.len - 1)
-            && Self::path_matches(&index.file_name, &self.start.file_name)?)
-    }
-
-    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> io::Result<bool> {
-        if let Some(p1) = op1 {
-            if let Some(p2) = op2 {
-                if p1.file_name() != p2.file_name() {
-                    return Ok(false);
-                }
-                let p1_canon = p1.canonicalize()?;
-
-                let p2_canon = p2.canonicalize()?;
-
-                return Ok(p1_canon == p2_canon);
-            }
-        }
-
-        Ok(false)
-    }
-}
-
-impl Display for FileToken {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let file_name = self
-            .start
-            .file_name
-            .as_ref()
-            .and_then(|it| it.to_str().map(|s| format!("file:///{s}")))
-            .unwrap_or("".to_string());
-
-        f.write_str(&format!(
-            "{file_name} {}:{} len {}",
-            self.start.row, self.start.column, self.len
-        ))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SelectableItem {
-    file_token: FileToken,
-    pub point_to: ASTIndex,
-    expr: Option<ASTExpression>,
-    pub ast_type: Option<ASTType>,
-    pub ast_type_index: Option<ASTIndex>,
-    pub namespace: ASTNameSpace,
-    pub target: SelectableItemTarget,
-}
-
-#[derive(Debug, Clone)]
-pub enum SelectableItemTarget {
-    Ref,
-    Function,
-    Type,
-}
-
-impl Display for SelectableItem {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{} -> {}", self.file_token, self.point_to))
-    }
-}
-
-impl SelectableItem {
-    pub fn new(
-        start: ASTIndex,
-        len: usize,
-        point_to: ASTIndex,
-        expr: Option<ASTExpression>,
-        ast_type: Option<ASTType>,
-        ast_type_index: Option<ASTIndex>,
-        namespace: ASTNameSpace,
-        target: SelectableItemTarget,
-    ) -> Self {
-        SelectableItem {
-            file_token: FileToken::new(start, len),
-            point_to,
-            expr,
-            ast_type,
-            ast_type_index,
-            namespace,
-            target,
-        }
-    }
-
-    fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
-        self.file_token.contains(index)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::env;
@@ -810,16 +840,18 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::CompileTarget;
-    use rasm_core::parser::ast::{ASTIndex, ASTType};
+    use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
     use rasm_core::project::RasmProject;
-    use rasm_core::utils::OptionDisplay;
+    use rasm_core::utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::CompletionItem;
-    use crate::reference_finder::{CompletionResult, ReferenceFinder, SelectableItem};
+    use crate::reference_finder::{CompletionResult, ReferenceFinder};
+    use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
     #[test]
     fn simple() {
-        let finder = get_reference_finder("resources/test/simple.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/simple.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/simple.rasm");
 
@@ -835,7 +867,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 1, 5)]
+            vec![get_index(&project, "simple.rasm", 1, 5)]
         );
 
         assert_eq!(
@@ -844,7 +876,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 13,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 16)]
+            vec![get_index(&project, "simple.rasm", 5, 16)]
         );
 
         assert_eq!(
@@ -853,7 +885,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 2,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(file_name.to_path_buf()), 5, 4)]
+            vec![get_index(&project, "simple.rasm", 5, 4)]
         );
 
         assert_eq!(
@@ -885,8 +917,11 @@ mod tests {
 
     #[test]
     fn types() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
         let file_name = Path::new("resources/test/types.rasm");
+        let project = RasmProject::new(file_name.to_path_buf());
         let source_file = Path::new(&file_name);
         let stdlib_path = stdlib_path(file_name);
 
@@ -909,7 +944,7 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 18, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 8)],
+            vec![get_index(&project, "types.rasm", 1, 8)],
         );
 
         assert_eq!(
@@ -927,9 +962,29 @@ mod tests {
     }
 
     #[test]
+    fn complex_expression() {
+        let (eh_module, module) =
+            get_reference_finder("resources/test/complex_expression.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Path::new("resources/test/complex_expression.rasm");
+
+        let project = RasmProject::new(file_name.to_path_buf());
+        let stdlib_path = project
+            .from_relative_to_root(Path::new("../../../stdlib"))
+            .canonicalize()
+            .unwrap();
+    }
+
+    #[test]
     fn struct_constructor() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
         let file_name = Path::new("resources/test/types.rasm");
+
+        let project = RasmProject::new(file_name.to_path_buf());
+
         let source_file = Path::new(&file_name);
         let stdlib_path = stdlib_path(file_name);
 
@@ -939,73 +994,69 @@ mod tests {
                     .find(&ASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(Some(source_file.to_path_buf()), 1, 8)],
+            vec![get_index(&project, "types.rasm", 1, 8)],
         );
-    }
-
-    fn stdlib_path(file_name: &Path) -> PathBuf {
-        let project = RasmProject::new(file_name.to_path_buf());
-
-        let stdlib_path = project
-            .from_relative_to_root(Path::new("../../../stdlib"))
-            .canonicalize()
-            .unwrap();
-
-        stdlib_path
     }
 
     #[test]
     fn types_1() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
-        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+        let file_name = PathBuf::from("resources/test/types.rasm");
+        let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
-            .find(&ASTIndex::new(file_name.clone(), 26, 31))
+            .find(&ASTIndex::new(Some(file_name.clone()), 26, 31))
             .unwrap();
 
         assert_eq!(
             vec_selectable_item_to_vec_index(found),
-            vec!(ASTIndex::new(file_name, 1, 8,)),
+            vec!(get_index(&project, "types.rasm", 1, 8,)),
         );
     }
 
     #[test]
     fn types_2() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
-        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+        let file_name = PathBuf::from("resources/test/types.rasm");
+        let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
-            .find(&ASTIndex::new(file_name.clone(), 9, 1))
+            .find(&ASTIndex::new(Some(file_name.clone()), 9, 1))
             .unwrap();
 
         assert_eq!(
             vec_selectable_item_to_vec_index(found),
-            vec!(ASTIndex::new(file_name, 14, 4,)),
+            vec!(get_index(&project, "types.rasm", 14, 4,)),
         );
     }
 
     #[test]
     fn types_3() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
-        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+        let file_name = PathBuf::from("resources/test/types.rasm");
+        let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
-            .find(&ASTIndex::new(file_name.clone(), 9, 13))
+            .find(&ASTIndex::new(Some(file_name.clone()), 9, 13))
             .unwrap();
 
         assert_eq!(
             vec_selectable_item_to_vec_index(found),
-            vec!(ASTIndex::new(file_name, 5, 5,)),
+            vec!(get_index(&project, "types.rasm", 5, 5,)),
         );
     }
 
     #[test]
     fn types_completion() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17)) {
+        match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17), &eh_module) {
             Ok(CompletionResult::Found(items)) => {
                 assert!(format_collection_items(&items)
                     .contains(&"anI32(v:AStruct) -> i32".to_string()));
@@ -1018,8 +1069,9 @@ mod tests {
     }
 
     #[test]
-    fn types_type() {
-        let finder = get_reference_finder("resources/test/types.rasm");
+    fn types_lambda_param_type() {
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
@@ -1051,6 +1103,63 @@ mod tests {
         }
     }
 
+    #[test]
+    fn types_flatten() {
+        let file_name = PathBuf::from("resources/test/types.rasm");
+        let stdlib_path = stdlib_path(file_name.as_path());
+
+        let result_rasm = stdlib_path.join("src/main/rasm/result.rasm");
+
+        let (eh_module, module) = get_reference_finder(
+            "resources/test/types.rasm",
+            Some(&result_rasm.to_string_lossy()),
+        );
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        match finder.find(&ASTIndex::new(Some(result_rasm.clone()), 11, 9)) {
+            Ok(mut selectable_items) => {
+                if selectable_items.len() == 1 {
+                    let selectable_item = selectable_items.remove(0);
+                    assert_eq!(selectable_item.target, SelectableItemTarget::Function);
+                    assert_eq!(
+                        selectable_item.point_to,
+                        ASTIndex::new(Some(result_rasm), 14, 8)
+                    );
+                } else {
+                    panic!("Found {} elements", selectable_items.len());
+                }
+            }
+            Err(e) => {
+                panic!("{e}");
+            }
+        }
+    }
+
+    fn stdlib_path(file_name: &Path) -> PathBuf {
+        let project = RasmProject::new(file_name.to_path_buf());
+
+        let stdlib_path = project
+            .from_relative_to_root(Path::new("../../../stdlib"))
+            .canonicalize()
+            .unwrap();
+
+        stdlib_path
+    }
+
+    fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> ASTIndex {
+        ASTIndex::new(
+            Some(
+                project
+                    .from_relative_to_root(Path::new(file_n))
+                    .as_path()
+                    .canonicalize()
+                    .unwrap(),
+            ),
+            row,
+            column,
+        )
+    }
+
     fn format_collection_items(items: &[CompletionItem]) -> Vec<String> {
         items.iter().map(|it| it.descr.clone()).collect::<Vec<_>>()
     }
@@ -1059,8 +1168,11 @@ mod tests {
         vec.iter().map(|it| it.point_to.clone()).collect::<Vec<_>>()
     }
 
-    fn get_reference_finder(source: &str) -> ReferenceFinder {
-        init();
+    fn get_reference_finder(
+        source: &str,
+        module_path: Option<&str>,
+    ) -> (EnhancedASTModule, ASTModule) {
+        init_log();
         env::set_var("RASM_STDLIB", "../../../stdlib");
         let file_name = Path::new(source);
 
@@ -1068,14 +1180,25 @@ mod tests {
 
         let mut backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
-        let (modules, errors) =
-            project.get_all_modules(&mut backend, &mut statics, false, &CompileTarget::Nasmi36);
-        let enhanced_astmodule = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
+        let target = CompileTarget::Nasmi36;
+        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics, false, &target);
+        let enhanced_ast_module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 
-        ReferenceFinder::new(enhanced_astmodule).unwrap()
+        let (module, errors) = if let Some(m) = module_path {
+            project.get_module(Path::new(&m), &target)
+        } else {
+            project.get_module(file_name, &target)
+        }
+        .unwrap();
+
+        if !errors.is_empty() {
+            panic!("{}", SliceDisplay(&errors));
+        }
+
+        (enhanced_ast_module, module)
     }
 
-    fn init() {
+    fn init_log() {
         Builder::from_default_env()
             .format(|buf, record| {
                 writeln!(

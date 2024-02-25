@@ -34,7 +34,7 @@ use rasm_core::type_check::typed_ast::{
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 
-use crate::reference_finder::FileToken;
+use crate::file_token::FileToken;
 
 #[derive(PartialEq, Debug)]
 pub struct CompletionItem {
@@ -142,12 +142,11 @@ impl CompletableItem {
 pub struct CompletionService {
     items: Vec<CompletableItem>,
     typed_module: ASTTypedModule,
-    module: EnhancedASTModule,
 }
 
 impl CompletionService {
     pub fn new(
-        module: EnhancedASTModule,
+        module: &EnhancedASTModule,
         statics: &mut Statics,
         backend: &dyn Backend,
     ) -> Result<Self, CompilationError> {
@@ -173,16 +172,18 @@ impl CompletionService {
 
         Ok(Self {
             items: completable_items,
-            module,
             typed_module,
         })
     }
 
-    pub fn get_completions(&self, index: &ASTIndex) -> io::Result<CompletionResult> {
+    pub fn get_completions(
+        &self,
+        index: &ASTIndex,
+        enhanced_module: &EnhancedASTModule,
+    ) -> io::Result<CompletionResult> {
         match self.get_completable_item(index)? {
             CompletableItemResult::Found(completable_item) => {
-                let completion_items = self
-                    .module
+                let completion_items = enhanced_module
                     .functions()
                     .iter()
                     .filter(|it| {
@@ -196,7 +197,7 @@ impl CompletionService {
                                             "cannot convert {}",
                                             completable_item.ast_typed_type
                                         )),
-                                    &self.module,
+                                    enhanced_module,
                                 )
                                 .unwrap()
                     })
@@ -516,11 +517,14 @@ mod tests {
 
     #[test]
     fn test_simple() {
-        let service = get_completion_service("resources/test/simple.rasm");
+        let (service, enhanced_module) = get_completion_service("resources/test/simple.rasm");
         let file = Path::new("resources/test/simple.rasm");
 
         let result = service
-            .get_completions(&ASTIndex::new(Some(file.to_path_buf()), 6, 15))
+            .get_completions(
+                &ASTIndex::new(Some(file.to_path_buf()), 6, 15),
+                &enhanced_module,
+            )
             .unwrap();
 
         if let CompletionResult::Found(items) = result {
@@ -532,11 +536,14 @@ mod tests {
 
     #[test]
     fn test_types() {
-        let service = get_completion_service("resources/test/types.rasm");
+        let (service, enhanced_module) = get_completion_service("resources/test/types.rasm");
         let file = Path::new("resources/test/types.rasm");
 
         let result = service
-            .get_completions(&ASTIndex::new(Some(file.to_path_buf()), 11, 16))
+            .get_completions(
+                &ASTIndex::new(Some(file.to_path_buf()), 11, 16),
+                &enhanced_module,
+            )
             .unwrap();
 
         if let CompletionResult::Found(items) = result {
@@ -578,25 +585,28 @@ mod tests {
         CompletionItem::for_function(&function2).unwrap();
     }
 
-    fn get_completion_service(source: &str) -> CompletionService {
+    fn get_completion_service(source: &str) -> (CompletionService, EnhancedASTModule) {
         init();
         env::set_var("RASM_STDLIB", "../../../stdlib");
         let file_name = Path::new(source);
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let mut backend = BackendNasmi386::new(false);
+        let backend = BackendNasmi386::new(false);
 
         let mut statics = Statics::new();
 
         let (modules, errors) =
-            project.get_all_modules(&mut backend, &mut statics, false, &CompileTarget::Nasmi36);
+            project.get_all_modules(&backend, &mut statics, false, &CompileTarget::Nasmi36);
 
         let module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
 
         assert!(errors.is_empty());
 
-        CompletionService::new(module, &mut statics, &backend).unwrap()
+        (
+            CompletionService::new(&module, &mut statics, &backend).unwrap(),
+            module,
+        )
     }
 
     fn init() {

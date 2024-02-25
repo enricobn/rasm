@@ -778,7 +778,7 @@ pub fn convert_to_typed_module(
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new(&original_module.body_namespace);
+    let type_check = TypeCheck::new(&original_module.body_namespace, true);
 
     let externals = original_module.externals.clone();
 
@@ -1922,16 +1922,12 @@ mod tests {
             "",
         );
 
-        println!("{result}");
-
         let result = typed_type(
             &second_namespace,
             &mut sut,
             &simple_custom_ast_type("TestModel", &second_namespace),
             "",
         );
-
-        println!("{result}");
 
         let result = typed_type(
             &first_namespace,
@@ -1943,8 +1939,6 @@ mod tests {
             "",
         );
 
-        println!("{result}");
-
         let result = typed_type(
             &second_namespace,
             &mut sut,
@@ -1954,8 +1948,6 @@ mod tests {
             ),
             "",
         );
-
-        println!("{result}");
     }
 
     fn result_ast_type(namespace: &ASTNameSpace, ast_type: &ASTType) -> ASTType {

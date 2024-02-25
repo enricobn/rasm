@@ -40,23 +40,6 @@ impl TypeFilter {
             &ASTIndex::none(),
             enhanced_astmodule,
         )
-        /*
-        match self {
-            TypeFilter::Exact(f_type) => f_type == ast_type,
-            TypeFilter::Any => true,
-            TypeFilter::Lambda(n) => match ast_type {
-                ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                }) => &parameters.len() == n,
-                _ => false,
-            },
-            TypeFilter::NotALambda => {
-                !matches!(ast_type, ASTType::Builtin(BuiltinTypeKind::Lambda { .. }))
-            }
-        }
-
-         */
     }
 }
 
