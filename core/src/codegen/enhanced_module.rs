@@ -1,5 +1,6 @@
 use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
+use crate::codegen::CompileTarget;
 use log::debug;
 use std::collections::HashSet;
 
@@ -9,8 +10,8 @@ use crate::parser::ast::{
     ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
 };
 use crate::project::RasmProject;
+use crate::transformations::functions_creator::FunctionsCreator;
 use crate::transformations::globals_creator::add_folder;
-use crate::transformations::str_functions_creator::str_functions_creator;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 
@@ -29,8 +30,9 @@ impl EnhancedASTModule {
     pub fn new(
         modules: Vec<ASTModule>,
         project: &RasmProject,
-        backend: &dyn Backend,
         statics: &mut Statics,
+        target: &CompileTarget,
+        debug: bool,
     ) -> Self {
         let mut body = Vec::new();
         let mut enums = Vec::new();
@@ -101,7 +103,10 @@ impl EnhancedASTModule {
             "RASMTESTRESOURCEFOLDER",
             project.test_resource_folder(),
         );
-        str_functions_creator(&mut module, backend, statics);
+
+        target
+            .functions_creator(debug)
+            .create_globals(&mut module, statics, &target, debug);
 
         module
     }

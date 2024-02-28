@@ -1615,9 +1615,15 @@ mod tests {
         let mut statics = Statics::new();
 
         let (modules, _errors) =
-            project.get_all_modules(&mut backend, &mut statics, false, &CompileTarget::Nasmi36);
+            project.get_all_modules(&mut statics, false, &CompileTarget::Nasmi36, false);
 
-        let module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
+        let module = EnhancedASTModule::new(
+            modules,
+            &project,
+            &mut statics,
+            &CompileTarget::Nasmi36,
+            false,
+        );
 
         let mandatory_functions = type_mandatory_functions(&module);
 

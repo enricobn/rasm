@@ -2,11 +2,13 @@ use std::ops::Deref;
 
 use log::debug;
 
-use crate::codegen::backend::BackendAsm;
+use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
+use crate::codegen::CompileTarget;
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTIndex, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef,
+    ASTIndex, ASTModifiers, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef,
     ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -116,6 +118,79 @@ pub trait FunctionsCreator {
             };
             module.add_function(function_def);
         }
+    }
+
+    fn create_globals(
+        &self,
+        module: &mut EnhancedASTModule,
+        statics: &mut Statics,
+        target: &CompileTarget,
+        debug: bool,
+    ) {
+        let message_key = statics.add_str("String");
+        let mut body_src = String::new();
+        target.call_function(
+            &mut body_src,
+            "deref",
+            &[("$s", None), (&format!("[{message_key}]"), None)],
+            None,
+            debug,
+        );
+        let body = ASTFunctionBody::NativeBody(body_src);
+        let name: String = "str_deref".into();
+        let function_def = ASTFunctionDef {
+            original_name: name.clone(),
+            name: name.clone(),
+            parameters: vec![ASTParameterDef {
+                name: "s".into(),
+                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_index: ASTIndex::none(),
+            }],
+            body,
+            inline: false,
+            return_type: ASTType::Unit,
+            generic_types: Vec::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers::public(),
+            namespace: ASTNameSpace::global(),
+            rank: 0,
+        };
+
+        module.add_function(name, function_def);
+
+        let mut body_src = String::new();
+        target.call_function(
+            &mut body_src,
+            "addRef",
+            &[("$s", None), (&format!("[{message_key}]"), None)],
+            None,
+            debug,
+        );
+
+        let body = ASTFunctionBody::NativeBody(body_src);
+        let name: String = "str_addRef".into();
+
+        let function_def = ASTFunctionDef {
+            original_name: name.clone(),
+            name: name.clone(),
+            parameters: vec![ASTParameterDef {
+                name: "s".into(),
+                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_index: ASTIndex::none(),
+            }],
+            body,
+            inline: false,
+            return_type: ASTType::Unit,
+            generic_types: Vec::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers::public(),
+            namespace: ASTNameSpace::global(),
+            rank: 0,
+        };
+
+        module.add_function(name, function_def);
     }
 
     fn create_match_like_function(
@@ -571,23 +646,29 @@ fn variant_lambda_parameter(return_type: &ASTType, variant: &ASTEnumVariantDef) 
     }
 }
 
-pub struct FunctionsCreatorNasmi386<'a> {
-    backend: &'a dyn BackendAsm,
+pub struct FunctionsCreatorNasmi386 {
+    backend: BackendNasmi386,
+    target: CompileTarget,
+    debug: bool,
 }
 
-impl<'a> FunctionsCreatorNasmi386<'a> {
-    pub fn new(backend: &'a dyn BackendAsm) -> Self {
-        Self { backend }
+impl FunctionsCreatorNasmi386 {
+    pub fn new(backend: BackendNasmi386, debug: bool) -> Self {
+        Self {
+            backend,
+            target: CompileTarget::Nasmi36,
+            debug,
+        }
     }
 }
 
-impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
+impl FunctionsCreator for FunctionsCreatorNasmi386 {
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
         let word_len = self.backend.word_len();
         let word_size = self.backend.word_size();
         let mut body = String::new();
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 "push ebx",
@@ -599,7 +680,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         );
 
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-            self.backend.add_rows(
+            self.target.add_rows(
                 &mut body,
                 vec![
                     &format!("cmp {} [eax], {}", word_size, variant_num),
@@ -621,17 +702,17 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
                 ));
             }
 
-            self.backend
-                .call_function_owned(&mut body, "[ebx]", &args, None);
+            self.target
+                .call_function_owned(&mut body, "[ebx]", &args, None, self.debug);
 
-            self.backend.add_rows(
+            self.target.add_rows(
                 &mut body,
                 vec!["jmp .end", &format!(".variant{}:", variant_num)],
                 None,
                 true,
             );
         }
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 &format!(
@@ -655,7 +736,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         let word_size = self.backend.word_size();
         let mut body = String::new();
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 "push ebx",
@@ -674,7 +755,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             .unwrap()
             .0;
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 &format!("cmp {} [eax], {}", word_size, variant_num),
@@ -696,10 +777,10 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             ));
         }
 
-        self.backend
-            .call_function_owned(&mut body, "[ebx]", &args, None);
+        self.target
+            .call_function_owned(&mut body, "[ebx]", &args, None, self.debug);
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 "jmp .end",
@@ -714,10 +795,10 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         let mut args: Vec<(String, Option<String>)> = Vec::new();
         args.push(("ebx".to_owned(), None));
 
-        self.backend
-            .call_function_owned(&mut body, "[ebx]", &args, None);
+        self.target
+            .call_function_owned(&mut body, "[ebx]", &args, None, self.debug);
 
-        self.backend
+        self.target
             .add_rows(&mut body, vec![".end:", "pop ebx"], None, false);
 
         body
@@ -799,7 +880,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             String::new()
         };
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 "push ebx",
@@ -827,7 +908,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
                 );
             }
              */
-            self.backend.add_rows(
+            self.target.add_rows(
                 &mut body,
                 vec![
                     &format!("mov   ebx, ${}", par.name),
@@ -842,14 +923,14 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
                 true,
             );
         }
-        self.backend
+        self.target
             .add_rows(&mut body, vec!["pop   eax", "pop   ebx"], None, true);
         body
     }
 
     fn struct_property_body(&self, i: usize) -> String {
         let mut body = String::new();
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 "push ebx",
@@ -875,57 +956,57 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         let optimize_copy = false;
 
         let mut body = String::new();
-        self.backend.add(&mut body, "push   ebx", None, true);
+        self.target.add(&mut body, "push   ebx", None, true);
 
         if optimize_copy {
-            self.backend
+            self.target
                 .add(&mut body, &format!("mov    {ws} eax,$receiver"), None, true);
-            self.backend.add(
+            self.target.add(
                 &mut body,
                 &format!("mov    {ws} eax,[eax + 12]"),
                 None,
                 true,
             );
 
-            self.backend
+            self.target
                 .add(&mut body, &format!("cmp    {ws} eax,1"), None, true);
-            self.backend.add(&mut body, "je     .noClone", None, true);
+            self.target.add(&mut body, "je     .noClone", None, true);
         }
 
-        self.backend
+        self.target
             .add(&mut body, "$call(copy,$receiver)", None, true);
 
         if optimize_copy {
-            self.backend.add(&mut body, "jmp    .set", None, false);
-            self.backend.add(&mut body, ".noClone:", None, false);
-            self.backend
+            self.target.add(&mut body, "jmp    .set", None, false);
+            self.target.add(&mut body, ".noClone:", None, false);
+            self.target
                 .add(&mut body, "$call(println,\"optimized setter\")", None, true);
-            self.backend.add(
+            self.target.add(
                 &mut body,
                 &format!("mov    {ws} eax, $receiver"),
                 None,
                 true,
             );
-            self.backend.add(&mut body, ".set:", None, false);
+            self.target.add(&mut body, ".set:", None, false);
         }
 
-        self.backend
+        self.target
             .add(&mut body, &format!("mov   {ws} ebx, $v"), None, true);
 
-        self.backend.add(&mut body, "push   eax", None, true);
-        self.backend
+        self.target.add(&mut body, "push   eax", None, true);
+        self.target
             .add(&mut body, &format!("mov {ws} eax,[eax]"), None, true);
 
-        self.backend.add(
+        self.target.add(
             &mut body,
             &format!("mov {ws}  [eax + {}], ebx", i * self.backend.word_len()),
             None,
             true,
         );
 
-        self.backend.add(&mut body, "pop   eax", None, true);
+        self.target.add(&mut body, "pop   eax", None, true);
 
-        self.backend.add(&mut body, "pop   ebx", None, true);
+        self.target.add(&mut body, "pop   ebx", None, true);
         body
     }
 
@@ -934,7 +1015,7 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         let wl = self.backend.word_len();
 
         let mut body = String::new();
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut body,
             vec![
                 "push   ebx",
@@ -970,8 +1051,8 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
         let word_size = self.backend.word_size();
         let word_len = self.backend.word_len();
         let mut body = String::new();
-        self.backend.add(&mut body, "push ebx", None, true);
-        self.backend.add(
+        self.target.add(&mut body, "push ebx", None, true);
+        self.target.add(
             &mut body,
             &format!(
                 "$call(rasmalloc, {}, [{descr_label}]: str)",
@@ -981,37 +1062,37 @@ impl<'a> FunctionsCreator for FunctionsCreatorNasmi386<'a> {
             true,
         );
         //CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
-        self.backend
+        self.target
             .add(&mut body, &format!("push {word_size} eax"), None, true);
-        self.backend
+        self.target
             .add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);
         // I put the variant number in the first location
-        self.backend.add(
+        self.target.add(
             &mut body,
             &format!("mov {}  [eax], {}", word_size, variant_num),
             None,
             true,
         );
         for (i, par) in variant.parameters.iter().rev().enumerate() {
-            self.backend.add(
+            self.target.add(
                 &mut body,
                 &format!("mov   ebx, ${}", par.name),
                 Some(&format!("parameter {}", par.name)),
                 true,
             );
 
-            self.backend.add(
+            self.target.add(
                 &mut body,
                 &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len),
                 None,
                 true,
             );
         }
-        self.backend.add(&mut body, "pop   eax", None, true);
+        self.target.add(&mut body, "pop   eax", None, true);
 
         //CodeGen::call_add_ref(&mut body, backend, "eax", "");
 
-        self.backend.add(&mut body, "pop   ebx", None, true);
+        self.target.add(&mut body, "pop   ebx", None, true);
         body
     }
 }

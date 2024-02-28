@@ -1,10 +1,11 @@
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
-use crate::codegen::backend::BackendAsm;
-use crate::codegen::get_reference_type_name;
+use crate::codegen::backend::Backend;
+use crate::codegen::backend::{BackendAsm, BackendNasmi386};
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::codegen::{get_reference_type_name, CompileTarget};
 use crate::parser::ast::{ASTIndex, ASTNameSpace};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -205,13 +206,19 @@ pub trait TypedFunctionsCreator {
     ) -> String;
 }
 
-pub struct TypedFunctionsCreatorNasmi386<'a> {
-    backend: &'a dyn BackendAsm,
+pub struct TypedFunctionsCreatorNasmi386 {
+    backend: BackendNasmi386,
+    target: CompileTarget,
+    debug: bool,
 }
 
-impl<'a> TypedFunctionsCreatorNasmi386<'a> {
-    pub fn new(backend: &'a dyn BackendAsm) -> Self {
-        Self { backend }
+impl TypedFunctionsCreatorNasmi386 {
+    pub fn new(backend: BackendNasmi386, debug: bool) -> Self {
+        Self {
+            backend,
+            target: CompileTarget::Nasmi36,
+            debug,
+        }
     }
 
     fn loop_vec(
@@ -222,21 +229,22 @@ impl<'a> TypedFunctionsCreatorNasmi386<'a> {
     ) -> String {
         let mut result = String::new();
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut result,
             vec!["push  eax", "push  ebx", "push  ecx"],
             None,
             true,
         );
 
-        self.backend.call_function(
+        self.target.call_function(
             &mut result,
             &format!("{}References", type_def.original_name),
             &[("$address", None), (&format!("{generic_n}"), None)],
             None,
+            self.debug,
         );
 
-        self.backend.add_rows(
+        self.target.add_rows(
             &mut result,
             vec![
                 &format!("mov   {} ebx, [eax]", self.backend.word_size()),
@@ -262,7 +270,7 @@ impl<'a> TypedFunctionsCreatorNasmi386<'a> {
     }
 }
 
-impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
+impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
@@ -284,15 +292,16 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
 
         let key = statics.add_str(&descr);
 
-        self.backend.call_function(
+        self.target.call_function(
             &mut result,
             asm_function_name,
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
+            self.debug,
         );
 
         if struct_has_references(struct_def, module) {
-            self.backend.add_rows(
+            self.target.add_rows(
                 &mut result,
                 vec![
                     &format!("push {ws} ebx"),
@@ -327,7 +336,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                 }
             }
 
-            self.backend.add(&mut result, "pop ebx", None, true);
+            self.target.add(&mut result, "pop ebx", None, true);
         }
 
         result
@@ -355,7 +364,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
         let key = statics.add_str(&descr);
 
         if enum_has_references(enum_def, module) {
-            self.backend.add_rows(
+            self.target.add_rows(
                 &mut result,
                 vec![
                     &format!("push {ws} ebx"),
@@ -367,7 +376,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
             );
             for (i, variant) in enum_def.clone().variants.iter().enumerate() {
                 if !variant.parameters.is_empty() {
-                    self.backend.add_rows(
+                    self.target.add_rows(
                         &mut result,
                         vec![
                             &format!("cmp {ws} [ebx], {}", i),
@@ -376,11 +385,12 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                         None,
                         true,
                     );
-                    self.backend.call_function(
+                    self.target.call_function(
                         &mut result,
                         asm_function_name,
                         &[("$address", None), (&format!("[{key}]"), None)],
                         Some(&descr),
+                        self.debug,
                     );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
                         if let Some(name) = get_reference_type_name(&par.ast_type, module) {
@@ -406,7 +416,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                             }
                         }
                     }
-                    self.backend.add_rows(
+                    self.target.add_rows(
                         &mut result,
                         vec!["jmp .end", &format!("._variant_{i}:")],
                         None,
@@ -414,7 +424,7 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
                     );
                 }
             }
-            self.backend
+            self.target
                 .add_rows(&mut result, vec![".end:", "pop ebx"], None, true);
         }
 
@@ -436,11 +446,12 @@ impl<'a> TypedFunctionsCreator for TypedFunctionsCreatorNasmi386<'a> {
         let mut result = String::new();
         let descr = format!("type {}", type_def.name);
 
-        self.backend.call_function(
+        self.target.call_function(
             &mut result,
             asm_function_name,
             &[("$address", None), ("$descr", None)],
             Some(&descr),
+            self.debug,
         );
 
         if type_has_references(type_def) {

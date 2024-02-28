@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
 use log::debug;
+use rust_embed::{EmbeddedFile, RustEmbed};
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
@@ -22,7 +23,11 @@ use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
 use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTParameterDef, ASTType, ValueType};
+use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::type_functions_creator::type_mandatory_functions;
+use crate::transformations::typed_functions_creator::{
+    TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
+};
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
@@ -47,6 +52,10 @@ pub mod val_context;
 /// generation, but we need that value during the code generation...   
 pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
 
+#[derive(RustEmbed)]
+#[folder = "../core/resources/corelib/nasmi386"]
+struct Nasmi386CoreLibAssets;
+
 #[derive(Clone)]
 pub enum CompileTarget {
     Nasmi36,
@@ -56,12 +65,6 @@ impl CompileTarget {
     pub fn extension(&self) -> String {
         match self {
             CompileTarget::Nasmi36 => "asm".to_string(),
-        }
-    }
-
-    pub fn backend(&self, debug: bool) -> impl Backend {
-        match self {
-            CompileTarget::Nasmi36 => BackendNasmi386::new(debug),
         }
     }
 
@@ -75,7 +78,8 @@ impl CompileTarget {
             CompileTarget::Nasmi36 => {
                 let backend = BackendNasmi386::new(options.debug);
 
-                CodeGenAsm::new(typed_module, Box::new(backend), options).generate(statics)
+                CodeGenAsm::new(typed_module, Box::new(backend), options, self.clone())
+                    .generate(statics)
             }
         }
     }
@@ -84,6 +88,128 @@ impl CompileTarget {
         match self {
             CompileTarget::Nasmi36 => "nasmi386",
         }
+    }
+
+    pub fn functions_creator(&self, debug: bool) -> impl FunctionsCreator {
+        FunctionsCreatorNasmi386::new(BackendNasmi386::new(debug), debug)
+    }
+
+    pub fn typed_functions_creator(&self, debug: bool) -> impl TypedFunctionsCreator {
+        TypedFunctionsCreatorNasmi386::new(BackendNasmi386::new(debug), debug)
+    }
+
+    pub fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
+        let mut result = HashMap::new();
+        Nasmi386CoreLibAssets::iter()
+            .filter(|it| it.ends_with(".rasm"))
+            .for_each(|it| {
+                if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
+                    result.insert(it.to_string(), asset);
+                }
+            });
+        result
+    }
+
+    pub fn call_function_simple(&self, out: &mut String, function_name: &str) {
+        self.add(out, &format!("call    {}", function_name), None, true);
+    }
+
+    pub fn call_function(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(&str, Option<&str>)],
+        comment: Option<&str>,
+        debug: bool,
+    ) {
+        let backend = BackendNasmi386::new(debug);
+
+        if let Some(c) = comment {
+            self.add_comment(out, c, true);
+        }
+
+        for (arg, comment) in args.iter().rev() {
+            if let Some(c) = comment {
+                self.add_comment(out, c, true);
+            }
+            self.add(
+                out,
+                &format!("push {} {arg}", backend.word_size()),
+                None, //*comment,
+                true,
+            );
+        }
+        self.add(out, &format!("call    {}", function_name), None, true);
+        self.add(
+            out,
+            &format!(
+                "add  {}, {}",
+                backend.stack_pointer(),
+                backend.word_len() * args.len()
+            ),
+            None,
+            true,
+        );
+    }
+
+    /// the difference with call_function is that arguments are Strings and not &str
+    pub fn call_function_owned(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(String, Option<String>)],
+        comment: Option<&str>,
+        debug: bool,
+    ) {
+        self.call_function(
+            out,
+            function_name,
+            &args
+                .iter()
+                .map(|(arg, comment)| (arg.as_str(), comment.as_deref()))
+                .collect::<Vec<_>>(),
+            comment,
+            debug,
+        )
+    }
+
+    pub fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
+        self.add(out, &format!("; {comment}"), None, indent);
+    }
+
+    pub fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
+        if let Some(_cm) = comment {
+            self.add(out, "", comment, indent);
+        }
+        for row in code {
+            self.add(out, row, None, indent);
+        }
+    }
+    pub fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
+        if code.is_empty() {
+            out.push('\n');
+        } else {
+            let max = 80;
+            let s = format!("{:width$}", code, width = max);
+            //assert_eq!(s.len(), max, "{}", s);
+            if indent {
+                out.push_str("    ");
+            }
+            out.push_str(&s);
+        }
+
+        if let Some(c) = comment {
+            if code.is_empty() {
+                out.push_str("    ");
+            }
+            out.push_str("; ");
+            out.push_str(c);
+        }
+        out.push('\n');
+    }
+
+    pub fn add_empty_line(&self, out: &mut String) {
+        out.push('\n');
     }
 }
 
@@ -120,6 +246,7 @@ pub struct CodeGenAsm {
     pub module: ASTTypedModule,
     backend: Box<dyn BackendAsm>,
     options: CodeGenOptions,
+    target: CompileTarget,
 }
 
 #[derive(Clone, Debug)]
@@ -141,6 +268,8 @@ pub fn get_typed_module(
     dereference: bool,
     print_module: bool,
     statics: &mut Statics,
+    target: &CompileTarget,
+    debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
     let mandatory_functions = type_mandatory_functions(&module);
     let default_functions = get_default_functions(print_memory_info);
@@ -154,8 +283,8 @@ pub fn get_typed_module(
         dereference,
         default_functions,
     )?;
-    backend
-        .typed_functions_creator()
+    target
+        .typed_functions_creator(debug)
         .create(&mut typed_module, statics);
     Ok(typed_module)
 }
@@ -167,6 +296,8 @@ pub fn get_std_lib_path() -> String {
 
 pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn backend(&self) -> &BACKEND;
+
+    fn target(&self) -> &CompileTarget;
 
     fn options(&self) -> &CodeGenOptions;
 
@@ -307,11 +438,11 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
         let code = self.translate_static_code(&static_code);
 
-        self.backend().add(&mut generated_code, &code, None, true);
+        self.target().add(&mut generated_code, &code, None, true);
 
         self.create_command_line_arguments(&mut generated_code);
 
-        self.backend().add(&mut generated_code, "", None, true);
+        self.target().add(&mut generated_code, "", None, true);
 
         self.backend().function_preamble(&mut generated_code);
 
@@ -336,8 +467,13 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             self.print_memory_info(&mut generated_code);
         }
 
-        self.backend()
-            .call_function(&mut generated_code, "exitMain", &[("0", None)], None);
+        self.target().call_function(
+            &mut generated_code,
+            "exitMain",
+            &[("0", None)],
+            None,
+            self.options().debug,
+        );
 
         let used_functions = self.get_used_functions(&functions_generated_code, &generated_code);
 
@@ -382,10 +518,10 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
-        self.backend().add_empty_line(before);
+        self.target().add_empty_line(before);
 
         if inline {
-            self.backend().add_comment(
+            self.target().add_comment(
                 before,
                 &format!(
                     "inlining function {}, added to stack {}",
@@ -394,7 +530,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 true,
             );
         } else {
-            self.backend().add_comment(
+            self.target().add_comment(
                 before,
                 &format!(
                     "calling function {}, added to stack {}",
@@ -555,6 +691,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                             self.module(),
                             stack_vals,
                             optimize,
+                            self.target(),
                         );
 
                         // I add the parameters of the lambda itself
@@ -620,7 +757,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 );
             }
         } else {
-            self.backend().add_comment(
+            self.target().add_comment(
                 before,
                 &format!(
                     "Calling function {} : {}",
@@ -629,8 +766,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                 true,
             );
 
-            self.backend()
-                .call_function_simple(before, &address_to_call);
+            self.target().call_function_simple(before, &address_to_call);
         }
 
         self.restore_stack(&function_call, before, &mut call_parameters);
@@ -638,13 +774,13 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         after.insert(0, call_parameters.after().join("\n"));
 
         if inline {
-            self.backend().add_comment(
+            self.target().add_comment(
                 before,
                 &format!("end inlining function {}", function_call.function_name),
                 true,
             );
         } else {
-            self.backend().add_comment(
+            self.target().add_comment(
                 before,
                 &format!("end calling function {}", function_call.function_name),
                 true,
@@ -1018,12 +1154,12 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         let mut lambda_calls = Vec::new();
 
         if function_def.index.file_name.is_some() {
-            self.backend()
+            self.target()
                 .add_comment(definitions, &format!("{}", function_def.index), false);
         }
-        self.backend()
+        self.target()
             .add_comment(definitions, &format!("function {}", function_def), false);
-        self.backend()
+        self.target()
             .add(definitions, &format!("{}:", function_def.name), None, false);
 
         let mut before = String::new();
@@ -1033,7 +1169,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         let stack = StackVals::new();
 
         if function_def.return_type.is_unit() {
-            stack.reserve_return_register(self.backend(), &mut before);
+            stack.reserve_return_register(self.target(), &mut before);
         }
 
         if is_lambda {
@@ -1185,6 +1321,7 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
                                             self.module(),
                                             &stack,
                                             false,
+                                            self.target(),
                                         );
 
                                         before.push_str(&parameters.before());
@@ -1399,6 +1536,7 @@ impl CodeGenAsm {
         module: ASTTypedModule,
         backend: Box<impl BackendAsm + 'static>,
         options: CodeGenOptions,
+        target: CompileTarget,
     ) -> Self {
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
@@ -1408,6 +1546,7 @@ impl CodeGenAsm {
             module,
             backend,
             options,
+            target,
         }
     }
 }
@@ -1415,6 +1554,10 @@ impl CodeGenAsm {
 impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     fn backend(&self) -> &Box<dyn BackendAsm> {
         &self.backend
+    }
+
+    fn target(&self) -> &CompileTarget {
+        &self.target
     }
 
     fn options(&self) -> &CodeGenOptions {
@@ -1426,7 +1569,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     }
 
     fn create_command_line_arguments(&self, generated_code: &mut String) {
-        self.backend().call_function(
+        self.target().call_function(
             generated_code,
             "createCmdLineArguments",
             &[
@@ -1437,6 +1580,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 ),
             ],
             None,
+            self.options.debug,
         );
     }
 
@@ -1478,7 +1622,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             }
         };
 
-        self.backend.add_comment(
+        self.target.add_comment(
             before,
             &format!(
                 "calling lambda parameter reference to {}",
@@ -1487,7 +1631,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             true,
         );
 
-        self.backend.add(
+        self.target.add(
             before,
             &format!(
                 "mov {rr}, [{} + {}]",
@@ -1497,14 +1641,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             None,
             true,
         );
-        self.backend.add(
+        self.target.add(
             before,
             &format!("mov {} {rr}, [{rr}]", self.backend.word_size(),),
             None,
             true,
         );
         // we add the address to the "lambda space" as the last parameter to the lambda
-        self.backend.call_function(
+        self.target.call_function(
             before,
             &format!("[{rr}]"),
             &[(rr, Some("address to the \"lambda space\""))],
@@ -1512,6 +1656,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
             )),
+            self.options.debug,
         );
     }
 
@@ -1525,13 +1670,13 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         let rr = self.backend.return_register();
 
         if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
-            self.backend()
+            self.target()
                 .add(before, &format!("mov {rr}, {address}"), None, true);
         } else {
             panic!()
         }
         // we add the address to the "lambda space" as the last parameter of the lambda
-        self.backend.add(
+        self.target.add(
             before,
             &format!(
                 "add {rr}, {}",
@@ -1540,20 +1685,20 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             Some("address to the pointer to the allocation table of the lambda to call"),
             true,
         );
-        self.backend.add(
+        self.target.add(
             before,
             &format!("mov {rr}, [{rr}]"),
             Some("address of the allocation table of the function to call"),
             true,
         );
-        self.backend.add(
+        self.target.add(
             before,
             &format!("mov {rr}, [{rr}]"),
             Some("address to the \"lambda space\" of the function to call"),
             true,
         );
 
-        self.backend.call_function(
+        self.target.call_function(
             before,
             &format!("[{rr}]"),
             &[(
@@ -1564,6 +1709,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
             )),
+            self.options.debug,
         );
     }
 
@@ -1577,7 +1723,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             let sp = self.backend.stack_pointer();
             let wl = self.backend.word_len();
 
-            self.backend.add(
+            self.target.add(
                 before,
                 &format!(
                     "add     {},{}",
@@ -1624,6 +1770,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             stack_vals.clone(),
             self.options().dereference,
             id,
+            self.target.clone(),
         );
 
         Box::new(fcp)
@@ -1669,7 +1816,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String) {
         let ws = self.backend.word_size();
         let rr = self.backend.return_register();
-        self.backend.add(
+        self.target.add(
             body,
             &format!("mov {ws} [{statics_key}], {rr}"),
             Some(""),
@@ -1700,10 +1847,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             }
         };
 
-        let tmp_register =
-            stack.reserve_tmp_register(before, self.backend.deref(), "set_let_for_value_ref");
+        let tmp_register = stack.reserve_tmp_register(
+            before,
+            self.backend.deref(),
+            "set_let_for_value_ref",
+            &self.target,
+        );
 
-        self.backend.add(
+        self.target.add(
             before,
             &format!(
                 "mov {tmp_register}, [{} + {}]",
@@ -1714,7 +1865,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             true,
         );
 
-        self.backend.add(
+        self.target.add(
             before,
             &format!(
                 "mov {ws} [{bp} + {}], {tmp_register}",
@@ -1724,7 +1875,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             true,
         );
 
-        stack.release_tmp_register(self.backend.deref(), before, "set_let_for_value_ref");
+        stack.release_tmp_register(&self.target, before, "set_let_for_value_ref");
         typed_type
     }
 
@@ -1743,8 +1894,12 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         let bp = self.backend.stack_base_pointer();
         let label = statics.add_str(value);
 
-        let tmp_reg =
-            stack.reserve_tmp_register(body, self.backend.deref(), "set_let_for_string_literal");
+        let tmp_reg = stack.reserve_tmp_register(
+            body,
+            self.backend.deref(),
+            "set_let_for_string_literal",
+            self.target(),
+        );
 
         if is_const {
             let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
@@ -1766,7 +1921,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             );
         }
 
-        stack.release_tmp_register(self.backend.deref(), body, "set_let_for_string_literal");
+        stack.release_tmp_register(&self.target, body, "set_let_for_string_literal");
     }
 
     fn set_let_for_value(
@@ -1787,14 +1942,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         if is_const {
             let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
 
-            self.backend.add(
+            self.target.add(
                 body,
                 &format!("mov {ws} [{key}], {}", value),
                 Some(""),
                 true,
             );
         } else {
-            self.backend.add(
+            self.target.add(
                 before,
                 &format!(
                     "mov {ws} [{bp} + {}], {}",
@@ -1808,9 +1963,14 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     }
 
     fn reserve_lambda_space(&'a self, before: &mut String, stack: &StackVals) {
-        let register = stack.reserve_tmp_register(before, &self.backend, "lambda_space_address");
+        let register = stack.reserve_tmp_register(
+            before,
+            &self.backend,
+            "lambda_space_address",
+            self.target(),
+        );
 
-        self.backend.add(
+        self.target.add(
             before,
             &format!(
                 "mov     {register}, [{}+{}]",
@@ -1825,7 +1985,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     fn value_as_return(&self, before: &mut String, v: &str) {
         let ws = self.backend.word_size();
         let rr = self.backend.return_register();
-        self.backend()
+        self.target()
             .add(before, &format!("mov     {ws} {rr}, {v}"), None, true);
     }
 
@@ -1833,7 +1993,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         let label = statics.add_str(value);
         let rr = self.backend.return_register();
 
-        self.backend.add(
+        self.target.add(
             before,
             &format!("mov     {} {rr}, [{label}]", self.backend().word_size()),
             None,
@@ -2232,15 +2392,15 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     }
 
     fn print_memory_info(&self, native_code: &mut String) {
-        self.backend
+        self.target
             .call_function_simple(native_code, "printAllocated");
-        self.backend
+        self.target
             .call_function_simple(native_code, "printTableSlotsAllocated");
     }
 
     fn initialize_static_values(&self, native_code: &mut String) {
         let ws = self.backend.word_size();
-        self.backend.add_rows(
+        self.target.add_rows(
             native_code,
             vec![
                 &format!("mov     {ws} [_heap], _heap_buffer"),

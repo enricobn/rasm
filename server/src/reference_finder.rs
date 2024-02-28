@@ -1181,8 +1181,9 @@ mod tests {
         let mut backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi36;
-        let (modules, errors) = project.get_all_modules(&mut backend, &mut statics, false, &target);
-        let enhanced_ast_module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
+        let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
+        let enhanced_ast_module =
+            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         let (module, errors) = if let Some(m) = module_path {
             project.get_module(Path::new(&m), &target)

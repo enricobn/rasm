@@ -57,7 +57,7 @@ async fn main() {
     info!("starting server for {:?}", project);
 
     let mut backend = BackendNasmi386::new(false);
-    let server_state = ServerState::new(project, module_file, &mut backend).unwrap();
+    let server_state = ServerState::new(project, module_file).unwrap();
 
     let app_state = Arc::new(server_state);
 
@@ -88,20 +88,17 @@ struct ServerState {
 }
 
 impl ServerState {
-    fn new(
-        project_folder: PathBuf,
-        module_path: PathBuf,
-        backend: &mut dyn Backend,
-    ) -> Result<Self, TypeCheckError> {
+    fn new(project_folder: PathBuf, module_path: PathBuf) -> Result<Self, TypeCheckError> {
         let project = RasmProject::new(project_folder.clone());
 
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi36;
-        let (modules, errors) = project.get_all_modules(backend, &mut statics, false, &target);
+        let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
 
         // TODO errors
 
-        let enhanced_astmodule = EnhancedASTModule::new(modules, &project, backend, &mut statics);
+        let enhanced_astmodule =
+            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         let (module, errors) = project.get_module(module_path.as_path(), &target).unwrap();
         let finder = ReferenceFinder::new(&enhanced_astmodule, &module)?;

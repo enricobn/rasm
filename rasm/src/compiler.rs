@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use log::info;
 
-use rasm_core::codegen::backend::Backend;
+use rasm_core::codegen::backend::{Backend, BackendNasmi386};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::{get_typed_module, CodeGenOptions};
@@ -65,14 +65,13 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let backend = self.options.target.backend(self.options.debug);
         let mut statics = Statics::new();
 
         let (modules, errors) = self.project.get_all_modules(
-            &backend,
             &mut statics,
             self.is_test,
             &self.options.target,
+            self.options.debug,
         );
 
         /*
@@ -99,12 +98,19 @@ impl Compiler {
             panic!()
         }
 
-        let enhanced_ast_module =
-            EnhancedASTModule::new(modules, &self.project, &backend, &mut statics);
+        let enhanced_ast_module = EnhancedASTModule::new(
+            modules,
+            &self.project,
+            &mut statics,
+            &self.options.target,
+            self.options.debug,
+        );
 
         info!("parse ended in {:?}", start.elapsed());
 
         let start = Instant::now();
+
+        let backend = BackendNasmi386::new(self.options.debug);
 
         let typed_module = get_typed_module(
             &backend,
@@ -113,6 +119,8 @@ impl Compiler {
             self.options.dereference,
             self.options.print_module,
             &mut statics,
+            &self.options.target,
+            self.options.debug,
         )
         .unwrap_or_else(|e| {
             panic!("{e}");

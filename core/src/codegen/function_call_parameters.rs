@@ -7,7 +7,7 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::val_context::TypedValContext;
-use crate::codegen::{get_reference_type_name, TypedValKind};
+use crate::codegen::{get_reference_type_name, CompileTarget, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -36,6 +36,7 @@ pub trait FunctionCallParameters {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         optimize: bool,
+        target: &CompileTarget,
     ) -> LambdaSpace;
 
     fn add_parameter_ref(
@@ -231,6 +232,7 @@ pub struct FunctionCallParametersAsmImpl<'a> {
     after: Vec<String>,
     dereference: bool,
     id: usize,
+    target: CompileTarget,
 }
 
 impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
@@ -240,15 +242,15 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 .insert(param_name.into(), format!("[{label}]"));
         } else {
             // TODO can be optimized?
-            self.backend.add(&mut self.before, "push eax", None, true);
-            self.backend.add(
+            self.target.add(&mut self.before, "push eax", None, true);
+            self.target.add(
                 &mut self.before,
                 &format!("mov {} eax, [{label}]", self.backend.word_size()),
                 comment,
                 true,
             );
             let to_remove_from_stack = self.to_remove_from_stack();
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!(
                     "mov {} [{} + {}], eax",
@@ -259,7 +261,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 comment,
                 true,
             );
-            self.backend.add(&mut self.before, "pop eax", None, true);
+            self.target.add(&mut self.before, "pop eax", None, true);
             self.parameter_added_to_stack();
         }
     }
@@ -279,7 +281,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         let ws = self.backend.word_size();
         let sp = self.backend.stack_pointer();
 
-        self.backend.add(
+        self.target.add(
             &mut self.before,
             &format!("mov {ws} [{sp} + {}], eax", self.parameters_added * wl),
             Some(comment),
@@ -301,6 +303,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         optimize: bool,
+        target: &CompileTarget,
     ) -> LambdaSpace {
         //let optimize = false;
         let sbp = self.backend.stack_base_pointer();
@@ -327,6 +330,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             &mut self.before,
             self.backend,
             "this_lambda_space_address",
+            &self.target,
         );
 
         /*
@@ -339,7 +343,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 statics.insert_static_allocation(MemoryValue::Mem(3, MemoryUnit::Words));
 
             // we save the allocation table address of the lambda space in the stack
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!("push  {} {label_allocation}", self.backend.word_size()),
                 comment,
@@ -347,7 +351,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             );
 
             // we put in lambda_space_address register the address of the lambda space
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!(
                     "mov  {} {lambda_space_address}, {label_memory}",
@@ -376,7 +380,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             }
 
             // we save the allocation table address of the lambda space in the stack
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!("push  {ws} {lambda_space_address}"),
                 comment,
@@ -384,15 +388,19 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             );
 
             // we put in lambda_space_address register the address of the lambda space
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!("mov    {ws} {lambda_space_address}, [{lambda_space_address}]"),
                 None,
                 true,
             );
 
-            let tmp_register =
-                stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_register");
+            let tmp_register = stack_vals.reserve_tmp_register(
+                &mut self.before,
+                self.backend,
+                "tmp_register",
+                &self.target,
+            );
 
             let mut need_return_register = false;
 
@@ -422,7 +430,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 } else if let Some(pls) = parent_lambda_space {
                     if let Some(parent_index) = pls.get_index(name) {
                         if !need_return_register {
-                            self.backend.add_rows(
+                            self.target.add_rows(
                                 &mut self.before,
                                 vec![
                                     &format!("push  {ws} {rr}"),
@@ -476,9 +484,9 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             }
 
             if need_return_register {
-                self.backend.add(&mut self.before, "pop   eax", None, true);
+                self.target.add(&mut self.before, "pop   eax", None, true);
             }
-            stack_vals.release_tmp_register(self.backend, &mut self.before, "tmp_register");
+            stack_vals.release_tmp_register(&self.target, &mut self.before, "tmp_register");
         }
 
         self.backend.populate_lambda_space(
@@ -490,7 +498,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         );
 
         // I reuse the lambda_space_address register to store the allocation table address of the lambda space
-        self.backend.add(
+        self.target.add(
             &mut self.before,
             &format!("pop   {lambda_space_address}"),
             None,
@@ -502,7 +510,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         } else {
             // + 1 due to push ecx
             let to_remove_from_stack = self.to_remove_from_stack();
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!(
                     "mov {} [{} + {}], {lambda_space_address}",
@@ -530,7 +538,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             );
 
             let mut result = String::new();
-            self.backend.add_comment(&mut result, "scope pop", true);
+            target.add_comment(&mut result, "scope pop", true);
             self.backend.call_deref_simple(
                 &mut result,
                 &format!("[{} - {}]", self.backend.stack_base_pointer(), pos),
@@ -542,7 +550,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         }
 
         stack_vals.release_tmp_register(
-            self.backend,
+            &self.target,
             &mut self.before,
             "this_lambda_space_address",
         );
@@ -642,7 +650,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         let word_len = self.backend.word_len();
 
         if self.to_remove_from_stack() > 0 {
-            self.backend.add(
+            self.target.add(
                 &mut result,
                 &format!(
                     "sub {}, {}",
@@ -758,6 +766,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
         stack: StackVals,
         dereference: bool,
         id: usize,
+        target: CompileTarget,
     ) -> Self {
         Self {
             parameters_added: 0,
@@ -773,6 +782,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
             after: Vec::new(),
             dereference,
             id,
+            target,
         }
     }
 
@@ -781,7 +791,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
             self.parameters_values.insert(param_name.into(), n);
         } else {
             let to_remove_from_stack = self.to_remove_from_stack();
-            self.backend.add(
+            self.target.add(
                 &mut self.before,
                 &format!(
                     "mov {} [{} + {}], {}",
@@ -822,6 +832,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
                     descr,
                     pos,
                     statics,
+                    &self.target,
                 ),
             );
         }
@@ -856,8 +867,12 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
             if self.immediate {
                 self.backend.set_return_value(&mut self.before, &src);
             } else {
-                let tmp_register =
-                    stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_for_move");
+                let tmp_register = stack_vals.reserve_tmp_register(
+                    &mut self.before,
+                    self.backend,
+                    "tmp_for_move",
+                    &self.target,
+                );
                 let to_remove_from_stack = self.to_remove_from_stack();
                 self.backend.indirect_mov(
                     &mut self.before,
@@ -871,7 +886,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
                     None,
                 );
 
-                stack_vals.release_tmp_register(self.backend, &mut self.before, "tmp_for_move");
+                stack_vals.release_tmp_register(&self.target, &mut self.before, "tmp_for_move");
             }
             self.parameter_added_to_stack();
         }
@@ -900,15 +915,19 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
                 .insert(original_param_name.into(), src);
         } else {
             if self.immediate {
-                self.backend.add(
+                self.target.add(
                     &mut self.before,
                     &format!("mov   {} eax,{src}", self.backend.pointer_size(),),
                     None,
                     true,
                 );
             } else if let Some(register) = stack_vals.find_tmp_register("lambda_space_address") {
-                let tmp_register =
-                    stack_vals.reserve_tmp_register(&mut self.before, self.backend, "tmp_for_move");
+                let tmp_register = stack_vals.reserve_tmp_register(
+                    &mut self.before,
+                    self.backend,
+                    "tmp_for_move",
+                    &self.target,
+                );
                 let to_remove_from_stack = self.to_remove_from_stack();
 
                 self.backend.indirect_mov(
@@ -922,7 +941,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
                     &tmp_register,
                     None,
                 );
-                stack_vals.release_tmp_register(self.backend, &mut self.before, "tmp_for_move");
+                stack_vals.release_tmp_register(&self.target, &mut self.before, "tmp_for_move");
             } else {
                 panic!()
             }
@@ -933,7 +952,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
 
     fn debug_and_before(&mut self, descr: &str, indent: usize) {
         debug!("{} {descr}", " ".repeat(indent * 4));
-        self.backend.add_comment(&mut self.before, descr, true);
+        self.target.add_comment(&mut self.before, descr, true);
     }
 
     fn parameter_added_to_stack(&mut self) {
@@ -947,9 +966,10 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
         descr: &str,
         pos: usize,
         statics: &mut Statics,
+        target: &CompileTarget,
     ) -> String {
         let mut result = String::new();
-        backend.add(&mut result, "; scope pop", None, true);
+        target.add(&mut result, "; scope pop", None, true);
         result.push_str(&backend.call_deref(
             &format!("[{} - {}]", backend.stack_base_pointer(), pos),
             type_name,

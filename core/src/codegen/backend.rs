@@ -1,5 +1,5 @@
 use auto_impl::auto_impl;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -8,7 +8,6 @@ use std::time::Instant;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 use pad::PadStr;
-use rust_embed::{EmbeddedFile, RustEmbed};
 
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
@@ -20,12 +19,11 @@ use crate::codegen::text_macro::{
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
-use crate::codegen::{get_reference_type_name, TypedValKind, ValKind};
+use crate::codegen::{get_reference_type_name, CompileTarget, TypedValKind, ValKind};
 use crate::debug_i;
 use crate::parser::ast::{
     ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
     TypedFunctionsCreatorNasmi386,
@@ -141,38 +139,7 @@ pub trait Backend: Send + Sync {
 
     fn generate_statics_code(&self, statics: &Statics) -> (String, String);
 
-    fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
-
     fn strip_ifdef(&self, code: &str, def: &str) -> String;
-
-    fn call_function_simple(&self, out: &mut String, function_name: &str);
-
-    fn call_function(
-        &self,
-        out: &mut String,
-        function_name: &str,
-        args: &[(&str, Option<&str>)],
-        comment: Option<&str>,
-    );
-
-    /// the difference with call_function is that arguments are Strings and not &str
-    fn call_function_owned(
-        &self,
-        out: &mut String,
-        function_name: &str,
-        args: &[(String, Option<String>)],
-        comment: Option<&str>,
-    ) {
-        self.call_function(
-            out,
-            function_name,
-            &args
-                .iter()
-                .map(|(arg, comment)| (arg.as_str(), comment.as_deref()))
-                .collect::<Vec<_>>(),
-            comment,
-        )
-    }
 
     fn tmp_registers(&self) -> Vec<String>;
 
@@ -208,17 +175,6 @@ pub trait Backend: Send + Sync {
     fn get_evaluator(&self) -> TextMacroEvaluator;
 
     fn define_debug(&self, out: &mut String);
-    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool);
-
-    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool);
-
-    fn add_empty_line(&self, out: &mut String);
-
-    fn typed_functions_creator(&self) -> Box<dyn TypedFunctionsCreator + '_>;
-
-    fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_>;
-
-    fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile>;
 }
 /*
 trait CloneBackendAsm {
@@ -276,15 +232,12 @@ enum Linker {
     Gcc,
 }
 
-#[derive(RustEmbed)]
-#[folder = "../core/resources/corelib/nasmi386"]
-struct Nasmi386CoreLibAssets;
-
 #[derive(Clone)]
 pub struct BackendNasmi386 {
     linker: Linker,
     libc: bool,
     debug_asm: bool,
+    target: CompileTarget,
 }
 
 impl BackendNasmi386 {
@@ -294,6 +247,7 @@ impl BackendNasmi386 {
             linker: if libc { Linker::Gcc } else { Linker::Ld },
             libc,
             debug_asm,
+            target: CompileTarget::Nasmi36,
         }
     }
 
@@ -347,10 +301,17 @@ impl BackendNasmi386 {
                 if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
                 {
                     if !initialized {
-                        self.add(&mut body, "push   ebx", None, true);
-                        self.add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
-                        self.add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
-                        self.add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
+                        self.target.add(&mut body, "push   ebx", None, true);
+                        self.target
+                            .add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
+                        self.target
+                            .add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
+                        self.target.add(
+                            &mut body,
+                            &format!("add {ws} ebx, {}", wl * 3),
+                            None,
+                            true,
+                        );
                         initialized = true;
                     }
                     if is_deref {
@@ -373,7 +334,7 @@ impl BackendNasmi386 {
                     }
                 }
             }
-            self.add(&mut body, "pop   ebx", None, true);
+            self.target.add(&mut body, "pop   ebx", None, true);
         }
 
         if !initialized {
@@ -521,22 +482,22 @@ impl Backend for BackendNasmi386 {
     }
 
     fn preamble(&self, code: &mut String, externals: &HashSet<String>) {
-        self.add(code, "%macro gotoOnSome 1", None, false);
-        self.add(
+        self.target.add(code, "%macro gotoOnSome 1", None, false);
+        self.target.add(
             code,
             "cmp dword eax,[_enum_stdlib_option_Option_None]",
             None,
             true,
         );
-        self.add(code, "jne %1", None, true);
-        self.add(code, "%endmacro", None, false);
+        self.target.add(code, "jne %1", None, true);
+        self.target.add(code, "%endmacro", None, false);
         if self.libc {
-            self.add(code, "%DEFINE LIBC 1", None, false);
-            self.add(code, "extern exit", None, true);
+            self.target.add(code, "%DEFINE LIBC 1", None, false);
+            self.target.add(code, "extern exit", None, true);
         }
 
         for e in externals.iter() {
-            self.add(code, &format!("extern {e}"), None, true);
+            self.target.add(code, &format!("extern {e}"), None, true);
         }
     }
 
@@ -669,7 +630,7 @@ impl Backend for BackendNasmi386 {
         let ws = self.word_size();
         let bp = self.stack_base_pointer();
 
-        self.add(
+        self.target.add(
             code,
             &format!("mov {ws} [{bp} + {}], eax", address_relative_to_bp),
             Some(""),
@@ -698,7 +659,8 @@ impl Backend for BackendNasmi386 {
 
         let key = statics.add_str(descr);
 
-        self.add(out, "", Some(&("add ref ".to_owned() + descr)), true);
+        self.target
+            .add(out, "", Some(&("add ref ".to_owned() + descr)), true);
 
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
@@ -714,28 +676,36 @@ impl Backend for BackendNasmi386 {
             };
 
         if "_fn" == type_name {
-            self.add(out, &format!("push     {ws} eax"), None, true);
+            self.target
+                .add(out, &format!("push     {ws} eax"), None, true);
             // tmp value to store the source since it can be eax...
-            self.add(out, &format!("push     {ws} 0"), None, true);
-            self.add(out, &format!("mov      {ws} eax,{source}"), None, true);
-            self.add(
+            self.target
+                .add(out, &format!("push     {ws} 0"), None, true);
+            self.target
+                .add(out, &format!("mov      {ws} eax,{source}"), None, true);
+            self.target.add(
                 out,
                 &format!("mov      {ws} [{}],eax", self.stack_pointer()),
                 None,
                 true,
             );
-            self.add(out, &format!("mov      {ws} eax,[eax]"), None, true);
-            self.add(out, &format!("push     {ws} [{key}]"), None, true);
-            self.add(
+            self.target
+                .add(out, &format!("mov      {ws} eax,[eax]"), None, true);
+            self.target
+                .add(out, &format!("push     {ws} [{key}]"), None, true);
+            self.target.add(
                 out,
                 &format!("push     {ws} [{} + {wl}]", self.stack_pointer()),
                 None,
                 true,
             );
-            self.add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
+            self.target
+                .add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
             // wl * 3 because we get reed even of the temp value in the stack
-            self.add(out, &format!("add      esp,{}", 3 * wl), None, true);
-            self.add(out, &format!("pop      {ws} eax"), None, true);
+            self.target
+                .add(out, &format!("add      esp,{}", 3 * wl), None, true);
+            self.target
+                .add(out, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {
                 "call     str_addRef".to_string()
@@ -743,19 +713,26 @@ impl Backend for BackendNasmi386 {
                 format!("call     {type_name}_addRef")
             };
             if is_type {
-                self.add(out, &format!("push     {ws} [{key}]"), None, true);
+                self.target
+                    .add(out, &format!("push     {ws} [{key}]"), None, true);
             }
-            self.add(out, &format!("push     {ws} {source}"), None, true);
-            self.add(out, &call, None, true);
-            self.add(out, &format!("add      esp,{}", wl), None, true);
+            self.target
+                .add(out, &format!("push     {ws} {source}"), None, true);
+            self.target.add(out, &call, None, true);
+            self.target
+                .add(out, &format!("add      esp,{}", wl), None, true);
             if is_type {
-                self.add(out, &format!("add      esp,{}", wl), None, true);
+                self.target
+                    .add(out, &format!("add      esp,{}", wl), None, true);
             }
         } else {
-            self.add(out, &format!("push  {ws} [{key}]"), None, true);
-            self.add(out, &format!("push     {ws} {source}"), None, true);
-            self.add(out, "call     addRef", None, true);
-            self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
+            self.target
+                .add(out, &format!("push  {ws} [{key}]"), None, true);
+            self.target
+                .add(out, &format!("push     {ws} {source}"), None, true);
+            self.target.add(out, "call     addRef", None, true);
+            self.target
+                .add(out, &format!("add      esp,{}", 2 * wl), None, true);
         }
     }
 
@@ -778,12 +755,16 @@ impl Backend for BackendNasmi386 {
 
         let key = statics.add_str(descr);
 
-        self.add(out, "", Some(&("add ref simple ".to_owned() + descr)), true);
+        self.target
+            .add(out, "", Some(&("add ref simple ".to_owned() + descr)), true);
 
-        self.add(out, &format!("push  {ws} [{key}]"), None, true);
-        self.add(out, &format!("push     {ws} {source}"), None, true);
-        self.add(out, "call     addRef", None, true);
-        self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
+        self.target
+            .add(out, &format!("push  {ws} [{key}]"), None, true);
+        self.target
+            .add(out, &format!("push     {ws} {source}"), None, true);
+        self.target.add(out, "call     addRef", None, true);
+        self.target
+            .add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
     fn call_deref(
@@ -816,41 +797,48 @@ impl Backend for BackendNasmi386 {
 
         let key = statics.add_str(descr);
 
-        self.add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
+        self.target
+            .add(&mut result, "", Some(&("deref ".to_owned() + descr)), true);
 
         if "_fn" == type_name {
-            self.add(&mut result, &format!("push     {ws} eax"), None, true);
+            self.target
+                .add(&mut result, &format!("push     {ws} eax"), None, true);
             // tmp value to store the source since it can be eax...
-            self.add(&mut result, &format!("push     {ws} 0"), None, true);
-            self.add(
+            self.target
+                .add(&mut result, &format!("push     {ws} 0"), None, true);
+            self.target.add(
                 &mut result,
                 &format!("mov      {ws} eax,{source}"),
                 None,
                 true,
             );
-            self.add(
+            self.target.add(
                 &mut result,
                 &format!("mov      {ws} [{}],eax", self.stack_pointer()),
                 None,
                 true,
             );
-            self.add(&mut result, &format!("mov      {ws} eax,[eax]"), None, true);
-            self.add(&mut result, &format!("push     {ws} [{key}]"), None, true);
-            self.add(
+            self.target
+                .add(&mut result, &format!("mov      {ws} eax,[eax]"), None, true);
+            self.target
+                .add(&mut result, &format!("push     {ws} [{key}]"), None, true);
+            self.target.add(
                 &mut result,
                 &format!("push     {ws} [{} + {wl}]", self.stack_pointer()),
                 None,
                 true,
             );
-            self.add(
+            self.target.add(
                 &mut result,
                 &format!("call     {ws} [eax + 2 * {wl}]"),
                 None,
                 true,
             );
             // wl * 3 because we get reed even of the temp value in the stack
-            self.add(&mut result, &format!("add      esp,{}", wl * 3), None, true);
-            self.add(&mut result, &format!("pop      {ws} eax"), None, true);
+            self.target
+                .add(&mut result, &format!("add      esp,{}", wl * 3), None, true);
+            self.target
+                .add(&mut result, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
             let call = if type_name == "str" {
                 "call     str_deref".to_string()
@@ -858,19 +846,26 @@ impl Backend for BackendNasmi386 {
                 format!("call     {type_name}_deref")
             };
             if is_type {
-                self.add(&mut result, &format!("push     {ws} [{key}]"), None, true);
+                self.target
+                    .add(&mut result, &format!("push     {ws} [{key}]"), None, true);
             }
-            self.add(&mut result, &format!("push     {ws} {source}"), None, true);
-            self.add(&mut result, &call, None, true);
-            self.add(&mut result, &format!("add      esp,{}", wl), None, true);
+            self.target
+                .add(&mut result, &format!("push     {ws} {source}"), None, true);
+            self.target.add(&mut result, &call, None, true);
+            self.target
+                .add(&mut result, &format!("add      esp,{}", wl), None, true);
             if is_type {
-                self.add(&mut result, &format!("add      esp,{}", wl), None, true);
+                self.target
+                    .add(&mut result, &format!("add      esp,{}", wl), None, true);
             }
         } else {
-            self.add(&mut result, &format!("push  {ws} [{key}]"), None, true);
-            self.add(&mut result, &format!("push     {ws} {source}"), None, true);
-            self.add(&mut result, "call     deref", None, true);
-            self.add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
+            self.target
+                .add(&mut result, &format!("push  {ws} [{key}]"), None, true);
+            self.target
+                .add(&mut result, &format!("push     {ws} {source}"), None, true);
+            self.target.add(&mut result, "call     deref", None, true);
+            self.target
+                .add(&mut result, &format!("add      esp,{}", 2 * wl), None, true);
         }
 
         result.push('\n');
@@ -891,19 +886,24 @@ impl Backend for BackendNasmi386 {
 
         let key = statics.add_str(descr);
 
-        self.add(out, "", Some(&("deref ".to_owned() + descr)), true);
-        self.add(out, &format!("push  {ws} [{key}]"), None, true);
-        self.add(out, &format!("push     {ws} {source}"), None, true);
-        self.add(out, "call     deref", None, true);
-        self.add(out, &format!("add      esp,{}", 2 * wl), None, true);
+        self.target
+            .add(out, "", Some(&("deref ".to_owned() + descr)), true);
+        self.target
+            .add(out, &format!("push  {ws} [{key}]"), None, true);
+        self.target
+            .add(out, &format!("push     {ws} {source}"), None, true);
+        self.target.add(out, "call     deref", None, true);
+        self.target
+            .add(out, &format!("add      esp,{}", 2 * wl), None, true);
     }
 
     fn function_preamble(&self, out: &mut String) {
         let sp = self.stack_pointer();
         let bp = self.stack_base_pointer();
 
-        self.add(out, &format!("push    {}", bp), None, true);
-        self.add(out, &format!("mov     {},{}", bp, sp), None, true);
+        self.target.add(out, &format!("push    {}", bp), None, true);
+        self.target
+            .add(out, &format!("mov     {},{}", bp, sp), None, true);
     }
 
     fn restore(&self, stack: &StackVals, out: &mut String) {
@@ -914,7 +914,7 @@ impl Backend for BackendNasmi386 {
                     local_vals_words += 1;
                 }
                 StackEntryType::TmpRegister(ref register) => {
-                    self.add(
+                    self.target.add(
                         out,
                         &format!("pop {register}"),
                         Some(&format!("restoring {}", entry.desc)),
@@ -922,8 +922,9 @@ impl Backend for BackendNasmi386 {
                     );
                 }
                 StackEntryType::ReturnRegister => {
-                    self.add_empty_line(out);
-                    self.add(out, "pop eax", Some("restoring return register"), true);
+                    self.target.add_empty_line(out);
+                    self.target
+                        .add(out, "pop eax", Some("restoring return register"), true);
                 }
                 StackEntryType::LocalFakeAllocation(size) => {
                     local_vals_words += size;
@@ -933,7 +934,7 @@ impl Backend for BackendNasmi386 {
 
         if local_vals_words > 0 {
             let sp = self.stack_pointer();
-            self.add(
+            self.target.add(
                 out,
                 &format!("add   {sp}, {}", local_vals_words * self.word_len()),
                 Some("restore stack local vals (let)"),
@@ -946,7 +947,7 @@ impl Backend for BackendNasmi386 {
     fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {
         if stack.len_of_local_vals() > 0 {
             let sp = self.stack_pointer();
-            self.add(
+            self.target.add(
                 out,
                 &format!(
                     "sub   {sp}, {}",
@@ -956,15 +957,15 @@ impl Backend for BackendNasmi386 {
                 true,
             );
         } else {
-            self.add(out, "", Some("NO local vals"), true);
+            self.target.add(out, "", Some("NO local vals"), true);
         }
     }
 
     fn function_end(&self, out: &mut String, add_return: bool) {
         let bp = self.stack_base_pointer();
-        self.add(out, &format!("pop     {}", bp), None, true);
+        self.target.add(out, &format!("pop     {}", bp), None, true);
         if add_return {
-            self.add(out, "ret", None, true);
+            self.target.add(out, "ret", None, true);
         }
     }
 
@@ -1066,12 +1067,12 @@ impl Backend for BackendNasmi386 {
 
                         def.push_str(&result);
 
-                        self.add(&mut data, &def, None, true);
+                        self.target.add(&mut data, &def, None, true);
                     }
                     MemoryValue::I32Value(i) => {
                         def.push_str("dd    ");
                         def.push_str(&format!("{}", i));
-                        self.add(&mut data, &def, None, true);
+                        self.target.add(&mut data, &def, None, true);
                     }
                     Mem(len, unit) => {
                         match unit {
@@ -1079,7 +1080,7 @@ impl Backend for BackendNasmi386 {
                             MemoryUnit::Words => def.push_str("resd "),
                         }
                         def.push_str(&format!("{}", len));
-                        self.add(&mut bss, &def, None, true);
+                        self.target.add(&mut bss, &def, None, true);
                     }
                 }
             }
@@ -1087,19 +1088,20 @@ impl Backend for BackendNasmi386 {
 
         for (_, (key, value_key)) in statics.strings_map().iter() {
             // TODO _0
-            self.add(
+            self.target.add(
                 &mut code,
                 &format!("$call(addStaticStringToHeap, {value_key})"),
                 None,
                 true,
             );
 
-            self.add(&mut code, &format!("mov dword [{key}], eax"), None, true);
+            self.target
+                .add(&mut code, &format!("mov dword [{key}], eax"), None, true);
         }
 
         for (label_allocation, label_memory) in statics.static_allocation().iter() {
             // TODO _0
-            self.add(
+            self.target.add(
                 &mut code,
                 &format!(
                     "$call(addStaticAllocation, {label_allocation}, {label_memory}, {})",
@@ -1112,7 +1114,7 @@ impl Backend for BackendNasmi386 {
 
         for (label, (descr_label, value)) in statics.heap().iter() {
             // TODO _0
-            self.add(
+            self.target.add(
                 &mut code,
                 &format!("$call(addHeap, {label}, {descr_label}: str, {value})"),
                 None,
@@ -1126,13 +1128,10 @@ impl Backend for BackendNasmi386 {
         declarations.push_str("SECTION .bss\n");
         declarations.push_str(&bss);
         declarations.push_str("SECTION .text\n");
-        self.add(&mut declarations, "global  main", None, true);
+        self.target
+            .add(&mut declarations, "global  main", None, true);
         declarations.push_str("main:\n");
         (declarations, code)
-    }
-
-    fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        self.add(out, &format!("; {comment}"), None, indent);
     }
 
     fn strip_ifdef(&self, code: &str, def: &str) -> String {
@@ -1161,45 +1160,6 @@ impl Backend for BackendNasmi386 {
         result
     }
 
-    fn call_function_simple(&self, out: &mut String, function_name: &str) {
-        self.add(out, &format!("call    {}", function_name), None, true);
-    }
-
-    fn call_function(
-        &self,
-        out: &mut String,
-        function_name: &str,
-        args: &[(&str, Option<&str>)],
-        comment: Option<&str>,
-    ) {
-        if let Some(c) = comment {
-            self.add_comment(out, c, true);
-        }
-
-        for (arg, comment) in args.iter().rev() {
-            if let Some(c) = comment {
-                self.add_comment(out, c, true);
-            }
-            self.add(
-                out,
-                &format!("push {} {arg}", self.word_size()),
-                None, //*comment,
-                true,
-            );
-        }
-        self.add(out, &format!("call    {}", function_name), None, true);
-        self.add(
-            out,
-            &format!(
-                "add  {}, {}",
-                self.stack_pointer(),
-                self.word_len() * args.len()
-            ),
-            None,
-            true,
-        );
-    }
-
     fn tmp_registers(&self) -> Vec<String> {
         vec!["edx".to_owned(), "ecx".to_owned(), "ebx".to_owned()]
     }
@@ -1212,7 +1172,7 @@ impl Backend for BackendNasmi386 {
         statics: &mut Statics,
     ) {
         let label = statics.add_str("lambda space");
-        self.call_function(
+        self.target.call_function(
             out,
             "rasmalloc",
             &[
@@ -1220,9 +1180,10 @@ impl Backend for BackendNasmi386 {
                 (&format!("[{label}]"), None),
             ],
             Some("lambda space allocation"),
+            self.debug_asm,
         );
 
-        self.add(
+        self.target.add(
             out,
             &format!("mov    dword {register_to_store_result},eax",),
             None,
@@ -1239,7 +1200,7 @@ impl Backend for BackendNasmi386 {
     ) {
         let sbp = self.stack_base_pointer();
 
-        let tmp_register = stack_vals.reserve_tmp_register(out, self, "tmp_register");
+        let tmp_register = stack_vals.reserve_tmp_register(out, self, "tmp_register", &self.target);
 
         let address_relative_to_bp_for_lambda_allocation = stack_vals.reserve_local_space(
             &format!(
@@ -1257,13 +1218,13 @@ impl Backend for BackendNasmi386 {
             slots,
         );
 
-        self.add(
+        self.target.add(
             out,
             &format!("mov dword {register_to_store_result},{sbp}"),
             None,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!(
                 "sub dword {register_to_store_result},{}",
@@ -1272,8 +1233,9 @@ impl Backend for BackendNasmi386 {
             None,
             true,
         );
-        self.add(out, &format!("mov dword {tmp_register},{sbp}"), None, true);
-        self.add(
+        self.target
+            .add(out, &format!("mov dword {tmp_register},{sbp}"), None, true);
+        self.target.add(
             out,
             &format!(
                 "sub dword {tmp_register},{}",
@@ -1283,19 +1245,19 @@ impl Backend for BackendNasmi386 {
             true,
         );
 
-        self.add(
+        self.target.add(
             out,
             &format!("mov     dword [{register_to_store_result}], {tmp_register}"),
             None,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!("mov     dword [{register_to_store_result} + 4], 1"),
             None,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!(
                 "mov     dword [{register_to_store_result} + 8], {}",
@@ -1304,20 +1266,20 @@ impl Backend for BackendNasmi386 {
             None,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!("mov     dword [{register_to_store_result} + 12], 1"),
             None,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!("mov     dword [{register_to_store_result} + 16], 0"),
             None,
             true,
         );
 
-        stack_vals.release_tmp_register(self, out, "tmp_register");
+        stack_vals.release_tmp_register(&self.target, out, "tmp_register");
     }
 
     fn push_to_scope_stack(&self, out: &mut String, what: &str, stack_vals: &StackVals) -> usize {
@@ -1326,16 +1288,16 @@ impl Backend for BackendNasmi386 {
             COUNT.fetch_add(1, Ordering::Relaxed)
         )) * self.word_len();
 
-        self.add(out, "; scope push", None, true);
+        self.target.add(out, "; scope push", None, true);
         if what.contains('[') {
-            self.add(out, "push    ebx", None, true);
-            self.add(
+            self.target.add(out, "push    ebx", None, true);
+            self.target.add(
                 out,
                 &format!("mov     {} ebx, {what}", self.word_size(),),
                 None,
                 true,
             );
-            self.add(
+            self.target.add(
                 out,
                 &format!(
                     "mov     {} [{} - {}], ebx",
@@ -1346,9 +1308,9 @@ impl Backend for BackendNasmi386 {
                 None,
                 true,
             );
-            self.add(out, "pop    ebx", None, true);
+            self.target.add(out, "pop    ebx", None, true);
         } else {
-            self.add(
+            self.target.add(
                 out,
                 &format!(
                     "mov     {} [{} - {}], {what}",
@@ -1364,7 +1326,7 @@ impl Backend for BackendNasmi386 {
     }
 
     fn set_return_value(&self, out: &mut String, what: &str) {
-        self.add(
+        self.target.add(
             out,
             &format!("mov {} eax, {what}", self.word_size()),
             None,
@@ -1383,14 +1345,14 @@ impl Backend for BackendNasmi386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        self.add(
+        self.target.add(
             out,
             &format!("mov {} [{lambda_space_address}], {}", ws, function_name),
             None,
             true,
         );
 
-        self.add(
+        self.target.add(
             out,
             &format!(
                 "mov {} [{lambda_space_address} + {wl}], {add_ref_function}",
@@ -1399,7 +1361,7 @@ impl Backend for BackendNasmi386 {
             None,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!(
                 "mov {} [{lambda_space_address} + 2 * {wl}], {deref_function}",
@@ -1426,69 +1388,14 @@ impl Backend for BackendNasmi386 {
             "deref".into(),
             Box::new(AddRefMacro::new(Box::new(self.clone()), true)),
         );
-        let print_ref_macro = PrintRefMacro::new(Box::new(self.clone()));
+        let print_ref_macro = PrintRefMacro::new(Box::new(self.clone()), self.target.clone());
         evaluators.insert("printRef".into(), Box::new(print_ref_macro));
 
         TextMacroEvaluator::new(evaluators)
     }
 
     fn define_debug(&self, out: &mut String) {
-        self.add(out, "%define LOG_DEBUG 1", None, false);
-    }
-
-    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
-        if let Some(_cm) = comment {
-            self.add(out, "", comment, indent);
-        }
-        for row in code {
-            self.add(out, row, None, indent);
-        }
-    }
-    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
-        if code.is_empty() {
-            out.push('\n');
-        } else {
-            let max = 80;
-            let s = format!("{:width$}", code, width = max);
-            //assert_eq!(s.len(), max, "{}", s);
-            if indent {
-                out.push_str("    ");
-            }
-            out.push_str(&s);
-        }
-
-        if let Some(c) = comment {
-            if code.is_empty() {
-                out.push_str("    ");
-            }
-            out.push_str("; ");
-            out.push_str(c);
-        }
-        out.push('\n');
-    }
-
-    fn add_empty_line(&self, out: &mut String) {
-        out.push('\n');
-    }
-
-    fn typed_functions_creator(&self) -> Box<dyn TypedFunctionsCreator + '_> {
-        Box::new(TypedFunctionsCreatorNasmi386::new(self))
-    }
-
-    fn functions_creator(&self) -> Box<dyn FunctionsCreator + '_> {
-        Box::new(FunctionsCreatorNasmi386::new(self))
-    }
-
-    fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
-        let mut result = HashMap::new();
-        Nasmi386CoreLibAssets::iter()
-            .filter(|it| it.ends_with(".rasm"))
-            .for_each(|it| {
-                if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
-                    result.insert(it.to_string(), asset);
-                }
-            });
-        result
+        self.target.add(out, "%define LOG_DEBUG 1", None, false);
     }
 }
 
@@ -1517,7 +1424,7 @@ impl BackendAsm for BackendNasmi386 {
         temporary_register: &str,
         comment: Option<&str>,
     ) {
-        self.add(
+        self.target.add(
             out,
             &format!(
                 "mov  {} {}, [{}]",
@@ -1528,7 +1435,7 @@ impl BackendAsm for BackendNasmi386 {
             comment,
             true,
         );
-        self.add(
+        self.target.add(
             out,
             &format!(
                 "mov  {} [{}], {}",

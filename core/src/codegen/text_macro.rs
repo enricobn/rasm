@@ -9,9 +9,9 @@ use log::debug;
 use regex::Regex;
 
 use crate::codegen::backend::{Backend, BackendAsm};
-use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::codegen::{get_reference_type_name, CompileTarget};
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
@@ -975,6 +975,7 @@ impl TextMacroEval for AddRefMacro {
 
 pub struct PrintRefMacro {
     backend: Box<dyn BackendAsm>,
+    target: CompileTarget,
 }
 
 impl TextMacroEval for PrintRefMacro {
@@ -1034,8 +1035,8 @@ impl TextMacroEval for PrintRefMacro {
 }
 
 impl PrintRefMacro {
-    pub fn new(backend: Box<dyn BackendAsm>) -> Self {
-        Self { backend }
+    pub fn new(backend: Box<dyn BackendAsm>, target: CompileTarget) -> Self {
+        Self { backend, target }
     }
 
     fn print_ref(
@@ -1118,21 +1119,21 @@ impl PrintRefMacro {
         self.print_str(&mut result, &format!("{ident_string}{name} "));
 
         self.print_i32(&mut result, src);
-        self.backend.add(&mut result, "push    ebx", None, true);
-        self.backend.add(
+        self.target.add(&mut result, "push    ebx", None, true);
+        self.target.add(
             &mut result,
             &format!("push    {} {src}", self.backend.word_size()),
             None,
             true,
         );
-        self.backend.add(&mut result, "pop    ebx", None, true);
+        self.target.add(&mut result, "pop    ebx", None, true);
         self.print_str(&mut result, " refcount ");
         if new_line {
             self.println_i32(&mut result, "[ebx + 12]");
         } else {
             self.print_i32(&mut result, "[ebx + 12]");
         }
-        self.backend.add(&mut result, "pop    ebx", None, true);
+        self.target.add(&mut result, "pop    ebx", None, true);
 
         result.push_str(&code);
 
@@ -1140,7 +1141,7 @@ impl PrintRefMacro {
     }
 
     fn println_i32(&self, out: &mut String, value: &str) {
-        self.backend.add(
+        self.target.add(
             out,
             //&format!("$call(println_i32_Unit,{value}:i32)"),
             &format!("$call(println,{value}:i32)"),
@@ -1150,7 +1151,7 @@ impl PrintRefMacro {
     }
 
     fn print_i32(&self, out: &mut String, value: &str) {
-        self.backend.add(
+        self.target.add(
             out,
             //&format!("$call(print_i32_Unit,{value}:i32)"),
             &format!("$call(print,{value}:i32)"),
@@ -1160,7 +1161,7 @@ impl PrintRefMacro {
     }
 
     fn print_str(&self, out: &mut String, value: &str) {
-        self.backend.add(
+        self.target.add(
             out,
             //&format!("$call(print_str_Unit,\"{value}\")"),
             &format!("$call(print,\"{value}\")"),
@@ -1170,7 +1171,7 @@ impl PrintRefMacro {
     }
 
     fn println_str(&self, out: &mut String, value: &str) {
-        self.backend.add(
+        self.target.add(
             out,
             //&format!("$call(println_str_Unit,\"{value}\")"),
             &format!("$call(println,\"{value}\")"),
@@ -1187,10 +1188,10 @@ impl PrintRefMacro {
         indent: usize,
     ) -> String {
         let mut result = String::new();
-        self.backend.add(&mut result, "push    ebx", None, true);
-        self.backend
+        self.target.add(&mut result, "push    ebx", None, true);
+        self.target
             .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        self.backend
+        self.target
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
         if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
             for (i, p) in s.properties.iter().enumerate() {
@@ -1217,7 +1218,7 @@ impl PrintRefMacro {
         } else {
             panic!("Cannot find struct {name}");
         }
-        self.backend.add(&mut result, "pop    ebx", None, true);
+        self.target.add(&mut result, "pop    ebx", None, true);
         result
     }
 
@@ -1238,10 +1239,10 @@ impl PrintRefMacro {
         let wl = self.backend.word_len();
 
         let mut result = String::new();
-        self.backend.add(&mut result, "push    ebx", None, true);
-        self.backend
+        self.target.add(&mut result, "push    ebx", None, true);
+        self.target
             .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        self.backend
+        self.target
             .add(&mut result, "mov dword ebx, [ebx]", None, true);
         self.print_str(&mut result, " value ");
         if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
@@ -1251,9 +1252,9 @@ impl PrintRefMacro {
                     *count.borrow()
                 });
                 let label_name = &format!("._{name}_{}_{}", variant.name, count);
-                self.backend
+                self.target
                     .add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                self.backend
+                self.target
                     .add(&mut result, &format!("jne {label_name}"), None, true);
                 self.println_str(&mut result, &variant.name);
 
@@ -1279,9 +1280,9 @@ impl PrintRefMacro {
                         result.push_str(&par_result);
                     }
                 }
-                self.backend
+                self.target
                     .add(&mut result, &format!("jmp {end_label_name}"), None, false);
-                self.backend
+                self.target
                     .add(&mut result, &format!("{label_name}:"), None, false);
             }
         } else {
@@ -1289,11 +1290,11 @@ impl PrintRefMacro {
         }
         self.print_str(&mut result, "unknown ");
         self.println_i32(&mut result, "[ebx]");
-        self.backend
+        self.target
             .add(&mut result, "$call(exitMain, 1)", None, false);
-        self.backend
+        self.target
             .add(&mut result, &format!("{end_label_name}:"), None, false);
-        self.backend.add(&mut result, "pop    ebx", None, true);
+        self.target.add(&mut result, "pop    ebx", None, true);
         result
     }
 
@@ -1312,33 +1313,33 @@ impl PrintRefMacro {
 
             let mut result = String::new();
 
-            self.backend.add(
+            self.target.add(
                 &mut result,
                 &format!("push  {} eax", self.backend.word_size()),
                 None,
                 true,
             );
-            self.backend.add(
+            self.target.add(
                 &mut result,
                 &format!("push  {} ebx", self.backend.word_size()),
                 None,
                 true,
             );
-            self.backend.add(
+            self.target.add(
                 &mut result,
                 &format!("push  {} ecx", self.backend.word_size()),
                 None,
                 true,
             );
             for (i, (generic_name, ast_typed_type)) in s.generic_types.iter().enumerate() {
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("$call({}References, {src}:i32,{i})", s.original_name),
                     None,
                     true,
                 );
 
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("mov   {} eax,[eax]", self.backend.word_size()),
                     None,
@@ -1346,13 +1347,13 @@ impl PrintRefMacro {
                 );
 
                 // count
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("mov   {} ebx,[eax]", self.backend.word_size()),
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!(
                         "add {} eax,{}",
@@ -1362,19 +1363,19 @@ impl PrintRefMacro {
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!(".loop_{name}_{generic_name}_{count}:"),
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("test {} ebx,ebx", self.backend.word_size()),
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("jz .end_{name}_{generic_name}_{count}"),
                     None,
@@ -1389,13 +1390,13 @@ impl PrintRefMacro {
                     indent + 1,
                 );
                 result.push_str(&inner_result);
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("dec {} ebx", self.backend.word_size()),
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!(
                         "add {} eax,{}",
@@ -1405,22 +1406,22 @@ impl PrintRefMacro {
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!("jmp .loop_{name}_{generic_name}_{count}"),
                     None,
                     true,
                 );
-                self.backend.add(
+                self.target.add(
                     &mut result,
                     &format!(".end_{name}_{generic_name}_{count}:"),
                     None,
                     true,
                 );
             }
-            self.backend.add(&mut result, "pop  ecx", None, true);
-            self.backend.add(&mut result, "pop  ebx", None, true);
-            self.backend.add(&mut result, "pop  eax", None, true);
+            self.target.add(&mut result, "pop  ecx", None, true);
+            self.target.add(&mut result, "pop  ebx", None, true);
+            self.target.add(&mut result, "pop  eax", None, true);
 
             result
         } else {

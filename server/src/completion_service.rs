@@ -596,10 +596,10 @@ mod tests {
 
         let mut statics = Statics::new();
 
-        let (modules, errors) =
-            project.get_all_modules(&backend, &mut statics, false, &CompileTarget::Nasmi36);
+        let target = CompileTarget::Nasmi36;
+        let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
 
-        let module = EnhancedASTModule::new(modules, &project, &backend, &mut statics);
+        let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         assert!(errors.is_empty());
 

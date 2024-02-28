@@ -219,9 +219,9 @@ impl RasmProject {
 
     fn all_test_modules(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         target: &CompileTarget,
+        debug: bool,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         info!("Reading tests");
 
@@ -231,7 +231,7 @@ impl RasmProject {
         self.get_modules(self.test_folder(), target)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
-                enrich_module(backend, statics, &mut project_module);
+                enrich_module(&target, statics, &mut project_module, debug);
                 modules.push(project_module);
                 errors.extend(module_errors);
             });
@@ -241,13 +241,13 @@ impl RasmProject {
 
     fn all_modules(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         target: &CompileTarget,
+        debug: bool,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
-        let mut pairs = vec![self.core_modules(backend)];
+        let mut pairs = vec![self.core_modules(target)];
 
         pairs.push(self.get_modules(self.main_rasm_source_folder(), target));
 
@@ -283,7 +283,7 @@ impl RasmProject {
             .into_iter()
             .flatten()
             .for_each(|(mut project_module, module_errors)| {
-                enrich_module(backend, statics, &mut project_module);
+                enrich_module(&target, statics, &mut project_module, debug);
                 modules.push(project_module);
                 errors.extend(module_errors);
             });
@@ -291,7 +291,7 @@ impl RasmProject {
         (modules, errors)
     }
 
-    fn core_modules(&self, backend: &dyn Backend) -> Vec<(ASTModule, Vec<CompilationError>)> {
+    fn core_modules(&self, target: &CompileTarget) -> Vec<(ASTModule, Vec<CompilationError>)> {
         let mut result = RasmCoreLibAssets::iter()
             .filter(|it| it.ends_with(".rasm"))
             .map(|it| {
@@ -304,7 +304,7 @@ impl RasmProject {
             .collect::<Vec<_>>();
 
         result.append(
-            &mut backend
+            &mut target
                 .get_core_lib_files()
                 .iter()
                 .map(|it| self.core_module(it.0, &it.1.data))
@@ -316,12 +316,12 @@ impl RasmProject {
 
     pub fn get_all_modules(
         &self,
-        backend: &dyn Backend,
         statics: &mut Statics,
         for_tests: bool,
         target: &CompileTarget,
+        debug: bool,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(backend, statics, target);
+        let (mut modules, mut errors) = self.all_modules(statics, target, debug);
 
         if for_tests {
             modules.iter_mut().for_each(|it| {
@@ -339,7 +339,7 @@ impl RasmProject {
                     .collect::<Vec<_>>();
                 it.body = new_body;
             });
-            let (test_modules, test_errors) = self.all_test_modules(backend, statics, target);
+            let (test_modules, test_errors) = self.all_test_modules(statics, target, debug);
 
             let test_module = self.main_test_module(&mut errors, &test_modules);
 

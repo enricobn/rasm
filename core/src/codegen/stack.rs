@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use crate::codegen::backend::{Backend, BackendAsm};
+use crate::codegen::CompileTarget;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StackEntryType {
@@ -52,10 +53,10 @@ impl StackVals {
         self.len_of_local_vals()
     }
 
-    pub fn reserve_return_register(&self, backend: &dyn Backend, out: &mut String) {
+    pub fn reserve_return_register(&self, target: &CompileTarget, out: &mut String) {
         self.check_desc("return_register");
 
-        backend.add(out, "push eax", Some("return register"), true);
+        target.add(out, "push eax", Some("return register"), true);
 
         self.reserved_slots.borrow_mut().push(StackEntry {
             entry_type: StackEntryType::ReturnRegister,
@@ -68,6 +69,7 @@ impl StackVals {
         out: &mut String,
         backend: &dyn BackendAsm,
         desc: &str,
+        target: &CompileTarget,
     ) -> String {
         self.check_desc(desc);
 
@@ -81,7 +83,7 @@ impl StackVals {
             .collect::<Vec<_>>();
 
         if let Some(register) = available_tmp_registers.first() {
-            backend.add(out, &format!("push {}", register), Some(desc), true);
+            target.add(out, &format!("push {}", register), Some(desc), true);
 
             self.reserved_slots.borrow_mut().push(StackEntry {
                 entry_type: StackEntryType::TmpRegister(register.clone()),
@@ -104,7 +106,7 @@ impl StackVals {
         }
     }
 
-    pub fn release_tmp_register(&self, backend: &dyn BackendAsm, out: &mut String, desc: &str) {
+    pub fn release_tmp_register(&self, target: &CompileTarget, out: &mut String, desc: &str) {
         let mut register_o = None;
         for entry in self.reserved_slots.borrow().iter().rev() {
             if let StackEntryType::TmpRegister(ref r) = entry.entry_type {
@@ -118,7 +120,7 @@ impl StackVals {
         }
 
         if let Some(register) = register_o {
-            backend.add(out, &format!("pop {}", register), Some(desc), true);
+            target.add(out, &format!("pop {}", register), Some(desc), true);
             self.reserved_slots
                 .borrow_mut()
                 .retain(|it| it.desc != desc);
@@ -232,6 +234,7 @@ impl StackVals {
 mod tests {
     use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::stack::StackVals;
+    use crate::codegen::CompileTarget;
 
     #[test]
     fn find_relative_to_bp() {
@@ -239,11 +242,12 @@ mod tests {
 
         let stack = StackVals::new();
         let backend = BackendNasmi386::new(false);
+        let target = CompileTarget::Nasmi36;
         assert_eq!(1, stack.reserve_local_val("val1"));
-        stack.reserve_return_register(&backend, &mut out);
+        stack.reserve_return_register(&target, &mut out);
         assert_eq!(2, stack.reserve_local_val("val2"));
         let backend = BackendNasmi386::new(false);
-        stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register");
+        stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register", &target);
         assert_eq!(3, stack.reserve_local_val("ref1"));
         assert_eq!(6, stack.reserve_local_space("spc", 3));
         assert_eq!(7, stack.reserve_local_val("val3"));
