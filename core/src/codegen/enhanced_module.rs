@@ -1,5 +1,5 @@
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
-use crate::codegen::CompileTarget;
 use log::debug;
 use std::collections::HashSet;
 

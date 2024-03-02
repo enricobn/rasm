@@ -9,12 +9,13 @@ use linked_hash_map::LinkedHashMap;
 use log::info;
 use pad::PadStr;
 
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CompileTarget, TypedValKind};
+use crate::codegen::{get_reference_type_name, TypedValKind};
 use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references,

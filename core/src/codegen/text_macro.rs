@@ -9,9 +9,10 @@ use log::debug;
 use regex::Regex;
 
 use crate::codegen::backend::{Backend, BackendAsm};
+use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CompileTarget};
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
@@ -1432,12 +1433,12 @@ impl PrintRefMacro {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::compile_target::CompileTarget;
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::CompileTarget;
     use crate::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
         BuiltinTypeKind,

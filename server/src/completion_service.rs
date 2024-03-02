@@ -20,6 +20,7 @@ use std::io;
 use std::ops::Deref;
 
 use rasm_core::codegen::backend::Backend;
+use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
@@ -149,8 +150,18 @@ impl CompletionService {
         module: &EnhancedASTModule,
         statics: &mut Statics,
         backend: &dyn Backend,
+        target: &CompileTarget,
     ) -> Result<Self, CompilationError> {
-        let typed_module = get_typed_module(backend, module.clone(), false, true, false, statics)?;
+        let typed_module = get_typed_module(
+            backend,
+            module.clone(),
+            false,
+            true,
+            false,
+            statics,
+            target,
+            false,
+        )?;
 
         let mut completable_items = Vec::new();
 
@@ -503,9 +514,9 @@ mod tests {
     use env_logger::Builder;
 
     use rasm_core::codegen::backend::BackendNasmi386;
+    use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::CompileTarget;
     use rasm_core::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
         ASTType, BuiltinTypeKind,
@@ -604,7 +615,7 @@ mod tests {
         assert!(errors.is_empty());
 
         (
-            CompletionService::new(&module, &mut statics, &backend).unwrap(),
+            CompletionService::new(&module, &mut statics, &backend, &target).unwrap(),
             module,
         )
     }

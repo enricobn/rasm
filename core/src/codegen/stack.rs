@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use crate::codegen::backend::BackendAsm;
-use crate::codegen::CompileTarget;
+use crate::codegen::compile_target::CompileTarget;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StackEntryType {
@@ -233,8 +233,8 @@ impl StackVals {
 #[cfg(test)]
 mod tests {
     use crate::codegen::backend::BackendNasmi386;
+    use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::stack::StackVals;
-    use crate::codegen::CompileTarget;
 
     #[test]
     fn find_relative_to_bp() {

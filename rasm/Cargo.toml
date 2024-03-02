@@ -11,6 +11,7 @@ chrono.workspace = true
 log.workspace = true
 # local deps
 rasm-core.workspace = true
+rasm-server.workspace = true
 
 [dev-dependencies]
 rand.workspace = true

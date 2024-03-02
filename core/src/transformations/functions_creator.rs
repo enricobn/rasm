@@ -3,9 +3,9 @@ use std::ops::Deref;
 use log::debug;
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::CompileTarget;
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTIndex, ASTModifiers, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef,
@@ -59,7 +59,7 @@ pub trait FunctionsCreator {
                 index: ASTIndex::none(),
             };
             let return_type = ast_type;
-            let body_str = self.struct_constructor_body(struct_def, statics, &module);
+            let body_str = self.struct_constructor_body(struct_def);
             let body = ASTFunctionBody::NativeBody(body_str);
 
             let parameters = struct_def
@@ -609,12 +609,7 @@ pub trait FunctionsCreator {
         statics: &mut Statics,
     );
 
-    fn struct_constructor_body(
-        &self,
-        struct_def: &ASTStructDef,
-        statics: &mut Statics,
-        module: &ASTModule,
-    ) -> String;
+    fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
 
     fn struct_property_body(&self, i: usize) -> String;
 
@@ -865,12 +860,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         }
     }
 
-    fn struct_constructor_body(
-        &self,
-        struct_def: &ASTStructDef,
-        statics: &mut Statics,
-        module: &ASTModule,
-    ) -> String {
+    fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
         let mut body = String::new();

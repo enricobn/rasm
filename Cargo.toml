@@ -1,6 +1,5 @@
 [workspace]
 members = ["core", "rasm", "server"]
-default-members = ["core", "rasm"]
 resolver = "2"
 
 [workspace.package]
@@ -10,6 +9,7 @@ license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
 rasm-core = { path = "./core" }
+rasm-server = { path = "./server" }
 
 auto_impl = "1.1.0"
 backtrace = "0.3"
@@ -28,7 +28,7 @@ pathdiff = "0.2"
 rand = "0.8"
 rayon = "1.7.0"
 regex = "1.10.2"
-rust-embed="8.0"
+rust-embed = "8.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
 strum = "0.24"

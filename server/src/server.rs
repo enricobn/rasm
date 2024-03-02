@@ -1,3 +1,21 @@
+/*
+ *     RASM compiler.
+ *     Copyright (C) 2022-2023  Enrico Benedetti
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     (at your option) any later version.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public License
+ *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
@@ -12,52 +30,35 @@ use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
+use crate::reference_finder::ReferenceFinder;
 use rasm_core::codegen::backend::{Backend, BackendNasmi386};
+use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::CompileTarget;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
 use rasm_core::parser::ast::ASTIndex;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::type_check_error::TypeCheckError;
-use rasm_server::reference_finder::ReferenceFinder;
 
-#[tokio::main]
-async fn main() {
+pub fn rasm_server(project: RasmProject) {
     //init_log();
     // initialize tracing
-    tracing_subscriber::fmt::init();
+    //tracing_subscriber::fmt::init();
 
-    let command = Command::new("RASM server")
-        .version("0.1.0-alpha.0")
-        .arg(
-            Arg::new("PROJECT")
-                .help("Sets the project root")
-                .required(true)
-                .index(1),
-        )
-        .arg(
-            Arg::new("MODULE")
-                .help("Sets the input file")
-                .required(true)
-                .index(1),
-        )
-        .arg(
-            Arg::new("message-format")
-                .help("for vscode")
-                .long("message-format")
-                .required(false),
-        );
-
-    let matches = command.get_matches();
-
-    let project = Path::new(&get_project(&matches)).to_path_buf();
-    let module_file = Path::new(&get_module(&matches)).to_path_buf();
     info!("starting server for {:?}", project);
 
-    let mut backend = BackendNasmi386::new(false);
-    let server_state = ServerState::new(project, module_file).unwrap();
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            run_server(project).await;
+        })
+}
+
+async fn run_server(project: RasmProject) {
+    let server_state = ServerState::new(project).unwrap();
 
     let app_state = Arc::new(server_state);
 
@@ -83,28 +84,24 @@ struct FileQueryParams {
 }
 
 struct ServerState {
-    src: PathBuf,
-    finder: ReferenceFinder,
+    enhanced_modules: EnhancedASTModule,
+    project: RasmProject,
 }
 
 impl ServerState {
-    fn new(project_folder: PathBuf, module_path: PathBuf) -> Result<Self, TypeCheckError> {
-        let project = RasmProject::new(project_folder.clone());
-
+    fn new(project: RasmProject) -> Result<Self, TypeCheckError> {
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi36;
         let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
 
         // TODO errors
 
-        let enhanced_astmodule =
+        let enhanced_ast_module =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
-        let (module, errors) = project.get_module(module_path.as_path(), &target).unwrap();
-        let finder = ReferenceFinder::new(&enhanced_astmodule, &module)?;
         Ok(Self {
-            src: project_folder,
-            finder,
+            enhanced_modules: enhanced_ast_module,
+            project,
         })
     }
 }
@@ -114,7 +111,7 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let mut html = String::new();
 
-    let project = RasmProject::new(state.src.clone());
+    let project = &state.project;
 
     let root_file = project
         .relative_to_root_src(
@@ -175,9 +172,22 @@ async fn file<'a>(
     let src = src.src.clone();
     info!("start rendering {}", src);
 
-    let project = RasmProject::new(state.src.clone());
+    let project = &state.project;
 
-    let file_path = project.from_relative_to_root(Path::new(&src));
+    let file_path = project
+        .from_relative_to_main_src(Path::new(&src))
+        .canonicalize()
+        .unwrap();
+
+    let finder = ReferenceFinder::new(
+        &state.enhanced_modules,
+        &state
+            .project
+            .get_module(file_path.as_path(), &CompileTarget::Nasmi36)
+            .unwrap()
+            .0,
+    )
+    .unwrap();
 
     let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();
@@ -200,7 +210,7 @@ async fn file<'a>(
                 row: it.row,
                 column: it.column,
             };
-            let vec = state.finder.find(&index).unwrap();
+            let vec = finder.find(&index).unwrap();
             let name = format!("_{}_{}", it.row, it.column);
             if vec.len() > 0 {
                 if let Some(file_name) = &vec.first().cloned().and_then(|it| it.point_to.file_name)
@@ -283,8 +293,4 @@ fn token_to_string(token: &Token) -> String {
 
 fn get_project(matches: &ArgMatches) -> String {
     matches.get_one::<String>("PROJECT").unwrap().to_owned()
-}
-
-fn get_module(matches: &ArgMatches) -> String {
-    matches.get_one::<String>("MODULE").unwrap().to_owned()
 }

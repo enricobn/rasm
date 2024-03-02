@@ -6,11 +6,12 @@ use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 
 use crate::codegen::backend::Backend;
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
-use crate::codegen::{CompileTarget, TypedValKind};
+use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};

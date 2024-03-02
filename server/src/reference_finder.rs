@@ -837,9 +837,9 @@ mod tests {
     use env_logger::Builder;
 
     use rasm_core::codegen::backend::BackendNasmi386;
+    use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::CompileTarget;
     use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};

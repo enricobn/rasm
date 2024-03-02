@@ -60,7 +60,7 @@ impl ValContext {
         );
         self.let_index += 1;
         if result.is_some() {
-            Err(format!("already added {key}: {}", ast_index))
+            Err(format!("already defined {key}: {}", ast_index))
         } else {
             Ok(result)
         }

@@ -974,6 +974,7 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "rasm-core",
+ "rasm-server",
  "tempdir",
  "test-log",
  "test_bin",

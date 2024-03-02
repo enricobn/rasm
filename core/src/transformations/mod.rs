@@ -1,5 +1,5 @@
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
-use crate::codegen::CompileTarget;
 use crate::parser::ast::ASTModule;
 use crate::transformations::functions_creator::FunctionsCreator;
 

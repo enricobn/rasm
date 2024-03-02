@@ -22,6 +22,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::codegen::compile_target::CompileTarget;
 use log::info;
 use pathdiff::diff_paths;
 use rayon::prelude::*;
@@ -31,8 +32,8 @@ use toml::map::Map;
 use toml::{Table, Value};
 use walkdir::WalkDir;
 
+use crate::codegen::get_std_lib_path;
 use crate::codegen::statics::Statics;
-use crate::codegen::{get_std_lib_path, CompileTarget};
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
@@ -189,6 +190,14 @@ impl RasmProject {
             self.root.join(path)
         } else {
             self.root.parent().unwrap().join(path)
+        }
+    }
+
+    pub fn from_relative_to_main_src(&self, path: &Path) -> PathBuf {
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            self.main_rasm_source_folder().join(path)
         }
     }
 

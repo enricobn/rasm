@@ -13,6 +13,7 @@ use rasm_core::codegen::CodeGenOptions;
 use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
+use rasm_server::server::rasm_server;
 
 use crate::compiler::Compiler;
 
@@ -41,7 +42,7 @@ fn main() {
             Arg::new("ACTION")
                 .help("The action to perform, that can be: build, run, test")
                 .required(true)
-                .value_parser(["build", "run", "test"])
+                .value_parser(["build", "run", "test", "server"])
                 .index(1),
         )
         .arg(
@@ -109,27 +110,31 @@ fn main() {
 
     let project = RasmProject::new(src_path.to_path_buf());
 
-    debug_i!("project {:?}", project);
+    if action == "server" {
+        rasm_server(project);
+    } else {
+        debug_i!("project {:?}", project);
 
-    let resource_folder = project.main_resource_folder();
-    info!("resource folder: {:?}", resource_folder);
+        let resource_folder = project.main_resource_folder();
+        info!("resource folder: {:?}", resource_folder);
 
-    let debug = matches.get_flag("debug");
-    let print_memory = matches.get_flag("memoryinfo");
-    let print_code = matches.get_flag("printcode");
+        let debug = matches.get_flag("debug");
+        let print_memory = matches.get_flag("memoryinfo");
+        let print_code = matches.get_flag("printcode");
 
-    let compiler = Compiler::new(
-        project,
-        matches.get_one::<String>("out"),
-        action == "test",
-        CodeGenOptions {
-            debug,
-            print_memory,
-            print_module: print_code,
-            ..CodeGenOptions::default()
-        },
-    );
-    compiler.compile(matches.get_flag("compile"));
+        let compiler = Compiler::new(
+            project,
+            matches.get_one::<String>("out"),
+            action == "test",
+            CodeGenOptions {
+                debug,
+                print_memory,
+                print_module: print_code,
+                ..CodeGenOptions::default()
+            },
+        );
+        compiler.compile(matches.get_flag("compile"));
 
-    info!("finished in {:?}", start.elapsed());
+        info!("finished in {:?}", start.elapsed());
+    }
 }

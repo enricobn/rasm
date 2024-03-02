@@ -3,11 +3,12 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::BackendAsm;
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::val_context::TypedValContext;
-use crate::codegen::{get_reference_type_name, CompileTarget, TypedValKind};
+use crate::codegen::{get_reference_type_name, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -752,12 +753,6 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
     /// * `immediate`: if true the result is not pushed on the stack, but moved to eax
     ///
     /// returns: FunctionCallParameters
-    ///
-    /// # Examples
-    ///
-    /// ```
-    ///
-    /// ```
     pub fn new(
         backend: &'a dyn BackendAsm,
         parameters: Vec<ASTTypedParameterDef>,

@@ -21,13 +21,14 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 use std::ops::Deref;
 
+use crate::codegen::compile_target::CompileTarget;
 use log::{debug, info};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
 use crate::codegen::val_context::ValContext;
-use crate::codegen::{CompileTarget, ValKind};
+use crate::codegen::ValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
@@ -1035,7 +1036,11 @@ impl TypeCheck {
                         if *is_cons {
                             statics.add_const(name.clone(), ast_type);
                         } else {
-                            val_context.insert_let(name.clone(), ast_type, index);
+                            val_context
+                                .insert_let(name.clone(), ast_type, index)
+                                .map_err(|it| {
+                                    TypeCheckError::new(index.clone(), it, self.stack.clone())
+                                })?;
                         }
                     } else {
                         dedent!();
@@ -1209,7 +1214,11 @@ impl TypeCheck {
                                     self.stack.clone(),
                                 ));
                             } else {
-                                lambda_val_context.insert_let(name.clone(), ast_type, index);
+                                lambda_val_context
+                                    .insert_let(name.clone(), ast_type, index)
+                                    .map_err(|it| {
+                                        TypeCheckError::new(index.clone(), it, self.stack.clone())
+                                    })?;
                             }
                         } else {
                             dedent!();
@@ -1349,9 +1358,9 @@ mod tests {
     use env_logger::Builder;
 
     use crate::codegen::backend::BackendNasmi386;
+    use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::CompileTarget;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;

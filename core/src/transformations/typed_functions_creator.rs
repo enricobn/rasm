@@ -3,9 +3,10 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
+use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CompileTarget};
 use crate::parser::ast::{ASTIndex, ASTNameSpace};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,

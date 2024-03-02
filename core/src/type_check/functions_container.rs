@@ -829,9 +829,9 @@ impl FunctionsContainer {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::CompileTarget;
     use crate::parser::ast::ASTFunctionBody::NativeBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
