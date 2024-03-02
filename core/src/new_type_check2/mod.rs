@@ -23,12 +23,11 @@ use std::ops::Deref;
 
 use log::{debug, info};
 
-use crate::codegen::backend::Backend;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
 use crate::codegen::val_context::ValContext;
-use crate::codegen::ValKind;
+use crate::codegen::{CompileTarget, ValKind};
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
@@ -74,10 +73,11 @@ impl TypeCheck {
     pub fn type_check(
         mut self,
         module: &EnhancedASTModule,
-        backend: &dyn Backend,
         statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
+        target: &CompileTarget,
+        debug: bool,
     ) -> Result<OutputModule, CompilationError> {
         let mut val_context = ValContext::new(None);
 
@@ -152,7 +152,7 @@ impl TypeCheck {
                     .clone();
 
                 if let Some(new_body) = self
-                    .transform_function(module, statics, &function, backend)
+                    .transform_function(module, statics, &function, target, debug)
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
@@ -838,7 +838,8 @@ impl TypeCheck {
         module: &InputModule,
         statics: &mut Statics,
         new_function_def: &ASTFunctionDef,
-        backend: &dyn Backend,
+        target: &CompileTarget,
+        debug: bool,
     ) -> Result<Option<ASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
@@ -876,10 +877,10 @@ impl TypeCheck {
             ASTFunctionBody::NativeBody(asm_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
 
-                let evaluator = backend.get_evaluator();
+                let evaluator = target.get_evaluator(debug);
                 let text_macro_names = evaluator
                     .get_macros(
-                        backend,
+                        target,
                         None,
                         Some(new_function_def),
                         asm_body,
@@ -927,7 +928,7 @@ impl TypeCheck {
                     }
                 }
 
-                let called_functions = backend
+                let called_functions = target
                     .called_functions(
                         None,
                         Some(new_function_def),
@@ -935,6 +936,7 @@ impl TypeCheck {
                         &val_context,
                         &type_def_provider,
                         statics,
+                        debug,
                     )
                     .map_err(|it| {
                         dedent!();
@@ -1611,7 +1613,8 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let mut backend = BackendNasmi386::new(false);
+        let backend = BackendNasmi386::new(false);
+        let target = CompileTarget::Nasmi36;
         let mut statics = Statics::new();
 
         let (modules, _errors) =
@@ -1638,6 +1641,8 @@ mod tests {
             &mut statics,
             true,
             default_functions,
+            &target,
+            false,
         );
 
         //print_typed_module(&typed_module.0);

@@ -113,7 +113,7 @@ impl TextMacroEvaluator {
 
     pub fn translate(
         &self,
-        backend: &dyn Backend,
+        target: &CompileTarget,
         statics: &mut Statics,
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
@@ -132,7 +132,7 @@ impl TextMacroEvaluator {
         let lines = body.lines();
 
         for (i, s) in lines.enumerate() {
-            let stripped_comments = backend.remove_comments_from_line(s.to_string());
+            let stripped_comments = target.remove_comments_from_line(s.to_string());
             let matches = RE.captures_iter(&stripped_comments);
 
             let mut line_result = s.to_string();
@@ -586,7 +586,7 @@ impl TextMacroEvaluator {
 
     pub fn get_macros(
         &self,
-        backend: &dyn Backend,
+        target: &CompileTarget,
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
         body: &str,
@@ -602,7 +602,7 @@ impl TextMacroEvaluator {
         let lines = body.lines();
 
         for (i, s) in lines.enumerate() {
-            let stripped_comments = backend.remove_comments_from_line(s.to_string());
+            let stripped_comments = target.remove_comments_from_line(s.to_string());
             let matches = RE.captures_iter(&stripped_comments);
 
             for cap in matches {
@@ -1434,10 +1434,10 @@ impl PrintRefMacro {
 mod tests {
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::backend::{Backend, BackendNasmi386};
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
+    use crate::codegen::CompileTarget;
     use crate::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
         BuiltinTypeKind,
@@ -1461,10 +1461,10 @@ mod tests {
             ],
         };
 
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
-        let result = backend.get_evaluator().eval_macro(
+        let result = target.get_evaluator(false).eval_macro(
             &mut statics,
             &text_macro,
             None,
@@ -1481,13 +1481,13 @@ mod tests {
 
     #[test]
     fn translate() {
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
-        let result = backend
-            .get_evaluator()
+        let result = target
+            .get_evaluator(false)
             .translate(
-                &backend,
+                &target,
                 &mut statics,
                 None,
                 None,
@@ -1506,13 +1506,13 @@ mod tests {
 
     #[test]
     fn parse_string_par() {
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
-        let result = backend
-            .get_evaluator()
+        let result = target
+            .get_evaluator(false)
             .translate(
-                &backend,
+                &target,
                 &mut statics,
                 None,
                 None,
@@ -1536,7 +1536,7 @@ mod tests {
 
     #[test]
     fn parse_ref_par() {
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
@@ -1555,10 +1555,10 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = backend
-            .get_evaluator()
+        let result = target
+            .get_evaluator(false)
             .translate(
-                &backend,
+                &target,
                 &mut statics,
                 Some(&function_def),
                 None,
@@ -1577,7 +1577,7 @@ mod tests {
 
     #[test]
     fn parse_ref_par_c() {
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
@@ -1596,10 +1596,10 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = backend
-            .get_evaluator()
+        let result = target
+            .get_evaluator(false)
             .translate(
-                &backend,
+                &target,
                 &mut statics,
                 Some(&function_def),
                 None,
@@ -1618,13 +1618,13 @@ mod tests {
 
     #[test]
     fn test() {
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
-        let result = backend
-            .get_evaluator()
+        let result = target
+            .get_evaluator(false)
             .translate(
-                &backend,
+                &target,
                 &mut statics,
                 None,
                 None,
@@ -1640,7 +1640,7 @@ mod tests {
 
     #[test]
     fn test_get_macros() {
-        let backend = backend();
+        let target = target();
 
         let function_def = ASTTypedFunctionDef {
             namespace: test_namespace(),
@@ -1658,10 +1658,10 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let macros = backend
-            .get_evaluator()
+        let macros = target
+            .get_evaluator(false)
             .get_macros(
-                &backend,
+                &target,
                 Some(&function_def),
                 None,
                 "$call(slen, $s)",
@@ -1681,13 +1681,13 @@ mod tests {
     #[test]
     #[ignore]
     fn translate_typed() {
-        let backend = backend();
+        let target = target();
         let mut statics = Statics::new();
 
-        let result = backend
-            .get_evaluator()
+        let result = target
+            .get_evaluator(false)
             .translate(
-                &backend,
+                &target,
                 &mut statics,
                 None,
                 None,
@@ -1706,7 +1706,7 @@ mod tests {
 
     #[test]
     fn translate_ref_to_par_overridden() {
-        let backend = backend();
+        let target = target();
 
         let function_def = ASTFunctionDef {
             name: "aFun".into(),
@@ -1727,8 +1727,8 @@ mod tests {
             rank: 0,
         };
 
-        let result = backend.get_evaluator().get_macros(
-            &backend,
+        let result = target.get_evaluator(false).get_macros(
+            &target,
             None,
             Some(&function_def),
             "$call(List_0_addRef,$s:i32)",
@@ -1763,7 +1763,7 @@ mod tests {
         }
     }
 
-    fn backend() -> BackendNasmi386 {
-        BackendNasmi386::new(false)
+    fn target() -> CompileTarget {
+        CompileTarget::Nasmi36
     }
 }

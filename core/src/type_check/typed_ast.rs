@@ -10,7 +10,7 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
-use crate::codegen::TypedValKind;
+use crate::codegen::{CompileTarget, TypedValKind};
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
@@ -777,6 +777,8 @@ pub fn convert_to_typed_module(
     statics: &mut Statics,
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
+    target: &CompileTarget,
+    debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
     let type_check = TypeCheck::new(&original_module.body_namespace, true);
 
@@ -784,10 +786,11 @@ pub fn convert_to_typed_module(
 
     let module = type_check.type_check(
         original_module,
-        backend,
         statics,
         default_functions,
         mandatory_functions,
+        target,
+        debug,
     )?;
 
     let mut conv_context = ConvContext::new(&module);
@@ -830,7 +833,7 @@ pub fn convert_to_typed_module(
         );
     }
 
-    let evaluator = backend.get_evaluator();
+    let evaluator = target.get_evaluator(debug);
 
     for (_name, function) in functions_by_name.iter_mut() {
         match &function.body {
@@ -838,7 +841,7 @@ pub fn convert_to_typed_module(
             ASTTypedFunctionBody::NativeBody(body) => {
                 let new_body = evaluator
                     .translate(
-                        backend,
+                        target,
                         statics,
                         Some(function),
                         None,
@@ -883,7 +886,7 @@ pub fn convert_to_typed_module(
                         })?;
                 }
 
-                backend
+                target
                     .called_functions(
                         Some(function),
                         None,
@@ -891,6 +894,7 @@ pub fn convert_to_typed_module(
                         &val_context,
                         &conv_context,
                         statics,
+                        debug,
                     )
                     .map_err(|err| CompilationError {
                         index: function.index.clone(),
@@ -933,7 +937,7 @@ pub fn convert_to_typed_module(
 
                 let new_body = evaluator
                     .translate(
-                        backend,
+                        target,
                         statics,
                         Some(function),
                         None,

@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use crate::codegen::backend::{Backend, BackendAsm};
+use crate::codegen::backend::BackendAsm;
 use crate::codegen::CompileTarget;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -241,7 +241,6 @@ mod tests {
         let mut out = String::new();
 
         let stack = StackVals::new();
-        let backend = BackendNasmi386::new(false);
         let target = CompileTarget::Nasmi36;
         assert_eq!(1, stack.reserve_local_val("val1"));
         stack.reserve_return_register(&target, &mut out);

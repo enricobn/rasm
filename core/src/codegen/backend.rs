@@ -6,31 +6,22 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, info};
+use log::info;
 use pad::PadStr;
 
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
-use crate::codegen::text_macro::{
-    AddRefMacro, CCallTextMacroEvaluator, CallTextMacroEvaluator, MacroParam, PrintRefMacro,
-    TextMacro, TextMacroEval, TextMacroEvaluator,
-};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::ValContext;
-use crate::codegen::{get_reference_type_name, CompileTarget, TypedValKind, ValKind};
-use crate::debug_i;
-use crate::parser::ast::{
-    ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind, ValueType,
-};
+use crate::codegen::{get_reference_type_name, CompileTarget, TypedValKind};
+use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
 use crate::transformations::typed_functions_creator::{
-    enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
-    TypedFunctionsCreatorNasmi386,
+    enum_has_references, struct_has_references, type_has_references,
 };
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
-    BuiltinTypedTypeKind, DefaultFunctionCall,
+    BuiltinTypedTypeKind,
 };
 
 static COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -54,25 +45,6 @@ pub trait Backend: Send + Sync {
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
     fn preamble(&self, code: &mut String, externals: &HashSet<String>);
-
-    /// Returns the name of the functions called in the code
-    ///
-    /// # Arguments
-    ///
-    /// * `body`: the code to scan for function calls
-    ///
-    /// returns: Vec<String>
-    fn called_functions(
-        &self,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
-        body: &str,
-        context: &ValContext,
-        type_def_provider: &dyn TypeDefProvider,
-        statics: &mut Statics,
-    ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String>;
-
-    fn remove_comments_from_line(&self, line: String) -> String;
 
     fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32);
 
@@ -171,8 +143,6 @@ pub trait Backend: Send + Sync {
         add_ref_function: &str,
         deref_function: &str,
     );
-
-    fn get_evaluator(&self) -> TextMacroEvaluator;
 
     fn define_debug(&self, out: &mut String);
 }
@@ -498,131 +468,6 @@ impl Backend for BackendNasmi386 {
 
         for e in externals.iter() {
             self.target.add(code, &format!("extern {e}"), None, true);
-        }
-    }
-
-    /// Returns the name of the functions called in the code
-    ///
-    /// # Arguments
-    ///
-    /// * `body`: the code to scan for function calls
-    ///
-    /// returns: Vec<String>
-    fn called_functions(
-        &self,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
-        body: &str,
-        context: &ValContext,
-        type_def_provider: &dyn TypeDefProvider,
-        _statics: &mut Statics,
-    ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
-        let mut result = Vec::new();
-
-        // TODO I don't like to create it
-        let evaluator = self.get_evaluator();
-
-        for (m, i) in evaluator.get_macros(
-            self,
-            typed_function_def,
-            function_def,
-            body,
-            type_def_provider,
-        )? {
-            if m.name == "call" {
-                debug_i!("found call macro {m}");
-                let types: Vec<ASTType> = m
-                    .parameters
-                    .iter()
-                    .skip(1)
-                    .map(|it| {
-                        let ast_type = match it {
-                            MacroParam::Plain(_, opt_type, _) => match opt_type {
-                                None => ASTType::Builtin(BuiltinTypeKind::I32),
-                                Some(ast_type) => ast_type.clone(),
-                            },
-                            MacroParam::StringLiteral(_) => {
-                                ASTType::Builtin(BuiltinTypeKind::String)
-                            }
-                            MacroParam::Ref(name, None, _) => {
-                                debug_i!("found ref {name}");
-                                match context.get(name.strip_prefix('$').unwrap()).unwrap() {
-                                    ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                                    ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
-                                }
-                            }
-                            MacroParam::Ref(name, Some(ast_type), _) => {
-                                debug_i!("found ref {name} : {ast_type}");
-                                ast_type.clone()
-                            }
-                        };
-
-                        match &ast_type {
-                            ASTType::Generic(name) => {
-                                if let Some(f) = typed_function_def {
-                                    let t = type_def_provider
-                                        .get_type_from_custom_typed_type(
-                                            f.generic_types.get(name).unwrap(),
-                                        )
-                                        .unwrap();
-                                    debug_i!("Function specified, found type {:?} for {name}", t);
-                                    Ok(t)
-                                } else {
-                                    debug_i!("Function not specified, cannot find type {name}");
-                                    Ok(ast_type.clone())
-                                }
-                            }
-                            ASTType::Custom {
-                                namespace: _,
-                                name,
-                                param_types: _,
-                                index: _,
-                            } => {
-                                let result = if let Some(f) = typed_function_def {
-                                    if let Some(t) = f.generic_types.get(name) {
-                                        type_def_provider
-                                            .get_type_from_typed_type(t)
-                                            .ok_or(format!("name {name} t {t}"))
-                                    } else if let Some(t) =
-                                        type_def_provider.get_type_from_typed_type_name(name)
-                                    {
-                                        Ok(t)
-                                    } else {
-                                        Ok(ast_type.clone())
-                                    }
-                                } else {
-                                    Ok(ast_type.clone())
-                                };
-
-                                result
-                            }
-                            _ => Ok(ast_type),
-                        }
-                    })
-                    .collect::<Result<Vec<ASTType>, String>>()?;
-
-                let function_name =
-                    if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
-                        function_name
-                    } else {
-                        return Err(format!("Cannot find function : {i}"));
-                    };
-
-                result.push((m.clone(), DefaultFunctionCall::new(function_name, types, i)));
-            }
-        }
-        Ok(result)
-    }
-
-    fn remove_comments_from_line(&self, line: String) -> String {
-        if let Some(pos) = line.find(';') {
-            if pos > 0 {
-                line.split_at(pos).0.to_string()
-            } else {
-                String::new()
-            }
-        } else {
-            line
         }
     }
 
@@ -1372,28 +1217,6 @@ impl Backend for BackendNasmi386 {
         );
     }
 
-    fn get_evaluator(&self) -> TextMacroEvaluator {
-        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
-
-        let call_text_macro_evaluator = CallTextMacroEvaluator::new(Box::new(self.clone()));
-        evaluators.insert("call".into(), Box::new(call_text_macro_evaluator));
-
-        let c_call_text_macro_evaluator = CCallTextMacroEvaluator::new(Box::new(self.clone()));
-        evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
-        evaluators.insert(
-            "addRef".into(),
-            Box::new(AddRefMacro::new(Box::new(self.clone()), false)),
-        );
-        evaluators.insert(
-            "deref".into(),
-            Box::new(AddRefMacro::new(Box::new(self.clone()), true)),
-        );
-        let print_ref_macro = PrintRefMacro::new(Box::new(self.clone()), self.target.clone());
-        evaluators.insert("printRef".into(), Box::new(print_ref_macro));
-
-        TextMacroEvaluator::new(evaluators)
-    }
-
     fn define_debug(&self, out: &mut String) {
         self.target.add(out, "%define LOG_DEBUG 1", None, false);
     }
@@ -1450,72 +1273,5 @@ impl BackendAsm for BackendNasmi386 {
 
     fn return_register(&self) -> &str {
         "eax"
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::codegen::backend::{Backend, BackendNasmi386};
-    use crate::codegen::statics::Statics;
-    use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::val_context::ValContext;
-
-    #[test]
-    fn called_functions() {
-        let sut = BackendNasmi386::new(false);
-        let mut statics = Statics::new();
-
-        assert_eq!(
-            sut.called_functions(
-                None,
-                None,
-                "$call(something)",
-                &ValContext::new(None),
-                &DummyTypeDefProvider::new(),
-                &mut statics
-            )
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .1
-            .name,
-            "something".to_string()
-        );
-    }
-
-    #[test]
-    fn called_functions_in_comment() {
-        let sut = BackendNasmi386::new(false);
-        let mut statics = Statics::new();
-
-        assert!(sut
-            .called_functions(
-                None,
-                None,
-                "mov    eax, 1; $call(something)",
-                &ValContext::new(None),
-                &DummyTypeDefProvider::new(),
-                &mut statics
-            )
-            .unwrap()
-            .is_empty());
-    }
-
-    #[test]
-    fn called_functions_external() {
-        let sut = BackendNasmi386::new(false);
-        let mut statics = Statics::new();
-
-        assert!(sut
-            .called_functions(
-                None,
-                None,
-                "call something",
-                &ValContext::new(None),
-                &DummyTypeDefProvider::new(),
-                &mut statics
-            )
-            .unwrap()
-            .is_empty());
     }
 }

@@ -829,7 +829,6 @@ impl FunctionsContainer {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::CompileTarget;
@@ -1004,8 +1003,6 @@ mod tests {
             },
             from_file: false,
         };
-
-        let backend = BackendNasmi386::new(false);
 
         let mut statics = Statics::new();
 

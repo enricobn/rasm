@@ -1,4 +1,3 @@
-use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::CompileTarget;
 use log::debug;

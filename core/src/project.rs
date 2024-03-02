@@ -31,7 +31,6 @@ use toml::map::Map;
 use toml::{Table, Value};
 use walkdir::WalkDir;
 
-use crate::codegen::backend::Backend;
 use crate::codegen::statics::Statics;
 use crate::codegen::{get_std_lib_path, CompileTarget};
 use crate::errors::{CompilationError, CompilationErrorKind};

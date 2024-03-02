@@ -5,7 +5,6 @@ use crate::transformations::functions_creator::FunctionsCreator;
 
 pub mod functions_creator;
 pub mod globals_creator;
-pub mod str_functions_creator;
 pub mod type_functions_creator;
 pub mod typed_functions_creator;
 
