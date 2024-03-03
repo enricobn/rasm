@@ -297,11 +297,6 @@ impl Lexer {
                         }
                     } else if actual.starts_with("/*") {
                         if actual.ends_with("*/") {
-                            if c == '\n' {
-                                self.row += 1;
-                                self.column = 0;
-                            }
-                            self.index += 1;
                             //self.chars.next_back();
                             return self.some_token(TokenKind::MultiLineComment(actual));
                         } else if c == '\n' {

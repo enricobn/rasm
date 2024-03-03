@@ -31,13 +31,11 @@ use serde::Deserialize;
 use walkdir::WalkDir;
 
 use crate::reference_finder::ReferenceFinder;
-use rasm_core::codegen::backend::{Backend, BackendNasmi386};
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_core::lexer::Lexer;
-use rasm_core::parser::ast::ASTIndex;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 
@@ -196,23 +194,29 @@ async fn file<'a>(
         let mut html = format!("<b>{src}</b></br></br>");
         html.push_str("<pre>\n");
 
-        let source_file = file_path.to_str().unwrap().to_owned();
-
         let lexer = Lexer::new(s, Some(file_path.clone()));
 
         // TODO errors
 
         let (tokens, errors_) = lexer.process();
 
+        let mut row = 0;
+        let mut last_is_multiline = false;
+
         tokens.into_iter().for_each(|it| {
-            let index = ASTIndex {
-                file_name: Some(file_path.to_path_buf()),
-                row: it.row,
-                column: it.column,
-            };
+            // mv_left because the index of the token is at the end of the token itself, hence outside the text of the token...
+            let index = it.index().mv_left(1);
+            if row != index.row {
+                row = index.row;
+                if !(is_multiline(&it)
+                    || last_is_multiline && matches!(it.kind, TokenKind::EndOfLine))
+                {
+                    html.push_str(&format!("{: >6} ", row));
+                }
+            }
             let vec = finder.find(&index).unwrap();
             let name = format!("_{}_{}", it.row, it.column);
-            if vec.len() > 0 {
+            if !vec.is_empty() {
                 if let Some(file_name) = &vec.first().cloned().and_then(|it| it.point_to.file_name)
                 {
                     let ref_name = format!(
@@ -225,19 +229,26 @@ async fn file<'a>(
                         vec.first().unwrap().point_to.row,
                         vec.first().unwrap().point_to.column
                     );
-                    html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
+                    html.push_str(&format!("<!-- {} {},{} -->", it.kind, it.row, it.column));
                     html.push_str(&format!(
                         "<A HREF=\"{ref_name}\" NAME={name}>{}</A>",
-                        token_to_string(&it)
+                        token_to_string(&it, &mut row)
                     ));
                 } else {
                     html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
-                    html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it)));
+                    html.push_str(&format!(
+                        "<A NAME={name}>{}</A>",
+                        token_to_string(&it, &mut row)
+                    ));
                 }
             } else {
                 html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
-                html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it)));
+                html.push_str(&format!(
+                    "<A NAME={name}>{}</A>",
+                    token_to_string(&it, &mut row)
+                ));
             }
+            last_is_multiline = is_multiline(&it);
         });
         html.push_str("</pre>\n");
         Html(html)
@@ -248,10 +259,21 @@ async fn file<'a>(
     result
 }
 
-fn token_to_string(token: &Token) -> String {
+fn is_multiline(token: &Token) -> bool {
+    matches!(token.kind, TokenKind::MultiLineComment(_))
+        || matches!(token.kind, TokenKind::NativeBLock(_))
+}
+
+fn token_to_string(token: &Token, row: &mut usize) -> String {
     match &token.kind {
         TokenKind::AlphaNumeric(s) => s.clone(),
-        TokenKind::NativeBLock(s) => s.clone(),
+        TokenKind::NativeBLock(s) => {
+            let mut new_s = format!("{s}}}/");
+            if new_s.starts_with('\n') {
+                new_s.remove(0);
+            }
+            format!("/{{</br>{}", multiline_to_string(&new_s, row))
+        }
         TokenKind::Bracket(kind, status) => match kind {
             BracketKind::Angle => match status {
                 BracketStatus::Close => "&gt;".to_owned(),
@@ -270,10 +292,8 @@ fn token_to_string(token: &Token) -> String {
                 BracketStatus::Open => "[".to_owned(),
             },
         },
-        TokenKind::Comment(s) => s.to_string(),
-        TokenKind::MultiLineComment(s) => {
-            format!("<pre>{s}</pre>")
-        }
+        TokenKind::Comment(s) => format!("{s}</br>"),
+        TokenKind::MultiLineComment(s) => multiline_to_string(s, row),
         TokenKind::EndOfLine => "</br>".to_owned(),
         TokenKind::KeyWord(keyword) => format!("{:?}", keyword).to_lowercase(),
         TokenKind::Number(n) => n.to_string(),
@@ -289,6 +309,25 @@ fn token_to_string(token: &Token) -> String {
         TokenKind::CharLiteral(c) => format!("'{c}'"),
         TokenKind::WhiteSpaces(s) => s.clone(),
     }
+}
+
+fn multiline_to_string(s: &str, row: &mut usize) -> String {
+    let string = s.to_string();
+    let lines = string.lines().collect::<Vec<_>>();
+    lines
+        .iter()
+        .enumerate()
+        .map(|(index, it)| {
+            let result = if index == lines.len() - 1 {
+                format!("{: >6} {it}", (*row as i32) - lines.len() as i32 + 1)
+            } else {
+                *row += 1;
+                format!("{: >6} {it}</br>", (*row as i32) - lines.len() as i32)
+            };
+
+            result
+        })
+        .collect()
 }
 
 fn get_project(matches: &ArgMatches) -> String {

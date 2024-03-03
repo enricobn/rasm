@@ -74,7 +74,7 @@ pub native print(file: File, n: i32) -> Option<IOError>/{
 
 /**
  * Prints the number to the File specified.
-  **/
+ **/
 pub native print(file: File, n: f32) -> Option<IOError> /{
     push    ebx
     push    ecx
