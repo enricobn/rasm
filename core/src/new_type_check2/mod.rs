@@ -587,11 +587,7 @@ impl TypeCheck {
                 result = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
                         if !valid {
-                            return Err(TypeCheckError::new(
-                                ASTIndex::none(),
-                                "Dummy".to_string(),
-                                Vec::new(),
-                            ));
+                            return Err(TypeCheckError::dummy());
                         }
                         let resolved_count = resolved_generic_types.len();
                         debug_i!("expr {expr}");
@@ -626,6 +622,7 @@ impl TypeCheck {
                         }
                         Ok(e)
                     })
+                    .filter(|it| !it.as_ref().is_err_and(|e| e.is_dummy()))
                     .collect();
                 dedent!();
             }
@@ -635,8 +632,14 @@ impl TypeCheck {
                 .collect::<Result<Vec<_>, TypeCheckError>>();
 
             if let Err(e) = result {
-                errors.push(e.clone());
                 debug_i!("ignored function due to {e}");
+                let error = TypeCheckError::new(
+                    call.index.clone(),
+                    format!("ignoring function {function} : {}", function.index),
+                    Vec::new(),
+                )
+                .add_errors(vec![e]);
+                errors.push(error);
                 dedent!();
                 continue;
             }
@@ -672,9 +675,8 @@ impl TypeCheck {
             Err(TypeCheckError::new(
                 call.index.clone(),
                 format!(
-                    "cannot find a valid function from namespace {namespace} \nfor call {} : {} \nexpected return type {}",
+                    "cannot find a valid function from namespace {namespace} for call {}. Expected return type {}",
                     call.original_function_name,
-                    call.index,
                     OptionDisplay(&expected_return_type)),
                 self.stack.clone(),
             ).add_errors(errors))

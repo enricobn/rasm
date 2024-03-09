@@ -145,6 +145,8 @@ impl ReferenceFinder {
 
         let mut type_check = TypeCheck::new(&enhanced_module.body_namespace, false);
 
+        Self::process_statics(enhanced_module, &mut reference_static_context, &mut statics);
+
         Self::process_statements(
             enhanced_module,
             &module.body,
@@ -187,6 +189,33 @@ impl ReferenceFinder {
         );
 
         Ok(result)
+    }
+
+    fn process_statics(
+        enhanced_module: &EnhancedASTModule,
+        reference_static_context: &mut ReferenceContext,
+        statics: &mut Statics,
+    ) {
+        let mut result = Vec::new();
+        let mut reference_context = ReferenceContext::new(None);
+        let mut val_context = ValContext::new(None);
+        let mut type_check = TypeCheck::new(&ASTNameSpace::global(), false);
+        let mut lookup_tables = ReferenceFinderLookupTables::new();
+
+        let _ = Self::process_statements(
+            enhanced_module,
+            &enhanced_module.body,
+            &mut result,
+            &mut reference_context,
+            reference_static_context,
+            &ASTNameSpace::global(),
+            &mut val_context,
+            statics,
+            &mut lookup_tables,
+            None,
+            None,
+            &mut type_check,
+        );
     }
 
     fn process_function(
@@ -484,6 +513,7 @@ impl ReferenceFinder {
                 Self::process_value_ref(
                     expr,
                     reference_context,
+                    reference_static_context,
                     module,
                     namespace,
                     &mut result,
@@ -514,13 +544,17 @@ impl ReferenceFinder {
     fn process_value_ref(
         expr: &ASTExpression,
         reference_context: &mut ReferenceContext,
+        reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &ASTNameSpace,
         result: &mut Vec<SelectableItem>,
         name: &String,
         index: &ASTIndex,
     ) {
-        if let Some(v) = reference_context.get(name) {
+        if let Some(v) = reference_context
+            .get(name)
+            .or_else(|| reference_static_context.get(name))
+        {
             let ast_type = match &v.filter {
                 TypeFilter::Exact(ast_type) => Some(ast_type.clone()),
                 _ => None,
@@ -792,7 +826,7 @@ impl ReferenceFinder {
                     })
                     .collect::<Vec<_>>();
                 result.append(&mut v);
-                warn!("Cannot find function for call {call}");
+                warn!("Cannot find function for call {call}:\n{e}");
             }
         }
         Ok(())

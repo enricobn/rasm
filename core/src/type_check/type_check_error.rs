@@ -21,39 +21,51 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct TypeCheckError {
+    main: (ASTIndex, String, Vec<ASTIndex>),
     messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,
+    children: Vec<TypeCheckError>,
+    dummy: bool,
 }
 
 impl TypeCheckError {
     pub fn new(index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
         TypeCheckError {
-            messages: vec![(index, message, stack)],
+            main: (index, message, stack),
+            messages: Vec::new(),
+            children: Vec::new(),
+            dummy: false,
+        }
+    }
+
+    pub fn dummy() -> Self {
+        TypeCheckError {
+            main: (ASTIndex::none(), "Dummy".to_string(), Vec::new()),
+            messages: Vec::new(),
+            children: Vec::new(),
+            dummy: true,
         }
     }
 
     pub fn add(self, index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
-        let mut result = self.messages.clone();
-        result.push((index, message, stack));
-        TypeCheckError { messages: result }
+        let mut result = self.clone();
+
+        result.messages.push((index, message, stack));
+        result
     }
 
     pub fn add_errors(self, errors: Vec<TypeCheckError>) -> Self {
-        let mut result = self.messages.clone();
+        let mut result = self.clone();
 
-        result.append(
-            &mut errors
-                .into_iter()
-                .flat_map(|it| it.messages.into_iter())
-                .collect::<Vec<_>>(),
-        );
-        TypeCheckError { messages: result }
+        result.children.extend(errors);
+        result
     }
-}
 
-impl Display for TypeCheckError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn write_one(&self, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let spaces = " ".repeat(indent * 2);
+        f.write_str(&format!("{spaces}{} : {}\n", self.main.1, self.main.0))?;
         for (index, message, _stack) in self.messages.iter() {
-            f.write_str(&format!("{} : {}\n", message, index))?;
+            f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
+
             /*
             for i in stack {
                 f.write_str(&format!("{}\n", i))?;
@@ -61,6 +73,19 @@ impl Display for TypeCheckError {
 
              */
         }
+        for child in self.children.iter() {
+            child.write_one(f, indent + 1)?;
+        }
         Ok(())
+    }
+
+    pub fn is_dummy(&self) -> bool {
+        self.dummy
+    }
+}
+
+impl Display for TypeCheckError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.write_one(f, 0)
     }
 }

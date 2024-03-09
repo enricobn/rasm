@@ -25,7 +25,6 @@ use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{routing::get, Router};
-use clap::{Arg, ArgMatches, Command};
 use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
@@ -328,8 +327,4 @@ fn multiline_to_string(s: &str, row: &mut usize) -> String {
             result
         })
         .collect()
-}
-
-fn get_project(matches: &ArgMatches) -> String {
-    matches.get_one::<String>("PROJECT").unwrap().to_owned()
 }

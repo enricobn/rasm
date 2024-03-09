@@ -146,8 +146,8 @@ pub fn resolve_generic_types_from_effective_type(
         }
         ASTType::Custom {
             namespace: _,
-            name: p_name,
-            param_types: p_param_types,
+            name: g_name,
+            param_types: g_param_types,
             index: _,
         } => match effective_type {
             ASTType::Custom {
@@ -156,14 +156,14 @@ pub fn resolve_generic_types_from_effective_type(
                 param_types: e_param_types,
                 index: _,
             } => {
-                if p_name != e_name {
+                if g_name != e_name {
                     dedent!();
                     return Err(type_check_error(format!(
-                        "unmatched custom type name {p_name} {e_name}"
+                        "unmatched custom type name {g_name} {e_name}"
                     )));
                 }
 
-                for (i, p_p) in p_param_types.iter().enumerate() {
+                for (i, p_p) in g_param_types.iter().enumerate() {
                     let e_p = if let Some(p) = e_param_types.get(i) {
                         p
                     } else {
