@@ -548,7 +548,6 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
 
     let mut args = vec![
         "build".to_string(),
-        "-f".to_string(),
         source.to_owned(),
         "-o".to_string(),
         dest.clone(),

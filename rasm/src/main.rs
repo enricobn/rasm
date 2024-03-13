@@ -43,26 +43,21 @@ fn main() {
         .version("0.1.0-alpha.0")
         .arg(
             Arg::new("ACTION")
-                .help("The action to perform, that can be: build, run, test")
+                .help("the action to perform")
                 .required(true)
-                .value_parser(["build", "run", "test", "server"])
+                .value_parser(["build", "test", "server"])
+                .required(true)
                 .index(1),
-        )
-        .arg(
-            Arg::new("file")
-                .short('f')
-                .help("Sets the input directory or file to use")
-                .required(false),
         )
         .arg(
             Arg::new("out")
                 .short('o')
-                .help("Sets the output file to use")
+                .help("the output file to create")
                 .required(false),
         )
         .arg(
             Arg::new("compile")
-                .help("produces .asm and .o files")
+                .help("creates only .asm and .o files")
                 .long("compile")
                 .action(ArgAction::SetTrue)
                 .required(false),
@@ -75,7 +70,7 @@ fn main() {
         )
         .arg(
             Arg::new("debug")
-                .help("Debug information at runtime (verbose)")
+                .help("prints debug informations at runtime (verbose)")
                 .long("debug")
                 .short('d')
                 .action(ArgAction::SetTrue)
@@ -83,7 +78,7 @@ fn main() {
         )
         .arg(
             Arg::new("memoryinfo")
-                .help("Print memory informations")
+                .help("prints memory informations")
                 .long("memoryinfo")
                 .short('m')
                 .action(ArgAction::SetTrue)
@@ -91,11 +86,17 @@ fn main() {
         )
         .arg(
             Arg::new("printcode")
-                .help("Print code")
+                .help("prints code")
                 .long("printcode")
                 .short('p')
                 .action(ArgAction::SetTrue)
                 .required(false),
+        )
+        .arg(
+            Arg::new("file")
+                .help("the input directory or file to use")
+                .required(false)
+                .index(2),
         )
         .get_matches();
 
