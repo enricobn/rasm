@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -93,11 +92,6 @@ impl Compiler {
         }
          */
 
-        let requires = modules
-            .iter()
-            .flat_map(|it| it.requires.clone())
-            .collect::<HashSet<_>>();
-
         if !errors.is_empty() {
             for error in errors {
                 eprintln!("{error}");
@@ -150,7 +144,7 @@ impl Compiler {
         if only_compile {
             backend.compile(&self.out);
         } else {
-            backend.compile_and_link(&self.out, &requires);
+            backend.compile_and_link(&self.out, &self.options.requires);
         }
     }
 }

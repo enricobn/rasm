@@ -60,7 +60,6 @@ impl TypeCheck {
             structs: vec![],
             types: vec![],
             body_namespace: body_namespace.clone(),
-            externals: HashSet::new(),
         };
 
         Self {

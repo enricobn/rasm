@@ -1975,7 +1975,6 @@ mod tests {
             ],
             types: vec![],
             body_namespace: ASTNameSpace::global(),
-            externals: Default::default(),
         }
     }
 

@@ -479,8 +479,6 @@ impl RasmProject {
             functions: vec![],
             enums: vec![],
             structs: vec![],
-            requires: Default::default(),
-            externals: Default::default(),
             types: vec![],
             namespace,
         }
@@ -742,9 +740,12 @@ impl RasmProject {
 
     fn core_module(&self, main_file: &str, data: &[u8]) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(&main_file);
-        let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap(), None);
+        let lexer = Lexer::new(
+            String::from_utf8_lossy(data).parse().unwrap(),
+            Some(main_path.to_path_buf()),
+        );
 
-        let mut parser = Parser::new(lexer, None);
+        let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
         let (module, errors) = parser.parse(
             main_path,
             &ASTNameSpace::new(

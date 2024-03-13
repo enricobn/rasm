@@ -1,9 +1,8 @@
 use lazy_static::lazy_static;
-use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
-use log::{debug, info};
+use log::debug;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::debug_i;
@@ -66,8 +65,6 @@ pub struct Parser {
     enums: Vec<ASTEnumDef>,
     structs: Vec<ASTStructDef>,
     file_name: Option<PathBuf>,
-    requires: HashSet<String>,
-    externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
     errors: Vec<CompilationError>,
 }
@@ -161,8 +158,6 @@ impl Parser {
             enums: Vec::new(),
             structs: Vec::new(),
             file_name,
-            requires: HashSet::new(),
-            externals: HashSet::new(),
             types: Vec::new(),
             errors: lexer_errors,
         }
@@ -183,8 +178,11 @@ impl Parser {
         while self.i <= self.tokens.len() {
             count += 1;
             if count > (self.tokens.len() + 1) * 10 {
-                self.add_error("undefined parse error".to_string());
-                return self.get_return(&namespace, path);
+                self.add_error(format!(
+                    "undefined parse error in {}",
+                    path.to_string_lossy()
+                ));
+                return self.get_return(namespace, path);
             }
             let mut token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -429,8 +427,6 @@ impl Parser {
             functions: self.functions.clone(),
             enums: self.enums.clone(),
             structs: self.structs.clone(),
-            requires: self.requires.clone(),
-            externals: self.externals.clone(),
             types: self.types.clone(),
             namespace: namespace.clone(),
         };
@@ -542,20 +538,6 @@ impl Parser {
             }));
             self.state.push(StructDef);
             self.i = next_i;
-        } else if let TokenKind::KeyWord(KeywordKind::Requires) = token.kind {
-            if let Some(TokenKind::StringLiteral(name)) = &self.get_token_kind_n(1) {
-                self.requires.insert(name.clone());
-                self.i += 2;
-            } else {
-                return Err(format!("Cannot parse require: {}", self.get_index(0)));
-            }
-        } else if let TokenKind::KeyWord(KeywordKind::Extern) = token.kind {
-            if let Some(TokenKind::StringLiteral(name)) = self.get_token_kind_n(1) {
-                self.externals.insert(name.clone());
-                self.i += 2;
-            } else {
-                return Err(format!("Cannot parse external: {}", self.get_index(0)));
-            }
         } else if let Some((type_def, next_i)) = self.parse_type_def(namespace)? {
             let token = self.get_token_kind_n(next_i - self.i);
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {

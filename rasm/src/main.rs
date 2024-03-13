@@ -17,7 +17,7 @@ use rasm_core::project::RasmProject;
 use rasm_server::server::rasm_server;
 
 use crate::compiler::Compiler;
-use rasm_core::utils::{OptionDisplay, SliceDisplay};
+use rasm_core::utils::OptionDisplay;
 use toml::Value;
 
 pub mod compiler;

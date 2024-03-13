@@ -1,32 +1,3 @@
-requires "libc"
-requires "SDL2"
-requires "SDL2_ttf"
-
-extern "printf"
-
-extern "SDL_CreateRenderer"
-extern "SDL_CreateTextureFromSurface"
-extern "SDL_CreateWindow"
-extern "SDL_Delay"
-extern "SDL_DestroyRenderer"
-extern "SDL_DestroyTexture"
-extern "SDL_DestroyWindow"
-extern "SDL_FreeSurface"
-extern "SDL_GetError"
-extern "SDL_LoadBMP_RW"
-extern "SDL_Init"
-extern "SDL_PollEvent"
-extern "SDL_RenderClear"
-extern "SDL_RenderCopy"
-extern "SDL_RenderFillRect"
-extern "SDL_RenderPresent"
-extern "SDL_RWFromFile"
-extern "SDL_SetRenderDrawColor"
-extern "SDL_Quit"
-extern "TTF_Init"
-extern "TTF_OpenFont"
-extern "TTF_RenderText_Solid"
-
 native isSDLNull<T>(value: T) -> bool /{
     mov dword   eax, $value
     cmp     eax,0

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::iter::zip;
@@ -453,7 +453,13 @@ impl Display for ASTIndex {
             &self
                 .file_name
                 .clone()
-                .map(|it| format!("file:///{}", it.canonicalize().unwrap().to_str().unwrap()))
+                .map(|it| {
+                    if it.exists() {
+                        format!("file:///{}", it.canonicalize().unwrap().to_str().unwrap())
+                    } else {
+                        format!("{}", it.to_string_lossy())
+                    }
+                })
                 .unwrap_or_else(|| "".to_owned()),
             &self.row,
             &self.column
@@ -619,8 +625,6 @@ pub struct ASTModule {
     pub functions: Vec<ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
     pub structs: Vec<ASTStructDef>,
-    pub requires: HashSet<String>,
-    pub externals: HashSet<String>,
     pub types: Vec<ASTTypeDef>,
     pub namespace: ASTNameSpace,
 }
@@ -633,8 +637,6 @@ impl ASTModule {
             functions: vec![],
             enums: vec![],
             structs: vec![],
-            requires: Default::default(),
-            externals: Default::default(),
             types: vec![],
             namespace,
         }
@@ -649,8 +651,6 @@ impl ASTModule {
         self.functions.append(&mut module.functions);
         self.enums.append(&mut module.enums);
         self.structs.append(&mut module.structs);
-        self.requires.extend(module.requires);
-        self.externals.extend(module.externals);
         self.types.extend(module.types);
     }
 }

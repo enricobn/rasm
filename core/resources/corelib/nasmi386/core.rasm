@@ -1,5 +1,3 @@
-extern "exit"
-
 /*
  *  Creates the "struct" that holds the count and the arguments
  *  address:    the target pointer to the "struct" that holds the count and then the pointers (to the allocation table) to the arguments

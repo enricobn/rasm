@@ -1,5 +1,4 @@
 use auto_impl::auto_impl;
-use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -35,11 +34,11 @@ pub trait Backend: Send + Sync {
 
     fn word_len(&self) -> usize;
 
-    fn compile_and_link(&self, source_file: &Path, requires: &HashSet<String>);
+    fn compile_and_link(&self, source_file: &Path, requires: &[String]);
 
     fn compile(&self, source_file: &Path);
 
-    fn link(&self, path: &Path, requires: &HashSet<String>);
+    fn link(&self, path: &Path, requires: &[String]);
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
@@ -350,7 +349,7 @@ impl Backend for BackendNasmi386 {
         4
     }
 
-    fn compile_and_link(&self, source_file: &Path, requires: &HashSet<String>) {
+    fn compile_and_link(&self, source_file: &Path, requires: &[String]) {
         self.compile(source_file);
 
         self.link(source_file, requires);
@@ -379,7 +378,7 @@ impl Backend for BackendNasmi386 {
         }
     }
 
-    fn link(&self, path: &Path, requires: &HashSet<String>) {
+    fn link(&self, path: &Path, requires: &[String]) {
         let start = Instant::now();
         let result = match self.linker {
             Linker::Ld => {
