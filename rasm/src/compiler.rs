@@ -8,6 +8,7 @@ use std::time::Instant;
 use log::info;
 
 use rasm_core::codegen::backend::{Backend, BackendNasmi386};
+use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::{get_typed_module, CodeGenOptions};
@@ -18,6 +19,9 @@ pub struct Compiler {
     out: PathBuf,
     is_test: bool,
     options: CodeGenOptions,
+    target: CompileTarget,
+    debug: bool,
+    print_module: bool,
 }
 
 impl Compiler {
@@ -26,6 +30,9 @@ impl Compiler {
         out: Option<&String>,
         is_test: bool,
         options: CodeGenOptions,
+        compile_target: CompileTarget,
+        debug: bool,
+        print_module: bool,
     ) -> Self {
         let out = if let Some(o) = out {
             Path::new(o).to_path_buf()
@@ -34,7 +41,7 @@ impl Compiler {
                 .out_file(is_test)
                 .expect("undefined out in rasm.toml")
         }
-        .with_extension(options.target.extension());
+        .with_extension(compile_target.extension());
 
         info!("out: {}", out.with_extension("").to_string_lossy());
 
@@ -43,6 +50,9 @@ impl Compiler {
             out,
             is_test,
             options,
+            target: compile_target,
+            debug,
+            print_module,
         }
     }
 
@@ -67,12 +77,9 @@ impl Compiler {
 
         let mut statics = Statics::new();
 
-        let (modules, errors) = self.project.get_all_modules(
-            &mut statics,
-            self.is_test,
-            &self.options.target,
-            self.options.debug,
-        );
+        let (modules, errors) =
+            self.project
+                .get_all_modules(&mut statics, self.is_test, &self.target, self.debug);
 
         /*
         for module in modules.iter() {
@@ -102,25 +109,25 @@ impl Compiler {
             modules,
             &self.project,
             &mut statics,
-            &self.options.target,
-            self.options.debug,
+            &self.target,
+            self.debug,
         );
 
         info!("parse ended in {:?}", start.elapsed());
 
         let start = Instant::now();
 
-        let backend = BackendNasmi386::new(self.options.debug);
+        let backend = BackendNasmi386::new(self.options.clone(), self.debug);
 
         let typed_module = get_typed_module(
             &backend,
             enhanced_ast_module,
             self.options.print_memory,
             self.options.dereference,
-            self.options.print_module,
+            self.print_module,
             &mut statics,
-            &self.options.target,
-            self.options.debug,
+            &self.target,
+            self.debug,
         )
         .unwrap_or_else(|e| {
             panic!("{e}");
@@ -130,10 +137,7 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let native_code = self
-            .options
-            .target
-            .generate(statics, typed_module, self.options.clone());
+        let native_code = self.target.generate(statics, typed_module, self.debug);
 
         info!("code generation ended in {:?}", start.elapsed());
 

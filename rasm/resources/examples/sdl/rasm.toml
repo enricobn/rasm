@@ -4,3 +4,30 @@ version = "0.1.0-alpha.0"
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }
+
+[natives.nasmi386]
+requires = ["libc", "SDL2", "SDL2_ttf"]
+externals = [
+    "printf",
+    "SDL_CreateRenderer",
+    "SDL_CreateTextureFromSurface",
+    "SDL_CreateWindow",
+    "SDL_Delay",
+    "SDL_DestroyRenderer",
+    "SDL_DestroyTexture",
+    "SDL_DestroyWindow",
+    "SDL_FreeSurface",
+    "SDL_GetError",
+    "SDL_LoadBMP_RW",
+    "SDL_Init",
+    "SDL_PollEvent",
+    "SDL_RenderClear",
+    "SDL_RenderCopy",
+    "SDL_RenderFillRect",
+    "SDL_RenderPresent",
+    "SDL_RWFromFile",
+    "SDL_SetRenderDrawColor",
+    "SDL_Quit",
+    "TTF_Init",
+    "TTF_OpenFont",
+    "TTF_RenderText_Solid"]

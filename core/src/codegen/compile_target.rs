@@ -20,12 +20,15 @@ use std::collections::HashMap;
 
 use linked_hash_map::LinkedHashMap;
 use log::debug;
+use pad::PadStr;
 use rust_embed::{EmbeddedFile, RustEmbed};
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::BackendAsm;
 use crate::codegen::backend::BackendNasmi386;
-use crate::codegen::statics::Statics;
+use crate::codegen::statics::MemoryUnit::{Bytes, Words};
+use crate::codegen::statics::MemoryValue::{I32Value, Mem};
+use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::text_macro::{
     AddRefMacro, CCallTextMacroEvaluator, CallTextMacroEvaluator, MacroParam, PrintRefMacro,
     TextMacro, TextMacroEval, TextMacroEvaluator,
@@ -47,44 +50,57 @@ struct Nasmi386CoreLibAssets;
 
 #[derive(Clone)]
 pub enum CompileTarget {
-    Nasmi36,
+    Nasmi386(CodeGenOptions),
 }
 
 impl CompileTarget {
     pub fn extension(&self) -> String {
         match self {
-            CompileTarget::Nasmi36 => "asm".to_string(),
+            CompileTarget::Nasmi386(_) => "asm".to_string(),
         }
     }
 
-    pub fn generate(
-        &self,
-        statics: Statics,
-        typed_module: ASTTypedModule,
-        options: CodeGenOptions,
-    ) -> String {
+    pub fn generate(&self, statics: Statics, typed_module: ASTTypedModule, debug: bool) -> String {
         match self {
-            CompileTarget::Nasmi36 => {
-                let backend = BackendNasmi386::new(options.debug);
+            CompileTarget::Nasmi386(options) => {
+                let backend = BackendNasmi386::new(options.clone(), debug);
 
-                CodeGenAsm::new(typed_module, Box::new(backend), options, self.clone())
-                    .generate(statics)
+                CodeGenAsm::new(
+                    typed_module,
+                    Box::new(backend),
+                    options.clone(),
+                    self.clone(),
+                    debug,
+                )
+                .generate(statics)
             }
         }
     }
 
     pub fn folder(&self) -> &str {
         match self {
-            CompileTarget::Nasmi36 => "nasmi386",
+            CompileTarget::Nasmi386(_) => "nasmi386",
         }
     }
 
     pub fn functions_creator(&self, debug: bool) -> impl FunctionsCreator {
-        FunctionsCreatorNasmi386::new(BackendNasmi386::new(debug), debug)
+        match self {
+            CompileTarget::Nasmi386(options) => FunctionsCreatorNasmi386::new(
+                BackendNasmi386::new(options.clone(), debug),
+                debug,
+                self.clone(),
+            ),
+        }
     }
 
     pub fn typed_functions_creator(&self, debug: bool) -> impl TypedFunctionsCreator {
-        TypedFunctionsCreatorNasmi386::new(BackendNasmi386::new(debug), debug)
+        match self {
+            CompileTarget::Nasmi386(options) => TypedFunctionsCreatorNasmi386::new(
+                BackendNasmi386::new(options.clone(), debug),
+                debug,
+                self.clone(),
+            ),
+        }
     }
 
     pub fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
@@ -111,34 +127,38 @@ impl CompileTarget {
         comment: Option<&str>,
         debug: bool,
     ) {
-        let backend = BackendNasmi386::new(debug);
+        match self {
+            CompileTarget::Nasmi386(options) => {
+                let backend = BackendNasmi386::new(options.clone(), debug);
 
-        if let Some(c) = comment {
-            self.add_comment(out, c, true);
-        }
+                if let Some(c) = comment {
+                    self.add_comment(out, c, true);
+                }
 
-        for (arg, comment) in args.iter().rev() {
-            if let Some(c) = comment {
-                self.add_comment(out, c, true);
+                for (arg, comment) in args.iter().rev() {
+                    if let Some(c) = comment {
+                        self.add_comment(out, c, true);
+                    }
+                    self.add(
+                        out,
+                        &format!("push {} {arg}", backend.word_size()),
+                        None, //*comment,
+                        true,
+                    );
+                }
+                self.add(out, &format!("call    {}", function_name), None, true);
+                self.add(
+                    out,
+                    &format!(
+                        "add  {}, {}",
+                        backend.stack_pointer(),
+                        backend.word_len() * args.len()
+                    ),
+                    None,
+                    true,
+                );
             }
-            self.add(
-                out,
-                &format!("push {} {arg}", backend.word_size()),
-                None, //*comment,
-                true,
-            );
         }
-        self.add(out, &format!("call    {}", function_name), None, true);
-        self.add(
-            out,
-            &format!(
-                "add  {}, {}",
-                backend.stack_pointer(),
-                backend.word_len() * args.len()
-            ),
-            None,
-            true,
-        );
     }
 
     /// the difference with call_function is that arguments are Strings and not &str
@@ -202,26 +222,33 @@ impl CompileTarget {
     }
 
     pub fn get_evaluator(&self, debug: bool) -> TextMacroEvaluator {
-        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
-        let backend = BackendNasmi386::new(debug);
+        match self {
+            CompileTarget::Nasmi386(options) => {
+                let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> =
+                    LinkedHashMap::new();
+                let backend = BackendNasmi386::new(options.clone(), debug);
 
-        let call_text_macro_evaluator = CallTextMacroEvaluator::new(Box::new(backend.clone()));
-        evaluators.insert("call".into(), Box::new(call_text_macro_evaluator));
+                let call_text_macro_evaluator =
+                    CallTextMacroEvaluator::new(Box::new(backend.clone()));
+                evaluators.insert("call".into(), Box::new(call_text_macro_evaluator));
 
-        let c_call_text_macro_evaluator = CCallTextMacroEvaluator::new(Box::new(backend.clone()));
-        evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
-        evaluators.insert(
-            "addRef".into(),
-            Box::new(AddRefMacro::new(Box::new(backend.clone()), false)),
-        );
-        evaluators.insert(
-            "deref".into(),
-            Box::new(AddRefMacro::new(Box::new(backend.clone()), true)),
-        );
-        let print_ref_macro = PrintRefMacro::new(Box::new(backend.clone()), self.clone());
-        evaluators.insert("printRef".into(), Box::new(print_ref_macro));
+                let c_call_text_macro_evaluator =
+                    CCallTextMacroEvaluator::new(Box::new(backend.clone()));
+                evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
+                evaluators.insert(
+                    "addRef".into(),
+                    Box::new(AddRefMacro::new(Box::new(backend.clone()), false)),
+                );
+                evaluators.insert(
+                    "deref".into(),
+                    Box::new(AddRefMacro::new(Box::new(backend.clone()), true)),
+                );
+                let print_ref_macro = PrintRefMacro::new(Box::new(backend.clone()), self.clone());
+                evaluators.insert("printRef".into(), Box::new(print_ref_macro));
 
-        TextMacroEvaluator::new(evaluators)
+                TextMacroEvaluator::new(evaluators)
+            }
+        }
     }
 
     /// Returns the name of the functions called in the code
@@ -346,6 +373,182 @@ impl CompileTarget {
             }
         } else {
             line
+        }
+    }
+
+    pub fn add_statics(&self, statics: &mut Statics) {
+        match self {
+            CompileTarget::Nasmi386(options) => {
+                // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
+                statics.insert(
+                    "_heap_table".into(),
+                    Mem((options.heap_table_slots + 1) * 20, Bytes),
+                );
+                statics.insert(
+                    "_heap_table_size".into(),
+                    I32Value(options.heap_table_slots as i32 * 20),
+                );
+                statics.insert("_heap_table_next".into(), I32Value(0));
+                statics.insert("_heap".into(), Mem(4, Bytes));
+                statics.insert("_heap_size".into(), I32Value(options.heap_size as i32));
+                statics.insert("_heap_buffer".into(), Mem(options.heap_size, Bytes));
+
+                statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
+                statics.insert(
+                    "_lambda_space_stack_buffer".into(),
+                    Mem(options.lambda_space_size, Bytes),
+                );
+
+                let reusable_heap_table_size = 16 * 1024 * 1024;
+                statics.insert(
+                    "_reusable_heap_table".into(),
+                    Mem(reusable_heap_table_size, Bytes),
+                );
+                statics.insert(
+                    "_reusable_heap_table_size".into(),
+                    I32Value(reusable_heap_table_size as i32),
+                );
+                statics.insert("_reusable_heap_table_next".into(), I32Value(0));
+
+                // command line arguments
+                statics.insert("_rasm_args".into(), Mem(12, Words));
+                statics.insert("_NEW_LINE".into(), I32Value(10));
+                statics.insert("_ESC".into(), I32Value(27));
+                statics.insert("_for_nprint".into(), Mem(20, Bytes));
+            }
+        }
+    }
+    pub fn preamble(&self, code: &mut String) {
+        match self {
+            CompileTarget::Nasmi386(options) => {
+                self.add(code, "%macro gotoOnSome 1", None, false);
+                self.add(
+                    code,
+                    "cmp dword eax,[_enum_stdlib_option_Option_None]",
+                    None,
+                    true,
+                );
+                self.add(code, "jne %1", None, true);
+                self.add(code, "%endmacro", None, false);
+                if options.requires.contains(&"libc".to_string()) {
+                    self.add(code, "%DEFINE LIBC 1", None, false);
+                    self.add(code, "extern exit", None, true);
+                }
+
+                for e in options.externals.iter() {
+                    self.add(code, &format!("extern {e}"), None, true);
+                }
+            }
+        }
+    }
+
+    pub fn generate_statics_code(&self, statics: &Statics, debug: bool) -> (String, String) {
+        match self {
+            CompileTarget::Nasmi386(options) => {
+                let backend = BackendNasmi386::new(options.clone(), debug);
+                let mut data = String::new();
+                let mut bss = String::new();
+
+                let mut code = String::new();
+
+                if !statics.statics().is_empty() {
+                    let mut keys: Vec<&String> = statics.statics().keys().collect();
+                    // sorted for test purposes
+                    keys.sort();
+
+                    for id in keys.iter() {
+                        let mut def = String::new();
+                        def.push_str(&id.pad_to_width(100));
+
+                        match statics.statics().get(*id).unwrap() {
+                            MemoryValue::StringValue(s) => {
+                                def.push_str("db    ");
+
+                                let mut result = "'".to_owned();
+
+                                // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
+                                for c in s
+                                    .replace("\\n", "\n")
+                                    .replace("\\t", "\t")
+                                    .replace('\'', "',39,'")
+                                    //.replace("\\\"", "\"")
+                                    .chars()
+                                {
+                                    if c.is_ascii_control() {
+                                        result.push_str(&format!("',{},'", c as u32));
+                                    } else {
+                                        result.push(c)
+                                    }
+                                }
+
+                                result.push_str("', 0h");
+
+                                def.push_str(&result);
+
+                                self.add(&mut data, &def, None, true);
+                            }
+                            MemoryValue::I32Value(i) => {
+                                def.push_str("dd    ");
+                                def.push_str(&format!("{}", i));
+                                self.add(&mut data, &def, None, true);
+                            }
+                            Mem(len, unit) => {
+                                match unit {
+                                    MemoryUnit::Bytes => def.push_str("resb "),
+                                    MemoryUnit::Words => def.push_str("resd "),
+                                }
+                                def.push_str(&format!("{}", len));
+                                self.add(&mut bss, &def, None, true);
+                            }
+                        }
+                    }
+                }
+
+                for (_, (key, value_key)) in statics.strings_map().iter() {
+                    // TODO _0
+                    self.add(
+                        &mut code,
+                        &format!("$call(addStaticStringToHeap, {value_key})"),
+                        None,
+                        true,
+                    );
+
+                    self.add(&mut code, &format!("mov dword [{key}], eax"), None, true);
+                }
+
+                for (label_allocation, label_memory) in statics.static_allocation().iter() {
+                    // TODO _0
+                    self.add(
+                        &mut code,
+                        &format!(
+                            "$call(addStaticAllocation, {label_allocation}, {label_memory}, {})",
+                            backend.word_len()
+                        ),
+                        None,
+                        true,
+                    );
+                }
+
+                for (label, (descr_label, value)) in statics.heap().iter() {
+                    // TODO _0
+                    self.add(
+                        &mut code,
+                        &format!("$call(addHeap, {label}, {descr_label}: str, {value})"),
+                        None,
+                        true,
+                    );
+                }
+
+                let mut declarations = String::new();
+                declarations.push_str("SECTION .data\n");
+                declarations.push_str(&data);
+                declarations.push_str("SECTION .bss\n");
+                declarations.push_str(&bss);
+                declarations.push_str("SECTION .text\n");
+                self.add(&mut declarations, "global  main", None, true);
+                declarations.push_str("main:\n");
+                (declarations, code)
+            }
         }
     }
 }

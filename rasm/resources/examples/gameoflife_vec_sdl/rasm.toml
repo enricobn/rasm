@@ -1,0 +1,9 @@
+[package]
+name = "gameoflife_vec_sdl"
+version = "1.0.0"
+main = "gameoflife_vec_sdl.rasm"
+out = "gameoflife_vec_sdl"
+
+[dependencies]
+stdlib = { path = "../../../../stdlib" }
+sdl = { path = "../sdl" }

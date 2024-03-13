@@ -235,17 +235,18 @@ mod tests {
     use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::stack::StackVals;
+    use crate::codegen::CodeGenOptions;
 
     #[test]
     fn find_relative_to_bp() {
         let mut out = String::new();
 
         let stack = StackVals::new();
-        let target = CompileTarget::Nasmi36;
+        let target = CompileTarget::Nasmi386(CodeGenOptions::default());
         assert_eq!(1, stack.reserve_local_val("val1"));
         stack.reserve_return_register(&target, &mut out);
         assert_eq!(2, stack.reserve_local_val("val2"));
-        let backend = BackendNasmi386::new(false);
+        let backend = BackendNasmi386::new(CodeGenOptions::default(), false);
         stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register", &target);
         assert_eq!(3, stack.reserve_local_val("ref1"));
         assert_eq!(6, stack.reserve_local_space("spc", 3));

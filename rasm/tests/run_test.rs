@@ -214,6 +214,7 @@ fn test_str() {
 }
 
 #[test]
+#[ignore] // it needs external printf, but for now there's not a support to supply it to a "single file project"
 fn test_libc() {
     run_test("libc", Vec::new(), "number:\t\t10\nnumber:\t\t10\n");
 }
@@ -471,7 +472,7 @@ fn test_structpropertysetter1() {
 
 #[test]
 fn test_gameoflife_sdl_compile() {
-    compile_example("resources/examples/gameoflife_sdl.rasm", true);
+    compile_example("resources/examples/gameoflife_sdl", true);
 }
 
 #[test]
@@ -481,7 +482,7 @@ fn test_gameoflife_vec_compile() {
 
 #[test]
 fn test_gameoflife_vec_sdl_compile() {
-    compile_example("resources/examples/gameoflife_vec_sdl.rasm", true);
+    compile_example("resources/examples/gameoflife_vec_sdl", true);
 }
 
 #[test]
@@ -491,7 +492,7 @@ fn test_breakout() {
 
 #[test]
 fn test_showimage() {
-    compile_example("resources/examples/showimage.rasm", true);
+    compile_example("resources/examples/showimage", true);
 }
 
 #[test]

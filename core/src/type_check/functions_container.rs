@@ -832,6 +832,7 @@ mod tests {
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
+    use crate::codegen::CodeGenOptions;
     use crate::parser::ast::ASTFunctionBody::NativeBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
@@ -1000,19 +1001,14 @@ mod tests {
                     source_folder: Some("".to_string()),
                 },
                 dependencies: None,
+                natives: None,
             },
             from_file: false,
         };
 
         let mut statics = Statics::new();
 
-        let module = EnhancedASTModule::new(
-            vec![],
-            &project,
-            &mut statics,
-            &CompileTarget::Nasmi36,
-            false,
-        );
+        let module = EnhancedASTModule::new(vec![], &project, &mut statics, &target(), false);
 
         let result = sut.find_call(
             &call.function_name,
@@ -1059,6 +1055,10 @@ mod tests {
         );
 
         assert_eq!(functions_container.len(), 3);
+    }
+
+    fn target() -> CompileTarget {
+        CompileTarget::Nasmi386(CodeGenOptions::default())
     }
 
     fn simple_function_def(name: &str) -> ASTFunctionDef {

@@ -7,15 +7,13 @@ use std::time::Instant;
 
 use linked_hash_map::LinkedHashMap;
 use log::info;
-use pad::PadStr;
 
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::{StackEntryType, StackVals};
-use crate::codegen::statics::MemoryValue::Mem;
-use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
+use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, TypedValKind};
+use crate::codegen::{get_reference_type_name, CodeGenOptions, TypedValKind};
 use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references,
@@ -44,8 +42,6 @@ pub trait Backend: Send + Sync {
     fn link(&self, path: &Path, requires: &HashSet<String>);
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
-
-    fn preamble(&self, code: &mut String, externals: &HashSet<String>);
 
     fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32);
 
@@ -109,8 +105,6 @@ pub trait Backend: Send + Sync {
     ) -> Option<ASTTypedFunctionDef>;
 
     fn debug_asm(&self) -> bool;
-
-    fn generate_statics_code(&self, statics: &Statics) -> (String, String);
 
     fn strip_ifdef(&self, code: &str, def: &str) -> String;
 
@@ -207,18 +201,18 @@ enum Linker {
 pub struct BackendNasmi386 {
     linker: Linker,
     libc: bool,
-    debug_asm: bool,
     target: CompileTarget,
+    debug: bool,
 }
 
 impl BackendNasmi386 {
-    pub fn new(debug_asm: bool) -> Self {
+    pub fn new(options: CodeGenOptions, debug: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
             linker: if libc { Linker::Gcc } else { Linker::Ld },
             libc,
-            debug_asm,
-            target: CompileTarget::Nasmi36,
+            target: CompileTarget::Nasmi386(options.clone()),
+            debug,
         }
     }
 
@@ -452,26 +446,6 @@ impl Backend for BackendNasmi386 {
         }
     }
 
-    fn preamble(&self, code: &mut String, externals: &HashSet<String>) {
-        self.target.add(code, "%macro gotoOnSome 1", None, false);
-        self.target.add(
-            code,
-            "cmp dword eax,[_enum_stdlib_option_Option_None]",
-            None,
-            true,
-        );
-        self.target.add(code, "jne %1", None, true);
-        self.target.add(code, "%endmacro", None, false);
-        if self.libc {
-            self.target.add(code, "%DEFINE LIBC 1", None, false);
-            self.target.add(code, "extern exit", None, true);
-        }
-
-        for e in externals.iter() {
-            self.target.add(code, &format!("extern {e}"), None, true);
-        }
-    }
-
     fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
         let ws = self.word_size();
         let bp = self.stack_base_pointer();
@@ -501,7 +475,7 @@ impl Backend for BackendNasmi386 {
             panic!();
         }
 
-        let descr = if self.debug_asm { descr_for_debug } else { "" };
+        let descr = if self.debug { descr_for_debug } else { "" };
 
         let key = statics.add_str(descr);
 
@@ -597,7 +571,7 @@ impl Backend for BackendNasmi386 {
             panic!();
         }
 
-        let descr = if self.debug_asm { descr_for_debug } else { "" };
+        let descr = if self.debug { descr_for_debug } else { "" };
 
         let key = statics.add_str(descr);
 
@@ -624,7 +598,7 @@ impl Backend for BackendNasmi386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        let descr = if self.debug_asm { descr_for_debug } else { "" };
+        let descr = if self.debug { descr_for_debug } else { "" };
 
         let mut result = String::new();
 
@@ -728,7 +702,7 @@ impl Backend for BackendNasmi386 {
         let ws = self.word_size();
         let wl = self.word_len();
 
-        let descr = if self.debug_asm { descr_for_debug } else { "" };
+        let descr = if self.debug { descr_for_debug } else { "" };
 
         let key = statics.add_str(descr);
 
@@ -870,114 +844,7 @@ impl Backend for BackendNasmi386 {
     }
 
     fn debug_asm(&self) -> bool {
-        self.debug_asm
-    }
-
-    fn generate_statics_code(&self, statics: &Statics) -> (String, String) {
-        let mut data = String::new();
-        let mut bss = String::new();
-
-        let mut code = String::new();
-
-        if !statics.statics().is_empty() {
-            let mut keys: Vec<&String> = statics.statics().keys().collect();
-            // sorted for test purposes
-            keys.sort();
-
-            for id in keys.iter() {
-                let mut def = String::new();
-                def.push_str(&id.pad_to_width(100));
-
-                match statics.statics().get(*id).unwrap() {
-                    MemoryValue::StringValue(s) => {
-                        def.push_str("db    ");
-
-                        let mut result = "'".to_owned();
-
-                        // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
-                        for c in s
-                            .replace("\\n", "\n")
-                            .replace("\\t", "\t")
-                            .replace('\'', "',39,'")
-                            //.replace("\\\"", "\"")
-                            .chars()
-                        {
-                            if c.is_ascii_control() {
-                                result.push_str(&format!("',{},'", c as u32));
-                            } else {
-                                result.push(c)
-                            }
-                        }
-
-                        result.push_str("', 0h");
-
-                        def.push_str(&result);
-
-                        self.target.add(&mut data, &def, None, true);
-                    }
-                    MemoryValue::I32Value(i) => {
-                        def.push_str("dd    ");
-                        def.push_str(&format!("{}", i));
-                        self.target.add(&mut data, &def, None, true);
-                    }
-                    Mem(len, unit) => {
-                        match unit {
-                            MemoryUnit::Bytes => def.push_str("resb "),
-                            MemoryUnit::Words => def.push_str("resd "),
-                        }
-                        def.push_str(&format!("{}", len));
-                        self.target.add(&mut bss, &def, None, true);
-                    }
-                }
-            }
-        }
-
-        for (_, (key, value_key)) in statics.strings_map().iter() {
-            // TODO _0
-            self.target.add(
-                &mut code,
-                &format!("$call(addStaticStringToHeap, {value_key})"),
-                None,
-                true,
-            );
-
-            self.target
-                .add(&mut code, &format!("mov dword [{key}], eax"), None, true);
-        }
-
-        for (label_allocation, label_memory) in statics.static_allocation().iter() {
-            // TODO _0
-            self.target.add(
-                &mut code,
-                &format!(
-                    "$call(addStaticAllocation, {label_allocation}, {label_memory}, {})",
-                    self.word_len()
-                ),
-                None,
-                true,
-            );
-        }
-
-        for (label, (descr_label, value)) in statics.heap().iter() {
-            // TODO _0
-            self.target.add(
-                &mut code,
-                &format!("$call(addHeap, {label}, {descr_label}: str, {value})"),
-                None,
-                true,
-            );
-        }
-
-        let mut declarations = String::new();
-        declarations.push_str("SECTION .data\n");
-        declarations.push_str(&data);
-        declarations.push_str("SECTION .bss\n");
-        declarations.push_str(&bss);
-        declarations.push_str("SECTION .text\n");
-        self.target
-            .add(&mut declarations, "global  main", None, true);
-        declarations.push_str("main:\n");
-        (declarations, code)
+        self.debug
     }
 
     fn strip_ifdef(&self, code: &str, def: &str) -> String {
@@ -1026,7 +893,7 @@ impl Backend for BackendNasmi386 {
                 (&format!("[{label}]"), None),
             ],
             Some("lambda space allocation"),
-            self.debug_asm,
+            self.debug,
         );
 
         self.target.add(

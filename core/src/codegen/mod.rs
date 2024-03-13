@@ -15,8 +15,6 @@ use crate::codegen::function_call_parameters::{
     FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsmImpl,
 };
 use crate::codegen::stack::StackVals;
-use crate::codegen::statics::MemoryUnit::{Bytes, Words};
-use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
@@ -55,12 +53,11 @@ pub struct CodeGenOptions {
     pub lambda_space_size: usize,
     pub heap_size: usize,
     pub heap_table_slots: usize,
-    pub debug: bool,
     pub dereference: bool,
-    pub print_module: bool,
     pub optimize_unused_functions: bool,
-    pub target: CompileTarget,
     pub print_memory: bool,
+    pub requires: Vec<String>,
+    pub externals: Vec<String>,
 }
 
 impl Default for CodeGenOptions {
@@ -69,12 +66,11 @@ impl Default for CodeGenOptions {
             lambda_space_size: 1024 * 1024,
             heap_size: 64 * 1024 * 1024,
             heap_table_slots: 1024 * 1024,
-            debug: false,
             print_memory: false,
             dereference: true,
-            print_module: false,
             optimize_unused_functions: false,
-            target: CompileTarget::Nasmi36,
+            requires: vec!["libc".to_string()],
+            externals: Vec::new(),
         }
     }
 }
@@ -84,6 +80,7 @@ pub struct CodeGenAsm {
     backend: Box<dyn BackendAsm>,
     options: CodeGenOptions,
     target: CompileTarget,
+    debug: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -142,7 +139,9 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
     fn module(&self) -> &ASTTypedModule;
 
-    fn generate(&self, mut statics: Statics) -> String {
+    fn generate(&self, statics: Statics) -> String {
+        let debug = self.debug();
+        let mut statics = statics;
         let mut id: usize = 0;
         let mut body = String::new();
 
@@ -222,64 +221,26 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
 
         let mut generated_code = String::new();
 
-        self.backend()
-            .preamble(&mut generated_code, &self.module().externals);
+        self.target().preamble(&mut generated_code);
 
-        // +1 because we cleanup the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
-        statics.insert(
-            "_heap_table".into(),
-            Mem((self.options().heap_table_slots + 1) * 20, Bytes),
-        );
-        statics.insert(
-            "_heap_table_size".into(),
-            I32Value(self.options().heap_table_slots as i32 * 20),
-        );
-        statics.insert("_heap_table_next".into(), I32Value(0));
-        statics.insert("_heap".into(), Mem(4, Bytes));
-        statics.insert(
-            "_heap_size".into(),
-            I32Value(self.options().heap_size as i32),
-        );
-        statics.insert("_heap_buffer".into(), Mem(self.options().heap_size, Bytes));
+        self.target().add_statics(&mut statics);
 
-        statics.insert("_lambda_space_stack".into(), Mem(4, Bytes));
-        statics.insert(
-            "_lambda_space_stack_buffer".into(),
-            Mem(self.options().lambda_space_size, Bytes),
-        );
-
-        let reusable_heap_table_size = 16 * 1024 * 1024;
-        statics.insert(
-            "_reusable_heap_table".into(),
-            Mem(reusable_heap_table_size, Bytes),
-        );
-        statics.insert(
-            "_reusable_heap_table_size".into(),
-            I32Value(reusable_heap_table_size as i32),
-        );
-        statics.insert("_reusable_heap_table_next".into(), I32Value(0));
-
-        // command line arguments
-        statics.insert("_rasm_args".into(), Mem(12, Words));
-        statics.insert("_NEW_LINE".into(), I32Value(10));
-        statics.insert("_ESC".into(), I32Value(27));
-        statics.insert("_for_nprint".into(), Mem(20, Bytes));
-
-        let (static_declarations, static_code) = self.backend().generate_statics_code(&statics);
+        let (static_declarations, static_code) =
+            self.target().generate_statics_code(&statics, debug);
 
         generated_code.push_str(&static_declarations);
 
-        if self.options().debug {
+        if debug {
             self.backend().define_debug(&mut generated_code);
         }
 
         self.initialize_static_values(&mut generated_code);
 
-        let code = self.translate_static_code(&static_code);
+        let code = self.translate_static_code(&static_code, debug);
 
         self.target().add(&mut generated_code, &code, None, true);
 
-        self.create_command_line_arguments(&mut generated_code);
+        self.create_command_line_arguments(&mut generated_code, debug);
 
         self.target().add(&mut generated_code, "", None, true);
 
@@ -306,13 +267,8 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
             self.print_memory_info(&mut generated_code);
         }
 
-        self.target().call_function(
-            &mut generated_code,
-            "exitMain",
-            &[("0", None)],
-            None,
-            self.options().debug,
-        );
+        self.target()
+            .call_function(&mut generated_code, "exitMain", &[("0", None)], None, debug);
 
         let used_functions = self.get_used_functions(&functions_generated_code, &generated_code);
 
@@ -323,9 +279,9 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
         generated_code
     }
 
-    fn create_command_line_arguments(&self, generated_code: &mut String);
+    fn create_command_line_arguments(&self, generated_code: &mut String, debug: bool);
 
-    fn translate_static_code(&self, static_code: &String) -> String;
+    fn translate_static_code(&self, static_code: &String, debug: bool) -> String;
 
     fn call_lambda_parameter(
         &self,
@@ -1293,6 +1249,8 @@ pub trait CodeGen<'a, BACKEND: Backend, FUNCTION_CALL_PARAMETERS: FunctionCallPa
     fn print_memory_info(&self, native_code: &mut String);
 
     fn initialize_static_values(&self, generated_code: &mut String);
+
+    fn debug(&self) -> bool;
 }
 
 pub fn get_reference_type_name(
@@ -1376,6 +1334,7 @@ impl CodeGenAsm {
         backend: Box<impl BackendAsm + 'static>,
         options: CodeGenOptions,
         target: CompileTarget,
+        debug: bool,
     ) -> Self {
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
@@ -1386,6 +1345,7 @@ impl CodeGenAsm {
             backend,
             options,
             target,
+            debug,
         }
     }
 }
@@ -1407,7 +1367,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
         &self.module
     }
 
-    fn create_command_line_arguments(&self, generated_code: &mut String) {
+    fn create_command_line_arguments(&self, generated_code: &mut String, debug: bool) {
         self.target().call_function(
             generated_code,
             "createCmdLineArguments",
@@ -1419,13 +1379,13 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 ),
             ],
             None,
-            self.options.debug,
+            debug,
         );
     }
 
-    fn translate_static_code(&self, static_code: &String) -> String {
+    fn translate_static_code(&self, static_code: &String, debug: bool) -> String {
         let mut temp_statics = Statics::new();
-        let evaluator = self.target().get_evaluator(self.options.debug);
+        let evaluator = self.target().get_evaluator(debug);
 
         let code = evaluator
             .translate(
@@ -1495,7 +1455,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
             )),
-            self.options.debug,
+            self.debug(),
         );
     }
 
@@ -1548,7 +1508,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
             )),
-            self.options.debug,
+            self.debug,
         );
     }
 
@@ -2134,7 +2094,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
     fn translate_body(&self, body: &str, statics: &mut Statics) -> Result<String, String> {
         let val_context = ValContext::new(None);
 
-        let evaluator = self.target.get_evaluator(self.options.debug);
+        let evaluator = self.target.get_evaluator(self.debug);
 
         let new_body = evaluator.translate(
             self.target(),
@@ -2168,7 +2128,7 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
                 &val_context,
                 &self.module,
                 statics,
-                self.options.debug,
+                self.debug,
             )?
             .iter()
             .for_each(|(m, it)| {
@@ -2259,6 +2219,10 @@ impl<'a> CodeGen<'a, Box<dyn BackendAsm>, Box<dyn FunctionCallParametersAsm + 'a
             true,
         );
     }
+
+    fn debug(&self) -> bool {
+        self.debug
+    }
 }
 
 #[cfg(test)]
@@ -2267,10 +2231,11 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
+    use crate::codegen::CodeGenOptions;
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = CompileTarget::Nasmi36;
+        let sut = CompileTarget::Nasmi386(CodeGenOptions::default());
         let mut statics = Statics::new();
 
         assert!(sut
@@ -2289,7 +2254,7 @@ mod tests {
 
     #[test]
     fn called_functions_external() {
-        let sut = CompileTarget::Nasmi36;
+        let sut = CompileTarget::Nasmi386(CodeGenOptions::default());
         let mut statics = Statics::new();
 
         assert!(sut
@@ -2308,7 +2273,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = CompileTarget::Nasmi36;
+        let sut = CompileTarget::Nasmi386(CodeGenOptions::default());
         let mut statics = Statics::new();
 
         assert_eq!(

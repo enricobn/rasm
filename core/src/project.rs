@@ -44,7 +44,7 @@ use crate::parser::ast::{
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RasmProject {
     pub root: PathBuf,
     pub config: RasmConfig,
@@ -646,7 +646,7 @@ impl RasmProject {
         })
     }
 
-    fn get_all_dependencies(&self) -> Vec<RasmProject> {
+    pub fn get_all_dependencies(&self) -> Vec<RasmProject> {
         let mut result = Vec::new();
 
         if let Some(dependencies) = &self.config.dependencies {
@@ -756,7 +756,7 @@ impl RasmProject {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct RasmPackage {
     pub name: String,
     pub version: String,
@@ -765,10 +765,11 @@ pub struct RasmPackage {
     pub source_folder: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct RasmConfig {
     pub package: RasmPackage,
     pub dependencies: Option<Table>,
+    pub natives: Option<Table>,
 }
 
 fn get_rasm_config(src_path: &Path) -> RasmConfig {
@@ -796,6 +797,7 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
             out: Some(src_path.with_extension("").to_string_lossy().to_string()),
         },
         dependencies: Some(dependencies_map),
+        natives: None,
     }
 }
 

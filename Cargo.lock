@@ -978,6 +978,7 @@ dependencies = [
  "tempdir",
  "test-log",
  "test_bin",
+ "toml",
 ]
 
 [[package]]

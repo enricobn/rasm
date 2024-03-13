@@ -9,6 +9,7 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::debug;
 use log::info;
+use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::CodeGenOptions;
 use rasm_core::debug_i;
 
@@ -16,6 +17,8 @@ use rasm_core::project::RasmProject;
 use rasm_server::server::rasm_server;
 
 use crate::compiler::Compiler;
+use rasm_core::utils::{OptionDisplay, SliceDisplay};
+use toml::Value;
 
 pub mod compiler;
 
@@ -122,19 +125,86 @@ fn main() {
         let print_memory = matches.get_flag("memoryinfo");
         let print_code = matches.get_flag("printcode");
 
+        let mut all_projects = vec![project.clone()];
+        all_projects.extend(project.get_all_dependencies());
+        let mut requires = get_native_string_array(&all_projects, "nasmi386", "requires");
+        requires.push("libc".to_string());
+
+        requires.sort();
+        requires.dedup_by(|s1, s2| s1 == s2);
+
+        let externals = get_native_string_array(&all_projects, "nasmi386", "externals");
+
+        let options = CodeGenOptions {
+            print_memory,
+            requires,
+            externals,
+            ..CodeGenOptions::default()
+        };
+
+        let target = CompileTarget::Nasmi386(options.clone());
+
         let compiler = Compiler::new(
             project,
             matches.get_one::<String>("out"),
             action == "test",
-            CodeGenOptions {
-                debug,
-                print_memory,
-                print_module: print_code,
-                ..CodeGenOptions::default()
-            },
+            options,
+            target,
+            debug,
+            print_code,
         );
         compiler.compile(matches.get_flag("compile"));
 
         info!("finished in {:?}", start.elapsed());
+    }
+
+    fn get_native_string_array(projects: &[RasmProject], native: &str, key: &str) -> Vec<String> {
+        let mut result = projects
+            .iter()
+            .flat_map(|it| {
+                if let Some(ref natives) = it.config.natives {
+                    if let Some(nasm_i386_value) = natives.get(native) {
+                        if let Value::Table(nasm_i386_table) = nasm_i386_value {
+                            if let Some(value) = nasm_i386_table.get(key) {
+                                if let Value::Array(a) = value {
+                                    a.iter().map(|req| {
+                                        if let Value::String(s) = req {
+                                            s.clone()
+                                        } else {
+                                            panic!(
+                                                "{native}/{key} should be an array of strings {}/rasm.toml",
+                                                it.root.to_string_lossy()
+                                            );
+                                        }
+                                    }).collect::<Vec<_>>()
+                                } else {
+                                    panic!(
+                                        "{native}/{key} should be an array in {}/rasm.toml, but is {}",
+                                        it.root.to_string_lossy(),
+                                        OptionDisplay(&nasm_i386_table.get(key))
+                                    );
+                                }
+                            } else {
+                                Vec::new()
+                            }
+                        } else {
+                            panic!(
+                                "{native} should be a table in {}/rasm.toml",
+                                it.root.to_string_lossy()
+                            );
+                        }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        result.sort();
+        result.dedup_by(|s1, s2| s1 == s2);
+
+        result
     }
 }

@@ -1363,6 +1363,7 @@ mod tests {
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
+    use crate::codegen::CodeGenOptions;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
@@ -1624,20 +1625,13 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let backend = BackendNasmi386::new(false);
-        let target = CompileTarget::Nasmi36;
+        let backend = BackendNasmi386::new(CodeGenOptions::default(), false);
+        let target = CompileTarget::Nasmi386(CodeGenOptions::default());
         let mut statics = Statics::new();
 
-        let (modules, _errors) =
-            project.get_all_modules(&mut statics, false, &CompileTarget::Nasmi36, false);
+        let (modules, _errors) = project.get_all_modules(&mut statics, false, &target, false);
 
-        let module = EnhancedASTModule::new(
-            modules,
-            &project,
-            &mut statics,
-            &CompileTarget::Nasmi36,
-            false,
-        );
+        let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         let mandatory_functions = type_mandatory_functions(&module);
 

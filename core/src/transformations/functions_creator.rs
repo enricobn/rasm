@@ -648,10 +648,10 @@ pub struct FunctionsCreatorNasmi386 {
 }
 
 impl FunctionsCreatorNasmi386 {
-    pub fn new(backend: BackendNasmi386, debug: bool) -> Self {
+    pub fn new(backend: BackendNasmi386, debug: bool, compile_target: CompileTarget) -> Self {
         Self {
             backend,
-            target: CompileTarget::Nasmi36,
+            target: compile_target,
             debug,
         }
     }

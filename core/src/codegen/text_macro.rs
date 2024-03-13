@@ -1434,6 +1434,7 @@ impl PrintRefMacro {
 #[cfg(test)]
 mod tests {
     use crate::codegen::compile_target::CompileTarget;
+    use crate::codegen::CodeGenOptions;
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::statics::{MemoryValue, Statics};
@@ -1765,6 +1766,6 @@ mod tests {
     }
 
     fn target() -> CompileTarget {
-        CompileTarget::Nasmi36
+        CompileTarget::Nasmi386(CodeGenOptions::default())
     }
 }

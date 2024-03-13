@@ -1,18 +1,30 @@
-// run with: time ./gameoflife_sdl resources/examples/f116.cells 100
+// time ./gameoflife_vec_sdl resources/examples/f116.cells 100
 //
-// 481236 bytes allocated
-// 138099 table slots allocated
+// 482472 bytes allocated
+// 88481 table slots allocated
 //
-// real    0m21,196s
+// real    0m1,712s
 
+// with lambda space ref / deref
+// 507712 bytes allocated
+// 88686 table slots allocated
+//
+// real    0m2,215s
 
-include "sdl/src/main/nasmi386/sdl.rasm"
-include "sdl/src/main/rasm/sdl.rasm"
-
-include "gameoflife_common.rasm"
-include "gameoflife_common_list.rasm"
-
-extern "printf"
+// optimized lambda space ref /deref
+// 507712 bytes allocated
+// 88686 table slots allocated
+//
+//real    0m2,121s
+//
+// optimized lambda space allocation (in stack)
+// 507712 bytes allocated
+// 88302 table slots allocated
+//
+// real    0m1,803s
+//
+// some changes...
+// real    0m1,530s
 
 sdlInit();
 
@@ -22,9 +34,7 @@ let count = atoi(argv(2));
 
 run(moveCells(start, 20), 80, 50, count);
 
-sdlQuit();
-
-fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
+fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
     let win = sdlErrorIfNull(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n");
     let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
@@ -35,7 +45,7 @@ fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
     let allCells = allCells(width, height);
 
     printCells(ren,
-        foldLeft(range(0, count), start, { prev, act ->
+        foldLeft(vecRange(0, count), start, { prev, act ->
             printCells(ren, prev, width, height);
             //sdlDelay(1000);
             next(prev, allCells);
@@ -45,16 +55,16 @@ fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
     sdlDestroyWindow(win);
 }
 
-fn printCells(ren: SDLRenderer, cells: List<Cell>, width: i32, height: i32) {
+fn printCells(ren: SDLRenderer, cells: Vec<Cell>, width: i32, height: i32) {
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
     sdlRenderClear(ren);
     sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
     sdlRenderFillRect(ren, SDLRect(0, 0, mul(10, width), mul(10, height)));
     sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
 
-    let xRange = range(0, width);
+    let xRange = vecRange(0, width);
 
-    forEach(range(0, height), { y ->
+    forEach(vecRange(0, height), { y ->
         forEach(xRange, { x ->
             if(isAlive(cells, Cell(x, y)), { ->
                  sdlRenderFillRect(ren, SDLRect(mul(10, x), mul(10, y), 10, 10));

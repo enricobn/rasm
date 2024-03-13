@@ -1,9 +1,3 @@
-include "sdl/src/main/nasmi386/sdl.rasm"
-include "sdl/src/main/rasm/sdl.rasm"
-
-extern "printf"
-extern "exit"
-
 sdlInit();
 
 let win = sdlErrorIfNull(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), "SDL_CreateWindow Error: %s\n");

@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
@@ -291,7 +290,6 @@ pub struct ASTTypedModule {
     pub enums: Vec<ASTTypedEnumDef>,
     pub structs: Vec<ASTTypedStructDef>,
     pub types: Vec<ASTTypedTypeDef>,
-    pub externals: HashSet<String>,
 }
 
 impl TypeDefProvider for ASTTypedModule {
@@ -783,8 +781,6 @@ pub fn convert_to_typed_module(
 ) -> Result<ASTTypedModule, CompilationError> {
     let type_check = TypeCheck::new(&original_module.body_namespace, true);
 
-    let externals = original_module.externals.clone();
-
     let module = type_check.type_check(
         original_module,
         statics,
@@ -965,7 +961,6 @@ pub fn convert_to_typed_module(
         enums: conv_context.enum_defs,
         functions_by_name,
         types: conv_context.type_defs,
-        externals,
     };
 
     if print_module {
