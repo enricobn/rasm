@@ -1,6 +1,3 @@
-include "../../../../breakout/src/main/rasm/fps.rasm"
-include "../../../../breakout/src/main/rasm/direction.rasm"
-
 struct Model {
     quads: Vec<Quad>,
     fps: FPS,

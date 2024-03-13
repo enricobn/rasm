@@ -63,14 +63,12 @@ pub struct Parser {
     i: usize,
     parser_data: Vec<ParserData>,
     state: Vec<ParserState>,
-    included_functions: Vec<ASTFunctionDef>,
     enums: Vec<ASTEnumDef>,
     structs: Vec<ASTStructDef>,
     file_name: Option<PathBuf>,
     requires: HashSet<String>,
     externals: HashSet<String>,
     types: Vec<ASTTypeDef>,
-    included_files: HashSet<PathBuf>,
     errors: Vec<CompilationError>,
 }
 
@@ -152,13 +150,6 @@ impl Parser {
                 )
             })
             .collect();
-        let included_files = if let Some(file) = &file_name {
-            let mut set = HashSet::new();
-            set.insert(file.clone());
-            set
-        } else {
-            HashSet::new()
-        };
 
         Self {
             tokens,
@@ -167,14 +158,12 @@ impl Parser {
             i: 0,
             parser_data: Vec::new(),
             state: Vec::new(),
-            included_functions: Vec::new(),
             enums: Vec::new(),
             structs: Vec::new(),
             file_name,
             requires: HashSet::new(),
             externals: HashSet::new(),
             types: Vec::new(),
-            included_files,
             errors: lexer_errors,
         }
     }
@@ -426,8 +415,6 @@ impl Parser {
             self.i += 1;
         }
 
-        self.functions.append(&mut self.included_functions);
-
         self.get_return(namespace, path)
     }
 
@@ -526,51 +513,6 @@ impl Parser {
             self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
-            self.i = next_i;
-        } else if let Some((resource, next_i)) = self.try_parse_include()? {
-            let source_file = path.with_file_name(resource);
-            info!("include {}", source_file.to_str().unwrap());
-
-            self.included_files.insert(source_file.clone());
-
-            match Lexer::from_file(source_file.as_path()) {
-                Ok(lexer) => {
-                    let mut parser = Parser::new(lexer, Some(source_file.clone()));
-                    // TODO include should be deprecated, but some tests relies on it
-                    //      this is a trick, we cannot know the exact namespace looking only at the file name
-                    let namespace = ASTNameSpace::new(
-                        "".to_string(),
-                        path.with_extension("")
-                            .file_name()
-                            .unwrap()
-                            .to_string_lossy()
-                            .to_string(),
-                    );
-                    let (mut module, errors) = parser.parse(source_file.as_path(), &namespace);
-                    self.errors.extend(errors);
-                    if !module.body.is_empty() {
-                        return Err(format!(
-                            "Cannot include a module with a body: {:?}: {}",
-                            module.body,
-                            self.get_index(0)
-                        ));
-                    }
-                    self.included_functions.append(&mut module.functions);
-                    self.enums.append(&mut module.enums);
-                    self.structs.append(&mut module.structs);
-                    self.requires.extend(module.requires);
-                    self.externals.extend(module.externals);
-                    self.types.extend(module.types);
-                }
-                Err(err) => {
-                    return Err(format!(
-                        "Error running lexer for {:?} {err}: {}",
-                        source_file.to_str().unwrap(),
-                        self.get_index(0)
-                    ));
-                }
-            }
-
             self.i = next_i;
         } else if let Some((name, type_params, modifiers, next_i)) =
             ENUM_PARSER.try_parse(namespace, self)
@@ -1155,25 +1097,6 @@ impl Parser {
         } else {
             Ok(None)
         }
-    }
-
-    fn try_parse_include(&self) -> Result<Option<(String, usize)>, String> {
-        if let Some(TokenKind::KeyWord(KeywordKind::Include)) = self.get_token_kind() {
-            if let Some(next_token) = self.next_token() {
-                if let TokenKind::StringLiteral(include) = &next_token.kind {
-                    return Ok(Some((include.into(), self.i + 2)));
-                } else {
-                    return Err(format!(
-                        "Unexpected token {:?}: {}",
-                        next_token,
-                        self.get_index(1)
-                    ));
-                }
-            } else {
-                return Err(format!("Error parsing include: {}", self.get_index(0)));
-            }
-        }
-        Ok(None)
     }
 
     fn try_parse_parameter_def_name(&self) -> Option<(String, usize)> {

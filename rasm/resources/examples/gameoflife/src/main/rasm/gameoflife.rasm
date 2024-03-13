@@ -29,9 +29,6 @@
 // more on optimized lambda space allocation (in stack)
 // real    0m11,322s
 
-include "gameoflife_common.rasm"
-include "gameoflife_common_list.rasm"
-
 let file = argv(1);
 let start = readCellFile(file);
 let count = atoi(argv(2));

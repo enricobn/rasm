@@ -1,0 +1,8 @@
+[package]
+name = "gameoflife_vec"
+version = "1.0.0"
+main = "gameoflife_vec.rasm"
+out = "gameoflife_vec"
+
+[dependencies]
+stdlib = { path = "../../../../stdlib" }

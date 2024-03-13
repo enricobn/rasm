@@ -159,7 +159,7 @@ fn test_list_flatten() {
 #[test]
 fn test_gameoflife_runs() {
     run(
-        "resources/examples/gameoflife.rasm",
+        "resources/examples/gameoflife",
         vec!["resources/examples/simple.cells", "5"],
         None,
     );
@@ -477,7 +477,7 @@ fn test_gameoflife_sdl_compile() {
 
 #[test]
 fn test_gameoflife_vec_compile() {
-    compile_example("resources/examples/gameoflife_vec.rasm", true);
+    compile_example("resources/examples/gameoflife_vec", true);
 }
 
 #[test]

@@ -8,9 +8,6 @@
 // 80 * 50
 // real    0m1,753s
 
-include "gameoflife_common.rasm"
-include "gameoflife_common_vec.rasm"
-
 let file = argv(1);
 let start = readCellFile(file);
 let count = atoi(argv(2));
