@@ -111,10 +111,9 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let backend = BackendNasmi386::new(self.options.clone(), self.debug);
+        let backend = BackendNasmi386::new(self.debug);
 
         let typed_module = get_typed_module(
-            &backend,
             enhanced_ast_module,
             self.options.print_memory,
             self.options.dereference,
@@ -131,7 +130,7 @@ impl Compiler {
 
         let start = Instant::now();
 
-        let native_code = self.target.generate(statics, typed_module, self.debug);
+        let native_code = self.target.generate(statics, &typed_module, self.debug);
 
         info!("code generation ended in {:?}", start.elapsed());
 

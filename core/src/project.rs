@@ -291,7 +291,7 @@ impl RasmProject {
             .into_iter()
             .flatten()
             .for_each(|(mut project_module, module_errors)| {
-                enrich_module(&target, statics, &mut project_module, debug);
+                enrich_module(target, statics, &mut project_module, debug);
                 modules.push(project_module);
                 errors.extend(module_errors);
             });

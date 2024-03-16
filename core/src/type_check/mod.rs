@@ -112,7 +112,7 @@ pub fn resolve_generic_types_from_effective_type(
                             } else {
                                 dedent!();
                                 if let ASTType::Generic(p) = p_t.as_ref() {
-                                    return Err(format!("Found generic type {p} that is (). For now we cannot handle it").into());
+                                    return Err(format!("Found generic type {p} that is (). For now, we cannot handle it").into());
                                 }
                                 return Err("Expected some type but got None".into());
                             }

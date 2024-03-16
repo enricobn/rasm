@@ -4,7 +4,6 @@ use std::ops::Deref;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, info};
 
-use crate::codegen::backend::Backend;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
@@ -772,7 +771,6 @@ pub fn convert_to_typed_module(
     original_module: &EnhancedASTModule,
     print_module: bool,
     mandatory_functions: Vec<DefaultFunction>,
-    backend: &dyn Backend,
     statics: &mut Statics,
     dereference: bool,
     default_functions: Vec<DefaultFunction>,
@@ -815,7 +813,6 @@ pub fn convert_to_typed_module(
             function_def(
                 &mut conv_context,
                 &converted_function,
-                backend,
                 &module,
                 statics,
                 dereference,
@@ -838,7 +835,6 @@ pub fn convert_to_typed_module(
             ASTTypedFunctionBody::NativeBody(body) => {
                 let new_body = evaluator
                     .translate(
-                        target,
                         statics,
                         Some(function),
                         None,
@@ -934,7 +930,6 @@ pub fn convert_to_typed_module(
 
                 let new_body = evaluator
                     .translate(
-                        target,
                         statics,
                         Some(function),
                         None,
@@ -1230,7 +1225,6 @@ fn struct_property(
 pub fn function_def(
     conv_context: &mut ConvContext,
     def: &ASTFunctionDef,
-    _backend: &dyn Backend,
     _module: &EnhancedASTModule,
     _statics: &mut Statics,
     _dereference: bool,

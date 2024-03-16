@@ -19,7 +19,6 @@
 use std::io;
 use std::ops::Deref;
 
-use rasm_core::codegen::backend::Backend;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
@@ -149,19 +148,10 @@ impl CompletionService {
     pub fn new(
         module: &EnhancedASTModule,
         statics: &mut Statics,
-        backend: &dyn Backend,
         target: &CompileTarget,
     ) -> Result<Self, CompilationError> {
-        let typed_module = get_typed_module(
-            backend,
-            module.clone(),
-            false,
-            true,
-            false,
-            statics,
-            target,
-            false,
-        )?;
+        let typed_module =
+            get_typed_module(module.clone(), false, true, false, statics, target, false)?;
 
         let mut completable_items = Vec::new();
 
@@ -604,7 +594,7 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let backend = BackendNasmi386::new(CodeGenOptions::default(), false);
+        let backend = BackendNasmi386::new(false);
 
         let mut statics = Statics::new();
 
@@ -616,7 +606,7 @@ mod tests {
         assert!(errors.is_empty());
 
         (
-            CompletionService::new(&module, &mut statics, &backend, &target).unwrap(),
+            CompletionService::new(&module, &mut statics, &target).unwrap(),
             module,
         )
     }

@@ -1213,7 +1213,7 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let mut backend = BackendNasmi386::new(CodeGenOptions::default(), false);
+        let backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(CodeGenOptions::default());
         let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);

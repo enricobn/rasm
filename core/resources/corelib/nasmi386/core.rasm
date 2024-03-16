@@ -336,10 +336,10 @@ pub native deref(address: i32, descr: str) -> i32 /{
 
     %ifdef LOG_DEBUG
     push    eax
-    $call(print, 1:File, "  add reused ");
-    $call(print, 1:File, ebx);
-    $call(print, 1:File, " with value ");
-    $call(print, 1:File, [ebx]);
+    $call(print, 1:File, "  add reused ")
+    $call(print, 1:File, ebx)
+    $call(print, 1:File, " with value ")
+    $call(print, 1:File, [ebx])
     pop     eax
     %endif
 
@@ -348,10 +348,10 @@ pub native deref(address: i32, descr: str) -> i32 /{
 
     jmp     .end
 .negative_count:
-    $call(print, 1:File, "Negative allocation count: ");
+    $call(print, 1:File, "Negative allocation count: ")
     $call(print, 1:File, $descr)
     $call(print, 1:File, "\n")
-    $call(exitMain, 1);
+    $call(exitMain, 1)
 .invalid_address:
     $call(invalidAddress)
 .end:

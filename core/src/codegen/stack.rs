@@ -2,8 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use crate::codegen::backend::BackendAsm;
-use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::{CodeGen, CodeGenAsm};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StackEntryType {
@@ -53,10 +52,10 @@ impl StackVals {
         self.len_of_local_vals()
     }
 
-    pub fn reserve_return_register(&self, target: &CompileTarget, out: &mut String) {
+    pub fn reserve_return_register(&self, code_gen: &CodeGenAsm, out: &mut String) {
         self.check_desc("return_register");
 
-        target.add(out, "push eax", Some("return register"), true);
+        code_gen.add(out, "push eax", Some("return register"), true);
 
         self.reserved_slots.borrow_mut().push(StackEntry {
             entry_type: StackEntryType::ReturnRegister,
@@ -67,15 +66,14 @@ impl StackVals {
     pub fn reserve_tmp_register(
         &self,
         out: &mut String,
-        backend: &dyn BackendAsm,
         desc: &str,
-        target: &CompileTarget,
+        code_gen: &CodeGenAsm,
     ) -> String {
         self.check_desc(desc);
 
         let self_tmp_registers = self.tmp_registers();
 
-        let available_tmp_registers = backend
+        let available_tmp_registers = code_gen
             .tmp_registers()
             .iter()
             .cloned()
@@ -83,7 +81,7 @@ impl StackVals {
             .collect::<Vec<_>>();
 
         if let Some(register) = available_tmp_registers.first() {
-            target.add(out, &format!("push {}", register), Some(desc), true);
+            code_gen.add(out, &format!("push {}", register), Some(desc), true);
 
             self.reserved_slots.borrow_mut().push(StackEntry {
                 entry_type: StackEntryType::TmpRegister(register.clone()),
@@ -106,7 +104,7 @@ impl StackVals {
         }
     }
 
-    pub fn release_tmp_register(&self, target: &CompileTarget, out: &mut String, desc: &str) {
+    pub fn release_tmp_register(&self, code_gen: &CodeGenAsm, out: &mut String, desc: &str) {
         let mut register_o = None;
         for entry in self.reserved_slots.borrow().iter().rev() {
             if let StackEntryType::TmpRegister(ref r) = entry.entry_type {
@@ -120,7 +118,7 @@ impl StackVals {
         }
 
         if let Some(register) = register_o {
-            target.add(out, &format!("pop {}", register), Some(desc), true);
+            code_gen.add(out, &format!("pop {}", register), Some(desc), true);
             self.reserved_slots
                 .borrow_mut()
                 .retain(|it| it.desc != desc);
@@ -232,10 +230,9 @@ impl StackVals {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::stack::StackVals;
-    use crate::codegen::CodeGenOptions;
+    use crate::codegen::{CodeGenAsm, CodeGenOptions};
 
     #[test]
     fn find_relative_to_bp() {
@@ -243,11 +240,11 @@ mod tests {
 
         let stack = StackVals::new();
         let target = CompileTarget::Nasmi386(CodeGenOptions::default());
+        let code_gen = CodeGenAsm::new(CodeGenOptions::default(), false);
         assert_eq!(1, stack.reserve_local_val("val1"));
-        stack.reserve_return_register(&target, &mut out);
+        stack.reserve_return_register(&code_gen, &mut out);
         assert_eq!(2, stack.reserve_local_val("val2"));
-        let backend = BackendNasmi386::new(CodeGenOptions::default(), false);
-        stack.reserve_tmp_register(&mut out, &backend, "a_tmp_register", &target);
+        stack.reserve_tmp_register(&mut out, "a_tmp_register", &code_gen);
         assert_eq!(3, stack.reserve_local_val("ref1"));
         assert_eq!(6, stack.reserve_local_space("spc", 3));
         assert_eq!(7, stack.reserve_local_val("val3"));

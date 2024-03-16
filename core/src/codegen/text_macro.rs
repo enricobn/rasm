@@ -8,11 +8,10 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use regex::Regex;
 
-use crate::codegen::backend::{Backend, BackendAsm};
-use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::get_reference_type_name;
+use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
@@ -105,16 +104,22 @@ lazy_static! {
 
 pub struct TextMacroEvaluator {
     evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>,
+    code_manipulator: Box<dyn CodeManipulator>,
 }
 
 impl TextMacroEvaluator {
-    pub fn new(evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>) -> Self {
-        Self { evaluators }
+    pub fn new(
+        evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>,
+        code_manipulator: Box<dyn CodeManipulator>,
+    ) -> Self {
+        Self {
+            evaluators,
+            code_manipulator,
+        }
     }
 
     pub fn translate(
         &self,
-        target: &CompileTarget,
         statics: &mut Statics,
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
@@ -133,7 +138,9 @@ impl TextMacroEvaluator {
         let lines = body.lines();
 
         for (i, s) in lines.enumerate() {
-            let stripped_comments = target.remove_comments_from_line(s.to_string());
+            let stripped_comments = self
+                .code_manipulator
+                .remove_comments_from_line(s.to_string());
             let matches = RE.captures_iter(&stripped_comments);
 
             let mut line_result = s.to_string();
@@ -587,7 +594,6 @@ impl TextMacroEvaluator {
 
     pub fn get_macros(
         &self,
-        target: &CompileTarget,
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
         body: &str,
@@ -603,7 +609,9 @@ impl TextMacroEvaluator {
         let lines = body.lines();
 
         for (i, s) in lines.enumerate() {
-            let stripped_comments = target.remove_comments_from_line(s.to_string());
+            let stripped_comments = self
+                .code_manipulator
+                .remove_comments_from_line(s.to_string());
             let matches = RE.captures_iter(&stripped_comments);
 
             for cap in matches {
@@ -680,12 +688,12 @@ pub trait TextMacroEval {
 }
 
 pub struct CallTextMacroEvaluator {
-    backend: Box<dyn BackendAsm>,
+    code_gen: CodeGenAsm,
 }
 
 impl CallTextMacroEvaluator {
-    pub fn new(backend: Box<dyn BackendAsm>) -> Self {
-        Self { backend }
+    pub fn new(code_gen: CodeGenAsm) -> Self {
+        Self { code_gen }
     }
 }
 
@@ -737,8 +745,8 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
 
         result.push_str(&format!(
             "    add {}, {}\n",
-            self.backend.stack_pointer(),
-            (text_macro.parameters.len() - 1) * self.backend.word_len()
+            self.code_gen.stack_pointer(),
+            (text_macro.parameters.len() - 1) * self.code_gen.word_len()
         ));
 
         result
@@ -754,12 +762,12 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
 }
 
 pub struct CCallTextMacroEvaluator {
-    backend: Box<dyn BackendAsm>,
+    code_gen: CodeGenAsm,
 }
 
 impl CCallTextMacroEvaluator {
-    pub fn new(backend: Box<dyn BackendAsm>) -> Self {
-        Self { backend }
+    pub fn new(code_gen: CodeGenAsm) -> Self {
+        Self { code_gen }
     }
 }
 
@@ -780,9 +788,9 @@ impl TextMacroEval for CCallTextMacroEvaluator {
                 panic!("Error getting the function name");
             };
 
-        let ws = self.backend.word_size();
-        let sp = self.backend.stack_pointer();
-        let wl = self.backend.word_len();
+        let ws = self.code_gen.word_size();
+        let sp = self.code_gen.stack_pointer();
+        let wl = self.code_gen.word_len();
 
         let mut result = String::new();
 
@@ -889,13 +897,13 @@ fn get_type(
 }
 
 pub struct AddRefMacro {
-    backend: Box<dyn Backend>,
+    code_gen: CodeGenAsm,
     deref: bool,
 }
 
 impl AddRefMacro {
-    pub fn new(backend: Box<dyn Backend>, deref: bool) -> Self {
-        Self { backend, deref }
+    pub fn new(code_gen: CodeGenAsm, deref: bool) -> Self {
+        Self { code_gen, deref }
     }
 }
 
@@ -942,7 +950,7 @@ impl TextMacroEval for AddRefMacro {
             let mut result = String::new();
             let descr = &format!("addref macro type {type_name}");
             if self.deref {
-                result.push_str(&self.backend.call_deref(
+                result.push_str(&self.code_gen.call_deref(
                     address,
                     &type_name,
                     descr,
@@ -950,7 +958,7 @@ impl TextMacroEval for AddRefMacro {
                     statics,
                 ));
             } else {
-                self.backend.call_add_ref(
+                self.code_gen.call_add_ref(
                     &mut result,
                     address,
                     &type_name,
@@ -975,8 +983,7 @@ impl TextMacroEval for AddRefMacro {
 }
 
 pub struct PrintRefMacro {
-    backend: Box<dyn BackendAsm>,
-    target: CompileTarget,
+    code_gen: CodeGenAsm,
 }
 
 impl TextMacroEval for PrintRefMacro {
@@ -998,6 +1005,7 @@ impl TextMacroEval for PrintRefMacro {
                     function_def,
                     type_def_provider,
                     0,
+                    &self.code_gen,
                 ),
                 MacroParam::StringLiteral(_) => {
                     panic!("String is nt a valid parameter for printRef macro ")
@@ -1009,6 +1017,7 @@ impl TextMacroEval for PrintRefMacro {
                     function_def,
                     type_def_provider,
                     0,
+                    &self.code_gen,
                 ),
             },
         };
@@ -1036,8 +1045,8 @@ impl TextMacroEval for PrintRefMacro {
 }
 
 impl PrintRefMacro {
-    pub fn new(backend: Box<dyn BackendAsm>, target: CompileTarget) -> Self {
-        Self { backend, target }
+    pub fn new(code_gen: CodeGenAsm) -> Self {
+        Self { code_gen }
     }
 
     fn print_ref(
@@ -1048,6 +1057,7 @@ impl PrintRefMacro {
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
+        code_gen: &CodeGenAsm,
     ) -> String {
         if indent > 20 {
             return String::new();
@@ -1098,17 +1108,17 @@ impl PrintRefMacro {
             }
             ASTTypedType::Enum { namespace: _, name } => (
                 name.clone(),
-                self.print_ref_enum(&name, src, type_def_provider, indent + 1),
+                self.print_ref_enum(&name, src, type_def_provider, indent + 1, code_gen),
                 false,
             ),
             ASTTypedType::Struct { namespace: _, name } => (
                 name.clone(),
-                self.print_ref_struct(&name, src, type_def_provider, indent + 1),
+                self.print_ref_struct(&name, src, type_def_provider, indent + 1, code_gen),
                 true,
             ),
             ASTTypedType::Type { namespace: _, name } => (
                 name.clone(),
-                self.print_ref_type(&name, src, type_def_provider, indent + 1),
+                self.print_ref_type(&name, src, type_def_provider, indent + 1, code_gen),
                 true,
             ),
             _ => panic!("unsupported type {ast_typed_type}"),
@@ -1117,32 +1127,32 @@ impl PrintRefMacro {
         let mut result = String::new();
 
         let ident_string = " ".repeat(indent * 2);
-        self.print_str(&mut result, &format!("{ident_string}{name} "));
+        self.print_str(&mut result, &format!("{ident_string}{name} "), code_gen);
 
-        self.print_i32(&mut result, src);
-        self.target.add(&mut result, "push    ebx", None, true);
-        self.target.add(
+        self.print_i32(&mut result, src, code_gen);
+        code_gen.add(&mut result, "push    ebx", None, true);
+        code_gen.add(
             &mut result,
-            &format!("push    {} {src}", self.backend.word_size()),
+            &format!("push    {} {src}", code_gen.word_size()),
             None,
             true,
         );
-        self.target.add(&mut result, "pop    ebx", None, true);
-        self.print_str(&mut result, " refcount ");
+        code_gen.add(&mut result, "pop    ebx", None, true);
+        self.print_str(&mut result, " refcount ", code_gen);
         if new_line {
-            self.println_i32(&mut result, "[ebx + 12]");
+            self.println_i32(&mut result, "[ebx + 12]", code_gen);
         } else {
-            self.print_i32(&mut result, "[ebx + 12]");
+            self.print_i32(&mut result, "[ebx + 12]", code_gen);
         }
-        self.target.add(&mut result, "pop    ebx", None, true);
+        code_gen.add(&mut result, "pop    ebx", None, true);
 
         result.push_str(&code);
 
         result
     }
 
-    fn println_i32(&self, out: &mut String, value: &str) {
-        self.target.add(
+    fn println_i32(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
+        code_gen.add(
             out,
             //&format!("$call(println_i32_Unit,{value}:i32)"),
             &format!("$call(println,{value}:i32)"),
@@ -1151,8 +1161,8 @@ impl PrintRefMacro {
         );
     }
 
-    fn print_i32(&self, out: &mut String, value: &str) {
-        self.target.add(
+    fn print_i32(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
+        code_gen.add(
             out,
             //&format!("$call(print_i32_Unit,{value}:i32)"),
             &format!("$call(print,{value}:i32)"),
@@ -1161,8 +1171,8 @@ impl PrintRefMacro {
         );
     }
 
-    fn print_str(&self, out: &mut String, value: &str) {
-        self.target.add(
+    fn print_str(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
+        code_gen.add(
             out,
             //&format!("$call(print_str_Unit,\"{value}\")"),
             &format!("$call(print,\"{value}\")"),
@@ -1171,8 +1181,8 @@ impl PrintRefMacro {
         );
     }
 
-    fn println_str(&self, out: &mut String, value: &str) {
-        self.target.add(
+    fn println_str(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
+        code_gen.add(
             out,
             //&format!("$call(println_str_Unit,\"{value}\")"),
             &format!("$call(println,\"{value}\")"),
@@ -1187,13 +1197,12 @@ impl PrintRefMacro {
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
+        code_gen: &CodeGenAsm,
     ) -> String {
         let mut result = String::new();
-        self.target.add(&mut result, "push    ebx", None, true);
-        self.target
-            .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        self.target
-            .add(&mut result, "mov dword ebx, [ebx]", None, true);
+        code_gen.add(&mut result, "push    ebx", None, true);
+        code_gen.add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        code_gen.add(&mut result, "mov dword ebx, [ebx]", None, true);
         if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
             for (i, p) in s.properties.iter().enumerate() {
                 let ast_type_o = if matches!(
@@ -1206,12 +1215,13 @@ impl PrintRefMacro {
                 };
                 if ast_type_o.is_some() {
                     let par_result = self.print_ref(
-                        &format!("[ebx + {}]", i * self.backend.word_len()),
+                        &format!("[ebx + {}]", i * code_gen.word_len()),
                         &ast_type_o,
                         &None,
                         None,
                         type_def_provider,
                         indent + 1,
+                        code_gen,
                     );
                     result.push_str(&par_result);
                 }
@@ -1219,7 +1229,7 @@ impl PrintRefMacro {
         } else {
             panic!("Cannot find struct {name}");
         }
-        self.target.add(&mut result, "pop    ebx", None, true);
+        code_gen.add(&mut result, "pop    ebx", None, true);
         result
     }
 
@@ -1229,6 +1239,7 @@ impl PrintRefMacro {
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
+        code_gen: &CodeGenAsm,
     ) -> String {
         let count = COUNT.with(|count| {
             *count.borrow_mut() += 1;
@@ -1236,16 +1247,14 @@ impl PrintRefMacro {
         });
 
         let end_label_name = &format!("._{name}_end_{}", count);
-        let ws = self.backend.word_size();
-        let wl = self.backend.word_len();
+        let ws = code_gen.word_size();
+        let wl = code_gen.word_len();
 
         let mut result = String::new();
-        self.target.add(&mut result, "push    ebx", None, true);
-        self.target
-            .add(&mut result, &format!("mov dword ebx, {src}"), None, true);
-        self.target
-            .add(&mut result, "mov dword ebx, [ebx]", None, true);
-        self.print_str(&mut result, " value ");
+        code_gen.add(&mut result, "push    ebx", None, true);
+        code_gen.add(&mut result, &format!("mov dword ebx, {src}"), None, true);
+        code_gen.add(&mut result, "mov dword ebx, [ebx]", None, true);
+        self.print_str(&mut result, " value ", code_gen);
         if let Some(s) = type_def_provider.get_enum_def_by_name(name) {
             for (i, variant) in s.variants.iter().enumerate() {
                 let count = COUNT.with(|count| {
@@ -1253,11 +1262,9 @@ impl PrintRefMacro {
                     *count.borrow()
                 });
                 let label_name = &format!("._{name}_{}_{}", variant.name, count);
-                self.target
-                    .add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
-                self.target
-                    .add(&mut result, &format!("jne {label_name}"), None, true);
-                self.println_str(&mut result, &variant.name);
+                code_gen.add(&mut result, &format!("cmp {ws} [ebx], {}", i), None, true);
+                code_gen.add(&mut result, &format!("jne {label_name}"), None, true);
+                self.println_str(&mut result, &variant.name, code_gen);
 
                 for (j, par) in variant.parameters.iter().enumerate() {
                     if get_reference_type_name(&par.ast_type, type_def_provider).is_some() {
@@ -1277,25 +1284,22 @@ impl PrintRefMacro {
                             None,
                             type_def_provider,
                             indent + 1,
+                            code_gen,
                         );
                         result.push_str(&par_result);
                     }
                 }
-                self.target
-                    .add(&mut result, &format!("jmp {end_label_name}"), None, false);
-                self.target
-                    .add(&mut result, &format!("{label_name}:"), None, false);
+                code_gen.add(&mut result, &format!("jmp {end_label_name}"), None, false);
+                code_gen.add(&mut result, &format!("{label_name}:"), None, false);
             }
         } else {
             panic!("Cannot find enum {name}");
         }
-        self.print_str(&mut result, "unknown ");
-        self.println_i32(&mut result, "[ebx]");
-        self.target
-            .add(&mut result, "$call(exitMain, 1)", None, false);
-        self.target
-            .add(&mut result, &format!("{end_label_name}:"), None, false);
-        self.target.add(&mut result, "pop    ebx", None, true);
+        self.print_str(&mut result, "unknown ", code_gen);
+        self.println_i32(&mut result, "[ebx]", code_gen);
+        code_gen.add(&mut result, "$call(exitMain, 1)", None, false);
+        code_gen.add(&mut result, &format!("{end_label_name}:"), None, false);
+        code_gen.add(&mut result, "pop    ebx", None, true);
         result
     }
 
@@ -1305,6 +1309,7 @@ impl PrintRefMacro {
         src: &str,
         type_def_provider: &dyn TypeDefProvider,
         indent: usize,
+        code_gen: &CodeGenAsm,
     ) -> String {
         if let Some(s) = type_def_provider.get_type_def_by_name(name) {
             let count = COUNT.with(|count| {
@@ -1314,69 +1319,65 @@ impl PrintRefMacro {
 
             let mut result = String::new();
 
-            self.target.add(
+            code_gen.add(
                 &mut result,
-                &format!("push  {} eax", self.backend.word_size()),
+                &format!("push  {} eax", code_gen.word_size()),
                 None,
                 true,
             );
-            self.target.add(
+            code_gen.add(
                 &mut result,
-                &format!("push  {} ebx", self.backend.word_size()),
+                &format!("push  {} ebx", code_gen.word_size()),
                 None,
                 true,
             );
-            self.target.add(
+            code_gen.add(
                 &mut result,
-                &format!("push  {} ecx", self.backend.word_size()),
+                &format!("push  {} ecx", code_gen.word_size()),
                 None,
                 true,
             );
             for (i, (generic_name, ast_typed_type)) in s.generic_types.iter().enumerate() {
-                self.target.add(
+                code_gen.add(
                     &mut result,
                     &format!("$call({}References, {src}:i32,{i})", s.original_name),
                     None,
                     true,
                 );
 
-                self.target.add(
+                code_gen.add(
                     &mut result,
-                    &format!("mov   {} eax,[eax]", self.backend.word_size()),
+                    &format!("mov   {} eax,[eax]", code_gen.word_size()),
                     None,
                     true,
                 );
 
                 // count
-                self.target.add(
+                code_gen.add(
                     &mut result,
-                    &format!("mov   {} ebx,[eax]", self.backend.word_size()),
+                    &format!("mov   {} ebx,[eax]", code_gen.word_size()),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
-                    &format!(
-                        "add {} eax,{}",
-                        self.backend.word_size(),
-                        self.backend.word_len()
-                    ),
+                    &format!("add {} eax,{}", code_gen.word_size(), code_gen.word_len()),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
                     &format!(".loop_{name}_{generic_name}_{count}:"),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
-                    &format!("test {} ebx,ebx", self.backend.word_size()),
+                    &format!("test {} ebx,ebx", code_gen.word_size()),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
                     &format!("jz .end_{name}_{generic_name}_{count}"),
                     None,
@@ -1389,40 +1390,37 @@ impl PrintRefMacro {
                     None,
                     type_def_provider,
                     indent + 1,
+                    code_gen,
                 );
                 result.push_str(&inner_result);
-                self.target.add(
+                code_gen.add(
                     &mut result,
-                    &format!("dec {} ebx", self.backend.word_size()),
+                    &format!("dec {} ebx", code_gen.word_size()),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
-                    &format!(
-                        "add {} eax,{}",
-                        self.backend.word_size(),
-                        self.backend.word_len()
-                    ),
+                    &format!("add {} eax,{}", code_gen.word_size(), code_gen.word_len()),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
                     &format!("jmp .loop_{name}_{generic_name}_{count}"),
                     None,
                     true,
                 );
-                self.target.add(
+                code_gen.add(
                     &mut result,
                     &format!(".end_{name}_{generic_name}_{count}:"),
                     None,
                     true,
                 );
             }
-            self.target.add(&mut result, "pop  ecx", None, true);
-            self.target.add(&mut result, "pop  ebx", None, true);
-            self.target.add(&mut result, "pop  eax", None, true);
+            code_gen.add(&mut result, "pop  ecx", None, true);
+            code_gen.add(&mut result, "pop  ebx", None, true);
+            code_gen.add(&mut result, "pop  eax", None, true);
 
             result
         } else {
@@ -1434,7 +1432,7 @@ impl PrintRefMacro {
 #[cfg(test)]
 mod tests {
     use crate::codegen::compile_target::CompileTarget;
-    use crate::codegen::CodeGenOptions;
+    use crate::codegen::{CodeGenAsm, CodeGenOptions};
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::statics::{MemoryValue, Statics};
@@ -1466,7 +1464,7 @@ mod tests {
         let target = target();
         let mut statics = Statics::new();
 
-        let result = target.get_evaluator(false).eval_macro(
+        let result = code_gen().get_evaluator().eval_macro(
             &mut statics,
             &text_macro,
             None,
@@ -1486,10 +1484,9 @@ mod tests {
         let target = target();
         let mut statics = Statics::new();
 
-        let result = target
-            .get_evaluator(false)
+        let result = code_gen()
+            .get_evaluator()
             .translate(
-                &target,
                 &mut statics,
                 None,
                 None,
@@ -1511,10 +1508,9 @@ mod tests {
         let target = target();
         let mut statics = Statics::new();
 
-        let result = target
-            .get_evaluator(false)
+        let result = code_gen()
+            .get_evaluator()
             .translate(
-                &target,
                 &mut statics,
                 None,
                 None,
@@ -1557,10 +1553,9 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = target
-            .get_evaluator(false)
+        let result = code_gen()
+            .get_evaluator()
             .translate(
-                &target,
                 &mut statics,
                 Some(&function_def),
                 None,
@@ -1598,10 +1593,9 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let result = target
-            .get_evaluator(false)
+        let result = code_gen()
+            .get_evaluator()
             .translate(
-                &target,
                 &mut statics,
                 Some(&function_def),
                 None,
@@ -1623,10 +1617,9 @@ mod tests {
         let target = target();
         let mut statics = Statics::new();
 
-        let result = target
-            .get_evaluator(false)
+        let result = code_gen()
+            .get_evaluator()
             .translate(
-                &target,
                 &mut statics,
                 None,
                 None,
@@ -1660,10 +1653,9 @@ mod tests {
             index: ASTIndex::none(),
         };
 
-        let macros = target
-            .get_evaluator(false)
+        let macros = code_gen()
+            .get_evaluator()
             .get_macros(
-                &target,
                 Some(&function_def),
                 None,
                 "$call(slen, $s)",
@@ -1686,10 +1678,9 @@ mod tests {
         let target = target();
         let mut statics = Statics::new();
 
-        let result = target
-            .get_evaluator(false)
+        let result = code_gen()
+            .get_evaluator()
             .translate(
-                &target,
                 &mut statics,
                 None,
                 None,
@@ -1708,7 +1699,7 @@ mod tests {
 
     #[test]
     fn translate_ref_to_par_overridden() {
-        let target = target();
+        let code_gen = code_gen();
 
         let function_def = ASTFunctionDef {
             name: "aFun".into(),
@@ -1729,8 +1720,7 @@ mod tests {
             rank: 0,
         };
 
-        let result = target.get_evaluator(false).get_macros(
-            &target,
+        let result = code_gen.get_evaluator().get_macros(
             None,
             Some(&function_def),
             "$call(List_0_addRef,$s:i32)",
@@ -1741,6 +1731,10 @@ mod tests {
             "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: ASTIndex { file_name: None, row: 0, column: 0 } }, 0)])",
             &format!("{:?}", result),
         );
+    }
+
+    fn code_gen() -> CodeGenAsm {
+        CodeGenAsm::new(CodeGenOptions::default(), false)
     }
 
     #[test]

@@ -881,13 +881,7 @@ impl TypeCheck {
 
                 let evaluator = target.get_evaluator(debug);
                 let text_macro_names = evaluator
-                    .get_macros(
-                        target,
-                        None,
-                        Some(new_function_def),
-                        asm_body,
-                        &type_def_provider,
-                    )
+                    .get_macros(None, Some(new_function_def), asm_body, &type_def_provider)
                     .map_err(|it| {
                         dedent!();
                         TypeCheckError::new(
@@ -1624,7 +1618,7 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let backend = BackendNasmi386::new(CodeGenOptions::default(), false);
+        let backend = BackendNasmi386::new(false);
         let target = CompileTarget::Nasmi386(CodeGenOptions::default());
         let mut statics = Statics::new();
 
@@ -1641,7 +1635,6 @@ mod tests {
             &module,
             false,
             mandatory_functions,
-            &backend,
             &mut statics,
             true,
             default_functions,

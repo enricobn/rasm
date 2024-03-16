@@ -3,10 +3,9 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
-use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
 use crate::parser::ast::{ASTIndex, ASTNameSpace};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -209,16 +208,16 @@ pub trait TypedFunctionsCreator {
 
 pub struct TypedFunctionsCreatorNasmi386 {
     backend: BackendNasmi386,
-    target: CompileTarget,
     debug: bool,
+    code_gen: CodeGenAsm,
 }
 
 impl TypedFunctionsCreatorNasmi386 {
-    pub fn new(backend: BackendNasmi386, debug: bool, compile_target: CompileTarget) -> Self {
+    pub fn new(backend: BackendNasmi386, code_gen: CodeGenAsm, debug: bool) -> Self {
         Self {
             backend,
-            target: compile_target,
             debug,
+            code_gen,
         }
     }
 
@@ -230,22 +229,21 @@ impl TypedFunctionsCreatorNasmi386 {
     ) -> String {
         let mut result = String::new();
 
-        self.target.add_rows(
+        self.code_gen.add_rows(
             &mut result,
             vec!["push  eax", "push  ebx", "push  ecx"],
             None,
             true,
         );
 
-        self.target.call_function(
+        self.code_gen.call_function(
             &mut result,
             &format!("{}References", type_def.original_name),
             &[("$address", None), (&format!("{generic_n}"), None)],
             None,
-            self.debug,
         );
 
-        self.target.add_rows(
+        self.code_gen.add_rows(
             &mut result,
             vec![
                 &format!("mov   {} ebx, [eax]", self.backend.word_size()),
@@ -293,16 +291,15 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         let key = statics.add_str(&descr);
 
-        self.target.call_function(
+        self.code_gen.call_function(
             &mut result,
             asm_function_name,
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
-            self.debug,
         );
 
         if struct_has_references(struct_def, module) {
-            self.target.add_rows(
+            self.code_gen.add_rows(
                 &mut result,
                 vec![
                     &format!("push {ws} ebx"),
@@ -316,7 +313,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                 if let Some(name) = get_reference_type_name(&property.ast_type, module) {
                     let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
                     if function_name == "deref" {
-                        result.push_str(&self.backend.call_deref(
+                        result.push_str(&self.code_gen.call_deref(
                             &format!("[ebx + {}]", i * wl),
                             &name,
                             descr,
@@ -325,7 +322,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                         ));
                         result.push('\n');
                     } else {
-                        self.backend.call_add_ref(
+                        self.code_gen.call_add_ref(
                             &mut result,
                             &format!("[ebx + {}]", i * wl),
                             &name,
@@ -337,7 +334,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                 }
             }
 
-            self.target.add(&mut result, "pop ebx", None, true);
+            self.code_gen.add(&mut result, "pop ebx", None, true);
         }
 
         result
@@ -365,7 +362,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         let key = statics.add_str(&descr);
 
         if enum_has_references(enum_def, module) {
-            self.target.add_rows(
+            self.code_gen.add_rows(
                 &mut result,
                 vec![
                     &format!("push {ws} ebx"),
@@ -377,7 +374,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
             );
             for (i, variant) in enum_def.clone().variants.iter().enumerate() {
                 if !variant.parameters.is_empty() {
-                    self.target.add_rows(
+                    self.code_gen.add_rows(
                         &mut result,
                         vec![
                             &format!("cmp {ws} [ebx], {}", i),
@@ -386,18 +383,17 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                         None,
                         true,
                     );
-                    self.target.call_function(
+                    self.code_gen.call_function(
                         &mut result,
                         asm_function_name,
                         &[("$address", None), (&format!("[{key}]"), None)],
                         Some(&descr),
-                        self.debug,
                     );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
                         if let Some(name) = get_reference_type_name(&par.ast_type, module) {
                             let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
                             if function_name == "deref" {
-                                result.push_str(&self.backend.call_deref(
+                                result.push_str(&self.code_gen.call_deref(
                                     &format!("[ebx + {}]", (j + 1) * wl),
                                     &name,
                                     descr,
@@ -406,7 +402,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                                 ));
                                 result.push('\n');
                             } else {
-                                self.backend.call_add_ref(
+                                self.code_gen.call_add_ref(
                                     &mut result,
                                     &format!("[ebx + {}]", (j + 1) * wl),
                                     &name,
@@ -417,7 +413,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                             }
                         }
                     }
-                    self.target.add_rows(
+                    self.code_gen.add_rows(
                         &mut result,
                         vec!["jmp .end", &format!("._variant_{i}:")],
                         None,
@@ -425,7 +421,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                     );
                 }
             }
-            self.target
+            self.code_gen
                 .add_rows(&mut result, vec![".end:", "pop ebx"], None, true);
         }
 
@@ -447,12 +443,11 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         let mut result = String::new();
         let descr = format!("type {}", type_def.name);
 
-        self.target.call_function(
+        self.code_gen.call_function(
             &mut result,
             asm_function_name,
             &[("$address", None), ("$descr", None)],
             Some(&descr),
-            self.debug,
         );
 
         if type_has_references(type_def) {
@@ -461,11 +456,11 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                 if let Some(name) = get_reference_type_name(generic_type_def, module) {
                     let descr = "$descr";
                     let call_deref = if function_name == "deref" {
-                        self.backend
+                        self.code_gen
                             .call_deref("[ebx]", &name, descr, module, statics)
                     } else {
                         let mut s = String::new();
-                        self.backend
+                        self.code_gen
                             .call_add_ref(&mut s, "[ebx]", &name, descr, module, statics);
                         s
                     };

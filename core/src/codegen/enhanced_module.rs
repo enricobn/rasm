@@ -100,7 +100,7 @@ impl EnhancedASTModule {
 
         target
             .functions_creator(debug)
-            .create_globals(&mut module, statics, &target, debug);
+            .create_globals(&mut module, statics);
 
         module
     }
