@@ -52,7 +52,7 @@ pub enum CompileTarget {
     Nasmi386(AsmOptions),
 }
 
-pub const NASMI386: &'static str = "nasmi386";
+pub const NASMI386: &str = "nasmi386";
 
 impl CompileTarget {
     pub fn from(
