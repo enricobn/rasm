@@ -772,7 +772,6 @@ pub fn convert_to_typed_module(
     print_module: bool,
     mandatory_functions: Vec<DefaultFunction>,
     statics: &mut Statics,
-    dereference: bool,
     default_functions: Vec<DefaultFunction>,
     target: &CompileTarget,
     debug: bool,
@@ -810,20 +809,15 @@ pub fn convert_to_typed_module(
 
         functions_by_name.insert(
             new_function_def.name.clone(),
-            function_def(
-                &mut conv_context,
-                &converted_function,
-                &module,
-                statics,
-                dereference,
-            )
-            .map_err(|it| {
-                compilation_error(
-                    converted_function.index.clone(),
-                    format!("Error converting {converted_function}"),
-                    vec![it],
-                )
-            })?,
+            function_def(&mut conv_context, &converted_function, &module, statics).map_err(
+                |it| {
+                    compilation_error(
+                        converted_function.index.clone(),
+                        format!("Error converting {converted_function}"),
+                        vec![it],
+                    )
+                },
+            )?,
         );
     }
 
@@ -834,15 +828,7 @@ pub fn convert_to_typed_module(
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::NativeBody(body) => {
                 let new_body = evaluator
-                    .translate(
-                        statics,
-                        Some(function),
-                        None,
-                        body,
-                        dereference,
-                        true,
-                        &conv_context,
-                    )
+                    .translate(statics, Some(function), None, body, true, &conv_context)
                     .map_err(|it| {
                         compilation_error(
                             function.index.clone(),
@@ -934,7 +920,6 @@ pub fn convert_to_typed_module(
                         Some(function),
                         None,
                         &new_body,
-                        dereference,
                         false,
                         &conv_context,
                     )
@@ -1227,7 +1212,6 @@ pub fn function_def(
     def: &ASTFunctionDef,
     _module: &EnhancedASTModule,
     _statics: &mut Statics,
-    _dereference: bool,
 ) -> Result<ASTTypedFunctionDef, TypeCheckError> {
     if !def.generic_types.is_empty() {
         panic!("function def has generics: {def}");

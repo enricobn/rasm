@@ -1636,7 +1636,6 @@ mod tests {
             false,
             mandatory_functions,
             &mut statics,
-            true,
             default_functions,
             &target,
             false,

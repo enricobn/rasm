@@ -23,7 +23,7 @@ use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::text_macro::{
     AddRefMacro, CCallTextMacroEvaluator, CallTextMacroEvaluator, MacroParam, PrintRefMacro,
-    TextMacro, TextMacroEval, TextMacroEvaluator,
+    RefType, TextMacro, TextMacroEval, TextMacroEvaluator,
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
@@ -115,7 +115,6 @@ pub enum TypedValKind {
 pub fn get_typed_module(
     module: EnhancedASTModule,
     print_memory_info: bool,
-    dereference: bool,
     print_module: bool,
     statics: &mut Statics,
     target: &CompileTarget,
@@ -129,7 +128,6 @@ pub fn get_typed_module(
         print_module,
         mandatory_functions,
         statics,
-        dereference,
         default_functions,
         target,
         debug,
@@ -1811,11 +1809,19 @@ impl CodeGenAsm {
         evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
         evaluators.insert(
             "addRef".into(),
-            Box::new(AddRefMacro::new(self.clone(), false)),
+            Box::new(AddRefMacro::new(
+                self.clone(),
+                RefType::AddRef,
+                self.options.dereference,
+            )),
         );
         evaluators.insert(
             "deref".into(),
-            Box::new(AddRefMacro::new(self.clone(), true)),
+            Box::new(AddRefMacro::new(
+                self.clone(),
+                RefType::Deref,
+                self.options.dereference,
+            )),
         );
         let print_ref_macro = PrintRefMacro::new(self.clone());
         evaluators.insert("printRef".into(), Box::new(print_ref_macro));
@@ -1854,7 +1860,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 None,
                 None,
                 &static_code,
-                self.options().dereference,
                 false,
                 typed_module,
             )
@@ -2779,25 +2784,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
         let evaluator = self.get_evaluator();
 
-        let new_body = evaluator.translate(
-            statics,
-            None,
-            None,
-            body,
-            self.options.dereference,
-            true,
-            typed_module,
-        )?;
+        let new_body = evaluator.translate(statics, None, None, body, true, typed_module)?;
 
-        let result = evaluator.translate(
-            statics,
-            None,
-            None,
-            &new_body,
-            self.options.dereference,
-            false,
-            typed_module,
-        )?;
+        let result = evaluator.translate(statics, None, None, &new_body, false, typed_module)?;
 
         let mut lines: Vec<String> = result.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 

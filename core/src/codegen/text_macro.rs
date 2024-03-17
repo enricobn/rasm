@@ -124,7 +124,6 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&ASTFunctionDef>,
         body: &str,
-        dereference: bool,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
@@ -165,7 +164,6 @@ impl TextMacroEvaluator {
                     statics,
                     &text_macro,
                     typed_function_def,
-                    dereference,
                     pre_macro,
                     type_def_provider,
                 ) {
@@ -570,7 +568,6 @@ impl TextMacroEvaluator {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        dereference: bool,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<String> {
@@ -580,13 +577,7 @@ impl TextMacroEvaluator {
             .unwrap_or_else(|| panic!("{} macro not found", &text_macro.name));
 
         if evaluator.is_pre_macro() == pre_macro {
-            Some(evaluator.eval_macro(
-                statics,
-                &text_macro,
-                function_def,
-                dereference,
-                type_def_provider,
-            ))
+            Some(evaluator.eval_macro(statics, &text_macro, function_def, type_def_provider))
         } else {
             None
         }
@@ -678,7 +669,6 @@ pub trait TextMacroEval {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String;
 
@@ -703,7 +693,6 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
         statics: &mut Statics,
         text_macro: &TextMacro,
         _function_def: Option<&ASTTypedFunctionDef>,
-        _dereference: bool,
         _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let function_name =
@@ -777,7 +766,6 @@ impl TextMacroEval for CCallTextMacroEvaluator {
         statics: &mut Statics,
         text_macro: &TextMacro,
         _function_def: Option<&ASTTypedFunctionDef>,
-        _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         debug_i!("translate macro fun {:?}", _function_def);
@@ -896,14 +884,24 @@ fn get_type(
     }
 }
 
+pub enum RefType {
+    Deref,
+    AddRef,
+}
+
 pub struct AddRefMacro {
     code_gen: CodeGenAsm,
-    deref: bool,
+    ref_type: RefType,
+    dereference_enabled: bool,
 }
 
 impl AddRefMacro {
-    pub fn new(code_gen: CodeGenAsm, deref: bool) -> Self {
-        Self { code_gen, deref }
+    pub fn new(code_gen: CodeGenAsm, ref_type: RefType, dereference_enabled: bool) -> Self {
+        Self {
+            code_gen,
+            ref_type,
+            dereference_enabled,
+        }
     }
 }
 
@@ -913,10 +911,9 @@ impl TextMacroEval for AddRefMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
-        if !dereference {
+        if !self.dereference_enabled {
             return String::new();
         }
         if let Some(fd) = function_def {
@@ -949,24 +946,27 @@ impl TextMacroEval for AddRefMacro {
 
             let mut result = String::new();
             let descr = &format!("addref macro type {type_name}");
-            if self.deref {
-                result.push_str(&self.code_gen.call_deref(
+
+            match self.ref_type {
+                RefType::Deref => result.push_str(&self.code_gen.call_deref(
                     address,
                     &type_name,
                     descr,
                     type_def_provider,
                     statics,
-                ));
-            } else {
-                self.code_gen.call_add_ref(
-                    &mut result,
-                    address,
-                    &type_name,
-                    descr,
-                    type_def_provider,
-                    statics,
-                );
+                )),
+                RefType::AddRef => {
+                    self.code_gen.call_add_ref(
+                        &mut result,
+                        address,
+                        &type_name,
+                        descr,
+                        type_def_provider,
+                        statics,
+                    );
+                }
             }
+
             result
         } else {
             String::new()
@@ -992,7 +992,6 @@ impl TextMacroEval for PrintRefMacro {
         _statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        _dereference: bool,
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let result = match text_macro.parameters.get(0) {
@@ -1468,7 +1467,6 @@ mod tests {
             &mut statics,
             &text_macro,
             None,
-            true,
             false,
             &DummyTypeDefProvider::new(),
         );
@@ -1491,7 +1489,6 @@ mod tests {
                 None,
                 None,
                 "a line\n$call(nprint,10)\nanother line\n",
-                true,
                 false,
                 &DummyTypeDefProvider::new(),
             )
@@ -1515,7 +1512,6 @@ mod tests {
                 None,
                 None,
                 "a line\n$call(println, \"Hello, world\")\nanother line\n",
-                true,
                 false,
                 &DummyTypeDefProvider::new(),
             )
@@ -1560,7 +1556,6 @@ mod tests {
                 Some(&function_def),
                 None,
                 "a line\n$call(println, $s)\nanother line\n",
-                true,
                 false,
                 &DummyTypeDefProvider::new(),
             )
@@ -1600,7 +1595,6 @@ mod tests {
                 Some(&function_def),
                 None,
                 "a line\n$ccall(printf, $s)\nanother line\n",
-                true,
                 false,
                 &DummyTypeDefProvider::new(),
             )
@@ -1624,7 +1618,6 @@ mod tests {
                 None,
                 None,
                 "mov     eax, 1          ; $call(any)",
-                true,
                 false,
                 &DummyTypeDefProvider::new(),
             )
@@ -1685,7 +1678,6 @@ mod tests {
                 None,
                 None,
                 "$call(List_0_addRef,eax:List_0)",
-                true,
                 false,
                 &DummyTypeDefProvider::new(),
             )
