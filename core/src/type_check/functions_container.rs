@@ -832,7 +832,7 @@ mod tests {
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::CodeGenOptions;
+    use crate::codegen::AsmOptions;
     use crate::parser::ast::ASTFunctionBody::NativeBody;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
@@ -1058,7 +1058,7 @@ mod tests {
     }
 
     fn target() -> CompileTarget {
-        CompileTarget::Nasmi386(CodeGenOptions::default())
+        CompileTarget::Nasmi386(AsmOptions::default())
     }
 
     fn simple_function_def(name: &str) -> ASTFunctionDef {

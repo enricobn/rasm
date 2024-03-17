@@ -16,11 +16,33 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use strum_macros::Display;
+
+#[derive(PartialEq, Display)]
+pub enum CommandLineAction {
+    Build,
+    Test,
+    Server,
+}
+
 pub struct CommandLineOptions {
-    pub action: String,
+    pub action: CommandLineAction,
     pub debug: bool,
     pub print_code: bool,
     pub print_memory: bool,
     pub only_compile: bool,
     pub out: Option<String>,
+}
+
+impl Default for CommandLineOptions {
+    fn default() -> Self {
+        Self {
+            action: CommandLineAction::Test,
+            debug: false,
+            print_code: false,
+            print_memory: false,
+            only_compile: false,
+            out: None,
+        }
+    }
 }

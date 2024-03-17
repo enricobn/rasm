@@ -506,7 +506,7 @@ mod tests {
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::CodeGenOptions;
+    use rasm_core::codegen::AsmOptions;
     use rasm_core::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
         ASTType, BuiltinTypeKind,
@@ -597,7 +597,7 @@ mod tests {
 
         let mut statics = Statics::new();
 
-        let target = CompileTarget::Nasmi386(CodeGenOptions::default());
+        let target = CompileTarget::Nasmi386(AsmOptions::default());
         let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
 
         let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);

@@ -9,13 +9,13 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::debug;
 use log::info;
-use rasm_core::codegen::compile_target::CompileTarget;
+use rasm_core::codegen::compile_target::{CompileTarget, NASMI386};
 use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
 use rasm_server::server::rasm_server;
 
-use rasm_core::commandline::CommandLineOptions;
+use rasm_core::commandline::{CommandLineAction, CommandLineOptions};
 
 fn main() {
     let start = Instant::now();
@@ -49,7 +49,8 @@ fn main() {
                 .short('t')
                 .help("the compiler target")
                 .required(true)
-                .value_parser(["nasmi386"])
+                .value_parser([NASMI386])
+                .default_value(NASMI386)
                 .required(false),
         )
         .arg(
@@ -112,8 +113,20 @@ fn main() {
         .cloned()
         .unwrap_or(".".to_string());
 
+    let action = match matches
+        .get_one::<String>("ACTION")
+        .cloned()
+        .unwrap()
+        .as_str()
+    {
+        "build" => CommandLineAction::Build,
+        "test" => CommandLineAction::Test,
+        "server" => CommandLineAction::Server,
+        it => panic!("Unsupported action {it}"),
+    };
+
     let command_line_options = CommandLineOptions {
-        action: matches.get_one::<String>("ACTION").cloned().unwrap(),
+        action,
         debug: matches.get_flag("debug"),
         print_code: matches.get_flag("printcode"),
         print_memory: matches.get_flag("memoryinfo"),
@@ -126,15 +139,12 @@ fn main() {
     let project = RasmProject::new(src_path.to_path_buf());
 
     let target = CompileTarget::from(
-        matches
-            .get_one::<String>("target")
-            .cloned()
-            .unwrap_or("nasmi386".to_string()),
+        matches.get_one::<String>("target").cloned().unwrap(),
         &project,
         &command_line_options,
     );
 
-    if command_line_options.action == "server" {
+    if command_line_options.action == CommandLineAction::Server {
         rasm_server(project);
     } else {
         debug_i!("project {:?}", project);

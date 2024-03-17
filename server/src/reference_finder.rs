@@ -874,7 +874,7 @@ mod tests {
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::CodeGenOptions;
+    use rasm_core::codegen::AsmOptions;
     use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
@@ -1215,7 +1215,7 @@ mod tests {
 
         let backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
-        let target = CompileTarget::Nasmi386(CodeGenOptions::default());
+        let target = CompileTarget::Nasmi386(AsmOptions::default());
         let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
         let enhanced_ast_module =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);

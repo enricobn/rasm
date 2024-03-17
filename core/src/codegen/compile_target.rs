@@ -32,8 +32,8 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
-use crate::codegen::{get_typed_module, CodeGen, CodeGenAsm, CodeGenOptions};
-use crate::commandline::CommandLineOptions;
+use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
+use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::parser::ast::ASTFunctionDef;
 use crate::project::RasmProject;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
@@ -49,8 +49,10 @@ struct Nasmi386CoreLibAssets;
 
 #[derive(Clone)]
 pub enum CompileTarget {
-    Nasmi386(CodeGenOptions),
+    Nasmi386(AsmOptions),
 }
+
+pub const NASMI386: &'static str = "nasmi386";
 
 impl CompileTarget {
     pub fn from(
@@ -59,24 +61,26 @@ impl CompileTarget {
         command_line_options: &CommandLineOptions,
     ) -> Self {
         match target.as_str() {
-            "nasmi386" => {
+            NASMI386 => {
                 let mut all_projects = vec![project.clone()];
                 all_projects.extend(project.get_all_dependencies());
-                let mut requires = get_native_string_array(&all_projects, "nasmi386", "requires");
+                let mut requires =
+                    get_native_string_array(&all_projects, target.as_str(), "requires");
                 requires.push("libc".to_string());
 
                 requires.sort();
                 requires.dedup();
 
-                let mut externals = get_native_string_array(&all_projects, "nasmi386", "externals");
+                let mut externals =
+                    get_native_string_array(&all_projects, target.as_str(), "externals");
                 externals.sort();
                 externals.dedup();
 
-                let options = CodeGenOptions {
+                let options = AsmOptions {
                     print_memory: command_line_options.print_memory,
                     requires,
                     externals,
-                    ..CodeGenOptions::default()
+                    ..AsmOptions::default()
                 };
 
                 CompileTarget::Nasmi386(options)
@@ -93,17 +97,17 @@ impl CompileTarget {
         }
     }
 
-    pub fn generate(&self, statics: Statics, typed_module: &ASTTypedModule, debug: bool) -> String {
+    fn generate(&self, statics: Statics, typed_module: &ASTTypedModule, debug: bool) -> String {
         match self {
             CompileTarget::Nasmi386(options) => {
-                CodeGenAsm::new(options.clone(), debug).generate(&typed_module, statics)
+                CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
             }
         }
     }
 
     pub fn folder(&self) -> &str {
         match self {
-            CompileTarget::Nasmi386(_) => "nasmi386",
+            CompileTarget::Nasmi386(_) => NASMI386,
         }
     }
 
@@ -176,10 +180,10 @@ impl CompileTarget {
         }
     }
 
-    pub fn supported_actions(&self) -> Vec<String> {
+    pub fn supported_actions(&self) -> Vec<CommandLineAction> {
         match self {
             CompileTarget::Nasmi386(_) => {
-                vec!["build".to_string(), "test".to_string()]
+                vec![CommandLineAction::Build, CommandLineAction::Test]
             }
         }
     }
@@ -196,7 +200,7 @@ impl CompileTarget {
             Path::new(&o).to_path_buf()
         } else {
             project
-                .out_file(command_line_options.action == "test")
+                .out_file(command_line_options.action == CommandLineAction::Test)
                 .expect("undefined out in rasm.toml")
         }
         .with_extension(self.extension());
@@ -209,7 +213,7 @@ impl CompileTarget {
 
         let (modules, errors) = project.get_all_modules(
             &mut statics,
-            command_line_options.action == "test",
+            command_line_options.action == CommandLineAction::Test,
             &self,
             command_line_options.debug,
         );
@@ -248,8 +252,8 @@ impl CompileTarget {
         info!("type check ended in {:?}", start.elapsed());
 
         match self {
-            CompileTarget::Nasmi386(options) => match command_line_options.action.as_str() {
-                "build" | "test" => {
+            CompileTarget::Nasmi386(options) => match command_line_options.action {
+                CommandLineAction::Build | CommandLineAction::Test => {
                     let start = Instant::now();
 
                     let native_code =

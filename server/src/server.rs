@@ -26,7 +26,7 @@ use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{routing::get, Router};
 use log::info;
-use rasm_core::codegen::CodeGenOptions;
+use rasm_core::codegen::AsmOptions;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -89,7 +89,7 @@ struct ServerState {
 impl ServerState {
     fn new(project: RasmProject) -> Result<Self, TypeCheckError> {
         let mut statics = Statics::new();
-        let target = CompileTarget::Nasmi386(CodeGenOptions::default());
+        let target = CompileTarget::Nasmi386(AsmOptions::default());
         let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
 
         // TODO errors
@@ -183,7 +183,7 @@ async fn file<'a>(
             .project
             .get_module(
                 file_path.as_path(),
-                &CompileTarget::Nasmi386(CodeGenOptions::default()),
+                &CompileTarget::Nasmi386(AsmOptions::default()),
             )
             .unwrap()
             .0,

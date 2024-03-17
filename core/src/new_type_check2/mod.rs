@@ -1356,7 +1356,7 @@ mod tests {
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::CodeGenOptions;
+    use crate::codegen::AsmOptions;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
@@ -1619,7 +1619,7 @@ mod tests {
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
         let backend = BackendNasmi386::new(false);
-        let target = CompileTarget::Nasmi386(CodeGenOptions::default());
+        let target = CompileTarget::Nasmi386(AsmOptions::default());
         let mut statics = Statics::new();
 
         let (modules, _errors) = project.get_all_modules(&mut statics, false, &target, false);

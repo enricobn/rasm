@@ -66,7 +66,7 @@ pub const STACK_VAL_SIZE_NAME: &str = "$stack_vals_size";
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
-pub struct CodeGenOptions {
+pub struct AsmOptions {
     pub lambda_space_size: usize,
     pub heap_size: usize,
     pub heap_table_slots: usize,
@@ -77,7 +77,7 @@ pub struct CodeGenOptions {
     pub externals: Vec<String>,
 }
 
-impl Default for CodeGenOptions {
+impl Default for AsmOptions {
     fn default() -> Self {
         Self {
             lambda_space_size: 1024 * 1024,
@@ -95,7 +95,7 @@ impl Default for CodeGenOptions {
 #[derive(Clone)]
 pub struct CodeGenAsm {
     backend: BackendNasmi386,
-    options: CodeGenOptions,
+    options: AsmOptions,
     debug: bool,
     code_manipulator: CodeManipulatorNasm,
 }
@@ -144,7 +144,7 @@ pub fn get_std_lib_path() -> String {
 }
 
 pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
-    fn options(&self) -> &CodeGenOptions;
+    fn options(&self) -> &AsmOptions;
 
     fn generate(&self, typed_module: &ASTTypedModule, statics: Statics) -> String {
         let debug = self.debug();
@@ -1234,7 +1234,7 @@ fn can_optimize_lambda_space_(
 }
 
 impl CodeGenAsm {
-    pub fn new(options: CodeGenOptions, debug: bool) -> Self {
+    pub fn new(options: AsmOptions, debug: bool) -> Self {
         /*
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
@@ -1831,7 +1831,7 @@ impl CodeGenAsm {
 }
 
 impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
-    fn options(&self) -> &CodeGenOptions {
+    fn options(&self) -> &AsmOptions {
         &self.options
     }
 
@@ -3417,11 +3417,11 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
-    use crate::codegen::{CodeGen, CodeGenAsm, CodeGenOptions};
+    use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = CodeGenAsm::new(CodeGenOptions::default(), false);
+        let sut = CodeGenAsm::new(AsmOptions::default(), false);
         let mut statics = Statics::new();
 
         assert!(sut
@@ -3439,7 +3439,7 @@ mod tests {
 
     #[test]
     fn called_functions_external() {
-        let sut = CodeGenAsm::new(CodeGenOptions::default(), false);
+        let sut = CodeGenAsm::new(AsmOptions::default(), false);
         let mut statics = Statics::new();
 
         assert!(sut
@@ -3457,7 +3457,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = CodeGenAsm::new(CodeGenOptions::default(), false);
+        let sut = CodeGenAsm::new(AsmOptions::default(), false);
         let mut statics = Statics::new();
 
         assert_eq!(
