@@ -85,6 +85,17 @@ code generation ended in 31.794425ms
 assembler ended in 189.078683ms
 linker ended in 30.760407ms
 finished in 340.395027ms
+*/
+
+/*
+a lot of changes...
+
+parse ended in 24.344907ms
+type check ended in 72.598315ms
+code generation ended in 38.22388ms
+assembler ended in 205.848908ms
+linker ended in 34.690992ms
+finished in 378.460432ms
 
 */
 
