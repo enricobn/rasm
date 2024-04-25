@@ -1460,7 +1460,6 @@ mod tests {
             ],
         };
 
-        let target = target();
         let mut statics = Statics::new();
 
         let result = code_gen().get_evaluator().eval_macro(
@@ -1479,7 +1478,6 @@ mod tests {
 
     #[test]
     fn translate() {
-        let target = target();
         let mut statics = Statics::new();
 
         let result = code_gen()
@@ -1502,7 +1500,6 @@ mod tests {
 
     #[test]
     fn parse_string_par() {
-        let target = target();
         let mut statics = Statics::new();
 
         let result = code_gen()
@@ -1530,7 +1527,6 @@ mod tests {
 
     #[test]
     fn parse_ref_par() {
-        let target = target();
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
@@ -1569,7 +1565,6 @@ mod tests {
 
     #[test]
     fn parse_ref_par_c() {
-        let target = target();
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
@@ -1608,7 +1603,6 @@ mod tests {
 
     #[test]
     fn test() {
-        let target = target();
         let mut statics = Statics::new();
 
         let result = code_gen()
@@ -1628,8 +1622,6 @@ mod tests {
 
     #[test]
     fn test_get_macros() {
-        let target = target();
-
         let function_def = ASTTypedFunctionDef {
             namespace: test_namespace(),
             name: "aFun".into(),
@@ -1668,7 +1660,6 @@ mod tests {
     #[test]
     #[ignore]
     fn translate_typed() {
-        let target = target();
         let mut statics = Statics::new();
 
         let result = code_gen()

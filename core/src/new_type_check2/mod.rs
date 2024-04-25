@@ -464,7 +464,7 @@ impl TypeCheck {
                 }
                 _ => format!("{ast_type}"),
             },
-            ASTType::Generic(name) => panic!(),
+            ASTType::Generic(_name) => panic!(),
             ASTType::Custom {
                 namespace,
                 name,
@@ -891,7 +891,7 @@ impl TypeCheck {
                         )
                     })?
                     .iter()
-                    .map(|(m, i)| m.name.clone())
+                    .map(|(m, _i)| m.name.clone())
                     .collect::<HashSet<_>>();
 
                 for text_macro_name in text_macro_names {
@@ -1352,7 +1352,6 @@ mod tests {
 
     use env_logger::Builder;
 
-    use crate::codegen::backend::BackendNasmi386;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
@@ -1618,7 +1617,6 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let backend = BackendNasmi386::new(false);
         let target = CompileTarget::Nasmi386(AsmOptions::default());
         let mut statics = Statics::new();
 

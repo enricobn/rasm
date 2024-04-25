@@ -28,7 +28,7 @@ pub fn println<T1,T2>(o1: T1, o2: T2) {
 
 // TODO do it in asm
 pub fn print(file: File, b: bool) -> Option<IOError> {
-    if(b, { -> print(file, "true");}, { -> print(file, "false");});
+    if(b, fn() { print(file, "true");}, fn() {print(file, "false");});
 }
 
 pub fn with<T,O>(v: T, f: fn(T) -> O) -> O {
@@ -58,7 +58,7 @@ pub enum Compare {
 }
 
 pub fn print(c: Compare) {
-    match(c, { -> print("Less");}, { -> print("Equal");}, { -> print("Greater");});
+    match(c, fn() {print("Less");}, fn() {print("Equal");}, fn() {print("Greater");});
 }
 
 pub fn toString(error: IOError) -> str {

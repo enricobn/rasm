@@ -16,7 +16,7 @@ println(aString);
 fn test(n: i32) -> i32 {
     let ten = 10;
 
-    test1(ten, { v ->
+    test1(ten, fn(v) {
         let five = 5;
 
         add(n, add(v, five));

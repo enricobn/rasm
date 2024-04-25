@@ -9,16 +9,16 @@ struct Model {
 }
 
 let l = Loop(
-    { time, model ->
+    fn(time, model) {
         if(greater(time, 5),
-            { -> NoneModel();},
-            { ->
+            fn() { NoneModel();},
+            fn() {
                 let x = x(model);
                 let y = y(model);
                 Option::Some(Model(add(x, 1), add(y, 1)));
             });
     },
-    { model ->
+    fn(model) {
         let x = x(model);
         let y = y(model);
         print(x);
@@ -31,7 +31,7 @@ loop(0, Model(0, 0), l);
 
 fn loop<T>(time: i32, model: T, l: Loop<T>) {
     let result = l.update(time, model);
-    match(result, { newModel -> l.render(newModel); loop(add(time, 1), newModel, l);}, { -> });
+    match(result, fn(newModel) { l.render(newModel); loop(add(time, 1), newModel, l);}, fn() { });
 }
 
 fn NoneModel() -> Option<Model> {

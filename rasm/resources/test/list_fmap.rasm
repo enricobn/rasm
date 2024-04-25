@@ -1,2 +1,2 @@
 
-println(fmap(range(0,2), { n -> listOf(n, 5);}));
+println(fmap(range(0,2), fn(n) { listOf(n, 5);}));

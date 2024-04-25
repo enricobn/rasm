@@ -49,6 +49,7 @@ impl StructParser {
             })
     }
 
+    #[cfg(test)]
     pub fn try_parse_struct(
         &self,
         namespace: &ASTNameSpace,

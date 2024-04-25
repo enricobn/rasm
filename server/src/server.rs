@@ -90,7 +90,7 @@ impl ServerState {
     fn new(project: RasmProject) -> Result<Self, TypeCheckError> {
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
+        let (modules, _errors) = project.get_all_modules(&mut statics, false, &target, false);
 
         // TODO errors
 
@@ -201,7 +201,7 @@ async fn file<'a>(
 
         // TODO errors
 
-        let (tokens, errors_) = lexer.process();
+        let (tokens, _errors) = lexer.process();
 
         let mut row = 0;
         let mut last_is_multiline = false;

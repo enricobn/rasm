@@ -238,7 +238,7 @@ impl Parser {
             }
 
             match self.get_state() {
-                None => match self.process_none(&namespace, path, &token) {
+                None => match self.process_none(&namespace, &token) {
                     Ok(is_continue) => {
                         if is_continue {
                             continue;
@@ -451,12 +451,7 @@ impl Parser {
     ///
     /// returns true if the parser must continue
     ///
-    fn process_none(
-        &mut self,
-        namespace: &ASTNameSpace,
-        path: &Path,
-        token: &Token,
-    ) -> Result<bool, String> {
+    fn process_none(&mut self, namespace: &ASTNameSpace, token: &Token) -> Result<bool, String> {
         if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
             self.body.push(stmt);
             self.parser_data.pop();
@@ -623,34 +618,51 @@ impl Parser {
             self.parser_data.push(ParserData::Expression(expression));
             self.state.pop();
             self.i = next_i;
-        } else if Some(&TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open))
-            == self.get_token_kind()
-        {
-            let (parameter_names, next_i) = self.parse_lambda_parameters(1)?;
-            self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
-                parameter_names,
-                body: Vec::new(),
-                index: self.get_index(0),
-            }));
-            let fake_function_def = ASTFunctionDef {
-                original_name: String::new(),
-                name: String::new(),
-                parameters: Vec::new(),
-                body: RASMBody(Vec::new()),
-                return_type: ASTType::Unit,
-                inline: false,
-                generic_types: Vec::new(),
-                resolved_generic_types: ResolvedGenericTypes::new(),
-                index: ASTIndex::none(),
-                modifiers: ASTModifiers::public(),
-                namespace: namespace.clone(),
-                rank: 0, // TODO must be calculated?
-            };
-            self.parser_data
-                .push(ParserData::FunctionDef(fake_function_def));
-            self.state.push(ParserState::LambdaExpression);
-            self.state.push(ParserState::FunctionBody);
-            self.i = next_i;
+        } else if Some(&TokenKind::KeyWord(KeywordKind::Fn)) == self.get_token_kind() {
+            if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
+                self.get_token_kind_n(1)
+            {
+                let (parameter_names, next_i) = self.parse_lambda_parameters(2)?;
+
+                if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
+                    self.get_token_kind_n(next_i - self.i)
+                {
+                    self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
+                        parameter_names,
+                        body: Vec::new(),
+                        index: self.get_index(0),
+                    }));
+                    let fake_function_def = ASTFunctionDef {
+                        original_name: String::new(),
+                        name: String::new(),
+                        parameters: Vec::new(),
+                        body: RASMBody(Vec::new()),
+                        return_type: ASTType::Unit,
+                        inline: false,
+                        generic_types: Vec::new(),
+                        resolved_generic_types: ResolvedGenericTypes::new(),
+                        index: ASTIndex::none(),
+                        modifiers: ASTModifiers::public(),
+                        namespace: namespace.clone(),
+                        rank: 0, // TODO must be calculated?
+                    };
+                    self.parser_data
+                        .push(ParserData::FunctionDef(fake_function_def));
+                    self.state.push(ParserState::LambdaExpression);
+                    self.state.push(ParserState::FunctionBody);
+                    self.i = next_i + 1;
+                } else {
+                    return Err(format!(
+                        "Expected '{{', found {}",
+                        OptionDisplay(&self.get_token_kind_n(next_i))
+                    ));
+                }
+            } else {
+                return Err(format!(
+                    "Expected '(', found {}",
+                    OptionDisplay(&self.get_token_kind_n(1))
+                ));
+            }
         } else if Some(&TokenKind::Bracket(
             BracketKind::Brace,
             BracketStatus::Close,
@@ -658,8 +670,10 @@ impl Parser {
         {
             // Here probably we have an empty function...
             self.state.pop();
+        } else if let Some(kind) = self.get_token_kind() {
+            return Err(format!("Expected expression, found {}", kind));
         } else {
-            return Err(format!("Expected expression : {}", self.get_index(0)));
+            return Err("Expected expression".into());
         }
         Ok(())
     }
@@ -1131,7 +1145,7 @@ impl Parser {
                         self.get_index(n)
                     ));
                 }
-                Some(TokenKind::Punctuation(PunctuationKind::RightArrow)) => {
+                Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) => {
                     n += 1;
                     break;
                 }
@@ -1586,7 +1600,14 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path, &test_namespace()).0
+        let (module, errors) = parser.parse(path, &test_namespace());
+        if !errors.is_empty() {
+            for error in errors {
+                println!("{error}");
+            }
+            panic!()
+        }
+        module
     }
 
     fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {

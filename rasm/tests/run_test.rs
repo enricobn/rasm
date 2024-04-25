@@ -558,7 +558,7 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
         args.push("--compile".to_owned());
     }
 
-    let status = test_bin::get_test_bin("rasm")
+    let output = test_bin::get_test_bin("rasm")
         .env(
             "RASM_STDLIB",
             Path::new("../stdlib")
@@ -568,11 +568,12 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
                 .unwrap(),
         )
         .args(args)
+        .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .status()
+        .output()
         .expect("failed to start rasm");
 
-    assert!(status.success());
+    assert!(output.status.success());
 
     Some(dest)
 }

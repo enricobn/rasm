@@ -121,7 +121,7 @@ fn verify_statements(
                 Some(expected_return_type),
                 statics,
             )?,
-            ASTTypedStatement::LetStatement(_, e, _is_const, _let_index) => ASTTypedType::Unit,
+            ASTTypedStatement::LetStatement(_, _e, _is_const, _let_index) => ASTTypedType::Unit,
         }
     } else {
         ASTTypedType::Unit

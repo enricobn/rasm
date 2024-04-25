@@ -8,17 +8,17 @@ printOption(Option::None());
 
 match(
     Test::T2(10, Option::Some("a value")),
-    { v1, v2, o ->
+    fn(v1, v2, o) {
         println("T1");
         println(v1);
         println(v2);
         printOption(o);
-    }, { v1, o ->
+    }, fn(v1, o) {
        println("T2");
        println(v1);
        printOption(o);
    });
 
 fn printOption(o: Option<str>) {
-    match(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
+    match(o, fn(v) { print("Some(");print(v);println(")");}, fn() { println("None");});
 }

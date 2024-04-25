@@ -2,9 +2,9 @@ println(range(0, atoi(argv(1))));
 
 println(reverse(range(0, atoi(argv(1)))));
 
-println(count(listOf(1, 5, 3, 8, 4, 2), { it -> less(it, 5); }));
+println(count(listOf(1, 5, 3, 8, 4, 2), fn(it) { less(it, 5); }));
 
-println(listEnumerate(listOf("A", "B")), { it ->
+println(listEnumerate(listOf("A", "B")), fn(it) {
     print(index(it));
     print("-");
     print(value(it));

@@ -502,7 +502,6 @@ mod tests {
 
     use env_logger::Builder;
 
-    use rasm_core::codegen::backend::BackendNasmi386;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
@@ -528,7 +527,7 @@ mod tests {
             )
             .unwrap();
 
-        if let CompletionResult::Found(items) = result {
+        if let CompletionResult::Found(_items) = result {
             // TODO
         } else {
             panic!();
@@ -547,7 +546,7 @@ mod tests {
             )
             .unwrap();
 
-        if let CompletionResult::Found(items) = result {
+        if let CompletionResult::Found(_items) = result {
             // TODO
         } else {
             panic!();
@@ -592,8 +591,6 @@ mod tests {
         let file_name = Path::new(source);
 
         let project = RasmProject::new(file_name.to_path_buf());
-
-        let backend = BackendNasmi386::new(false);
 
         let mut statics = Statics::new();
 

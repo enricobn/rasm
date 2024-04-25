@@ -7,13 +7,13 @@ fn getstr() -> Result<TestModel,str> {
 }
 
 pub fn printstr() {
-    getstr().match( { v -> println("str ok");}, {error -> println("str error");});
+    getstr().match( fn(v) { println("str ok");}, fn(error) { println("str error");});
 }
 
 fn getstr2() -> Result<TestModel,str> {
-    if(true, { -> Result::Ok(TestModel("value"));}).else({ -> Result::Error("error");}).call();
+    if(true, fn() { Result::Ok(TestModel("value"));}).else(fn() { Result::Error("error");}).call();
 }
 
 pub fn printstr2() {
-    getstr2().match( { v -> println("str ok");}, {error -> println("str ".add(error));});
+    getstr2().match(fn(v) { println("str ok");}, fn(error) { println("str ".add(error));});
 }

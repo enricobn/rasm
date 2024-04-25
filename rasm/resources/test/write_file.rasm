@@ -3,7 +3,7 @@ let file = createFile("file_for_write.txt");
 
 println(file, "Hello world")
 .or(println(file, 1000))
-.match({ error -> panic(error.message); }, { -> });
+.match(fn(error) { panic(error.message); }, fn() { });
 
 close(file);
 

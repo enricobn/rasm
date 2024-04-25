@@ -3,11 +3,11 @@ pub struct MenuState {
 }
 
 pub fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
-    let spacePressed = count(keys, { k -> eq(k, 44);});
+    let spacePressed = count(keys, fn(k) { eq(k, 44);});
 
-    if(eq(spacePressed, 0), { ->
+    if(eq(spacePressed, 0), fn() {
         Stage::Menu(menuState);
-    }, { ->
+    }, fn() {
         Stage::Game(initialGameState());
     });
 }
@@ -18,27 +18,27 @@ pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
     let title = createSDLText(ren, font, "Rasm BREAKOUT", GREEN);
     renderAndRelease(ren, title, SDLRect(380, 200, 200, 24));
 
-    let highScores = take(sort(highScores(menuState), { h1, h2 ->
+    let highScores = take(sort(highScores(menuState), fn(h1, h2) {
         let s1 = score(h1);
         let s2 = score(h2);
         cmp(s2, s1);
     }), 10);
 
-    let last = first(sort(highScores(menuState), { h1, h2 ->
+    let last = first(sort(highScores(menuState), fn(h1, h2) {
          let t1 = time(h1);
          let t2 = time(h2);
          cmp(t2, t1);
      }));
 
-    forEach(enumerate(highScores), { enumerateEntry ->
+    forEach(enumerate(highScores), fn(enumerateEntry) {
         let index = enumerateEntry.index;
         let highScore = enumerateEntry.value;
         let score = highScore.score;
         let time = highScore.time;
 
-        let color = match(last, { h ->
+        let color = match(last, fn(h) {
             if(eq(h.time, time), YELLOW, BLUE);
-        }, { -> BLUE;});
+        }, fn() { BLUE;});
 
         let sScore = padLeft(toString(score), 10);
         let scoreText = createSDLText(ren, font, sScore, color);

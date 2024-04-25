@@ -17,17 +17,17 @@ fn m() {
     sleep(0, 10000);
     let event = keyEvent();
 
-    run(event, { e ->
+    run(event, fn(e) {
         printAllocated();
         printTableSlotsAllocated();
-    }, { -> });
+    }, fn() { });
 
-    run(event, { e ->
+    run(event, fn(e) {
         let key = KeyEvent::key(e);
-        if(eq(key, 41), { ->
-        }, { ->
+        if(eq(key, 41), fn() {
+        }, fn() {
             println(e);
             m();
         });
-    }, { -> m();});
+    }, fn() { m();});
 }

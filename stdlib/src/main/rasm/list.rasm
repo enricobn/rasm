@@ -7,37 +7,37 @@ pub enum List<T> {
 
 pub fn print<T>(l: List<T>) {
     match(l,
-        { head,tail ->
+        fn(head,tail) {
             print(head);
-            match(tail, { head1,tail1 -> print(",");}, { -> });
+            match(tail, fn(head1,tail1) {print(",");}, fn(){});
             print(tail);
-        }, { -> });
+        }, fn() {});
 }
 
 // end exclusive
 pub fn range(start: i32, end: i32) -> List<i32> {
-    if (less(start, end), { ->
+    if (less(start, end), fn() {
         List::Full(start, range(add(start, 1), end));
-    }, { ->
+    }, fn() {
         List::Empty();
     });
 }
 
 pub fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
-    match(l, { head,tail -> List::Full(f(head), map(tail, f)); }, { -> List::Empty();});
+    match(l, fn(head,tail) {List::Full(f(head), map(tail, f)); }, fn() {List::Empty();});
 }
 
 pub fn forEach<T>(l: List<T>, f: fn(T) -> ()) {
-    match(l, { head,tail -> f(head); forEach(tail, f); }, { -> });
+    match(l, fn(head,tail) {f(head); forEach(tail, f); }, fn(){});
 }
 
 /** false = 0 true = 1 **/
 pub fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
-    match(l, { head,tail -> if(predicate(head), true, { -> anyMatch(tail, predicate); }); }, { -> false; });
+    match(l, fn(head,tail) {if(predicate(head), true, fn() {anyMatch(tail, predicate); }); }, fn(){false;});
 }
 
 pub fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
-    match(l, { head,tail -> add(count(tail, predicate), if(predicate(head), 1, 0)); }, { -> 0; });
+    match(l, fn(head,tail) {add(count(tail, predicate), if(predicate(head), 1, 0)); }, fn(){0;});
 }
 
 pub fn insert<T>(l: List<T>, value: T) -> List<T> {
@@ -45,7 +45,7 @@ pub fn insert<T>(l: List<T>, value: T) -> List<T> {
 }
 
 pub fn push<T>(l: List<T>, value: T) -> List<T> {
-    match(l, { head, tail -> List::Full(head, push(tail, value));}, { -> List::Full(value, List::Empty());});
+    match(l, fn(head, tail) {List::Full(head, push(tail, value));}, fn() {List::Full(value, List::Empty());});
 }
 
 pub fn listOf<T>(v: T) -> List<T> {
@@ -86,11 +86,11 @@ pub fn println<T>(l: List<T>, printFunction: fn(T) -> ()) {
 }
 
 pub fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
-    match(l, { head,tail ->
+    match(l, fn(head,tail) {
         printFunction(head);
-        match(tail, { head1,tail1 -> print(","); }, { -> });
+        match(tail, fn(head1,tail1) {print(","); }, fn(){});
         print(tail, printFunction);
-    }, { -> });
+    }, fn() {});
 }
 
 pub fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
@@ -98,20 +98,20 @@ pub fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
 }
 
 pub fn flatten<T>(l: List<List<T>>) -> List<T> {
-    match(l, { head, tail ->
+    match(l, fn(head, tail) {
         listAppend(head, flatten(tail));
     },
-    { -> List::Empty(); });
+    fn() {List::Empty(); });
 }
 
 pub fn listAppend<T>(dest: List<T>, source: List<T>) -> List<T> {
-    match(dest, { head,tail -> List::Full(head, listAppend(tail, source)); }, { -> source;});
+    match(dest, fn(head,tail) {List::Full(head, listAppend(tail, source)); }, fn(){source;});
 }
 
 pub fn foldLeft<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    match(l, { head, tail ->
+    match(l, fn(head, tail) {
          foldLeft(tail, accum(zero, head), accum);
-    }, { -> zero; });
+    }, fn(){zero;});
 }
 
 pub fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
@@ -119,15 +119,15 @@ pub fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 pub fn reverse<T>(l: List<T>) -> List<T> {
-    match(l, { head, tail ->
+    match(l, fn(head, tail) {
         listAppend(reverse(tail), listOf(head));
-    }, { -> List::Empty(); });
+    }, fn() {List::Empty();});
 }
 
 pub fn filter<T>(l: List<T>, f: fn(T) -> bool) -> List<T> {
-    match(l, { head, tail ->
-        if(f(head), { -> List::Full(head, filter(tail, f)); }, { -> filter(tail, f);});
-    }, { -> List::Empty(); });
+    match(l, fn(head, tail) {
+        if(f(head), fn() {List::Full(head, filter(tail, f)); }, fn() {filter(tail, f);});
+    }, fn() {List::Empty();});
 }
 
 pub fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
@@ -135,7 +135,7 @@ pub fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
 }
 
 pub fn listEnumerateInternal<T>(l: List<T>, index: i32) -> List<EnumerateEntry<T>> {
-    match(l, { head,tail -> List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, { -> List::Empty();});
+    match(l, fn(head,tail) {List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, fn(){List::Empty();});
 }
 
 pub struct EnumerateEntry<T> {
@@ -144,83 +144,83 @@ pub struct EnumerateEntry<T> {
 }
 
 pub fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
-    match(l1, { head1,tail1 ->
-        match(l2, { head2,tail2 -> List::Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, { -> List::Empty();});
-        }, { -> List::Empty();});
+    match(l1, fn(head1,tail1) {
+        match(l2, fn(head2,tail2) {List::Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, fn() { List::Empty();});
+        }, fn() {List::Empty();});
 }
 
 pub fn cartesianProduct<T1,T2,T>(l1: List<T1>, l2: List<T2>, combineFunction: fn(T1, T2) -> T) -> List<T> {
-    fmap(l1, { v1 ->
-        map(l2, { v2 -> combineFunction(v1, v2); });
+    fmap(l1, fn(v1) {
+        map(l2, fn(v2) {combineFunction(v1, v2); });
     });
 }
 
 pub fn first<T>(list: List<T>) -> Option<T> {
-    match(list, { head, tail -> Option::Some(head);}, { -> Option::None();});
+    match(list, fn(head, tail) {Option::Some(head);}, fn() {Option::None();});
 }
 
 pub fn last<T>(list: List<T>) -> Option<T> {
-    match(list, { head, tail ->
-        tail.match({ thead, ttail -> last(tail);}, { -> Option::Some(head);});
-    }, { -> Option::None();});
+    match(list, fn(head, tail) {
+        tail.match( fn(thead, ttail) {last(tail);}, fn() {Option::Some(head);});
+    }, fn() {Option::None();});
 }
 
 pub fn get<T>(list: List<T>, i: i32) -> Option<T> {
-    match(list, { head, tail ->
-        if(eq(i, 0), { -> Option::Some(head);}, { -> get(tail, sub(i, 1));});
-    }, { -> Option::None();});
+    match(list, fn(head, tail) {
+        if(eq(i, 0), fn() {Option::Some(head);}, fn() {get(tail, sub(i, 1));});
+    }, fn() {Option::None();});
 }
 
 pub fn map2<T,T1>(list: List<T>, fun: fn(T,T) -> T1) -> Option<T1> {
-    match(list, { head1, tail1 ->
-        match(tail1, { head2, tail2 ->
+    match(list, fn(head1, tail1) {
+        match(tail1, fn(head2, tail2) {
              Option::Some(fun(head1, head2));
-        }, { -> Option::None();});
-    }, { -> Option::None();});
+        }, fn() {Option::None();});
+    }, fn() {Option::None();});
 }
 
 pub fn map3<T,T1>(list: List<T>, fun: fn(T,T,T) -> T1) -> Option<T1> {
-    match(list, { head1, tail1 ->
-        match(tail1, { head2, tail2 ->
-            match(tail2, { head3, tail3 ->
+    match(list, fn(head1, tail1) {
+        match(tail1, fn(head2, tail2) {
+            match(tail2, fn(head3, tail3) {
                 Option::Some(fun(head1, head2, head3));
-            }, { -> Option::None();});
-        }, { -> Option::None();});
-    }, { -> Option::None();});
+            }, fn() {Option::None();});
+        }, fn() {Option::None();});
+    }, fn() {Option::None();});
 }
 
 pub fn pop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
     list.match(
-        { head, tail ->
+        fn(head, tail) {
             tail.match(
-                { head1, tail1 ->
+                fn(head1, tail1) {
                     let popped = pop(tail);
                     Pair(popped.first, List::Full(head, popped.second));
                 },
-                { -> Pair(Option::Some(head), tail);}
+                fn() {Pair(Option::Some(head), tail);}
             );
         },
-        { -> Pair(Option::None(), list);}
+        fn() {Pair(Option::None(), list);}
     );
 }
 
 pub fn popTop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
     list.match(
-        { head, tail ->
+        fn(head, tail) {
             Pair(Option::Some(head), tail);
         },
-        { -> Pair(Option::None(), list);}
+        fn() {Pair(Option::None(), list);}
     );
 }
 
 pub fn replace<T>(list: List<T>, new: T) -> Pair<Option<T>, List<T>> {
     let current = list.pop();
     current.first.match(
-        { v -> Pair(Option::Some(v), current.second.push(new));},
-        { -> Pair(Option::None(), list); }
+        fn(v) {Pair(Option::Some(v), current.second.push(new));},
+        fn() {Pair(Option::None(), list); }
     );
 }
 
 pub fn len<T>(list: List<T>) -> i32 {
-    list.foldLeft(0, { prec, e -> prec.add(1);});
+    list.foldLeft(0, fn(prec, e) {prec.add(1);});
 }

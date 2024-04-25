@@ -23,10 +23,10 @@ const BLUE = SDLColor(0, 0, 255, 255);
 const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
-if(sdlTTFInit().eq(1), { -> panic("TTFInit error."); }, { -> });
+if(sdlTTFInit().eq(1), fn() { panic("TTFInit error."); }, fn() { });
 
 let font = sdlErrorIfNull(sdlOpenFont(resource("DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
-let quads = vecRange(0, QUADS).map({ it ->
+let quads = vecRange(0, QUADS).map(fn(it) {
                     let x = random(WIDTH);
                     let y = random(HEIGHT);
                     let xDir = if(random(2).eq(0), XDirection::Right(), XDirection::Left());
@@ -39,12 +39,12 @@ let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIG
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
 sdlLoop(ren, initialModel,
-    { event, model -> update(event, model);},
-    { sdlRen, model -> render(sdlRen, model);}
+    fn(event, model) { update(event, model);},
+    fn(sdlRen, model) { render(sdlRen, model);}
 );
 
 fn update(event: Option<KeyEvent>, model: Model) -> Model {
-    model.quads(model.quads.map({ quad -> quad.update;})).fps(model.fps.update);
+    model.quads(model.quads.map(fn(quad) { quad.update;})).fps(model.fps.update);
 }
 
 fn update(quad: Quad) -> Quad {
@@ -79,7 +79,7 @@ fn render(ren: SDLRenderer, model: Model) {
 
     sdlSetRenderDrawColor(ren, WHITE);
 
-    model.quads.forEach({quad ->
+    model.quads.forEach(fn(quad) {
         sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
     });
 

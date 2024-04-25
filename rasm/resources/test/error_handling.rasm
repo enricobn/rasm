@@ -1,8 +1,8 @@
 let fileName = argv(1);
 let file = createFile(fileName);
-let p = println(file, 'c').orElse({ -> println(file, "Hello");});
+let p = println(file, 'c').orElse(fn() { println(file, "Hello");});
 
-run(p, { v ->
+run(p, fn(v) {
             close(file);
             println(v);
             exitMain(0);

@@ -1,2 +1,2 @@
 
-println(filter(range(0,10), { v -> less(v, 5); }));
+println(filter(range(0,10), fn(v) { less(v, 5); }));

@@ -58,6 +58,7 @@ impl EnumParser {
             })
     }
 
+    #[cfg(test)]
     pub fn try_parse_enum(
         &self,
         namespace: &ASTNameSpace,

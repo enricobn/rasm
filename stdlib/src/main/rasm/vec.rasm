@@ -1,8 +1,8 @@
 pub type Vec<T>(true);
 
 pub fn cartesianProduct<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> {
-    fmap(vec1, { v1 ->
-        map(vec2, { v2 -> zipFunction(v1, v2); });
+    fmap(vec1, fn(v1) {
+        map(vec2, fn(v2) {zipFunction(v1, v2); });
     });
 }
 
@@ -11,67 +11,67 @@ pub fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
 }
 
 pub fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
-    forEach(v, { n -> printFunction(n); print(",");});
+    forEach(v, fn(n) {printFunction(n); print(",");});
 }
 
 pub fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
-    let v1 = map(v, { n -> print(file, n).or(print(file, ","));});
-    let errors = v1.filter({ o -> o.isSome; });
-    errors.first.match({ o -> o;} { -> Option::Some(IOError("Cannot happen"));});
+    let v1 = map(v, fn(n) {print(file, n).or(print(file, ","));});
+    let errors = v1.filter( fn(o) {o.isSome; });
+    errors.first.match(fn(o) {o;} fn() { Option::Some(IOError("Cannot happen"));});
 }
 
 pub fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
-    zip(vecRange(0, len(vec)), vec, { index, value -> EnumerateEntry(index, value);});
+    zip(vecRange(0, len(vec)), vec, fn(index, value) { EnumerateEntry(index, value);});
 }
 
 // TODO optimize
 pub fn sort<T>(vec: Vec<T>) -> Vec<T> {
-    if(less(len(vec), 2), vec, { ->
+    if(less(len(vec), 2), vec, fn() {
         let firstOfVec = first(vec);
-        match(firstOfVec, { f ->
-            let l = filter(vec, { v -> match(cmp(v, f), { -> true;}, { -> false;}, { -> false;});});
-            let e = filter(vec, { v -> match(cmp(v, f), { -> false;}, { -> true;}, { -> false;});});
-            let g = filter(vec, { v -> match(cmp(v, f), { -> false;}, { -> false;}, { -> true;});});
+        match(firstOfVec, fn(f) {
+            let l = filter(vec, fn(v) { match(cmp(v, f), fn() {true;}, fn() {false;}, fn() {false;});});
+            let e = filter(vec, fn(v) { match(cmp(v, f), fn() {false;}, fn() {true;}, fn() {false;});});
+            let g = filter(vec, fn(v) { match(cmp(v, f), fn() {false;}, fn() {false;}, fn() {true;});});
             add(sort(l), add(e, sort(g)));
-        }, { -> Vec();});
+        }, fn() {Vec();});
     });
 }
 
 // TODO optimize
 pub fn sort<T>(vec: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> Vec<T> {
-    if(less(len(vec), 2), vec, { ->
+    if(less(len(vec), 2), vec, fn() {
         let firstOfVec = first(vec);
-        match(firstOfVec, { f ->
-            let l = filter(vec, { v -> match(cmpFunction(v, f), { -> true;}, { -> false;}, { -> false;});});
-            let e = filter(vec, { v -> match(cmpFunction(v, f), { -> false;}, { -> true;}, { -> false;});});
-            let g = filter(vec, { v -> match(cmpFunction(v, f), { -> false;}, { -> false;}, { -> true;});});
+        match(firstOfVec, fn(f) {
+            let l = filter(vec, fn(v) { match(cmpFunction(v, f), fn() {true;}, fn() {false;}, fn() {false;});});
+            let e = filter(vec, fn(v) { match(cmpFunction(v, f), fn() {false;}, fn() {true;}, fn() {false;});});
+            let g = filter(vec, fn(v) { match(cmpFunction(v, f), fn() {false;}, fn() {false;}, fn() {true;});});
             add(sort(l, cmpFunction), add(e, sort(g, cmpFunction)));
-        }, { -> Vec();});
+        }, fn() {Vec();});
     });
 }
 
 pub fn eq<T>(vec1: Vec<T>, vec2: Vec<T>) -> bool {
-    if(not(eq(len(vec1), len(vec2))), false, { ->
-        let booleans = zip(vec1, vec2, { v1, v2 -> eq(v1, v2);});
-        eq(count(booleans, { v -> not(v);}), 0);
+    if(not(eq(len(vec1), len(vec2))), false, fn() {
+        let booleans = zip(vec1, vec2, fn(v1, v2) {eq(v1, v2);});
+        eq(count(booleans, fn(v) {not(v);}), 0);
     });
 }
 
 pub fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bool {
-    if(not(eq(len(vec1), len(vec2))), false, { ->
-        let booleans = zip(vec1, vec2, { v1, v2 ->
-            match(cmpFunction(v1, v2), { -> false;}, { -> true;}, { -> false;});
+    if(not(eq(len(vec1), len(vec2))), false, fn() {
+        let booleans = zip(vec1, vec2, fn(v1, v2) {
+            match(cmpFunction(v1, v2), fn() {false;}, fn() {true;}, fn() {false;});
         });
-        eq(count(booleans, { v -> not(v);}), 0);
+        eq(count(booleans, fn(v) {not(v);}), 0);
     });
 }
 
 pub fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
     let es = enumerate(vec);
 
-    let filtered = filter(es, { e -> less(index(e), count);});
+    let filtered = filter(es, fn(e) {less(index(e), count);});
 
-    map(filtered, { e -> value(e);});
+    map(filtered, fn(e) {value(e);});
 }
 
 pub fn isEmpty<T>(vec: Vec<T>) -> bool {
@@ -79,13 +79,13 @@ pub fn isEmpty<T>(vec: Vec<T>) -> bool {
 }
 
 pub fn toVec<T>(l: List<T>) -> Vec<T> {
-    match(l, { head, tail -> flatten(vecOf(vecOf(head), toVec(tail)));},
-        { -> Vec(); });
+    match(l, fn(head, tail) { flatten(vecOf(vecOf(head), toVec(tail)));},
+        fn() {Vec(); });
 }
 
 // TODO slow
 pub fn toList<T>(v: Vec<T>) -> List<T> {
-    v.foldLeft(List::Empty<T>(), { prev, o -> prev.push(o); });
+    v.foldLeft(List::Empty<T>(), fn(prev, o) { prev.push(o); });
 }
 
 // TODO slow

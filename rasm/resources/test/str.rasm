@@ -3,9 +3,9 @@ println("😀");
 println(add("Hello ", "world!"));
 println(add(add("Hello", " "), add("world", "!")));
 println(len(add(add("Hello", " "), add("world", "!"))));
-match(substr("first\nsecond\nthird\n", 0, 5), { v -> println(v);}, { -> println("None");});
-match(substr("first\nsecond\nthird\n", 6, 6), { v -> println(v);}, { -> println("None");});
-match(substr("first\nsecond\nthird\n", 13, 5), { v -> println(v);}, { -> println("None");});
+match(substr("first\nsecond\nthird\n", 0, 5), fn(v) { println(v);}, fn() { println("None");});
+match(substr("first\nsecond\nthird\n", 6, 6), fn(v) { println(v);}, fn() { println("None");});
+match(substr("first\nsecond\nthird\n", 13, 5), fn(v) { println(v);}, fn() { println("None");});
 //run(substr("☀h", 1, 1), { v -> println(v);}, { -> println("None");});
 
 /*

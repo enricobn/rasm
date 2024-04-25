@@ -3,7 +3,6 @@ use std::io;
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::time::Instant;
 
 use log::warn;
 
@@ -227,9 +226,6 @@ impl ReferenceFinder {
         lookup_tables: &mut ReferenceFinderLookupTables,
         type_check: &mut TypeCheck,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
-        // println!("Processing function {function}");
-        let time = Instant::now();
-
         let mut result = Vec::new();
 
         let mut reference_context = ReferenceContext::new(Some(reference_static_context));
@@ -271,8 +267,6 @@ impl ReferenceFinder {
                 type_check,
             )?;
         }
-
-        // println!("time: {:#?}", Instant::now().duration_since(time));
 
         Ok(result)
     }
@@ -521,7 +515,7 @@ impl ReferenceFinder {
                     index,
                 );
             }
-            ASTExpression::Value(value_type, index) => {}
+            ASTExpression::Value(_value_type, _index) => {}
             ASTExpression::Lambda(def) => {
                 Self::process_lambda(
                     reference_context,
@@ -699,7 +693,7 @@ impl ReferenceFinder {
 
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters,
-                return_type,
+                return_type: _,
             }) = ast_type
             {
                 let mut v = zip(call.parameters.iter(), &parameters)
@@ -839,8 +833,8 @@ impl ReferenceFinder {
         if let ASTType::Custom {
             namespace: _,
             name,
-            param_types,
-            index,
+            param_types: _,
+            index: _,
         } = ast_type
         {
             Self::get_custom_type_index(module, name)
@@ -870,7 +864,6 @@ mod tests {
 
     use env_logger::Builder;
 
-    use rasm_core::codegen::backend::BackendNasmi386;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
@@ -1000,12 +993,10 @@ mod tests {
     fn complex_expression() {
         let (eh_module, module) =
             get_reference_finder("resources/test/complex_expression.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
-
         let file_name = Path::new("resources/test/complex_expression.rasm");
 
         let project = RasmProject::new(file_name.to_path_buf());
-        let stdlib_path = project
+        let _ = project
             .from_relative_to_root(Path::new("../../../stdlib"))
             .canonicalize()
             .unwrap();
@@ -1021,7 +1012,6 @@ mod tests {
         let project = RasmProject::new(file_name.to_path_buf());
 
         let source_file = Path::new(&file_name);
-        let stdlib_path = stdlib_path(file_name);
 
         assert_eq!(
             vec_selectable_item_to_vec_index(
@@ -1213,10 +1203,10 @@ mod tests {
 
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let backend = BackendNasmi386::new(false);
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
+        let (modules, _errors) = project.get_all_modules(&mut statics, false, &target, false);
+        // TODO errors
         let enhanced_ast_module =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 

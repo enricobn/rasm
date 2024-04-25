@@ -39,7 +39,7 @@ fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
     let allCells = allCells(width, height);
 
     printCells(
-        foldLeft(range(0, count), start, { prev, act ->
+        foldLeft(range(0, count), start, fn(prev, act) {
             printCells(prev, width, height);
             moveUp(height);
             //sleep(0, 250000000);
@@ -50,9 +50,9 @@ fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
 fn printCells(cells: List<Cell>, width: i32, height: i32) {
     let xRange = range(0, width);
 
-    forEach(range(0, height), { y ->
-        forEach(xRange, { x ->
-            if(isAlive(cells, Cell(x, y)), { -> print("*"); }, { -> print(" "); });
+    forEach(range(0, height), fn(y) {
+        forEach(xRange, fn(x) {
+            if(isAlive(cells, Cell(x, y)), fn() { print("*"); }, fn() { print(" "); });
         });
         println("");
     });

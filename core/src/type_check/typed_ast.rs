@@ -1893,21 +1893,21 @@ mod tests {
         let module = enhanced_module();
         let mut sut = ConvContext::new(&module);
 
-        let result = typed_type(
+        let _ = typed_type(
             &first_namespace,
             &mut sut,
             &simple_custom_ast_type("TestModel", &first_namespace),
             "",
         );
 
-        let result = typed_type(
+        let _ = typed_type(
             &second_namespace,
             &mut sut,
             &simple_custom_ast_type("TestModel", &second_namespace),
             "",
         );
 
-        let result = typed_type(
+        let _ = typed_type(
             &first_namespace,
             &mut sut,
             &result_ast_type(
@@ -1917,7 +1917,7 @@ mod tests {
             "",
         );
 
-        let result = typed_type(
+        let _ = typed_type(
             &second_namespace,
             &mut sut,
             &result_ast_type(

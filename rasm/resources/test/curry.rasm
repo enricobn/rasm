@@ -1,4 +1,4 @@
 Assertions()
-.assertTrue(curry({ a -> a.add(10);}, 20).call().eq(30))
-.assertTrue(curry({ a,b -> a.add(b);}, 20).call(10).eq(30))
+.assertTrue(curry(fn(a) { a.add(10);}, 20).call().eq(30))
+.assertTrue(curry(fn(a,b) { a.add(b);}, 20).call(10).eq(30))
 .validate();

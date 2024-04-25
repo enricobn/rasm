@@ -1,15 +1,15 @@
 doJob().println;
 doJobErr().println;
 
-doJob().map({ it -> it.add(2);}).println;
-doJob().fmap({ it -> Result::Ok<str,str>("value=".add(it));}).println;
+doJob().map(fn(it) {it.add(2);}).println;
+doJob().fmap(fn(it) {Result::Ok<str,str>("value=".add(it));}).println;
 
 pub fn print(result: Result<(), str>) {
-    result.match({ ok -> print("ok");}, { err -> print("err: ", err); });
+    result.match(fn(o) { print("ok");}, fn(err) { print("err: ", err); });
 }
 
 pub fn print<OK,ERROR>(result: Result<OK, ERROR>) {
-    result.match({ ok -> print("ok(", ok); print(")"); }, { err -> print("err: ", err); });
+    result.match(fn(ok) { print("ok(", ok); print(")"); }, fn(err) { print("err: ", err); });
 }
 
 fn doJob() -> Result<i32, str> {

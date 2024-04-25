@@ -18,7 +18,7 @@ fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
     let allCells = allCells(width, height);
 
     printCells(
-        foldLeft(vecRange(0, count), start, { prev, act ->
+        foldLeft(vecRange(0, count), start, fn(prev, act) {
             printCells(prev, width, height);
             moveUp(height);
             //sleep(0, 250000000);
@@ -28,10 +28,10 @@ fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
 }
 
 fn printCells(cells: Vec<Cell>, width: i32, height: i32) {
-    forEach(vecRange(0, height), { y ->
-        forEach(vecRange(0, width), { x ->
+    forEach(vecRange(0, height), fn(y) {
+        forEach(vecRange(0, width), fn(x) {
             let alive = isAlive(cells, Cell(x, y));
-            if(alive, { -> print("*"); }, { -> print(" "); });
+            if(alive, fn() { print("*"); }, fn() { print(" "); });
         });
         println("");
     });

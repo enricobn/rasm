@@ -4,7 +4,7 @@ pub enum Result<OK,ERROR> {
 }
 
 pub fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
-    result.match({ value -> Result::Ok(mapFun(value)); }, { error -> Result::Error(error);});
+    result.match(fn(value) { Result::Ok(mapFun(value)); }, fn(error) { Result::Error(error);});
 }
 
 pub fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
@@ -13,7 +13,7 @@ pub fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Re
 
 pub fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
     r.match(
-        { value -> value; },
-        { error -> Result::Error(error); }
+        fn(value) { value; },
+        fn(error) { Result::Error(error); }
     );
 }

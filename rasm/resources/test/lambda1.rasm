@@ -1,5 +1,5 @@
 // we want to test that if the arguments of a lambda is a function call, then it works correctly
-listen({ v -> println(v);});
+listen(fn(v) { println(v);});
 
 fn listen(listener: fn(i32) -> ()) {
     listener(5.add(5));

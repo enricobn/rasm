@@ -16,9 +16,9 @@ fn compareInt(v1: i32, v2: i32) -> str {
 }
 
 fn compareInt1(v1: i32, v2: i32) -> str {
-    if(v1.greater(v2), { -> "greater"; })
-    .elseIf(v1.less(v2), { -> "less"; })
-    .else({ -> "equal";})
+    if(v1.greater(v2), fn() { "greater"; })
+    .elseIf(v1.less(v2), fn() { "less"; })
+    .else(fn() { "equal";})
     .call();
 }
 

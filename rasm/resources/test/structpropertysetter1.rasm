@@ -4,7 +4,7 @@ struct Point {
 }
 
 let p = Point(Option::Some(10), Option::Some(20));
-let p1 = p.x({ xo -> xo.map({ x -> x.add(10);}); });
+let p1 = p.x(fn(xo) { xo.map(fn(x) { x.add(10);}); });
 
 println("p ", p);
 println("p1 ", p1);

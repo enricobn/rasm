@@ -230,7 +230,6 @@ impl StackVals {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::stack::StackVals;
     use crate::codegen::{AsmOptions, CodeGenAsm};
 
@@ -239,7 +238,6 @@ mod tests {
         let mut out = String::new();
 
         let stack = StackVals::new();
-        let target = CompileTarget::Nasmi386(AsmOptions::default());
         let code_gen = CodeGenAsm::new(AsmOptions::default(), false);
         assert_eq!(1, stack.reserve_local_val("val1"));
         stack.reserve_return_register(&code_gen, &mut out);

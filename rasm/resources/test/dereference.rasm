@@ -1,9 +1,9 @@
 let r = range(0, 2);
-println(anyMatch(range(0,2), { n -> eq(n, 0);}));
-println(anyMatch(r, { n -> eq(n, 0);}));
+println(anyMatch(range(0,2), fn(n) { eq(n, 0);}));
+println(anyMatch(r, fn(n) { eq(n, 0);}));
 let r1 = range(0, 2);
-println(anyMatch(range(0,2), { n -> eq(n, 2);}));
-println(anyMatch(r1, { n -> eq(n, 2);}));
+println(anyMatch(range(0,2), fn(n) { eq(n, 2);}));
+println(anyMatch(r1, fn(n) { eq(n, 2);}));
 let r2 = range(0, 2);
-println(anyMatch(range(0,2), { n -> eq(n, 0);}));
-println(anyMatch(r2, { n -> eq(n, 0);}));
+println(anyMatch(range(0,2), fn(n) { eq(n, 0);}));
+println(anyMatch(r2, fn(n) { eq(n, 0);}));

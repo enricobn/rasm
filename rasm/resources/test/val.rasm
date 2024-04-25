@@ -1,7 +1,7 @@
 
-runWith(atoi(argv(1)), { arg ->
+runWith(atoi(argv(1)), fn(arg) {
     println(parameter(arg));
-    println(lambdaParameter(arg, { p -> p;}));
+    println(lambdaParameter(arg, fn(p) { p;}));
     println(context(arg));
 });
 
@@ -14,5 +14,5 @@ fn lambdaParameter(n: i32, f: fn(i32) -> i32) -> i32 {
 }
 
 fn context(n: i32) -> i32 {
-    lambdaParameter(n, { n1 -> n;});
+    lambdaParameter(n, fn(n1) { n;});
 }

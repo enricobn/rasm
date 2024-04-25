@@ -28,5 +28,5 @@ fn doSomething(value: Vec<AStruct>) {
 }
 
 fn lambda(vec: Vec<AStruct>) -> Vec<AStruct> {
-    vec.map({ it -> it;});
+    vec.map(fn(it) {it;});
 }

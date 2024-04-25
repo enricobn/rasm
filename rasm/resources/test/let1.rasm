@@ -1,9 +1,9 @@
 let v = vecOf(10);
 
-if(true, { ->
+if(true, fn() {
     let c = vecOf(30);
-    if(true, { -> println(v);}, { -> println("Empty");});
-}, { -> println("Empty");});
+    if(true, fn() { println(v);}, fn() { println("Empty");});
+}, fn() { println("Empty");});
 
 println(v);
 

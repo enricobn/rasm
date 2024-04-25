@@ -11,9 +11,9 @@ pub fn call<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1, v2: PT2) -> T {
 }
 
 pub fn curry<PT,T>(lambda: fn(PT) -> T, v: PT) -> fn() -> T {
-    { -> lambda(v); };
+    fn() { lambda(v); };
 }
 
 pub fn curry<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1) -> fn(PT2) -> T {
-    { v2 -> lambda(v1, v2); };
+    fn(v2) { lambda(v1, v2); };
 }

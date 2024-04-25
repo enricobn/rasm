@@ -22,7 +22,7 @@ pub fn initialGameState() -> GameState {
 }
 
 fn initialWorld() -> World {
-    let bricks = cartesianProduct(vecRange(0, 30), vecRange(0, 10), {x, y -> Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , RED); });
+    let bricks = cartesianProduct(vecRange(0, 30), vecRange(0, 10), fn(x, y) { Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , RED); });
 
     let now = now();
 
@@ -33,7 +33,7 @@ pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Gam
     let stage = stage(gameState);
     let fps = gameState.fps.update();
 
-    let newGameState = match(stage, { -> gameState.fps(fps);}, { ->
+    let newGameState = match(stage, fn() { gameState.fps(fps);}, fn() {
         let newWorld = update(resources, keys, gameState.world);
 
         // range(0, 100); // wait...
@@ -44,7 +44,7 @@ pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Gam
     let lives = lives(newWorld);
     let score = score(newWorld);
 
-    if(eq(lives, 0) { -> GameResult::End(score);} { -> GameResult::Play(newGameState);});
+    if(eq(lives, 0), fn() { GameResult::End(score);}, fn() { GameResult::Play(newGameState);});
 }
 
 fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
@@ -58,21 +58,21 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     let newBar = update(world.bar, actualTime, keys);
     let newBall = update(ball, actualTime);
     let collision = collision(bricks, newBall);
-    let newScore = match(collision, { b -> add(world.score, 10);}, { -> world.score;});
-    let newBricks = match(collision, { b1 -> filter(bricks, { b2 -> not(eq(b1, b2)); }); }, { -> bricks; });
+    let newScore = match(collision, fn(b) { add(world.score, 10);}, fn() { world.score;});
+    let newBricks = match(collision, fn(b1) { filter(bricks, fn(b2) { not(eq(b1, b2)); }); }, fn() { bricks; });
 
-    if(collides(newBall, newBar.x), { ->
+    if(collides(newBall, newBar.x), fn() {
         let newBall2 = update(Ball(ball.x, ball.y, ball.xDir, flip(ball.yDir), actualTime), actualTime);
         World(newBricks, newBall2, newBar, newScore, lives);
-    }, { ->
-        match(collision, { brick ->
+    }, fn() {
+        match(collision, fn(brick) {
             let newBall2 = ballAfterCollision(ball, brick);
              World(newBricks, newBall2, newBar, newScore, lives);
         },
-        { ->
-            if(greater(ball.y, sub(HEIGHT, BALLSIZE)), { ->
+        fn() {
+            if(greater(ball.y, sub(HEIGHT, BALLSIZE)), fn() {
                 World(newBricks, initialBall(actualTime), newBar, newScore, sub(lives, 1));
-            }, { ->
+            }, fn() {
                 World(newBricks, newBall, newBar, newScore, lives);
             });
         });
@@ -80,11 +80,11 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
 }
 
 fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
-    first(filter(bricks, { brick -> collides(ball, brick); }));
+    first(filter(bricks, fn(brick) { collides(ball, brick); }));
 }
 
 pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
-    match(gameState.stage, { -> }, { ->
+    match(gameState.stage, fn() { }, fn() {
         render(ren, resources, gameState.world, gameState.fps.fps);
     });
 }
@@ -92,7 +92,7 @@ pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 fn render(ren: SDLRenderer, resources: Resources, world: World, fps: i32) {
     let font = resources.font;
 
-    forEach(world.bricks, { brick ->
+    forEach(world.bricks, fn(brick) {
         sdlSetRenderDrawColor(ren, brick.color);
         sdlRenderFillRect(ren, SDLRect(add(brick.x, 1), add(brick.y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
     });

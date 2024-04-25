@@ -11,7 +11,7 @@ println(sort(vecOf(2, 3, 1)));
 println(sort(vecOf(3, 1, 2)));
 println(sort(vecOf(3, 2, 1)));
 
-println(sort(vecOf(3, 2, 1), { v1, v2 -> cmp(v1, v2);}));
+println(sort(vecOf(3, 2, 1), fn(v1, v2) { cmp(v1, v2);}));
 
 println(take(vecOf(10, 20, 30), 2));
 

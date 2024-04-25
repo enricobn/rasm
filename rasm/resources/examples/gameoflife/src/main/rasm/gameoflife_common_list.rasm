@@ -6,11 +6,11 @@ pub struct FullCell {
 pub fn readCellFile(file: str) -> List<Cell> {
     let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
 
-    fmap(linesEnumerate, { line -> lineCells(line); });
+    fmap(linesEnumerate, fn(line) { lineCells(line); });
 }
 
 pub fn allCells(width: i32, height: i32) -> List<FullCell> {
-    cartesianProduct(range(0, height), range(0, width), { y, x ->
+    cartesianProduct(range(0, height), range(0, width), fn(y, x) {
         let cell = Cell(x, y);
 
         FullCell(cell, adjacents(cell));
@@ -18,17 +18,17 @@ pub fn allCells(width: i32, height: i32) -> List<FullCell> {
 }
 
 pub fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
-    map(cells, { it -> Cell(add(it.x, d), add(it.y, d)); });
+    map(cells, fn(it) { Cell(add(it.x, d), add(it.y, d)); });
 }
 
 pub fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
-    map(filter(allCells, { it ->
-        let adjsAlive = count(adjacents(it),  { a -> isAlive(cells, a); });
+    map(filter(allCells, fn(it) {
+        let adjsAlive = count(adjacents(it),  fn(a) { isAlive(cells, a); });
         if(isAlive(cells, cell(it)),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         );
-    }), { it -> it.cell;});
+    }), fn(it) {it.cell;});
 }
 
 pub fn adjacents(cell: Cell) -> List<Cell> {
@@ -57,7 +57,7 @@ pub fn isAlive(cells: List<Cell>, cell: Cell) -> bool {
     let x = cell.x;
     let y = cell.y;
 
-    anyMatch(cells, { it ->
+    anyMatch(cells, fn(it) {
         and(eq(x, it.x), eq(y, it.y));
     });
 }

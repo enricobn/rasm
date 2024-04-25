@@ -45,7 +45,7 @@ fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
     let allCells = allCells(width, height);
 
     printCells(ren,
-        foldLeft(vecRange(0, count), start, { prev, act ->
+        foldLeft(vecRange(0, count), start, fn(prev, act) {
             printCells(ren, prev, width, height);
             //sdlDelay(1000);
             next(prev, allCells);
@@ -64,11 +64,11 @@ fn printCells(ren: SDLRenderer, cells: Vec<Cell>, width: i32, height: i32) {
 
     let xRange = vecRange(0, width);
 
-    forEach(vecRange(0, height), { y ->
-        forEach(xRange, { x ->
-            if(isAlive(cells, Cell(x, y)), { ->
+    forEach(vecRange(0, height), fn(y) {
+        forEach(xRange, fn(x) {
+            if(isAlive(cells, Cell(x, y)), fn() {
                  sdlRenderFillRect(ren, SDLRect(mul(10, x), mul(10, y), 10, 10));
-            }, { -> });
+            }, fn() { });
         });
     });
     sdlRenderPresent(ren);

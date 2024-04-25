@@ -11,43 +11,43 @@ pub fn fail(assertions: Assertions, message: str) -> Assertions {
 }
 
 pub fn validate(assertions: Assertions) {
-    assertions.failed.first.match({ error -> panic("Assertion error: ".add(error)); }, { -> });
+    assertions.failed.first.match(fn(error) { panic("Assertion error: ".add(error)); }, fn() {});
 }
 
 pub fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
-    if(value,{ -> assertions; },{ ->
+    if(value, fn() {assertions; },fn() {
         assertions.fail("assertion failed");
     });
 }
 
 pub fn assertFalse(assertions: Assertions, value: bool) -> Assertions {
-    if(value,{ ->
+    if(value,fn() {
         assertions.fail("assertion failed");
-    }, { -> assertions; });
+    }, fn() {assertions; });
 }
 
 pub fn assertTrue(assertions: Assertions, message: str, value: bool) -> Assertions {
-    if(value,{ -> assertions; },{ ->
+    if(value,fn() {assertions; },fn() {
         assertions.fail("assertion failed: ".add(message));
     });
 }
 
 pub fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions {
-    if(value,{ ->
+    if(value, fn() {
         assertions.fail("assertion failed: ".add(message));
-    }, { -> assertions; });
+    }, fn() {assertions; });
 }
 
 pub fn assertEquals<T>(assertions: Assertions, message: str, expected: T, current: T) -> Assertions {
-    if(expected.eq(current).not,{ ->
+    if(expected.eq(current).not, fn() {
         assertions.fail("assertion failed: ".add(message));
-    }, { -> assertions; });
+    }, fn() {assertions; });
 }
 
 pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
-    if(expected.eq(current).not,{ ->
+    if(expected.eq(current).not, fn() {
         assertions.fail("assertion failed, expected ".add(expected).add(" but found ").add(current));
-    }, { -> assertions; });
+    }, fn() {assertions; });
 }
 
 pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
@@ -60,14 +60,14 @@ pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
     println(" ms");
 
     runResult.failed.first.match(
-        { error ->
+        fn(error) {
             let message = "test failed ".add(index).add(" : ");
             print(message);
             println(error);
             println();
             true;
         },
-        { ->
+        fn() {
             println("test OK");
             println();
             false;

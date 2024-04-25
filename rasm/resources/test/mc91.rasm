@@ -2,9 +2,9 @@
 println(mc91(87));
 
 fn mc91(n: i32) -> i32 {
-    if (greater(n, 100), { ->
+    if (greater(n, 100), fn() {
         add(n, -10);
-    },{ ->
+    },fn() {
         mc91(mc91(add(n, 11)));
     });
 }

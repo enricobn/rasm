@@ -141,7 +141,7 @@ const BLUE = SDLColor(0, 0, 255, 255);
 const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
-if(sdlTTFInit().eq(1), { -> panic("TTFInit error."); }, { -> });
+if(sdlTTFInit().eq(1), fn() { panic("TTFInit error."); }, fn() { });
 
 let font = sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
 
@@ -153,8 +153,8 @@ let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
 sdlLoop(ren, initialState,
-    { event, state -> update(event, state);},
-    { sdlRen, state -> render(sdlRen, state);}
+    fn(event, state) { update(event, state);},
+    fn(sdlRen, state) { render(sdlRen, state);}
 );
 
 sdlDestroyRenderer(ren);
@@ -167,25 +167,25 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
     let stage = stage(state);
     let highScores = highScores(state);
 
-    let newKeys = match(event, { e ->
+    let newKeys = match(event, fn(e) {
           let key = key(e);
           let keyState = state(e);
 
-          match(keyState, { ->
+          match(keyState, fn() {
             vecOf(key);
-          }, { ->
-            filter(keys, { k -> not(eq(k, key));});
+          }, fn() {
+            filter(keys, fn(k) { not(eq(k, key));});
           });
-      }, { -> keys; });
+      }, fn() { keys; });
 
-    match(stage, { menuState ->
+    match(stage, fn(menuState) {
         let newStage = update(resources, newKeys, menuState);
         State(resources, newKeys, newStage, highScores);
-    }, { gameState ->
+    }, fn(gameState) {
         let gameResult = update(resources, newKeys, gameState);
-        match(gameResult, { newGameState ->
+        match(gameResult, fn(newGameState) {
             State(resources, newKeys, Stage::Game(newGameState), highScores);
-        }, { score ->
+        }, fn(score) {
             let newHighScores = addScore(highScores, score);
             writeHighScores(newHighScores);
             State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
@@ -205,25 +205,25 @@ fn render(ren: SDLRenderer, state: State) {
     let resources = resources(state);
     let stage = stage(state);
 
-    match(stage, { menuState -> render(ren, resources, menuState);}, { gameState -> render(ren, resources, gameState);});
+    match(stage, fn(menuState) { render(ren, resources, menuState);}, fn(gameState) { render(ren, resources, gameState);});
 
     sdlRenderPresent(ren);
 }
 
 fn loadHighScores() -> Vec<HighScore> {
-    if(fileExists("scores.txt"), { ->
+    if(fileExists("scores.txt"), fn() {
         let scores = readFile("scores.txt");
         let lines = lines(scores);
-        toVec(fmap(lines, { line ->
+        toVec(fmap(lines, fn(line) {
             let splitted = splitToList(line, ",");
-            let result = map3(splitted, { score, sec, nano -> HighScore(atoi(score), TimeVal(atoi(sec), atoi(nano)));});
+            let result = map3(splitted, fn(score, sec, nano) { HighScore(atoi(score), TimeVal(atoi(sec), atoi(nano)));});
             toList(result);
         }));
-    }, { -> Vec();});
+    }, fn() { Vec();});
 }
 
 fn printHighScores(highScores: Vec<HighScore>) {
-    forEach(highScores, { highScore ->
+    forEach(highScores, fn(highScore) {
         print("high score ", highScore.score);
         print(", ");
         println(highScore.time);
@@ -233,13 +233,13 @@ fn printHighScores(highScores: Vec<HighScore>) {
 fn writeHighScores(highScores: Vec<HighScore>) {
     let file = createFile("scores.txt");
 
-    forEach(highScores, { it ->
+    forEach(highScores, fn(it) {
         print(file, it.score)
         .or(print(file, ","))
         .or(print(file, it.time.sec))
         .or(print(file, ","))
         .or(println(file, it.time.nano))
-        .run({ error ->
+        .run(fn(error) {
             println(error);
             exitMain(1);
         });
@@ -260,26 +260,26 @@ fn splitToList(s: str, separator: str) -> List<str> {
     let separatorIndex = chars.indexOf(separator);
 
     match(separatorIndex,
-        { index ->
+        fn(index) {
             let item = substr(s, 0, index);
             let remainder = substr(s, add(index, 1), sub(sub(len(s), index), 1));
             match(item,
-                { f ->
+                fn(f) {
                     match(remainder,
-                        { r -> listAppend(listOf(f), splitToList(r, separator));},
-                        { -> listOf(f);}
+                        fn(r) { listAppend(listOf(f), splitToList(r, separator));},
+                        fn() { listOf(f);}
                     );
                 },
-                { -> List::Empty();}
+                fn() { List::Empty();}
             );
         },
-        { -> listOf(s);}
+        fn() { listOf(s);}
     );
 }
 
 fn indexOf<T>(list: List<EnumerateEntry<T>>, what: T) -> Option<i32> {
     list
-        .filter({ entry -> entry.value.eq(what); })
+        .filter(fn(entry) { entry.value.eq(what); })
         .first
-        .map({ entry -> entry.index;});
+        .map(fn(entry) { entry.index;});
 }
