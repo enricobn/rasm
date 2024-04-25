@@ -9,11 +9,11 @@ pub fn toString(p: Point) -> str {
 
 pub fn Shape(point: Point) -> Shape {
     Shape(
-        fn() { point; },
+        { point; },
         fn(dx, dy) {
             let result = Point(point.x.add(dx), point.y.add(dy));
 
             Shape(result);
-        }, fn() { toString(point); }
+        }, { toString(point); }
     );
 }

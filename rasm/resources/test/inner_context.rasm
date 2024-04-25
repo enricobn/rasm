@@ -11,7 +11,7 @@ fn do(f: fn() -> i32) -> i32 {
 fn inner2(n1: i32, n2: i32) -> i32 {
     inner(fn(n3) {
         inner(fn(n4) {
-            do(fn() { add(n1, add(n2, add(n3, n4)));});
+            do({ add(n1, add(n2, add(n3, n4)));});
         });
     });
 }

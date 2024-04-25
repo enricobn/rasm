@@ -31,18 +31,18 @@ fn update(x: f32, xDir: XDirection, diff: f32) -> Pair<f32,XDirection> {
     let rightMargin = sub(WIDTH, BALLSIZE);
 
     if (greater(newX, rightMargin),
-        fn() { Pair(rightMargin.sub(newX.sub(rightMargin)), flip(xDir)); },
+        { Pair(rightMargin.sub(newX.sub(rightMargin)), flip(xDir)); },
         less(newX, 0),
-        fn() { Pair(sub(0.0, newX), flip(xDir)); },
-        fn() { Pair(newX, xDir);}
+        { Pair(sub(0.0, newX), flip(xDir)); },
+        { Pair(newX, xDir);}
     );
 }
 
 fn update(y: f32, yDir: YDirection, diff: f32) -> Pair<f32,YDirection> {
     let newY = y.move(yDir, diff);
     if(less(newY, HEADERHEIGHT),
-        fn() { Pair(tof32(HEADERHEIGHT).add(tof32(HEADERHEIGHT).sub(newY)), flip(yDir));},
-        fn() { Pair(newY, yDir);}
+        { Pair(tof32(HEADERHEIGHT).add(tof32(HEADERHEIGHT).sub(newY)), flip(yDir));},
+        { Pair(newY, yDir);}
     );
 }
 
@@ -75,5 +75,5 @@ pub fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
     let xDiff = min(xDiff1, xDiff2);
     let yDiff = min(yDiff1, yDiff2);
 
-    if(xDiff.less(yDiff), fn() { ball.xDir(ball.xDir.flip);}, fn() { ball.yDir(ball.yDir.flip);});
+    if(xDiff.less(yDiff), { ball.xDir(ball.xDir.flip);}, { ball.yDir(ball.yDir.flip);});
 }

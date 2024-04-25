@@ -6,8 +6,8 @@ pub struct Shape {
 
 pub fn toShape<T>(inner: T) -> Shape {
     Shape(
-        fn() { inner.center; },
+        { inner.center; },
         fn(dx, dy) { inner.move(dx, dy);},
-        fn() { inner.toString; }
+        { inner.toString; }
     );
 }

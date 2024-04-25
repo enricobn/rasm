@@ -11,7 +11,7 @@ pub fn printi32() {
 }
 
 fn geti322() -> Result<TestModel,str> {
-    if(true, fn() { Result::Ok(TestModel(20));}).else(fn() { Result::Error("Error");}).call();
+    if(true, { Result::Ok(TestModel(20));}).else({ Result::Error("Error");}).call();
 }
 
 pub fn printi322() {

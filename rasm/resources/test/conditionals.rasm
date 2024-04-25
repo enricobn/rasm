@@ -1,24 +1,24 @@
-if(false, fn() { println("True");}, fn() { println("False");});
+if(false, { println("True");}, { println("False");});
 
-if(true, fn() { println("True");},fn() { println("False");});
+if(true, { println("True");}, { println("False");});
 
-if(eq(0,0), fn() { println("equal");}, fn() { println("not equal");});
+if(eq(0,0), { println("equal");}, { println("not equal");});
 
-if(eq(0,1), fn() { println("equal");}, fn() { println("not equal");});
+if(eq(0,1), { println("equal");}, { println("not equal");});
 
-if(less(1,2), fn() { println("less");}, fn() { println("not less");});
+if(less(1,2), { println("less");}, { println("not less");});
 
-if(less(0,0), fn() { println("less");}, fn() { println("not less");});
+if(less(0,0), { println("less");}, { println("not less");});
 
-if(greater(1,0), fn() { println("greater");}, fn() { println("not greater");});
+if(greater(1,0), { println("greater");}, { println("not greater");});
 
-if(greater(0,1), fn() { println("greater");}, fn() { println("not greater");});
+if(greater(0,1), { println("greater");}, { println("not greater");});
 
-if(lessOrEqual(0,1), fn() { println("less or equal");}, fn() { println("not less or equal");});
+if(lessOrEqual(0,1), { println("less or equal");}, { println("not less or equal");});
 
-if(lessOrEqual(1,1), fn() { println("less or equal");}, fn() { println("not less or equal");});
+if(lessOrEqual(1,1), { println("less or equal");}, { println("not less or equal");});
 
-if(lessOrEqual(2,1), fn() { println("less or equal");}, fn() { println("not less or equal");});
+if(lessOrEqual(2,1), { println("less or equal");}, { println("not less or equal");});
 
 println(if(false, 100, 200));
 println(if(true, 100, 200));
@@ -52,24 +52,24 @@ Assertions()
 
 fn ifChar(c: char) -> char {
     if( c.eq('<'),
-        fn() { '<'; },
+        { '<'; },
         c.eq('='),
-        fn() { '='; },
+        { '='; },
         c.eq('>'),
-        fn() { '>'; },
-        fn() { '?'; }
+        { '>'; },
+        { '?'; }
     );
 }
 
 fn ifChar2(c: char) -> char {
     if( c.eq('<'),
-        fn() { '<'; },
+        { '<'; },
         c.eq('='),
-        fn() { '='; },
+        { '='; },
         c.eq('>'),
-        fn() { '>'; },
+        { '>'; },
         c.eq('/'),
-        fn() { '/'; },
-        fn() { '?'; }
+        { '/'; },
+        { '?'; }
     );
 }

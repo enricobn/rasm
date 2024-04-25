@@ -21,7 +21,7 @@ pub type SDLFont(false);
 /* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
 otherwise returns the value */
 pub fn sdlErrorIfNull<T>(value: T, message: str) -> T {
-    if(isSDLNull(value), fn() { sdlFailure(message); value; }, fn() { value; });
+    if(isSDLNull(value), { sdlFailure(message); value; }, { value; });
 }
 
 // Events
@@ -32,7 +32,7 @@ pub enum KeyState {
 }
 
 pub fn print(state: KeyState) {
-    run(state, fn() { print("Down");}, fn() { print("Up");});
+    run(state, { print("Down");}, { print("Up");});
 }
 
 pub struct KeyEvent {
@@ -57,8 +57,8 @@ fn sdlSingleLoop<CTX,MODEL>(ctx: CTX, model: MODEL, updateFun: fn(Option<KeyEven
 
     match(event, fn(keyEvent) {
         let key = key(keyEvent);
-        if(eq(key, 41), fn() { exitMain(0);}, fn() { }); // 41 -> ESC
-    }, fn() { });
+        if(eq(key, 41), { exitMain(0);}, { }); // 41 -> ESC
+    }, { });
 
     let newModel = updateFun(event, model);
     renderFun(ctx, newModel);

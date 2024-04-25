@@ -23,7 +23,7 @@ const BLUE = SDLColor(0, 0, 255, 255);
 const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
-if(sdlTTFInit().eq(1), fn() { panic("TTFInit error."); }, fn() { });
+if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
 
 let font = sdlErrorIfNull(sdlOpenFont(resource("DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
 let quads = vecRange(0, QUADS).map(fn(it) {

@@ -10,13 +10,13 @@ pub fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     map(filter(listEnumerate(chars(lineStr)), fn(cell) {
         let cellStr = value(cell);
 
-        match(chars(cellStr), fn(head, tail) { eq(head, "O"); }, fn() {false;});
+        match(chars(cellStr), fn(head, tail) { eq(head, "O"); }, {false;});
     }), fn(cell) { Cell(index(cell), y); });
 }
 
 pub fn filterLines(lines: List<str>) -> List<str> {
     filter(lines, fn(line) {
-        match(chars(line), fn(head, tail) { not(eq(head, "!")); }, fn() { false;});
+        match(chars(line), fn(head, tail) { not(eq(head, "!")); }, { false;});
     });
 }
 

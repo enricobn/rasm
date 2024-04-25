@@ -4,9 +4,9 @@ println(check("<"));
 
 fn check(c: str) -> Vec<Option<str>> {
     if(c.eq(">"),
-        fn() { vecOf(Option::Some("first"), Option::Some("first"), Option::Some("first")); },
+        { vecOf(Option::Some("first"), Option::Some("first"), Option::Some("first")); },
         c.eq(" "),
-        fn() { vecOf(Option::Some("second"), Option::Some("second"), Option::Some("second"));},
-        fn() { vecOf(Option::Some("third"), Option::Some("third"), Option::Some("third"));}
+        { vecOf(Option::Some("second"), Option::Some("second"), Option::Some("second"));},
+        { vecOf(Option::Some("third"), Option::Some("third"), Option::Some("third"));}
     );
 }

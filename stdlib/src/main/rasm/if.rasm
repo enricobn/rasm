@@ -9,7 +9,7 @@ pub fn if<T>(cond: bool, trueValue: T) -> If<T> {
 pub fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
     ifValue.value.match(
         fn(value) { ifValue; },
-        fn() {if(cond, trueValue); }
+        {if(cond, trueValue); }
     );
 }
 

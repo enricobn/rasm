@@ -12,9 +12,9 @@ pub fn update(bar: Bar, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
 
     let leftOrRight = add(left, right);
 
-    let newVelocity = if(eq(leftOrRight, 0), fn() {
+    let newVelocity = if(eq(leftOrRight, 0), {
         toi32(div(tof32(bar.velocity), 1.03), 0);
-    }, fn() {
+    }, {
         add(bar.velocity, mul(leftOrRight, 30));
     });
 

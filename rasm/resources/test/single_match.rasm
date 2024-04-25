@@ -5,11 +5,11 @@ enum Animal {
 }
 
 Animal::Dog().matchDog(
-    fn() { println("Found"); },
-    fn() { println("NotFound"); }
+    { println("Found"); },
+    { println("NotFound"); }
 );
 
 Animal::Cow().matchDog(
-    fn() { println("Found"); },
-    fn() { println("NotFound"); }
+    { println("Found"); },
+    { println("NotFound"); }
 );

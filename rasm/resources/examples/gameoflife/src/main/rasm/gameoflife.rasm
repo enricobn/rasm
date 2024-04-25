@@ -52,7 +52,7 @@ fn printCells(cells: List<Cell>, width: i32, height: i32) {
 
     forEach(range(0, height), fn(y) {
         forEach(xRange, fn(x) {
-            if(isAlive(cells, Cell(x, y)), fn() { print("*"); }, fn() { print(" "); });
+            if(isAlive(cells, Cell(x, y)), { print("*"); }, { print(" "); });
         });
         println("");
     });

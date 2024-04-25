@@ -21,7 +21,7 @@ pub fn fileMode(f: FileMode) -> i32 {
 }
 
 pub fn filePermission(p: FilePermission) -> i32 {
-    match(p, fn() {4;}, fn() {2;}, fn() {1;});
+    match(p, {4;}, {2;}, {1;});
 }
 
 pub fn filePermissions(p: Vec<FilePermission>) -> i32 {
@@ -42,12 +42,12 @@ pub enum FileFlag {
 
 pub fn fileFlag(flag: FileFlag) -> i32 {
     match(flag,
-        fn() {0;},       //  ReadOnly
-        fn() {1;},       //  WriteOnly,
-        fn() {2;},       //  ReadWrite,
-        fn() {64;},      //  Create,
-        fn() {512;},     //  Truncate,
-        fn() {1024;},    //  Append
+        {0;},       //  ReadOnly
+        {1;},       //  WriteOnly,
+        {2;},       //  ReadWrite,
+        {64;},      //  Create,
+        {512;},     //  Truncate,
+        {1024;},    //  Append
     );
 }
 

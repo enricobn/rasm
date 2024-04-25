@@ -5,8 +5,8 @@ println(or(Option::None(), Option::Some(10)));
 
 println(or(Option::Some(1), Option::Some(10)));
 
-println(orElse(Option::None(), fn() { Option::Some(10);}));
+println(orElse(Option::None(), { Option::Some(10);}));
 
-println(orElse(Option::Some(1), fn() { Option::Some(10);}));
+println(orElse(Option::Some(1), { Option::Some(10);}));
 
 Option::Some(10).run(fn(v) { println(v);});

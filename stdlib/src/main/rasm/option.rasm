@@ -4,27 +4,27 @@ pub enum Option<T> {
 }
 
 pub fn toList<T>(o: Option<T>) -> List<T> {
-    match(o, fn(v) {listOf(v);}, fn() {List::Empty();});
+    match(o, fn(v) {listOf(v);}, {List::Empty();});
 }
 
 pub fn print<T>(o: Option<T>) {
-    match(o, fn(v) { print("Some("); print(v); print(")");}, fn() {print("None");});
+    match(o, fn(v) { print("Some("); print(v); print(")");}, {print("None");});
 }
 
 pub fn getOrElse<T>(o: Option<T>, default: T) -> T {
-    match(o, fn(v) {v;}, fn() {default;});
+    match(o, fn(v) {v;}, {default;});
 }
 
 pub fn run<T>(o: Option<T>, f: fn(T) -> ()) {
-    match(o, f, fn() {});
+    match(o, f, {});
 }
 
 pub fn map<T,T1>(o: Option<T>, f: fn(T) -> T1) -> Option<T1> {
-    match(o, fn(v) {Option::Some(f(v)); }, fn() {Option::None();});
+    match(o, fn(v) {Option::Some(f(v)); }, {Option::None();});
 }
 
 pub fn flatten<T>(o: Option<Option<T>>) -> Option<T> {
-    match(o, fn(v) {v;}, fn() {Option::None(); });
+    match(o, fn(v) {v;}, {Option::None(); });
 }
 
 pub fn fmap<T,T1>(o: Option<T>, f: fn(T) -> Option<T1>) -> Option<T1> {
@@ -32,7 +32,7 @@ pub fn fmap<T,T1>(o: Option<T>, f: fn(T) -> Option<T1>) -> Option<T1> {
 }
 
 pub fn or<T>(o: Option<T>, o1: Option<T>) -> Option<T> {
-    match(o, fn(v) { o; }, fn() { o1; });
+    match(o, fn(v) { o; }, { o1; });
 }
 
 pub fn orElse<T>(o: Option<T>, f: fn() -> Option<T>) -> Option<T> {
@@ -43,9 +43,9 @@ pub inline native toUnit<T>(o: Option<T>) /{
 }/
 
 pub fn isSome<T>(o: Option<T>) -> bool {
-    o.match(fn(v) {true; }, fn() {false; });
+    o.match(fn(v) {true; }, {false; });
 }
 
 pub fn toString<T>(o: Option<T>) -> str {
-    o.match( fn(value) {"Some(".add(value).add(")"); }, fn() {"None"; });
+    o.match( fn(value) {"Some(".add(value).add(")"); }, {"None"; });
 }

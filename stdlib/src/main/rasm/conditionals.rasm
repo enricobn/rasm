@@ -1,14 +1,14 @@
 pub fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond: bool, fElseIf: fn() -> T, ffalse: fn() -> T) -> T {
-    if(cond, ftrue, fn() {if(elseIfCond, fElseIf, ffalse); });
+    if(cond, ftrue, {if(elseIfCond, fElseIf, ffalse); });
 }
 
 pub fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond1: bool, fElseIf1: fn() -> T, elseIfCond2: bool, fElseIf2: fn() -> T, ffalse: fn() -> T) -> T {
-    if(cond, ftrue, elseIfCond1, fElseIf1,fn() {if(elseIfCond2, fElseIf2, ffalse); });
+    if(cond, ftrue, elseIfCond1, fElseIf1,{if(elseIfCond2, fElseIf2, ffalse); });
 }
 
 pub fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond1: bool, fElseIf1: fn() -> T, elseIfCond2: bool, fElseIf2: fn() -> T,
         elseIfCond3: bool, fElseIf3: fn() -> T, ffalse: fn() -> T) -> T {
-    if(cond, ftrue, elseIfCond1, fElseIf1, elseIfCond2, fElseIf2, fn() {if(elseIfCond3, fElseIf3, ffalse); });
+    if(cond, ftrue, elseIfCond1, fElseIf1, elseIfCond2, fElseIf2, {if(elseIfCond3, fElseIf3, ffalse); });
 }
 
 /**

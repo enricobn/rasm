@@ -20,5 +20,5 @@ match(
    });
 
 fn printOption(o: Option<str>) {
-    match(o, fn(v) { print("Some(");print(v);println(")");}, fn() { println("None");});
+    match(o, fn(v) { print("Some(");print(v);println(")");}, { println("None");});
 }

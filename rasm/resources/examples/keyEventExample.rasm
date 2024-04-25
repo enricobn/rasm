@@ -20,14 +20,14 @@ fn m() {
     run(event, fn(e) {
         printAllocated();
         printTableSlotsAllocated();
-    }, fn() { });
+    }, { });
 
     run(event, fn(e) {
         let key = KeyEvent::key(e);
-        if(eq(key, 41), fn() {
-        }, fn() {
+        if(eq(key, 41), {
+        }, {
             println(e);
             m();
         });
-    }, fn() { m();});
+    }, { m();});
 }

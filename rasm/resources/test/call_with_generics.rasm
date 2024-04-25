@@ -2,11 +2,11 @@ function(10).match(fn(v) { println("Ok"); }, fn(e) { println("Error: ".add(e));}
 function(0).match(fn(v) { println("Ok"); }, fn(e) { println("Error: ".add(e));});
 
 fn function<T>(value: T) -> Result<T,str> {
-    if(true,fn() {
+    if(true, {
         let o = Option::Some(value);
         let r = Result::Ok<Option<T>,str>(o);
         print("");
-    }, fn() { });
+    }, { });
 
     if(value.eq(10), Result::Ok<T,str>(value))
     .else(Result::Error<T,str>("an error"));

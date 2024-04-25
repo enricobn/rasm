@@ -6,12 +6,12 @@ pub struct Circle {
 
 pub fn Shape(circle: Circle) -> Shape {
     Shape(
-        fn() { Point(circle.x, circle.y); },
+        { Point(circle.x, circle.y); },
         fn(dx, dy) {
             let result = Circle(circle.x.add(dx), circle.y.add(dy), circle.radius);
 
             Shape(result);
-        }, fn() {
+        }, {
           //printRef(circle);
             "Circle("
                 .add(circle.x)

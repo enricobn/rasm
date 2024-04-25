@@ -4,11 +4,11 @@ println(v);
 let m = map(v, fn(n) { add(n, 10);});
 println(m);
 
-if(anyMatch(v, fn(n) { eq(n, 0);}), fn() { println("true");}, fn() { println("false");});
-if(anyMatch(v, fn(n) { eq(n, 2);}), fn() { println("true");}, fn() { println("false");});
+if(anyMatch(v, fn(n) { eq(n, 0);}), { println("true");}, { println("false");});
+if(anyMatch(v, fn(n) { eq(n, 2);}), { println("true");}, { println("false");});
 
-if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 0);}), fn() { println("true");}, fn() { println("false");});
-if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 2);}), fn() { println("true");}, fn() { println("false");});
+if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 0);}), { println("true");}, { println("false");});
+if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 2);}), { println("true");}, { println("false");});
 
 println(count(vecRange(0, 10), fn(n) { eq(n, 5);}));
 println(count(vecRange(0, 10), fn(n) { lessOrEqual(n, 5);}));

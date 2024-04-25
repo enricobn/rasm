@@ -627,29 +627,7 @@ impl Parser {
                 if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
                     self.get_token_kind_n(next_i - self.i)
                 {
-                    self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
-                        parameter_names,
-                        body: Vec::new(),
-                        index: self.get_index(0),
-                    }));
-                    let fake_function_def = ASTFunctionDef {
-                        original_name: String::new(),
-                        name: String::new(),
-                        parameters: Vec::new(),
-                        body: RASMBody(Vec::new()),
-                        return_type: ASTType::Unit,
-                        inline: false,
-                        generic_types: Vec::new(),
-                        resolved_generic_types: ResolvedGenericTypes::new(),
-                        index: ASTIndex::none(),
-                        modifiers: ASTModifiers::public(),
-                        namespace: namespace.clone(),
-                        rank: 0, // TODO must be calculated?
-                    };
-                    self.parser_data
-                        .push(ParserData::FunctionDef(fake_function_def));
-                    self.state.push(ParserState::LambdaExpression);
-                    self.state.push(ParserState::FunctionBody);
+                    self.add_lambda_value(namespace, parameter_names);
                     self.i = next_i + 1;
                 } else {
                     return Err(format!(
@@ -663,6 +641,11 @@ impl Parser {
                     OptionDisplay(&self.get_token_kind_n(1))
                 ));
             }
+        } else if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
+            self.get_token_kind()
+        {
+            self.add_lambda_value(namespace, Vec::new());
+            self.i += 1;
         } else if Some(&TokenKind::Bracket(
             BracketKind::Brace,
             BracketStatus::Close,
@@ -676,6 +659,36 @@ impl Parser {
             return Err("Expected expression".into());
         }
         Ok(())
+    }
+
+    fn add_lambda_value(
+        &mut self,
+        namespace: &ASTNameSpace,
+        parameter_names: Vec<(String, ASTIndex)>,
+    ) {
+        self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
+            parameter_names: parameter_names,
+            body: Vec::new(),
+            index: self.get_index(0),
+        }));
+        let fake_function_def = ASTFunctionDef {
+            original_name: String::new(),
+            name: String::new(),
+            parameters: Vec::new(),
+            body: RASMBody(Vec::new()),
+            return_type: ASTType::Unit,
+            inline: false,
+            generic_types: Vec::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers::public(),
+            namespace: namespace.clone(),
+            rank: 0, // TODO must be calculated?
+        };
+        self.parser_data
+            .push(ParserData::FunctionDef(fake_function_def));
+        self.state.push(ParserState::LambdaExpression);
+        self.state.push(ParserState::FunctionBody);
     }
 
     fn process_function_body(&mut self, token: &Token) -> Result<(), String> {

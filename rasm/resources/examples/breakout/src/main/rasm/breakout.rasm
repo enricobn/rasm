@@ -141,7 +141,7 @@ const BLUE = SDLColor(0, 0, 255, 255);
 const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
-if(sdlTTFInit().eq(1), fn() { panic("TTFInit error."); }, fn() { });
+if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
 
 let font = sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
 
@@ -171,12 +171,12 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
           let key = key(e);
           let keyState = state(e);
 
-          match(keyState, fn() {
+          match(keyState, {
             vecOf(key);
-          }, fn() {
+          }, {
             filter(keys, fn(k) { not(eq(k, key));});
           });
-      }, fn() { keys; });
+      }, { keys; });
 
     match(stage, fn(menuState) {
         let newStage = update(resources, newKeys, menuState);
@@ -211,7 +211,7 @@ fn render(ren: SDLRenderer, state: State) {
 }
 
 fn loadHighScores() -> Vec<HighScore> {
-    if(fileExists("scores.txt"), fn() {
+    if(fileExists("scores.txt"), {
         let scores = readFile("scores.txt");
         let lines = lines(scores);
         toVec(fmap(lines, fn(line) {
@@ -219,7 +219,7 @@ fn loadHighScores() -> Vec<HighScore> {
             let result = map3(splitted, fn(score, sec, nano) { HighScore(atoi(score), TimeVal(atoi(sec), atoi(nano)));});
             toList(result);
         }));
-    }, fn() { Vec();});
+    }, { Vec();});
 }
 
 fn printHighScores(highScores: Vec<HighScore>) {
@@ -267,13 +267,13 @@ fn splitToList(s: str, separator: str) -> List<str> {
                 fn(f) {
                     match(remainder,
                         fn(r) { listAppend(listOf(f), splitToList(r, separator));},
-                        fn() { listOf(f);}
+                        { listOf(f);}
                     );
                 },
-                fn() { List::Empty();}
+                { List::Empty();}
             );
         },
-        fn() { listOf(s);}
+        { listOf(s);}
     );
 }
 

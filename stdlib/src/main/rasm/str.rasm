@@ -1,6 +1,6 @@
 pub fn padLeft(s: str, len: i32) -> str {
     let l = len(s);
-    if(not(less(l, len)), s, fn() {padLeft(add(" ", s), len);});
+    if(not(less(l, len)), s, {padLeft(add(" ", s), len);});
 }
 
 pub fn isWhiteSpace(c: char) -> bool {
