@@ -9,7 +9,7 @@ pub fn print<T>(l: List<T>) {
     match(l,
         fn(head,tail) {
             print(head);
-            match(tail, fn(head1,tail1) {print(",");}, fn(){});
+            match(tail, fn(head1,tail1) {print(",");}, {});
             print(tail);
         }, {});
 }
@@ -28,16 +28,16 @@ pub fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
 }
 
 pub fn forEach<T>(l: List<T>, f: fn(T) -> ()) {
-    match(l, fn(head,tail) {f(head); forEach(tail, f); }, fn(){});
+    match(l, fn(head,tail) {f(head); forEach(tail, f); }, {});
 }
 
 /** false = 0 true = 1 **/
 pub fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
-    match(l, fn(head,tail) {if(predicate(head), true, {anyMatch(tail, predicate); }); }, fn(){false;});
+    match(l, fn(head,tail) {if(predicate(head), true, {anyMatch(tail, predicate); }); }, {false;});
 }
 
 pub fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> i32 {
-    match(l, fn(head,tail) {add(count(tail, predicate), if(predicate(head), 1, 0)); }, fn(){0;});
+    match(l, fn(head,tail) {add(count(tail, predicate), if(predicate(head), 1, 0)); }, {0;});
 }
 
 pub fn insert<T>(l: List<T>, value: T) -> List<T> {
@@ -88,7 +88,7 @@ pub fn println<T>(l: List<T>, printFunction: fn(T) -> ()) {
 pub fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
     match(l, fn(head,tail) {
         printFunction(head);
-        match(tail, fn(head1,tail1) {print(","); }, fn(){});
+        match(tail, fn(head1,tail1) {print(","); }, {});
         print(tail, printFunction);
     }, {});
 }
@@ -105,13 +105,13 @@ pub fn flatten<T>(l: List<List<T>>) -> List<T> {
 }
 
 pub fn listAppend<T>(dest: List<T>, source: List<T>) -> List<T> {
-    match(dest, fn(head,tail) {List::Full(head, listAppend(tail, source)); }, fn(){source;});
+    match(dest, fn(head,tail) {List::Full(head, listAppend(tail, source)); }, {source;});
 }
 
 pub fn foldLeft<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
     match(l, fn(head, tail) {
          foldLeft(tail, accum(zero, head), accum);
-    }, fn(){zero;});
+    }, {zero;});
 }
 
 pub fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
@@ -135,7 +135,7 @@ pub fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
 }
 
 pub fn listEnumerateInternal<T>(l: List<T>, index: i32) -> List<EnumerateEntry<T>> {
-    match(l, fn(head,tail) {List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, fn(){List::Empty();});
+    match(l, fn(head,tail) {List::Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, {List::Empty();});
 }
 
 pub struct EnumerateEntry<T> {

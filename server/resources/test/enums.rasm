@@ -1,0 +1,17 @@
+enum AnEnum {
+    One,
+    Two
+}
+
+struct MyStruct {
+    op: MyOption<i32>
+}
+
+enum MyOption<T> {
+    Some(value: T),
+    None
+}
+
+let aStruct = MyStruct(MyOption::Some(10));
+
+aStruct.op.match(fn(value) {println(value);}, {println("None");});

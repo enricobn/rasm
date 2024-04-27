@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io;
 use std::iter::zip;
 use std::ops::Deref;
@@ -26,40 +25,16 @@ use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
-    lookup_tables: ReferenceFinderLookupTables,
     path: PathBuf,
-}
-
-struct ReferenceFinderLookupTables {
-    functions_by_index: HashMap<ASTIndex, String>,
-    types_by_index: HashMap<ASTIndex, ASTType>,
-    parameters_by_index: HashMap<ASTIndex, ASTParameterDef>,
-    let_by_index: HashMap<ASTIndex, ASTType>,
-}
-
-impl ReferenceFinderLookupTables {
-    fn new() -> Self {
-        Self {
-            functions_by_index: Default::default(),
-            types_by_index: Default::default(),
-            parameters_by_index: Default::default(),
-            let_by_index: Default::default(),
-        }
-    }
 }
 
 impl ReferenceFinder {
     pub fn new(module: &EnhancedASTModule, ast_module: &ASTModule) -> Result<Self, TypeCheckError> {
-        let mut lookup_tables = ReferenceFinderLookupTables::new();
-
         let path = ast_module.path.clone();
-        let selectable_items = Self::process_module(module, ast_module, &mut lookup_tables)?;
-
-        //println!("selectable_items {}", SliceDisplay(&selectable_items));
+        let selectable_items = Self::process_module(module, ast_module)?;
 
         Ok(Self {
             selectable_items,
-            lookup_tables,
             path,
         })
     }
@@ -68,14 +43,7 @@ impl ReferenceFinder {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
-            /*
-            if selectable_item.file_token.start.row == 31 {
-                println!("{selectable_item}");
-            }
-
-             */
             if selectable_item.contains(index)? {
-                //println!("found {:?}", selectable_item);
                 result.push(selectable_item.clone());
             }
         }
@@ -91,7 +59,7 @@ impl ReferenceFinder {
         let index = index.mv_left(2);
         for selectable_item in self.selectable_items.iter() {
             if selectable_item.contains(&index)? {
-                if let Some(ref ast_type) = selectable_item.ast_type {
+                if let Some(ast_type) = selectable_item.target.completion_type() {
                     let filter = TypeFilter::Exact(ast_type.clone());
                     let mut items = Vec::new();
                     for function in enhanched_module.functions() {
@@ -122,10 +90,6 @@ impl ReferenceFinder {
         ))
     }
 
-    pub fn find_function(&self, index: &ASTIndex) -> Option<&String> {
-        self.lookup_tables.functions_by_index.get(index)
-    }
-
     pub fn is_path(&self, path: &PathBuf) -> bool {
         &self.path == path
     }
@@ -133,7 +97,6 @@ impl ReferenceFinder {
     fn process_module(
         enhanced_module: &EnhancedASTModule,
         module: &ASTModule,
-        lookup_tables: &mut ReferenceFinderLookupTables,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
@@ -155,17 +118,10 @@ impl ReferenceFinder {
             &module.namespace,
             &mut val_context,
             &mut statics,
-            lookup_tables,
             Some(&ASTType::Unit),
             None,
             &mut type_check,
         )?;
-
-        module.functions.iter().for_each(|function| {
-            lookup_tables
-                .functions_by_index
-                .insert(function.index.clone(), format!("{function}"));
-        });
 
         result.append(
             &mut module
@@ -179,7 +135,6 @@ impl ReferenceFinder {
                         &reference_static_context,
                         &mut function_val_context,
                         &mut statics,
-                        lookup_tables,
                         &mut type_check,
                     )
                     .unwrap_or_default()
@@ -198,8 +153,7 @@ impl ReferenceFinder {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = ValContext::new(None);
-        let mut type_check = TypeCheck::new(&ASTNameSpace::global(), false);
-        let mut lookup_tables = ReferenceFinderLookupTables::new();
+        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace, false);
 
         let _ = Self::process_statements(
             enhanced_module,
@@ -207,10 +161,9 @@ impl ReferenceFinder {
             &mut result,
             &mut reference_context,
             reference_static_context,
-            &ASTNameSpace::global(),
+            &enhanced_module.body_namespace,
             &mut val_context,
             statics,
-            &mut lookup_tables,
             None,
             None,
             &mut type_check,
@@ -223,7 +176,6 @@ impl ReferenceFinder {
         reference_static_context: &ReferenceContext,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        lookup_tables: &mut ReferenceFinderLookupTables,
         type_check: &mut TypeCheck,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
@@ -261,7 +213,6 @@ impl ReferenceFinder {
                 &function.namespace,
                 val_context,
                 statics,
-                lookup_tables,
                 Some(&function.return_type),
                 Some(function),
                 type_check,
@@ -301,16 +252,15 @@ impl ReferenceFinder {
     ) {
         let min = index.mv_left(name.len());
 
-        if let Some(custom_type_index) = Self::get_custom_type_index(module, name) {
+        if let ASTType::Custom { .. } = ast_type {
             let item = SelectableItem::new(
                 min,
                 name.len(),
-                custom_type_index.clone(),
-                None,
-                Some(ast_type.clone()),
-                Some(custom_type_index),
                 namespace.clone(),
-                SelectableItemTarget::Type,
+                SelectableItemTarget::Type(
+                    Self::get_custom_type_index(module, name),
+                    ast_type.clone(),
+                ),
             );
 
             result.push(item);
@@ -338,7 +288,6 @@ impl ReferenceFinder {
         namespace: &ASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        lookup_tables: &mut ReferenceFinderLookupTables,
         expected_return_type: Option<&ASTType>,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
@@ -357,7 +306,6 @@ impl ReferenceFinder {
                 namespace,
                 val_context,
                 statics,
-                lookup_tables,
                 expected_type,
                 inside_function,
                 type_check,
@@ -400,7 +348,6 @@ impl ReferenceFinder {
         namespace: &ASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        lookup_tables: &mut ReferenceFinderLookupTables,
         expected_type: Option<&ASTType>,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
@@ -415,7 +362,6 @@ impl ReferenceFinder {
                 val_context,
                 statics,
                 expected_type,
-                lookup_tables,
                 inside_function,
                 type_check,
             ),
@@ -462,7 +408,6 @@ impl ReferenceFinder {
                     val_context,
                     statics,
                     None,
-                    lookup_tables,
                     inside_function,
                     type_check,
                 )
@@ -479,7 +424,6 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
-        lookup_tables: &mut ReferenceFinderLookupTables,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
@@ -495,7 +439,6 @@ impl ReferenceFinder {
                     namespace,
                     val_context,
                     statics,
-                    lookup_tables,
                     &mut result,
                     call,
                     expected_type,
@@ -505,10 +448,8 @@ impl ReferenceFinder {
             }
             ASTExpression::ValueRef(name, index) => {
                 Self::process_value_ref(
-                    expr,
                     reference_context,
                     reference_static_context,
-                    module,
                     namespace,
                     &mut result,
                     name,
@@ -524,7 +465,6 @@ impl ReferenceFinder {
                     val_context,
                     statics,
                     expected_type,
-                    lookup_tables,
                     &mut result,
                     def,
                     type_check,
@@ -536,10 +476,8 @@ impl ReferenceFinder {
     }
 
     fn process_value_ref(
-        expr: &ASTExpression,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
-        module: &EnhancedASTModule,
         namespace: &ASTNameSpace,
         result: &mut Vec<SelectableItem>,
         name: &String,
@@ -554,19 +492,11 @@ impl ReferenceFinder {
                 _ => None,
             };
 
-            let ast_type_index = ast_type
-                .as_ref()
-                .and_then(|t| Self::get_if_custom_type_index(module, t));
-
             result.push(SelectableItem::new(
                 index.mv_left(name.len()),
                 name.len(),
-                v.index.mv_left(name.len()).clone(),
-                Some(expr.clone()),
-                ast_type,
-                ast_type_index,
                 namespace.clone(),
-                SelectableItemTarget::Ref,
+                SelectableItemTarget::Ref(v.index.mv_left(name.len()).clone(), ast_type),
             ));
         }
     }
@@ -578,7 +508,6 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
-        lookup_tables: &mut ReferenceFinderLookupTables,
         result: &mut Vec<SelectableItem>,
         def: &ASTLambdaDef,
         type_check: &mut TypeCheck,
@@ -642,7 +571,6 @@ impl ReferenceFinder {
             namespace,
             &mut lambda_val_context,
             statics,
-            lookup_tables,
             expected_lambda_return_type,
             None, // TODO
             type_check,
@@ -659,7 +587,6 @@ impl ReferenceFinder {
         namespace: &ASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        lookup_tables: &mut ReferenceFinderLookupTables,
         result: &mut Vec<SelectableItem>,
         call: &ASTFunctionCall,
         expected_return_type: Option<&ASTType>,
@@ -678,24 +605,20 @@ impl ReferenceFinder {
                 }
             };
 
-            let custom_type_index = Self::get_if_custom_type_index(module, &ast_type);
-
-            result.push(SelectableItem::new(
-                call.index.mv_left(call.original_function_name.len()),
-                call.original_function_name.len(),
-                index,
-                Some(expr.clone()),
-                Some(ast_type.clone()),
-                custom_type_index,
-                namespace.clone(),
-                SelectableItemTarget::Ref,
-            ));
+            let cloned_type = ast_type.clone();
 
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters,
                 return_type: _,
             }) = ast_type
             {
+                result.push(SelectableItem::new(
+                    call.index.mv_left(call.original_function_name.len()),
+                    call.original_function_name.len(),
+                    namespace.clone(),
+                    SelectableItemTarget::Ref(index, Some(cloned_type)),
+                ));
+
                 let mut v = zip(call.parameters.iter(), &parameters)
                     .flat_map(|(it, par)| {
                         match Self::process_expression(
@@ -707,7 +630,6 @@ impl ReferenceFinder {
                             val_context,
                             statics,
                             Some(par),
-                            lookup_tables,
                             inside_function,
                             type_check,
                         ) {
@@ -738,23 +660,19 @@ impl ReferenceFinder {
         ) {
             Ok((function_def, resolved_generic_types, expressions)) => {
                 // println!("expressions {}", SliceDisplay(&expressions));
-                let custom_type_index =
-                    Self::get_if_custom_type_index(module, &function_def.return_type);
                 let mut fd = function_def.clone();
                 fd.name = fd.original_name.clone();
 
-                lookup_tables
-                    .functions_by_index
-                    .insert(function_def.index.clone(), format!("{fd}"));
+                let descr = format!("{function_def}");
                 result.push(SelectableItem::new(
                     call.index.mv_left(call.original_function_name.len()),
                     call.original_function_name.len(),
-                    function_def.index.clone(),
-                    Some(expr.clone()),
-                    Some(function_def.return_type.clone()),
-                    custom_type_index,
                     namespace.clone(),
-                    SelectableItemTarget::Function,
+                    SelectableItemTarget::Function(
+                        function_def.index,
+                        function_def.return_type,
+                        descr,
+                    ),
                 ));
 
                 let mut v = zip(expressions.iter(), &function_def.parameters)
@@ -775,7 +693,6 @@ impl ReferenceFinder {
                             val_context,
                             statics,
                             Some(&par_ast_type),
-                            lookup_tables,
                             inside_function,
                             type_check,
                         ) {
@@ -805,7 +722,6 @@ impl ReferenceFinder {
                             val_context,
                             statics,
                             None,
-                            lookup_tables,
                             inside_function,
                             type_check,
                         ) {
@@ -991,8 +907,6 @@ mod tests {
 
     #[test]
     fn complex_expression() {
-        let (eh_module, module) =
-            get_reference_finder("resources/test/complex_expression.rasm", None);
         let file_name = Path::new("resources/test/complex_expression.rasm");
 
         let project = RasmProject::new(file_name.to_path_buf());
@@ -1109,13 +1023,13 @@ mod tests {
                         name,
                         param_types: _,
                         index: _,
-                    }) = selectable_item.ast_type
+                    }) = selectable_item.target.completion_type()
                     {
                         assert_eq!("AStruct", name);
                     } else {
                         panic!(
                             "Expected some Custom type but got {}",
-                            OptionDisplay(&selectable_item.ast_type)
+                            OptionDisplay(&selectable_item.target.completion_type())
                         );
                     }
                 } else {
@@ -1145,11 +1059,12 @@ mod tests {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
-                    assert_eq!(selectable_item.target, SelectableItemTarget::Function);
-                    assert_eq!(
-                        selectable_item.point_to,
-                        ASTIndex::new(Some(result_rasm), 14, 8)
-                    );
+                    let expected_index = ASTIndex::new(Some(result_rasm), 14, 8);
+                    if let SelectableItemTarget::Function(index, _, _) = selectable_item.target {
+                        assert_eq!(index, expected_index);
+                    } else {
+                        panic!("Found {:?}", selectable_item.target);
+                    }
                 } else {
                     panic!("Found {} elements", selectable_items.len());
                 }
@@ -1157,6 +1072,58 @@ mod tests {
             Err(e) => {
                 panic!("{e}");
             }
+        }
+    }
+
+    #[test]
+    fn enums() {
+        let (eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Path::new("resources/test/enums.rasm");
+
+        let mut items = finder
+            .find(&ASTIndex::new(Some(file_name.to_path_buf()), 17, 13))
+            .unwrap();
+
+        assert_eq!(1, items.len());
+
+        let item = items.remove(0);
+
+        if let SelectableItemTarget::Function(index, _, descr) = item.target {
+            assert_eq!(ASTIndex::none(), index);
+            assert!(descr.starts_with("native match"));
+        } else {
+            panic!("Found {:?}", item.target);
+        }
+    }
+
+    #[test]
+    fn enums_1() {
+        let (eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Path::new("resources/test/enums.rasm");
+
+        let mut items = finder
+            .find(&ASTIndex::new(Some(file_name.to_path_buf()), 17, 40))
+            .unwrap();
+
+        assert_eq!(1, items.len());
+
+        let item = items.remove(0);
+
+        if let SelectableItemTarget::Ref(index, _) = item.target {
+            assert_eq!(
+                ASTIndex::new(
+                    Some(file_name.canonicalize().unwrap().to_path_buf()),
+                    17,
+                    21
+                ),
+                index
+            );
+        } else {
+            panic!("Found {:?}", item.target);
         }
     }
 
@@ -1190,7 +1157,9 @@ mod tests {
     }
 
     fn vec_selectable_item_to_vec_index(vec: Vec<SelectableItem>) -> Vec<ASTIndex> {
-        vec.iter().map(|it| it.point_to.clone()).collect::<Vec<_>>()
+        vec.iter()
+            .flat_map(|it| it.target.index())
+            .collect::<Vec<_>>()
     }
 
     fn get_reference_finder(

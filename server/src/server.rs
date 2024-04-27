@@ -217,11 +217,16 @@ async fn file<'a>(
                     html.push_str(&format!("{: >6} ", row));
                 }
             }
-            let vec = finder.find(&index).unwrap();
+            let mut vec = finder.find(&index).unwrap();
             let name = format!("_{}_{}", it.row, it.column);
             if !vec.is_empty() {
-                if let Some(file_name) = &vec.first().cloned().and_then(|it| it.point_to.file_name)
-                {
+                let item = vec.remove(0);
+                if let Some((file_name, row, column)) = item.target.index().and_then(|index| {
+                    index
+                        .clone()
+                        .file_name
+                        .map(|it| (it, index.row, index.column))
+                }) {
                     let ref_name = format!(
                         "/file?src={}#_{}_{}",
                         project
@@ -229,27 +234,21 @@ async fn file<'a>(
                             .unwrap_or_else(|| panic!("{:?}", file_name))
                             .to_str()
                             .unwrap(),
-                        vec.first().unwrap().point_to.row,
-                        vec.first().unwrap().point_to.column
+                        row,
+                        column
                     );
                     html.push_str(&format!("<!-- {} {},{} -->", it.kind, it.row, it.column));
                     html.push_str(&format!(
                         "<A HREF=\"{ref_name}\" NAME={name}>{}</A>",
-                        token_to_string(&it, &mut row)
+                        token_to_string(&it, row)
                     ));
                 } else {
                     html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
-                    html.push_str(&format!(
-                        "<A NAME={name}>{}</A>",
-                        token_to_string(&it, &mut row)
-                    ));
+                    html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it, row)));
                 }
             } else {
                 html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
-                html.push_str(&format!(
-                    "<A NAME={name}>{}</A>",
-                    token_to_string(&it, &mut row)
-                ));
+                html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it, row)));
             }
             last_is_multiline = is_multiline(&it);
         });
@@ -267,7 +266,7 @@ fn is_multiline(token: &Token) -> bool {
         || matches!(token.kind, TokenKind::NativeBLock(_))
 }
 
-fn token_to_string(token: &Token, row: &mut usize) -> String {
+fn token_to_string(token: &Token, row: usize) -> String {
     match &token.kind {
         TokenKind::AlphaNumeric(s) => s.clone(),
         TokenKind::NativeBLock(s) => {
@@ -314,7 +313,8 @@ fn token_to_string(token: &Token, row: &mut usize) -> String {
     }
 }
 
-fn multiline_to_string(s: &str, row: &mut usize) -> String {
+fn multiline_to_string(s: &str, row: usize) -> String {
+    let mut row = row;
     let string = s.to_string();
     let lines = string.lines().collect::<Vec<_>>();
     lines
@@ -322,10 +322,10 @@ fn multiline_to_string(s: &str, row: &mut usize) -> String {
         .enumerate()
         .map(|(index, it)| {
             let result = if index == lines.len() - 1 {
-                format!("{: >6} {it}", (*row as i32) - lines.len() as i32 + 1)
+                format!("{: >6} {it}", (row as i32) - lines.len() as i32 + 1)
             } else {
-                *row += 1;
-                format!("{: >6} {it}</br>", (*row as i32) - lines.len() as i32)
+                row += 1;
+                format!("{: >6} {it}</br>", (row as i32) - lines.len() as i32)
             };
 
             result

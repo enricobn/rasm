@@ -17,24 +17,21 @@
  */
 
 use crate::file_token::FileToken;
-use rasm_core::parser::ast::{ASTExpression, ASTIndex, ASTNameSpace, ASTType};
+use rasm_core::parser::ast::{ASTIndex, ASTNameSpace, ASTType};
+use rasm_core::utils::OptionDisplay;
 use std::fmt::{Display, Formatter};
 use std::io;
 
 #[derive(Debug, Clone)]
 pub struct SelectableItem {
     file_token: FileToken,
-    pub point_to: ASTIndex,
-    expr: Option<ASTExpression>,
-    pub ast_type: Option<ASTType>,
-    pub ast_type_index: Option<ASTIndex>,
     pub namespace: ASTNameSpace,
     pub target: SelectableItemTarget,
 }
 
 impl Display for SelectableItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{} -> {}", self.file_token, self.point_to))
+        f.write_str(&format!("{} -> {}", self.file_token, self.target))
     }
 }
 
@@ -42,19 +39,11 @@ impl SelectableItem {
     pub fn new(
         start: ASTIndex,
         len: usize,
-        point_to: ASTIndex,
-        expr: Option<ASTExpression>,
-        ast_type: Option<ASTType>,
-        ast_type_index: Option<ASTIndex>,
         namespace: ASTNameSpace,
         target: SelectableItemTarget,
     ) -> Self {
         SelectableItem {
             file_token: FileToken::new(start, len),
-            point_to,
-            expr,
-            ast_type,
-            ast_type_index,
             namespace,
             target,
         }
@@ -67,7 +56,39 @@ impl SelectableItem {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SelectableItemTarget {
-    Ref,
-    Function,
-    Type,
+    Ref(ASTIndex, Option<ASTType>),
+    Function(ASTIndex, ASTType, String),
+    Type(Option<ASTIndex>, ASTType),
+}
+
+impl Display for SelectableItemTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let descr = match self {
+            SelectableItemTarget::Ref(index, t) => format!("Ref({index}, {})", OptionDisplay(t)),
+            SelectableItemTarget::Function(index, t, descr) => {
+                format!("Function({index}, {t}, {descr})")
+            }
+            SelectableItemTarget::Type(index, t) => format!("Type({}, {t})", OptionDisplay(index)),
+        };
+
+        f.write_str(&descr)
+    }
+}
+
+impl SelectableItemTarget {
+    pub fn index(&self) -> Option<ASTIndex> {
+        match self {
+            SelectableItemTarget::Ref(index, _) => Some(index.clone()),
+            SelectableItemTarget::Function(index, _, _) => Some(index.clone()),
+            SelectableItemTarget::Type(index, _) => index.clone(),
+        }
+    }
+
+    pub fn completion_type(&self) -> Option<ASTType> {
+        match self {
+            SelectableItemTarget::Ref(_, t) => t.clone(),
+            SelectableItemTarget::Function(_, t, _) => Some(t.clone()),
+            SelectableItemTarget::Type(_, _) => None,
+        }
+    }
 }

@@ -1038,7 +1038,6 @@ impl TypeCheck {
                                 })?;
                         }
                     } else {
-                        dedent!();
                         return Err(TypeCheckError::new(
                             index.clone(),
                             format!("Cannot determine type of {expr}, type_of_epr {type_of_expr}"),
