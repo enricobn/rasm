@@ -23,8 +23,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct FileToken {
-    start: ASTIndex,
-    len: usize,
+    pub start: ASTIndex,
+    pub len: usize,
 }
 
 impl FileToken {

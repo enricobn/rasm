@@ -1,7 +1,7 @@
-use std::io;
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::{io, result};
 
 use log::warn;
 
@@ -92,6 +92,29 @@ impl ReferenceFinder {
 
     pub fn is_path(&self, path: &PathBuf) -> bool {
         &self.path == path
+    }
+
+    pub fn references(&self, index: &ASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
+        let mut items = self.find(index)?;
+
+        if items.len() == 1 {
+            let item = items.remove(0);
+
+            if let Some(target_index) = item.target.index() {
+                let mut result = Vec::new();
+                for se in self.selectable_items.iter() {
+                    if let Some(i) = se.target.index() {
+                        if i == target_index {
+                            result.push(se.clone());
+                        }
+                    }
+                }
+
+                return Ok(result);
+            }
+        }
+
+        Ok(Vec::new())
     }
 
     fn process_module(
@@ -378,6 +401,14 @@ impl ReferenceFinder {
 
                 reference_context.add(name.clone(), index.clone(), filter.clone());
 
+                let index1 = index.mv_left(name.len());
+                let mut result = vec![SelectableItem::new(
+                    index1.clone(),
+                    name.len(),
+                    namespace.clone(),
+                    SelectableItemTarget::Ref(index1, None),
+                )];
+
                 if *is_const {
                     if let TypeFilter::Exact(ref ast_type) = filter {
                         statics.add_const(name.clone(), ast_type.clone());
@@ -399,7 +430,7 @@ impl ReferenceFinder {
                         })?;
                 }
 
-                Self::process_expression(
+                result.extend(Self::process_expression(
                     expr,
                     reference_context,
                     reference_static_context,
@@ -410,7 +441,8 @@ impl ReferenceFinder {
                     None,
                     inside_function,
                     type_check,
-                )
+                )?);
+                Ok(result)
             }
         }
     }
@@ -1125,6 +1157,43 @@ mod tests {
         } else {
             panic!("Found {:?}", item.target);
         }
+    }
+
+    #[test]
+    fn references() {
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Path::new("resources/test/types.rasm");
+
+        let mut items = finder
+            .references(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 7))
+            .unwrap();
+
+        assert_eq!(3, items.len());
+
+        let item1 = items.remove(0);
+        let item2 = items.remove(0);
+        let item3 = items.remove(0);
+
+        assert_eq!(
+            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 6, 5),
+            item1.file_token.start
+        );
+
+        assert_eq!(
+            ASTIndex::new(
+                Some(file_name.canonicalize().unwrap().to_path_buf()),
+                10,
+                13
+            ),
+            item2.file_token.start
+        );
+
+        assert_eq!(
+            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 12, 9),
+            item3.file_token.start
+        );
     }
 
     fn stdlib_path(file_name: &Path) -> PathBuf {

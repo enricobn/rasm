@@ -24,7 +24,7 @@ use std::io;
 
 #[derive(Debug, Clone)]
 pub struct SelectableItem {
-    file_token: FileToken,
+    pub file_token: FileToken,
     pub namespace: ASTNameSpace,
     pub target: SelectableItemTarget,
 }
