@@ -1,7 +1,7 @@
+use std::io;
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::{io, result};
 
 use log::warn;
 

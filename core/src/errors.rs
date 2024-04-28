@@ -27,7 +27,7 @@ pub struct CompilationError {
     pub error_kind: CompilationErrorKind,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CompilationErrorKind {
     Generic(String),
     Lexer(String),
@@ -51,6 +51,6 @@ impl Display for CompilationError {
             CompilationErrorKind::Verify(message) => f.write_str(message)?,
         }
 
-        f.write_str(&format!("\n --> {}", self.index))
+        f.write_str(&format!(" in {}", self.index))
     }
 }

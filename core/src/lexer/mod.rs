@@ -343,7 +343,6 @@ mod tests {
     use crate::lexer::tokens::BracketStatus::*;
     use crate::lexer::tokens::PunctuationKind::*;
     use crate::lexer::tokens::TokenKind::*;
-    use crate::utils::SliceDisplay;
 
     use super::*;
 
@@ -555,8 +554,6 @@ mod tests {
         let lexer = Lexer::from_file(Path::new("resources/test/test15.rasm")).unwrap();
 
         let (_tokens, errors) = lexer.process();
-
-        println!("errors {}", SliceDisplay(&errors));
 
         assert!(errors.is_empty());
     }

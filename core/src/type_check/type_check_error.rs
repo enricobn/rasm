@@ -19,7 +19,7 @@
 use crate::parser::ast::ASTIndex;
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypeCheckError {
     main: (ASTIndex, String, Vec<ASTIndex>),
     messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,

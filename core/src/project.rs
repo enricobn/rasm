@@ -72,9 +72,20 @@ impl RasmProject {
     }
 
     pub fn out_file(&self, is_test: bool) -> Option<PathBuf> {
+        if !self.root.is_dir() {
+            if is_test {
+                panic!("Unsupported option test when compiling a single file.")
+            }
+            return Some(PathBuf::from(
+                self.root.with_extension("").file_name().unwrap(),
+            ));
+        }
+
         let target = self.root.join("target");
         if !target.exists() {
-            fs::create_dir(&target).expect("Error creating target folder");
+            fs::create_dir(&target).unwrap_or_else(|_| {
+                panic!("Error creating target folder {}", target.to_string_lossy())
+            });
         }
 
         if is_test {
@@ -638,10 +649,14 @@ impl RasmProject {
     }
 
     fn add_generic_error(path: &Path, module_errors: &mut Vec<CompilationError>, message: &str) {
-        module_errors.push(CompilationError {
+        module_errors.push(Self::generic_error(path, message))
+    }
+
+    fn generic_error(path: &Path, message: &str) -> CompilationError {
+        CompilationError {
             index: ASTIndex::new(Some(path.to_path_buf()), 0, 0),
             error_kind: CompilationErrorKind::Generic(message.to_owned()),
-        })
+        }
     }
 
     pub fn get_all_dependencies(&self) -> Vec<RasmProject> {

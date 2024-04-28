@@ -191,7 +191,6 @@ impl Parser {
             };
 
             self.debug("");
-            debug!("");
 
             // uniform call with dot notation
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
@@ -562,10 +561,13 @@ impl Parser {
                     .push(ParserData::Statement(ASTStatement::Expression(epr)));
                 self.i += 1;
             } else {
-                return Err(format!(
+                self.add_error(format!(
                     "Found semicolon without an expression: {}",
                     self.get_index(0)
                 ));
+                self.state.pop();
+                self.parser_data.pop();
+                self.i += 1;
             }
         } else if Some(&TokenKind::Bracket(
             BracketKind::Brace,
@@ -586,10 +588,25 @@ impl Parser {
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
+        } else if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
+            self.add_error(Self::token_message(
+                "Unexpected token",
+                self.get_token_kind(),
+            ));
+            self.i += 1;
+            self.parser_data.pop();
         } else {
             self.state.push(ParserState::Expression);
         }
         Ok(())
+    }
+
+    fn token_message(message: &str, token: Option<&TokenKind>) -> String {
+        if let Some(t) = token {
+            format!("{message} `{t}`")
+        } else {
+            message.to_string()
+        }
     }
 
     fn process_expression(&mut self, namespace: &ASTNameSpace) -> Result<(), String> {
@@ -667,7 +684,7 @@ impl Parser {
         parameter_names: Vec<(String, ASTIndex)>,
     ) {
         self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
-            parameter_names: parameter_names,
+            parameter_names,
             body: Vec::new(),
             index: self.get_index(0),
         }));
@@ -973,6 +990,7 @@ impl Parser {
         );
         debug!("state {:?}", self.state);
         debug!("data {}", SliceDisplay(&self.parser_data));
+        debug!("");
     }
 
     fn try_parse_function_call(
@@ -1390,7 +1408,7 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
-    use crate::errors::CompilationError;
+    use crate::errors::{CompilationError, CompilationErrorKind};
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
@@ -1399,7 +1417,6 @@ mod tests {
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
-    use crate::utils::SliceDisplay;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1528,8 +1545,6 @@ mod tests {
 
         let (module, errors) = parser.parse(Path::new("."), &test_namespace());
 
-        println!("{}", SliceDisplay(&errors));
-
         let function_call = ASTFunctionCall {
             namespace: test_namespace(),
             function_name: "println".to_string(),
@@ -1555,8 +1570,6 @@ mod tests {
         let mut parser = Parser::new(lexer, None);
 
         let (module, errors) = parser.parse(Path::new("."), &test_namespace());
-
-        println!("{}", SliceDisplay(&errors));
 
         let function_call = ASTFunctionCall {
             namespace: test_namespace(),
@@ -1588,8 +1601,6 @@ mod tests {
 
         let (module, errors) = parser.parse(Path::new("."), &test_namespace());
 
-        println!("{}", SliceDisplay(&errors));
-
         let function_call = ASTFunctionCall {
             namespace: test_namespace(),
             function_name: "Option::Some".to_string(),
@@ -1605,6 +1616,19 @@ mod tests {
         assert_eq!(
             module.body.first().unwrap(),
             &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
+        );
+    }
+
+    #[test]
+    fn test_old_lambda_syntax() {
+        let (_, mut errors) = parse_with_errors("resources/test/test16.rasm");
+
+        assert_eq!(1, errors.len());
+
+        let error = errors.remove(0);
+        assert_eq!(
+            error.error_kind,
+            CompilationErrorKind::Parser("Unexpected token `->`".to_string())
         );
     }
 

@@ -1,7 +1,7 @@
 # RASM
 
 A native compiler (for now it produces only 386 linux executables) for a "not pure" functional language.  
-It is still in experimental phase (and probably it will always be..).   
+It is still in experimental phase (and probably it will always be...).   
 **It is not secure, so try it at your own risk!!!**
 
 ## Build
@@ -19,16 +19,18 @@ To build the compiler you need the rust toolchain (https://www.rust-lang.org/too
 
 ### Directory structure of a rasm project
 
-src  
-&nbsp;&nbsp;main  
-&nbsp;&nbsp;&nbsp;&nbsp;rasm  
-&nbsp;&nbsp;&nbsp;&nbsp;resources  
-&nbsp;&nbsp;nasmi386  
-&nbsp;&nbsp;...other arch  
-&nbsp;&nbsp;test  
-&nbsp;&nbsp;&nbsp;&nbsp;rasm  
-&nbsp;&nbsp;&nbsp;&nbsp;resources     
+```
 rasm.toml
+src  
+  main  
+    rasm  
+    resources  
+  nasmi386  
+  ...other arch  
+  test  
+    rasm  
+    resources
+```
 
 ### Structure of rasm.toml
 
@@ -48,7 +50,7 @@ Usage: rasm [OPTIONS] <ACTION> <file>
 
 Arguments:
 <ACTION>  the action to perform [possible values: build, test, server]
-<file>    the input directory or file to use
+<file>    the project directory or a single source file
 
 Options:  
 -o <out>                               sets the output file to create  
@@ -61,10 +63,20 @@ Options:
 -V, --version                          prints version
 ```
 
-The simplest way is to build a project from its root :
+To build a project from its root:
 `rasm build`
 
-an executable will be created in the target folder
+an executable will be created in the `target` directory.
+
+To build a project from another directory:
+`rasm build <directory>`
+
+an executable will be created in the `<directory>/target` directory.
+
+To build a single file:
+`rasm build <name>.rasm`
+
+an executable `<name>` will be created in the current directory.
 
 ### Examples
 

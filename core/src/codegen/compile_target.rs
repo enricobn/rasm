@@ -214,7 +214,7 @@ impl CompileTarget {
         let (modules, errors) = project.get_all_modules(
             &mut statics,
             command_line_options.action == CommandLineAction::Test,
-            &self,
+            self,
             command_line_options.debug,
         );
 
