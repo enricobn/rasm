@@ -1,1 +1,2 @@
-println(atoi(argv(1)));
+println(toInt(argv(1)));
+println(toInt("unknown"));

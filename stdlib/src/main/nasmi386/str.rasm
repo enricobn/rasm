@@ -2,7 +2,7 @@
  * parse a string to a number
  from https://stackoverflow.com/questions/19461476/convert-string-to-int-x86-32-bit-assembler-using-nasm
  **/
-pub native atoi(s: str) -> i32 /{
+pub native toInt(s: str) -> Option<i32> /{
     push    ecx
     push    edx ; don't remove since imul stores the "high" result to edx
     mov edx, $s ; the pointer to the stack table our string
@@ -11,15 +11,22 @@ pub native atoi(s: str) -> i32 /{
     .top:
     movzx ecx, byte [edx] ; get a character
     inc edx ; ready for next one
-    cmp ecx, '0' ; valid?
-    jb .done
+    cmp ecx, 0
+    je  .done
+    cmp ecx, '0'
+    jb .error
     cmp ecx, '9'
-    ja .done
+    ja .error
     sub ecx, '0' ; "convert" character to number
     imul eax, 10 ; multiply "result so far" by ten
     add eax, ecx ; add in current digit
     jmp .top ; until done
+.error:
+    mov     dword eax, [_enum_stdlib_option_Option_None]
+    jmp     .end
 .done:
+    $call(Option::Some, eax)
+.end:
     pop    edx
     pop    ecx
 }/

@@ -73,7 +73,8 @@ To build a project from another directory:
 
 an executable will be created in the `<directory>/target` directory.
 
-To build a single file:
+There is a limited support for building a single file, since you need some library to do something useful,
+you can define an environment variable called RASM_STDLIB with a path to a library to be added as a dependency:
 `rasm build <name>.rasm`
 
 an executable `<name>` will be created in the current directory.

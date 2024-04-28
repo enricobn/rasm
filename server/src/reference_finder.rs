@@ -1030,7 +1030,7 @@ mod tests {
         match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17), &eh_module) {
             Ok(CompletionResult::Found(items)) => {
                 assert!(format_collection_items(&items)
-                    .contains(&"anI32(v:AStruct) -> i32".to_string()));
+                    .contains(&"anI32(v: AStruct) -> i32".to_string()));
             }
             Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
             Err(error) => {

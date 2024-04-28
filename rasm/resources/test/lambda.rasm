@@ -1,4 +1,6 @@
-choose(atoi(argv(1)), { println("0"); }, { println("1"); }, { println("2"); }, { println("3"); });
+toInt(argv(1)).match(fn(n) {
+    choose(n, { println("0"); }, { println("1"); }, { println("2"); }, { println("3"); });
+}, { });
 
 fn choose(n: i32, l0: fn() -> (), l1: fn() -> (), l2: fn() -> (), l3: fn() -> ()) {
     if(eq(0, n),

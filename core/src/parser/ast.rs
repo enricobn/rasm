@@ -347,7 +347,7 @@ pub struct ASTParameterDef {
 
 impl Display for ASTParameterDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{}:{}", self.name, self.ast_type))
+        f.write_str(&format!("{}: {}", self.name, self.ast_type))
     }
 }
 
@@ -806,11 +806,15 @@ pub fn lambda_unit() -> ASTType {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
+    };
+    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
 
     #[test]
-    fn display() {
+    fn display_custom_type() {
         let inner_type = ASTType::Custom {
             namespace: test_namespace(),
             name: "Option".to_owned(),
@@ -825,5 +829,46 @@ mod tests {
             index: ASTIndex::none(),
         };
         assert_eq!(format!("{ast_type}"), "List<Option<str>>");
+    }
+
+    #[test]
+    fn display_function_def() {
+        let inner_type = ASTType::Custom {
+            namespace: test_namespace(),
+            name: "Option".to_owned(),
+            param_types: vec![ASTType::Generic("T".to_string())],
+            index: ASTIndex::none(),
+        };
+
+        let ast_type = ASTType::Custom {
+            namespace: test_namespace(),
+            name: "List".to_owned(),
+            param_types: vec![inner_type],
+            index: ASTIndex::none(),
+        };
+
+        let def = ASTFunctionDef {
+            original_name: "aFun".to_string(),
+            name: "aFun".to_string(),
+            parameters: vec![ASTParameterDef {
+                name: "aPar".to_string(),
+                ast_type,
+                ast_index: ASTIndex::none(),
+            }],
+            return_type: ASTType::Generic("T".to_string()),
+            body: ASTFunctionBody::RASMBody(vec![]),
+            inline: false,
+            generic_types: vec!["T".to_string()],
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers { public: false },
+            namespace: ASTNameSpace {
+                lib: "".to_string(),
+                path: "".to_string(),
+            },
+            rank: 0,
+        };
+
+        assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");
     }
 }

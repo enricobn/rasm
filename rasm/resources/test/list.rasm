@@ -1,6 +1,8 @@
-println(range(0, atoi(argv(1))));
+let n = toInt(argv(1)).getOrElse(999);
 
-println(reverse(range(0, atoi(argv(1)))));
+println(range(0, n));
+
+println(reverse(range(0, n)));
 
 println(count(listOf(1, 5, 3, 8, 4, 2), fn(it) { less(it, 5); }));
 

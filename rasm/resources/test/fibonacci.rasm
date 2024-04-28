@@ -23,7 +23,10 @@
 // ?
 // real    0m1,894s
 
-println(fib(atoi(argv(1))));
+toInt(argv(1)).match(fn(n) {
+    println(fib(n));
+}, { println("Expected a numeric parameter");});
+
 
 fn fib(n: i32) -> i32 {
     if(lessOrEqual(n, 1), n, {

@@ -1,5 +1,6 @@
+let n = toInt(argv(1)).getOrElse(999);
 
-runWith(atoi(argv(1)), fn(arg) {
+runWith(n, fn(arg) {
     println(parameter(arg));
     println(lambdaParameter(arg, fn(p) { p;}));
     println(context(arg));

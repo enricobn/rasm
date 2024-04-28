@@ -1,4 +1,6 @@
-inner(atoi(argv(1)));
+let n = toInt(argv(1)).getOrElse(999);
+
+inner(n);
 
 fn inner(p1: i32) {
     println(do(15, fn(v) { add(v, p1); }));

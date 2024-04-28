@@ -1,5 +1,6 @@
+let n = toInt(argv(1)).getOrElse(999);
 
-println(test1(atoi(argv(1))));
+println(test1(n));
 
 fn test1(n: i32) -> i32 {
     // TODO I don't know why sometimes returning n works... I have not discovered when, but it's stable.

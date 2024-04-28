@@ -216,7 +216,15 @@ fn loadHighScores() -> Vec<HighScore> {
         let lines = lines(scores);
         toVec(fmap(lines, fn(line) {
             let splitted = splitToList(line, ",");
-            let result = map3(splitted, fn(score, sec, nano) { HighScore(atoi(score), TimeVal(atoi(sec), atoi(nano)));});
+            let result = map3(splitted, fn(score, sec, nano) {
+                toInt(score).fmap(fn(sc) {
+                    toInt(sec).fmap(fn(s) {
+                        toInt(nano).map(fn(n) {
+                            HighScore(sc, TimeVal(s, n));
+                        });
+                    });
+                });
+            }).flatten;
             toList(result);
         }));
     }, { Vec();});

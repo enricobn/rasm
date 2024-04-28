@@ -10,9 +10,10 @@
 
 let file = argv(1);
 let start = readCellFile(file);
-let count = atoi(argv(2));
 
-run(moveCells(start, 20), 80, 50, count);
+toInt(argv(2)).match(fn(count) {
+    run(moveCells(start, 20), 80, 50, count);
+}, { println("Cannot parse count"); });
 
 fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
     let allCells = allCells(width, height);
