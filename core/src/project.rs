@@ -755,12 +755,11 @@ impl RasmProject {
 
     fn core_module(&self, main_file: &str, data: &[u8]) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(&main_file);
-        let lexer = Lexer::new(
-            String::from_utf8_lossy(data).parse().unwrap(),
-            Some(main_path.to_path_buf()),
-        );
+        // for now, we don't set the file name in the Lexer and the Parser, because it is not readable as a standard file,
+        // and we can get errors trying to open it for example in an IDE
+        let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap(), None);
 
-        let mut parser = Parser::new(lexer, Some(main_path.to_path_buf()));
+        let mut parser = Parser::new(lexer, None);
         let (module, errors) = parser.parse(
             main_path,
             &ASTNameSpace::new(

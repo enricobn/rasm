@@ -171,7 +171,7 @@ impl Parser {
         if self.i > 0 {
             panic!("Cannot parse twice");
         }
-        let last_token = Token::new(TokenKind::EndOfLine, Some(path.to_path_buf()), 0, 0);
+        let last_token = Token::new(TokenKind::EndOfLine, self.file_name.clone(), 0, 0);
 
         let mut count = 0;
 
