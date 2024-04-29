@@ -4,7 +4,7 @@
  *  esp:        the pointer to the initial esp, where in the first slot (dword) there is the count of arguments and in
  *              the subsequent slots there are the pointers to the strings
  */
-pub native createCmdLineArguments(address: i32,esp: i32) -> i32 /{
+native createCmdLineArguments(address: i32,esp: i32) /{
     push    eax
     push    ebx
     push    ecx
