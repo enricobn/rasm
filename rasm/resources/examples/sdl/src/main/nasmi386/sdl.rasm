@@ -32,7 +32,8 @@ pub native sdlDelay(millis: i32) /{
 pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     ; SDL_RENDERER_ACCELERATED = 0x00000002
     ; SDL_RENDERER_PRESENTVSYNC = 0x00000004
-    $ccall(SDL_CreateRenderer, $win, -1, 6)
+    ; TODO for now vsync is always disabled, pass a configuration struct instead
+    $ccall(SDL_CreateRenderer, $win, -1, 2)
 }/
 
 pub native sdlLoadBMP(file: str) -> SDLSurface /{
