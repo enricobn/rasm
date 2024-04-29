@@ -10,7 +10,7 @@ pub fn update(fps: FPS) -> FPS {
 
     if (greater(et, 1000000),
         {
-            let newFps = fps.frameCount.mul(1000000).div(et);
+            let newFps = fps.frameCount.divf(et).mul(1000000).toi32.getOrElse(fps.fps);
             FPS(0, now, newFps);
         },
         { fps.frameCount(fps.frameCount.add(1));}
