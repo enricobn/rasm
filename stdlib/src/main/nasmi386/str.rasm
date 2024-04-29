@@ -2,7 +2,7 @@
  * parse a string to a number
  from https://stackoverflow.com/questions/19461476/convert-string-to-int-x86-32-bit-assembler-using-nasm
  **/
-pub native toInt(s: str) -> Option<i32> /{
+pub native toi32(s: str) -> Option<i32> /{
     push    ecx
     push    edx ; don't remove since imul stores the "high" result to edx
     mov edx, $s ; the pointer to the stack table our string

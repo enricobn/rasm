@@ -11,7 +11,7 @@
 let file = argv(1);
 let start = readCellFile(file);
 
-toInt(argv(2)).match(fn(count) {
+toi32(argv(2)).match(fn(count) {
     run(moveCells(start, 20), 80, 50, count);
 }, { println("Cannot parse count"); });
 

@@ -99,6 +99,17 @@ finished in 378.460432ms
 
 */
 
+/*
+may be because loadHighScores is more complex, because toi32 returns an Option (a change that has been done a couple of
+commits ago, but only now I have updated this perf. backlog
+
+type check ended in 78.464592ms
+code generation ended in 42.02035ms
+assembler ended in 211.553475ms
+linker ended in 37.652852ms
+finished in 399.254542ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
@@ -214,19 +225,18 @@ fn loadHighScores() -> Vec<HighScore> {
     if(fileExists("scores.txt"), {
         let scores = readFile("scores.txt");
         let lines = lines(scores);
-        toVec(fmap(lines, fn(line) {
+        fmap(lines, fn(line) {
             let splitted = splitToList(line, ",");
-            let result = map3(splitted, fn(score, sec, nano) {
-                toInt(score).fmap(fn(sc) {
-                    toInt(sec).fmap(fn(s) {
-                        toInt(nano).map(fn(n) {
+            splitted.map3(fn(score, sec, nano) {
+                toi32(score).fmap(fn(sc) {
+                    toi32(sec).fmap(fn(s) {
+                        toi32(nano).map(fn(n) {
                             HighScore(sc, TimeVal(s, n));
                         });
                     });
                 });
-            }).flatten;
-            toList(result);
-        }));
+            }).flatten.toList;
+        }).toVec;
     }, { Vec();});
 }
 

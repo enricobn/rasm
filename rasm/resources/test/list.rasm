@@ -1,4 +1,4 @@
-let n = toInt(argv(1)).getOrElse(999);
+let n = toi32(argv(1)).getOrElse(999);
 
 println(range(0, n));
 
