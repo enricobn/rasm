@@ -1,2 +1,2 @@
 
-println(readFile(argv(1)));
+println(argv(1).getOrElse("File non specified.").readFile());

@@ -1,4 +1,4 @@
-let n = toi32(argv(1)).getOrElse(999);
+let n = argv(1).fmap(fn(s) { s.toi32;}).getOrElse(999);
 
 inner1(n);
 

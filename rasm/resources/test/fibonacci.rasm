@@ -23,7 +23,7 @@
 // ?
 // real    0m1,894s
 
-toi32(argv(1)).match(fn(n) {
+argv(1).fmap(fn(s) {s.toi32;}).match(fn(n) {
     println(fib(n));
 }, { println("Expected a numeric parameter");});
 

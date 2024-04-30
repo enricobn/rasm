@@ -1,4 +1,4 @@
-toi32(argv(1)).match(fn(n) {
+argv(1).fmap(fn(s) { s.toi32;}).match(fn(n) {
     choose(n, { println("0"); }, { println("1"); }, { println("2"); }, { println("3"); });
 }, { });
 

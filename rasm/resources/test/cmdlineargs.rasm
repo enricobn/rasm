@@ -2,8 +2,10 @@ println(argc());
 printargv(1);
 
 fn printargv(n: i32) {
-    if(less(n,argc()), {
-        println(argv(n));
+    if(n.less(argc()), {
+        argv(n).match(fn(v) {
+            println(v);
+        }, { println("Not found.");});
         printargv(add(n, 1));
     }, { });
 }

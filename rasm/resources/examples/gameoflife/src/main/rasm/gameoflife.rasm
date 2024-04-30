@@ -29,12 +29,13 @@
 // more on optimized lambda space allocation (in stack)
 // real    0m11,322s
 
-let file = argv(1);
-let start = readCellFile(file);
+argv(1).match(fn(file) {
+    let start = readCellFile(file);
 
-toi32(argv(2)).match(fn(count) {
-    run(moveCells(start, 20), 80, 50, count);
-}, { println("Cannot parse count"); });
+    argv(2).fmap(fn(s) { toi32(s);}).match(fn(count) {
+        run(moveCells(start, 20), 80, 50, count);
+    }, { println("A number for count must be specified."); });
+}, { println("A file must be specified."); });
 
 fn run(start: List<Cell>, width: i32, height: i32, count: i32) {
     let allCells = allCells(width, height);

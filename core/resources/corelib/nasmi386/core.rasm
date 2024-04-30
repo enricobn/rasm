@@ -57,18 +57,25 @@ pub native argc() -> i32 /{
     mov     eax,[_rasm_args]
 }/
 
-// TODO unsafe use Option
-pub native argv(i: i32) -> str /{
+pub native argv(i: i32) -> Option<str> /{
     push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
     mov ebx, _rasm_args
+    cmp $i,ebx
+    jge .notFound
     mov ecx,4           ; i add 4*i to the base address (_rasm_args)
     mov eax,$i
     inc eax             ; we skip the length (argc)
     mul ecx
     add ebx,eax
     mov eax,[ebx]
+    $call(Option::Some, eax)
+    jmp .end
+.notFound:
+    mov     dword eax, [_enum_stdlib_option_Option_None]
+    jmp     .end
+.end:
     pop ecx
     pop ebx
     pop edx

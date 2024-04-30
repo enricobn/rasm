@@ -1,2 +1,0 @@
-println(toi32(argv(1)));
-println(toi32("unknown"));
