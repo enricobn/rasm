@@ -140,7 +140,11 @@ impl Display for ASTLambdaDef {
             .collect::<Vec<String>>()
             .join("");
 
-        f.write_str(&format!("{{ {pars} -> {body} }}"))
+        if pars.is_empty() {
+            f.write_str(&format!("{{ {body} }}"))
+        } else {
+            f.write_str(&format!("fn({pars}) {{ {body} }}"))
+        }
     }
 }
 
