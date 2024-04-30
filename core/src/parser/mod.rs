@@ -395,7 +395,7 @@ impl Parser {
                     }
                     self.add_error("Error parsing lambda".to_string());
                 }
-                Some(ParserState::Expression) => match self.process_expression(&namespace) {
+                Some(ParserState::Expression) => match self.process_expression(namespace) {
                     Ok(_) => {
                         continue;
                     }
@@ -574,8 +574,16 @@ impl Parser {
             BracketStatus::Close,
         )) == self.get_token_kind()
         {
-            // Here probably we have an empty function...
-            self.state.pop();
+            if matches!(self.last_parser_data(), Some(ParserData::FunctionDef(_))) {
+                // Here probably we have an empty function...
+                self.state.pop();
+            } else {
+                self.add_error("Unexpected end of block.".to_string());
+                if matches!(self.last_parser_data(), Some(ParserData::Expression(_))) {
+                    self.parser_data.pop();
+                }
+                self.state.pop();
+            }
         } else if let Some((name, next_i)) = self.try_parse_let(false)? {
             self.parser_data
                 .push(ParserData::Let(name, false, self.get_index(1)));
@@ -1629,6 +1637,24 @@ mod tests {
         assert_eq!(
             error.error_kind,
             CompilationErrorKind::Parser("Unexpected token `->`".to_string())
+        );
+    }
+
+    #[test]
+    fn unexpected_end_of_block() {
+        let (_, mut errors) = parse_with_errors("resources/test/test17.rasm");
+
+        for error in errors.iter() {
+            println!("{error}");
+        }
+
+        assert_eq!(1, errors.len());
+
+        let error = errors.remove(0);
+
+        assert_eq!(
+            error.error_kind,
+            CompilationErrorKind::Parser("Unexpected end of block.".to_string())
         );
     }
 
