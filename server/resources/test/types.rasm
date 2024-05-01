@@ -10,6 +10,7 @@ doSomething(anEnum);
 doSomething(aStruct);
 doSomething(aVec);
 println(aStruct.anI32);
+anEnum.match(fn(it){},{});
 
 fn doSomething(value: Option<i32>) {
     println("anOption");

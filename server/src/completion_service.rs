@@ -99,7 +99,11 @@ impl CompletionItem {
                         .map(|(pos, _ast_type)| format!("par{pos}"))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    format!("\n    {{ {par_names} -> }}")
+                    if par_names.is_empty() {
+                        "\n    {  }".to_string()
+                    } else {
+                        format!("\n    fn({par_names}) {{  }}")
+                    }
                 }
                 _ => it.name.clone(),
             })

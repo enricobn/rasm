@@ -904,7 +904,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 14, 23))
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 15, 23))
                     .unwrap()
             ),
             vec![ASTIndex::new(
@@ -917,7 +917,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 18, 23,))
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 19, 23,))
                     .unwrap()
             ),
             vec![get_index(&project, "types.rasm", 1, 8)],
@@ -926,7 +926,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 22, 23,))
+                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 23, 23,))
                     .unwrap()
             ),
             vec![ASTIndex::new(
@@ -977,7 +977,7 @@ mod tests {
         let file_name = PathBuf::from("resources/test/types.rasm");
         let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
-            .find(&ASTIndex::new(Some(file_name.clone()), 26, 31))
+            .find(&ASTIndex::new(Some(file_name.clone()), 27, 31))
             .unwrap();
 
         assert_eq!(
@@ -999,7 +999,7 @@ mod tests {
 
         assert_eq!(
             vec_selectable_item_to_vec_index(found),
-            vec!(get_index(&project, "types.rasm", 14, 4,)),
+            vec!(get_index(&project, "types.rasm", 15, 4,)),
         );
     }
 
@@ -1040,13 +1040,41 @@ mod tests {
     }
 
     #[test]
+    fn types_completion1() {
+        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
+
+        match finder.get_completions(&ASTIndex::new(file_name.clone(), 13, 8), &eh_module) {
+            Ok(CompletionResult::Found(mut items)) => {
+                let result = items
+                    .iter()
+                    .filter(|it| it.descr.contains("match<"))
+                    .collect::<Vec<_>>();
+
+                assert_eq!(1, result.len());
+
+                assert_eq!(
+                    Some("match(\n    fn(par0) {  }, \n    {  });".to_string()),
+                    result.first().and_then(|it| it.insert.clone())
+                );
+            }
+            Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
+            Err(error) => {
+                panic!("{error}")
+            }
+        }
+    }
+
+    #[test]
     fn types_lambda_param_type() {
         let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.find(&ASTIndex::new(file_name.clone(), 31, 22)) {
+        match finder.find(&ASTIndex::new(file_name.clone(), 32, 22)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);

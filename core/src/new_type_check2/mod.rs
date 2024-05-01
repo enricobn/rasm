@@ -156,7 +156,7 @@ impl TypeCheck {
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
-                            format!("transforming function {function}"),
+                            format!("Error in function {}", function.original_name),
                             vec![it],
                         ),
                     })?
