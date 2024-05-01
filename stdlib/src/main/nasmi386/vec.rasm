@@ -447,6 +447,25 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     pop     ebx
 }/
 
+pub native last<T>(vec: Vec<T>) -> Option<T> /{
+    push    ebx
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]
+    mov     dword eax, [ebx] ; length
+    cmp     eax, 0
+    jz      .empty
+    shl     eax,2            ; eax * 4
+    add     eax,ebx
+    mov     dword eax, [eax]
+    $addRef(eax: T)
+    $call(Option::Some, eax:T)
+    jmp     .end
+.empty:
+    mov     dword eax, [_enum_stdlib_option_Option_None]
+.end:
+    pop     ebx
+}/
+
 pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     push    ebx
     push    ecx
