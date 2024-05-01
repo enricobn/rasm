@@ -226,7 +226,7 @@ fn test_lines() {
 
 #[test]
 fn test_chars() {
-    run_test("chars", Vec::new(), "a\nè\n😀\ntrue\nfalse\nH,e,l,l,o\n");
+    run_test("chars", Vec::new(), "a\nè\n😀\ntrue\nfalse\n'\nH,e,l,l,o\n");
 }
 
 #[test]

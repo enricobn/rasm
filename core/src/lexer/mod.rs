@@ -254,6 +254,11 @@ impl Lexer {
                             } else {
                                 self.add_error(format!("Invalid char literal '{actual}'"));
                             }
+                        } else if actual == "\\" {
+                            actual = "'".to_string();
+                            self.index += 1;
+                            self.column += 1;
+                            continue;
                         } else {
                             actual_char = actual.chars().next().unwrap();
                         }
@@ -552,6 +557,15 @@ mod tests {
     #[test]
     fn test15() {
         let lexer = Lexer::from_file(Path::new("resources/test/test15.rasm")).unwrap();
+
+        let (_tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn test18() {
+        let lexer = Lexer::from_file(Path::new("resources/test/test18.rasm")).unwrap();
 
         let (_tokens, errors) = lexer.process();
 

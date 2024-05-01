@@ -3,6 +3,7 @@ println('è');
 println('😀');
 println(eq('A', 'A'));
 println(eq('A', 'b'));
+println('\'');
 
 println(chars("Hello"));
 
