@@ -17,6 +17,7 @@
  */
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -49,6 +50,7 @@ pub struct RasmProject {
     pub root: PathBuf,
     pub config: RasmConfig,
     pub from_file: bool,
+    pub in_memory_files: HashMap<PathBuf, String>,
 }
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/rasm"]
@@ -60,7 +62,13 @@ impl RasmProject {
             root: root.clone(),
             config: get_rasm_config(root.as_path()),
             from_file: !root.is_dir(),
+            in_memory_files: HashMap::new(),
         }
+    }
+
+    pub fn add_in_memory_file(&mut self, path: PathBuf, source: String) {
+        self.in_memory_files
+            .insert(path.canonicalize().unwrap(), source);
     }
 
     pub fn main_src_file(&self) -> Option<PathBuf> {
@@ -518,7 +526,7 @@ impl RasmProject {
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
             let main_src_file = self.main_src_file().unwrap();
-            vec![Self::module_from_file(
+            vec![self.module_from_file(
                 &PathBuf::from(&main_src_file).canonicalize().unwrap(),
                 ASTNameSpace::new(
                     "".to_string(),
@@ -604,7 +612,7 @@ impl RasmProject {
         );
 
         let (entry_module, mut module_errors) =
-            Self::module_from_file(&path.canonicalize().unwrap(), namespace);
+            self.module_from_file(&path.canonicalize().unwrap(), namespace);
         // const statements are allowed
         let first_body_statement = entry_module.body.iter().find(|it| match it {
             ASTStatement::Expression(ASTFunctionCallExpression(_)) => true,
@@ -737,10 +745,19 @@ impl RasmProject {
     }
 
     fn module_from_file(
+        &self,
         file: &PathBuf,
         namespace: ASTNameSpace,
     ) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(file);
+
+        if let Some(content) = self.in_memory_files.get(file) {
+            let lexer = Lexer::new(content.clone(), Some(file.clone()));
+            let mut parser = Parser::new(lexer, Some(file.clone()));
+            let (module, errors) = parser.parse(main_path, &namespace);
+            return (module, errors);
+        }
+
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
                 let mut parser = Parser::new(lexer, Some(file.clone()));

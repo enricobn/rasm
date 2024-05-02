@@ -18,7 +18,6 @@ pub struct FunctionsContainer {
     functions_by_name: LinkedHashMap<String, Vec<ASTFunctionDef>>,
 }
 
-// TODO
 #[derive(Clone, Debug)]
 pub enum TypeFilter {
     Exact(ASTType),
@@ -843,6 +842,7 @@ mod tests {
     use crate::type_check::functions_container::TypeFilter::Exact;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
+    use std::collections::HashMap;
     use std::path::PathBuf;
 
     #[test]
@@ -1004,6 +1004,7 @@ mod tests {
                 natives: None,
             },
             from_file: false,
+            in_memory_files: HashMap::new(),
         };
 
         let mut statics = Statics::new();
