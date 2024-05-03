@@ -1,12 +1,19 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
+use rasm_core::codegen::AsmOptions;
 use tempdir::TempDir;
 
 #[cfg(test)]
 #[test]
 fn test_helloworld() {
     run_test("helloworld", Vec::new(), "Hello world\n");
+}
+
+#[test]
+fn test_helloworld_c() {
+    run_test_with_target("helloworld", Vec::new(), "Hello world\n", CompileTarget::C);
 }
 
 #[test]
@@ -501,6 +508,20 @@ fn test_bouncing_quads() {
 }
 
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
+    run_test_with_target(
+        test_name,
+        args,
+        expected_output,
+        CompileTarget::Nasmi386(AsmOptions::default()),
+    )
+}
+
+fn run_test_with_target(
+    test_name: &str,
+    args: Vec<&str>,
+    expected_output: &str,
+    target: CompileTarget,
+) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
     let mut main = format!("resources/test/{}", test_name);
@@ -509,7 +530,7 @@ fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
         main = format!("{main}.rasm");
     }
 
-    let executable = compile(&dir, &main, false);
+    let executable = compile_with_target(&dir, &main, false, target);
     execute(&executable.unwrap(), args, Some(expected_output));
 }
 
@@ -538,6 +559,20 @@ fn compile_example(source: &str, only_compile: bool) {
 }
 
 fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
+    compile_with_target(
+        dir,
+        source,
+        only_compile,
+        CompileTarget::Nasmi386(AsmOptions::default()),
+    )
+}
+
+fn compile_with_target(
+    dir: &TempDir,
+    source: &str,
+    only_compile: bool,
+    target: CompileTarget,
+) -> Option<String> {
     let source_without_extension = Path::new(source).with_extension("");
     let file_name = source_without_extension
         .file_name()
@@ -546,11 +581,18 @@ fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
         .unwrap();
     let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
 
+    let target_name = match target {
+        CompileTarget::Nasmi386(_) => NASMI386,
+        CompileTarget::C => C,
+    };
+
     let mut args = vec![
         "build".to_string(),
         source.to_owned(),
         "-o".to_string(),
         dest.clone(),
+        "-t".to_string(),
+        target_name.to_string(),
     ];
 
     if only_compile {

@@ -9,7 +9,7 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::debug;
 use log::info;
-use rasm_core::codegen::compile_target::{CompileTarget, NASMI386};
+use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
 use rasm_core::debug_i;
 
 use rasm_core::project::RasmProject;
@@ -49,7 +49,7 @@ fn main() {
                 .short('t')
                 .help("the compiler target")
                 .required(true)
-                .value_parser([NASMI386])
+                .value_parser([NASMI386, C])
                 .default_value(NASMI386)
                 .required(false),
         )

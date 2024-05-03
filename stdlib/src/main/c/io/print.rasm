@@ -1,0 +1,9 @@
+pub native print(s: str) /{
+    $include("<stdio.h>")
+    printf("%s", $s);
+}/
+
+pub fn println(s: str) {
+    print(s);
+    print("\n");
+}

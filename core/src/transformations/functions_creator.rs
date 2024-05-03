@@ -120,62 +120,7 @@ pub trait FunctionsCreator {
         }
     }
 
-    fn str_deref_body(&self, message_key: &str) -> String;
-
-    fn str_add_ref_body(&self, message_key: &str) -> String;
-
-    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {
-        let message_key = statics.add_str("String");
-        let body_src = self.str_deref_body(&message_key);
-        let body = ASTFunctionBody::NativeBody(body_src);
-        let name: String = "str_deref".into();
-        let function_def = ASTFunctionDef {
-            original_name: name.clone(),
-            name: name.clone(),
-            parameters: vec![ASTParameterDef {
-                name: "s".into(),
-                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                ast_index: ASTIndex::none(),
-            }],
-            body,
-            inline: false,
-            return_type: ASTType::Unit,
-            generic_types: Vec::new(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
-            modifiers: ASTModifiers::public(),
-            namespace: ASTNameSpace::global(),
-            rank: 0,
-        };
-
-        module.add_function(name, function_def);
-
-        let body_src = self.str_add_ref_body(&message_key);
-
-        let body = ASTFunctionBody::NativeBody(body_src);
-        let name: String = "str_addRef".into();
-
-        let function_def = ASTFunctionDef {
-            original_name: name.clone(),
-            name: name.clone(),
-            parameters: vec![ASTParameterDef {
-                name: "s".into(),
-                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                ast_index: ASTIndex::none(),
-            }],
-            body,
-            inline: false,
-            return_type: ASTType::Unit,
-            generic_types: Vec::new(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
-            modifiers: ASTModifiers::public(),
-            namespace: ASTNameSpace::global(),
-            rank: 0,
-        };
-
-        module.add_function(name, function_def);
-    }
+    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics);
 
     fn create_match_like_function(
         &self,
@@ -639,9 +584,7 @@ impl FunctionsCreatorNasmi386 {
             code_gen,
         }
     }
-}
 
-impl FunctionsCreator for FunctionsCreatorNasmi386 {
     fn str_deref_body(&self, message_key: &str) -> String {
         let mut body_src = String::new();
 
@@ -666,6 +609,61 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         );
 
         body_src
+    }
+}
+
+impl FunctionsCreator for FunctionsCreatorNasmi386 {
+    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {
+        let message_key = statics.add_str("String");
+        let body_src = self.str_deref_body(&message_key);
+        let body = ASTFunctionBody::NativeBody(body_src);
+        let name: String = "str_deref".into();
+        let function_def = ASTFunctionDef {
+            original_name: name.clone(),
+            name: name.clone(),
+            parameters: vec![ASTParameterDef {
+                name: "s".into(),
+                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_index: ASTIndex::none(),
+            }],
+            body,
+            inline: false,
+            return_type: ASTType::Unit,
+            generic_types: Vec::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers::public(),
+            namespace: ASTNameSpace::global(),
+            rank: 0,
+        };
+
+        module.add_function(name, function_def);
+
+        let body_src = self.str_add_ref_body(&message_key);
+
+        let body = ASTFunctionBody::NativeBody(body_src);
+        let name: String = "str_addRef".into();
+
+        let function_def = ASTFunctionDef {
+            original_name: name.clone(),
+            name: name.clone(),
+            parameters: vec![ASTParameterDef {
+                name: "s".into(),
+                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_index: ASTIndex::none(),
+            }],
+            body,
+            inline: false,
+            return_type: ASTType::Unit,
+            generic_types: Vec::new(),
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers::public(),
+            namespace: ASTNameSpace::global(),
+            rank: 0,
+        };
+
+        module.add_function(name, function_def);
     }
 
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
@@ -1094,5 +1092,53 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         self.code_gen.add(&mut body, "pop   ebx", None, true);
         body
+    }
+}
+
+pub struct DummyFunctionsCreator;
+
+impl FunctionsCreator for DummyFunctionsCreator {
+    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {}
+
+    fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
+        String::new()
+    }
+
+    fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String {
+        String::new()
+    }
+
+    fn enum_constructors(
+        &self,
+        module: &mut ASTModule,
+        enum_def: &ASTEnumDef,
+        param_types: &[ASTType],
+        statics: &mut Statics,
+    ) {
+    }
+
+    fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
+        String::new()
+    }
+
+    fn struct_property_body(&self, i: usize) -> String {
+        String::new()
+    }
+
+    fn struct_setter_body(&self, i: usize) -> String {
+        String::new()
+    }
+
+    fn struct_setter_lambda_body(&self, i: usize) -> String {
+        String::new()
+    }
+
+    fn enum_parametric_variant_constructor_body(
+        &self,
+        variant_num: &usize,
+        variant: &ASTEnumVariantDef,
+        descr_label: &str,
+    ) -> String {
+        String::new()
     }
 }

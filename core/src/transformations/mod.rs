@@ -1,11 +1,9 @@
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::ASTModule;
-use crate::transformations::functions_creator::FunctionsCreator;
 
 pub mod functions_creator;
 pub mod globals_creator;
-pub mod type_functions_creator;
 pub mod typed_functions_creator;
 
 pub fn enrich_module(

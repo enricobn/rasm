@@ -32,15 +32,14 @@ use crate::errors::CompilationError;
 use crate::parser::ast::{
     ASTFunctionDef, ASTIndex, ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::transformations::type_functions_creator::type_mandatory_functions;
 use crate::transformations::typed_functions_creator::{
-    enum_has_references, struct_has_references, type_has_references, TypedFunctionsCreator,
+    enum_has_references, struct_has_references, type_has_references,
 };
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
-    convert_to_typed_module, get_default_functions, get_type_of_typed_expression,
-    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
-    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
+    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
     DefaultFunctionCall,
 };
 use crate::type_check::used_functions::UsedFunctions;
@@ -120,8 +119,8 @@ pub fn get_typed_module(
     target: &CompileTarget,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let mandatory_functions = type_mandatory_functions(&module);
-    let default_functions = get_default_functions(print_memory_info);
+    let mandatory_functions = target.get_mandatory_functions(&module);
+    let default_functions = target.get_default_functions(print_memory_info);
 
     let mut typed_module = convert_to_typed_module(
         &module,

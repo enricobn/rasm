@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use linked_hash_map::LinkedHashMap;
 use log::info;
 use std::collections::HashMap;
 use std::fs::File;
@@ -27,6 +28,7 @@ use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::backend::{Backend, BackendNasmi386};
+use crate::codegen::code_manipulator::DummyCodeManipulator;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
@@ -34,25 +36,35 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
-use crate::parser::ast::ASTFunctionDef;
+use crate::parser::ast::{ASTFunctionDef, BuiltinTypeKind};
 use crate::project::RasmProject;
-use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
-use crate::transformations::typed_functions_creator::{
-    TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
+use crate::transformations::functions_creator::{
+    DummyFunctionsCreator, FunctionsCreator, FunctionsCreatorNasmi386,
 };
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule, DefaultFunctionCall};
+use crate::transformations::typed_functions_creator::{
+    DummyTypedFunctionsCreator, TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
+};
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
+};
 use crate::utils::OptionDisplay;
 
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/nasmi386"]
 struct Nasmi386CoreLibAssets;
 
+#[derive(RustEmbed)]
+#[folder = "../core/resources/corelib/c"]
+struct CLibAssets;
+
 #[derive(Clone)]
 pub enum CompileTarget {
     Nasmi386(AsmOptions),
+    C,
 }
 
 pub const NASMI386: &str = "nasmi386";
+pub const C: &str = "c";
 
 impl CompileTarget {
     pub fn from(
@@ -85,6 +97,7 @@ impl CompileTarget {
 
                 CompileTarget::Nasmi386(options)
             }
+            C => CompileTarget::C,
             _ => {
                 panic!("Unknown target {target}");
             }
@@ -94,6 +107,7 @@ impl CompileTarget {
     pub fn extension(&self) -> String {
         match self {
             CompileTarget::Nasmi386(_) => "asm".to_string(),
+            CompileTarget::C => "c".to_string(),
         }
     }
 
@@ -102,47 +116,66 @@ impl CompileTarget {
             CompileTarget::Nasmi386(options) => {
                 CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
             }
+            CompileTarget::C => "TODO".to_string(),
         }
     }
 
     pub fn folder(&self) -> &str {
         match self {
             CompileTarget::Nasmi386(_) => NASMI386,
+            CompileTarget::C => C,
         }
     }
 
-    pub fn functions_creator(&self, debug: bool) -> impl FunctionsCreator {
+    pub fn functions_creator(&self, debug: bool) -> Box<dyn FunctionsCreator> {
         match self {
             CompileTarget::Nasmi386(options) => {
                 let backend = BackendNasmi386::new(debug);
-                FunctionsCreatorNasmi386::new(
+                Box::new(FunctionsCreatorNasmi386::new(
                     backend.clone(),
                     debug,
                     CodeGenAsm::new(options.clone(), debug),
-                )
+                ))
             }
+            CompileTarget::C => Box::new(DummyFunctionsCreator),
         }
     }
 
-    pub fn typed_functions_creator(&self, debug: bool) -> impl TypedFunctionsCreator {
+    pub fn typed_functions_creator(&self, debug: bool) -> Box<dyn TypedFunctionsCreator> {
         match self {
             CompileTarget::Nasmi386(options) => {
                 let backend = BackendNasmi386::new(debug);
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
-                TypedFunctionsCreatorNasmi386::new(backend, code_gen, debug)
+                Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen, debug))
             }
+            CompileTarget::C => Box::new(DummyTypedFunctionsCreator),
         }
     }
 
     pub fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
         let mut result = HashMap::new();
-        Nasmi386CoreLibAssets::iter()
-            .filter(|it| it.ends_with(".rasm"))
-            .for_each(|it| {
-                if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
-                    result.insert(it.to_string(), asset);
-                }
-            });
+
+        match self {
+            CompileTarget::Nasmi386(_) => {
+                Nasmi386CoreLibAssets::iter()
+                    .filter(|it| it.ends_with(".rasm"))
+                    .for_each(|it| {
+                        if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
+                            result.insert(it.to_string(), asset);
+                        }
+                    });
+            }
+            CompileTarget::C => {
+                CLibAssets::iter()
+                    .filter(|it| it.ends_with(".rasm"))
+                    .for_each(|it| {
+                        if let Some(asset) = CLibAssets::get(&it) {
+                            result.insert(it.to_string(), asset);
+                        }
+                    });
+            }
+        }
+
         result
     }
 
@@ -151,6 +184,9 @@ impl CompileTarget {
             CompileTarget::Nasmi386(options) => {
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
                 code_gen.get_evaluator()
+            }
+            CompileTarget::C => {
+                TextMacroEvaluator::new(LinkedHashMap::new(), Box::new(DummyCodeManipulator))
             }
         }
     }
@@ -177,6 +213,7 @@ impl CompileTarget {
                     _statics,
                 )
             }
+            CompileTarget::C => Ok(Vec::new()),
         }
     }
 
@@ -185,6 +222,7 @@ impl CompileTarget {
             CompileTarget::Nasmi386(_) => {
                 vec![CommandLineAction::Build, CommandLineAction::Test]
             }
+            CompileTarget::C => vec![CommandLineAction::Build, CommandLineAction::Test],
         }
     }
 
@@ -281,7 +319,84 @@ impl CompileTarget {
                     unreachable!()
                 }
             },
+            CompileTarget::C => {}
         }
+    }
+
+    pub fn get_mandatory_functions(&self, module: &EnhancedASTModule) -> Vec<DefaultFunction> {
+        let mut result = Vec::new();
+
+        match self {
+            CompileTarget::Nasmi386(_) => {
+                for def in &module.types {
+                    if !def.type_parameters.is_empty() {
+                        let name = format!("{}References", def.name);
+                        result.push(DefaultFunction::new_2(
+                            &name,
+                            BuiltinTypeKind::I32,
+                            BuiltinTypeKind::I32,
+                        ));
+                    }
+                }
+            }
+            CompileTarget::C => {}
+        }
+
+        result
+    }
+
+    pub fn get_default_functions(&self, print_allocation: bool) -> Vec<DefaultFunction> {
+        let mut default_functions = match self {
+            CompileTarget::Nasmi386(_) => {
+                vec![
+                    DefaultFunction::new_2(
+                        "rasmalloc",
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::String,
+                    ),
+                    DefaultFunction::new_1("exitMain", BuiltinTypeKind::I32),
+                    DefaultFunction::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+                    DefaultFunction::new_3(
+                        "memcopy",
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                    ),
+                    DefaultFunction::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+                    DefaultFunction::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
+                    DefaultFunction::new_2(
+                        "createCmdLineArguments",
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                    ),
+                    DefaultFunction::new_1("str_addRef", BuiltinTypeKind::String),
+                    DefaultFunction::new_1("str_deref", BuiltinTypeKind::String),
+                    DefaultFunction::new_3(
+                        "addStaticAllocation",
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                    ),
+                    DefaultFunction::new_3(
+                        "addHeap",
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                        BuiltinTypeKind::I32,
+                    ),
+                ]
+            }
+            CompileTarget::C => Vec::new(),
+        };
+
+        if print_allocation {
+            default_functions.append(&mut vec![
+                DefaultFunction::new_0("printAllocated"),
+                DefaultFunction::new_0("printTableSlotsAllocated"),
+            ])
+        }
+
+        default_functions.sort_by(|a, b| a.name.cmp(&b.name));
+        default_functions
     }
 }
 

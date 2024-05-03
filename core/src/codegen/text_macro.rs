@@ -633,7 +633,7 @@ impl TextMacroEvaluator {
         if let Some(tme) = self.evaluators.get(macro_name) {
             Ok(tme.default_function_calls())
         } else {
-            Err("Cannot find macro {macro_name}".to_string())
+            Err(format!("Cannot find macro `{macro_name}`"))
         }
     }
 }

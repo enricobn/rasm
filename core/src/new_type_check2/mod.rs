@@ -1358,9 +1358,8 @@ mod tests {
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::project::RasmProject;
-    use crate::transformations::type_functions_creator::type_mandatory_functions;
     use crate::type_check::type_check_error::TypeCheckError;
-    use crate::type_check::typed_ast::{convert_to_typed_module, get_default_functions};
+    use crate::type_check::typed_ast::convert_to_typed_module;
     use crate::utils::tests::test_namespace;
 
     #[test]
@@ -1623,9 +1622,9 @@ mod tests {
 
         let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
-        let mandatory_functions = type_mandatory_functions(&module);
+        let mandatory_functions = target.get_mandatory_functions(&module);
 
-        let default_functions = get_default_functions(false);
+        let default_functions = target.get_default_functions(false);
         //resolved_module.print();
 
         let _ = convert_to_typed_module(

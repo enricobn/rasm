@@ -682,6 +682,7 @@ pub native copy<T>(o: T) -> T /{
 }/
 
 pub native addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
+    push    eax
     push    ebx
 
     mov     dword ebx, $labelMemory
@@ -694,9 +695,11 @@ pub native addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32
     mov     dword [eax + 16], 0     ; reusable table
 
     pop     ebx
+    pop     eax
 }/
 
 pub native addHeap(label: i32, descrLabel: i32, value: i32) /{
+    push    eax
     push    ebx
 
     mov     dword ebx, $descrLabel
@@ -709,4 +712,5 @@ pub native addHeap(label: i32, descrLabel: i32, value: i32) /{
     mov     dword [eax], ebx
 
     pop   ebx
+    pop    eax
 }/

@@ -15,25 +15,143 @@ use crate::type_check::typed_ast::{
 pub trait TypedFunctionsCreator {
     fn create(&self, module: &mut ASTTypedModule, statics: &mut Statics) {
         for struct_def in module.structs.clone().iter() {
-            if struct_has_references(struct_def, module) {
-                self.create_struct_free(struct_def, "deref", "deref", module, statics);
-                self.create_struct_free(struct_def, "addRef", "addRef", module, statics);
-            }
+            self.for_struct(module, statics, struct_def);
         }
 
         for enum_def in module.enums.clone().iter() {
-            if enum_has_references(enum_def, module) {
-                self.create_enum_free(enum_def, "deref", "deref", module, statics);
-                self.create_enum_free(enum_def, "addRef", "addRef", module, statics);
-            }
+            self.for_enum(module, statics, enum_def);
         }
 
         for typed_type_def in module.types.clone().iter() {
-            if typed_type_def.is_ref {
-                self.create_type_free(typed_type_def, "deref", "deref", module, statics);
-                self.create_type_free(typed_type_def, "addRef", "addRef", module, statics);
-            }
+            self.for_type(module, statics, typed_type_def);
         }
+    }
+
+    fn for_type(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        typed_type_def: &ASTTypedTypeDef,
+    );
+
+    fn for_enum(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        enum_def: &ASTTypedEnumDef,
+    );
+
+    fn for_struct(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        struct_def: &ASTTypedStructDef,
+    );
+
+    fn add_function(
+        &self,
+        namespace: &ASTNameSpace,
+        module: &mut ASTTypedModule,
+        ast_type: ASTTypedType,
+        body: ASTTypedFunctionBody,
+        function_name_suffix: &str,
+        name: &str,
+        with_descr: bool,
+    ) {
+        let fun_name = format!("{}_{function_name_suffix}", name);
+
+        let mut parameters = vec![ASTTypedParameterDef {
+            name: "address".into(),
+            ast_type,
+            ast_index: ASTIndex::none(),
+        }];
+
+        if with_descr {
+            parameters.push(ASTTypedParameterDef {
+                name: "descr".into(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: ASTIndex::none(),
+            })
+        }
+
+        let function_def = ASTTypedFunctionDef {
+            namespace: namespace.clone(),
+            name: fun_name.clone(),
+            original_name: fun_name.clone(),
+            parameters,
+            body,
+            inline: false,
+            return_type: ASTTypedType::Unit,
+            generic_types: LinkedHashMap::new(),
+            index: ASTIndex::none(),
+        };
+
+        debug!("created function {function_def}");
+
+        module.functions_by_name.insert(fun_name, function_def);
+    }
+}
+
+pub struct TypedFunctionsCreatorNasmi386 {
+    backend: BackendNasmi386,
+    debug: bool,
+    code_gen: CodeGenAsm,
+}
+
+impl TypedFunctionsCreatorNasmi386 {
+    pub fn new(backend: BackendNasmi386, code_gen: CodeGenAsm, debug: bool) -> Self {
+        Self {
+            backend,
+            debug,
+            code_gen,
+        }
+    }
+
+    fn loop_vec(
+        &self,
+        type_def: &ASTTypedTypeDef,
+        deref_function_call: String,
+        generic_n: usize,
+    ) -> String {
+        let mut result = String::new();
+
+        self.code_gen.add_rows(
+            &mut result,
+            vec!["push  eax", "push  ebx", "push  ecx"],
+            None,
+            true,
+        );
+
+        self.code_gen.call_function(
+            &mut result,
+            &format!("{}References", type_def.original_name),
+            &[("$address", None), (&format!("{generic_n}"), None)],
+            None,
+        );
+
+        self.code_gen.add_rows(
+            &mut result,
+            vec![
+                &format!("mov   {} ebx, [eax]", self.backend.word_size()),
+                &format!("mov   {} ecx, [ebx]", self.backend.word_size()),
+                &format!("add   ebx, {}", self.backend.word_len()),
+                &format!(".loop_{generic_n}:"),
+                &format!("cmp   {} ecx, 0", self.backend.word_size()),
+                &format!("jz   .end_{generic_n}"),
+                &deref_function_call,
+                "\n",
+                &format!("add   ebx, {}", self.backend.word_len()),
+                "dec ecx",
+                &format!("jmp .loop_{generic_n}"),
+                &format!(".end_{generic_n}:"),
+                "pop  ecx",
+                "pop  ebx",
+                "pop  eax",
+            ],
+            None,
+            true,
+        );
+        result
     }
 
     fn create_struct_free(
@@ -135,141 +253,6 @@ pub trait TypedFunctionsCreator {
         );
     }
 
-    fn add_function(
-        &self,
-        namespace: &ASTNameSpace,
-        module: &mut ASTTypedModule,
-        ast_type: ASTTypedType,
-        body: ASTTypedFunctionBody,
-        function_name_suffix: &str,
-        name: &str,
-        with_descr: bool,
-    ) {
-        let fun_name = format!("{}_{function_name_suffix}", name);
-
-        let mut parameters = vec![ASTTypedParameterDef {
-            name: "address".into(),
-            ast_type,
-            ast_index: ASTIndex::none(),
-        }];
-
-        if with_descr {
-            parameters.push(ASTTypedParameterDef {
-                name: "descr".into(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: ASTIndex::none(),
-            })
-        }
-
-        let function_def = ASTTypedFunctionDef {
-            namespace: namespace.clone(),
-            name: fun_name.clone(),
-            original_name: fun_name.clone(),
-            parameters,
-            body,
-            inline: false,
-            return_type: ASTTypedType::Unit,
-            generic_types: LinkedHashMap::new(),
-            index: ASTIndex::none(),
-        };
-
-        debug!("created function {function_def}");
-
-        module.functions_by_name.insert(fun_name, function_def);
-    }
-
-    fn create_struct_free_body(
-        &self,
-        struct_def: &ASTTypedStructDef,
-        asm_function_name: &str,
-        function_name: &str,
-        module: &ASTTypedModule,
-        statics: &mut Statics,
-    ) -> String;
-
-    fn create_enum_free_body(
-        &self,
-        enum_def: &ASTTypedEnumDef,
-        asm_function_name: &str,
-        function_name: &str,
-        module: &ASTTypedModule,
-        statics: &mut Statics,
-    ) -> String;
-
-    fn create_type_free_body(
-        &self,
-        type_def: &ASTTypedTypeDef,
-        asm_function_name: &str,
-        function_name: &str,
-        module: &ASTTypedModule,
-        statics: &mut Statics,
-    ) -> String;
-}
-
-pub struct TypedFunctionsCreatorNasmi386 {
-    backend: BackendNasmi386,
-    debug: bool,
-    code_gen: CodeGenAsm,
-}
-
-impl TypedFunctionsCreatorNasmi386 {
-    pub fn new(backend: BackendNasmi386, code_gen: CodeGenAsm, debug: bool) -> Self {
-        Self {
-            backend,
-            debug,
-            code_gen,
-        }
-    }
-
-    fn loop_vec(
-        &self,
-        type_def: &ASTTypedTypeDef,
-        deref_function_call: String,
-        generic_n: usize,
-    ) -> String {
-        let mut result = String::new();
-
-        self.code_gen.add_rows(
-            &mut result,
-            vec!["push  eax", "push  ebx", "push  ecx"],
-            None,
-            true,
-        );
-
-        self.code_gen.call_function(
-            &mut result,
-            &format!("{}References", type_def.original_name),
-            &[("$address", None), (&format!("{generic_n}"), None)],
-            None,
-        );
-
-        self.code_gen.add_rows(
-            &mut result,
-            vec![
-                &format!("mov   {} ebx, [eax]", self.backend.word_size()),
-                &format!("mov   {} ecx, [ebx]", self.backend.word_size()),
-                &format!("add   ebx, {}", self.backend.word_len()),
-                &format!(".loop_{generic_n}:"),
-                &format!("cmp   {} ecx, 0", self.backend.word_size()),
-                &format!("jz   .end_{generic_n}"),
-                &deref_function_call,
-                "\n",
-                &format!("add   ebx, {}", self.backend.word_len()),
-                "dec ecx",
-                &format!("jmp .loop_{generic_n}"),
-                &format!(".end_{generic_n}:"),
-                "pop  ecx",
-                "pop  ebx",
-                "pop  eax",
-            ],
-            None,
-            true,
-        );
-        result
-    }
-}
-
-impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
@@ -472,6 +455,72 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
             }
         }
         result
+    }
+}
+
+impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
+    fn for_type(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        typed_type_def: &ASTTypedTypeDef,
+    ) {
+        if typed_type_def.is_ref {
+            self.create_type_free(typed_type_def, "deref", "deref", module, statics);
+            self.create_type_free(typed_type_def, "addRef", "addRef", module, statics);
+        }
+    }
+
+    fn for_enum(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        enum_def: &ASTTypedEnumDef,
+    ) {
+        if enum_has_references(enum_def, module) {
+            self.create_enum_free(enum_def, "deref", "deref", module, statics);
+            self.create_enum_free(enum_def, "addRef", "addRef", module, statics);
+        }
+    }
+
+    fn for_struct(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        struct_def: &ASTTypedStructDef,
+    ) {
+        if struct_has_references(struct_def, module) {
+            self.create_struct_free(struct_def, "deref", "deref", module, statics);
+            self.create_struct_free(struct_def, "addRef", "addRef", module, statics);
+        }
+    }
+}
+
+pub struct DummyTypedFunctionsCreator;
+
+impl TypedFunctionsCreator for DummyTypedFunctionsCreator {
+    fn for_type(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        typed_type_def: &ASTTypedTypeDef,
+    ) {
+    }
+
+    fn for_enum(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        enum_def: &ASTTypedEnumDef,
+    ) {
+    }
+
+    fn for_struct(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        struct_def: &ASTTypedStructDef,
+    ) {
     }
 }
 

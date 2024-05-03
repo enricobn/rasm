@@ -8,7 +8,6 @@ use crate::parser::ast::{
     ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
 };
 use crate::project::RasmProject;
-use crate::transformations::functions_creator::FunctionsCreator;
 use crate::transformations::globals_creator::add_folder;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
