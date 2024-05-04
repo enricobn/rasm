@@ -1262,10 +1262,14 @@ impl CodeGenAsm {
     fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
 
         self.add(
             code,
-            &format!("mov {ws} [{bp} + {}], eax", address_relative_to_bp),
+            &format!(
+                "mov {ws} [{bp} + {}], eax",
+                address_relative_to_bp * wl as i32
+            ),
             Some(""),
             true,
         );
@@ -2054,8 +2058,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         id: &mut usize,
         typed_module: &ASTTypedModule,
     ) -> Vec<LambdaCall> {
-        let wl = self.backend.word_len();
-        let address_relative_to_bp = stack.reserve_local_val(name) * wl;
+        let address_relative_to_bp = stack.reserve_local_val(name);
+
         let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
@@ -2209,7 +2213,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             context.insert_let(
                 name.into(),
                 ast_typed_type.clone(),
-                Some(address_relative_to_bp / self.backend.word_len()),
+                Some(address_relative_to_bp),
             );
 
             if !bf.is_empty() {
@@ -2259,8 +2263,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         typed_module: &ASTTypedModule,
     ) -> String {
         let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
+
         self.call_deref(
-            &format!("[{bp} - {}]", address_relative_to_bp),
+            &format!("[{bp} - {}]", address_relative_to_bp * wl),
             &type_name,
             &format!("for let val {name}"),
             typed_module,
@@ -2279,9 +2285,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         typed_module: &ASTTypedModule,
     ) {
         let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
         self.call_add_ref(
             before,
-            &format!("[{bp} - {}]", address_relative_to_bp),
+            &format!("[{bp} - {}]", address_relative_to_bp * wl),
             &type_name,
             &format!("for let val {name} : {index}"),
             typed_module,
@@ -2310,6 +2317,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     ) -> ASTTypedType {
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
+
         let (i, typed_type, descr) = match typed_val_kind {
             TypedValKind::ParameterRef(i, def) => (
                 *i as i32 + 2,
@@ -2340,7 +2349,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             before,
             &format!(
                 "mov {ws} [{bp} + {}], {tmp_register}",
-                -(address_relative_to_bp as i32),
+                -((address_relative_to_bp * wl) as i32),
             ),
             Some(""),
             true,
@@ -2363,6 +2372,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         stack: &StackVals,
     ) {
         let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
         let label = statics.add_str(value);
 
         let tmp_reg = stack.reserve_tmp_register(body, "set_let_for_string_literal", self);
@@ -2381,7 +2391,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             self.indirect_mov(
                 before,
                 &label,
-                &format!("{bp} + {}", -(address_relative_to_bp as i32),),
+                &format!("{bp} + {}", -((address_relative_to_bp * wl) as i32),),
                 &tmp_reg,
                 None,
             );
@@ -2404,6 +2414,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
         let value = self.value_to_string(value_type);
+        let wl = self.backend.word_len();
 
         if is_const {
             let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
@@ -2419,7 +2430,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 before,
                 &format!(
                     "mov {ws} [{bp} + {}], {}",
-                    -(address_relative_to_bp as i32),
+                    -((address_relative_to_bp * wl) as i32),
                     value
                 ),
                 Some(""),
