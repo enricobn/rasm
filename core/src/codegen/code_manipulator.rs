@@ -80,24 +80,3 @@ impl CodeManipulator for CodeManipulatorNasm {
         }
     }
 }
-
-#[derive(Clone)]
-pub struct DummyCodeManipulator;
-
-impl CodeManipulator for DummyCodeManipulator {
-    fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        self.add(out, &format!("// {comment}"), None, indent);
-    }
-
-    fn remove_comments_from_line(&self, line: String) -> String {
-        if let Some(pos) = line.find("//") {
-            if pos > 0 {
-                line.split_at(pos).0.to_string()
-            } else {
-                String::new()
-            }
-        } else {
-            line
-        }
-    }
-}

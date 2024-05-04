@@ -22,9 +22,25 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::val_context::TypedValContext;
 use crate::parser::ast::{ASTIndex, ValueType};
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedModule, ASTTypedType};
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
+};
+use linked_hash_map::LinkedHashMap;
+use log::debug;
 
-pub struct CFunctionCallParameters;
+pub struct CFunctionCallParameters {
+    parameters: Vec<ASTTypedParameterDef>,
+    parameters_values: LinkedHashMap<String, String>,
+}
+
+impl CFunctionCallParameters {
+    pub fn new(parameters: Vec<ASTTypedParameterDef>) -> Self {
+        Self {
+            parameters,
+            parameters_values: LinkedHashMap::new(),
+        }
+    }
+}
 
 impl FunctionCallParameters for CFunctionCallParameters {
     fn add_label(&mut self, param_name: &str, label: String, comment: Option<&str>) {
@@ -106,6 +122,21 @@ impl FunctionCallParameters for CFunctionCallParameters {
         to_remove_from_stack: String,
         ident: usize,
     ) -> String {
-        todo!()
+        let mut result = body.to_string();
+
+        let mut substitutions = Vec::new();
+
+        // TODO optimize, collect parameter names, in reverse then substitute $par_name with par_name
+        for par in self.parameters.iter() {
+            substitutions.push((par.name.clone(), par.name.clone()));
+        }
+
+        substitutions.sort_by(|(a, _), (b, _)| a.cmp(b).reverse());
+
+        for (par_name, value) in substitutions {
+            result = result.replace(&format!("${}", par_name), &value);
+        }
+
+        result
     }
 }

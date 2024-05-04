@@ -146,7 +146,7 @@ pub fn get_std_lib_path() -> String {
 pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn options(&self) -> &AsmOptions;
 
-    fn generate(&self, typed_module: &ASTTypedModule, statics: Statics) -> String {
+    fn generate(&'a self, typed_module: &ASTTypedModule, statics: Statics) -> String {
         let debug = self.debug();
         let mut statics = statics;
         let mut id: usize = 0;
@@ -212,10 +212,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             }
         }
 
-        body.push_str(&before.replace(
-            STACK_VAL_SIZE_NAME,
-            &(stack.len_of_all() * self.word_len()).to_string(),
-        ));
+        body.push_str(&self.transform_before(&stack, before));
         body.push_str(&after);
 
         // debug!("stack {:?}", stack);
@@ -249,7 +246,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         self.initialize_static_values(&mut generated_code);
 
-        let code = self.translate_static_code(&static_code, typed_module);
+        let code = self.translate_static_code(static_code, typed_module);
 
         self.add(&mut generated_code, &code, None, true);
 
@@ -267,7 +264,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         }
 
         let new_body = self
-            .translate_body(&body, &mut statics, typed_module)
+            .translate_body(body, &mut statics, typed_module)
             .unwrap();
 
         generated_code.push_str(&new_body);
@@ -281,7 +278,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             self.print_memory_info(&mut generated_code);
         }
 
-        self.call_function(&mut generated_code, "exitMain", &[("0", None)], None);
+        self.end_main(&mut generated_code);
 
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
@@ -293,9 +290,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         generated_code
     }
 
+    fn end_main(&self, code: &mut String);
+
+    fn transform_before(&self, stack: &StackVals, before: String) -> String;
+
     fn create_command_line_arguments(&self, generated_code: &mut String);
 
-    fn translate_static_code(&self, static_code: &String, typed_module: &ASTTypedModule) -> String;
+    fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String;
 
     fn call_lambda_parameter(
         &self,
@@ -599,7 +600,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     }
 
     fn call_lambda(
-        &'a self,
+        &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
         stack_vals: &StackVals,
@@ -644,7 +645,205 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         body: &mut String,
         id: &mut usize,
         typed_module: &ASTTypedModule,
-    ) -> Vec<LambdaCall>;
+    ) -> Vec<LambdaCall> {
+        let address_relative_to_bp = stack.reserve_local_val(name);
+
+        let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
+            ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                if let Some(kind) = context.get(&call.function_name) {
+                    let typed_type = match kind {
+                        TypedValKind::ParameterRef(_, def) => def.ast_type.clone(),
+                        TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
+                    };
+
+                    let typed_type: ASTTypedType =
+                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                            parameters: _,
+                            return_type,
+                        }) = &typed_type
+                        {
+                            if return_type.deref() != &ASTTypedType::Unit {
+                                return_type.deref().clone()
+                            } else {
+                                panic!(
+                                    "Expected a return type from lambda but got None: {}",
+                                    call.index
+                                );
+                            }
+                        } else {
+                            panic!("Expected lambda but got {typed_type}: {}", call.index);
+                        };
+
+                    (
+                        typed_type,
+                        self.generate_call_function(
+                            namespace,
+                            call,
+                            context,
+                            function_def,
+                            "0".into(),
+                            lambda_space,
+                            0,
+                            false,
+                            stack,
+                            id,
+                            statics,
+                            typed_module,
+                        ),
+                        call.index.clone(),
+                    )
+                } else {
+                    (
+                        typed_module
+                            .functions_by_name
+                            .get(&call.function_name.replace("::", "_"))
+                            .unwrap()
+                            .return_type
+                            .clone(),
+                        self.generate_call_function(
+                            namespace,
+                            call,
+                            context,
+                            function_def,
+                            "0".into(),
+                            lambda_space,
+                            0,
+                            false,
+                            stack,
+                            id,
+                            statics,
+                            typed_module,
+                        ),
+                        call.index.clone(),
+                    )
+                }
+            }
+            ASTTypedExpression::Value(value_type, index) => {
+                let typed_type =
+                    get_type_of_typed_expression(typed_module, context, expr, None, statics)
+                        .unwrap();
+
+                self.set_let_for_value(
+                    before,
+                    name,
+                    is_const,
+                    statics,
+                    body,
+                    address_relative_to_bp,
+                    value_type,
+                    &typed_type,
+                );
+                (typed_type, (String::new(), vec![], vec![]), index.clone())
+            }
+            ASTTypedExpression::StringLiteral(value) => {
+                let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
+
+                self.set_let_for_string_literal(
+                    before,
+                    name,
+                    is_const,
+                    statics,
+                    body,
+                    address_relative_to_bp,
+                    value,
+                    &typed_type,
+                    stack,
+                );
+                (
+                    typed_type,
+                    (String::new(), vec![], vec![]),
+                    ASTIndex::none(),
+                )
+            }
+            ASTTypedExpression::ValueRef(val_name, index) => {
+                if let Some(typed_val_kind) = context.get(val_name) {
+                    let typed_type = self.set_let_for_value_ref(
+                        stack,
+                        before,
+                        address_relative_to_bp,
+                        val_name,
+                        typed_val_kind,
+                    );
+
+                    (typed_type, (String::new(), vec![], vec![]), index.clone())
+                } else {
+                    panic!("Cannot find {name} in context");
+                }
+            }
+
+            _ => panic!("Unsupported let {:?}", expr),
+        };
+
+        if is_const {
+            if !bf.is_empty() {
+                body.push_str(&bf);
+
+                let key = statics.add_typed_const(name.to_owned(), ast_typed_type.clone());
+
+                self.set_let_const_for_function_call_result(&key, body);
+            }
+
+            if self.options().dereference {
+                if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
+                    self.add_ref(&name, statics, body, typed_module, &index, &type_name);
+                }
+            }
+        } else {
+            context.insert_let(
+                name.into(),
+                ast_typed_type.clone(),
+                Some(address_relative_to_bp),
+            );
+
+            if !bf.is_empty() {
+                before.push_str(&bf);
+                self.store_function_result_in_stack(before, -(address_relative_to_bp as i32));
+            }
+
+            if self.options().dereference {
+                if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
+                    self.call_add_ref_for_let_val(
+                        &name,
+                        &index,
+                        before,
+                        statics,
+                        &address_relative_to_bp,
+                        &type_name,
+                        typed_module,
+                    );
+
+                    let deref_str = self.call_deref_for_let_val(
+                        &name,
+                        statics,
+                        &address_relative_to_bp,
+                        &type_name,
+                        typed_module,
+                    );
+                    Self::insert_on_top(&deref_str, after);
+                }
+            }
+
+            let not_empty_after_lines = af
+                .into_iter()
+                .filter(|it| !it.is_empty())
+                .collect::<Vec<String>>();
+            Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
+        }
+
+        new_lambda_calls
+    }
+
+    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32);
+
+    fn add_ref(
+        &self,
+        name: &&str,
+        statics: &mut Statics,
+        body: &mut String,
+        typed_module: &ASTTypedModule,
+        index: &ASTIndex,
+        type_name: &String,
+    );
 
     fn call_deref_for_let_val(
         &self,
@@ -753,7 +952,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         }
     }
 
-    fn reserve_return_register(&'a self, out: &mut String, stack: &StackVals);
+    fn reserve_return_register(&self, out: &mut String, stack: &StackVals);
 
     fn add_function_def(
         &'a self,
@@ -780,7 +979,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             self.add_comment(definitions, &format!("{}", function_def.index), false);
         }
         self.add_comment(definitions, &format!("function {}", function_def), false);
-        self.add(definitions, &format!("{}:", function_def.name), None, false);
+        self.function_def(definitions, &function_def);
 
         let mut before = String::new();
 
@@ -1006,10 +1205,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         self.reserve_local_vals(&stack, definitions);
 
-        definitions.push_str(&before.replace(
-            STACK_VAL_SIZE_NAME,
-            &(stack.len_of_all() * self.word_len()).to_string(),
-        ));
+        definitions.push_str(&self.transform_before(&stack, before));
 
         definitions.push_str(&after);
         definitions.push('\n');
@@ -1021,13 +1217,15 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         lambda_calls
     }
 
+    fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef);
+
     fn word_len(&self) -> usize;
 
     fn stack_pointer(&self) -> &str;
 
     fn word_size(&self) -> &str;
 
-    fn reserve_lambda_space(&'a self, before: &mut String, stack: &StackVals);
+    fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals);
 
     fn value_as_return(&self, before: &mut String, v: &str);
 
@@ -1065,27 +1263,99 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) -> HashMap<String, (String, String)>;
 
     fn create_all_functions(
-        &self,
+        &'a self,
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)>;
+    ) -> HashMap<String, (String, String)> {
+        let mut result = HashMap::new();
+
+        for function_def in typed_module.functions_by_name.values() {
+            // ValContext ???
+            if !function_def.inline {
+                let mut definitions = String::new();
+                let mut body = String::new();
+
+                let lambda_calls = self.add_function_def(
+                    function_def,
+                    None,
+                    &TypedValContext::new(None),
+                    0,
+                    false,
+                    &mut definitions,
+                    id,
+                    statics,
+                    &mut body,
+                    typed_module,
+                );
+                result.extend(self.create_lambdas(lambda_calls, 0, id, statics, typed_module));
+
+                result.insert(function_def.name.clone(), (definitions, body));
+            }
+        }
+
+        result
+    }
 
     fn translate_body(
         &self,
-        body: &str,
+        body: String,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> Result<String, String>;
 
+    fn print_memory_info(&self, native_code: &mut String);
+
+    fn optimize_unused_functions(&self) -> bool;
+
     fn get_used_functions(
         &self,
-        functions_asm: &HashMap<String, (String, String)>,
+        functions_native_code: &HashMap<String, (String, String)>,
         native_code: &str,
         typed_module: &ASTTypedModule,
-    ) -> Vec<(String, (String, String))>;
+    ) -> Vec<(String, (String, String))> {
+        let result = if self.optimize_unused_functions() {
+            let mut used_functions = UsedFunctions::find(typed_module);
+            // those are probably lambdas
+            used_functions.extend(
+                functions_native_code
+                    .keys()
+                    .filter(|it| !typed_module.functions_by_name.contains_key(*it))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
 
-    fn print_memory_info(&self, native_code: &mut String);
+            used_functions.extend(UsedFunctions::get_used_functions(native_code));
+
+            let mut used_functions_in_defs = HashSet::new();
+
+            for (_name, (defs, _bd)) in functions_native_code
+                .iter()
+                .filter(|(it, (_, _))| used_functions.contains(*it))
+            {
+                used_functions_in_defs.extend(UsedFunctions::get_used_functions(defs));
+            }
+
+            used_functions.extend(used_functions_in_defs);
+
+            functions_native_code
+                .iter()
+                .filter(|(it, (_, _))| {
+                    let valid = used_functions.contains(*it);
+                    if !valid {
+                        debug!("unused function {it}");
+                    }
+                    valid
+                })
+                .collect::<Vec<_>>()
+        } else {
+            functions_native_code.iter().collect::<Vec<_>>()
+        };
+        result
+            .into_iter()
+            .map(|(a1, (a2, a3))| (a1.clone(), (a2.clone(), a3.clone())))
+            .collect::<Vec<_>>()
+    }
 
     fn initialize_static_values(&self, generated_code: &mut String);
 
@@ -1257,22 +1527,6 @@ impl CodeGenAsm {
             + ((array[1] as u32) << 8)
             + ((array[2] as u32) << 16)
             + ((array[3] as u32) << 24)
-    }
-
-    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
-        let ws = self.backend.word_size();
-        let bp = self.backend.stack_base_pointer();
-        let wl = self.backend.word_len();
-
-        self.add(
-            code,
-            &format!(
-                "mov {ws} [{bp} + {}], eax",
-                address_relative_to_bp * wl as i32
-            ),
-            Some(""),
-            true,
-        );
     }
 
     pub fn call_add_ref(
@@ -1839,6 +2093,17 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         &self.options
     }
 
+    fn end_main(&self, code: &mut String) {
+        self.call_function(code, "exitMain", &[("0", None)], None);
+    }
+
+    fn transform_before(&self, stack: &StackVals, before: String) -> String {
+        before.replace(
+            STACK_VAL_SIZE_NAME,
+            &(stack.len_of_all() * self.word_len()).to_string(),
+        )
+    }
+
     fn create_command_line_arguments(&self, generated_code: &mut String) {
         self.call_function(
             generated_code,
@@ -1854,7 +2119,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn translate_static_code(&self, static_code: &String, typed_module: &ASTTypedModule) -> String {
+    fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {
         let mut temp_statics = Statics::new();
         let evaluator = self.get_evaluator();
 
@@ -1928,7 +2193,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     }
 
     fn call_lambda(
-        &'a self,
+        &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
         stack_vals: &StackVals,
@@ -2041,217 +2306,41 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         Box::new(fcp)
     }
 
-    fn add_let(
+    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
+        let ws = self.backend.word_size();
+        let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
+
+        self.add(
+            code,
+            &format!(
+                "mov {ws} [{bp} + {}], eax",
+                address_relative_to_bp * wl as i32
+            ),
+            Some(""),
+            true,
+        );
+    }
+
+    fn add_ref(
         &self,
-        namespace: &ASTNameSpace,
-        context: &mut TypedValContext,
-        stack: &StackVals,
-        after: &mut String,
-        before: &mut String,
-        name: &str,
-        expr: &ASTTypedExpression,
-        function_def: Option<&ASTTypedFunctionDef>,
-        lambda_space: Option<&LambdaSpace>,
-        is_const: bool,
+        name: &&str,
         statics: &mut Statics,
         body: &mut String,
-        id: &mut usize,
         typed_module: &ASTTypedModule,
-    ) -> Vec<LambdaCall> {
-        let address_relative_to_bp = stack.reserve_local_val(name);
+        index: &ASTIndex,
+        type_name: &String,
+    ) {
+        let entry = statics.get_typed_const(name).unwrap();
 
-        let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
-            ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                if let Some(kind) = context.get(&call.function_name) {
-                    let typed_type = match kind {
-                        TypedValKind::ParameterRef(_, def) => def.ast_type.clone(),
-                        TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
-                    };
-
-                    let typed_type: ASTTypedType =
-                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                            parameters: _,
-                            return_type,
-                        }) = &typed_type
-                        {
-                            if return_type.deref() != &ASTTypedType::Unit {
-                                return_type.deref().clone()
-                            } else {
-                                panic!(
-                                    "Expected a return type from lambda but got None: {}",
-                                    call.index
-                                );
-                            }
-                        } else {
-                            panic!("Expected lambda but got {typed_type}: {}", call.index);
-                        };
-
-                    (
-                        typed_type,
-                        self.generate_call_function(
-                            namespace,
-                            call,
-                            context,
-                            function_def,
-                            "0".into(),
-                            lambda_space,
-                            0,
-                            false,
-                            stack,
-                            id,
-                            statics,
-                            typed_module,
-                        ),
-                        call.index.clone(),
-                    )
-                } else {
-                    (
-                        typed_module
-                            .functions_by_name
-                            .get(&call.function_name.replace("::", "_"))
-                            .unwrap()
-                            .return_type
-                            .clone(),
-                        self.generate_call_function(
-                            namespace,
-                            call,
-                            context,
-                            function_def,
-                            "0".into(),
-                            lambda_space,
-                            0,
-                            false,
-                            stack,
-                            id,
-                            statics,
-                            typed_module,
-                        ),
-                        call.index.clone(),
-                    )
-                }
-            }
-            ASTTypedExpression::Value(value_type, index) => {
-                let typed_type =
-                    get_type_of_typed_expression(typed_module, context, expr, None, statics)
-                        .unwrap();
-
-                self.set_let_for_value(
-                    before,
-                    name,
-                    is_const,
-                    statics,
-                    body,
-                    address_relative_to_bp,
-                    value_type,
-                    &typed_type,
-                );
-                (typed_type, (String::new(), vec![], vec![]), index.clone())
-            }
-            ASTTypedExpression::StringLiteral(value) => {
-                let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
-
-                self.set_let_for_string_literal(
-                    before,
-                    name,
-                    is_const,
-                    statics,
-                    body,
-                    address_relative_to_bp,
-                    value,
-                    &typed_type,
-                    stack,
-                );
-                (
-                    typed_type,
-                    (String::new(), vec![], vec![]),
-                    ASTIndex::none(),
-                )
-            }
-            ASTTypedExpression::ValueRef(val_name, index) => {
-                if let Some(typed_val_kind) = context.get(val_name) {
-                    let typed_type = self.set_let_for_value_ref(
-                        stack,
-                        before,
-                        address_relative_to_bp,
-                        val_name,
-                        typed_val_kind,
-                    );
-
-                    (typed_type, (String::new(), vec![], vec![]), index.clone())
-                } else {
-                    panic!("Cannot find {name} in context");
-                }
-            }
-
-            _ => panic!("Unsupported let {:?}", expr),
-        };
-
-        if is_const {
-            if !bf.is_empty() {
-                body.push_str(&bf);
-
-                let key = statics.add_typed_const(name.to_owned(), ast_typed_type.clone());
-
-                self.set_let_const_for_function_call_result(&key, body);
-            }
-
-            if self.options().dereference {
-                if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
-                    let entry = statics.get_typed_const(name).unwrap();
-
-                    self.call_add_ref(
-                        body,
-                        &format!("[{}]", entry.key),
-                        &type_name,
-                        &format!("for const {name} : {index}"),
-                        typed_module,
-                        statics,
-                    );
-                }
-            }
-        } else {
-            context.insert_let(
-                name.into(),
-                ast_typed_type.clone(),
-                Some(address_relative_to_bp),
-            );
-
-            if !bf.is_empty() {
-                before.push_str(&bf);
-                self.store_function_result_in_stack(before, -(address_relative_to_bp as i32));
-            }
-
-            if self.options().dereference {
-                if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
-                    self.call_add_ref_for_let_val(
-                        &name,
-                        &index,
-                        before,
-                        statics,
-                        &address_relative_to_bp,
-                        &type_name,
-                        typed_module,
-                    );
-
-                    let deref_str = self.call_deref_for_let_val(
-                        &name,
-                        statics,
-                        &address_relative_to_bp,
-                        &type_name,
-                        typed_module,
-                    );
-                    Self::insert_on_top(&deref_str, after);
-                }
-            }
-
-            let not_empty_after_lines = af
-                .into_iter()
-                .filter(|it| !it.is_empty())
-                .collect::<Vec<String>>();
-            Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
-        }
-
-        new_lambda_calls
+        self.call_add_ref(
+            body,
+            &format!("[{}]", entry.key),
+            &type_name,
+            &format!("for const {name} : {index}"),
+            typed_module,
+            statics,
+        );
     }
 
     fn call_deref_for_let_val(
@@ -2439,8 +2528,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         }
     }
 
-    fn reserve_return_register(&'a self, out: &mut String, stack: &StackVals) {
+    fn reserve_return_register(&self, out: &mut String, stack: &StackVals) {
         stack.reserve_return_register(self, out);
+    }
+
+    fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef) {
+        self.add(out, &format!("{}:", function_def.name), None, false);
     }
 
     fn word_len(&self) -> usize {
@@ -2455,7 +2548,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         self.backend.word_size()
     }
 
-    fn reserve_lambda_space(&'a self, before: &mut String, stack: &StackVals) {
+    fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals) {
         let register = stack.reserve_tmp_register(before, "lambda_space_address", self);
 
         self.add(
@@ -2750,44 +2843,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         result
     }
 
-    fn create_all_functions(
-        &self,
-        id: &mut usize,
-        statics: &mut Statics,
-        typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)> {
-        let mut result = HashMap::new();
-
-        for function_def in typed_module.functions_by_name.values() {
-            // ValContext ???
-            if !function_def.inline {
-                let mut definitions = String::new();
-                let mut body = String::new();
-
-                let lambda_calls = self.add_function_def(
-                    function_def,
-                    None,
-                    &TypedValContext::new(None),
-                    0,
-                    false,
-                    &mut definitions,
-                    id,
-                    statics,
-                    &mut body,
-                    typed_module,
-                );
-                result.extend(self.create_lambdas(lambda_calls, 0, id, statics, typed_module));
-
-                result.insert(function_def.name.clone(), (definitions, body));
-            }
-        }
-
-        result
-    }
-
     fn translate_body(
         &self,
-        body: &str,
+        body: String,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> Result<String, String> {
@@ -2795,7 +2853,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
         let evaluator = self.get_evaluator();
 
-        let new_body = evaluator.translate(statics, None, None, body, true, typed_module)?;
+        let new_body = evaluator.translate(statics, None, None, &body, true, typed_module)?;
 
         let result = evaluator.translate(statics, None, None, &new_body, false, typed_module)?;
 
@@ -2822,58 +2880,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         Ok(result)
     }
 
-    fn get_used_functions(
-        &self,
-        functions_native_code: &HashMap<String, (String, String)>,
-        native_code: &str,
-        typed_module: &ASTTypedModule,
-    ) -> Vec<(String, (String, String))> {
-        let result = if self.options.optimize_unused_functions {
-            let mut used_functions = UsedFunctions::find(typed_module);
-            // those are probably lambdas
-            used_functions.extend(
-                functions_native_code
-                    .keys()
-                    .filter(|it| !typed_module.functions_by_name.contains_key(*it))
-                    .cloned()
-                    .collect::<Vec<_>>(),
-            );
-
-            used_functions.extend(UsedFunctions::get_used_functions(native_code));
-
-            let mut used_functions_in_defs = HashSet::new();
-
-            for (_name, (defs, _bd)) in functions_native_code
-                .iter()
-                .filter(|(it, (_, _))| used_functions.contains(*it))
-            {
-                used_functions_in_defs.extend(UsedFunctions::get_used_functions(defs));
-            }
-
-            used_functions.extend(used_functions_in_defs);
-
-            functions_native_code
-                .iter()
-                .filter(|(it, (_, _))| {
-                    let valid = used_functions.contains(*it);
-                    if !valid {
-                        debug!("unused function {it}");
-                    }
-                    valid
-                })
-                .collect::<Vec<_>>()
-        } else {
-            functions_native_code.iter().collect::<Vec<_>>()
-        };
-        result
-            .into_iter()
-            .map(|(a1, (a2, a3))| (a1.clone(), (a2.clone(), a3.clone())))
-            .collect::<Vec<_>>()
-    }
-
     fn print_memory_info(&self, native_code: &mut String) {
         self.call_function_simple(native_code, "printAllocated");
         self.call_function_simple(native_code, "printTableSlotsAllocated");
+    }
+
+    fn optimize_unused_functions(&self) -> bool {
+        self.options.optimize_unused_functions
     }
 
     fn initialize_static_values(&self, native_code: &mut String) {
@@ -2890,7 +2903,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             true,
         );
     }
-
     fn debug(&self) -> bool {
         self.debug
     }
@@ -2898,6 +2910,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     fn call_function_simple(&self, out: &mut String, function_name: &str) {
         self.add(out, &format!("call    {}", function_name), None, true);
     }
+
     fn call_function(
         &self,
         out: &mut String,

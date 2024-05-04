@@ -857,7 +857,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
                 let tmp_register = stack_vals.reserve_tmp_register(
                     &mut self.before,
                     "tmp_for_move",
-                    &self.code_gen,
+                    self.code_gen,
                 );
                 let to_remove_from_stack = self.to_remove_from_stack();
                 self.code_gen.indirect_mov(

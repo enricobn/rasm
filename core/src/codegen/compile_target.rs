@@ -29,8 +29,7 @@ use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::backend::{Backend, BackendNasmi386};
-use crate::codegen::c::code_gen_c::CodeGenC;
-use crate::codegen::code_manipulator::DummyCodeManipulator;
+use crate::codegen::c::code_gen_c::{CodeGenC, CodeManipulatorC};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{CIncludeMacro, TextMacro, TextMacroEval, TextMacroEvaluator};
@@ -118,7 +117,7 @@ impl CompileTarget {
             CompileTarget::Nasmi386(options) => {
                 CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
             }
-            CompileTarget::C => CodeGenC.generate(typed_module, statics),
+            CompileTarget::C => CodeGenC::new().generate(typed_module, statics),
         }
     }
 
@@ -192,7 +191,7 @@ impl CompileTarget {
                     LinkedHashMap::new();
                 evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
 
-                TextMacroEvaluator::new(evaluators, Box::new(DummyCodeManipulator))
+                TextMacroEvaluator::new(evaluators, Box::new(CodeManipulatorC::new()))
             }
         }
     }

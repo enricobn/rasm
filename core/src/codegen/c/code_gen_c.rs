@@ -17,6 +17,7 @@
  */
 
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
+use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::{LambdaCall, LambdaSpace};
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
@@ -27,55 +28,69 @@ use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedType, DefaultFunctionCall,
+    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
 };
 use std::collections::HashMap;
 
-pub struct CodeGenC;
+#[derive(Clone)]
+pub struct CodeManipulatorC;
 
-impl CodeGenC {
-    /*
-    pub fn generate(&self, typed_module: &ASTTypedModule, statics: Statics) -> String {
-        let mut result = String::new();
-
-        let custom = statics.custom();
-        if let Some(includes) = custom.get("include") {
-            let mut cloned_includes = includes.clone();
-            cloned_includes.sort();
-            cloned_includes.dedup();
-
-            for i in cloned_includes {
-                result.push_str(&format!("#include {i}\n"));
-            }
-
-            if !includes.is_empty() {
-                result.push('\n');
-            }
-        }
-
-        result.push_str("int main () {\n");
-        result.push_str("  printf(\"%s\", \"Hello world\\n\");\n");
-        result.push_str("  return 0;\n");
-        result.push_str("}\n");
-        result
+impl CodeManipulatorC {
+    pub fn new() -> Self {
+        Self {}
     }
-
-     */
 }
 
-impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionCallParameters>>
-    for CodeGenC
-{
+impl CodeManipulator for CodeManipulatorC {
+    fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
+        self.add(out, &format!("// {comment}"), None, indent);
+    }
+
+    fn remove_comments_from_line(&self, line: String) -> String {
+        if let Some(pos) = line.find("//") {
+            if pos > 0 {
+                line.split_at(pos).0.to_string()
+            } else {
+                String::new()
+            }
+        } else {
+            line
+        }
+    }
+}
+
+pub struct CodeGenC {
+    code_manipulator: CodeManipulatorC,
+    options: AsmOptions,
+}
+
+impl CodeGenC {
+    pub fn new() -> Self {
+        Self {
+            code_manipulator: CodeManipulatorC,
+            options: AsmOptions::default(),
+        }
+    }
+}
+
+impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn options(&self) -> &AsmOptions {
-        todo!()
+        &self.options // TODO
+    }
+
+    fn end_main(&self, code: &mut String) {}
+
+    fn transform_before(&self, stack: &StackVals, before: String) -> String {
+        before
     }
 
     fn create_command_line_arguments(&self, generated_code: &mut String) {
-        todo!()
+        // TODO
     }
 
-    fn translate_static_code(&self, static_code: &String, typed_module: &ASTTypedModule) -> String {
-        todo!()
+    fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {
+        // TODO
+        static_code
     }
 
     fn call_lambda_parameter(
@@ -89,7 +104,7 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
     }
 
     fn call_lambda(
-        &'a self,
+        &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
         stack_vals: &StackVals,
@@ -116,35 +131,29 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
     }
 
     fn function_call_parameters<'b, 'c>(
-        &'a self,
+        &self,
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
         stack_vals: &'c StackVals,
         id: usize,
     ) -> Box<CFunctionCallParameters> {
+        Box::new(CFunctionCallParameters::new(parameters.clone()))
+    }
+
+    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
         todo!()
     }
 
-    fn add_let(
+    fn add_ref(
         &self,
-        namespace: &ASTNameSpace,
-        context: &mut TypedValContext,
-        stack: &StackVals,
-        after: &mut String,
-        before: &mut String,
-        name: &str,
-        expr: &ASTTypedExpression,
-        function_def: Option<&ASTTypedFunctionDef>,
-        lambda_space: Option<&LambdaSpace>,
-        is_const: bool,
+        name: &&str,
         statics: &mut Statics,
         body: &mut String,
-        id: &mut usize,
         typed_module: &ASTTypedModule,
-    ) -> Vec<LambdaCall> {
-        println!("let {name}");
-        todo!()
+        index: &ASTIndex,
+        type_name: &String,
+    ) {
     }
 
     fn call_deref_for_let_val(
@@ -155,7 +164,7 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         type_name: &String,
         typed_module: &ASTTypedModule,
     ) -> String {
-        todo!()
+        String::new()
     }
 
     fn call_add_ref_for_let_val(
@@ -198,7 +207,14 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         typed_type: &ASTTypedType,
         stack: &StackVals,
     ) {
-        todo!()
+        if is_const {
+            statics.add_custom(
+                "const".to_string(),
+                format!("const char* {name} = \"{value}\";"),
+            );
+        } else {
+            todo!()
+        }
     }
 
     fn set_let_for_value(
@@ -215,8 +231,33 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         todo!()
     }
 
-    fn reserve_return_register(&'a self, out: &mut String, stack: &StackVals) {
-        todo!()
+    fn reserve_return_register(&self, out: &mut String, stack: &StackVals) {
+        // TODO
+    }
+
+    fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef) {
+        let mut args = Vec::new();
+        for par in function_def.parameters.iter() {
+            let arg = match &par.ast_type {
+                ASTTypedType::Builtin(kind) => match kind {
+                    BuiltinTypedTypeKind::String => "char*".to_string(),
+                    BuiltinTypedTypeKind::I32 => "int".to_string(),
+                    BuiltinTypedTypeKind::Bool => "int".to_string(),
+                    BuiltinTypedTypeKind::Char => "char".to_string(),
+                    BuiltinTypedTypeKind::F32 => "float".to_string(),
+                    _ => todo!("{kind:?}"),
+                },
+                _ => todo!("{}", par.ast_type),
+            };
+            args.push(format!("{arg} {}", par.name));
+        }
+
+        self.add(
+            out,
+            &format!("void {}({}) {{", function_def.name, args.join(", ")),
+            None,
+            false,
+        );
     }
 
     fn word_len(&self) -> usize {
@@ -231,7 +272,7 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         todo!()
     }
 
-    fn reserve_lambda_space(&'a self, before: &mut String, stack: &StackVals) {
+    fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals) {
         todo!()
     }
 
@@ -258,7 +299,34 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
-        todo!()
+        let mut before = String::new();
+        let mut after = Vec::new();
+        let mut lambda_calls = Vec::new();
+
+        let mut arg_values = Vec::new();
+        for expression in function_call.parameters.iter() {
+            match expression {
+                ASTTypedExpression::StringLiteral(s) => arg_values.push(format!("\"{s}\"")),
+                ASTTypedExpression::ValueRef(name, index) => arg_values.push(format!("{name}")),
+                _ => {
+                    println!("call {function_call}, expression {expression}");
+                    todo!()
+                }
+            }
+        }
+
+        self.add(
+            &mut before,
+            &format!(
+                "{}({});",
+                function_call.function_name,
+                arg_values.join(", ")
+            ),
+            None,
+            true,
+        );
+
+        (before, after, lambda_calls)
     }
 
     fn create_lambdas(
@@ -269,42 +337,33 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> HashMap<String, (String, String)> {
-        todo!()
-    }
-
-    fn create_all_functions(
-        &self,
-        id: &mut usize,
-        statics: &mut Statics,
-        typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)> {
-        todo!()
+        if !lambdas.is_empty() {
+            todo!()
+        } else {
+            HashMap::new()
+        }
     }
 
     fn translate_body(
         &self,
-        body: &str,
+        body: String,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> Result<String, String> {
-        todo!()
-    }
-
-    fn get_used_functions(
-        &self,
-        functions_asm: &HashMap<String, (String, String)>,
-        native_code: &str,
-        typed_module: &ASTTypedModule,
-    ) -> Vec<(String, (String, String))> {
-        todo!()
+        // TODO
+        Ok(body)
     }
 
     fn print_memory_info(&self, native_code: &mut String) {
         todo!()
     }
 
+    fn optimize_unused_functions(&self) -> bool {
+        false // TODO
+    }
+
     fn initialize_static_values(&self, generated_code: &mut String) {
-        todo!()
+        // TODO
     }
 
     fn debug(&self) -> bool {
@@ -322,7 +381,18 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
         args: &[(&str, Option<&str>)],
         comment: Option<&str>,
     ) {
-        todo!()
+        let arg_vec = args
+            .to_vec()
+            .iter()
+            .map(|it| it.0.to_string())
+            .collect::<Vec<_>>();
+
+        self.add(
+            out,
+            &format!("{function_name}({});", arg_vec.join(", ")),
+            None,
+            true,
+        );
     }
 
     fn call_function_owned(
@@ -336,28 +406,26 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
     }
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        todo!()
+        self.code_manipulator.add_comment(out, comment, indent);
     }
 
     fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
-        todo!()
+        self.code_manipulator.add_rows(out, code, comment, indent);
     }
 
     fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
-        todo!()
+        self.code_manipulator.add(out, code, comment, indent);
     }
 
     fn add_empty_line(&self, out: &mut String) {
-        todo!()
+        self.code_manipulator.add_empty_line(out);
     }
 
     fn remove_comments_from_line(&self, line: String) -> String {
-        todo!()
+        self.code_manipulator.remove_comments_from_line(line)
     }
 
-    fn preamble(&self, code: &mut String) {
-        todo!()
-    }
+    fn preamble(&self, code: &mut String) {}
 
     fn create_lambda_add_ref_like_function(
         &self,
@@ -384,15 +452,38 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
     }
 
     fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {
-        todo!()
+        // TODO
     }
 
     fn generate_statics_code(&self, statics: &Statics) -> (String, String) {
-        todo!()
+        // TODO
+        let mut before = String::new();
+        let mut after = String::new();
+
+        if let Some(includes) = statics.custom().get("include") {
+            let mut includes = includes.clone();
+            includes.sort();
+            includes.dedup();
+
+            for inc in includes {
+                self.add(&mut before, &format!("#include {inc}"), None, false);
+            }
+        }
+
+        if let Some(consts) = statics.custom().get("const") {
+            for c in consts {
+                self.add(&mut before, &format!("{c}"), None, false);
+            }
+        }
+
+        self.add(&mut before, "int main()", None, false);
+        self.add(&mut before, "{", None, false);
+
+        (before, after)
     }
 
     fn function_preamble(&self, out: &mut String) {
-        todo!()
+        // TODO
     }
 
     fn define_debug(&self, out: &mut String) {
@@ -400,15 +491,15 @@ impl<'a> CodeGen<'a, Box<crate::codegen::c::function_call_parameters::CFunctionC
     }
 
     fn restore(&self, stack: &StackVals, out: &mut String) {
-        todo!()
+        // TODO
     }
 
     fn function_end(&self, out: &mut String, add_return: bool) {
-        todo!()
+        self.add(out, "}", None, false);
     }
 
     fn add_statics(&self, statics: &mut Statics) {
-        todo!()
+        // TODO
     }
 
     fn value_to_string(&self, value_type: &ValueType) -> String {
