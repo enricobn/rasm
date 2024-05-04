@@ -1,5 +1,6 @@
 pub native print(s: str) /{
-    $include("<stdio.h>")
+    $include(<stdio.h>)
+    $include(<stdio.h>)
     printf("%s", $s);
 }/
 

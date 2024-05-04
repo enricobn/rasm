@@ -22,16 +22,18 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::process::{Command, Stdio};
 use std::time::Instant;
 
 use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::backend::{Backend, BackendNasmi386};
+use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::code_manipulator::DummyCodeManipulator;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
+use crate::codegen::text_macro::{CIncludeMacro, TextMacro, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
@@ -116,7 +118,7 @@ impl CompileTarget {
             CompileTarget::Nasmi386(options) => {
                 CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
             }
-            CompileTarget::C => "TODO".to_string(),
+            CompileTarget::C => CodeGenC.generate(typed_module, statics),
         }
     }
 
@@ -186,7 +188,11 @@ impl CompileTarget {
                 code_gen.get_evaluator()
             }
             CompileTarget::C => {
-                TextMacroEvaluator::new(LinkedHashMap::new(), Box::new(DummyCodeManipulator))
+                let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> =
+                    LinkedHashMap::new();
+                evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
+
+                TextMacroEvaluator::new(evaluators, Box::new(DummyCodeManipulator))
             }
         }
     }
@@ -319,7 +325,36 @@ impl CompileTarget {
                     unreachable!()
                 }
             },
-            CompileTarget::C => {}
+            CompileTarget::C => {
+                let native_code = self.generate(statics, &typed_module, command_line_options.debug);
+
+                let out_path = Path::new(&out);
+                File::create(out_path)
+                    .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
+                    .write_all(native_code.as_bytes())
+                    .unwrap();
+
+                // gcc fibWithLambda.c -std=c17 -O3 -o fibWithLambda
+
+                let start = Instant::now();
+                info!("source file : '{:?}'", out_path);
+                let mut command = Command::new("gcc");
+                command
+                    .arg(out_path.with_extension("c"))
+                    .arg("-std=c17")
+                    .arg("-O3")
+                    .arg("-o")
+                    .arg(out_path.with_extension(""));
+                let result = command
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .expect("failed to execute gcc");
+                info!("compiler ended in {:?}", start.elapsed());
+
+                if !result.status.success() {
+                    panic!("Error running gcc")
+                }
+            }
         }
     }
 

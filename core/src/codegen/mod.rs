@@ -46,6 +46,7 @@ use crate::type_check::used_functions::UsedFunctions;
 use crate::utils::OptionDisplay;
 
 pub mod backend;
+pub mod c;
 mod code_manipulator;
 pub mod compile_target;
 pub mod enhanced_module;

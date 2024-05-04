@@ -1,4 +1,5 @@
 use linked_hash_map::LinkedHashMap;
+use std::collections::HashMap;
 
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::parser::ast::ASTType;
@@ -39,6 +40,7 @@ pub struct Statics {
     const_typed_map: LinkedHashMap<String, ConstTypedEntry>,
     static_allocation: Vec<(String, String)>,
     heap: LinkedHashMap<String, (String, i32)>,
+    custom: HashMap<String, Vec<String>>,
 }
 
 impl Statics {
@@ -51,6 +53,7 @@ impl Statics {
             const_typed_map: LinkedHashMap::new(),
             static_allocation: Vec::new(),
             heap: LinkedHashMap::new(),
+            custom: HashMap::new(),
         }
     }
 
@@ -163,5 +166,14 @@ impl Statics {
 
     pub fn heap(&self) -> &LinkedHashMap<String, (String, i32)> {
         &self.heap
+    }
+
+    pub fn add_custom(&mut self, key: String, value: String) {
+        let entry = self.custom.entry(key).or_insert(Vec::new());
+        entry.push(value);
+    }
+
+    pub fn custom(&self) -> &HashMap<String, Vec<String>> {
+        &self.custom
     }
 }

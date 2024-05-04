@@ -1428,6 +1428,37 @@ impl PrintRefMacro {
     }
 }
 
+pub struct CIncludeMacro;
+
+impl TextMacroEval for CIncludeMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        match text_macro.parameters.get(0).unwrap() {
+            MacroParam::Plain(s, _, _) => {
+                statics.add_custom("include".to_string(), s.clone());
+            }
+            MacroParam::StringLiteral(s) => {
+                statics.add_custom("include".to_string(), format!("\"{s}\""));
+            }
+            MacroParam::Ref(_, _, _) => {}
+        }
+        String::new()
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::codegen::compile_target::CompileTarget;
