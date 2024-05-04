@@ -71,6 +71,21 @@ impl CodeGenC {
             options: AsmOptions::default(),
         }
     }
+
+    fn type_to_string(ast_type: &ASTTypedType) -> String {
+        match ast_type {
+            ASTTypedType::Builtin(kind) => match kind {
+                BuiltinTypedTypeKind::String => "char*".to_string(),
+                BuiltinTypedTypeKind::I32 => "int".to_string(),
+                BuiltinTypedTypeKind::Bool => "int".to_string(),
+                BuiltinTypedTypeKind::Char => "char".to_string(),
+                BuiltinTypedTypeKind::F32 => "float".to_string(),
+                _ => todo!("{kind:?}"),
+            },
+            ASTTypedType::Unit => "void".to_string(),
+            _ => todo!("{ast_type}"),
+        }
+    }
 }
 
 impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
@@ -238,23 +253,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef) {
         let mut args = Vec::new();
         for par in function_def.parameters.iter() {
-            let arg = match &par.ast_type {
-                ASTTypedType::Builtin(kind) => match kind {
-                    BuiltinTypedTypeKind::String => "char*".to_string(),
-                    BuiltinTypedTypeKind::I32 => "int".to_string(),
-                    BuiltinTypedTypeKind::Bool => "int".to_string(),
-                    BuiltinTypedTypeKind::Char => "char".to_string(),
-                    BuiltinTypedTypeKind::F32 => "float".to_string(),
-                    _ => todo!("{kind:?}"),
-                },
-                _ => todo!("{}", par.ast_type),
-            };
-            args.push(format!("{arg} {}", par.name));
+            let arg_type = Self::type_to_string(&par.ast_type);
+            args.push(format!("{arg_type} {}", par.name));
         }
 
         self.add(
             out,
-            &format!("void {}({}) {{", function_def.name, args.join(", ")),
+            &format!(
+                "{} {}({}) {{",
+                Self::type_to_string(&function_def.return_type),
+                function_def.name,
+                args.join(", ")
+            ),
             None,
             false,
         );
