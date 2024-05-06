@@ -162,7 +162,9 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         let mut after = String::new();
         let mut before = String::new();
 
-        for statement in typed_module.body.iter() {
+        let len = typed_module.body.len();
+
+        for (i, statement) in typed_module.body.iter().enumerate() {
             match statement {
                 ASTTypedStatement::Expression(e) => match e {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -179,6 +181,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             &mut id,
                             &mut statics,
                             typed_module,
+                            i == len - 1,
+                            false,
                         );
                         before.push_str(&bf);
 
@@ -415,6 +419,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             id,
                             statics,
                             typed_module,
+                            false,
+                            true,
                         );
 
                         call_parameters.push(&bf);
@@ -689,6 +695,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             id,
                             statics,
                             typed_module,
+                            false,
+                            false,
                         ),
                         call.index.clone(),
                     )
@@ -713,6 +721,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             id,
                             statics,
                             typed_module,
+                            false,
+                            false,
                         ),
                         call.index.clone(),
                     )
@@ -1020,7 +1030,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         match &function_def.body {
             ASTTypedFunctionBody::RASMBody(calls) => {
-                for statement in calls {
+                let len = calls.len();
+                for (i, statement) in calls.iter().enumerate() {
                     match statement {
                         ASTTypedStatement::Expression(expr) => {
                             match expr {
@@ -1038,6 +1049,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                         id,
                                         statics,
                                         typed_module,
+                                        i == len - 1,
+                                        false,
                                     );
 
                                     before.push_str(&bf);
@@ -1251,6 +1264,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        is_last: bool,
+        is_inner_call: bool,
     ) -> (String, Vec<String>, Vec<LambdaCall>);
 
     fn create_lambdas(
@@ -2595,6 +2610,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        is_last: bool,
+        is_inner_call: bool,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
         let mut before = String::new();
         let mut after = Vec::new();

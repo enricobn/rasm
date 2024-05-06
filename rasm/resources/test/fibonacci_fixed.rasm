@@ -1,0 +1,7 @@
+println(fib(10));
+
+fn fib(n: i32) -> i32 {
+    if(lessOrEqual(n, 1), n, {
+        fib(n.sub(1)).add(fib(n.sub(2)));
+    });
+}

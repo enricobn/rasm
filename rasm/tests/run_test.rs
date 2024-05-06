@@ -22,6 +22,11 @@ fn test_fibonacci() {
 }
 
 #[test]
+fn test_fibonacci_fixed_c() {
+    run_test_with_target("fibonacci_fixed", vec![], "55\n", CompileTarget::C);
+}
+
+#[test]
 fn test_inline() {
     run_test("inline", Vec::new(), "29\n");
 }

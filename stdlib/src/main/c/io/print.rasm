@@ -1,10 +1,13 @@
 pub native print(s: str) /{
     $include(<stdio.h>)
-    $include(<stdio.h>)
     printf("%s", $s);
 }/
 
-pub fn println(s: str) {
-    print(s);
+pub native print(n: i32) /{
+    $include(<stdio.h>)
+    printf("%d", $n);
+}/
+
+pub fn println() {
     print("\n");
 }

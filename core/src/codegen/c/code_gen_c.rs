@@ -179,7 +179,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         type_name: &String,
         typed_module: &ASTTypedModule,
     ) -> String {
-        String::new()
+        "// call_deref_for_let_val".to_string()
     }
 
     fn call_add_ref_for_let_val(
@@ -308,6 +308,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        is_last: bool,
+        is_inner_call: bool,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
         let mut before = String::new();
         let mut after = Vec::new();
@@ -317,7 +319,37 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         for expression in function_call.parameters.iter() {
             match expression {
                 ASTTypedExpression::StringLiteral(s) => arg_values.push(format!("\"{s}\"")),
-                ASTTypedExpression::ValueRef(name, index) => arg_values.push(format!("{name}")),
+                ASTTypedExpression::ValueRef(name, index) => arg_values.push(name.to_string()),
+                ASTTypedExpression::Value(value_type, index) => match value_type {
+                    ValueType::Boolean(b) => {
+                        arg_values.push((if *b { "0" } else { "1" }).to_string())
+                    }
+                    ValueType::I32(i) => arg_values.push(format!("{i}")),
+                    ValueType::Char(c) => arg_values.push(format!("'{c}'")),
+                    ValueType::F32(f) => arg_values.push(format!("{f}")),
+                },
+                ASTTypedExpression::ASTFunctionCallExpression(innerCall) => {
+                    let (bf, af, mut inner_lambda_calls) = self.generate_call_function(
+                        namespace,
+                        innerCall,
+                        context,
+                        parent_def,
+                        added_to_stack.clone(),
+                        lambda_space,
+                        indent,
+                        is_lambda,
+                        stack_vals,
+                        id,
+                        statics,
+                        typed_module,
+                        false,
+                        true,
+                    );
+
+                    lambda_calls.extend(inner_lambda_calls);
+
+                    arg_values.push(bf.trim().replace('\n', ""));
+                }
                 _ => {
                     println!("call {function_call}, expression {expression}");
                     todo!()
@@ -325,16 +357,32 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             }
         }
 
-        self.add(
-            &mut before,
-            &format!(
-                "{}({});",
-                function_call.function_name,
-                arg_values.join(", ")
-            ),
-            None,
-            true,
-        );
+        let mut code = String::new();
+
+        let return_type = if let Some(function_def) = typed_module
+            .functions_by_name
+            .get(&function_call.function_name)
+        {
+            &function_def.return_type
+        } else {
+            panic!("Cannot determine function return type");
+        };
+
+        if is_last && !return_type.is_unit() {
+            code.push_str("return ");
+        }
+
+        code.push_str(&format!(
+            "{}({})",
+            function_call.function_name,
+            arg_values.join(", ")
+        ));
+
+        if !is_inner_call {
+            code.push(';');
+        }
+
+        self.add(&mut before, &code, None, true);
 
         (before, after, lambda_calls)
     }
