@@ -563,7 +563,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             if let Some(index_in_lambda_space) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                self.call_lambda(&function_call, before, stack_vals, index_in_lambda_space);
+                self.call_lambda(function_call, before, stack_vals, index_in_lambda_space);
             } else if let Some(kind) = context.get(&function_call.function_name) {
                 self.call_lambda_parameter(&function_call, before, stack_vals, kind);
             } else {
@@ -989,7 +989,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             self.add_comment(definitions, &format!("{}", function_def.index), false);
         }
         self.add_comment(definitions, &format!("function {}", function_def), false);
-        self.function_def(definitions, &function_def);
+        self.function_def(definitions, function_def);
 
         let mut before = String::new();
 
@@ -1269,13 +1269,72 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) -> (String, Vec<String>, Vec<LambdaCall>);
 
     fn create_lambdas(
-        &self,
+        &'a self,
         lambdas: Vec<LambdaCall>,
         indent: usize,
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)>;
+    ) -> HashMap<String, (String, String)> {
+        let mut result = HashMap::new();
+
+        let mut lambda_calls = Vec::new();
+        for lambda_call in lambdas {
+            let mut definitions = String::new();
+            let mut body = String::new();
+
+            //debug!("Creating lambda {}", lambda_call.def.name);
+            lambda_calls.append(&mut self.add_function_def(
+                &lambda_call.def,
+                Some(&lambda_call.space),
+                lambda_call.space.get_context(),
+                indent,
+                true,
+                &mut definitions,
+                id,
+                statics,
+                &mut body,
+                typed_module,
+            ));
+
+            result.insert(lambda_call.def.name.clone(), (definitions, body));
+
+            //Parser::print_function_def(&lambda_call.def);
+            lambda_calls.extend(
+                lambda_call
+                    .space
+                    .get_ref_functions()
+                    .iter()
+                    .flat_map(|it| {
+                        let mut definitions = String::new();
+                        let mut body = String::new();
+
+                        let ls = self.add_function_def(
+                            it,
+                            None,
+                            lambda_call.space.get_context(),
+                            indent,
+                            false,
+                            &mut definitions,
+                            id,
+                            statics,
+                            &mut body,
+                            typed_module,
+                        );
+
+                        result.insert(it.name.clone(), (definitions, body));
+
+                        ls
+                    })
+                    .collect::<Vec<_>>(),
+            );
+        }
+        if !lambda_calls.is_empty() {
+            result.extend(self.create_lambdas(lambda_calls, indent + 1, id, statics, typed_module));
+        }
+
+        result
+    }
 
     fn create_all_functions(
         &'a self,
@@ -2790,74 +2849,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         };
 
         (before, after, lambda_calls)
-    }
-
-    fn create_lambdas(
-        &self,
-        lambdas: Vec<LambdaCall>,
-        indent: usize,
-        id: &mut usize,
-        statics: &mut Statics,
-        typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)> {
-        let mut result = HashMap::new();
-
-        let mut lambda_calls = Vec::new();
-        for lambda_call in lambdas {
-            let mut definitions = String::new();
-            let mut body = String::new();
-
-            //debug!("Creating lambda {}", lambda_call.def.name);
-            lambda_calls.append(&mut self.add_function_def(
-                &lambda_call.def,
-                Some(&lambda_call.space),
-                lambda_call.space.get_context(),
-                indent,
-                true,
-                &mut definitions,
-                id,
-                statics,
-                &mut body,
-                typed_module,
-            ));
-
-            result.insert(lambda_call.def.name.clone(), (definitions, body));
-
-            //Parser::print_function_def(&lambda_call.def);
-            lambda_calls.extend(
-                lambda_call
-                    .space
-                    .get_ref_functions()
-                    .iter()
-                    .flat_map(|it| {
-                        let mut definitions = String::new();
-                        let mut body = String::new();
-
-                        let ls = self.add_function_def(
-                            it,
-                            None,
-                            lambda_call.space.get_context(),
-                            indent,
-                            false,
-                            &mut definitions,
-                            id,
-                            statics,
-                            &mut body,
-                            typed_module,
-                        );
-
-                        result.insert(it.name.clone(), (definitions, body));
-
-                        ls
-                    })
-                    .collect::<Vec<_>>(),
-            );
-        }
-        if !lambda_calls.is_empty() {
-            result.extend(self.create_lambdas(lambda_calls, indent + 1, id, statics, typed_module));
-        }
-
-        result
     }
 
     fn translate_body(

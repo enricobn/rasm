@@ -24,13 +24,18 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::TextMacro;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
-use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
+use crate::codegen::{can_optimize_lambda_space, AsmOptions, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedExpression, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
 };
+use crate::utils::SliceDisplay;
+use linked_hash_map::LinkedHashMap;
+use log::debug;
+use rayon::result;
 use std::collections::HashMap;
+use std::ops::Deref;
 
 #[derive(Clone)]
 pub struct CodeManipulatorC;
@@ -80,6 +85,7 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::Bool => "int".to_string(),
                 BuiltinTypedTypeKind::Char => "char".to_string(),
                 BuiltinTypedTypeKind::F32 => "float".to_string(),
+                BuiltinTypedTypeKind::Lambda { .. } => "struct Lambda".to_string(),
                 _ => todo!("{kind:?}"),
             },
             ASTTypedType::Unit => "void".to_string(),
@@ -283,7 +289,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     }
 
     fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals) {
-        todo!()
+        // TODO
     }
 
     fn value_as_return(&self, before: &mut String, v: &str) {
@@ -311,15 +317,86 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         is_last: bool,
         is_inner_call: bool,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
+        if is_lambda {
+            println!("is lambda");
+        }
         let mut before = String::new();
         let mut after = Vec::new();
         let mut lambda_calls = Vec::new();
 
+        let (def, real_function_name) = if let Some(function_def) = typed_module
+            .functions_by_name
+            .get(&function_call.function_name)
+        {
+            let def = function_def.clone();
+            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
+            let real_function_name = typed_module
+                .functions_by_name
+                .get(&function_call.function_name)
+                .unwrap()
+                .clone()
+                .name;
+            (def, real_function_name)
+        } else {
+            todo!()
+        };
+
+        let mut code = String::new();
+        let mut lambda_params = String::new();
+
         let mut arg_values = Vec::new();
-        for expression in function_call.parameters.iter() {
+        for (param_index, expression) in function_call.parameters.iter().enumerate() {
+            let param_opt = def.parameters.get(param_index);
+            let param_name = param_opt
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Cannot find param {} : {:?} of function call {}",
+                        param_index, expression, function_call.function_name
+                    )
+                })
+                .name
+                .clone();
+            let param_type = param_opt
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Cannot find param {} of function call {}",
+                        param_index, function_call.function_name
+                    )
+                })
+                .ast_type
+                .clone();
+
+            debug!(
+                "{}adding parameter {}: {:?}",
+                " ".repeat(indent * 4),
+                param_name,
+                expression
+            );
+
             match expression {
                 ASTTypedExpression::StringLiteral(s) => arg_values.push(format!("\"{s}\"")),
-                ASTTypedExpression::ValueRef(name, index) => arg_values.push(name.to_string()),
+                ASTTypedExpression::ValueRef(name, index) => {
+                    if let Some(ls) = lambda_space {
+                        if ls.get_index(name).is_some() {
+                            if let Some(kind) = ls.get_context().get(name) {
+                                let (i, ast_typed_type) = match kind {
+                                    TypedValKind::ParameterRef(i, pd) => (*i, pd.ast_type.clone()),
+                                    TypedValKind::LetRef(i, t) => (*i, t.clone()),
+                                };
+                                self.add(
+                                    &mut lambda_params,
+                                    &format!(
+                                        "{} {name} *lambda.args[{i}]);",
+                                        Self::type_to_string(&ast_typed_type)
+                                    ),
+                                    None,
+                                    true,
+                                );
+                            }
+                        }
+                    }
+                    arg_values.push(name.to_string())
+                }
                 ASTTypedExpression::Value(value_type, index) => match value_type {
                     ValueType::Boolean(b) => {
                         arg_values.push((if *b { "0" } else { "1" }).to_string())
@@ -328,10 +405,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                     ValueType::Char(c) => arg_values.push(format!("'{c}'")),
                     ValueType::F32(f) => arg_values.push(format!("{f}")),
                 },
-                ASTTypedExpression::ASTFunctionCallExpression(innerCall) => {
+                ASTTypedExpression::ASTFunctionCallExpression(inner_call) => {
                     let (bf, af, mut inner_lambda_calls) = self.generate_call_function(
                         namespace,
-                        innerCall,
+                        inner_call,
                         context,
                         parent_def,
                         added_to_stack.clone(),
@@ -350,14 +427,125 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
                     arg_values.push(bf.trim().replace('\n', ""));
                 }
+                ASTTypedExpression::Lambda(lambda_def) => {
+                    // TODO almost copied from asm
+                    let (return_type, parameters_types) =
+                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                            return_type,
+                            parameters,
+                        }) = &param_type
+                        {
+                            (return_type, parameters.clone())
+                        } else {
+                            panic!("Parameter is not a lambda: {:?}", param_type);
+                        };
+
+                    if parameters_types.len() != lambda_def.parameter_names.len() {
+                        panic!("Lambda parameters do not match definition");
+                    }
+
+                    let rt = return_type.deref().clone();
+
+                    let name = format!("lambda{}", id);
+                    let mut def = ASTTypedFunctionDef {
+                        namespace: function_call.namespace.clone(),
+                        //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
+                        name: name.clone(),
+                        original_name: name.clone(),
+                        parameters: Vec::new(), // parametrs are calculated later
+                        return_type: rt,
+                        body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
+                        inline: false,
+                        generic_types: LinkedHashMap::new(),
+                        index: lambda_def.index.clone(),
+                    };
+
+                    *id += 1;
+
+                    def.parameters.push(ASTTypedParameterDef::new(
+                        "lambda",
+                        param_type.clone(),
+                        ASTIndex::none(),
+                    ));
+
+                    debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
+
+                    let function_def = typed_module
+                        .functions_by_name
+                        .get(&function_call.function_name)
+                        .unwrap();
+
+                    let optimize = function_def.return_type.is_unit()
+                        || can_optimize_lambda_space(&function_def.return_type, typed_module);
+
+                    // TODO parent_lambda space
+
+                    let mut lambda_space = LambdaSpace::new(context.clone());
+
+                    for (name, kind) in context.iter() {
+                        lambda_space.add(name.clone(), kind.clone());
+                    }
+
+                    // I add the parameters of the lambda itself
+                    for i in 0..parameters_types.len() {
+                        let (p_name, p_index) = lambda_def.parameter_names.get(i).unwrap();
+                        def.parameters.push(ASTTypedParameterDef {
+                            name: p_name.clone(),
+                            ast_type: parameters_types.get(i).unwrap().clone(),
+                            ast_index: p_index.clone(),
+                        });
+                        if context.get(p_name).is_some() {
+                            panic!("parameter {p_name} already used in this context: {p_index}");
+                        }
+                    }
+
+                    self.add(&mut code, "// TODO create lambda", None, true);
+
+                    self.add(
+                        &mut code,
+                        &format!("struct Lambda lambda{param_index};"),
+                        None,
+                        true,
+                    );
+                    self.add(
+                        &mut code,
+                        &format!(
+                            "lambda{param_index}.args = malloc(sizeof(void *) * {});",
+                            lambda_space.size()
+                        ),
+                        None,
+                        true,
+                    );
+                    for (i, (name, kind)) in lambda_space.iter().enumerate() {
+                        self.add(
+                            &mut code,
+                            &format!("lambda{param_index}.args[{i}] = &{name};"),
+                            None,
+                            true,
+                        );
+                    }
+                    self.add(
+                        &mut code,
+                        &format!("lambda{param_index}.functionPtr = &{name};"),
+                        None,
+                        true,
+                    );
+
+                    arg_values.push(format!("lambda{param_index}"));
+
+                    let lambda_call = LambdaCall {
+                        def,
+                        space: lambda_space,
+                    };
+
+                    lambda_calls.push(lambda_call);
+                }
                 _ => {
                     println!("call {function_call}, expression {expression}");
                     todo!()
                 }
             }
         }
-
-        let mut code = String::new();
 
         let return_type = if let Some(function_def) = typed_module
             .functions_by_name
@@ -368,38 +556,28 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             panic!("Cannot determine function return type");
         };
 
-        if is_last && !return_type.is_unit() {
-            code.push_str("return ");
-        }
+        let preamble = if is_last && !return_type.is_unit() {
+            "return "
+        } else {
+            ""
+        };
 
-        code.push_str(&format!(
-            "{}({})",
-            function_call.function_name,
-            arg_values.join(", ")
-        ));
+        let postamble = if !is_inner_call { ";" } else { "" };
 
-        if !is_inner_call {
-            code.push(';');
-        }
+        self.add(
+            &mut code,
+            &format!(
+                "{preamble}{}({}){postamble}",
+                function_call.function_name,
+                arg_values.join(", ")
+            ),
+            None,
+            true,
+        );
 
-        self.add(&mut before, &code, None, true);
+        before.push_str(&code);
 
         (before, after, lambda_calls)
-    }
-
-    fn create_lambdas(
-        &self,
-        lambdas: Vec<LambdaCall>,
-        indent: usize,
-        id: &mut usize,
-        statics: &mut Statics,
-        typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)> {
-        if !lambdas.is_empty() {
-            todo!()
-        } else {
-            HashMap::new()
-        }
     }
 
     fn translate_body(
@@ -530,9 +708,21 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
         if let Some(consts) = statics.custom().get("const") {
             for c in consts {
-                self.add(&mut before, &format!("{c}"), None, false);
+                self.add(&mut before, c, None, false);
             }
         }
+
+        self.add_empty_line(&mut before);
+        self.add(&mut before, "struct Lambda {", None, false);
+        self.add(&mut before, "void **args;", None, true);
+        self.add(
+            &mut before,
+            "void* (*functionPtr)(struct Lambda);",
+            None,
+            true,
+        );
+        self.add(&mut before, "};", None, false);
+        self.add_empty_line(&mut before);
 
         self.add(&mut before, "int main()", None, false);
         self.add(&mut before, "{", None, false);

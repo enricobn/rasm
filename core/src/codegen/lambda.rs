@@ -61,4 +61,8 @@ impl LambdaSpace {
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
+
+    pub fn size(&self) -> usize {
+        self.values.len()
+    }
 }

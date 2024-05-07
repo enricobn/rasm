@@ -28,7 +28,7 @@ use std::time::Instant;
 use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
-use crate::codegen::backend::{Backend, BackendNasmi386};
+use crate::codegen::backend::{log_command, Backend, BackendNasmi386};
 use crate::codegen::c::code_gen_c::{CodeGenC, CodeManipulatorC};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
@@ -342,8 +342,10 @@ impl CompileTarget {
                     .arg(out_path.with_extension("c"))
                     .arg("-std=c17")
                     .arg("-O3")
+                    .arg("-Wno-implicit-function-declaration")
                     .arg("-o")
                     .arg(out_path.with_extension(""));
+                log_command(&command);
                 let result = command
                     .stderr(Stdio::inherit())
                     .output()

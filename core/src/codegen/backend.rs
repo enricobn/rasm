@@ -61,18 +61,18 @@ impl BackendNasmi386 {
             debug,
         }
     }
+}
 
-    fn log_command(command: &Command) {
-        let mut s = String::new();
-        s.push_str(&format!(
-            "running command: {}",
-            &command.get_program().to_str().unwrap()
-        ));
-        for arg in command.get_args() {
-            s.push_str(&format!(" {}", &arg.to_str().unwrap()));
-        }
-        info!("{s}");
+pub fn log_command(command: &Command) {
+    let mut s = String::new();
+    s.push_str(&format!(
+        "running command: {}",
+        &command.get_program().to_str().unwrap()
+    ));
+    for arg in command.get_args() {
+        s.push_str(&format!(" {}", &arg.to_str().unwrap()));
     }
+    info!("{s}");
 }
 
 impl Backend for BackendNasmi386 {
@@ -109,7 +109,7 @@ impl Backend for BackendNasmi386 {
             .arg("-F")
             .arg("dwarf")
             .arg(source_file);
-        BackendNasmi386::log_command(&nasm_command);
+        log_command(&nasm_command);
         let result = nasm_command
             .stderr(Stdio::inherit())
             .output()
@@ -135,7 +135,7 @@ impl Backend for BackendNasmi386 {
                     .arg("/lib32/ld-linux.so.2")
                     .arg("-o")
                     .arg(path.with_extension(""));
-                BackendNasmi386::log_command(&ld_command);
+                log_command(&ld_command);
                 ld_command
                     .stderr(Stdio::inherit())
                     .output()
@@ -158,7 +158,7 @@ impl Backend for BackendNasmi386 {
                     .arg(path.with_extension(""))
                     .arg(path.with_extension("o"))
                     .args(libraries);
-                BackendNasmi386::log_command(&gcc_command);
+                log_command(&gcc_command);
                 gcc_command
                     .stderr(Stdio::inherit())
                     .output()
