@@ -321,7 +321,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         parameters: Vec<ASTTypedParameterDef>,
         inline: bool,
         body: Option<ASTTypedFunctionBody>,
-        address_to_call: String,
+        function_to_call: String,
         lambda_space_opt: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
@@ -582,10 +582,10 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 true,
             );
 
-            self.call_function_simple(before, &address_to_call);
+            self.call_function_simple(before, &function_to_call);
         }
 
-        self.restore_stack(&function_call, before, &mut call_parameters);
+        self.restore_stack(function_call, before, &mut call_parameters);
 
         after.insert(0, call_parameters.after().join("\n"));
 
@@ -2754,18 +2754,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 typed_module,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
-            let (index, ast_type) = match kind {
-                TypedValKind::ParameterRef(index, par) => (*index as i32 + 2, par.ast_type.clone()),
-                TypedValKind::LetRef(index, ast_type) => {
-                    // TODO I think it's not really needed because every index I put here, it works...
-                    let index_relative_to_bp = match stack_vals
-                        .find_local_val_relative_to_bp(&function_call.function_name)
-                    {
-                        None => *index as i32 + 2,
-                        Some(index_in_stack) => -(index_in_stack as i32),
-                    };
-                    (index_relative_to_bp, ast_type.clone())
-                }
+            let ast_type = match kind {
+                TypedValKind::ParameterRef(index, par) => par.ast_type.clone(),
+                TypedValKind::LetRef(index, ast_type) => ast_type.clone(),
             };
 
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -2773,9 +2764,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 parameters,
             }) = &ast_type
             {
-                let wl = self.backend.word_len();
-                let bp = self.backend.stack_base_pointer();
-
                 let parameters_defs = parameters
                     .iter()
                     .map(|it| {
@@ -2800,7 +2788,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                     parameters
                 );
                 debug!("{}context {:?}", " ".repeat((indent + 1) * 4), context);
-                debug!("{}index {}", " ".repeat((indent + 1) * 4), index);
+
                 debug!(
                     "{}function_call.parameters {:?}",
                     " ".repeat((indent + 1) * 4),
@@ -2827,7 +2815,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                     parameters_defs,
                     false,
                     None,
-                    format!("[{}+{}]", bp, index * wl as i32),
+                    "".to_string(),
                     lambda_space,
                     indent,
                     true,

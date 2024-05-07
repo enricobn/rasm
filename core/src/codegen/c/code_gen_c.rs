@@ -30,11 +30,8 @@ use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
 };
-use crate::utils::SliceDisplay;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use rayon::result;
-use std::collections::HashMap;
 use std::ops::Deref;
 
 #[derive(Clone)]

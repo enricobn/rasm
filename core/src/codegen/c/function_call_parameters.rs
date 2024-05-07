@@ -26,7 +26,6 @@ use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
-use log::debug;
 
 pub struct CFunctionCallParameters {
     parameters: Vec<ASTTypedParameterDef>,
