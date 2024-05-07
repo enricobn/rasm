@@ -593,6 +593,8 @@ impl FunctionsCreatorNasmi386 {
             "deref",
             &[("$s", None), (&format!("[{message_key}]"), None)],
             None,
+            false,
+            false,
         );
 
         body_src
@@ -606,6 +608,8 @@ impl FunctionsCreatorNasmi386 {
             "addRef",
             &[("$s", None), (&format!("[{message_key}]"), None)],
             None,
+            false,
+            false,
         );
 
         body_src
@@ -706,7 +710,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             }
 
             self.code_gen
-                .call_function_owned(&mut body, "[ebx]", &args, None);
+                .call_function_owned(&mut body, "[ebx]", &args, None, false, false);
 
             self.code_gen.add_rows(
                 &mut body,
@@ -781,7 +785,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         }
 
         self.code_gen
-            .call_function_owned(&mut body, "[ebx]", &args, None);
+            .call_function_owned(&mut body, "[ebx]", &args, None, false, false);
 
         self.code_gen.add_rows(
             &mut body,
@@ -799,7 +803,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         args.push(("ebx".to_owned(), None));
 
         self.code_gen
-            .call_function_owned(&mut body, "[ebx]", &args, None);
+            .call_function_owned(&mut body, "[ebx]", &args, None, false, false);
 
         self.code_gen
             .add_rows(&mut body, vec![".end:", "pop ebx"], None, false);

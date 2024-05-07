@@ -330,29 +330,33 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        is_last: bool,
+        is_inner_call: bool,
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
         self.add_empty_line(before);
 
-        if inline {
-            self.add_comment(
-                before,
-                &format!(
-                    "inlining function {}, added to stack {}",
-                    function_call.function_name, added_to_stack
-                ),
-                true,
-            );
-        } else {
-            self.add_comment(
-                before,
-                &format!(
-                    "calling function {}, added to stack {}",
-                    function_call.function_name, added_to_stack
-                ),
-                true,
-            );
+        if self.debug() {
+            if inline {
+                self.add_comment(
+                    before,
+                    &format!(
+                        "inlining function {}, added to stack {}",
+                        function_call.function_name, added_to_stack
+                    ),
+                    true,
+                );
+            } else {
+                self.add_comment(
+                    before,
+                    &format!(
+                        "calling function {}, added to stack {}",
+                        function_call.function_name, added_to_stack
+                    ),
+                    true,
+                );
+            }
         }
 
         let mut call_parameters =
@@ -393,7 +397,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 match expr {
                     ASTTypedExpression::StringLiteral(value) => {
                         let label = statics.add_str(value);
-                        call_parameters.add_label(&param_name, label, None);
+                        call_parameters.add_label(&param_name, label, value.to_string(), None);
                     }
                     /*ASTTypedExpression::CharLiteral(c) => {
                         let label = self.statics.add_char(c);
@@ -423,9 +427,6 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             true,
                         );
 
-                        call_parameters.push(&bf);
-
-                        //after.insert(0, af.join("\n"));
                         call_parameters.add_on_top_of_after(&af.join("\n"));
 
                         call_parameters.add_function_call(
@@ -433,6 +434,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             &format!("{param_name} = {} : {}", &call.function_name, call.index),
                             param_type.clone(),
                             statics,
+                            param_name,
+                            bf,
                         );
 
                         lambda_calls.append(&mut inner_lambda_calls);
@@ -460,7 +463,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                                 return_type,
                                 parameters,
-                            }) = param_type
+                            }) = &param_type
                             {
                                 (return_type, parameters)
                             } else {
@@ -478,7 +481,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             namespace: function_call.namespace.clone(),
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                             name: name.clone(),
-                            original_name: name,
+                            original_name: name.clone(),
                             parameters: Vec::new(), // parametrs are calculated later
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
@@ -500,7 +503,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             || can_optimize_lambda_space(&function_def.return_type, typed_module);
 
                         let lambda_space = call_parameters.add_lambda(
-                            &def,
+                            &mut def,
                             lambda_space_opt,
                             context,
                             None,
@@ -508,6 +511,10 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             typed_module,
                             stack_vals,
                             optimize,
+                            function_def,
+                            &param_type,
+                            &name,
+                            param_index,
                         );
 
                         // I add the parameters of the lambda itself
@@ -565,7 +572,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             {
                 self.call_lambda(function_call, before, stack_vals, index_in_lambda_space);
             } else if let Some(kind) = context.get(&function_call.function_name) {
-                self.call_lambda_parameter(&function_call, before, stack_vals, kind);
+                self.call_lambda_parameter(function_call, before, stack_vals, kind);
             } else {
                 panic!(
                     "lambda space does not contain {}",
@@ -573,6 +580,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 );
             }
         } else {
+            /*
             self.add_comment(
                 before,
                 &format!(
@@ -582,26 +590,40 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 true,
             );
 
-            self.call_function_simple(before, &function_to_call);
+             */
+
+            self.call_function_simple(
+                before,
+                &function_to_call,
+                Some(&call_parameters),
+                is_last
+                    && parent_def
+                        .map(|it| it.return_type != ASTTypedType::Unit)
+                        .unwrap_or(false),
+                is_inner_call,
+            );
         }
 
         self.restore_stack(function_call, before, &mut call_parameters);
 
         after.insert(0, call_parameters.after().join("\n"));
 
-        if inline {
-            self.add_comment(
-                before,
-                &format!("end inlining function {}", function_call.function_name),
-                true,
-            );
-        } else {
-            self.add_comment(
-                before,
-                &format!("end calling function {}", function_call.function_name),
-                true,
-            );
+        if self.debug() {
+            if inline {
+                self.add_comment(
+                    before,
+                    &format!("end inlining function {}", function_call.function_name),
+                    true,
+                );
+            } else {
+                self.add_comment(
+                    before,
+                    &format!("end calling function {}", function_call.function_name),
+                    true,
+                );
+            }
         }
+
         lambda_calls
     }
 
@@ -636,7 +658,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) -> FUNCTION_CALL_PARAMETERS;
 
     fn add_let(
-        &self,
+        &'a self,
         namespace: &ASTNameSpace,
         context: &mut TypedValContext,
         stack: &StackVals,
@@ -955,6 +977,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             call_parameters.add_label(
                 param_name,
                 entry.key.clone(),
+                val_name.to_string(),
                 Some(&format!("static {val_name}")),
             )
         } else {
@@ -1118,7 +1141,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                         .collect::<Vec<_>>();
 
                                         let name = format!("lambda{}", id);
-                                        let def = ASTTypedFunctionDef {
+                                        let mut def = ASTTypedFunctionDef {
                                             namespace: function_def.namespace.clone(),
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                             name: name.clone(),
@@ -1146,7 +1169,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                         *id += 1;
 
                                         let new_lambda_space = parameters.add_lambda(
-                                            &def,
+                                            &mut def,
                                             lambda_space,
                                             &context,
                                             None,
@@ -1154,6 +1177,10 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                             typed_module,
                                             &stack,
                                             false,
+                                            function_def,
+                                            &ASTTypedType::Unit, //TODO
+                                            "",                  // TODO
+                                            0,                   // TODO
                                         );
 
                                         before.push_str(&parameters.before());
@@ -1251,7 +1278,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     }
 
     fn generate_call_function(
-        &self,
+        &'a self,
         namespace: &ASTNameSpace,
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
@@ -1266,7 +1293,179 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         typed_module: &ASTTypedModule,
         is_last: bool,
         is_inner_call: bool,
-    ) -> (String, Vec<String>, Vec<LambdaCall>);
+    ) -> (String, Vec<String>, Vec<LambdaCall>) {
+        let mut before = String::new();
+        let mut after = Vec::new();
+
+        let lambda_calls = if let Some(function_def) = typed_module
+            .functions_by_name
+            .get(&function_call.function_name)
+        {
+            let def = function_def.clone();
+            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
+            let real_function_name = typed_module
+                .functions_by_name
+                .get(&function_call.function_name)
+                .unwrap()
+                .clone()
+                .name;
+            debug!(
+                "{}Calling function {} context {:?}, lambda_space: {:?}",
+                " ".repeat(indent * 4),
+                function_call.function_name,
+                context.names(),
+                lambda_space
+            );
+            self.call_function_(
+                namespace,
+                &function_call,
+                context,
+                &parent_def,
+                added_to_stack,
+                &mut before,
+                def.parameters,
+                def.inline,
+                Some(def.body),
+                real_function_name,
+                lambda_space,
+                indent,
+                is_lambda,
+                stack_vals,
+                &mut after,
+                id,
+                statics,
+                typed_module,
+                is_last,
+                is_inner_call,
+            )
+        } else if let Some(function_def) = typed_module
+            .functions_by_name
+            .get(&function_call.function_name.replace("::", "_"))
+        {
+            let def = function_def.clone();
+            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
+            let real_function_name = typed_module
+                .functions_by_name
+                .get(&function_call.function_name.replace("::", "_"))
+                .unwrap()
+                .clone()
+                .name;
+            debug!(
+                "{}Calling function {} context {:?}, lambda_space: {:?}",
+                " ".repeat(indent * 4),
+                function_call.function_name,
+                context.names(),
+                lambda_space
+            );
+            self.call_function_(
+                namespace,
+                &function_call,
+                context,
+                &parent_def,
+                added_to_stack,
+                &mut before,
+                def.parameters,
+                def.inline,
+                Some(def.body),
+                real_function_name,
+                lambda_space,
+                indent,
+                is_lambda,
+                stack_vals,
+                &mut after,
+                id,
+                statics,
+                typed_module,
+                is_last,
+                is_inner_call,
+            )
+        } else if let Some(kind) = context.get(&function_call.function_name) {
+            let ast_type = match kind {
+                TypedValKind::ParameterRef(index, par) => par.ast_type.clone(),
+                TypedValKind::LetRef(index, ast_type) => ast_type.clone(),
+            };
+
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                return_type: _,
+                parameters,
+            }) = &ast_type
+            {
+                let parameters_defs = parameters
+                    .iter()
+                    .map(|it| {
+                        let name = format!("p_{}", id);
+                        *id += 1;
+                        ASTTypedParameterDef {
+                            name,
+                            ast_type: it.clone(),
+                            ast_index: ASTIndex::none(), // TODO I don't know...
+                        }
+                    })
+                    .collect();
+
+                debug!(
+                    "{}Calling lambda {}",
+                    " ".repeat(indent * 4),
+                    function_call.function_name
+                );
+                debug!(
+                    "{}parameters {:?}",
+                    " ".repeat((indent + 1) * 4),
+                    parameters
+                );
+                debug!("{}context {:?}", " ".repeat((indent + 1) * 4), context);
+
+                debug!(
+                    "{}function_call.parameters {:?}",
+                    " ".repeat((indent + 1) * 4),
+                    function_call.parameters
+                );
+                debug!(
+                    "{}parameters_defs {:?}",
+                    " ".repeat((indent + 1) * 4),
+                    parameters_defs
+                );
+                debug!(
+                    "{}lambda_space {:?}",
+                    " ".repeat((indent + 1) * 4),
+                    lambda_space
+                );
+
+                self.call_function_(
+                    namespace,
+                    &function_call,
+                    context,
+                    &parent_def,
+                    added_to_stack,
+                    &mut before,
+                    parameters_defs,
+                    false,
+                    None,
+                    "".to_string(),
+                    lambda_space,
+                    indent,
+                    true,
+                    stack_vals,
+                    &mut after,
+                    id,
+                    statics,
+                    typed_module,
+                    is_last,
+                    is_inner_call,
+                )
+            } else {
+                panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
+            }
+        } else {
+            panic!(
+                "Cannot find function {} in {}",
+                function_call.function_name,
+                OptionDisplay(&parent_def.map(|it| &it.name))
+            );
+        };
+
+        (before, after, lambda_calls)
+    }
 
     fn create_lambdas(
         &'a self,
@@ -1275,8 +1474,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)> {
-        let mut result = HashMap::new();
+    ) -> LinkedHashMap<String, (String, String)> {
+        let mut result = LinkedHashMap::new();
 
         let mut lambda_calls = Vec::new();
         for lambda_call in lambdas {
@@ -1341,8 +1540,9 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
-    ) -> HashMap<String, (String, String)> {
-        let mut result = HashMap::new();
+    ) -> LinkedHashMap<String, (String, String)> {
+        let mut result = LinkedHashMap::new();
+        let mut lambdas = LinkedHashMap::new();
 
         for function_def in typed_module.functions_by_name.values() {
             // ValContext ???
@@ -1362,13 +1562,14 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                     &mut body,
                     typed_module,
                 );
-                result.extend(self.create_lambdas(lambda_calls, 0, id, statics, typed_module));
+                lambdas.extend(self.create_lambdas(lambda_calls, 0, id, statics, typed_module));
 
                 result.insert(function_def.name.clone(), (definitions, body));
             }
         }
+        lambdas.extend(result);
 
-        result
+        lambdas
     }
 
     fn translate_body(
@@ -1384,7 +1585,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn get_used_functions(
         &self,
-        functions_native_code: &HashMap<String, (String, String)>,
+        functions_native_code: &LinkedHashMap<String, (String, String)>,
         native_code: &str,
         typed_module: &ASTTypedModule,
     ) -> Vec<(String, (String, String))> {
@@ -1435,7 +1636,14 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn debug(&self) -> bool;
 
-    fn call_function_simple(&self, out: &mut String, function_name: &str);
+    fn call_function_simple(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        call_parameters: Option<&FUNCTION_CALL_PARAMETERS>,
+        return_value: bool,
+        is_inner_call: bool,
+    );
 
     fn call_function(
         &self,
@@ -1443,6 +1651,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         function_name: &str,
         args: &[(&str, Option<&str>)],
         comment: Option<&str>,
+        return_value: bool,
+        is_inner_call: bool,
     );
 
     fn call_function_owned(
@@ -1451,6 +1661,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         function_name: &str,
         args: &[(String, Option<String>)],
         comment: Option<&str>,
+        return_value: bool,
+        is_inner_call: bool,
     );
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
@@ -1906,6 +2118,8 @@ impl CodeGenAsm {
                 (&format!("[{label}]"), None),
             ],
             Some("lambda space allocation"),
+            false,
+            false,
         );
 
         self.add(
@@ -2168,7 +2382,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     }
 
     fn end_main(&self, code: &mut String) {
-        self.call_function(code, "exitMain", &[("0", None)], None);
+        self.call_function(code, "exitMain", &[("0", None)], None, false, false);
     }
 
     fn transform_before(&self, stack: &StackVals, before: String) -> String {
@@ -2190,6 +2404,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 ),
             ],
             None,
+            false,
+            false,
         );
     }
 
@@ -2263,6 +2479,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
             )),
+            false,
+            false,
         );
     }
 
@@ -2314,6 +2532,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 "Calling function {} : {}",
                 function_call.function_name, function_call.index
             )),
+            false,
+            false,
         );
     }
 
@@ -2655,190 +2875,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn generate_call_function(
-        &self,
-        namespace: &ASTNameSpace,
-        function_call: &ASTTypedFunctionCall,
-        context: &TypedValContext,
-        parent_def: Option<&ASTTypedFunctionDef>,
-        added_to_stack: String,
-        lambda_space: Option<&LambdaSpace>,
-        indent: usize,
-        is_lambda: bool,
-        stack_vals: &StackVals,
-        id: &mut usize,
-        statics: &mut Statics,
-        typed_module: &ASTTypedModule,
-        is_last: bool,
-        is_inner_call: bool,
-    ) -> (String, Vec<String>, Vec<LambdaCall>) {
-        let mut before = String::new();
-        let mut after = Vec::new();
-
-        let lambda_calls = if let Some(function_def) = typed_module
-            .functions_by_name
-            .get(&function_call.function_name)
-        {
-            let def = function_def.clone();
-            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
-            let real_function_name = typed_module
-                .functions_by_name
-                .get(&function_call.function_name)
-                .unwrap()
-                .clone()
-                .name;
-            debug!(
-                "{}Calling function {} context {:?}, lambda_space: {:?}",
-                " ".repeat(indent * 4),
-                function_call.function_name,
-                context.names(),
-                lambda_space
-            );
-            self.call_function_(
-                namespace,
-                &function_call,
-                context,
-                &parent_def,
-                added_to_stack,
-                &mut before,
-                def.parameters,
-                def.inline,
-                Some(def.body),
-                real_function_name,
-                lambda_space,
-                indent,
-                is_lambda,
-                stack_vals,
-                &mut after,
-                id,
-                statics,
-                typed_module,
-            )
-        } else if let Some(function_def) = typed_module
-            .functions_by_name
-            .get(&function_call.function_name.replace("::", "_"))
-        {
-            let def = function_def.clone();
-            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
-            let real_function_name = typed_module
-                .functions_by_name
-                .get(&function_call.function_name.replace("::", "_"))
-                .unwrap()
-                .clone()
-                .name;
-            debug!(
-                "{}Calling function {} context {:?}, lambda_space: {:?}",
-                " ".repeat(indent * 4),
-                function_call.function_name,
-                context.names(),
-                lambda_space
-            );
-            self.call_function_(
-                namespace,
-                &function_call,
-                context,
-                &parent_def,
-                added_to_stack,
-                &mut before,
-                def.parameters,
-                def.inline,
-                Some(def.body),
-                real_function_name,
-                lambda_space,
-                indent,
-                is_lambda,
-                stack_vals,
-                &mut after,
-                id,
-                statics,
-                typed_module,
-            )
-        } else if let Some(kind) = context.get(&function_call.function_name) {
-            let ast_type = match kind {
-                TypedValKind::ParameterRef(index, par) => par.ast_type.clone(),
-                TypedValKind::LetRef(index, ast_type) => ast_type.clone(),
-            };
-
-            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                return_type: _,
-                parameters,
-            }) = &ast_type
-            {
-                let parameters_defs = parameters
-                    .iter()
-                    .map(|it| {
-                        let name = format!("p_{}", id);
-                        *id += 1;
-                        ASTTypedParameterDef {
-                            name,
-                            ast_type: it.clone(),
-                            ast_index: ASTIndex::none(), // TODO I don't know...
-                        }
-                    })
-                    .collect();
-
-                debug!(
-                    "{}Calling lambda {}",
-                    " ".repeat(indent * 4),
-                    function_call.function_name
-                );
-                debug!(
-                    "{}parameters {:?}",
-                    " ".repeat((indent + 1) * 4),
-                    parameters
-                );
-                debug!("{}context {:?}", " ".repeat((indent + 1) * 4), context);
-
-                debug!(
-                    "{}function_call.parameters {:?}",
-                    " ".repeat((indent + 1) * 4),
-                    function_call.parameters
-                );
-                debug!(
-                    "{}parameters_defs {:?}",
-                    " ".repeat((indent + 1) * 4),
-                    parameters_defs
-                );
-                debug!(
-                    "{}lambda_space {:?}",
-                    " ".repeat((indent + 1) * 4),
-                    lambda_space
-                );
-
-                self.call_function_(
-                    namespace,
-                    &function_call,
-                    context,
-                    &parent_def,
-                    added_to_stack,
-                    &mut before,
-                    parameters_defs,
-                    false,
-                    None,
-                    "".to_string(),
-                    lambda_space,
-                    indent,
-                    true,
-                    stack_vals,
-                    &mut after,
-                    id,
-                    statics,
-                    typed_module,
-                )
-            } else {
-                panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
-            }
-        } else {
-            panic!(
-                "Cannot find function {} in {}",
-                function_call.function_name,
-                OptionDisplay(&parent_def.map(|it| &it.name))
-            );
-        };
-
-        (before, after, lambda_calls)
-    }
-
     fn translate_body(
         &self,
         body: String,
@@ -2877,8 +2913,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     }
 
     fn print_memory_info(&self, native_code: &mut String) {
-        self.call_function_simple(native_code, "printAllocated");
-        self.call_function_simple(native_code, "printTableSlotsAllocated");
+        self.call_function_simple(native_code, "printAllocated", None, false, false);
+        self.call_function_simple(native_code, "printTableSlotsAllocated", None, false, false);
     }
 
     fn optimize_unused_functions(&self) -> bool {
@@ -2899,11 +2935,19 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             true,
         );
     }
+
     fn debug(&self) -> bool {
         self.debug
     }
 
-    fn call_function_simple(&self, out: &mut String, function_name: &str) {
+    fn call_function_simple(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        call_parameters: Option<&Box<dyn FunctionCallParametersAsm + 'a>>,
+        return_value: bool,
+        is_inner_call: bool,
+    ) {
         self.add(out, &format!("call    {}", function_name), None, true);
     }
 
@@ -2913,6 +2957,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         function_name: &str,
         args: &[(&str, Option<&str>)],
         comment: Option<&str>,
+        return_value: bool,
+        is_inner_call: bool,
     ) {
         if let Some(c) = comment {
             self.add_comment(out, c, true);
@@ -2949,6 +2995,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         function_name: &str,
         args: &[(String, Option<String>)],
         comment: Option<&str>,
+        return_value: bool,
+        is_inner_call: bool,
     ) {
         self.call_function(
             out,
@@ -2958,6 +3006,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 .map(|(arg, comment)| (arg.as_str(), comment.as_deref()))
                 .collect::<Vec<_>>(),
             comment,
+            return_value,
+            is_inner_call,
         )
     }
 

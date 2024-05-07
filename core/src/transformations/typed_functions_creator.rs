@@ -127,6 +127,8 @@ impl TypedFunctionsCreatorNasmi386 {
             &format!("{}References", type_def.original_name),
             &[("$address", None), (&format!("{generic_n}"), None)],
             None,
+            false,
+            false,
         );
 
         self.code_gen.add_rows(
@@ -279,6 +281,8 @@ impl TypedFunctionsCreatorNasmi386 {
             asm_function_name,
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
+            false,
+            false,
         );
 
         if struct_has_references(struct_def, module) {
@@ -371,6 +375,8 @@ impl TypedFunctionsCreatorNasmi386 {
                         asm_function_name,
                         &[("$address", None), (&format!("[{key}]"), None)],
                         Some(&descr),
+                        false,
+                        false,
                     );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
                         if let Some(name) = get_reference_type_name(&par.ast_type, module) {
@@ -431,6 +437,8 @@ impl TypedFunctionsCreatorNasmi386 {
             asm_function_name,
             &[("$address", None), ("$descr", None)],
             Some(&descr),
+            false,
+            false,
         );
 
         if type_has_references(type_def) {

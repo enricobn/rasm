@@ -16,7 +16,7 @@ use crate::type_check::typed_ast::{
 
 #[auto_impl(Box)]
 pub trait FunctionCallParameters {
-    fn add_label(&mut self, param_name: &str, label: String, comment: Option<&str>);
+    fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>);
 
     fn add_function_call(
         &mut self,
@@ -24,11 +24,13 @@ pub trait FunctionCallParameters {
         comment: &str,
         param_type: ASTTypedType,
         statics: &mut Statics,
+        name: String,
+        before: String,
     );
 
     fn add_lambda(
         &mut self,
-        def: &ASTTypedFunctionDef,
+        def: &mut ASTTypedFunctionDef,
         parent_lambda_space: Option<&LambdaSpace>,
         context: &TypedValContext,
         comment: Option<&str>,
@@ -36,6 +38,10 @@ pub trait FunctionCallParameters {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         optimize: bool,
+        function_def: &ASTTypedFunctionDef,
+        param_type: &ASTTypedType,
+        name: &str,
+        param_index: usize,
     ) -> LambdaSpace;
 
     fn add_parameter_ref(
@@ -208,6 +214,8 @@ pub trait FunctionCallParameters {
                 .any(|it| self.statement_reads_from_context(it, context)),
         }
     }
+
+    fn parameters_values(&self) -> &LinkedHashMap<String, String>;
 }
 
 #[auto_impl(Box)]
@@ -235,7 +243,7 @@ pub struct FunctionCallParametersAsmImpl<'a> {
 }
 
 impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
-    fn add_label(&mut self, param_name: &str, label: String, comment: Option<&str>) {
+    fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>) {
         if self.inline {
             self.parameters_values
                 .insert(param_name.into(), format!("[{label}]"));
@@ -271,10 +279,14 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         comment: &str,
         param_type: ASTTypedType,
         statics: &mut Statics,
+        name: String,
+        before: String,
     ) {
         if self.immediate {
             panic!();
         }
+
+        self.push(&before);
 
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
@@ -294,7 +306,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
 
     fn add_lambda(
         &mut self,
-        def: &ASTTypedFunctionDef,
+        def: &mut ASTTypedFunctionDef,
         parent_lambda_space: Option<&LambdaSpace>,
         context: &TypedValContext,
         comment: Option<&str>,
@@ -302,6 +314,10 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         optimize: bool,
+        function_def: &ASTTypedFunctionDef,
+        param_type: &ASTTypedType,
+        name: &str,
+        param_index: usize,
     ) -> LambdaSpace {
         //let optimize = false;
         let sbp = self.backend.stack_base_pointer();
@@ -731,6 +747,10 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         }
 
         result
+    }
+
+    fn parameters_values(&self) -> &LinkedHashMap<String, String> {
+        &self.parameters_values
     }
 }
 
