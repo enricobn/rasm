@@ -80,6 +80,8 @@ pub trait FunctionCallParameters {
         body: &str,
         to_remove_from_stack: String,
         ident: usize,
+        return_value: bool,
+        is_inner_call: bool,
     ) -> String;
 
     fn body_references_to_context(
@@ -684,6 +686,8 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         body: &str,
         to_remove_from_stack: String,
         ident: usize,
+        return_value: bool,
+        is_inner_value: bool,
     ) -> String {
         let mut result = body.to_string();
 

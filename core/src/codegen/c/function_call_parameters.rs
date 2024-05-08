@@ -30,7 +30,7 @@ use crate::type_check::typed_ast::{
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 
 static id: AtomicUsize = AtomicUsize::new(0);
 
@@ -40,16 +40,20 @@ pub struct CFunctionCallParameters {
     before: String,
     after: Vec<String>,
     code_manipulator: CodeManipulatorC,
+    lambdas: Vec<String>,
+    inline: bool,
 }
 
 impl CFunctionCallParameters {
-    pub fn new(parameters: Vec<ASTTypedParameterDef>) -> Self {
+    pub fn new(parameters: Vec<ASTTypedParameterDef>, inline: bool) -> Self {
         Self {
             parameters,
             parameters_values: LinkedHashMap::new(),
             before: String::new(),
             after: Vec::new(),
             code_manipulator: CodeManipulatorC,
+            lambdas: Vec::new(),
+            inline,
         }
     }
 }
@@ -69,11 +73,6 @@ impl FunctionCallParameters for CFunctionCallParameters {
         name: String,
         before: String,
     ) {
-        println!(
-            "add_function_call {name} : {param_type} before `{}`",
-            self.before
-        );
-
         //let tmp_name = format!("tmp_{}", id.fetch_add(1, Ordering::SeqCst));
         self.parameters_values
             .insert(name, before.replace('\n', ""));
@@ -156,6 +155,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
         self.parameters_values
             .insert(name.to_string(), format!("lambda_{param_index}"));
 
+        self.lambdas.push(format!("lambda_{param_index}"));
+
         lambda_space
     }
 
@@ -237,8 +238,13 @@ impl FunctionCallParameters for CFunctionCallParameters {
         body: &str,
         to_remove_from_stack: String,
         ident: usize,
+        return_value: bool,
+        is_inner_call: bool,
     ) -> String {
-        let mut result = body.to_string();
+        let prefix = if return_value { "return " } else { "" };
+        let suffix = if is_inner_call { "" } else { ";" };
+
+        let mut result = format!("{prefix}{}{suffix}", body.to_string());
 
         let mut substitutions = Vec::new();
 

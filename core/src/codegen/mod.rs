@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
@@ -549,19 +549,20 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         if inline {
             if let Some(ASTTypedFunctionBody::NativeBody(body)) = &body {
-                /*let mut added_to_stack = added_to_stack;
-                added_to_stack.push_str(&format!(
-                    " + {}",
-                    stack_vals.len() * self.backend.word_len()
-                ));
+                println!("");
 
-                 */
-
-                before.push_str(&call_parameters.resolve_native_parameters(
-                    body,
-                    added_to_stack,
-                    indent,
-                ));
+                before.push_str(
+                    &call_parameters.resolve_native_parameters(
+                        body,
+                        added_to_stack,
+                        indent,
+                        is_last
+                            && parent_def
+                                .map(|it| it.return_type != ASTTypedType::Unit)
+                                .unwrap_or(false),
+                        is_inner_call,
+                    ),
+                );
                 before.push('\n');
             } else {
                 panic!("Only native  can be inlined, for now...");
@@ -580,17 +581,16 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 );
             }
         } else {
-            /*
-            self.add_comment(
-                before,
-                &format!(
-                    "Calling function {} : {}",
-                    function_call.function_name, function_call.index
-                ),
-                true,
-            );
-
-             */
+            if self.debug() {
+                self.add_comment(
+                    before,
+                    &format!(
+                        "Calling function {} : {}",
+                        function_call.function_name, function_call.index
+                    ),
+                    true,
+                );
+            }
 
             self.call_function_simple(
                 before,
@@ -1237,8 +1237,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
                 *id += 1;
 
-                let new_body =
-                    function_call_parameters.resolve_native_parameters(body, "0".into(), indent);
+                let new_body = function_call_parameters.resolve_native_parameters(
+                    body,
+                    "0".into(),
+                    indent,
+                    function_def.return_type == ASTTypedType::Unit,
+                    false,
+                );
                 before.push_str(&new_body);
             }
         }

@@ -155,7 +155,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         stack_vals: &'c StackVals,
         id: usize,
     ) -> Box<CFunctionCallParameters> {
-        Box::new(CFunctionCallParameters::new(parameters.clone()))
+        Box::new(CFunctionCallParameters::new(parameters.clone(), inline))
     }
 
     fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
@@ -350,6 +350,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         return_value: bool,
         is_inner_call: bool,
     ) {
+        if !return_value && is_inner_call {
+            println!("{function_name}");
+        }
+
         let arg_vec = args
             .to_vec()
             .iter()

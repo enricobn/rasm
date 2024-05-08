@@ -1,15 +1,15 @@
-pub native lessOrEqual(a: i32, b: i32) -> bool /{
-    return a <= b;
+pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
+    ($a <= $b)
 }/
 
-pub native add(n1: i32, n2: i32) -> i32 /{
-    return n1 + n2;
+pub inline native add(n1: i32, n2: i32) -> i32 /{
+    ($n1 + $n2)
 }/
 
-pub native sub(n1: i32, n2: i32) -> i32 /{
-    return n1 - n2;
+pub inline native sub(n1: i32, n2: i32) -> i32 /{
+    ($n1 - $n2)
 }/
 
-pub native mul(n1: i32, n2: i32) -> i32 /{
-    return n1 * n2;
+pub inline native mul(n1: i32, n2: i32) -> i32 /{
+    ($n1 * $n2)
 }/
