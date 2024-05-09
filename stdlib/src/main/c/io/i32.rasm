@@ -1,7 +1,3 @@
-pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
-    ($a <= $b)
-}/
-
 pub inline native add(n1: i32, n2: i32) -> i32 /{
     ($n1 + $n2)
 }/
@@ -12,4 +8,43 @@ pub inline native sub(n1: i32, n2: i32) -> i32 /{
 
 pub inline native mul(n1: i32, n2: i32) -> i32 /{
     ($n1 * $n2)
+}/
+
+pub native div(n1: i32, n2: i32) -> i32 /{
+    ($n1 / $n2)
+}/
+
+pub native toString(n: i32) -> str /{
+}/
+
+/**
+ *  a  <= b
+ *  false = 0 true = 1
+ **/
+pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
+    ($a <= $b)
+}/
+
+/**
+ *  a  < b
+ *  false = 0 true = 1
+ **/
+pub inline native less(a: i32, b: i32) -> bool /{
+    ($a <= $b)
+}/
+
+/**
+ *  a  <= b
+ *  false = 0 true = 1
+ **/
+pub inline native greater(a: i32, b: i32) -> bool /{
+    ($a > $b)
+}/
+
+/**
+ *  a  == b
+ *  false = 0 true = 1
+ **/
+pub inline native eq(a: i32, b: i32) -> bool /{
+    ($a == $b)
 }/
