@@ -549,8 +549,6 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         if inline {
             if let Some(ASTTypedFunctionBody::NativeBody(body)) = &body {
-                println!("");
-
                 before.push_str(
                     &call_parameters.resolve_native_parameters(
                         body,
@@ -676,7 +674,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) -> Vec<LambdaCall> {
         let address_relative_to_bp = stack.reserve_local_val(name);
 
-        let (ast_typed_type, (bf, af, new_lambda_calls), index) = match expr {
+        let (ast_typed_type, (mut bf, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
                     let typed_type = match kind {
@@ -828,14 +826,23 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             );
 
             if !bf.is_empty() {
+                let typed_type =
+                    get_type_of_typed_expression(typed_module, context, expr, None, statics)
+                        .unwrap();
+
+                self.store_function_result_in_stack(
+                    &mut bf,
+                    -(address_relative_to_bp as i32),
+                    name,
+                    &typed_type,
+                );
                 before.push_str(&bf);
-                self.store_function_result_in_stack(before, -(address_relative_to_bp as i32));
             }
 
             if self.options().dereference {
                 if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
                     self.call_add_ref_for_let_val(
-                        &name,
+                        name,
                         &index,
                         before,
                         statics,
@@ -865,7 +872,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         new_lambda_calls
     }
 
-    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32);
+    fn store_function_result_in_stack(
+        &self,
+        code: &mut String,
+        address_relative_to_bp: i32,
+        name: &str,
+        typed_type: &ASTTypedType,
+    );
 
     fn add_ref(
         &self,
@@ -2605,7 +2618,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         Box::new(fcp)
     }
 
-    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
+    fn store_function_result_in_stack(
+        &self,
+        code: &mut String,
+        address_relative_to_bp: i32,
+        name: &str,
+        typed_type: &ASTTypedType,
+    ) {
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();

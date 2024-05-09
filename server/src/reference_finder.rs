@@ -1047,7 +1047,7 @@ mod tests {
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
         match finder.get_completions(&ASTIndex::new(file_name.clone(), 13, 8), &eh_module) {
-            Ok(CompletionResult::Found(mut items)) => {
+            Ok(CompletionResult::Found(items)) => {
                 let result = items
                     .iter()
                     .filter(|it| it.descr.contains("match<"))

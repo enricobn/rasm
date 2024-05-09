@@ -155,11 +155,24 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         stack_vals: &'c StackVals,
         id: usize,
     ) -> Box<CFunctionCallParameters> {
-        Box::new(CFunctionCallParameters::new(parameters.clone(), inline))
+        Box::new(CFunctionCallParameters::new(
+            parameters.clone(),
+            inline,
+            stack_vals.clone(),
+        ))
     }
 
-    fn store_function_result_in_stack(&self, code: &mut String, address_relative_to_bp: i32) {
-        todo!()
+    fn store_function_result_in_stack(
+        &self,
+        code: &mut String,
+        address_relative_to_bp: i32,
+        name: &str,
+        typed_type: &ASTTypedType,
+    ) {
+        code.insert_str(
+            0,
+            &format!("{} {} = ", Self::type_to_string(typed_type), name),
+        );
     }
 
     fn add_ref(
@@ -430,14 +443,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {
-        // TODO
-    }
+    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {}
 
     fn generate_statics_code(&self, statics: &Statics) -> (String, String) {
         // TODO
         let mut before = String::new();
-        let mut after = String::new();
+        let after = String::new();
 
         if let Some(includes) = statics.custom().get("include") {
             let mut includes = includes.clone();

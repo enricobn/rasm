@@ -42,10 +42,11 @@ pub struct CFunctionCallParameters {
     code_manipulator: CodeManipulatorC,
     lambdas: Vec<String>,
     inline: bool,
+    stack_vals: StackVals,
 }
 
 impl CFunctionCallParameters {
-    pub fn new(parameters: Vec<ASTTypedParameterDef>, inline: bool) -> Self {
+    pub fn new(parameters: Vec<ASTTypedParameterDef>, inline: bool, stack_vals: StackVals) -> Self {
         Self {
             parameters,
             parameters_values: LinkedHashMap::new(),
@@ -54,6 +55,7 @@ impl CFunctionCallParameters {
             code_manipulator: CodeManipulatorC,
             lambdas: Vec::new(),
             inline,
+            stack_vals,
         }
     }
 }
@@ -73,18 +75,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
         name: String,
         before: String,
     ) {
-        //let tmp_name = format!("tmp_{}", id.fetch_add(1, Ordering::SeqCst));
         self.parameters_values
             .insert(name, before.replace('\n', ""));
-
-        /*
-        self.before.push_str(&format!(
-            "{} {tmp_name} = {before}",
-            CodeGenC::type_to_string(&param_type)
-        ));
-
-         */
-        // TODO
     }
 
     fn add_lambda(
@@ -203,7 +195,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
         stack_vals: &StackVals,
         ast_index: &ASTIndex,
     ) {
-        todo!("Adding let_val_ref {original_param_name}, {val_name}")
+        self.parameters_values
+            .insert(original_param_name.to_string(), val_name.to_string());
     }
 
     fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
@@ -237,7 +230,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         &self,
         body: &str,
         to_remove_from_stack: String,
-        ident: usize,
+        indent: usize,
         return_value: bool,
         is_inner_call: bool,
     ) -> String {
@@ -253,7 +246,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             if let Some(par_value) = self.parameters_values.get(&par.name) {
                 debug!(
                     "{}found parameter {}, value: {}",
-                    " ".repeat(ident * 4),
+                    " ".repeat(indent * 4),
                     par.name,
                     par_value
                 );
