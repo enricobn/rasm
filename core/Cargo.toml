@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+anymap = "0.12.1"
 auto_impl.workspace = true
 backtrace.workspace = true
 chrono.workspace = true

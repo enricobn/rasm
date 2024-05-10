@@ -91,6 +91,11 @@ fn test_lambda1() {
 }
 
 #[test]
+fn test_lambda1_c() {
+    run_test_with_target("lambda1", vec![], "10\n", CompileTarget::C);
+}
+
+#[test]
 fn test_lambda2() {
     run_test("lambda2", vec![], "Some(10)\n");
 }

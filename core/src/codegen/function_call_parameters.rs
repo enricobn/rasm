@@ -52,6 +52,7 @@ pub trait FunctionCallParameters {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &StackVals,
+        statics: &Statics,
     );
 
     fn add_let_val_ref(
@@ -579,6 +580,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &StackVals,
+        statics: &Statics,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 

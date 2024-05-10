@@ -8,6 +8,8 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use regex::Regex;
 
+use crate::codegen::c::any::CInclude;
+use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -1440,10 +1442,10 @@ impl TextMacroEval for CIncludeMacro {
     ) -> String {
         match text_macro.parameters.get(0).unwrap() {
             MacroParam::Plain(s, _, _) => {
-                statics.add_custom("include".to_string(), s.clone());
+                CInclude::add_to_statics(statics, s.clone());
             }
             MacroParam::StringLiteral(s) => {
-                statics.add_custom("include".to_string(), format!("\"{s}\""));
+                CInclude::add_to_statics(statics, format!("\"{s}\""));
             }
             MacroParam::Ref(_, _, _) => {}
         }

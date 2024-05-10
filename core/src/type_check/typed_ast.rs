@@ -81,7 +81,7 @@ pub enum ASTTypedFunctionBody {
     NativeBody(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltinTypedTypeKind {
     String,
     I32,
@@ -94,7 +94,7 @@ pub enum BuiltinTypedTypeKind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ASTTypedType {
     Builtin(BuiltinTypedTypeKind),
     Enum {

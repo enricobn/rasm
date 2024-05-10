@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
 use crate::codegen::c::code_gen_c::{CodeGenC, CodeManipulatorC};
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
@@ -26,8 +27,9 @@ use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
+    ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
 };
+use crate::utils::SliceDisplay;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::sync::atomic::AtomicUsize;
@@ -94,6 +96,21 @@ impl FunctionCallParameters for CFunctionCallParameters {
         name: &str,
         param_index: usize,
     ) -> LambdaSpace {
+        // for malloc
+        CInclude::add_to_statics(statics, "<stdlib.h>".to_string());
+
+        let c_lambda = CLambda::new(
+            def.parameters
+                .iter()
+                .map(|it| it.ast_type.clone())
+                .collect(),
+            def.return_type.clone(),
+        );
+
+        let c_lambda_name = c_lambda.name.clone();
+
+        CLambdas::add_to_statics(statics, c_lambda);
+
         def.parameters.push(ASTTypedParameterDef::new(
             "lambda",
             param_type.clone(),
@@ -115,7 +132,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
         self.code_manipulator.add(
             &mut self.before,
-            &format!("struct Lambda lambda_{param_index};"),
+            &format!("struct {c_lambda_name} lambda_{param_index};"),
             None,
             true,
         );
@@ -160,6 +177,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &StackVals,
+        statics: &Statics,
     ) {
         if let Some(ls) = lambda_space {
             if ls.get_index(val_name).is_some() {
@@ -173,7 +191,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                         original_param_name.to_string(),
                         format!(
                             " *(({}*)lambda.args[{i}])",
-                            CodeGenC::type_to_string(&ast_typed_type)
+                            CodeGenC::type_to_string(&ast_typed_type, statics)
                         ),
                     );
 
@@ -237,7 +255,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         let prefix = if return_value { "return " } else { "" };
         let suffix = if is_inner_call { "" } else { ";" };
 
-        let mut result = format!("{prefix}{}{suffix}", body.to_string());
+        let mut result = format!("{prefix}{}{suffix}", body);
 
         let mut substitutions = Vec::new();
 

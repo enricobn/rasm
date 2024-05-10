@@ -12,6 +12,7 @@ use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
+use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::function_call_parameters::{
@@ -308,6 +309,9 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         before: &mut String,
         stack_vals: &StackVals,
         kind: &TypedValKind,
+        call_parameters: &FUNCTION_CALL_PARAMETERS,
+        return_value: bool,
+        is_inner_call: bool,
     );
 
     fn call_function_(
@@ -502,21 +506,6 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         let optimize = function_def.return_type.is_unit()
                             || can_optimize_lambda_space(&function_def.return_type, typed_module);
 
-                        let lambda_space = call_parameters.add_lambda(
-                            &mut def,
-                            lambda_space_opt,
-                            context,
-                            None,
-                            statics,
-                            typed_module,
-                            stack_vals,
-                            optimize,
-                            function_def,
-                            &param_type,
-                            &name,
-                            param_index,
-                        );
-
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {
                             let (p_name, p_index) = lambda_def.parameter_names.get(i).unwrap();
@@ -531,6 +520,21 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                 );
                             }
                         }
+
+                        let lambda_space = call_parameters.add_lambda(
+                            &mut def,
+                            lambda_space_opt,
+                            context,
+                            None,
+                            statics,
+                            typed_module,
+                            stack_vals,
+                            optimize,
+                            function_def,
+                            &param_type,
+                            &name,
+                            param_index,
+                        );
 
                         let lambda_call = LambdaCall {
                             def,
@@ -571,7 +575,18 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             {
                 self.call_lambda(function_call, before, stack_vals, index_in_lambda_space);
             } else if let Some(kind) = context.get(&function_call.function_name) {
-                self.call_lambda_parameter(function_call, before, stack_vals, kind);
+                self.call_lambda_parameter(
+                    function_call,
+                    before,
+                    stack_vals,
+                    kind,
+                    &call_parameters,
+                    is_last
+                        && parent_def
+                            .map(|it| it.return_type != ASTTypedType::Unit)
+                            .unwrap_or(false),
+                    is_inner_call,
+                );
             } else {
                 panic!(
                     "lambda space does not contain {}",
@@ -835,6 +850,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                     -(address_relative_to_bp as i32),
                     name,
                     &typed_type,
+                    statics,
                 );
                 before.push_str(&bf);
             }
@@ -878,6 +894,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         address_relative_to_bp: i32,
         name: &str,
         typed_type: &ASTTypedType,
+        statics: &Statics,
     );
 
     fn add_ref(
@@ -969,6 +986,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         lambda_space_opt,
                         *indent,
                         stack_vals,
+                        statics,
                     );
                 }
 
@@ -1025,7 +1043,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             self.add_comment(definitions, &format!("{}", function_def.index), false);
         }
         self.add_comment(definitions, &format!("function {}", function_def), false);
-        self.function_def(definitions, function_def);
+        self.function_def(definitions, function_def, statics);
 
         let mut before = String::new();
 
@@ -1275,7 +1293,12 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         lambda_calls
     }
 
-    fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef);
+    fn function_def(
+        &'a self,
+        out: &mut String,
+        function_def: &ASTTypedFunctionDef,
+        statics: &mut Statics,
+    );
 
     fn word_len(&self) -> usize;
 
@@ -2450,6 +2473,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         before: &mut String,
         stack_vals: &StackVals,
         kind: &TypedValKind,
+        call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
+        return_value: bool,
+        is_inner_call: bool,
     ) {
         let rr = self.return_register();
 
@@ -2624,6 +2650,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         address_relative_to_bp: i32,
         name: &str,
         typed_type: &ASTTypedType,
+        statics: &Statics,
     ) {
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
@@ -2850,7 +2877,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         stack.reserve_return_register(self, out);
     }
 
-    fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef) {
+    fn function_def(
+        &'a self,
+        out: &mut String,
+        function_def: &ASTTypedFunctionDef,
+        statics: &mut Statics,
+    ) {
         self.add(out, &format!("{}:", function_def.name), None, false);
     }
 

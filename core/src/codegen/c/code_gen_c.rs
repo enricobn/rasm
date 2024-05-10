@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
@@ -28,9 +29,10 @@ use crate::codegen::val_context::ValContext;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
-    BuiltinTypedTypeKind, DefaultFunctionCall,
+    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
 };
+use crate::utils::SliceDisplay;
 
 #[derive(Clone)]
 pub struct CodeManipulatorC;
@@ -72,7 +74,7 @@ impl CodeGenC {
         }
     }
 
-    pub fn type_to_string(ast_type: &ASTTypedType) -> String {
+    pub fn type_to_string(ast_type: &ASTTypedType, statics: &Statics) -> String {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
@@ -80,7 +82,20 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::Bool => "int".to_string(),
                 BuiltinTypedTypeKind::Char => "char".to_string(),
                 BuiltinTypedTypeKind::F32 => "float".to_string(),
-                BuiltinTypedTypeKind::Lambda { .. } => "struct Lambda".to_string(),
+                BuiltinTypedTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    if let Some(name) = statics
+                        .any::<CLambdas>()
+                        .unwrap()
+                        .find_name(parameters, return_type)
+                    {
+                        format!("struct {name}")
+                    } else {
+                        panic!("Cannot find lambda def");
+                    }
+                }
                 _ => todo!("{kind:?}"),
             },
             ASTTypedType::Unit => "void".to_string(),
@@ -115,8 +130,30 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         before: &mut String,
         stack_vals: &StackVals,
         kind: &TypedValKind,
+        call_parameters: &Box<CFunctionCallParameters>,
+        return_value: bool,
+        is_inner_call: bool,
     ) {
-        todo!()
+        let mut args = call_parameters
+            .parameters_values()
+            .iter()
+            .map(|(name, value)| (value.as_str(), None))
+            .collect::<Vec<_>>();
+        args.push((function_call.function_name.as_str(), None));
+        self.call_function(
+            before,
+            &format!("{}.functionPtr", function_call.function_name),
+            &args,
+            None,
+            return_value,
+            is_inner_call,
+        );
+
+        self.code_manipulator.add_comment(
+            before,
+            &format!("call_lambda_parameter {function_call}"),
+            true,
+        );
     }
 
     fn call_lambda(
@@ -126,7 +163,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         stack_vals: &StackVals,
         index_in_lambda_space: usize,
     ) {
-        todo!()
+        self.code_manipulator
+            .add_comment(before, &format!("call_lambda {function_call}"), true);
     }
 
     fn restore_stack(
@@ -168,10 +206,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         address_relative_to_bp: i32,
         name: &str,
         typed_type: &ASTTypedType,
+        statics: &Statics,
     ) {
         code.insert_str(
             0,
-            &format!("{} {} = ", Self::type_to_string(typed_type), name),
+            &format!("{} {} = ", Self::type_to_string(typed_type, statics), name),
         );
     }
 
@@ -238,10 +277,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         stack: &StackVals,
     ) {
         if is_const {
-            statics.add_custom(
-                "const".to_string(),
-                format!("const char* {name} = \"{value}\";"),
-            );
+            CConsts::add_to_statics(statics, format!("const char* {name} = \"{value}\";"));
         } else {
             todo!()
         }
@@ -265,10 +301,15 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // TODO
     }
 
-    fn function_def(&'a self, out: &mut String, function_def: &ASTTypedFunctionDef) {
+    fn function_def(
+        &'a self,
+        out: &mut String,
+        function_def: &ASTTypedFunctionDef,
+        statics: &mut Statics,
+    ) {
         let mut args = Vec::new();
         for par in function_def.parameters.iter() {
-            let arg_type = Self::type_to_string(&par.ast_type);
+            let arg_type = Self::type_to_string(&par.ast_type, statics);
             args.push(format!("{arg_type} {}", par.name));
         }
 
@@ -276,12 +317,22 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             out,
             &format!(
                 "{} {}({}) {{",
-                Self::type_to_string(&function_def.return_type),
+                Self::type_to_string(&function_def.return_type, statics),
                 function_def.name,
                 args.join(", ")
             ),
             None,
             false,
+        );
+
+        CFunctionsDeclarations::add_to_statics(
+            statics,
+            format!(
+                "{} {}({});",
+                Self::type_to_string(&function_def.return_type, statics),
+                function_def.name,
+                args.join(", ")
+            ),
         );
     }
 
@@ -450,33 +501,61 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         let mut before = String::new();
         let after = String::new();
 
-        if let Some(includes) = statics.custom().get("include") {
-            let mut includes = includes.clone();
-            includes.sort();
-            includes.dedup();
-
-            for inc in includes {
+        if let Some(includes) = statics.any::<CInclude>() {
+            for inc in includes.unique() {
                 self.add(&mut before, &format!("#include {inc}"), None, false);
             }
+            self.add_empty_line(&mut before);
         }
 
-        if let Some(consts) = statics.custom().get("const") {
-            for c in consts {
+        if let Some(consts) = statics.any::<CConsts>() {
+            for c in consts.vec.iter() {
                 self.add(&mut before, c, None, false);
             }
+            self.add_empty_line(&mut before);
         }
 
-        self.add_empty_line(&mut before);
-        self.add(&mut before, "struct Lambda {", None, false);
-        self.add(&mut before, "void **args;", None, true);
-        self.add(
-            &mut before,
-            "void* (*functionPtr)(struct Lambda);",
-            None,
-            true,
-        );
-        self.add(&mut before, "};", None, false);
-        self.add_empty_line(&mut before);
+        if let Some(clambdas) = statics.any::<CLambdas>() {
+            for (i, clambda) in clambdas.lambdas.iter().enumerate() {
+                self.add(
+                    &mut before,
+                    &format!("struct {} {{", clambda.name),
+                    None,
+                    false,
+                );
+                self.add(&mut before, "void **args;", None, true);
+                let mut args = clambda
+                    .args
+                    .iter()
+                    .map(|it| Self::type_to_string(it, statics))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                if !args.is_empty() {
+                    args.push_str(", ");
+                }
+
+                self.add(
+                    &mut before,
+                    &format!(
+                        "{} (*functionPtr)({args}struct Lambda{i});",
+                        Self::type_to_string(&clambda.return_type, statics)
+                    ),
+                    None,
+                    true,
+                );
+                self.add(&mut before, "};", None, false);
+                self.add_empty_line(&mut before);
+            }
+            self.add_empty_line(&mut before);
+        }
+
+        if let Some(declarations) = statics.any::<CFunctionsDeclarations>() {
+            for c in declarations.vec.iter() {
+                self.add(&mut before, c, None, false);
+            }
+            self.add_empty_line(&mut before);
+        }
 
         self.add(&mut before, "int main()", None, false);
         self.add(&mut before, "{", None, false);
