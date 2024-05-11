@@ -41,7 +41,6 @@ pub struct CFunctionCallParameters {
     before: String,
     after: Vec<String>,
     code_manipulator: CodeManipulatorC,
-    lambdas: Vec<String>,
     inline: bool,
     stack_vals: StackVals,
     immediate: bool,
@@ -60,7 +59,6 @@ impl CFunctionCallParameters {
             before: String::new(),
             after: Vec::new(),
             code_manipulator: CodeManipulatorC,
-            lambdas: Vec::new(),
             inline,
             stack_vals,
             immediate,
@@ -168,9 +166,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
         //arg_values.push(format!("lambda{param_index}"));
         self.parameters_values
-            .insert(name.to_string(), format!("lambda_{param_index}"));
-
-        self.lambdas.push(format!("lambda_{param_index}"));
+            .insert(name.to_string(), format!("&lambda_{param_index}"));
 
         lambda_space
     }
@@ -196,7 +192,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     self.parameters_values.insert(
                         original_param_name.to_string(),
                         format!(
-                            " *(({}*)_lambda.args[{i}])",
+                            " *(({}*)_lambda->args[{i}])",
                             CodeGenC::type_to_string(&ast_typed_type, statics)
                         ),
                     );

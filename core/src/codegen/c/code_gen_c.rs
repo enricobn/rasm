@@ -90,7 +90,7 @@ impl CodeGenC {
                         .unwrap()
                         .find_name(parameters, return_type)
                     {
-                        format!("struct {name}")
+                        format!("struct {name}*")
                     } else {
                         panic!("Cannot find lambda def");
                     }
@@ -141,7 +141,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         args.push((function_call.function_name.as_str(), None));
         self.call_function(
             before,
-            &format!("{}.functionPtr", function_call.function_name),
+            &format!("{}->functionPtr", function_call.function_name),
             &args,
             None,
             return_value,
@@ -534,7 +534,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 self.add(
                     &mut before,
                     &format!(
-                        "{} (*functionPtr)({args}struct {});",
+                        "{} (*functionPtr)({args}struct {}*);",
                         Self::type_to_string(&clambda.return_type, statics),
                         clambda.name
                     ),
