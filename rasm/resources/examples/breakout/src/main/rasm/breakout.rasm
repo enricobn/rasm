@@ -110,6 +110,14 @@ linker ended in 37.652852ms
 finished in 399.254542ms
 */
 
+/*
+Some changes, the last adding a "not matching type" error and in that case cloning the stack
+
+
+type check ended in 87.39312
+
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)

@@ -27,9 +27,8 @@ use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
 };
-use crate::utils::SliceDisplay;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::sync::atomic::AtomicUsize;
@@ -45,10 +44,16 @@ pub struct CFunctionCallParameters {
     lambdas: Vec<String>,
     inline: bool,
     stack_vals: StackVals,
+    immediate: bool,
 }
 
 impl CFunctionCallParameters {
-    pub fn new(parameters: Vec<ASTTypedParameterDef>, inline: bool, stack_vals: StackVals) -> Self {
+    pub fn new(
+        parameters: Vec<ASTTypedParameterDef>,
+        inline: bool,
+        stack_vals: StackVals,
+        immediate: bool,
+    ) -> Self {
         Self {
             parameters,
             parameters_values: LinkedHashMap::new(),
@@ -58,6 +63,7 @@ impl CFunctionCallParameters {
             lambdas: Vec::new(),
             inline,
             stack_vals,
+            immediate,
         }
     }
 }
@@ -252,7 +258,11 @@ impl FunctionCallParameters for CFunctionCallParameters {
         return_value: bool,
         is_inner_call: bool,
     ) -> String {
-        let prefix = if return_value { "return " } else { "" };
+        let prefix = if return_value && self.inline {
+            "return "
+        } else {
+            ""
+        };
         let suffix = if is_inner_call { "" } else { ";" };
 
         let mut result = format!("{prefix}{}{suffix}", body);

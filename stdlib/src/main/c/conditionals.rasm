@@ -1,5 +1,5 @@
-pub inline native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
-	if (cond) {
+pub native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+	if ($cond) {
 		return $ftrue.functionPtr($ftrue);
 	} else {
 		return $ffalse.functionPtr($ffalse);
@@ -13,8 +13,8 @@ pub inline native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     ATTENTION: it is not short circuit, it always evaluates both arguments,
     if you need a short circuit then use the version with lambda
 **/
-pub inline native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
-    if (cond) {
+pub native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
+    if ($cond) {
         return $trueVal;
     } else {
         return $falseVal;
@@ -28,7 +28,7 @@ pub inline native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
     if you need a short circuit then use if function with lambda
 **/
 pub native if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
-	if (cond) {
+	if ($cond) {
 		return $vtrue;
 	} else {
 		return $ffalse.functionPtr($ffalse);

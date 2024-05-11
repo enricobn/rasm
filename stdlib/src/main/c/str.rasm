@@ -1,0 +1,3 @@
+pub inline native eq(a: char, b: char) -> bool /{
+    ($a == $b)
+}/

@@ -9,7 +9,6 @@ use log::debug;
 use regex::Regex;
 
 use crate::codegen::c::any::CInclude;
-use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;

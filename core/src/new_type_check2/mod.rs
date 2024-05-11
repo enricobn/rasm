@@ -617,7 +617,12 @@ impl TypeCheck {
                         }
                         debug_i!("filter {t}");
                         if !t.almost_equal(param_type, module)? {
-                            valid = false
+                            valid = false;
+                            return Err(TypeCheckError::new(
+                                expr.get_index(),
+                                format!("not matching type {t}"),
+                                self.stack.clone(),
+                            ));
                         }
                         Ok(e)
                     })

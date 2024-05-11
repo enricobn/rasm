@@ -29,10 +29,9 @@ use crate::codegen::val_context::ValContext;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+    ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
+    BuiltinTypedTypeKind, DefaultFunctionCall,
 };
-use crate::utils::SliceDisplay;
 
 #[derive(Clone)]
 pub struct CodeManipulatorC;
@@ -197,6 +196,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             parameters.clone(),
             inline,
             stack_vals.clone(),
+            immediate,
         ))
     }
 
@@ -414,10 +414,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         return_value: bool,
         is_inner_call: bool,
     ) {
-        if !return_value && is_inner_call {
-            println!("{function_name}");
-        }
-
         let arg_vec = args
             .to_vec()
             .iter()

@@ -48,3 +48,7 @@ pub inline native greater(a: i32, b: i32) -> bool /{
 pub inline native eq(a: i32, b: i32) -> bool /{
     ($a == $b)
 }/
+
+pub inline native toi32(n: f32) -> i32 /{
+    ((int) $n)
+}/

@@ -12,7 +12,6 @@ use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
-use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::function_call_parameters::{

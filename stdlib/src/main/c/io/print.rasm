@@ -8,6 +8,26 @@ pub native print(n: i32) /{
     printf("%d", $n);
 }/
 
+pub native print(n: f32) /{
+    $include(<stdio.h>)
+    printf("%f", $n);
+}/
+
+pub native print(b: bool) /{
+    $include(<stdio.h>)
+    
+    if ($b) {
+        printf("true");
+    } else {
+        printf("false");
+    }
+}/
+
+pub native print(c: char) /{
+    $include(<stdio.h>)
+    printf("%c", $c);
+}/
+
 pub fn println() {
     print("\n");
 }

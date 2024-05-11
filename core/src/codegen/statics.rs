@@ -1,6 +1,5 @@
 use anymap::AnyMap;
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashMap;
 
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::parser::ast::ASTType;

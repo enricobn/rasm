@@ -1,0 +1,47 @@
+pub inline native tof32(n: i32) -> f32 /{
+    ((float) $n)
+}/
+
+pub inline native sub(a: f32, b: f32) -> f32 /{
+    ($a - $b)
+}/
+
+pub inline native add(a: f32, b: f32) -> f32 /{
+    ($a + $b)
+}/
+
+pub inline native add(a: f32, b: i32) -> f32 /{
+    ($a + $b)
+}/
+
+pub inline native mul(a: f32, b: f32) -> f32 /{
+    ($a * $b)
+}/
+
+pub inline native div(a: f32, b: f32) -> f32 /{
+    ($a / $b)
+}/
+
+pub inline native sub(a: f32, b: i32) -> f32 /{
+    ($a - $b)
+}/
+
+pub inline native sub(a: i32, b: f32) -> f32 /{
+    ($a - $b)
+}/
+
+pub inline native greater(a: f32, b: f32) -> bool /{
+    ($a > $b)
+}/
+
+pub inline native greater(a: f32, b: i32) -> bool /{
+    ($a > $b)
+}/
+
+pub inline native less(a: f32, b: f32) -> bool /{
+    ($a < $b)
+}/
+
+pub inline native less(a: f32, b: i32) -> bool /{
+    ($a < $b)
+}/
