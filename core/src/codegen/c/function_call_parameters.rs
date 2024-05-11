@@ -118,7 +118,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         CLambdas::add_to_statics(statics, c_lambda);
 
         def.parameters.push(ASTTypedParameterDef::new(
-            "lambda",
+            "_lambda",
             param_type.clone(),
             ASTIndex::none(),
         ));
@@ -196,7 +196,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     self.parameters_values.insert(
                         original_param_name.to_string(),
                         format!(
-                            " *(({}*)lambda.args[{i}])",
+                            " *(({}*)_lambda.args[{i}])",
                             CodeGenC::type_to_string(&ast_typed_type, statics)
                         ),
                     );

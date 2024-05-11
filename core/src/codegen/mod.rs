@@ -479,7 +479,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
                         let rt = return_type.deref().clone();
 
-                        let name = format!("lambda{}", id);
+                        let name = format!("lambda_{}", id);
                         let mut def = ASTTypedFunctionDef {
                             namespace: function_call.namespace.clone(),
                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),

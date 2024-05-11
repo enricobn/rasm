@@ -534,8 +534,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 self.add(
                     &mut before,
                     &format!(
-                        "{} (*functionPtr)({args}struct Lambda{i});",
-                        Self::type_to_string(&clambda.return_type, statics)
+                        "{} (*functionPtr)({args}struct {});",
+                        Self::type_to_string(&clambda.return_type, statics),
+                        clambda.name
                     ),
                     None,
                     true,

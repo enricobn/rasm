@@ -87,7 +87,7 @@ pub struct CLambda {
 
 impl CLambda {
     pub fn new(args: Vec<ASTTypedType>, return_type: ASTTypedType) -> Self {
-        let name = format!("Lambda{}", lambda_id.fetch_add(1, Ordering::SeqCst));
+        let name = format!("Lambda_{}", lambda_id.fetch_add(1, Ordering::SeqCst));
         Self {
             args,
             return_type,
