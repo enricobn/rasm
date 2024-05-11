@@ -188,6 +188,11 @@ fn test_structs() {
 }
 
 #[test]
+fn test_structs_c() {
+    run_test_with_target("structs", vec![], "10, 20\n", CompileTarget::C);
+}
+
+#[test]
 fn test_read_file() {
     run_test(
         "read_file",

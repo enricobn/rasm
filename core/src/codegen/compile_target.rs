@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use linked_hash_map::LinkedHashMap;
 use log::info;
 use std::collections::HashMap;
 use std::fs::File;
@@ -29,19 +28,18 @@ use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::backend::{log_command, Backend, BackendNasmi386};
-use crate::codegen::c::code_gen_c::{CodeGenC, CodeManipulatorC};
+use crate::codegen::c::code_gen_c::CodeGenC;
+use crate::codegen::c::functions_creator::CFunctionsCreator;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{CIncludeMacro, TextMacro, TextMacroEval, TextMacroEvaluator};
+use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::parser::ast::{ASTFunctionDef, BuiltinTypeKind};
 use crate::project::RasmProject;
-use crate::transformations::functions_creator::{
-    DummyFunctionsCreator, FunctionsCreator, FunctionsCreatorNasmi386,
-};
+use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
     DummyTypedFunctionsCreator, TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
 };
@@ -138,7 +136,7 @@ impl CompileTarget {
                     CodeGenAsm::new(options.clone(), debug),
                 ))
             }
-            CompileTarget::C => Box::new(DummyFunctionsCreator),
+            CompileTarget::C => Box::new(CFunctionsCreator::new()),
         }
     }
 
@@ -184,14 +182,11 @@ impl CompileTarget {
         match self {
             CompileTarget::Nasmi386(options) => {
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
-                code_gen.get_evaluator()
+                code_gen.get_text_macro_evaluator()
             }
             CompileTarget::C => {
-                let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> =
-                    LinkedHashMap::new();
-                evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
-
-                TextMacroEvaluator::new(evaluators, Box::new(CodeManipulatorC::new()))
+                let code_gen = CodeGenC::new();
+                code_gen.get_text_macro_evaluator()
             }
         }
     }

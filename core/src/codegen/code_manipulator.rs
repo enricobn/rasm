@@ -32,13 +32,10 @@ pub trait CodeManipulator {
         if code.is_empty() {
             out.push('\n');
         } else {
-            let max = 80;
-            let s = format!("{:width$}", code, width = max);
-            //assert_eq!(s.len(), max, "{}", s);
             if indent {
                 out.push_str("    ");
             }
-            out.push_str(&s);
+            out.push_str(code);
         }
 
         if let Some(c) = comment {

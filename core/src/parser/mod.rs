@@ -965,7 +965,7 @@ impl Parser {
                 });
                 println!("}}");
             }
-            NativeBody(_) => println!(" {{...}}"),
+            NativeBody(body) => println!(" {{\n{body}\n}}"),
         }
     }
 

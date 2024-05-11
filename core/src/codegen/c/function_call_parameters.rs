@@ -17,7 +17,7 @@
  */
 
 use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
-use crate::codegen::c::code_gen_c::{CodeGenC, CodeManipulatorC};
+use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
@@ -40,7 +40,7 @@ pub struct CFunctionCallParameters {
     parameters_values: LinkedHashMap<String, String>,
     before: String,
     after: Vec<String>,
-    code_manipulator: CodeManipulatorC,
+    code_manipulator: CCodeManipulator,
     inline: bool,
     stack_vals: StackVals,
     immediate: bool,
@@ -58,7 +58,7 @@ impl CFunctionCallParameters {
             parameters_values: LinkedHashMap::new(),
             before: String::new(),
             after: Vec::new(),
-            code_manipulator: CodeManipulatorC,
+            code_manipulator: CCodeManipulator,
             inline,
             stack_vals,
             immediate,

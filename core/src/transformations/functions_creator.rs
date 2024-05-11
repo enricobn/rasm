@@ -78,6 +78,7 @@ pub trait FunctionsCreator {
                     property_def,
                     i,
                     module,
+                    statics,
                 );
 
                 for f in property_functions {
@@ -258,6 +259,7 @@ pub trait FunctionsCreator {
         property_def: &ASTStructPropertyDef,
         i: usize,
         module: &ASTModule,
+        statics: &mut Statics,
     ) -> Vec<ASTFunctionDef> {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
@@ -375,7 +377,7 @@ pub trait FunctionsCreator {
                 ast_index: ASTIndex::none(),
             }],
             return_type: property_def.ast_type.clone(),
-            body: ASTFunctionBody::NativeBody(self.struct_property_body(i)),
+            body: ASTFunctionBody::NativeBody(self.struct_property_body(i, &property_def.name)),
             generic_types: struct_def.type_parameters.clone(),
             inline: true,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -540,7 +542,7 @@ pub trait FunctionsCreator {
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
 
-    fn struct_property_body(&self, i: usize) -> String;
+    fn struct_property_body(&self, i: usize, name: &str) -> String;
 
     fn struct_setter_body(&self, i: usize) -> String;
 
@@ -930,7 +932,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_property_body(&self, i: usize) -> String {
+    fn struct_property_body(&self, i: usize, name: &str) -> String {
         let mut body = String::new();
         self.code_gen.add_rows(
             &mut body,
@@ -1096,53 +1098,5 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         self.code_gen.add(&mut body, "pop   ebx", None, true);
         body
-    }
-}
-
-pub struct DummyFunctionsCreator;
-
-impl FunctionsCreator for DummyFunctionsCreator {
-    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {}
-
-    fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
-        String::new()
-    }
-
-    fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String {
-        String::new()
-    }
-
-    fn enum_constructors(
-        &self,
-        module: &mut ASTModule,
-        enum_def: &ASTEnumDef,
-        param_types: &[ASTType],
-        statics: &mut Statics,
-    ) {
-    }
-
-    fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
-        String::new()
-    }
-
-    fn struct_property_body(&self, i: usize) -> String {
-        String::new()
-    }
-
-    fn struct_setter_body(&self, i: usize) -> String {
-        String::new()
-    }
-
-    fn struct_setter_lambda_body(&self, i: usize) -> String {
-        String::new()
-    }
-
-    fn enum_parametric_variant_constructor_body(
-        &self,
-        variant_num: &usize,
-        variant: &ASTEnumVariantDef,
-        descr_label: &str,
-    ) -> String {
-        String::new()
     }
 }

@@ -1647,7 +1647,7 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
             });
             println!("}}");
         }
-        ASTTypedFunctionBody::NativeBody(_) => println!(" {{...}}"),
+        ASTTypedFunctionBody::NativeBody(body) => println!(" {{\n{body}\n}}"),
     }
 }
 

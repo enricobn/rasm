@@ -18,31 +18,32 @@
 
 use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
+use crate::codegen::c::text_macro::{CIncludeMacro, CStructDeclarationMacro};
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::TextMacro;
+use crate::codegen::text_macro::{TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::ValContext;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ValueType};
+use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
-    BuiltinTypedTypeKind, DefaultFunctionCall,
+    BuiltinTypedTypeKind,
 };
+use linked_hash_map::LinkedHashMap;
 
 #[derive(Clone)]
-pub struct CodeManipulatorC;
+pub struct CCodeManipulator;
 
-impl CodeManipulatorC {
+impl CCodeManipulator {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl CodeManipulator for CodeManipulatorC {
+impl CodeManipulator for CCodeManipulator {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
         self.add(out, &format!("// {comment}"), None, indent);
     }
@@ -61,14 +62,14 @@ impl CodeManipulator for CodeManipulatorC {
 }
 
 pub struct CodeGenC {
-    code_manipulator: CodeManipulatorC,
+    code_manipulator: CCodeManipulator,
     options: AsmOptions,
 }
 
 impl CodeGenC {
     pub fn new() -> Self {
         Self {
-            code_manipulator: CodeManipulatorC,
+            code_manipulator: CCodeManipulator,
             options: AsmOptions::default(),
         }
     }
@@ -98,6 +99,9 @@ impl CodeGenC {
                 _ => todo!("{kind:?}"),
             },
             ASTTypedType::Unit => "void".to_string(),
+            ASTTypedType::Struct { namespace, name } => {
+                format!("struct {}_{name}*", namespace.safe_name())
+            }
             _ => todo!("{ast_type}"),
         }
     }
@@ -116,11 +120,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn create_command_line_arguments(&self, generated_code: &mut String) {
         // TODO
-    }
-
-    fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {
-        // TODO
-        static_code
     }
 
     fn call_lambda_parameter(
@@ -360,16 +359,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn translate_body(
-        &self,
-        body: String,
-        statics: &mut Statics,
-        typed_module: &ASTTypedModule,
-    ) -> Result<String, String> {
-        // TODO
-        Ok(body)
-    }
-
     fn print_memory_info(&self, native_code: &mut String) {
         todo!()
     }
@@ -432,18 +421,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         }
     }
 
-    fn call_function_owned(
-        &self,
-        out: &mut String,
-        function_name: &str,
-        args: &[(String, Option<String>)],
-        comment: Option<&str>,
-        return_value: bool,
-        is_inner_call: bool,
-    ) {
-        todo!()
-    }
-
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
         self.code_manipulator.add_comment(out, comment, indent);
     }
@@ -478,21 +455,13 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn called_functions(
-        &self,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
-        body: &str,
-        context: &ValContext,
-        type_def_provider: &dyn TypeDefProvider,
-        _statics: &mut Statics,
-    ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
-        todo!()
-    }
-
     fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {}
 
-    fn generate_statics_code(&self, statics: &Statics) -> (String, String) {
+    fn generate_statics_code(
+        &self,
+        statics: &Statics,
+        typed_module: &ASTTypedModule,
+    ) -> (String, String) {
         // TODO
         let mut before = String::new();
         let after = String::new();
@@ -547,6 +516,32 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
+        for s in typed_module.structs.iter() {
+            self.add(
+                &mut before,
+                &format!("struct {}_{} {{", s.namespace.safe_name(), s.name),
+                None,
+                false,
+            );
+            for property in s.properties.iter() {
+                self.add(
+                    &mut before,
+                    &format!(
+                        "{} {};",
+                        CodeGenC::type_to_string(&property.ast_type, statics),
+                        property.name
+                    ),
+                    None,
+                    true,
+                );
+            }
+            self.add(&mut before, "};", None, false);
+        }
+
+        if !typed_module.structs.is_empty() {
+            self.add_empty_line(&mut before);
+        }
+
         if let Some(declarations) = statics.any::<CFunctionsDeclarations>() {
             for c in declarations.vec.iter() {
                 self.add(&mut before, c, None, false);
@@ -582,5 +577,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn value_to_string(&self, value_type: &ValueType) -> String {
         todo!()
+    }
+
+    fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
+        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
+        evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
+        evaluators.insert(
+            "structDeclaration".to_string(),
+            Box::new(CStructDeclarationMacro),
+        );
+
+        TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))
     }
 }

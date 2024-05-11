@@ -8,7 +8,6 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use regex::Regex;
 
-use crate::codegen::c::any::CInclude;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -1429,41 +1428,10 @@ impl PrintRefMacro {
     }
 }
 
-pub struct CIncludeMacro;
-
-impl TextMacroEval for CIncludeMacro {
-    fn eval_macro(
-        &self,
-        statics: &mut Statics,
-        text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
-        match text_macro.parameters.get(0).unwrap() {
-            MacroParam::Plain(s, _, _) => {
-                CInclude::add_to_statics(statics, s.clone());
-            }
-            MacroParam::StringLiteral(s) => {
-                CInclude::add_to_statics(statics, format!("\"{s}\""));
-            }
-            MacroParam::Ref(_, _, _) => {}
-        }
-        String::new()
-    }
-
-    fn is_pre_macro(&self) -> bool {
-        false
-    }
-
-    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
-        Vec::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::codegen::compile_target::CompileTarget;
-    use crate::codegen::{AsmOptions, CodeGenAsm};
+    use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::statics::{MemoryValue, Statics};
@@ -1494,7 +1462,7 @@ mod tests {
 
         let mut statics = Statics::new();
 
-        let result = code_gen().get_evaluator().eval_macro(
+        let result = code_gen().get_text_macro_evaluator().eval_macro(
             &mut statics,
             &text_macro,
             None,
@@ -1513,7 +1481,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let result = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .translate(
                 &mut statics,
                 None,
@@ -1535,7 +1503,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let result = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .translate(
                 &mut statics,
                 None,
@@ -1578,7 +1546,7 @@ mod tests {
         };
 
         let result = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .translate(
                 &mut statics,
                 Some(&function_def),
@@ -1616,7 +1584,7 @@ mod tests {
         };
 
         let result = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .translate(
                 &mut statics,
                 Some(&function_def),
@@ -1638,7 +1606,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let result = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .translate(
                 &mut statics,
                 None,
@@ -1671,7 +1639,7 @@ mod tests {
         };
 
         let macros = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .get_macros(
                 Some(&function_def),
                 None,
@@ -1695,7 +1663,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let result = code_gen()
-            .get_evaluator()
+            .get_text_macro_evaluator()
             .translate(
                 &mut statics,
                 None,
@@ -1735,7 +1703,7 @@ mod tests {
             rank: 0,
         };
 
-        let result = code_gen.get_evaluator().get_macros(
+        let result = code_gen.get_text_macro_evaluator().get_macros(
             None,
             Some(&function_def),
             "$call(List_0_addRef,$s:i32)",
