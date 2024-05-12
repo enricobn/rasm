@@ -20,7 +20,7 @@ use crate::codegen::c::code_gen_c::CCodeManipulator;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef, ASTType};
+use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
 use crate::transformations::functions_creator::FunctionsCreator;
 
 pub struct CFunctionsCreator {
@@ -41,8 +41,52 @@ impl FunctionsCreator for CFunctionsCreator {
     }
 
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
-        // TODO
-        String::new()
+        let mut result = String::new();
+
+        for (i, variant) in enum_def.variants.iter().enumerate() {
+            let safe_name = format!(
+                "{}_{}_{}",
+                enum_def.namespace.safe_name(),
+                enum_def.name,
+                variant.name
+            );
+            self.code_manipulator.add(
+                &mut result,
+                &format!("if ($value->variant_num == {i}) {{"),
+                None,
+                true,
+            );
+
+            self.code_manipulator.add(
+                &mut result,
+                &format!("$enumVariantAssignment(variant, {})", variant.name),
+                None,
+                true,
+            );
+
+            let mut args = Vec::new();
+
+            for parameter in variant.parameters.iter() {
+                args.push(format!("variant->{}", parameter.name));
+            }
+
+            //args.push("$value->variant".to_string());
+            args.push(format!("${}", variant.name));
+
+            self.code_manipulator.add(
+                &mut result,
+                &format!(
+                    "return ${}->functionPtr({});",
+                    variant.name,
+                    args.join(", ")
+                ),
+                None,
+                true,
+            );
+            self.code_manipulator.add(&mut result, "}", None, true);
+        }
+
+        result
     }
 
     fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String {
@@ -50,14 +94,50 @@ impl FunctionsCreator for CFunctionsCreator {
         String::new()
     }
 
-    fn enum_constructors(
+    fn debug(&self) -> bool {
+        false
+    }
+
+    fn enum_variant_constructor_body(
         &self,
         module: &mut ASTModule,
         enum_def: &ASTEnumDef,
-        param_types: &[ASTType],
         statics: &mut Statics,
-    ) {
-        // TODO
+        variant_num: usize,
+        variant: &ASTEnumVariantDef,
+        descr: &String,
+    ) -> (String, bool) {
+        let mut result = String::new();
+        self.code_manipulator
+            .add(&mut result, "$enumDeclaration(e_)", None, true);
+        self.code_manipulator.add(
+            &mut result,
+            &format!("$enumVariantDeclaration(v_,{})", variant.name),
+            None,
+            true,
+        );
+        for property_def in variant.parameters.iter() {
+            self.code_manipulator.add(
+                &mut result,
+                &format!("v_->{} = ${};", property_def.name, property_def.name),
+                None,
+                true,
+            );
+        }
+
+        self.code_manipulator
+            .add(&mut result, "e_->variant = v_;", None, true);
+        self.code_manipulator.add(
+            &mut result,
+            &format!("e_->variant_num = {variant_num};"),
+            None,
+            true,
+        );
+
+        self.code_manipulator
+            .add(&mut result, "return e_;", None, true);
+
+        (result, false)
     }
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
@@ -93,14 +173,5 @@ impl FunctionsCreator for CFunctionsCreator {
     fn struct_setter_lambda_body(&self, i: usize) -> String {
         // TODO
         String::new()
-    }
-
-    fn enum_parametric_variant_constructor_body(
-        &self,
-        variant_num: &usize,
-        variant: &ASTEnumVariantDef,
-        descr_label: &str,
-    ) -> String {
-        todo!()
     }
 }

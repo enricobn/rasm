@@ -6,18 +6,23 @@ enum Test {
 printOption(Option::Some("a value"));
 printOption(Option::None());
 
-match(
-    Test::T2(10, Option::Some("a value")),
-    fn(v1, v2, o) {
-        println("T1");
-        println(v1);
-        println(v2);
-        printOption(o);
-    }, fn(v1, o) {
-       println("T2");
-       println(v1);
-       printOption(o);
-   });
+printTest(Test::T1(10, 20, Option::Some("a value 2")));
+printTest(Test::T2(10, Option::Some("a value 3")));
+
+fn printTest(test: Test) {
+    match(
+       test,
+       fn(v1, v2, o) {
+           println("T1");
+           println(v1);
+           println(v2);
+           printOption(o);
+       }, fn(v1, o) {
+          println("T2");
+          println(v1);
+          printOption(o);
+      });
+}
 
 fn printOption(o: Option<str>) {
     match(o, fn(v) { print("Some(");print(v);println(")");}, { println("None");});

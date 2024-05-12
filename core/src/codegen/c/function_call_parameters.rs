@@ -31,7 +31,7 @@ use crate::type_check::typed_ast::{
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 static id: AtomicUsize = AtomicUsize::new(0);
 
@@ -131,19 +131,19 @@ impl FunctionCallParameters for CFunctionCallParameters {
             lambda_space.add(name.clone(), kind.clone());
         }
 
-        self.code_manipulator
-            .add(&mut self.before, "// TODO create lambda", None, true);
+        let lambda_var_name = format!("lambda_{}", id.fetch_add(1, Ordering::SeqCst));
 
         self.code_manipulator.add(
             &mut self.before,
-            &format!("struct {c_lambda_name} lambda_{param_index};"),
+            &format!("struct {c_lambda_name} {lambda_var_name};"),
             None,
             true,
         );
+
         self.code_manipulator.add(
             &mut self.before,
             &format!(
-                "lambda_{param_index}.args = malloc(sizeof(void *) * {});",
+                "{lambda_var_name}.args = malloc(sizeof(void *) * {});",
                 lambda_space.size()
             ),
             None,
@@ -152,21 +152,21 @@ impl FunctionCallParameters for CFunctionCallParameters {
         for (i, (name, kind)) in lambda_space.iter().enumerate() {
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("lambda_{param_index}.args[{i}] = &{name};"),
+                &format!("{lambda_var_name}.args[{i}] = &{name};"),
                 None,
                 true,
             );
         }
         self.code_manipulator.add(
             &mut self.before,
-            &format!("lambda_{param_index}.functionPtr = &{name};"),
+            &format!("{lambda_var_name}.functionPtr = &{name};"),
             None,
             true,
         );
 
         //arg_values.push(format!("lambda{param_index}"));
         self.parameters_values
-            .insert(name.to_string(), format!("&lambda_{param_index}"));
+            .insert(name.to_string(), format!("&{lambda_var_name}"));
 
         lambda_space
     }

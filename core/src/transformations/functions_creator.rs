@@ -538,7 +538,66 @@ pub trait FunctionsCreator {
         enum_def: &ASTEnumDef,
         param_types: &[ASTType],
         statics: &mut Statics,
-    );
+    ) {
+        for (variant_num, variant) in enum_def.variants.iter().enumerate() {
+            let ast_type = ASTType::Custom {
+                namespace: enum_def.namespace.clone(),
+                name: enum_def.name.clone(),
+                param_types: param_types.to_vec(),
+                // TODO for now here's no source fo generated functions
+                index: ASTIndex::none(),
+            };
+            let return_type = ast_type;
+            let descr = if self.debug() {
+                format!(" for {}::{}", enum_def.name, variant.name)
+            } else {
+                String::new()
+            };
+
+            let (body_str, inline) = self.enum_variant_constructor_body(
+                module,
+                enum_def,
+                statics,
+                variant_num,
+                variant,
+                &descr,
+            );
+            let body = ASTFunctionBody::NativeBody(body_str);
+
+            let name = enum_def.name.clone() + "_" + &variant.name.clone();
+            let function_def = ASTFunctionDef {
+                original_name: enum_def.name.clone() + "::" + &variant.name.clone(),
+                name,
+                parameters: variant.parameters.clone(),
+                body,
+                // TODO we cannot inline parametric variant constructor, but I don't know why
+                inline: inline && variant.parameters.is_empty(),
+                return_type,
+                generic_types: enum_def.type_parameters.clone(),
+                // TODO calculate, even if I don't know if it is useful
+                resolved_generic_types: ResolvedGenericTypes::new(),
+                index: variant.index.clone(),
+                modifiers: enum_def.modifiers.clone(),
+                namespace: module.namespace.clone(),
+                rank: 0,
+            };
+            debug!("created function {function_def}");
+
+            module.add_function(function_def);
+        }
+    }
+
+    fn debug(&self) -> bool;
+
+    fn enum_variant_constructor_body(
+        &self,
+        module: &mut ASTModule,
+        enum_def: &ASTEnumDef,
+        statics: &mut Statics,
+        variant_num: usize,
+        variant: &ASTEnumVariantDef,
+        descr: &String,
+    ) -> (String, bool);
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
 
@@ -547,13 +606,6 @@ pub trait FunctionsCreator {
     fn struct_setter_body(&self, i: usize) -> String;
 
     fn struct_setter_lambda_body(&self, i: usize) -> String;
-
-    fn enum_parametric_variant_constructor_body(
-        &self,
-        variant_num: &usize,
-        variant: &ASTEnumVariantDef,
-        descr_label: &str,
-    ) -> String;
 }
 
 fn variant_lambda_parameter(return_type: &ASTType, variant: &ASTEnumVariantDef) -> ASTParameterDef {
@@ -615,6 +667,60 @@ impl FunctionsCreatorNasmi386 {
         );
 
         body_src
+    }
+
+    fn enum_parametric_variant_constructor_body(
+        &self,
+        variant_num: &usize,
+        variant: &ASTEnumVariantDef,
+        descr_label: &str,
+    ) -> String {
+        let word_size = self.backend.word_size();
+        let word_len = self.backend.word_len();
+        let mut body = String::new();
+        self.code_gen.add(&mut body, "push ebx", None, true);
+        self.code_gen.add(
+            &mut body,
+            &format!(
+                "$call(rasmalloc, {}, [{descr_label}]: str)",
+                (variant.parameters.len() + 1) * word_len
+            ),
+            None,
+            true,
+        );
+        //CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
+        self.code_gen
+            .add(&mut body, &format!("push {word_size} eax"), None, true);
+        self.code_gen
+            .add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);
+        // I put the variant number in the first location
+        self.code_gen.add(
+            &mut body,
+            &format!("mov {}  [eax], {}", word_size, variant_num),
+            None,
+            true,
+        );
+        for (i, par) in variant.parameters.iter().rev().enumerate() {
+            self.code_gen.add(
+                &mut body,
+                &format!("mov   ebx, ${}", par.name),
+                Some(&format!("parameter {}", par.name)),
+                true,
+            );
+
+            self.code_gen.add(
+                &mut body,
+                &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len),
+                None,
+                true,
+            );
+        }
+        self.code_gen.add(&mut body, "pop   eax", None, true);
+
+        //CodeGen::call_add_ref(&mut body, backend, "eax", "");
+
+        self.code_gen.add(&mut body, "pop   ebx", None, true);
+        body
     }
 }
 
@@ -813,65 +919,8 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn enum_constructors(
-        &self,
-        module: &mut ASTModule,
-        enum_def: &ASTEnumDef,
-        param_types: &[ASTType],
-        statics: &mut Statics,
-    ) {
-        for (variant_num, variant) in enum_def.variants.iter().enumerate() {
-            let ast_type = ASTType::Custom {
-                namespace: enum_def.namespace.clone(),
-                name: enum_def.name.clone(),
-                param_types: param_types.to_vec(),
-                // TODO for now here's no source fo generated functions
-                index: ASTIndex::none(),
-            };
-            let return_type = ast_type;
-            let descr = if self.backend.debug_asm() {
-                format!(" for {}::{}", enum_def.name, variant.name)
-            } else {
-                String::new()
-            };
-
-            let body_str = if variant.parameters.is_empty() {
-                let label = format!(
-                    "_enum_{}_{}_{}",
-                    module.namespace.safe_name(),
-                    enum_def.name,
-                    variant.name
-                );
-                statics.insert_value_in_heap(&label, &descr, variant_num as i32);
-
-                format!("    mov    eax, [{}]\n", label)
-            } else {
-                let descr_label = statics.add_str(&descr);
-                self.enum_parametric_variant_constructor_body(&variant_num, variant, &descr_label)
-            };
-            let body = ASTFunctionBody::NativeBody(body_str);
-
-            let name = enum_def.name.clone() + "_" + &variant.name.clone();
-            let function_def = ASTFunctionDef {
-                original_name: enum_def.name.clone() + "::" + &variant.name.clone(),
-                name,
-                parameters: variant.parameters.clone(),
-                body,
-                // TODO we cannot inline parametric variant constructor, but I don't know why
-                inline: variant.parameters.is_empty(),
-                return_type,
-                generic_types: enum_def.type_parameters.clone(),
-                // TODO calculate, even if I don't know if it is useful
-                resolved_generic_types: ResolvedGenericTypes::new(),
-                index: variant.index.clone(),
-                modifiers: enum_def.modifiers.clone(),
-                namespace: module.namespace.clone(),
-                rank: 0,
-            };
-            debug!("created function {function_def}");
-
-            module.add_function(function_def);
-        }
+    fn debug(&self) -> bool {
+        self.backend.debug_asm()
     }
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
@@ -1046,57 +1095,31 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn enum_parametric_variant_constructor_body(
+    fn enum_variant_constructor_body(
         &self,
-        variant_num: &usize,
+        module: &mut ASTModule,
+        enum_def: &ASTEnumDef,
+        statics: &mut Statics,
+        variant_num: usize,
         variant: &ASTEnumVariantDef,
-        descr_label: &str,
-    ) -> String {
-        let word_size = self.backend.word_size();
-        let word_len = self.backend.word_len();
-        let mut body = String::new();
-        self.code_gen.add(&mut body, "push ebx", None, true);
-        self.code_gen.add(
-            &mut body,
-            &format!(
-                "$call(rasmalloc, {}, [{descr_label}]: str)",
-                (variant.parameters.len() + 1) * word_len
-            ),
-            None,
-            true,
-        );
-        //CodeGen::add(&mut body, &format!("add esp,{}", word_len), None, true);
-        self.code_gen
-            .add(&mut body, &format!("push {word_size} eax"), None, true);
-        self.code_gen
-            .add(&mut body, &format!("mov {word_size} eax,[eax]"), None, true);
-        // I put the variant number in the first location
-        self.code_gen.add(
-            &mut body,
-            &format!("mov {}  [eax], {}", word_size, variant_num),
-            None,
-            true,
-        );
-        for (i, par) in variant.parameters.iter().rev().enumerate() {
-            self.code_gen.add(
-                &mut body,
-                &format!("mov   ebx, ${}", par.name),
-                Some(&format!("parameter {}", par.name)),
-                true,
+        descr: &String,
+    ) -> (String, bool) {
+        if variant.parameters.is_empty() {
+            let label = format!(
+                "_enum_{}_{}_{}",
+                module.namespace.safe_name(),
+                enum_def.name,
+                variant.name
             );
+            statics.insert_value_in_heap(&label, &descr, variant_num as i32);
 
-            self.code_gen.add(
-                &mut body,
-                &format!("mov {}  [eax + {}], ebx", word_size, (i + 1) * word_len),
-                None,
+            (format!("    mov    eax, [{}]\n", label), true)
+        } else {
+            let descr_label = statics.add_str(&descr);
+            (
+                self.enum_parametric_variant_constructor_body(&variant_num, variant, &descr_label),
                 true,
-            );
+            )
         }
-        self.code_gen.add(&mut body, "pop   eax", None, true);
-
-        //CodeGen::call_add_ref(&mut body, backend, "eax", "");
-
-        self.code_gen.add(&mut body, "pop   ebx", None, true);
-        body
     }
 }

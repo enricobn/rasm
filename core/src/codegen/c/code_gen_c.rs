@@ -18,7 +18,10 @@
 
 use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
-use crate::codegen::c::text_macro::{CIncludeMacro, CStructDeclarationMacro};
+use crate::codegen::c::text_macro::{
+    CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
+    CIncludeMacro, CStructDeclarationMacro,
+};
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
@@ -100,6 +103,9 @@ impl CodeGenC {
             },
             ASTTypedType::Unit => "void".to_string(),
             ASTTypedType::Struct { namespace, name } => {
+                format!("struct {}_{name}*", namespace.safe_name())
+            }
+            ASTTypedType::Enum { namespace, name } => {
                 format!("struct {}_{name}*", namespace.safe_name())
             }
             _ => todo!("{ast_type}"),
@@ -542,6 +548,51 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
+        for s in typed_module.enums.iter() {
+            self.add(
+                &mut before,
+                &format!("struct {}_{} {{", s.namespace.safe_name(), s.name),
+                None,
+                false,
+            );
+            self.add(&mut before, "void *variant;", None, true);
+            self.add(&mut before, "int variant_num;", None, true);
+            self.add(&mut before, "};", None, false);
+
+            for variant in s.variants.iter() {
+                self.add(
+                    &mut before,
+                    &format!(
+                        "struct {}_{}_{} {{",
+                        s.namespace.safe_name(),
+                        s.name,
+                        variant.name
+                    ),
+                    None,
+                    false,
+                );
+
+                for property in variant.parameters.iter() {
+                    self.add(
+                        &mut before,
+                        &format!(
+                            "{} {};",
+                            CodeGenC::type_to_string(&property.ast_type, statics),
+                            property.name
+                        ),
+                        None,
+                        true,
+                    );
+                }
+
+                self.add(&mut before, "};", None, false);
+            }
+        }
+
+        if !typed_module.enums.is_empty() {
+            self.add_empty_line(&mut before);
+        }
+
         if let Some(declarations) = statics.any::<CFunctionsDeclarations>() {
             for c in declarations.vec.iter() {
                 self.add(&mut before, c, None, false);
@@ -585,6 +636,19 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         evaluators.insert(
             "structDeclaration".to_string(),
             Box::new(CStructDeclarationMacro),
+        );
+        evaluators.insert(
+            "enumVariantDeclaration".to_string(),
+            Box::new(CEnumVariantDeclarationMacro),
+        );
+        evaluators.insert(
+            "enumDeclaration".to_string(),
+            Box::new(CEnumDeclarationMacro),
+        );
+
+        evaluators.insert(
+            "enumVariantAssignment".to_string(),
+            Box::new(CEnumVariantAssignmentMacro),
         );
 
         TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))

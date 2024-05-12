@@ -1,18 +1,19 @@
 Doing
 ------
+- C backend
 
 Major
 -----
+- sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
-- change the lambda syntax to be like rust ( |p1,p2| { } ) or fn(p1,p2) -> {}
 - rename const to "let global" or "global let" or "let static" or "static let"
-- separate core library (shipped with the compiler) from stdlib (an external library that must be used as a dependency)
 - List library
 - SDL library
 - install library
   - in ~/.rasm/repository/library-name/library-version
 - library from http (https)
+- library from git
 - Unit type: ()
 - cannot ignore a return value from a function:
     // This is an invalid code
@@ -38,8 +39,7 @@ Major
 - optimize
   - can a recursive function's lambda space be reused?
 - native
-  - rename asm to native
-  - let specify attributes for native like native(nasmi386, linux)
+  - let specify attributes for native like native(nasmi386, linux)... parked for now it is a compiler responsibility to locate native code
 - threads
 - create and use Result in standard library
 - standardize compiler errors with source

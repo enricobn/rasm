@@ -61,7 +61,17 @@ fn test_enum() {
     run_test(
         "enum",
         Vec::new(),
-        "Some(a value)\nNone\nT2\n10\nSome(a value)\n",
+        "Some(a value)\nNone\nT1\n10\n20\nSome(a value 2)\nT2\n10\nSome(a value 3)\n",
+    );
+}
+
+#[test]
+fn test_enum_c() {
+    run_test_with_target(
+        "enum",
+        Vec::new(),
+        "Some(a value)\nNone\nT1\n10\n20\nSome(a value 2)\nT2\n10\nSome(a value 3)\n",
+        CompileTarget::C,
     );
 }
 
