@@ -1,3 +1,22 @@
 pub native exitMain(status: i32) /{
     exit($status);
 }/
+
+pub native argc() -> i32 /{
+    return _argc;
+}/
+
+pub native argv(i: i32) -> Option<str> /{
+    if (i >= _argc) {
+        $enumDeclaration(_result)
+        $enumVariantDeclaration(_v, None)
+        _result->variant_num = 1;
+        _result->variant = _v;
+        return _result;
+    } else {
+        return
+        $call(Option::Some, _argv[$i]:str)
+        ;
+    }
+
+}/

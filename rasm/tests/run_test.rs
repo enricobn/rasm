@@ -22,6 +22,11 @@ fn test_fibonacci() {
 }
 
 #[test]
+fn test_fibonacci_c() {
+    run_test_with_target("fibonacci", vec!["10"], "55\n", CompileTarget::C);
+}
+
+#[test]
 fn test_fibonacci_fixed_c() {
     run_test_with_target("fibonacci_fixed", vec![], "55\n", CompileTarget::C);
 }
@@ -561,7 +566,6 @@ fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
         test_name,
         args,
         expected_output,
-        //CompileTarget::C,
         CompileTarget::Nasmi386(AsmOptions::default()),
     )
 }

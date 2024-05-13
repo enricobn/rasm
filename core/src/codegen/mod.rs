@@ -587,7 +587,23 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             if let Some(index_in_lambda_space) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                self.call_lambda(function_call, before, stack_vals, index_in_lambda_space);
+                self.call_lambda(
+                    function_call,
+                    before,
+                    stack_vals,
+                    index_in_lambda_space,
+                    &call_parameters,
+                    lambda_space_opt
+                        .unwrap()
+                        .get_type(&function_call.function_name)
+                        .unwrap(),
+                    statics,
+                    is_last
+                        && parent_def
+                            .map(|it| it.return_type != ASTTypedType::Unit)
+                            .unwrap_or(false),
+                    is_inner_call,
+                );
             } else if let Some(kind) = context.get(&function_call.function_name) {
                 self.call_lambda_parameter(
                     function_call,
@@ -660,6 +676,11 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         before: &mut String,
         stack_vals: &StackVals,
         index_in_lambda_space: usize,
+        call_parameters: &FUNCTION_CALL_PARAMETERS,
+        ast_type_type: &ASTTypedType,
+        statics: &Statics,
+        return_value: bool,
+        is_inner_call: bool,
     );
 
     fn restore_stack(
@@ -1352,6 +1373,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         is_last: bool,
         is_inner_call: bool,
     ) -> (String, Vec<String>, Vec<LambdaCall>) {
+        // before, after, lambda calls
         let mut before = String::new();
         let mut after = Vec::new();
 
@@ -2652,6 +2674,11 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         before: &mut String,
         stack_vals: &StackVals,
         index_in_lambda_space: usize,
+        call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
+        ast_type_type: &ASTTypedType,
+        statics: &Statics,
+        return_value: bool,
+        is_inner_call: bool,
     ) {
         let rr = self.return_register();
 

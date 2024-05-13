@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas};
+use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambda, CLambdas};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
 use crate::codegen::c::text_macro::{
     CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
@@ -167,9 +167,33 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         before: &mut String,
         stack_vals: &StackVals,
         index_in_lambda_space: usize,
+        call_parameters: &Box<CFunctionCallParameters>,
+        ast_type_type: &ASTTypedType,
+        statics: &Statics,
+        return_value: bool,
+        is_inner_call: bool,
     ) {
-        self.code_manipulator
-            .add_comment(before, &format!("call_lambda {function_call}"), true);
+        let mut args = call_parameters
+            .parameters_values()
+            .iter()
+            .map(|(name, value)| (value.as_str(), None))
+            .collect::<Vec<_>>();
+        let casted_lambda = format!(
+            "(({})_lambda->args[{}])",
+            CodeGenC::type_to_string(ast_type_type, statics),
+            index_in_lambda_space - 1
+        );
+
+        args.push((&casted_lambda, None));
+
+        self.call_function(
+            before,
+            &format!("{casted_lambda}->functionPtr"),
+            &args,
+            None,
+            return_value,
+            is_inner_call,
+        );
     }
 
     fn restore_stack(
@@ -317,6 +341,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     ) {
         let mut args = Vec::new();
         for par in function_def.parameters.iter() {
+            // probably sometimes we need to add the lambda def here
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) = &par.ast_type
+            {
+                CLambdas::add_to_statics(
+                    statics,
+                    CLambda::new(parameters.clone(), return_type.as_ref().clone()),
+                );
+            }
+
             let arg_type = Self::type_to_string(&par.ast_type, statics);
             args.push(format!("{arg_type} {}", par.name));
         }
@@ -629,8 +665,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
-        self.add(&mut before, "int main()", None, false);
+        self.add(&mut before, "static int _argc;", None, false);
+        self.add(&mut before, "static char **_argv;", None, false);
+        self.add(&mut before, "int main(int argc, char **argv)", None, false);
         self.add(&mut before, "{", None, false);
+        self.add(&mut before, "_argc = argc;", None, true);
+        self.add(&mut before, "_argv = argv;", None, true);
 
         (before, after)
     }

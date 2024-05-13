@@ -2,7 +2,7 @@ use linked_hash_map::{Iter, LinkedHashMap};
 
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
-use crate::type_check::typed_ast::ASTTypedFunctionDef;
+use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType};
 
 #[derive(Debug, Clone)]
 pub struct LambdaCall {
@@ -36,6 +36,17 @@ impl LambdaSpace {
             .iter()
             .position(|(n, _)| n == name)
             .map(|it| it + 1);
+    }
+
+    pub fn get_type(&self, name: &str) -> Option<&ASTTypedType> {
+        return self
+            .values
+            .iter()
+            .find(|(n, _)| n == &name)
+            .map(|it| match it.1 {
+                TypedValKind::ParameterRef(_, par) => &par.ast_type,
+                TypedValKind::LetRef(_, t) => t,
+            });
     }
 
     pub fn is_in_context(&self, name: &str) -> bool {

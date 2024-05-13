@@ -11,8 +11,8 @@ pub fn print<T>(o: Option<T>) {
     match(o, fn(v) { print("Some("); print(v); print(")");}, {print("None");});
 }
 
-pub fn getOrElse<T>(o: Option<T>, default: T) -> T {
-    match(o, fn(v) {v;}, {default;});
+pub fn getOrElse<T>(o: Option<T>, defaultValue: T) -> T {
+    match(o, fn(v) {v;}, {defaultValue;});
 }
 
 pub fn run<T>(o: Option<T>, f: fn(T) -> ()) {

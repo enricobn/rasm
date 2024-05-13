@@ -13,3 +13,13 @@ pub native add(s1: str, s2: str) -> str /{
         strcat(result, $s2);
         return result;
 }/
+
+pub native toi32(s: str) -> Option<i32> /{
+    char *_end;
+
+     int _result = (int) strtol($s, &_end, 10);
+
+    return
+    $call(Option::Some, _result)
+    ;
+}/
