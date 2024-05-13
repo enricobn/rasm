@@ -1,0 +1,43 @@
+pub struct TimeVal {
+    sec: i32,
+    nano: i32
+}
+
+/**
+    returns the elapsed time in nanoseconds
+*/
+pub fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
+    let secA = sec(actual);
+    let nanoA = nano(actual);
+    let secP = sec(previous);
+    let nanoP = nano(previous);
+
+    add(mul(1000000, sub(secA, secP)), sub(nanoA, nanoP));
+}
+
+pub fn print(timeVal: TimeVal) {
+    print("sec=");
+    print(timeVal.sec);
+    print(" nano=");
+    print(timeVal.nano);
+}
+
+pub fn less(t1: TimeVal, t2: TimeVal) -> bool {
+    let sec1 = sec(t1);
+    let nano1 = nano(t1);
+
+    let sec2 = sec(t2);
+    let nano2 = nano(t2);
+
+    if(less(sec1, sec2), true, if(eq(sec1, sec2), less(nano1, nano2), false));
+}
+
+pub fn eq(t1: TimeVal, t2: TimeVal) -> bool {
+    let sec1 = sec(t1);
+    let nano1 = nano(t1);
+
+    let sec2 = sec(t2);
+    let nano2 = nano(t2);
+
+    and(eq(sec1, sec2), eq(nano1, nano2));
+}
