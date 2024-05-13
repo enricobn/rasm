@@ -4,6 +4,21 @@ Doing
 
 Major
 -----
+- "Universal Polymorphism" can create an infinite recursion, for example:
+  we declare a function like
+    add<T>(o1: str, o2: T) -> str {
+        add(o1, toString(o2));
+    }
+
+  and a function like
+
+    toString(s: str) -> str {
+        s;
+    }
+
+  and we don't declare a non-generic function for add(s1: str, s2: str), calling add with two strings leads to an infinite recursion!!!
+    it will go
+
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend

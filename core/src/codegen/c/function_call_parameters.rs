@@ -23,8 +23,9 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
-use crate::codegen::TypedValKind;
+use crate::codegen::{get_reference_type_name, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
@@ -111,9 +112,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             def.return_type.clone(),
         );
 
-        let c_lambda_name = c_lambda.name.clone();
-
-        CLambdas::add_to_statics(statics, c_lambda);
+        let c_lambda_name = CLambdas::add_to_statics(statics, c_lambda);
 
         def.parameters.push(ASTTypedParameterDef::new(
             "_lambda",
@@ -150,9 +149,20 @@ impl FunctionCallParameters for CFunctionCallParameters {
             true,
         );
         for (i, (name, kind)) in lambda_space.iter().enumerate() {
+            let t = match kind {
+                TypedValKind::ParameterRef(_, par) => &par.ast_type,
+                TypedValKind::LetRef(_, t) => t,
+            };
+
+            let name_prefix = if get_reference_type_name(t, module).is_some() {
+                ""
+            } else {
+                "&"
+            };
+
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{lambda_var_name}.args[{i}] = &{name};"),
+                &format!("{lambda_var_name}.args[{i}] = {name_prefix}{name};"),
                 None,
                 true,
             );
@@ -180,6 +190,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         indent: usize,
         stack_vals: &StackVals,
         statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
     ) {
         if let Some(ls) = lambda_space {
             if ls.get_index(val_name).is_some() {
@@ -189,20 +200,45 @@ impl FunctionCallParameters for CFunctionCallParameters {
                         TypedValKind::LetRef(i, t) => (*i, t.clone()),
                     };
 
-                    self.parameters_values.insert(
-                        original_param_name.to_string(),
+                    let is_ref_type =
+                        get_reference_type_name(&ast_typed_type, type_def_provider).is_some();
+
+                    let value = if is_ref_type {
+                        format!(
+                            " (({})_lambda->args[{i}])",
+                            CodeGenC::type_to_string(&ast_typed_type, statics)
+                        )
+                    } else {
                         format!(
                             " *(({}*)_lambda->args[{i}])",
                             CodeGenC::type_to_string(&ast_typed_type, statics)
-                        ),
-                    );
+                        )
+                    };
+
+                    if self.immediate {
+                        self.code_manipulator.add(
+                            &mut self.before,
+                            &format!("return {value};"),
+                            None,
+                            true,
+                        );
+                    } else {
+                        self.parameters_values
+                            .insert(original_param_name.to_string(), value);
+                    }
 
                     return;
                 }
             }
         }
-        self.parameters_values
-            .insert(original_param_name.to_string(), val_name.to_string());
+
+        if self.immediate {
+            self.code_manipulator
+                .add(&mut self.before, &format!("return {val_name};"), None, true);
+        } else {
+            self.parameters_values
+                .insert(original_param_name.to_string(), val_name.to_string());
+        }
     }
 
     fn add_let_val_ref(

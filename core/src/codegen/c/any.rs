@@ -19,6 +19,7 @@
 use crate::codegen::statics::Statics;
 use crate::type_check::typed_ast::ASTTypedType;
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub struct CConsts {
@@ -76,18 +77,31 @@ impl CInclude {
     }
 }
 
-static lambda_id: AtomicUsize = AtomicUsize::new(0);
+static LAMBDA_ID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Eq)]
 pub struct CLambda {
     pub name: String,
     pub args: Vec<ASTTypedType>,
     pub return_type: ASTTypedType,
 }
 
+impl PartialEq for CLambda {
+    fn eq(&self, other: &Self) -> bool {
+        self.args == other.args && self.return_type == other.return_type
+    }
+}
+
+impl Hash for CLambda {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.args.hash(state);
+        self.return_type.hash(state);
+    }
+}
+
 impl CLambda {
     pub fn new(args: Vec<ASTTypedType>, return_type: ASTTypedType) -> Self {
-        let name = format!("Lambda_{}", lambda_id.fetch_add(1, Ordering::SeqCst));
+        let name = format!("Lambda_{}", LAMBDA_ID.fetch_add(1, Ordering::SeqCst));
         Self {
             args,
             return_type,
@@ -118,13 +132,21 @@ impl CLambdas {
             .map(|it| it.name.as_str())
     }
 
-    pub fn add_to_statics(statics: &mut Statics, c_lambda: CLambda) {
+    pub fn add_to_statics(statics: &mut Statics, c_lambda: CLambda) -> String {
         if let Some(l) = statics.any_mut::<CLambdas>() {
-            l.add(c_lambda)
+            if let Some(found) = l.lambdas.get(&c_lambda) {
+                found.name.clone()
+            } else {
+                let name = c_lambda.name.clone();
+                l.add(c_lambda);
+                name
+            }
         } else {
             let mut lambdas = CLambdas::new();
+            let name = c_lambda.name.clone();
             lambdas.add(c_lambda);
             statics.add_any(lambdas);
+            name
         }
     }
 }
@@ -145,5 +167,58 @@ impl CFunctionsDeclarations {
             declarations.vec.push(def);
             statics.add_any(declarations);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::codegen::c::any::{CLambda, CLambdas};
+    use crate::codegen::statics::Statics;
+    use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
+
+    #[test]
+    fn unique_c_lambda() {
+        let mut statics = Statics::new();
+
+        let name = CLambdas::add_to_statics(
+            &mut statics,
+            CLambda::new(
+                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::String)],
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            ),
+        );
+
+        let new_name = CLambdas::add_to_statics(
+            &mut statics,
+            CLambda::new(
+                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::String)],
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            ),
+        );
+
+        assert_eq!(name, new_name);
+    }
+
+    #[test]
+    fn not_unique_c_lambda() {
+        let mut statics = Statics::new();
+
+        let name = CLambdas::add_to_statics(
+            &mut statics,
+            CLambda::new(
+                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::String)],
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            ),
+        );
+
+        let new_name = CLambdas::add_to_statics(
+            &mut statics,
+            CLambda::new(
+                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)],
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            ),
+        );
+
+        assert_ne!(name, new_name);
     }
 }

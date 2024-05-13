@@ -1,0 +1,3 @@
+pub native exitMain(status: i32) /{
+    exit($status);
+}/

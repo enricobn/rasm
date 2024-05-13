@@ -677,17 +677,17 @@ pub trait TextMacroEval {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall>;
 }
 
-pub struct CallTextMacroEvaluator {
+pub struct AsmCallTextMacroEvaluator {
     code_gen: CodeGenAsm,
 }
 
-impl CallTextMacroEvaluator {
+impl AsmCallTextMacroEvaluator {
     pub fn new(code_gen: CodeGenAsm) -> Self {
         Self { code_gen }
     }
 }
 
-impl<'a> TextMacroEval for CallTextMacroEvaluator {
+impl TextMacroEval for AsmCallTextMacroEvaluator {
     fn eval_macro(
         &self,
         statics: &mut Statics,
@@ -750,17 +750,17 @@ impl<'a> TextMacroEval for CallTextMacroEvaluator {
     }
 }
 
-pub struct CCallTextMacroEvaluator {
+pub struct AsmCCallTextMacroEvaluator {
     code_gen: CodeGenAsm,
 }
 
-impl CCallTextMacroEvaluator {
+impl AsmCCallTextMacroEvaluator {
     pub fn new(code_gen: CodeGenAsm) -> Self {
         Self { code_gen }
     }
 }
 
-impl TextMacroEval for CCallTextMacroEvaluator {
+impl TextMacroEval for AsmCCallTextMacroEvaluator {
     fn eval_macro(
         &self,
         statics: &mut Statics,

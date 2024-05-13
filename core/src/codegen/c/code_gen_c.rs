@@ -19,8 +19,8 @@
 use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
 use crate::codegen::c::text_macro::{
-    CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
-    CIncludeMacro, CStructDeclarationMacro,
+    CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
+    CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
@@ -108,6 +108,7 @@ impl CodeGenC {
             ASTTypedType::Enum { namespace, name } => {
                 format!("struct {}_{name}*", namespace.safe_name())
             }
+            ASTTypedType::Type { namespace, name } => "void **".to_string(),
             _ => todo!("{ast_type}"),
         }
     }
@@ -221,13 +222,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn add_ref(
         &self,
-        name: &&str,
+        name: &str,
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
         index: &ASTIndex,
         type_name: &String,
     ) {
+        // TODO
     }
 
     fn call_deref_for_let_val(
@@ -238,6 +240,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         type_name: &String,
         typed_module: &ASTTypedModule,
     ) -> String {
+        // TODO
         "// call_deref_for_let_val".to_string()
     }
 
@@ -251,7 +254,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         type_name: &String,
         typed_module: &ASTTypedModule,
     ) {
-        todo!()
+        // TODO
     }
 
     fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String) {
@@ -363,6 +366,32 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
         todo!()
+    }
+
+    fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
+        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
+        evaluators.insert("call".to_string(), Box::new(CCallMacro));
+        evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
+        evaluators.insert(
+            "structDeclaration".to_string(),
+            Box::new(CStructDeclarationMacro),
+        );
+        evaluators.insert("structType".to_string(), Box::new(CStructTypeMacro));
+        evaluators.insert(
+            "enumVariantDeclaration".to_string(),
+            Box::new(CEnumVariantDeclarationMacro),
+        );
+        evaluators.insert(
+            "enumDeclaration".to_string(),
+            Box::new(CEnumDeclarationMacro),
+        );
+
+        evaluators.insert(
+            "enumVariantAssignment".to_string(),
+            Box::new(CEnumVariantAssignmentMacro),
+        );
+
+        TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))
     }
 
     fn print_memory_info(&self, native_code: &mut String) {
@@ -629,28 +658,39 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn value_to_string(&self, value_type: &ValueType) -> String {
         todo!()
     }
+}
 
-    fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
-        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
-        evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
-        evaluators.insert(
-            "structDeclaration".to_string(),
-            Box::new(CStructDeclarationMacro),
-        );
-        evaluators.insert(
-            "enumVariantDeclaration".to_string(),
-            Box::new(CEnumVariantDeclarationMacro),
-        );
-        evaluators.insert(
-            "enumDeclaration".to_string(),
-            Box::new(CEnumDeclarationMacro),
+#[cfg(test)]
+mod tests {
+    use crate::codegen::c::code_gen_c::CodeGenC;
+    use crate::codegen::statics::Statics;
+    use crate::codegen::typedef_provider::DummyTypeDefProvider;
+    use crate::codegen::val_context::ValContext;
+    use crate::codegen::CodeGen;
+    use crate::utils::SliceDisplay;
+
+    #[test]
+    fn called_functions() {
+        let sut = CodeGenC::new();
+        let mut statics = Statics::new();
+
+        let functions = sut
+            .called_functions(
+                None,
+                None,
+                //"$call(Option::Some, value:T)",
+                "$call(Option::None<T>)",
+                &ValContext::new(None),
+                &DummyTypeDefProvider::new(),
+                &mut statics,
+            )
+            .unwrap();
+
+        println!(
+            "called functions {}",
+            SliceDisplay(&functions.iter().map(|it| &it.1).collect::<Vec<_>>())
         );
 
-        evaluators.insert(
-            "enumVariantAssignment".to_string(),
-            Box::new(CEnumVariantAssignmentMacro),
-        );
-
-        TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))
+        assert!(!functions.is_empty());
     }
 }

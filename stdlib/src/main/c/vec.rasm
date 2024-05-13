@@ -1,0 +1,63 @@
+/*
+struct RasmVec {
+    int length;
+    void **values;
+}
+*/
+
+pub native Vec<T>() -> Vec<T> /{
+    $include(<stdlib.h>)
+
+    void **result = malloc(sizeof(void *) * 2);
+    int* length = malloc(sizeof(int));
+    *length = 0;
+    result[0] = length;
+    result[1] = NULL;
+    return result;
+}/
+
+pub native first<T>(vec: Vec<T>) -> Option<T> /{
+    int _length = *((int*)$vec[0]);
+
+    if (_length == 0) {
+        $enumDeclaration(_result)
+        $enumVariantDeclaration(_none,None)
+        _result->variant_num = 1;
+        _result->variant = _none;
+        return _result;
+    } else {
+        void **_array = $vec[1];
+        void *_value = _array[0];
+        return
+        $call(Option::Some, _value:T)
+        ;
+    }
+}/
+
+pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
+    $include(<stdlib.h>)
+    $include(<string.h>)
+
+    void **_old_vec = vec;
+    void **_result = malloc(sizeof(void *) * 2);
+
+    int _old_length = *((int*)_old_vec[0]);
+
+    int *_new_length = malloc(sizeof(int));
+    *_new_length = _old_length + 1;
+
+    _result[0] = _new_length;
+    _result[1] = malloc(sizeof(void *) * (_old_length + 1));
+
+    void **_old_array = _old_vec[1];
+    void **_array = _result[1];
+
+    memcpy(_array, _old_array, sizeof(void *) * _old_length);
+
+    _array[_old_length] = $o;
+    return _result;
+}/
+
+pub native len<T>(vec: Vec<T>) -> i32 /{
+    return *(int*)(vec[0]);
+}/

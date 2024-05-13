@@ -165,9 +165,30 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_setter_body(&self, i: usize) -> String {
-        // TODO
-        String::new()
+    fn struct_setter_body(&self, i: usize, name: &str) -> String {
+        let mut result = String::new();
+
+        self.code_manipulator
+            .add(&mut result, "$structDeclaration(newStruct)", None, true);
+
+        self.code_manipulator.add(
+            &mut result,
+            &format!("memcpy(newStruct, $receiver, sizeof("),
+            None,
+            true,
+        );
+
+        self.code_manipulator
+            .add(&mut result, "$structType()", None, true);
+
+        self.code_manipulator.add(&mut result, "));", None, true);
+
+        self.code_manipulator
+            .add(&mut result, &format!("newStruct->{name} = $v;"), None, true);
+        // TODO it is not correct, it should be copied
+        self.code_manipulator
+            .add(&mut result, &format!("return newStruct;"), None, true);
+        result
     }
 
     fn struct_setter_lambda_body(&self, i: usize) -> String {

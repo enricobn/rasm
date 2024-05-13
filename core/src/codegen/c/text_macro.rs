@@ -96,6 +96,45 @@ impl TextMacroEval for CStructDeclarationMacro {
     }
 }
 
+pub struct CStructTypeMacro;
+
+impl TextMacroEval for CStructTypeMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        if let Some(def) = function_def {
+            if let ASTTypedType::Struct { namespace, name } = &def.return_type {
+                CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
+
+                let safe_name = format!("{}_{}", namespace.safe_name(), name);
+                format!("struct {safe_name}")
+            } else {
+                panic!(
+                    "Error in structDeclaration macro. Function does not return a struct {}",
+                    text_macro.index
+                )
+            }
+        } else {
+            panic!(
+                "Error in structDeclaration macro. Function not present {}",
+                text_macro.index
+            )
+        }
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        true
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
 pub struct CEnumVariantDeclarationMacro;
 
 impl TextMacroEval for CEnumVariantDeclarationMacro {
@@ -230,6 +269,46 @@ impl TextMacroEval for CEnumDeclarationMacro {
 
     fn is_pre_macro(&self) -> bool {
         true
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
+pub struct CCallMacro;
+
+impl TextMacroEval for CCallMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        let function_name =
+            if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
+                function_name
+            } else {
+                panic!("Error getting the function name");
+            };
+
+        let parameters = text_macro
+            .parameters
+            .iter()
+            .skip(1)
+            .map(|it| match it {
+                MacroParam::Plain(value, _, _) => value.to_string(),
+                MacroParam::StringLiteral(s) => format!("\"{s}\""),
+                MacroParam::Ref(value, _, _) => value.to_string(),
+            })
+            .collect::<Vec<_>>();
+
+        format!("{function_name}({});", parameters.join(", "))
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
     }
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {

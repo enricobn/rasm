@@ -213,7 +213,17 @@ impl CompileTarget {
                     _statics,
                 )
             }
-            CompileTarget::C => Ok(Vec::new()),
+            CompileTarget::C => {
+                let code_gen = CodeGenC::new();
+                code_gen.called_functions(
+                    typed_function_def,
+                    function_def,
+                    body,
+                    context,
+                    type_def_provider,
+                    _statics,
+                )
+            }
         }
     }
 
@@ -337,6 +347,7 @@ impl CompileTarget {
                     .arg(out_path.with_extension("c"))
                     .arg("-std=c17")
                     .arg("-O3")
+                    .arg("-g")
                     .arg("-Wno-implicit-function-declaration")
                     .arg("-o")
                     .arg(out_path.with_extension(""));

@@ -290,6 +290,25 @@ fn test_vec() {
 }
 
 #[test]
+fn test_vec_simple() {
+    run_test(
+        "vec_simple",
+        vec![],
+        "2\nSome(10)\n2\nSome(Hello)\n2\nSome(Some(Hello))\nSome(Hello)\n",
+    );
+}
+
+#[test]
+fn test_vec_simple_c() {
+    run_test_with_target(
+        "vec_simple",
+        vec![],
+        "2\nSome(10)\n2\nSome(Hello)\n2\nSome(Some(Hello))\nSome(Hello)\n",
+        CompileTarget::C,
+    );
+}
+
+#[test]
 fn test_vec2() {
     run_test("vec2", vec![], "\n\n");
 }
@@ -477,6 +496,11 @@ fn test_assertions() {
 }
 
 #[test]
+fn test_assertions_c() {
+    run_test_with_target("assertions", Vec::new(), "", CompileTarget::C);
+}
+
+#[test]
 fn test_single_match() {
     run_test("single_match", Vec::new(), "Found\nNotFound\n");
 }
@@ -537,6 +561,7 @@ fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
         test_name,
         args,
         expected_output,
+        //CompileTarget::C,
         CompileTarget::Nasmi386(AsmOptions::default()),
     )
 }

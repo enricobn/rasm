@@ -22,7 +22,7 @@ use crate::codegen::statics::MemoryUnit::{Bytes, Words};
 use crate::codegen::statics::MemoryValue::{I32Value, Mem};
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::text_macro::{
-    AddRefMacro, CCallTextMacroEvaluator, CallTextMacroEvaluator, MacroParam, PrintRefMacro,
+    AddRefMacro, AsmCCallTextMacroEvaluator, AsmCallTextMacroEvaluator, MacroParam, PrintRefMacro,
     RefType, TextMacro, TextMacroEval, TextMacroEvaluator,
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -473,6 +473,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             stack_vals,
                             index,
                             statics,
+                            typed_module,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -912,7 +913,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn add_ref(
         &self,
-        name: &&str,
+        name: &str,
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
@@ -988,6 +989,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         stack_vals: &StackVals,
         ast_index: &ASTIndex,
         statics: &Statics,
+        typed_module: &ASTTypedModule,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1000,6 +1002,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         *indent,
                         stack_vals,
                         statics,
+                        typed_module,
                     );
                 }
 
@@ -1150,6 +1153,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                         &stack,
                                         index,
                                         statics,
+                                        typed_module,
                                     );
 
                                     before.push_str(&parameters.before());
@@ -2783,7 +2787,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
     fn add_ref(
         &self,
-        name: &&str,
+        name: &str,
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
@@ -3489,10 +3493,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
         let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
-        let call_text_macro_evaluator = CallTextMacroEvaluator::new(self.clone());
+        let call_text_macro_evaluator = AsmCallTextMacroEvaluator::new(self.clone());
         evaluators.insert("call".into(), Box::new(call_text_macro_evaluator));
 
-        let c_call_text_macro_evaluator = CCallTextMacroEvaluator::new(self.clone());
+        let c_call_text_macro_evaluator = AsmCCallTextMacroEvaluator::new(self.clone());
         evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
         evaluators.insert(
             "addRef".into(),

@@ -14,7 +14,17 @@ pub native div(n1: i32, n2: i32) -> i32 /{
     ($n1 / $n2)
 }/
 
+// from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
 pub native toString(n: i32) -> str /{
+    $include(<math.h>)
+
+    // TODO calculate max length
+    //int s_len = (int)((ceil(log10((double)$n));
+    int s_len = 20;
+
+    char *_str = malloc((s_len + 1) * sizeof(char));
+    sprintf(_str, "%d", $n);
+    return _str;
 }/
 
 /**

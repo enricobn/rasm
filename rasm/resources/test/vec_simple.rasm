@@ -1,0 +1,47 @@
+testIntegers();
+testStrings();
+testOptions();
+testVecInStruct();
+
+fn testIntegers() {
+    let v = Vec<i32>();
+    let v1 = v.push(10);
+    let v2 = v1.push(11);
+
+    println(v2.len);
+
+    println(v2.first);
+}
+
+fn testStrings() {
+    let v = Vec<str>();
+    let v1 = v.push("Hello");
+    let v2 = v1.push("World");
+
+    println(v2.len);
+
+    println(v2.first);
+}
+
+fn testOptions() {
+    let v = Vec<Option<str>>();
+    let v1 = v.push(Option::Some("Hello"));
+    let v2 = v1.push(Option::Some("World"));
+
+    println(v2.len);
+
+    println(v2.first);
+}
+
+struct VecContainer {
+    vec: Vec<str>
+}
+
+fn testVecInStruct() {
+    let container = VecContainer(Vec());
+
+    let newContainer = container.vec(container.vec.push("Hello"));
+
+    println(newContainer.vec.first);
+
+}

@@ -6,6 +6,7 @@ use crate::codegen::backend::BackendAsm;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
@@ -53,6 +54,7 @@ pub trait FunctionCallParameters {
         indent: usize,
         stack_vals: &StackVals,
         statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
     );
 
     fn add_let_val_ref(
@@ -581,6 +583,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         indent: usize,
         stack_vals: &StackVals,
         statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
