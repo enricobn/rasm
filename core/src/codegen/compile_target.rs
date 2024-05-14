@@ -332,6 +332,8 @@ impl CompileTarget {
             CompileTarget::C => {
                 let native_code = self.generate(statics, &typed_module, command_line_options.debug);
 
+                info!("code generation ended in {:?}", start.elapsed());
+
                 let out_path = Path::new(&out);
                 File::create(out_path)
                     .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
@@ -346,9 +348,9 @@ impl CompileTarget {
                 command
                     .arg(out_path.with_extension("c"))
                     .arg("-std=c17")
-                    .arg("-O3")
+                    //.arg("-O3")
                     .arg("-g")
-                    .arg("-Wno-implicit-function-declaration")
+                    //.arg("-Wno-implicit-function-declaration")
                     .arg("-o")
                     .arg(out_path.with_extension(""));
                 log_command(&command);

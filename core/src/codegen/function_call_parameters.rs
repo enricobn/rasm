@@ -27,6 +27,7 @@ pub trait FunctionCallParameters {
         statics: &mut Statics,
         name: String,
         before: String,
+        current: String,
     );
 
     fn add_lambda(
@@ -74,9 +75,11 @@ pub trait FunctionCallParameters {
 
     fn add_on_top_of_after(&mut self, s: &str);
 
-    fn after(&self) -> Vec<String>;
-
     fn before(&self) -> String;
+
+    fn current(&self) -> String;
+
+    fn after(&self) -> Vec<String>;
 
     fn resolve_native_parameters(
         &self,
@@ -286,12 +289,14 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         statics: &mut Statics,
         name: String,
         before: String,
+        current: String,
     ) {
         if self.immediate {
             panic!();
         }
 
         self.push(&before);
+        self.push(&current);
 
         let wl = self.backend.word_len();
         let ws = self.backend.word_size();
@@ -303,6 +308,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             Some(comment),
             true,
         );
+
         if let Some(name) = get_reference_type_name(&param_type, module) {
             self.add_code_for_reference_type(module, &name, "eax", comment, statics);
         }
@@ -651,15 +657,6 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         self.after.insert(0, s.into());
     }
 
-    fn after(&self) -> Vec<String> {
-        let s = String::new();
-
-        let mut result = vec![s];
-        let mut after = self.after.clone();
-        result.append(&mut after);
-        result
-    }
-
     fn before(&self) -> String {
         let mut result = String::new();
 
@@ -684,6 +681,19 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             &self.to_remove_from_stack_name(),
             &(self.to_remove_from_stack() * self.backend.word_len()).to_string(),
         )
+    }
+
+    fn current(&self) -> String {
+        String::new()
+    }
+
+    fn after(&self) -> Vec<String> {
+        let s = String::new();
+
+        let mut result = vec![s];
+        let mut after = self.after.clone();
+        result.append(&mut after);
+        result
     }
 
     fn resolve_native_parameters(

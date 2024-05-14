@@ -40,6 +40,7 @@ pub struct CFunctionCallParameters {
     parameters: Vec<ASTTypedParameterDef>,
     parameters_values: LinkedHashMap<String, String>,
     before: String,
+    current: String,
     after: Vec<String>,
     code_manipulator: CCodeManipulator,
     inline: bool,
@@ -58,6 +59,7 @@ impl CFunctionCallParameters {
             parameters,
             parameters_values: LinkedHashMap::new(),
             before: String::new(),
+            current: String::new(),
             after: Vec::new(),
             code_manipulator: CCodeManipulator,
             inline,
@@ -81,9 +83,16 @@ impl FunctionCallParameters for CFunctionCallParameters {
         statics: &mut Statics,
         name: String,
         before: String,
+        current: String,
     ) {
-        self.parameters_values
-            .insert(name, before.replace('\n', ""));
+        if current.is_empty() {
+            self.parameters_values
+                .insert(name, before.replace('\n', ""));
+        } else {
+            self.push(&before);
+            self.parameters_values
+                .insert(name, current.replace('\n', ""));
+        }
     }
 
     fn add_lambda(
@@ -327,5 +336,9 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
     fn parameters_values(&self) -> &LinkedHashMap<String, String> {
         &self.parameters_values
+    }
+
+    fn current(&self) -> String {
+        self.current.clone()
     }
 }
