@@ -357,6 +357,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             args.push(format!("{arg_type} {}", par.name));
         }
 
+        // probably sometimes we need to add the lambda def here
+        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+            parameters,
+            return_type,
+        }) = &function_def.return_type
+        {
+            CLambdas::add_to_statics(
+                statics,
+                CLambda::new(parameters.clone(), return_type.as_ref().clone()),
+            );
+        }
+
         self.add(
             out,
             &format!(
@@ -397,11 +409,13 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     }
 
     fn value_as_return(&self, before: &mut String, v: &str) {
-        todo!()
+        self.code_manipulator
+            .add(before, &format!("return {v};"), None, true);
     }
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
-        todo!()
+        self.code_manipulator
+            .add(before, &format!("return \"{value}\";"), None, true);
     }
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
@@ -696,7 +710,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     }
 
     fn value_to_string(&self, value_type: &ValueType) -> String {
-        todo!()
+        match value_type {
+            ValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
+            ValueType::I32(v) => format!("{v}"),
+            ValueType::Char(v) => format!("'{v}'"),
+            ValueType::F32(v) => format!("{v}"),
+        }
     }
 }
 

@@ -67,6 +67,31 @@ impl CFunctionCallParameters {
             immediate,
         }
     }
+
+    fn get_value_from_lambda_space(
+        statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
+        i: usize,
+        ast_typed_type: &ASTTypedType,
+        dereference: bool,
+    ) -> String {
+        let is_ref_type = get_reference_type_name(&ast_typed_type, type_def_provider).is_some();
+
+        let deref_s = if dereference { "*" } else { "" };
+
+        let value = if is_ref_type {
+            format!(
+                " (({})_lambda->args[{i}])",
+                CodeGenC::type_to_string(&ast_typed_type, statics)
+            )
+        } else {
+            format!(
+                " {deref_s}(({}*)_lambda->args[{i}])",
+                CodeGenC::type_to_string(&ast_typed_type, statics)
+            )
+        };
+        value
+    }
 }
 
 impl FunctionCallParameters for CFunctionCallParameters {
@@ -169,9 +194,16 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 "&"
             };
 
+            let value = if let Some(idx) = parent_lambda_space.and_then(|it| it.get_index(name)) {
+                let t = parent_lambda_space.unwrap().get_type(name).unwrap();
+                Self::get_value_from_lambda_space(statics, module, idx - 1, t, false)
+            } else {
+                format!("{name_prefix}{name}")
+            };
+
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{lambda_var_name}.args[{i}] = {name_prefix}{name};"),
+                &format!("{lambda_var_name}.args[{i}] = {value};"),
                 None,
                 true,
             );
@@ -209,20 +241,13 @@ impl FunctionCallParameters for CFunctionCallParameters {
                         TypedValKind::LetRef(i, t) => (*i, t.clone()),
                     };
 
-                    let is_ref_type =
-                        get_reference_type_name(&ast_typed_type, type_def_provider).is_some();
-
-                    let value = if is_ref_type {
-                        format!(
-                            " (({})_lambda->args[{i}])",
-                            CodeGenC::type_to_string(&ast_typed_type, statics)
-                        )
-                    } else {
-                        format!(
-                            " *(({}*)_lambda->args[{i}])",
-                            CodeGenC::type_to_string(&ast_typed_type, statics)
-                        )
-                    };
+                    let value = Self::get_value_from_lambda_space(
+                        statics,
+                        type_def_provider,
+                        i,
+                        &ast_typed_type,
+                        true,
+                    );
 
                     if self.immediate {
                         self.code_manipulator.add(
@@ -266,7 +291,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
     fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
         let value = match value_type {
-            ValueType::Boolean(b) => (if *b { "0" } else { "1" }).to_string(),
+            ValueType::Boolean(b) => (if *b { "1" } else { "0" }).to_string(),
             ValueType::I32(i) => format!("{i}"),
             ValueType::Char(c) => format!("'{c}'"),
             ValueType::F32(f) => format!("{f}"),

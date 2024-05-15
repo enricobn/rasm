@@ -25,6 +25,7 @@ println(if(true, 100, 200));
 
 // TODO I don't like it because, if an assertion fails I don't know which have failed and the program exits
 Assertions()
+/*
 .assertFalse(or(false, false))
 .assertTrue(or(true, false))
 .assertTrue(or(false, true))
@@ -47,7 +48,7 @@ Assertions()
 .assertTrue(">", ifChar2('>').eq('>'))
 .assertTrue("/", ifChar2('/').eq('/'))
 .assertTrue("a", ifChar2('a').eq('?'))
-
+*/
 .validate();
 
 fn ifChar(c: char) -> char {

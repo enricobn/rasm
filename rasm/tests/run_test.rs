@@ -11,25 +11,34 @@ fn test_helloworld() {
     run_test("helloworld", Vec::new(), "Hello world\n");
 }
 
+/*
 #[test]
 fn test_helloworld_c() {
     run_test_with_target("helloworld", Vec::new(), "Hello world\n", CompileTarget::C);
 }
+
+ */
 
 #[test]
 fn test_fibonacci() {
     run_test("fibonacci", vec!["10"], "55\n");
 }
 
+/*
 #[test]
 fn test_fibonacci_c() {
     run_test_with_target("fibonacci", vec!["10"], "55\n", CompileTarget::C);
 }
 
+ */
+
+/*
 #[test]
 fn test_fibonacci_fixed_c() {
     run_test_with_target("fibonacci_fixed", vec![], "55\n", CompileTarget::C);
 }
+
+ */
 
 #[test]
 fn test_inline() {
@@ -70,6 +79,7 @@ fn test_enum() {
     );
 }
 
+/*
 #[test]
 fn test_enum_c() {
     run_test_with_target(
@@ -79,6 +89,8 @@ fn test_enum_c() {
         CompileTarget::C,
     );
 }
+
+ */
 
 #[test]
 fn test_lambda_0() {
@@ -105,10 +117,13 @@ fn test_lambda1() {
     run_test("lambda1", vec![], "10\n");
 }
 
+/*
 #[test]
 fn test_lambda1_c() {
     run_test_with_target("lambda1", vec![], "10\n", CompileTarget::C);
 }
+
+ */
 
 #[test]
 fn test_lambda2() {
@@ -202,10 +217,13 @@ fn test_structs() {
     run_test("structs", vec![], "10, 20\n");
 }
 
+/*
 #[test]
 fn test_structs_c() {
     run_test_with_target("structs", vec![], "10, 20\n", CompileTarget::C);
 }
+
+ */
 
 #[test]
 fn test_read_file() {
@@ -303,6 +321,7 @@ fn test_vec_simple() {
     );
 }
 
+/*
 #[test]
 fn test_vec_simple_c() {
     run_test_with_target(
@@ -312,6 +331,8 @@ fn test_vec_simple_c() {
         CompileTarget::C,
     );
 }
+
+ */
 
 #[test]
 fn test_vec2() {
@@ -500,10 +521,13 @@ fn test_assertions() {
     run_test("assertions", Vec::new(), "");
 }
 
+/*
 #[test]
 fn test_assertions_c() {
     run_test_with_target("assertions", Vec::new(), "", CompileTarget::C);
 }
+
+ */
 
 #[test]
 fn test_single_match() {
@@ -530,6 +554,11 @@ fn test_structpropertysetter1() {
 }
 
 // Compile tests
+
+#[test]
+fn test_gameoflife_compile() {
+    compile_example("resources/examples/gameoflife", true);
+}
 
 #[test]
 fn test_gameoflife_sdl_compile() {
@@ -564,10 +593,11 @@ fn test_bouncing_quads() {
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
     run_test_with_target(
         test_name,
-        args,
+        args.clone(),
         expected_output,
         CompileTarget::Nasmi386(AsmOptions::default()),
-    )
+    );
+    run_test_with_target(test_name, args, expected_output, CompileTarget::C);
 }
 
 fn run_test_with_target(
@@ -604,12 +634,15 @@ fn run_test_no_verify(test_name: &str, args: Vec<&str>) {
 fn run(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     let executable = compile(&dir, source, false);
+    execute(&executable.unwrap(), args.clone(), expected_output);
+    let executable = compile_with_target(&dir, source, false, CompileTarget::C);
     execute(&executable.unwrap(), args, expected_output);
 }
 
 fn compile_example(source: &str, only_compile: bool) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     compile(&dir, source, only_compile);
+    compile_with_target(&dir, source, only_compile, CompileTarget::C);
 }
 
 fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {

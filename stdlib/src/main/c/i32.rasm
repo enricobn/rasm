@@ -40,7 +40,7 @@ pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
  *  false = 0 true = 1
  **/
 pub inline native less(a: i32, b: i32) -> bool /{
-    ($a <= $b)
+    ($a < $b)
 }/
 
 /**

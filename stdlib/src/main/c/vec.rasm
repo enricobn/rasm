@@ -1,8 +1,7 @@
 /*
-struct RasmVec {
+the structure of vec
     int length;
     void **values;
-}
 */
 
 pub native Vec<T>() -> Vec<T> /{
@@ -60,4 +59,90 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
 
 pub native len<T>(vec: Vec<T>) -> i32 /{
     return *(int*)(vec[0]);
+}/
+
+pub native vecOf<T>(o: T) -> Vec<T> /{
+    $include(<stdlib.h>)
+
+    void **_result = malloc(sizeof(void *) * 2);
+
+    int *_length = malloc(sizeof(int));
+    *_length = 1;
+
+    void **_vec = malloc(sizeof(void *) * 1);
+    _vec[0] = $o;
+
+    _result[0] = _length;
+    _result[1] = _vec;
+    return _result;
+}/
+
+pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
+    $include(<stdlib.h>)
+
+    void **_result = malloc(sizeof(void *) * 2);
+
+    int *_length = malloc(sizeof(int));
+    *_length = 2;
+
+    void **_vec = malloc(sizeof(void *) * 2);
+    _vec[0] = $o1;
+    _vec[1] = $o2;
+
+    _result[0] = _length;
+    _result[1] = _vec;
+    return _result;
+}/
+
+pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
+    $include(<stdlib.h>)
+
+    void **_result = malloc(sizeof(void *) * 2);
+
+    int *_length = malloc(sizeof(int));
+    *_length = 3;
+
+    void **_vec = malloc(sizeof(void *) * 3);
+    _vec[0] = $o1;
+    _vec[1] = $o2;
+    _vec[2] = $o3;
+
+    _result[0] = _length;
+    _result[1] = _vec;
+    return _result;
+}/
+
+// TODO we should implement print(file: File, v: Vec<T>)
+pub native print<T>(v: Vec<T>) /{
+    $include(<stdio.h>)
+
+    int _length = *(int*)$v[0];
+    void **_args = $v[1];
+
+    for (int i = 0; i < _length; i++) {
+        $call(print, _args[i]:T)
+        printf(",");
+    }
+}/
+
+// end exclusive
+pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
+    $include(<stdlib.h>)
+
+    void **_result = malloc(sizeof(void *) * 2);
+
+    int *_length = malloc(sizeof(int));
+    *_length = end - start + 1;
+
+    void **_vec = malloc(sizeof(void *) * *_length);
+
+    int counter = 0;
+    for (int i = start; i < end; i++) {
+        int *_num =  malloc(sizeof(int));
+        *_num = i;
+
+        _vec[counter++] = _num;
+    }
+
+    return _result;
 }/

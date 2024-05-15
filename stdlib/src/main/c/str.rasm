@@ -23,3 +23,21 @@ pub native toi32(s: str) -> Option<i32> /{
     $call(Option::Some, _result)
     ;
 }/
+
+pub inline native eq(a: str, b: str) -> bool /{
+    $include(<string.h>)
+
+    (strcmp($a, $b) == 0)
+}/
+
+pub inline native less(a: str, b: str) -> bool /{
+    $include(<string.h>)
+
+    (strcmp($a, $b) < 0)
+}/
+
+pub inline native greater(a: str, b: str) -> bool /{
+    $include(<string.h>)
+
+    (strcmp($a, $b) > 0)
+}/
