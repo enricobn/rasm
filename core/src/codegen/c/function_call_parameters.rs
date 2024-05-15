@@ -82,12 +82,12 @@ impl CFunctionCallParameters {
         let value = if is_ref_type {
             format!(
                 " (({})_lambda->args[{i}])",
-                CodeGenC::type_to_string(&ast_typed_type, statics)
+                CodeGenC::type_to_string(ast_typed_type, statics)
             )
         } else {
             format!(
                 " {deref_s}(({}*)_lambda->args[{i}])",
-                CodeGenC::type_to_string(&ast_typed_type, statics)
+                CodeGenC::type_to_string(ast_typed_type, statics)
             )
         };
         value
@@ -234,35 +234,28 @@ impl FunctionCallParameters for CFunctionCallParameters {
         type_def_provider: &dyn TypeDefProvider,
     ) {
         if let Some(ls) = lambda_space {
-            if ls.get_index(val_name).is_some() {
-                if let Some(kind) = ls.get_context().get(val_name) {
-                    let (i, ast_typed_type) = match kind {
-                        TypedValKind::ParameterRef(i, pd) => (*i, pd.ast_type.clone()),
-                        TypedValKind::LetRef(i, t) => (*i, t.clone()),
-                    };
+            if let Some(index_in_lambda_space) = ls.get_index(val_name) {
+                let ast_typed_type = ls.get_type(val_name).unwrap();
+                let value = Self::get_value_from_lambda_space(
+                    statics,
+                    type_def_provider,
+                    index_in_lambda_space - 1,
+                    ast_typed_type,
+                    true,
+                );
 
-                    let value = Self::get_value_from_lambda_space(
-                        statics,
-                        type_def_provider,
-                        i,
-                        &ast_typed_type,
+                if self.immediate {
+                    self.code_manipulator.add(
+                        &mut self.before,
+                        &format!("return {value};"),
+                        None,
                         true,
                     );
-
-                    if self.immediate {
-                        self.code_manipulator.add(
-                            &mut self.before,
-                            &format!("return {value};"),
-                            None,
-                            true,
-                        );
-                    } else {
-                        self.parameters_values
-                            .insert(original_param_name.to_string(), value);
-                    }
-
-                    return;
+                } else {
+                    self.parameters_values
+                        .insert(original_param_name.to_string(), value);
                 }
+                return;
             }
         }
 

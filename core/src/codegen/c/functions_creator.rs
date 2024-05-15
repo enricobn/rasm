@@ -86,6 +86,13 @@ impl FunctionsCreator for CFunctionsCreator {
             self.code_manipulator.add(&mut result, "}", None, true);
         }
 
+        self.code_manipulator.add(
+            &mut result,
+            &format!("printf(\"unknown variant %d\\n\", $value->variant_num);"),
+            None,
+            true,
+        );
+
         result
     }
 
