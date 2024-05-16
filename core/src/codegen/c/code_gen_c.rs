@@ -112,6 +112,13 @@ impl CodeGenC {
             _ => todo!("{ast_type}"),
         }
     }
+
+    pub fn escape_string(s: &str) -> String {
+        let mut result = s.to_string();
+        result = result.replace("\\\\", "\\");
+        result = result.replace("\"", "\\\"");
+        result
+    }
 }
 
 impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
@@ -309,7 +316,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         stack: &StackVals,
     ) {
         if is_const {
-            CConsts::add_to_statics(statics, format!("const char* {name} = \"{value}\";"));
+            CConsts::add_to_statics(
+                statics,
+                format!("const char* {name} = \"{}\";", Self::escape_string(value)),
+            );
         } else {
             todo!()
         }
@@ -751,5 +761,10 @@ mod tests {
         );
 
         assert!(!functions.is_empty());
+    }
+
+    #[test]
+    fn test_escape() {
+        assert_eq!(CodeGenC::escape_string("a\"a"), "a\"a");
     }
 }

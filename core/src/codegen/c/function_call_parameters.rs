@@ -96,8 +96,10 @@ impl CFunctionCallParameters {
 
 impl FunctionCallParameters for CFunctionCallParameters {
     fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>) {
-        self.parameters_values
-            .insert(param_name.to_string(), format!("\"{value}\""));
+        self.parameters_values.insert(
+            param_name.to_string(),
+            format!("\"{}\"", CodeGenC::escape_string(&value)),
+        );
     }
 
     fn add_function_call(

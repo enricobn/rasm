@@ -14,6 +14,19 @@ pub native add(s1: str, s2: str) -> str /{
     return result;
 }/
 
+pub native add(s: str, c: char) -> str /{
+    $include(<stdlib.h>)
+    $include(<string.h>)
+
+    int _len = strlen($s);
+
+    char *_result = malloc(_len + 1 + 1); // +1 for the null-terminator
+    // in real code you would check for errors in malloc here
+    strcpy(_result, $s);
+    _result[_len] = $c;
+    return _result;
+}/
+
 // from https://stackoverflow.com/questions/26080829/detecting-strtol-failure
 pub native toi32(s: str) -> Option<i32> /{
     $include(<errno.h>)
@@ -53,4 +66,37 @@ pub inline native greater(a: str, b: str) -> bool /{
     $include(<string.h>)
 
     (strcmp($a, $b) > 0)
+}/
+
+pub inline native len(s: str) -> i32 /{
+    $include(<string.h>)
+
+    strlen($s)
+}/
+
+// from https://stackoverflow.com/questions/2114377/copying-a-part-of-a-string-substring-in-c
+pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
+    $include(<stdlib.h>)
+    $include(<string.h>)
+
+  int input_len = strlen ($s);
+
+  if (pos + len > input_len)
+  {
+     // a "typed" None based on the typed return value of the function
+     $enumDeclaration(_result)
+     $enumVariantDeclaration(_none,None)
+     _result->variant_num = 1;
+     _result->variant = _none;
+     return _result;
+  }
+
+  char *_dest = malloc((sizeof(char)) * len + 1);
+
+  strncpy (_dest, $s + pos, len);
+  _dest[len] = '\0'; // place the null terminator
+
+  return
+  $call(Option::Some, _dest:str)
+  ;
 }/
