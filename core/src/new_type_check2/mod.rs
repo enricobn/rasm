@@ -602,16 +602,24 @@ impl TypeCheck {
 
                         debug_i!("real type of expression : {param_type}");
 
-                        let (t, e) = self.get_filter(
-                            module,
-                            val_context,
-                            statics,
-                            &mut resolved_generic_types,
-                            expr,
-                            param_type,
-                            namespace,
-                            inside_function,
-                        )?;
+                        let (t, e) = self
+                            .get_filter(
+                                module,
+                                val_context,
+                                statics,
+                                &mut resolved_generic_types,
+                                expr,
+                                param_type,
+                                namespace,
+                                inside_function,
+                            )
+                            .map_err(|it| {
+                                it.add(
+                                    expr.get_index(),
+                                    format!("getting filter from expression {expr}"),
+                                    self.stack.clone(),
+                                )
+                            })?;
                         if resolved_count != resolved_generic_types.len() {
                             something_resolved = true;
                         }

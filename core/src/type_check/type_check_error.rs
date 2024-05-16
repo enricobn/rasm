@@ -63,19 +63,19 @@ impl TypeCheckError {
     fn write_one(&self, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
         let spaces = " ".repeat(indent * 2);
         f.write_str(&format!("{spaces}{} : {}\n", self.main.1, self.main.0))?;
-        for (index, message, _stack) in self.messages.iter() {
+        for (index, message, stack) in self.messages.iter() {
             f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
 
-            /*
             for i in stack {
                 f.write_str(&format!("{}\n", i))?;
             }
-
-             */
         }
+        /*
         for child in self.children.iter() {
             child.write_one(f, indent + 1)?;
         }
+
+         */
         Ok(())
     }
 
