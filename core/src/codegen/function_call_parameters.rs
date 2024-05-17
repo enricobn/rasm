@@ -19,6 +19,14 @@ use crate::type_check::typed_ast::{
 pub trait FunctionCallParameters {
     fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>);
 
+    fn add_string_constant(
+        &mut self,
+        param_name: &str,
+        value: &str,
+        comment: Option<&str>,
+        statics: &mut Statics,
+    );
+
     fn add_function_call(
         &mut self,
         module: &ASTTypedModule,
@@ -279,6 +287,17 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             self.code_gen.add(&mut self.before, "pop eax", None, true);
             self.parameter_added_to_stack();
         }
+    }
+
+    fn add_string_constant(
+        &mut self,
+        param_name: &str,
+        value: &str,
+        comment: Option<&str>,
+        statics: &mut Statics,
+    ) {
+        let label = statics.add_str(value);
+        self.add_label(param_name, label, value.to_string(), comment);
     }
 
     fn add_function_call(

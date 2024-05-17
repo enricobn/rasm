@@ -415,8 +415,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
                 match expr {
                     ASTTypedExpression::StringLiteral(value) => {
-                        let label = statics.add_str(value);
-                        call_parameters.add_label(&param_name, label, value.to_string(), None);
+                        call_parameters.add_string_constant(&param_name, value, None, statics);
                     }
                     /*ASTTypedExpression::CharLiteral(c) => {
                         let label = self.statics.add_char(c);

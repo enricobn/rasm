@@ -336,7 +336,20 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         value_type: &ValueType,
         typed_type: &ASTTypedType,
     ) {
-        todo!()
+        let value = self.value_to_string(value_type);
+
+        if is_const {
+            CConsts::add_to_statics(
+                statics,
+                format!(
+                    "const {} {name} = {};",
+                    CodeGenC::type_to_string(typed_type, statics),
+                    value
+                ),
+            );
+        } else {
+            todo!()
+        }
     }
 
     fn reserve_return_register(&self, out: &mut String, stack: &StackVals) {
@@ -765,6 +778,6 @@ mod tests {
 
     #[test]
     fn test_escape() {
-        assert_eq!(CodeGenC::escape_string("a\"a"), "a\"a");
+        assert_eq!(CodeGenC::escape_string("a\"a"), "a\\\"a");
     }
 }

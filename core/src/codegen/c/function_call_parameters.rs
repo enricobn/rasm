@@ -98,7 +98,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
     fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>) {
         self.parameters_values.insert(
             param_name.to_string(),
-            format!("\"{}\"", CodeGenC::escape_string(&value)),
+            format!("{}", CodeGenC::escape_string(&value)),
         );
     }
 
@@ -360,5 +360,18 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
     fn current(&self) -> String {
         self.current.clone()
+    }
+
+    fn add_string_constant(
+        &mut self,
+        param_name: &str,
+        value: &str,
+        comment: Option<&str>,
+        statics: &mut Statics,
+    ) {
+        self.parameters_values.insert(
+            param_name.to_string(),
+            format!("\"{}\"", CodeGenC::escape_string(value)),
+        );
     }
 }
