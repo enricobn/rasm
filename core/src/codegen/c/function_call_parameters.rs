@@ -25,7 +25,7 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
-use crate::codegen::{get_reference_type_name, TypedValKind};
+use crate::codegen::{get_reference_type_name, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
@@ -46,6 +46,7 @@ pub struct CFunctionCallParameters {
     inline: bool,
     stack_vals: StackVals,
     immediate: bool,
+    code_gen_c: CodeGenC,
 }
 
 impl CFunctionCallParameters {
@@ -65,6 +66,7 @@ impl CFunctionCallParameters {
             inline,
             stack_vals,
             immediate,
+            code_gen_c: CodeGenC::new(),
         }
     }
 
@@ -285,12 +287,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
     }
 
     fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
-        let value = match value_type {
-            ValueType::Boolean(b) => (if *b { "1" } else { "0" }).to_string(),
-            ValueType::I32(i) => format!("{i}"),
-            ValueType::Char(c) => format!("'{c}'"),
-            ValueType::F32(f) => format!("{f}"),
-        };
+        let value = self.code_gen_c.value_to_string(value_type);
 
         self.parameters_values.insert(name.to_string(), value);
     }

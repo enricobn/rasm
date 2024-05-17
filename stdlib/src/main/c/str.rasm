@@ -1,5 +1,7 @@
 pub inline native eq(a: char, b: char) -> bool /{
-    ($a == $b)
+    $include(<string.h>)
+
+    (strcmp($a, $b) == 0)
 }/
 
 // from https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
@@ -7,23 +9,27 @@ pub native add(s1: str, s2: str) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    char *result = malloc(strlen($s1) + strlen($s2) + 1); // +1 for the null-terminator
+    int _len = strlen($s1) + strlen($s2);
+
+    char *_result = malloc(_len + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
-    strcpy(result, $s1);
-    strcat(result, $s2);
-    return result;
+    strcpy(_result, $s1);
+    strcat(_result, $s2);
+    _result[_len] = 0;
+    return _result;
 }/
 
 pub native add(s: str, c: char) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    int _len = strlen($s);
+    int _len = strlen($s) + strlen($c);
 
-    char *_result = malloc(_len + 1 + 1); // +1 for the null-terminator
+    char *_result = malloc(_len + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
     strcpy(_result, $s);
-    _result[_len] = $c;
+    strcat(_result, $c);
+    _result[_len] = 0;
     return _result;
 }/
 
@@ -56,47 +62,78 @@ pub inline native eq(a: str, b: str) -> bool /{
     (strcmp($a, $b) == 0)
 }/
 
+// TODO does it work for UTF-8?
 pub inline native less(a: str, b: str) -> bool /{
     $include(<string.h>)
 
     (strcmp($a, $b) < 0)
 }/
 
+// TODO does it work for UTF-8?
 pub inline native greater(a: str, b: str) -> bool /{
     $include(<string.h>)
 
     (strcmp($a, $b) > 0)
 }/
 
-pub inline native len(s: str) -> i32 /{
+pub native len(s: str) -> i32 /{
     $include(<string.h>)
 
-    strlen($s)
+    int len_ = strlen($s);
+    int i = 0;
+    int count = 0;
+    while (i < len_) {
+        char lb = $s[i];
+        if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
+           i += 1;
+           count += 1;
+        } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
+          i += 2;
+          count += 1;
+        } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
+          i += 3;
+          count += 1;
+        } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
+          i += 4;
+          count += 1;
+        } else {
+           printf( "Unrecognized lead byte (%02x)\n", lb );
+           return -1;
+       }
+    }
+    return count;
 }/
 
 // from https://stackoverflow.com/questions/2114377/copying-a-part-of-a-string-substring-in-c
+// TODO it does not work for UTF-8
 pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-  int input_len = strlen ($s);
+    int input_len = strlen ($s);
 
-  if (pos + len > input_len)
-  {
-     // a "typed" None based on the typed return value of the function
-     $enumDeclaration(_result)
-     $enumVariantDeclaration(_none,None)
-     _result->variant_num = 1;
-     _result->variant = _none;
-     return _result;
-  }
+    if (pos + len > input_len)
+    {
+        // a "typed" None based on the typed return value of the function
+        $enumDeclaration(_result)
+        $enumVariantDeclaration(_none,None)
+        _result->variant_num = 1;
+        _result->variant = _none;
+        return _result;
+    }
 
-  char *_dest = malloc((sizeof(char)) * len + 1);
+    char *_dest = malloc((sizeof(char)) * len + 1);
 
-  strncpy (_dest, $s + pos, len);
-  _dest[len] = '\0'; // place the null terminator
+    strncpy(_dest, $s + pos, len);
+    _dest[len] = '\0'; // place the null terminator
 
-  return
-  $call(Option::Some, _dest:str)
-  ;
+    return $call(Option::Some, _dest:str);
+}/
+
+pub inline native isAlpha(c: char) -> bool /{
+    (($c[0] >= 'a' && $c[0] <= 'z') || ($c[0] >= 'A' && $c[0] <= 'Z'))
+}/
+
+pub inline native isNumber(c: char) -> bool /{
+    ($c[0] >= '0' && $c[0] <= '9')
 }/

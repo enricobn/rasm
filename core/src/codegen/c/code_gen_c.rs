@@ -83,7 +83,7 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
                 BuiltinTypedTypeKind::I32 => "int".to_string(),
                 BuiltinTypedTypeKind::Bool => "int".to_string(),
-                BuiltinTypedTypeKind::Char => "char".to_string(),
+                BuiltinTypedTypeKind::Char => "char*".to_string(),
                 BuiltinTypedTypeKind::F32 => "float".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
@@ -736,7 +736,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         match value_type {
             ValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
             ValueType::I32(v) => format!("{v}"),
-            ValueType::Char(v) => format!("'{v}'"),
+            ValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
             ValueType::F32(v) => format!("{v}"),
         }
     }

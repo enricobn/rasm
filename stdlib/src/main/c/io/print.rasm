@@ -25,7 +25,7 @@ pub native print(b: bool) /{
 
 pub native print(c: char) /{
     $include(<stdio.h>)
-    printf("%c", $c);
+    printf("%s", $c);
 }/
 
 pub fn println() {
