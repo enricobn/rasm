@@ -81,50 +81,61 @@ pub native len<T>(vec: Vec<T>) -> i32 /{
 }/
 
 pub native vecOf<T>(o: T) -> Vec<T> /{
-    $include(<stdlib.h>)
+    void **_result = $call(vecOfInternal, 1, $o);
 
-    void **_result = malloc(sizeof(void *) * 2);
+    void **_vec = _result[1];
+    _vec[0] = o;
 
-    int *_length = malloc(sizeof(int));
-    *_length = 1;
-
-    void **_vec = malloc(sizeof(void *) * 1);
-    _vec[0] = $o;
-
-    _result[0] = _length;
-    _result[1] = _vec;
     return _result;
 }/
 
 pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
-    $include(<stdlib.h>)
+    void **_result = $call(vecOfInternal, 2, $o1);
 
-    void **_result = malloc(sizeof(void *) * 2);
+    void **_vec = _result[1];
+    _vec[0] = o1;
+    _vec[1] = o2;
 
-    int *_length = malloc(sizeof(int));
-    *_length = 2;
-
-    void **_vec = malloc(sizeof(void *) * 2);
-    _vec[0] = $o1;
-    _vec[1] = $o2;
-
-    _result[0] = _length;
-    _result[1] = _vec;
     return _result;
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
+    void **_result = $call(vecOfInternal, 3, $o1);
+
+    void **_vec = _result[1];
+    _vec[0] = o1;
+    _vec[1] = o2;
+    _vec[2] = o3;
+
+    return _result;
+}/
+
+pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
+    void **_result = $call(vecOfInternal, 8, $o1);
+
+    void **_vec = _result[1];
+    _vec[0] = o1;
+    _vec[1] = o2;
+    _vec[2] = o3;
+    _vec[3] = o4;
+    _vec[4] = o5;
+    _vec[5] = o6;
+    _vec[6] = o7;
+    _vec[7] = o8;
+
+    return _result;
+}/
+
+// o is used to determine the type
+native vecOfInternal<T>(len: i32, o: T) -> Vec<T> /{
     $include(<stdlib.h>)
 
     void **_result = malloc(sizeof(void *) * 2);
 
     int *_length = malloc(sizeof(int));
-    *_length = 3;
+    *_length = len;
 
-    void **_vec = malloc(sizeof(void *) * 3);
-    _vec[0] = $o1;
-    _vec[1] = $o2;
-    _vec[2] = $o3;
+    void **_vec = malloc(sizeof(void *) * len);
 
     _result[0] = _length;
     _result[1] = _vec;
@@ -159,17 +170,237 @@ pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
     void **_result = malloc(sizeof(void *) * 2);
 
     int *_length = malloc(sizeof(int));
-    *_length = end - start + 1;
+    *_length = end - start;
 
     void **_vec = malloc(sizeof(void *) * *_length);
 
     int counter = 0;
     for (int i = start; i < end; i++) {
-        int *_num =  malloc(sizeof(int));
-        *_num = i;
+        _vec[counter++] = i;
+    }
+    _result[0] = _length;
+    _result[1] = _vec;
 
-        _vec[counter++] = _num;
+    return _result;
+}/
+
+pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+    int length = *(int *)vec[0];
+
+    int *_length = malloc(sizeof(int));
+    *_length = length;
+
+    void **_result = malloc(sizeof(void *) * 2);
+    void **_vec = malloc(sizeof(void *) * length);
+    _result[0] = _length;
+    _result[1] = _vec;
+
+    for (int i = 0; i < length; i++) {
+        _vec[i] = f->functionPtr(((void **)vec[1])[i], f);
     }
 
     return _result;
+}/
+
+// false 0 true 1
+pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+    int length = *(int *)vec[0];
+
+    void **_vec = (void **)vec[1];
+
+    for (int i = 0; i < length; i++) {
+        if (f->functionPtr(_vec[i], f)) {
+            return 1;
+        }
+    }
+
+    return 0;
+}/
+
+pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
+    int length = *(int *)vec[0];
+
+    void **_vec = (void **)vec[1];
+
+    int result = 0;
+    for (int i = 0; i < length; i++) {
+        if (f->functionPtr(_vec[i], f)) {
+            result++;
+        }
+    }
+
+    return result;
+}/
+
+pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
+    int original_length = *(int *)vec[0];
+
+    void **result = malloc(sizeof(void *) * 2);
+    int* length = malloc(sizeof(int));
+
+    void **old_vec = (void **) vec[1];
+    void **new_vec = malloc(sizeof(void *) * original_length);
+
+    int dest_1 = 0;
+    for (int i = 0; i < original_length; i++) {
+        if (filter->functionPtr(old_vec[i], filter)) {
+            new_vec[dest_1++] = old_vec[i];
+        }
+    }
+
+    *length = dest_1;
+
+    result[0] = length;
+    result[1] = new_vec;
+    return result;
+}/
+
+pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
+    int length1 = *(int *)vec1[0];
+    int length2 = *(int *)vec2[0];
+
+    int length = length2;
+    if (length1 < length2) {
+        length = length1;
+    }
+
+    void **_result = malloc(sizeof(void *) * 2);
+    void **_vec = malloc(sizeof(void *) * length);
+    int *_length = malloc(sizeof(int));
+    *_length = length;
+    _result[0] = _length;
+    _result[1] = _vec;
+
+    for (int i = 0; i < length; i++) {
+        _vec[i] = zipFunction->functionPtr(((void **)vec1[1])[i], ((void **)vec2[1])[i], zipFunction);
+    }
+
+    return _result;
+}/
+
+pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
+    $include(<string.h>)
+
+    int length1 = *(int *)vec1[0];
+    int length2 = *(int *)vec2[0];
+
+    void **result = malloc(sizeof(void *) * 2);
+    int* length = malloc(sizeof(int));
+    *length = length1 + length2;
+    result[0] = length;
+
+    void **vec = malloc(sizeof(void *) * (length1 + length2));
+
+    memcpy(vec, vec1[1], sizeof(void *) * length1);
+
+    void **vec1_pos = vec + length1;
+
+    memcpy(vec1_pos, vec2[1], sizeof(void *) * length2);
+    result[1] = vec;
+
+    return result;
+}/
+
+pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
+    int length = 0;
+    void **vec_ = (void **)vec[1];
+
+    for (int i = 0; i < *(int *)vec[0]; i++) {
+        void **innerVec = vec_[i];
+        length += *(int *)innerVec[0];
+    }
+
+    void **result = malloc(sizeof(void *) * 2);
+    void **result_vec = malloc(sizeof(void *) * length);
+    int *_length = malloc(sizeof(int));
+    *_length = length;
+    result[0] = _length;
+    result[1] = result_vec;
+
+    int dest_i = 0;
+    for (int i = 0; i < *(int *)vec[0]; i++) {
+        void **innerVec = vec_[i];
+        int inner_lenght = *(int *)innerVec[0];
+        memcpy(result_vec + dest_i, innerVec[1], inner_lenght * sizeof(void *));
+        dest_i += inner_lenght;
+    }
+
+    return result;
+}/
+
+pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+    void *result = zero;
+    int length = *(int *)vec[0];
+    void **vec_ = (void **)vec[1];
+
+    for (int i = 0; i < length; i++) {
+        result = accum->functionPtr(result, vec_[i], accum);
+    }
+
+    return result;
+}/
+
+pub native charsVec(s: str) -> Vec<char> /{
+    $include(<stdlib.h>)
+
+    void **result = malloc(sizeof(void *) * 2);
+    int* length = malloc(sizeof(int));
+    result[0] = length;
+    result[1] = NULL;
+
+    *length =
+        $call(len, $s)
+    ;
+    void **vec = malloc(sizeof(void *) * *length);
+
+    result[1] = vec;
+
+    int len = strlen(s);
+    int i = 0;
+    int count = 0;
+
+    while (i < len) {
+        char lb = s[i];
+        char *c;
+        if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
+           c = malloc(sizeof(char) * 2);
+           c[0] = lb;
+           c[1] = 0;
+           i += 1;
+        } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
+          c = malloc(sizeof(char) * 3);
+          c[0] = lb;
+          c[1] = s[i + 1];
+          c[2] = 0;
+          i += 2;
+        } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
+          c = malloc(sizeof(char) * 4);
+          c[0] = lb;
+          c[1] = s[i + 1];
+          c[2] = s[i + 2];
+          c[3] = 0;
+          i += 3;
+        } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
+          c = malloc(sizeof(char) * 5);
+          c[0] = lb;
+          c[1] = s[i + 1];
+          c[2] = s[i + 2];
+          c[3] = s[i + 3];
+          c[4] = 0;
+          i += 4;
+        } else {
+           printf( "Unrecognized lead byte (%02x)\n", lb );
+           return result;
+       }
+       vec[count++] = c;
+    }
+    return result;
+}/
+
+pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
+    int length = *(int *)vec[0];
+
+    for (int i = 0; i < length; i++) {
+        f->functionPtr(((void **)vec[1])[i], f);
+    }
 }/
