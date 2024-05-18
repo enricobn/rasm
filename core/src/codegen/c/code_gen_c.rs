@@ -330,7 +330,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 format!("const char* {name} = \"{}\";", Self::escape_string(value)),
             );
         } else {
-            todo!()
+            self.add(
+                before,
+                &format!("char* {name} = \"{}\";", Self::escape_string(value)),
+                None,
+                true,
+            );
         }
     }
 
@@ -357,7 +362,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 ),
             );
         } else {
-            todo!()
+            self.add(
+                before,
+                &format!(
+                    "{} {name} = {};",
+                    CodeGenC::type_to_string(typed_type, statics),
+                    value
+                ),
+                None,
+                true,
+            );
         }
     }
 
