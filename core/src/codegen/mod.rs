@@ -112,6 +112,15 @@ pub enum TypedValKind {
     LetRef(usize, ASTTypedType),
 }
 
+impl TypedValKind {
+    pub fn typed_type(&self) -> &ASTTypedType {
+        match self {
+            TypedValKind::ParameterRef(_index, par) => &par.ast_type,
+            TypedValKind::LetRef(_index, ast_type) => ast_type,
+        }
+    }
+}
+
 pub fn get_typed_module(
     module: EnhancedASTModule,
     print_memory_info: bool,
@@ -729,16 +738,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         let (ast_typed_type, (mut bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
-                    let typed_type = match kind {
-                        TypedValKind::ParameterRef(_, def) => def.ast_type.clone(),
-                        TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
-                    };
+                    let typed_type = kind.typed_type();
 
                     let typed_type: ASTTypedType =
                         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                             parameters: _,
                             return_type,
-                        }) = &typed_type
+                        }) = typed_type
                         {
                             if return_type.deref() != &ASTTypedType::Unit {
                                 return_type.deref().clone()
@@ -1483,15 +1489,12 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 is_inner_call,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
-            let ast_type = match kind {
-                TypedValKind::ParameterRef(index, par) => par.ast_type.clone(),
-                TypedValKind::LetRef(index, ast_type) => ast_type.clone(),
-            };
+            let ast_type = kind.typed_type();
 
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 return_type: _,
                 parameters,
-            }) = &ast_type
+            }) = ast_type
             {
                 let parameters_defs = parameters
                     .iter()
@@ -3245,10 +3248,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         let mut initialized = false;
         if !lambda_space.is_empty() {
             for (i, (val_name, kind)) in lambda_space.iter().enumerate() {
-                let ast_typed_type = match kind {
-                    TypedValKind::ParameterRef(_, def) => &def.ast_type,
-                    TypedValKind::LetRef(_, typed_type) => typed_type,
-                };
+                let ast_typed_type = kind.typed_type();
                 if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
                 {
                     if !initialized {

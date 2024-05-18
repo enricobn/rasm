@@ -187,10 +187,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             true,
         );
         for (i, (name, kind)) in lambda_space.iter().enumerate() {
-            let t = match kind {
-                TypedValKind::ParameterRef(_, par) => &par.ast_type,
-                TypedValKind::LetRef(_, t) => t,
-            };
+            let t = kind.typed_type();
 
             let name_prefix = if get_reference_type_name(t, module).is_some() {
                 ""

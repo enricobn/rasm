@@ -364,10 +364,7 @@ impl CompletionService {
                 let (parameters, ast_typed_type) = if let Some(v) =
                     val_context.get(&call.function_name)
                 {
-                    let ast_typed_type = match v {
-                        TypedValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                        TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type.clone(),
-                    };
+                    let ast_typed_type = v.typed_type().clone();
 
                     if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                         parameters,

@@ -43,10 +43,7 @@ impl LambdaSpace {
             .values
             .iter()
             .find(|(n, _)| n == &name)
-            .map(|it| match it.1 {
-                TypedValKind::ParameterRef(_, par) => &par.ast_type,
-                TypedValKind::LetRef(_, t) => t,
-            });
+            .map(|it| it.1.typed_type());
     }
 
     pub fn is_in_context(&self, name: &str) -> bool {

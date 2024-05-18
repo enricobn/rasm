@@ -149,8 +149,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        stack_vals: &StackVals,
-        kind: &TypedValKind,
+        _stack_vals: &StackVals,
+        _kind: &TypedValKind,
         call_parameters: &Box<CFunctionCallParameters>,
         return_value: bool,
         is_inner_call: bool,
@@ -179,9 +179,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn call_lambda(
         &self,
-        function_call: &ASTTypedFunctionCall,
+        _function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        stack_vals: &StackVals,
+        _stack_vals: &StackVals,
         index_in_lambda_space: usize,
         call_parameters: &Box<CFunctionCallParameters>,
         ast_type_type: &ASTTypedType,
@@ -249,7 +249,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn store_function_result_in_stack(
         &self,
         code: &mut String,
-        address_relative_to_bp: i32,
+        _address_relative_to_bp: i32,
         name: &str,
         typed_type: &ASTTypedType,
         statics: &Statics,
@@ -303,19 +303,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn set_let_for_value_ref(
         &self,
-        stack: &StackVals,
+        _stack: &StackVals,
         before: &mut String,
-        address_relative_to_bp: usize,
+        _address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
         statics: &Statics,
         name: &str,
     ) -> ASTTypedType {
         // todo!("{val_name}")
-        let t = match typed_val_kind {
-            TypedValKind::ParameterRef(_, par) => &par.ast_type,
-            TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type,
-        };
+        let t = typed_val_kind.typed_type();
         self.add(
             before,
             &format!("{} {name} = {val_name};", Self::type_to_string(t, statics)),

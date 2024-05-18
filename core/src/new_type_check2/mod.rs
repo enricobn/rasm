@@ -1467,7 +1467,7 @@ mod tests {
     }
 
     #[test]
-    fn test__generic_function_coeff() {
+    fn test_generic_function_coeff() {
         // this is "more" generic
         let function1 = simple_function(vec![ASTType::Generic("T".to_string())], false);
 

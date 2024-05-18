@@ -107,12 +107,12 @@ impl FunctionsCreator for CFunctionsCreator {
 
     fn enum_variant_constructor_body(
         &self,
-        module: &mut ASTModule,
-        enum_def: &ASTEnumDef,
-        statics: &mut Statics,
+        _module: &mut ASTModule,
+        _enum_def: &ASTEnumDef,
+        _statics: &mut Statics,
         variant_num: usize,
         variant: &ASTEnumVariantDef,
-        descr: &String,
+        _descr: &String,
     ) -> (String, bool) {
         let mut result = String::new();
         self.code_manipulator
@@ -165,14 +165,14 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_property_body(&self, i: usize, name: &str) -> String {
+    fn struct_property_body(&self, _i: usize, name: &str) -> String {
         let mut result = String::new();
         self.code_manipulator
             .add(&mut result, &format!("$v->{name}"), None, true);
         result
     }
 
-    fn struct_setter_body(&self, i: usize, name: &str) -> String {
+    fn struct_setter_body(&self, _i: usize, name: &str) -> String {
         let mut result = String::new();
         self.code_manipulator.add_rows(
             &mut result,
@@ -191,7 +191,7 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_setter_lambda_body(&self, i: usize, name: &str) -> String {
+    fn struct_setter_lambda_body(&self, _i: usize, name: &str) -> String {
         let mut result = String::new();
         self.code_manipulator.add_rows(
             &mut result,
