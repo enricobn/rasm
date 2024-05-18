@@ -25,7 +25,7 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
-use crate::codegen::{get_reference_type_name, CodeGen, TypedValKind};
+use crate::codegen::{get_reference_type_name, CodeGen};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
@@ -34,7 +34,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-static id: AtomicUsize = AtomicUsize::new(0);
+static ID: AtomicUsize = AtomicUsize::new(0);
 
 pub struct CFunctionCallParameters {
     parameters: Vec<ASTTypedParameterDef>,
@@ -168,7 +168,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             lambda_space.add(name.clone(), kind.clone());
         }
 
-        let lambda_var_name = format!("lambda_{}", id.fetch_add(1, Ordering::SeqCst));
+        let lambda_var_name = format!("lambda_{}", ID.fetch_add(1, Ordering::SeqCst));
 
         self.code_manipulator.add(
             &mut self.before,
