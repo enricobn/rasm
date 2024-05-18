@@ -3,6 +3,7 @@ the structure of vec
     int length;
     void **values;
 */
+pub type Vec<T>(true, "void **");
 
 pub native Vec<T>() -> Vec<T> /{
     $include(<stdlib.h>)
@@ -27,6 +28,24 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     } else {
         void **_array = $vec[1];
         void *_value = _array[0];
+        return
+        $call(Option::Some, _value:T)
+        ;
+    }
+}/
+
+pub native last<T>(vec: Vec<T>) -> Option<T> /{
+    int _length = *((int*)$vec[0]);
+
+    if (_length == 0) {
+        $enumDeclaration(_result)
+        $enumVariantDeclaration(_none,None)
+        _result->variant_num = 1;
+        _result->variant = _none;
+        return _result;
+    } else {
+        void **_array = $vec[1];
+        void *_value = _array[_length - 1];
         return
         $call(Option::Some, _value:T)
         ;
@@ -112,17 +131,25 @@ pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
     return _result;
 }/
 
-// TODO we should implement print(file: File, v: Vec<T>)
-pub native print<T>(v: Vec<T>) /{
+native none() -> Option<IOError> /{
+    $enumDeclaration(_result)
+    $enumVariantDeclaration(_none,None)
+    _result->variant_num = 1;
+    _result->variant = _none;
+    return _result;
+}/
+
+pub native print<T>(file: File, v: Vec<T>) -> Option<IOError> /{
     $include(<stdio.h>)
 
     int _length = *(int*)$v[0];
     void **_args = $v[1];
 
     for (int i = 0; i < _length; i++) {
-        $call(print, _args[i]:T)
-        printf(",");
+        $call(print, file: File, _args[i]:T)
+        fprintf(file, ",");
     }
+    $call(none);
 }/
 
 // end exclusive

@@ -1325,7 +1325,7 @@ impl Parser {
                     (Vec::new(), self.get_i() + base_n + 2)
                 };
 
-                let n = next_i - self.get_i();
+                let mut n = next_i - self.get_i();
                 if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
                     self.get_token_kind_n(n)
                 {
@@ -1342,6 +1342,30 @@ impl Parser {
                             ))
                         }
                     };
+
+                    let native_type = if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) =
+                        self.get_token_kind_n(n + 2)
+                    {
+                        match self.get_token_kind_n(n + 3) {
+                            Some(TokenKind::StringLiteral(native_type_name)) => {
+                                n += 2;
+                                Some(native_type_name.clone())
+                            }
+                            Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) => {
+                                None
+                            }
+                            _ => {
+                                return Err(format!(
+                                "Unexpected native type, it should be a string but it is {}: {}",
+                                OptionDisplay(&self.get_token_kind_n(n + 3)),
+                                self.get_index(n + 3)
+                            ));
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
                     if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) =
                         self.get_token_kind_n(n + 2)
                     {
@@ -1353,6 +1377,7 @@ impl Parser {
                                 is_ref,
                                 index: self.get_index(base_n + 1).mv_left(name.len()),
                                 modifiers,
+                                native_type,
                             },
                             self.get_i() + n + 3,
                         )))

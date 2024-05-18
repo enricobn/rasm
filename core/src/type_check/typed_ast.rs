@@ -108,6 +108,7 @@ pub enum ASTTypedType {
     Type {
         namespace: ASTNameSpace,
         name: String,
+        native_type: Option<String>,
     },
     Unit,
 }
@@ -148,7 +149,11 @@ impl Display for ASTTypedType {
             },
             ASTTypedType::Enum { namespace: _, name } => f.write_str(&name.to_string()),
             ASTTypedType::Struct { namespace: _, name } => f.write_str(&name.to_string()),
-            ASTTypedType::Type { namespace: _, name } => f.write_str(&name.to_string()),
+            ASTTypedType::Type {
+                namespace: _,
+                name,
+                native_type: _,
+            } => f.write_str(&name.to_string()),
             ASTTypedType::Unit => f.write_str("()"),
         }
     }
@@ -432,6 +437,7 @@ pub struct ASTTypedTypeDef {
     pub ast_type: ASTType,
     pub ast_typed_type: ASTTypedType,
     pub index: ASTIndex,
+    pub native_type: Option<String>,
 }
 
 pub trait CustomTypedTypeDef: Display + Debug {
@@ -709,6 +715,7 @@ impl<'a> ConvContext<'a> {
                 let type_typed_type = ASTTypedType::Type {
                     namespace: type_def.namespace.clone(),
                     name: new_name.clone(),
+                    native_type: type_def.native_type.clone(),
                 };
 
                 self.type_defs.push(ASTTypedTypeDef {
@@ -721,6 +728,7 @@ impl<'a> ConvContext<'a> {
                     ast_typed_type: type_typed_type.clone(),
                     index: type_def.index.clone(),
                     modifiers: type_def.modifiers.clone(),
+                    native_type: type_def.native_type.clone(),
                 });
 
                 self.types.insert(ast_type.clone(), type_typed_type.clone());
@@ -1359,7 +1367,11 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
             param_types: Vec::new(),
             index: ASTIndex::none(),
         },
-        ASTTypedType::Type { namespace, name } => ASTType::Custom {
+        ASTTypedType::Type {
+            namespace,
+            name,
+            native_type: _,
+        } => ASTType::Custom {
             namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),

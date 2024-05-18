@@ -1,33 +1,58 @@
-pub native print(s: str) /{
+pub inline native STDOut() -> File /{
     $include(<stdio.h>)
-    printf("%s", $s);
+    stdout
 }/
 
-pub native print(n: i32) /{
-    $include(<stdio.h>)
-    printf("%d", $n);
+native none() -> Option<IOError> /{
+    $enumDeclaration(_result)
+    $enumVariantDeclaration(_none,None)
+    _result->variant_num = 1;
+    _result->variant = _none;
+    return _result;
 }/
 
-pub native print(n: f32) /{
+pub native print(file: File, s: str) -> Option<IOError> /{
     $include(<stdio.h>)
-    printf("%f", $n);
+    fprintf(file, "%s", $s);
+
+    return $call(none);
 }/
 
-pub native print(b: bool) /{
+pub native print(file: File, n: i32) -> Option<IOError> /{
     $include(<stdio.h>)
-    
+    fprintf(file, "%d", $n);
+
+    return $call(none);
+}/
+
+pub native print(file: File, n: f32) -> Option<IOError> /{
+    $include(<stdio.h>)
+    fprintf(file, "%f", $n);
+
+    return $call(none);
+}/
+
+pub native print(file: File, b: bool) -> Option<IOError> /{
+    $include(<stdio.h>)
     if ($b) {
-        printf("true");
+        fprintf(file, "true");
     } else {
-        printf("false");
+        fprintf(file, "false");
     }
+
+    return $call(none);
 }/
 
-pub native print(c: char) /{
+pub native print(file: File, c: char) -> Option<IOError> /{
     $include(<stdio.h>)
-    printf("%s", $c);
+    fprintf(file, "%s", $c);
+
+    return $call(none);
 }/
 
-pub fn println() {
-    print("\n");
-}
+pub native println(file: File) -> Option<IOError> /{
+    $include(<stdio.h>)
+    fprintf(file, "\n");
+
+    return $call(none);
+}/

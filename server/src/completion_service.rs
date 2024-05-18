@@ -245,7 +245,11 @@ impl CompletionService {
                             &it.name == name && (it.modifiers.public || &it.namespace == namespace)
                         })
                         .map(|it| it.index.clone()),
-                    ASTTypedType::Type { namespace, name } => self
+                    ASTTypedType::Type {
+                        namespace,
+                        name,
+                        native_type: _,
+                    } => self
                         .typed_module
                         .types
                         .iter()

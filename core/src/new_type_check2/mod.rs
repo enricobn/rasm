@@ -346,10 +346,9 @@ impl TypeCheck {
                     p.ast_type = new_t;
                 }
                 if p.ast_type.is_generic() {
-                    self.stack.pop();
                     dedent!();
                     if self.strict {
-                        return Err(TypeCheckError::new(
+                        let result = Err(TypeCheckError::new(
                             p.ast_index.clone(),
                             format!(
                                 "Unresolved generic type {} : {resolved_generic_types}",
@@ -357,7 +356,10 @@ impl TypeCheck {
                             ),
                             self.stack.clone(),
                         ));
+                        self.stack.pop();
+                        return result;
                     } else {
+                        self.stack.pop();
                         return Ok(call.clone());
                     }
                 }
@@ -369,10 +371,9 @@ impl TypeCheck {
             }
 
             if new_function_def.return_type.is_generic() {
-                self.stack.pop();
                 dedent!();
                 if self.strict {
-                    return Err(TypeCheckError::new(
+                    let result = Err(TypeCheckError::new(
                         new_function_def.index.clone(),
                         format!(
                             "Unresolved generic return type {}, expected return type {}",
@@ -381,7 +382,10 @@ impl TypeCheck {
                         ),
                         self.stack.clone(),
                     ));
+                    self.stack.pop();
+                    return result;
                 } else {
+                    self.stack.pop();
                     return Ok(call.clone());
                 }
             }
@@ -521,7 +525,15 @@ impl TypeCheck {
 
             if !call.generics.is_empty() {
                 if call.generics.len() != function.generic_types.len() {
-                    // TODO must I return an error?
+                    errors.push(TypeCheckError::new(
+                        function.index.clone(),
+                        format!(
+                            "Not matching generics expected {} but got {}",
+                            call.generics.len(),
+                            function.generic_types.len()
+                        ),
+                        self.stack.clone(),
+                    ));
                     dedent!();
                     continue;
                 }
@@ -549,6 +561,14 @@ impl TypeCheck {
                         it.clone()
                     })?
                 {
+                    errors.push(TypeCheckError::new(
+                        function.index.clone(),
+                        format!(
+                            "Unmatching return type expected {rt} but got {}",
+                            function.return_type
+                        ),
+                        self.stack.clone(),
+                    ));
                     dedent!();
                     continue;
                 }
@@ -616,7 +636,9 @@ impl TypeCheck {
                             .map_err(|it| {
                                 it.add(
                                     expr.get_index(),
-                                    format!("getting filter from expression {expr}"),
+                                    format!(
+                                        "getting filter from expression {expr} for {param_type}"
+                                    ),
                                     self.stack.clone(),
                                 )
                             })?;
@@ -682,16 +704,17 @@ impl TypeCheck {
         }
 
         if valid_functions.is_empty() {
-            self.stack.pop();
             dedent!();
-            Err(TypeCheckError::new(
+            let result = Err(TypeCheckError::new(
                 call.index.clone(),
                 format!(
                     "cannot find a valid function from namespace {namespace} for call {}. Expected return type {}",
                     call.original_function_name,
                     OptionDisplay(&expected_return_type)),
                 self.stack.clone(),
-            ).add_errors(errors))
+            ).add_errors(errors));
+            self.stack.pop();
+            result
         } else if valid_functions.len() > 1 {
             // we must disambiguate, but it should not happen because we break when we found a valid function.
             // TODO we don't consider when two functions have the same coefficient...
@@ -744,12 +767,22 @@ impl TypeCheck {
         }
     }
 
-    pub fn function_generic_coeff(function: &ASTFunctionDef) -> usize {
-        function
+    ///
+    /// lower means a better precedence
+    ///
+    pub fn function_precedence_coeff(function: &ASTFunctionDef) -> usize {
+        let generic_coeff: usize = function
             .parameters
             .iter()
             .map(|it| Self::generic_type_coeff(&it.ast_type))
-            .sum()
+            .sum();
+
+        generic_coeff
+            + if matches!(function.body, ASTFunctionBody::NativeBody(_)) {
+                0usize
+            } else {
+                1usize
+            }
     }
 
     fn get_filter(
@@ -1369,8 +1402,12 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::parser::ast::{
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
+    };
     use crate::project::RasmProject;
+    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::convert_to_typed_module;
     use crate::utils::tests::test_namespace;
@@ -1427,6 +1464,62 @@ mod tests {
                 index: ASTIndex::none()
             },)
         );
+    }
+
+    #[test]
+    fn test__generic_function_coeff() {
+        // this is "more" generic
+        let function1 = simple_function(vec![ASTType::Generic("T".to_string())], false);
+
+        let function2 = simple_function(
+            vec![ASTType::Custom {
+                namespace: ASTNameSpace::global(),
+                name: "".to_string(),
+                param_types: vec![ASTType::Generic("T".to_string())],
+                index: ASTIndex::none(),
+            }],
+            false,
+        );
+
+        let coeff1 = TypeCheck::function_precedence_coeff(&function1);
+        let coeff2 = TypeCheck::function_precedence_coeff(&function2);
+
+        assert!(coeff1 > coeff2)
+    }
+
+    #[test]
+    fn test_generic_native_function_coeff() {
+        // not native function have lower priority (higher coeff)
+        let function1 = simple_function(vec![ASTType::Generic("T".to_string())], false);
+        let function2 = simple_function(vec![ASTType::Generic("T".to_string())], true);
+
+        let coeff1 = TypeCheck::function_precedence_coeff(&function1);
+        let coeff2 = TypeCheck::function_precedence_coeff(&function2);
+
+        assert!(coeff1 > coeff2)
+    }
+    fn simple_function(parameters: Vec<ASTType>, native: bool) -> ASTFunctionDef {
+        ASTFunctionDef {
+            original_name: "".to_string(),
+            name: "".to_string(),
+            parameters: parameters
+                .iter()
+                .map(|it| ASTParameterDef::new("", it.clone(), ASTIndex::none()))
+                .collect(),
+            return_type: ASTType::Unit,
+            body: if native {
+                ASTFunctionBody::NativeBody(String::new())
+            } else {
+                ASTFunctionBody::RASMBody(Vec::new())
+            },
+            inline: false,
+            generic_types: vec![],
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: ASTIndex::none(),
+            modifiers: ASTModifiers { public: false },
+            namespace: ASTNameSpace::global(),
+            rank: 0,
+        }
     }
 
     /*

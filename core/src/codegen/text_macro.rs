@@ -556,7 +556,11 @@ impl TextMacroEvaluator {
             ASTTypedType::Struct { namespace: _, name } => type_def_provider
                 .get_type_from_typed_type_name(name)
                 .unwrap(),
-            ASTTypedType::Type { namespace: _, name } => type_def_provider
+            ASTTypedType::Type {
+                namespace: _,
+                name,
+                native_type: _,
+            } => type_def_provider
                 .get_type_from_typed_type_name(name)
                 .unwrap(),
             ASTTypedType::Unit => ASTType::Unit,
@@ -876,6 +880,7 @@ fn get_type(
         ASTTypedType::Type {
             namespace: namespace.clone(),
             name: s.name.clone(),
+            native_type: s.native_type.clone(),
         }
     } else if orig_name == "str" {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
@@ -940,7 +945,11 @@ impl TextMacroEval for AddRefMacro {
                 ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str".to_string(),
                 ASTTypedType::Struct { namespace: _, name } => name.clone(),
                 ASTTypedType::Enum { namespace: _, name } => name.clone(),
-                ASTTypedType::Type { namespace: _, name } => name.clone(),
+                ASTTypedType::Type {
+                    namespace: _,
+                    name,
+                    native_type: _,
+                } => name.clone(),
                 _ => return String::new(),
             };
 
@@ -1115,7 +1124,11 @@ impl PrintRefMacro {
                 self.print_ref_struct(&name, src, type_def_provider, indent + 1, code_gen),
                 true,
             ),
-            ASTTypedType::Type { namespace: _, name } => (
+            ASTTypedType::Type {
+                namespace: _,
+                name,
+                native_type: _,
+            } => (
                 name.clone(),
                 self.print_ref_type(&name, src, type_def_provider, indent + 1, code_gen),
                 true,

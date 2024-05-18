@@ -1968,7 +1968,11 @@ pub fn get_reference_type_name(
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
         ASTTypedType::Enum { namespace: _, name } => Some(name.clone()),
         ASTTypedType::Struct { namespace: _, name } => Some(name.clone()),
-        ASTTypedType::Type { namespace: _, name } => {
+        ASTTypedType::Type {
+            namespace: _,
+            name,
+            native_type: _,
+        } => {
             if let Some(t) = type_def_provider.get_type_def_by_name(name) {
                 if t.is_ref {
                     Some(name.clone())

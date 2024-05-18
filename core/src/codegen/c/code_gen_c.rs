@@ -108,7 +108,16 @@ impl CodeGenC {
             ASTTypedType::Enum { namespace, name } => {
                 format!("struct {}_{name}*", namespace.safe_name())
             }
-            ASTTypedType::Type { namespace, name } => "void **".to_string(),
+            ASTTypedType::Type {
+                namespace,
+                name,
+                native_type,
+            } => native_type
+                .clone()
+                .expect(&format!(
+                    "type in C must define a native type: {namespace}:{name}"
+                ))
+                .to_string(),
             _ => todo!("{ast_type}"),
         }
     }

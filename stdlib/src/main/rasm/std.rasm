@@ -7,25 +7,6 @@ pub struct Pair<A,B> {
     second: B
 }
 
-pub fn println<T>(v: T) {
-    print(v);
-    println();
-}
-
-pub fn print<T>(prefix: str, o: T) {
-    print(prefix);
-    print(o);
-}
-
-pub fn println<T1,T2>(file: File, o1: T1, o2: T2) -> Option<IOError>{
-    print(file, o1)
-        .or(println(file, o2));
-}
-
-pub fn println<T1,T2>(o1: T1, o2: T2) {
-    println(STDOut(), o1, o2).toUnit();
-}
-
 // TODO do it in asm
 pub fn print(file: File, b: bool) -> Option<IOError> {
     if(b, { print(file, "true");}, {print(file, "false");});

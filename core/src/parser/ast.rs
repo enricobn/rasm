@@ -114,7 +114,7 @@ impl Display for ASTFunctionDef {
 
 impl ASTFunctionDef {
     pub fn update_calculated_properties(&mut self) {
-        self.rank = TypeCheck::function_generic_coeff(self);
+        self.rank = TypeCheck::function_precedence_coeff(self);
     }
 }
 
@@ -775,6 +775,7 @@ pub struct ASTTypeDef {
     pub is_ref: bool,
     pub index: ASTIndex,
     pub modifiers: ASTModifiers,
+    pub native_type: Option<String>,
 }
 
 impl CustomTypeDef for ASTTypeDef {

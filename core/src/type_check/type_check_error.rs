@@ -70,12 +70,11 @@ impl TypeCheckError {
                 f.write_str(&format!("{}\n", i))?;
             }
         }
-        /*
+
         for child in self.children.iter() {
             child.write_one(f, indent + 1)?;
         }
 
-         */
         Ok(())
     }
 

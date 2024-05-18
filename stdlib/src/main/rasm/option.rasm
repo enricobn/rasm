@@ -39,9 +39,6 @@ pub fn orElse<T>(o: Option<T>, f: fn() -> Option<T>) -> Option<T> {
     match(o, fn(v) {o; }, f);
 }
 
-pub inline native toUnit<T>(o: Option<T>) /{
-}/
-
 pub fn isSome<T>(o: Option<T>) -> bool {
     o.match(fn(v) {true; }, {false; });
 }

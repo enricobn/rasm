@@ -3,22 +3,6 @@ pub inline native STDOut() -> File /{
 }/
 
 /**
- * Prints a new line to standard output.
- */
-pub fn println() {
-    println(STDOut()).toUnit();
-}
-
-pub fn print<T>(v: T) {
-    print(STDOut(), v).toUnit();
-}
-
-pub fn println<T>(file: File, v: T) -> Option<IOError> {
-    print(file, v)
-    .or(println(file));
-}
-
-/**
  * Prints the number to the File specified.
  * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
  **/

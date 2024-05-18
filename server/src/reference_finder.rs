@@ -871,8 +871,8 @@ mod tests {
                     .unwrap()
             ),
             vec![ASTIndex::new(
-                Some(stdlib_path.join("src/main/rasm/std.rasm")),
-                10,
+                Some(stdlib_path.join("src/main/rasm/print.rasm")),
+                12,
                 8
             )]
         );
@@ -930,7 +930,7 @@ mod tests {
                     .unwrap()
             ),
             vec![ASTIndex::new(
-                Some(stdlib_path.join("src/main/rasm/vec.rasm")),
+                Some(stdlib_path.join("src/main/nasmi386/vec.rasm")),
                 1,
                 10
             )],
