@@ -426,7 +426,7 @@ pub trait FunctionsCreator {
                 },
             ],
             return_type: ast_type,
-            body: ASTFunctionBody::NativeBody(self.struct_setter_body(i, &name)),
+            body: ASTFunctionBody::NativeBody(self.struct_setter_body(i, name)),
             generic_types: struct_def.type_parameters.clone(),
             inline: false,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -480,7 +480,7 @@ pub trait FunctionsCreator {
                 },
             ],
             return_type: ast_type,
-            body: ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i)),
+            body: ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, name)),
             generic_types: struct_def.type_parameters.clone(),
             inline: false,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -605,7 +605,7 @@ pub trait FunctionsCreator {
 
     fn struct_setter_body(&self, i: usize, name: &str) -> String;
 
-    fn struct_setter_lambda_body(&self, i: usize) -> String;
+    fn struct_setter_lambda_body(&self, i: usize, name: &str) -> String;
 }
 
 fn variant_lambda_parameter(return_type: &ASTType, variant: &ASTEnumVariantDef) -> ASTParameterDef {
@@ -1063,7 +1063,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_setter_lambda_body(&self, i: usize) -> String {
+    fn struct_setter_lambda_body(&self, i: usize, _name: &str) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
