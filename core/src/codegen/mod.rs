@@ -849,6 +849,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         address_relative_to_bp,
                         val_name,
                         typed_val_kind,
+                        statics,
+                        name,
                     );
 
                     (
@@ -983,6 +985,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
+        statics: &Statics,
+        name: &str,
     ) -> ASTTypedType;
 
     fn set_let_for_string_literal(
@@ -2917,6 +2921,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
+        statics: &Statics,
+        name: &str,
     ) -> ASTTypedType {
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();

@@ -308,8 +308,21 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
+        statics: &Statics,
+        name: &str,
     ) -> ASTTypedType {
-        todo!()
+        // todo!("{val_name}")
+        let t = match typed_val_kind {
+            TypedValKind::ParameterRef(_, par) => &par.ast_type,
+            TypedValKind::LetRef(_, ast_typed_type) => ast_typed_type,
+        };
+        self.add(
+            before,
+            &format!("{} {name} = {val_name};", Self::type_to_string(t, statics)),
+            None,
+            true,
+        );
+        t.clone()
     }
 
     fn set_let_for_string_literal(
