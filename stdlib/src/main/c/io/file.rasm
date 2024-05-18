@@ -1,4 +1,4 @@
-pub type File(false, "FILE*");
+pub type File(true, "FILE*");
 
 pub native readFile(path: str) -> str /{
     $include(<stdio.h>)
@@ -21,4 +21,16 @@ pub native readFile(path: str) -> str /{
     }
 
     return buffer;
+}/
+
+pub native createFile(path: str) -> File /{
+    $include(<stdio.h>)
+
+    return fopen(path ,"w");
+}/
+
+pub native close(file: File) /{
+    $include(<stdio.h>)
+
+    fclose(file);
 }/

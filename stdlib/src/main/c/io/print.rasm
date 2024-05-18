@@ -3,56 +3,82 @@ pub inline native STDOut() -> File /{
     stdout
 }/
 
-native none() -> Option<IOError> /{
-    $enumDeclaration(_result)
-    $enumVariantDeclaration(_none,None)
-    _result->variant_num = 1;
-    _result->variant = _none;
-    return _result;
+native optIOError() -> Option<IOError> /{
+    $include(<errno.h>)
+
+    if (errno == 0) {
+        $enumDeclaration(_result)
+        $enumVariantDeclaration(_none,None)
+        _result->variant_num = 1;
+        _result->variant = _none;
+        return _result;
+    } else {
+        void *error = $call(IOError, "IO Error");
+        return $call(Option::Some, error: IOError);
+    }
 }/
 
 pub native print(file: File, s: str) -> Option<IOError> /{
     $include(<stdio.h>)
+    $include(<errno.h>)
+
+    errno = 0;
     fprintf(file, "%s", $s);
 
-    return $call(none);
+    return $call(optIOError);
 }/
 
 pub native print(file: File, n: i32) -> Option<IOError> /{
     $include(<stdio.h>)
+    $include(<errno.h>)
+
+    errno = 0;
     fprintf(file, "%d", $n);
 
-    return $call(none);
+    return $call(optIOError);
 }/
 
 pub native print(file: File, n: f32) -> Option<IOError> /{
     $include(<stdio.h>)
+    $include(<errno.h>)
+
+    errno = 0;
     fprintf(file, "%f", $n);
 
-    return $call(none);
+    return $call(optIOError);
 }/
 
 pub native print(file: File, b: bool) -> Option<IOError> /{
     $include(<stdio.h>)
+    $include(<errno.h>)
+
+    errno = 0;
     if ($b) {
         fprintf(file, "true");
     } else {
         fprintf(file, "false");
     }
 
-    return $call(none);
+    return $call(optIOError);
 }/
 
 pub native print(file: File, c: char) -> Option<IOError> /{
     $include(<stdio.h>)
+    $include(<errno.h>)
+
+    errno = 0;
     fprintf(file, "%s", $c);
 
-    return $call(none);
+    return $call(optIOError);
 }/
 
 pub native println(file: File) -> Option<IOError> /{
     $include(<stdio.h>)
+    $include(<errno.h>)
+
+    errno = 0;
+
     fprintf(file, "\n");
 
-    return $call(none);
+    return $call(optIOError);
 }/

@@ -1050,6 +1050,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         *indent,
                         stack_vals,
                         ast_index,
+                        statics,
+                        typed_module,
                     )
                 }
             }

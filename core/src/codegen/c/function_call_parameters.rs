@@ -281,9 +281,24 @@ impl FunctionCallParameters for CFunctionCallParameters {
         indent: usize,
         stack_vals: &StackVals,
         ast_index: &ASTIndex,
+        statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
     ) {
-        self.parameters_values
-            .insert(original_param_name.to_string(), val_name.to_string());
+        if let Some(index_in_lambda) = lambda_space.and_then(|it| it.get_index(val_name)) {
+            self.parameters_values.insert(
+                original_param_name.to_string(),
+                Self::get_value_from_lambda_space(
+                    statics,
+                    type_def_provider,
+                    index_in_lambda - 1,
+                    lambda_space.unwrap().get_type(val_name).unwrap(),
+                    false,
+                ),
+            );
+        } else {
+            self.parameters_values
+                .insert(original_param_name.to_string(), val_name.to_string());
+        }
     }
 
     fn add_value_type(&mut self, name: &str, value_type: &ValueType) {

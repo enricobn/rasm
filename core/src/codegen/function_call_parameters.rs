@@ -75,6 +75,8 @@ pub trait FunctionCallParameters {
         indent: usize,
         stack_vals: &StackVals,
         ast_index: &ASTIndex,
+        statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
     );
 
     fn add_value_type(&mut self, name: &str, value_type: &ValueType);
@@ -638,6 +640,8 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         indent: usize,
         stack_vals: &StackVals,
         ast_index: &ASTIndex,
+        statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
     ) {
         self.debug_and_before(
             &format!("adding let val {val_name} original_param_name {original_param_name}"),
