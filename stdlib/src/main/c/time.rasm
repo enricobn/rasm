@@ -1,0 +1,27 @@
+pub native now() -> TimeVal /{
+    $include(<sys/time.h>)
+
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    return
+        $call(TimeVal, tv.tv_sec, tv.tv_usec)
+    ;
+}/
+
+// from https://stackoverflow.com/questions/14818084/what-is-the-proper-include-for-the-function-sleep
+pub native sleep(timeVal: TimeVal) /{
+    $include(<unistd.h>)
+
+    int sec =
+        $call(sec, $timeVal)
+    ;
+
+    int nano =
+        $call(nano, $timeVal)
+    ;
+
+    usleep(sec * 1000000 + nano)
+
+}/

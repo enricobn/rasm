@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
 use rasm_core::codegen::AsmOptions;
 use tempdir::TempDir;
@@ -597,7 +598,12 @@ fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
         expected_output,
         CompileTarget::Nasmi386(AsmOptions::default()),
     );
-    run_test_with_target(test_name, args, expected_output, CompileTarget::C);
+    run_test_with_target(
+        test_name,
+        args,
+        expected_output,
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 fn run_test_with_target(
@@ -635,14 +641,20 @@ fn run(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     let executable = compile(&dir, source, false);
     execute(&executable.unwrap(), args.clone(), expected_output);
-    let executable = compile_with_target(&dir, source, false, CompileTarget::C);
+    let executable =
+        compile_with_target(&dir, source, false, CompileTarget::C(COptions::default()));
     execute(&executable.unwrap(), args, expected_output);
 }
 
 fn compile_example(source: &str, only_compile: bool) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     compile(&dir, source, only_compile);
-    compile_with_target(&dir, source, only_compile, CompileTarget::C);
+    compile_with_target(
+        &dir,
+        source,
+        only_compile,
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
@@ -670,7 +682,7 @@ fn compile_with_target(
 
     let target_name = match target {
         CompileTarget::Nasmi386(_) => NASMI386,
-        CompileTarget::C => C,
+        CompileTarget::C(_) => C,
     };
 
     let mut args = vec![

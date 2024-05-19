@@ -1,3 +1,9 @@
+pub type SDLRenderer(false);
+pub type SDLWindow(false);
+pub type SDLSurface(false);
+pub type SDLTexture(false);
+pub type SDLFont(false);
+
 native isSDLNull<T>(value: T) -> bool /{
     mov dword   eax, $value
     cmp     eax,0

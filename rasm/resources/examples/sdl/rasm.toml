@@ -31,3 +31,7 @@ externals = [
     "TTF_Init",
     "TTF_OpenFont",
     "TTF_RenderText_Solid"]
+
+[natives.c]
+requires = ["SDL2", "SDL2_ttf"]
+includes = ["/usr/include/SDL2/"]

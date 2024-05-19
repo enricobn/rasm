@@ -14,6 +14,10 @@ pub native div(n1: i32, n2: i32) -> i32 /{
     ($n1 / $n2)
 }/
 
+pub native negate(n: i32) -> i32 /{
+    (-n)
+}/
+
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
 pub native toString(n: i32) -> str /{
     $include(<math.h>)

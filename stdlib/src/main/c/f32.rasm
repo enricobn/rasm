@@ -2,6 +2,16 @@ pub inline native tof32(n: i32) -> f32 /{
     ((float) $n)
 }/
 
+pub native toi32(n: f32) -> Option<i32> /{
+    return
+        $call(Option::Some, (int)$n)
+    ;
+}/
+
+pub inline native divf(n1: i32, n2: i32) -> f32 /{
+    (((float)$n1) / ((float) $n2))
+}/
+
 pub inline native sub(a: f32, b: f32) -> f32 /{
     ($a - $b)
 }/
@@ -44,4 +54,8 @@ pub inline native less(a: f32, b: f32) -> bool /{
 
 pub inline native less(a: f32, b: i32) -> bool /{
     ($a < $b)
+}/
+
+pub inline native mul(f1: f32, n2: i32) -> f32 /{
+    ($f1 * $n2)
 }/

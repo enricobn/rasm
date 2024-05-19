@@ -30,6 +30,7 @@ use toml::Value;
 use crate::codegen::backend::{log_command, Backend, BackendNasmi386};
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator::CFunctionsCreator;
+use crate::codegen::c::options::COptions;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
@@ -59,7 +60,7 @@ struct CLibAssets;
 #[derive(Clone)]
 pub enum CompileTarget {
     Nasmi386(AsmOptions),
-    C,
+    C(COptions),
 }
 
 pub const NASMI386: &str = "nasmi386";
@@ -96,7 +97,17 @@ impl CompileTarget {
 
                 CompileTarget::Nasmi386(options)
             }
-            C => CompileTarget::C,
+            C => {
+                let mut all_projects = vec![project.clone()];
+                all_projects.extend(project.get_all_dependencies());
+
+                let requires = get_native_string_array(&all_projects, target.as_str(), "requires");
+                let includes = get_native_string_array(&all_projects, target.as_str(), "includes");
+
+                let options = COptions { requires, includes };
+
+                CompileTarget::C(options)
+            }
             _ => {
                 panic!("Unknown target {target}");
             }
@@ -106,7 +117,7 @@ impl CompileTarget {
     pub fn extension(&self) -> String {
         match self {
             CompileTarget::Nasmi386(_) => "asm".to_string(),
-            CompileTarget::C => "c".to_string(),
+            CompileTarget::C(_) => "c".to_string(),
         }
     }
 
@@ -115,14 +126,16 @@ impl CompileTarget {
             CompileTarget::Nasmi386(options) => {
                 CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
             }
-            CompileTarget::C => CodeGenC::new().generate(typed_module, statics),
+            CompileTarget::C(options) => {
+                CodeGenC::new(options.clone()).generate(typed_module, statics)
+            }
         }
     }
 
     pub fn folder(&self) -> &str {
         match self {
             CompileTarget::Nasmi386(_) => NASMI386,
-            CompileTarget::C => C,
+            CompileTarget::C(_) => C,
         }
     }
 
@@ -136,7 +149,7 @@ impl CompileTarget {
                     CodeGenAsm::new(options.clone(), debug),
                 ))
             }
-            CompileTarget::C => Box::new(CFunctionsCreator::new()),
+            CompileTarget::C(_) => Box::new(CFunctionsCreator::new()),
         }
     }
 
@@ -147,7 +160,7 @@ impl CompileTarget {
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
                 Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen, debug))
             }
-            CompileTarget::C => Box::new(DummyTypedFunctionsCreator),
+            CompileTarget::C(_) => Box::new(DummyTypedFunctionsCreator),
         }
     }
 
@@ -164,7 +177,7 @@ impl CompileTarget {
                         }
                     });
             }
-            CompileTarget::C => {
+            CompileTarget::C(_) => {
                 CLibAssets::iter()
                     .filter(|it| it.ends_with(".rasm"))
                     .for_each(|it| {
@@ -184,8 +197,8 @@ impl CompileTarget {
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
                 code_gen.get_text_macro_evaluator()
             }
-            CompileTarget::C => {
-                let code_gen = CodeGenC::new();
+            CompileTarget::C(options) => {
+                let code_gen = CodeGenC::new(options.clone());
                 code_gen.get_text_macro_evaluator()
             }
         }
@@ -213,8 +226,8 @@ impl CompileTarget {
                     _statics,
                 )
             }
-            CompileTarget::C => {
-                let code_gen = CodeGenC::new();
+            CompileTarget::C(options) => {
+                let code_gen = CodeGenC::new(options.clone());
                 code_gen.called_functions(
                     typed_function_def,
                     function_def,
@@ -232,7 +245,7 @@ impl CompileTarget {
             CompileTarget::Nasmi386(_) => {
                 vec![CommandLineAction::Build, CommandLineAction::Test]
             }
-            CompileTarget::C => vec![CommandLineAction::Build, CommandLineAction::Test],
+            CompileTarget::C(_) => vec![CommandLineAction::Build, CommandLineAction::Test],
         }
     }
 
@@ -329,7 +342,7 @@ impl CompileTarget {
                     unreachable!()
                 }
             },
-            CompileTarget::C => {
+            CompileTarget::C(options) => {
                 let native_code = self.generate(statics, &typed_module, command_line_options.debug);
 
                 info!("code generation ended in {:?}", start.elapsed());
@@ -345,14 +358,29 @@ impl CompileTarget {
                 let start = Instant::now();
                 info!("source file : '{:?}'", out_path);
                 let mut command = Command::new("gcc");
-                command
-                    .arg(out_path.with_extension("c"))
-                    .arg("-std=c17")
-                    //.arg("-O3")
-                    .arg("-g")
-                    //.arg("-Wno-implicit-function-declaration")
-                    .arg("-o")
-                    .arg(out_path.with_extension(""));
+
+                let mut args = vec![
+                    out_path.with_extension("c").to_string_lossy().to_string(),
+                    "-std=c17".to_string(),
+                    "-g".to_string(),
+                    "-o".to_string(),
+                    out_path.with_extension("").to_string_lossy().to_string(),
+                ];
+
+                if !options.includes.is_empty() {
+                    for inc in options.includes.iter() {
+                        args.push(format!("-I{inc}"));
+                    }
+                }
+
+                if !options.requires.is_empty() {
+                    for req in options.requires.iter() {
+                        args.push(format!("-l{req}"));
+                    }
+                }
+
+                command.args(args);
+
                 log_command(&command);
                 let result = command
                     .stderr(Stdio::inherit())
@@ -383,7 +411,7 @@ impl CompileTarget {
                     }
                 }
             }
-            CompileTarget::C => {}
+            CompileTarget::C(_) => {}
         }
 
         result
@@ -429,7 +457,7 @@ impl CompileTarget {
                     ),
                 ]
             }
-            CompileTarget::C => Vec::new(),
+            CompileTarget::C(_) => Vec::new(),
         };
 
         if print_allocation {

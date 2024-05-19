@@ -12,12 +12,6 @@ pub struct SDLColor {
     a: i32
 }
 
-pub type SDLRenderer(false);
-pub type SDLWindow(false);
-pub type SDLSurface(false);
-pub type SDLTexture(false);
-pub type SDLFont(false);
-
 /* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
 otherwise returns the value */
 pub fn sdlErrorIfNull<T>(value: T, message: str) -> T {

@@ -15,9 +15,3 @@ pub native random() -> i32 /{
     pop ecx
     pop ebx
 }/
-
-pub fn random(max: i32) -> i32 {
-    let r = random();
-    let rp = if(r.less(0), negate(r), r);
-    rp.sub(rp.div(max).mul(max));
-}

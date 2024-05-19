@@ -1,0 +1,205 @@
+pub type SDLRenderer(false, "SDL_Renderer*");
+pub type SDLWindow(false, "SDL_Window*");
+pub type SDLSurface(false, "SDL_Surface*");
+pub type SDLTexture(false, "SDL_Texture*");
+pub type SDLFont(false, "TTF_Font*");
+
+native isSDLNull<T>(value: T) -> bool /{
+    return (value == NULL);
+}/
+
+native sdlFailure(message: str) /{
+    printf(message, SDL_GetError());
+    SDL_Quit();
+    exit(1);
+}/
+
+pub native sdlInit() /{
+    $include(<SDL.h>)
+    // SDL_Init(SDL_INIT_EVERYTHING)
+    SDL_Init(62001);
+}/
+
+pub native sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> SDLWindow /{
+    SDL_CreateWindow(title, x, y, width, height, 4);
+}/
+
+pub native sdlDelay(millis: i32) /{
+    SDL_Delay(millis);
+}/
+
+pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
+    // SDL_RENDERER_ACCELERATED = 0x00000002
+    // SDL_RENDERER_PRESENTVSYNC = 0x00000004
+    // TODO for now vsync is always disabled, pass a configuration struct instead
+    SDL_CreateRenderer(win, -1, 2);
+}/
+
+pub native sdlLoadBMP(file: str) -> SDLSurface /{
+    int rw = SDL_RWFromFile(file, "rb");
+    SDL_LoadBMP_RW(rw, 1);
+}/
+
+pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
+    SDL_CreateTextureFromSurface(ren, surface);
+}/
+
+pub native sdlFreeSurface(surface: SDLSurface) /{
+    SDL_FreeSurface(surface);
+}/
+
+pub native sdlRenderClear(ren: SDLRenderer) /{
+    SDL_RenderClear(ren);
+}/
+
+pub native sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
+    SDL_RenderCopy(ren, tex, 0, 0);
+}/
+
+pub native sdlRenderPresent(ren: SDLRenderer) /{
+    SDL_RenderPresent(ren);
+}/
+
+pub native sdlDestroyRenderer(ren: SDLRenderer) /{
+    SDL_DestroyRenderer(ren);
+}/
+
+pub native sdlDestroyTexture(tex: SDLTexture) /{
+    SDL_DestroyTexture(tex);
+}/
+
+pub native sdlDestroyWindow(win: SDLWindow) /{
+    SDL_DestroyWindow(win);
+}/
+
+native sdlGetError() -> str /{
+    return SDL_GetError();
+}/
+
+pub native sdlQuit() /{
+    SDL_Quit();
+}/
+
+pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
+    sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
+}
+
+pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
+    SDL_SetRenderDrawColor(ren, r, g, b, a);
+}/
+
+pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
+    SDL_RenderFillRect(ren, rect);
+}/
+
+/*
+SDL C types:
+
+typedef union{
+  Uint8 type;
+  SDL_ActiveEvent active;
+  SDL_KeyboardEvent key;
+  SDL_MouseMotionEvent motion;
+  SDL_MouseButtonEvent button;
+  SDL_JoyAxisEvent jaxis;
+  SDL_JoyBallEvent jball;
+  SDL_JoyHatEvent jhat;
+  SDL_JoyButtonEvent jbutton;
+  SDL_ResizeEvent resize;
+  SDL_ExposeEvent expose;
+  SDL_QuitEvent quit;
+  SDL_UserEvent user;
+  SDL_SysWMEvent syswm;
+} SDL_Event;
+
+typedef struct{
+  Uint8 type;
+  Uint8 state;
+  SDL_keysym keysym;
+} SDL_KeyboardEvent;
+
+typedef struct{
+  Uint8 scancode;
+  SDLKey sym;
+  SDLMod mod;
+  Uint16 unicode;
+} SDL_keysym;
+
+*/
+pub native keyEvent() -> Option<KeyEvent> /{
+    SDL_Event event;
+    if (SDL_PollEvent(&event)) {
+        if (event.type == SDL_KEYDOWN) {
+            if (event.key.state == SDL_PRESSED) {
+                void * state;
+                if (event.key.type == SDL_KEYDOWN) {
+                    state =
+                    $call(KeyState::Down)
+                    ;
+                } else if (event.key.type == SDL_KEYUP) {
+                    state =
+                    $call(KeyState::Up)
+                    ;
+                }
+                void * keyEvent =
+                $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
+                ;
+                return
+                $call(Option::Some, keyEvent: KeyEvent)
+                ;
+            }
+        }
+    }
+
+    $enumDeclaration(_result)
+    $enumVariantDeclaration(_none,None)
+    _result->variant_num = 1;
+    _result->variant = _none;
+    return _result;
+}/
+
+// LOOP
+
+pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
+    void * newModel = model;
+    while (1) {
+        newModel =
+        $call(sdlSingleLoop,$ctx:CTX,newModel:MODEL,$update,$render)
+        ;
+    }
+}/
+
+// Text
+
+pub native sdlTTFInit() -> i32 /{
+    $include(<SDL_ttf.h>)
+    return TTF_Init();
+}/
+
+pub native sdlOpenFont(file: str, size: i32) -> SDLFont /{
+    return TTF_OpenFont(file, size);
+}/
+
+native sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
+    SDL_Color color = {r, g, b};
+    return TTF_RenderText_Solid(font, message, color);
+}/
+
+pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSurface /{
+    int red =
+        $call(r, $c)
+    ;
+    int green =
+        $call(g, $c)
+    ;
+    int blue =
+        $call(b, $c)
+    ;
+    SDL_Color sdlColor = {red, green, blue};
+
+    return TTF_RenderText_Solid(font, message, sdlColor);
+}/
+
+pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
+    SDL_RenderCopy($ren, $message, 0, $rect);
+}/

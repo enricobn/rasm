@@ -15,9 +15,18 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-pub mod any;
-pub mod code_gen_c;
-pub mod function_call_parameters;
-pub mod functions_creator;
-pub mod options;
-mod text_macro;
+
+#[derive(Clone)]
+pub struct COptions {
+    pub requires: Vec<String>,
+    pub includes: Vec<String>,
+}
+
+impl Default for COptions {
+    fn default() -> Self {
+        Self {
+            requires: vec![],
+            includes: Vec::new(),
+        }
+    }
+}

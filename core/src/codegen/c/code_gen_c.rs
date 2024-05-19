@@ -18,6 +18,7 @@
 
 use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambda, CLambdas};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
+use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro::{
     CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
     CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
@@ -67,13 +68,15 @@ impl CodeManipulator for CCodeManipulator {
 pub struct CodeGenC {
     code_manipulator: CCodeManipulator,
     options: AsmOptions,
+    c_options: COptions,
 }
 
 impl CodeGenC {
-    pub fn new() -> Self {
+    pub fn new(options: COptions) -> Self {
         Self {
             code_manipulator: CCodeManipulator,
             options: AsmOptions::default(),
+            c_options: options,
         }
     }
 
@@ -297,8 +300,23 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // TODO
     }
 
-    fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String) {
-        todo!()
+    fn set_let_const_for_function_call_result(
+        &self,
+        statics_key: &str,
+        body: &mut String,
+        name: &str,
+        typed_type: &ASTTypedType,
+        statics: &mut Statics,
+    ) {
+        CConsts::add_to_statics(
+            statics,
+            format!(
+                "const {} {name};",
+                CodeGenC::type_to_string(typed_type, statics)
+            ),
+        );
+        self.add(body, &format!("{name} = ",), None, true);
+        //todo!("set_let_const_for_function_call_result {statics_key} {body}")
     }
 
     fn set_let_for_value_ref(
@@ -778,6 +796,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 #[cfg(test)]
 mod tests {
     use crate::codegen::c::code_gen_c::CodeGenC;
+    use crate::codegen::c::options::COptions;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::val_context::ValContext;
@@ -786,7 +805,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = CodeGenC::new();
+        let sut = CodeGenC::new(COptions::default());
         let mut statics = Statics::new();
 
         let functions = sut

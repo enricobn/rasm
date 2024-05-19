@@ -18,6 +18,7 @@
 
 use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
 use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
+use crate::codegen::c::options::COptions;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
@@ -66,7 +67,7 @@ impl CFunctionCallParameters {
             inline,
             stack_vals,
             immediate,
-            code_gen_c: CodeGenC::new(),
+            code_gen_c: CodeGenC::new(COptions::default()),
         }
     }
 
@@ -289,7 +290,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     type_def_provider,
                     index_in_lambda - 1,
                     lambda_space.unwrap().get_type(val_name).unwrap(),
-                    false,
+                    true,
                 ),
             );
         } else {

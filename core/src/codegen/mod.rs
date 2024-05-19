@@ -875,11 +875,17 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         if is_const {
             if !bf.is_empty() || !cur.is_empty() {
                 body.push_str(&bf);
-                body.push_str(&cur);
 
                 let key = statics.add_typed_const(name.to_owned(), ast_typed_type.clone());
 
-                self.set_let_const_for_function_call_result(&key, body);
+                self.set_let_const_for_function_call_result(
+                    &key,
+                    body,
+                    name,
+                    &ast_typed_type,
+                    statics,
+                );
+                body.push_str(&cur);
             }
 
             if self.options().dereference {
@@ -982,7 +988,14 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         typed_module: &ASTTypedModule,
     );
 
-    fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String);
+    fn set_let_const_for_function_call_result(
+        &self,
+        statics_key: &str,
+        body: &mut String,
+        name: &str,
+        typed_type: &ASTTypedType,
+        statics: &mut Statics,
+    );
 
     fn set_let_for_value_ref(
         &self,
@@ -2906,7 +2919,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn set_let_const_for_function_call_result(&self, statics_key: &str, body: &mut String) {
+    fn set_let_const_for_function_call_result(
+        &self,
+        statics_key: &str,
+        body: &mut String,
+        _name: &str,
+        _type_type: &ASTTypedType,
+        _statics: &mut Statics,
+    ) {
         let ws = self.backend.word_size();
         let rr = self.return_register();
         self.add(

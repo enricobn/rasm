@@ -362,6 +362,7 @@ pub trait FunctionsCreator {
         name: String,
         module: &ASTModule,
     ) -> ASTFunctionDef {
+        let (native_body, inline) = self.struct_property_body(i, &property_def.name);
         ASTFunctionDef {
             original_name: name.clone(),
             name,
@@ -377,9 +378,9 @@ pub trait FunctionsCreator {
                 ast_index: ASTIndex::none(),
             }],
             return_type: property_def.ast_type.clone(),
-            body: ASTFunctionBody::NativeBody(self.struct_property_body(i, &property_def.name)),
+            body: ASTFunctionBody::NativeBody(native_body),
             generic_types: struct_def.type_parameters.clone(),
-            inline: true,
+            inline,
             resolved_generic_types: ResolvedGenericTypes::new(),
             index: property_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
@@ -601,7 +602,7 @@ pub trait FunctionsCreator {
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
 
-    fn struct_property_body(&self, i: usize, name: &str) -> String;
+    fn struct_property_body(&self, i: usize, name: &str) -> (String, bool);
 
     fn struct_setter_body(&self, i: usize, name: &str) -> String;
 
@@ -981,7 +982,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_property_body(&self, i: usize, name: &str) -> String {
+    fn struct_property_body(&self, i: usize, name: &str) -> (String, bool) {
         let mut body = String::new();
         self.code_gen.add_rows(
             &mut body,
@@ -1000,7 +1001,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             true,
         );
 
-        body
+        (body, true)
     }
 
     fn struct_setter_body(&self, i: usize, name: &str) -> String {

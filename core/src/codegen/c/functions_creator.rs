@@ -165,11 +165,12 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_property_body(&self, _i: usize, name: &str) -> String {
+    fn struct_property_body(&self, _i: usize, name: &str) -> (String, bool) {
         let mut result = String::new();
         self.code_manipulator
-            .add(&mut result, &format!("$v->{name}"), None, true);
-        result
+            .add(&mut result, &format!("return $v->{name};"), None, true);
+        // TODO try to understand if it can be inlined: for now there's a problem when this function is called with a $call macro
+        (result, false)
     }
 
     fn struct_setter_body(&self, _i: usize, name: &str) -> String {

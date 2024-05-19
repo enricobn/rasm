@@ -15,7 +15,8 @@ pub native now() -> TimeVal /{
 }/
 
 // from https://stackoverflow.com/questions/19580282/nasm-assembly-linux-timer-or-sleep
-pub native sleep(timeVal: TimeVal) -> i32 /{
+pub native sleep(timeVal: TimeVal) /{
+    push eax
     push ebx
     push ecx
     mov dword ebx,$timeVal
@@ -25,4 +26,5 @@ pub native sleep(timeVal: TimeVal) -> i32 /{
     int 0x80
     pop ecx
     pop ebx
+    pop eax
 }/

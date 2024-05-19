@@ -21,9 +21,10 @@ use crate::parser::ParserTrait;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::substitute;
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+    ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind,
+    DefaultFunctionCall,
 };
-use crate::utils::OptionDisplay;
+use crate::utils::{OptionDisplay, SliceDisplay};
 
 thread_local! {
     static COUNT : RefCell<usize> = RefCell::new(0);
@@ -331,7 +332,22 @@ impl TextMacroEvaluator {
                         &ResolvedGenericTypes::new(),
                     )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
-                        Err("Cannot find parameter {par_name}".to_owned())
+                        match &f.body {
+                            ASTTypedFunctionBody::RASMBody(body) => {}
+                            ASTTypedFunctionBody::NativeBody(body) => {
+                                println!("body\n{body}");
+                            }
+                        }
+                        println!(
+                            "parameters {}",
+                            SliceDisplay(
+                                &f.parameters
+                                    .iter()
+                                    .map(|it| it.name.clone())
+                                    .collect::<Vec<_>>()
+                            )
+                        );
+                        Err(format!("Cannot find parameter {par_name}"))
                     } else {
                         Ok(MacroParam::Ref(
                             format!("${par_name}"),
