@@ -34,3 +34,7 @@ pub native close(file: File) /{
 
     fclose(file);
 }/
+
+pub native delete(path: str) /{
+    remove(path);
+}/
