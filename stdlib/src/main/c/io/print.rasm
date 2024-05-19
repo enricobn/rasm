@@ -43,7 +43,7 @@ pub native print(file: File, n: f32) -> Option<IOError> /{
     $include(<errno.h>)
 
     errno = 0;
-    fprintf(file, "%f", $n);
+    fprintf(file, "%.9f", $n);
 
     return $call(optIOError);
 }/
