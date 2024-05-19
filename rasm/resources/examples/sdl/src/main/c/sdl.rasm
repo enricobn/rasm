@@ -21,7 +21,7 @@ pub native sdlInit() /{
 }/
 
 pub native sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> SDLWindow /{
-    SDL_CreateWindow(title, x, y, width, height, 4);
+    return SDL_CreateWindow(title, x, y, width, height, 4);
 }/
 
 pub native sdlDelay(millis: i32) /{
@@ -32,16 +32,16 @@ pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     // SDL_RENDERER_ACCELERATED = 0x00000002
     // SDL_RENDERER_PRESENTVSYNC = 0x00000004
     // TODO for now vsync is always disabled, pass a configuration struct instead
-    SDL_CreateRenderer(win, -1, 2);
+    return SDL_CreateRenderer(win, -1, 2);
 }/
 
 pub native sdlLoadBMP(file: str) -> SDLSurface /{
-    int rw = SDL_RWFromFile(file, "rb");
-    SDL_LoadBMP_RW(rw, 1);
+    SDL_RWops* rw = SDL_RWFromFile(file, "rb");
+    return SDL_LoadBMP_RW(rw, 1);
 }/
 
 pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
-    SDL_CreateTextureFromSurface(ren, surface);
+    return SDL_CreateTextureFromSurface(ren, surface);
 }/
 
 pub native sdlFreeSurface(surface: SDLSurface) /{
@@ -186,16 +186,7 @@ native sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a
 }/
 
 pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSurface /{
-    int red =
-        $call(r, $c)
-    ;
-    int green =
-        $call(g, $c)
-    ;
-    int blue =
-        $call(b, $c)
-    ;
-    SDL_Color sdlColor = {red, green, blue};
+    SDL_Color sdlColor = {c->r, c->g, c->b};
 
     return TTF_RenderText_Solid(font, message, sdlColor);
 }/
