@@ -291,6 +291,11 @@ fn test_let() {
 }
 
 #[test]
+fn test_let_as_return() {
+    run_test("let_as_return", vec![], "5\n");
+}
+
+#[test]
 fn test_let1() {
     run_test("let1", vec![], "10,\n10,\n10\n5\n");
 }

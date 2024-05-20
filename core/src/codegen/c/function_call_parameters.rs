@@ -295,6 +295,9 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     true,
                 ),
             );
+        } else if self.immediate {
+            self.code_manipulator
+                .add(&mut self.before, &format!("return {val_name};"), None, true);
         } else {
             self.parameters_values
                 .insert(original_param_name.to_string(), val_name.to_string());
