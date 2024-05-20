@@ -303,7 +303,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn set_let_const_for_function_call_result(
         &self,
         statics_key: &str,
-        body: &mut String,
+        before: &mut String,
+        _current: &mut String,
         name: &str,
         typed_type: &ASTTypedType,
         statics: &mut Statics,
@@ -313,8 +314,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             statics,
             format!("{} {name};", CodeGenC::type_to_string(typed_type, statics)),
         );
-        self.add(body, &format!("{name} = ",), None, true);
-        //todo!("set_let_const_for_function_call_result {statics_key} {body}")
+        self.add(before, &format!("{name} = ",), None, true);
     }
 
     fn set_let_for_value_ref(

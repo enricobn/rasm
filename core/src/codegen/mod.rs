@@ -881,6 +881,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 self.set_let_const_for_function_call_result(
                     &key,
                     body,
+                    &mut cur,
                     name,
                     &ast_typed_type,
                     statics,
@@ -991,7 +992,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn set_let_const_for_function_call_result(
         &self,
         statics_key: &str,
-        body: &mut String,
+        before: &mut String,
+        current: &mut String,
         name: &str,
         typed_type: &ASTTypedType,
         statics: &mut Statics,
@@ -2922,7 +2924,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     fn set_let_const_for_function_call_result(
         &self,
         statics_key: &str,
-        body: &mut String,
+        _before: &mut String,
+        current: &mut String,
         _name: &str,
         _type_type: &ASTTypedType,
         _statics: &mut Statics,
@@ -2930,7 +2933,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         let ws = self.backend.word_size();
         let rr = self.return_register();
         self.add(
-            body,
+            current,
             &format!("mov {ws} [{statics_key}], {rr}"),
             Some(""),
             true,
