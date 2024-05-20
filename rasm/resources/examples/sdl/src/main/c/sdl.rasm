@@ -3,6 +3,7 @@ pub type SDLWindow(false, "SDL_Window*");
 pub type SDLSurface(false, "SDL_Surface*");
 pub type SDLTexture(false, "SDL_Texture*");
 pub type SDLFont(false, "TTF_Font*");
+type NativeSDLRect(false, "SDL_Rect*");
 
 native isSDLNull<T>(value: T) -> bool /{
     return (value == NULL);
@@ -89,7 +90,20 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i3
 }/
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
-    SDL_RenderFillRect(ren, rect);
+    SDL_Rect *sdlRect =
+        $call(rectToSDL, $rect)
+    ;
+    SDL_RenderFillRect(ren, sdlRect);
+}/
+
+native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
+    SDL_Rect *result = malloc(sizeof(struct SDL_Rect));
+    result->x = rect->x;
+    result->y = rect->y;
+    result->w = rect->width;
+    result->x = rect->height;
+
+    return result;
 }/
 
 /*
@@ -192,5 +206,9 @@ pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSu
 }/
 
 pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
-    SDL_RenderCopy($ren, $message, 0, $rect);
+    SDL_Rect *sdlRect =
+        $call(rectToSDL, $rect)
+    ;
+
+    SDL_RenderCopy(ren, $message, 0, sdlRect);
 }/

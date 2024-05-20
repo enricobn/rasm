@@ -22,6 +22,8 @@ const GREEN = SDLColor(0, 255, 0, 255);
 const BLUE = SDLColor(0, 0, 255, 255);
 const YELLOW = SDLColor(255, 255, 0, 255);
 
+initRandom();
+
 sdlInit();
 if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
 

@@ -308,12 +308,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         typed_type: &ASTTypedType,
         statics: &mut Statics,
     ) {
+        // TODO should be const? But in this way I get a warning. Should all pointer be consts? But can we release them?
         CConsts::add_to_statics(
             statics,
-            format!(
-                "const {} {name};",
-                CodeGenC::type_to_string(typed_type, statics)
-            ),
+            format!("{} {name};", CodeGenC::type_to_string(typed_type, statics)),
         );
         self.add(body, &format!("{name} = ",), None, true);
         //todo!("set_let_const_for_function_call_result {statics_key} {body}")
@@ -355,7 +353,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         if is_const {
             CConsts::add_to_statics(
                 statics,
-                format!("const char* {name} = \"{}\";", Self::escape_string(value)),
+                format!("char* {name} = \"{}\";", Self::escape_string(value)),
             );
         } else {
             self.add(
@@ -384,7 +382,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             CConsts::add_to_statics(
                 statics,
                 format!(
-                    "const {} {name} = {};",
+                    "{} {name} = {};",
                     CodeGenC::type_to_string(typed_type, statics),
                     value
                 ),
@@ -639,68 +637,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
-        if let Some(clambdas) = statics.any::<CLambdas>() {
-            for (i, clambda) in clambdas.lambdas.iter().enumerate() {
-                self.add(
-                    &mut before,
-                    &format!("struct {} {{", clambda.name),
-                    None,
-                    false,
-                );
-                self.add(&mut before, "void **args;", None, true);
-                let mut args = clambda
-                    .args
-                    .iter()
-                    .map(|it| Self::type_to_string(it, statics))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-
-                if !args.is_empty() {
-                    args.push_str(", ");
-                }
-
-                self.add(
-                    &mut before,
-                    &format!(
-                        "{} (*functionPtr)({args}struct {}*);",
-                        Self::type_to_string(&clambda.return_type, statics),
-                        clambda.name
-                    ),
-                    None,
-                    true,
-                );
-                self.add(&mut before, "};", None, false);
-                self.add_empty_line(&mut before);
-            }
-            self.add_empty_line(&mut before);
-        }
-
-        for s in typed_module.structs.iter() {
-            self.add(
-                &mut before,
-                &format!("struct {}_{} {{", s.namespace.safe_name(), s.name),
-                None,
-                false,
-            );
-            for property in s.properties.iter() {
-                self.add(
-                    &mut before,
-                    &format!(
-                        "{} {};",
-                        CodeGenC::type_to_string(&property.ast_type, statics),
-                        property.name
-                    ),
-                    None,
-                    true,
-                );
-            }
-            self.add(&mut before, "};", None, false);
-        }
-
-        if !typed_module.structs.is_empty() {
-            self.add_empty_line(&mut before);
-        }
-
         for s in typed_module.enums.iter() {
             self.add(
                 &mut before,
@@ -743,6 +679,68 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         }
 
         if !typed_module.enums.is_empty() {
+            self.add_empty_line(&mut before);
+        }
+
+        for s in typed_module.structs.iter() {
+            self.add(
+                &mut before,
+                &format!("struct {}_{} {{", s.namespace.safe_name(), s.name),
+                None,
+                false,
+            );
+            for property in s.properties.iter() {
+                self.add(
+                    &mut before,
+                    &format!(
+                        "{} {};",
+                        CodeGenC::type_to_string(&property.ast_type, statics),
+                        property.name
+                    ),
+                    None,
+                    true,
+                );
+            }
+            self.add(&mut before, "};", None, false);
+        }
+
+        if !typed_module.structs.is_empty() {
+            self.add_empty_line(&mut before);
+        }
+
+        if let Some(clambdas) = statics.any::<CLambdas>() {
+            for (i, clambda) in clambdas.lambdas.iter().enumerate() {
+                self.add(
+                    &mut before,
+                    &format!("struct {} {{", clambda.name),
+                    None,
+                    false,
+                );
+                self.add(&mut before, "void **args;", None, true);
+                let mut args = clambda
+                    .args
+                    .iter()
+                    .map(|it| Self::type_to_string(it, statics))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                if !args.is_empty() {
+                    args.push_str(", ");
+                }
+
+                self.add(
+                    &mut before,
+                    &format!(
+                        "{} (*functionPtr)({args}struct {}*);",
+                        Self::type_to_string(&clambda.return_type, statics),
+                        clambda.name
+                    ),
+                    None,
+                    true,
+                );
+                self.add(&mut before, "};", None, false);
+                self.add_empty_line(&mut before);
+            }
             self.add_empty_line(&mut before);
         }
 

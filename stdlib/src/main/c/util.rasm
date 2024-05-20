@@ -1,7 +1,13 @@
-pub native random() -> i32 /{
+pub native initRandom() /{
     $include(<sys/time.h>)
     $include(<stdlib.h>)
 
     srand(time(NULL));   // Initialization, should only be called once.
+}/
+
+pub native random() -> i32 /{
+    $include(<sys/time.h>)
+    $include(<stdlib.h>)
+
     return rand();
 }/

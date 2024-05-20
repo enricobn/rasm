@@ -59,3 +59,7 @@ pub inline native less(a: f32, b: i32) -> bool /{
 pub inline native mul(f1: f32, n2: i32) -> f32 /{
     ($f1 * $n2)
 }/
+
+pub inline native div(a: f32, b: i32) -> f32 /{
+    ($a / $b)
+}/
