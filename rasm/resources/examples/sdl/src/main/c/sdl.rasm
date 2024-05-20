@@ -101,7 +101,7 @@ native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
     result->x = rect->x;
     result->y = rect->y;
     result->w = rect->width;
-    result->x = rect->height;
+    result->h = rect->height;
 
     return result;
 }/
@@ -175,10 +175,10 @@ pub native keyEvent() -> Option<KeyEvent> /{
 // LOOP
 
 pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
-    void * newModel = model;
+    void *newModel = model;
     while (1) {
         newModel =
-        $call(sdlSingleLoop,$ctx:CTX,newModel:MODEL,$update,$render)
+            $call(sdlSingleLoop, $ctx:CTX, newModel:MODEL, $update, $render)
         ;
     }
 }/
@@ -200,15 +200,16 @@ native sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a
 }/
 
 pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSurface /{
-    SDL_Color sdlColor = {c->r, c->g, c->b};
+    SDL_Color color = {c->r, c->g, c->b};
 
-    return TTF_RenderText_Solid(font, message, sdlColor);
+    return TTF_RenderText_Solid(font, message, color);
 }/
 
 pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{
+    $include(<stdlib.h>)
     SDL_Rect *sdlRect =
         $call(rectToSDL, $rect)
     ;
 
-    SDL_RenderCopy(ren, $message, 0, sdlRect);
+    SDL_RenderCopy(ren, $message, NULL, sdlRect);
 }/
