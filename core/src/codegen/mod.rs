@@ -735,7 +735,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) -> Vec<LambdaCall> {
         let address_relative_to_bp = stack.reserve_local_val(name);
 
-        let (ast_typed_type, (mut bf, mut cur, af, new_lambda_calls), index) = match expr {
+        let (ast_typed_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
                     let typed_type = kind.typed_type();

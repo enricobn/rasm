@@ -33,7 +33,13 @@ pub native createFile(path: str) -> File /{
 pub native close(file: File) /{
     $include(<stdio.h>)
 
-    fclose(file);
+    /*
+      TODO probably the creation of the file has failed, it should return an error, or better revise all file functions
+       to return an error if a file cannot be created / opened
+    */
+    if (file != NULL) {
+        fclose(file);
+    }
 }/
 
 pub native delete(path: str) /{

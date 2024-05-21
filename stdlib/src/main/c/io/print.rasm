@@ -13,7 +13,8 @@ native optIOError() -> Option<IOError> /{
         _result->variant = _none;
         return _result;
     } else {
-        void *error = $call(IOError, "IO Error");
+        char *message = strerror(errno);
+        void *error = $call(IOError, message: str); //"Error writing to file.");
         return $call(Option::Some, error: IOError);
     }
 }/
@@ -67,8 +68,16 @@ pub native print(file: File, c: char) -> Option<IOError> /{
     $include(<errno.h>)
 
     errno = 0;
-    fprintf(file, "%s", $c);
-
+    /*
+      TODO probably the creation of the file has failed, revise all file functions
+       to return an error if a file cannot be created / opened.
+       For now it's useful for test purposes...
+    */
+    if (file == NULL) {
+        errno = 9;
+    } else {
+        fprintf(file, "%s", c);
+    }
     return $call(optIOError);
 }/
 

@@ -117,11 +117,10 @@ impl CodeGenC {
                 native_type,
             } => native_type
                 .clone()
-                .expect(&format!(
-                    "type in C must define a native type: {namespace}:{name}"
-                ))
+                .unwrap_or_else(|| {
+                    panic!("type in C must define a native type: {namespace}:{name}")
+                })
                 .to_string(),
-            _ => todo!("{ast_type}"),
         }
     }
 
@@ -135,7 +134,7 @@ impl CodeGenC {
 
 impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn options(&self) -> &AsmOptions {
-        &self.options // TODO
+        &self.options // TODO it should be generic, we have c_options?
     }
 
     fn end_main(&self, code: &mut String) {}
@@ -144,9 +143,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         before
     }
 
-    fn create_command_line_arguments(&self, generated_code: &mut String) {
-        // TODO
-    }
+    fn create_command_line_arguments(&self, generated_code: &mut String) {}
 
     fn call_lambda_parameter(
         &self,

@@ -353,8 +353,6 @@ impl CompileTarget {
                     .write_all(native_code.as_bytes())
                     .unwrap();
 
-                // gcc fibWithLambda.c -std=c17 -O3 -o fibWithLambda
-
                 let start = Instant::now();
                 info!("source file : '{:?}'", out_path);
                 let mut command = Command::new("gcc");
@@ -363,6 +361,7 @@ impl CompileTarget {
                     out_path.with_extension("c").to_string_lossy().to_string(),
                     "-std=c17".to_string(),
                     "-g".to_string(),
+                    "-O0".to_string(),
                     "-o".to_string(),
                     out_path.with_extension("").to_string_lossy().to_string(),
                 ];
