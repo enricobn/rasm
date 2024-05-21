@@ -144,24 +144,25 @@ pub native keyEvent() -> Option<KeyEvent> /{
     SDL_Event event;
     if (SDL_PollEvent(&event)) {
         if (event.type == SDL_KEYDOWN) {
-            if (event.key.state == SDL_PRESSED) {
-                void * state;
-                if (event.key.type == SDL_KEYDOWN) {
-                    state =
-                    $call(KeyState::Down)
-                    ;
-                } else if (event.key.type == SDL_KEYUP) {
-                    state =
-                    $call(KeyState::Up)
-                    ;
-                }
-                void * keyEvent =
-                $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
-                ;
-                return
-                $call(Option::Some, keyEvent: KeyEvent)
-                ;
-            }
+            void * state =
+                $call(KeyState::Down)
+            ;
+            void * keyEvent =
+            $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
+            ;
+            return
+            $call(Option::Some, keyEvent: KeyEvent)
+            ;
+        } else if (event.type == SDL_KEYUP) {
+            void * state =
+                $call(KeyState::Up)
+            ;
+            void * keyEvent =
+            $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
+            ;
+            return
+            $call(Option::Some, keyEvent: KeyEvent)
+            ;
         }
     }
 
