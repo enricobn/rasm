@@ -1255,7 +1255,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                             namespace: function_def.namespace.clone(),
                                             //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                             name: name.clone(),
-                                            original_name: name,
+                                            original_name: name.clone(),
                                             parameters: lambda_parameters, // parametrs are calculated later
                                             return_type: rt,
                                             body: ASTTypedFunctionBody::RASMBody(
@@ -1288,12 +1288,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                             &stack,
                                             false,
                                             function_def,
-                                            &ASTTypedType::Unit, //TODO
-                                            "",                  // TODO
-                                            0,                   // TODO
+                                            &function_def.return_type,
+                                            &name,
+                                            0, // TODO
                                         );
 
                                         before.push_str(&parameters.before());
+                                        before.push_str(&parameters.current());
 
                                         Self::insert_on_top(
                                             &parameters.after().join("\n"),

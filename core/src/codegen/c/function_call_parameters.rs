@@ -220,8 +220,17 @@ impl FunctionCallParameters for CFunctionCallParameters {
         );
 
         //arg_values.push(format!("lambda{param_index}"));
-        self.parameters_values
-            .insert(name.to_string(), lambda_var_name);
+        if self.immediate {
+            self.code_manipulator.add(
+                &mut self.current,
+                &format!("return {lambda_var_name};"),
+                None,
+                true,
+            );
+        } else {
+            self.parameters_values
+                .insert(name.to_string(), lambda_var_name);
+        }
 
         lambda_space
     }
