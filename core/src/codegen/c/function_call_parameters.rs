@@ -189,20 +189,47 @@ impl FunctionCallParameters for CFunctionCallParameters {
             None,
             true,
         );
+
+        // for primitive types (int, float etc.) we cannot use a pointer to a function argument,
+        // it must be allocated on the heap
+        for (_i, (name, kind)) in lambda_space.iter().enumerate() {
+            let t = kind.typed_type();
+
+            if get_reference_type_name(t, module).is_none()
+                && parent_lambda_space
+                    .and_then(|it| it.get_index(name))
+                    .is_none()
+            {
+                let type_to_string = CodeGenC::type_to_string(t, statics);
+                self.code_manipulator.add_rows(
+                    &mut self.before,
+                    vec![
+                        &format!(
+                            "{} *_{lambda_var_name}_{name} = malloc(sizeof({}));",
+                            type_to_string, type_to_string
+                        ),
+                        &format!("*_{lambda_var_name}_{name} = {name};"),
+                    ],
+                    None,
+                    true,
+                );
+            };
+        }
+
         for (i, (name, kind)) in lambda_space.iter().enumerate() {
             let t = kind.typed_type();
 
-            let name_prefix = if get_reference_type_name(t, module).is_some() {
-                ""
+            let real_name = if get_reference_type_name(t, module).is_some() {
+                name.to_string()
             } else {
-                "&"
+                format!("_{lambda_var_name}_{name}")
             };
 
             let value = if let Some(idx) = parent_lambda_space.and_then(|it| it.get_index(name)) {
                 let t = parent_lambda_space.unwrap().get_type(name).unwrap();
                 Self::get_value_from_lambda_space(statics, module, idx - 1, t, false)
             } else {
-                format!("{name_prefix}{name}")
+                real_name
             };
 
             self.code_manipulator.add(
