@@ -172,12 +172,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             return_value,
             is_inner_call,
         );
-
-        self.code_manipulator.add_comment(
-            before,
-            &format!("call_lambda_parameter {function_call}"),
-            true,
-        );
     }
 
     fn call_lambda(
