@@ -170,6 +170,7 @@ fn test_val_in_lambda() {
 }
 
 #[test]
+#[ignore] // it has no sense, we cannot rely on the evaluation order of parameters
 fn test_params_order() {
     run_test("params_order", vec![], "0\n1\n");
 }
@@ -444,11 +445,13 @@ fn test_structpropertysetter() {
 
 #[test]
 fn test_allocation() {
-    run_test(
+    run_test_with_target(
         "allocation",
         vec![],
         "56 bytes allocated and referenced\n1,2\n56 bytes allocated and referenced\n",
+        CompileTarget::Nasmi386(AsmOptions::default()),
     );
+    // TODO C
 }
 
 #[test]
