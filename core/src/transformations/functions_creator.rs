@@ -222,7 +222,7 @@ pub trait FunctionsCreator {
         });
 
         parameters.push(ASTParameterDef {
-            name: "else".to_string(),
+            name: "elseLambda".to_string(),
             ast_type,
             ast_index: ASTIndex::none(),
         });
@@ -901,7 +901,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             vec![
                 "jmp .end",
                 ".else:",
-                "mov ebx,$else",
+                "mov ebx,$elseLambda",
                 &format!("mov {} ebx,[ebx]", word_size),
             ],
             None,

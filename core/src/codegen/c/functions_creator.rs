@@ -40,16 +40,10 @@ impl FunctionsCreator for CFunctionsCreator {
         // TODO
     }
 
-    fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {
+    fn enum_match_body(&self, _name: &str, enum_def: &ASTEnumDef) -> String {
         let mut result = String::new();
 
         for (i, variant) in enum_def.variants.iter().enumerate() {
-            let safe_name = format!(
-                "{}_{}_{}",
-                enum_def.namespace.safe_name(),
-                enum_def.name,
-                variant.name
-            );
             self.code_manipulator.add(
                 &mut result,
                 &format!("if ($value->variant_num == {i}) {{"),
@@ -97,8 +91,58 @@ impl FunctionsCreator for CFunctionsCreator {
     }
 
     fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String {
-        // TODO
-        String::new()
+        let mut result = String::new();
+
+        if let Some(i) = enum_def
+            .variants
+            .iter()
+            .position(|it| it.name == variant.name)
+        {
+            self.code_manipulator.add_rows(
+                &mut result,
+                vec![
+                    &format!("if ($value->variant_num == {i}) {{"),
+                    &format!("$enumVariantAssignment(variant, {})", variant.name),
+                ],
+                None,
+                true,
+            );
+
+            let mut args = Vec::new();
+
+            for parameter in variant.parameters.iter() {
+                args.push(format!("variant->{}", parameter.name));
+            }
+
+            //args.push("$value->variant".to_string());
+            args.push(format!("${}", variant.name));
+
+            self.code_manipulator.add(
+                &mut result,
+                &format!(
+                    "return ${}->functionPtr({});",
+                    variant.name,
+                    args.join(", ")
+                ),
+                None,
+                true,
+            );
+            self.code_manipulator.add_rows(
+                &mut result,
+                vec![
+                    "} else {",
+                    "return elseLambda->functionPtr(elseLambda);",
+                    "}",
+                ],
+                None,
+                true,
+            );
+        } else {
+            // it should not happen
+            panic!("Cannot find variant with name `{}`", variant.name);
+        }
+
+        result
     }
 
     fn debug(&self) -> bool {
