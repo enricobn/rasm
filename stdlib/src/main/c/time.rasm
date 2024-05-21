@@ -14,14 +14,6 @@ pub native now() -> TimeVal /{
 pub native sleep(timeVal: TimeVal) /{
     $include(<unistd.h>)
 
-    int sec =
-        $call(sec, $timeVal)
-    ;
-
-    int nano =
-        $call(nano, $timeVal)
-    ;
-
-    usleep(sec * 1000000 + nano)
+    usleep(timeVal->sec * 1000000 + timeVal->nano);
 
 }/
