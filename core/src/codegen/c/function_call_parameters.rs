@@ -284,23 +284,27 @@ impl FunctionCallParameters for CFunctionCallParameters {
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        if let Some(index_in_lambda) = lambda_space.and_then(|it| it.get_index(val_name)) {
-            self.parameters_values.insert(
-                original_param_name.to_string(),
-                Self::get_value_from_lambda_space(
+        let value =
+            if let Some(index_in_lambda) = lambda_space.and_then(|it| it.get_index(val_name)) {
+                let value_from_lambda_space = Self::get_value_from_lambda_space(
                     statics,
                     type_def_provider,
                     index_in_lambda - 1,
                     lambda_space.unwrap().get_type(val_name).unwrap(),
                     true,
-                ),
-            );
-        } else if self.immediate {
+                );
+
+                value_from_lambda_space
+            } else {
+                val_name.to_string()
+            };
+
+        if self.immediate {
             self.code_manipulator
-                .add(&mut self.before, &format!("return {val_name};"), None, true);
+                .add(&mut self.before, &format!("return {value};"), None, true);
         } else {
             self.parameters_values
-                .insert(original_param_name.to_string(), val_name.to_string());
+                .insert(original_param_name.to_string(), value);
         }
     }
 
