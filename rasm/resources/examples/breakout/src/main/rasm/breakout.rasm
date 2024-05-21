@@ -261,10 +261,10 @@ fn writeHighScores(highScores: Vec<HighScore>) {
 
     forEach(highScores, fn(it) {
         print(file, it.score)
-        .or(print(file, ","))
-        .or(print(file, it.time.sec))
-        .or(print(file, ","))
-        .or(println(file, it.time.nano))
+        .orElse({print(file, ",");})
+        .orElse({print(file, it.time.sec);})
+        .orElse({print(file, ",");})
+        .orElse({println(file, it.time.nano);})
         .run(fn(error) {
             println(error);
             exitMain(1);
@@ -272,12 +272,6 @@ fn writeHighScores(highScores: Vec<HighScore>) {
     });
 
     close(file);
-}
-
-fn print(file: File, highScore: HighScore) -> Option<IOError> {
-    print(file, highScore.score)
-    .or(print(file, ", "))
-    .or(println(file, highScore.time));
 }
 
 fn splitToList(s: str, separator: str) -> List<str> {
