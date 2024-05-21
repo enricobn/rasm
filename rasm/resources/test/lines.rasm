@@ -1,1 +1,4 @@
-println(lines("first\nsecond\nthird\n"));
+let lines = lines("first\nsecond\nthird\n");
+println(lines);
+println(lines.len);
+println(lines.first());

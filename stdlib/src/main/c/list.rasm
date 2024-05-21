@@ -63,6 +63,7 @@ pub native lines(s: str) -> List<str> /{
         if (lb == '\n') {
            char *line = malloc(sizeof(char) * (i - line_pos + 1));
            strncpy(line, s + line_pos, i - line_pos);
+           line[i - line_pos] = 0;
            result =
            $call(push, result: List<str>, line: str)
            ;

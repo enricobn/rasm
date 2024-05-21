@@ -277,7 +277,7 @@ fn test_libc() {
 
 #[test]
 fn test_lines() {
-    run_test("lines", Vec::new(), "first,second,third\n");
+    run_test("lines", Vec::new(), "first,second,third\n3\nSome(first)\n");
 }
 
 #[test]
