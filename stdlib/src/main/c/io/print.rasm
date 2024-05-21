@@ -5,6 +5,7 @@ pub inline native STDOut() -> File /{
 
 native optIOError() -> Option<IOError> /{
     $include(<errno.h>)
+    $include(<string.h>)
 
     if (errno == 0) {
         $enumDeclaration(_result)
