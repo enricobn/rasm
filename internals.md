@@ -1,14 +1,17 @@
+***NASM backend***
+
 **Lambda functions**  
 When in codegen we call a function (a_function) that has a lambda as parameter,
 we must allocate memory to store the address to the lambda function and then all the values in the context.
 For example if we have a lambda called lambda1 (the mnemonic address to the function to call) and values v1 and v2 in
 the context
-we allocate 5 (* word) bytes in memory then we store the address, the address of the addref function, the deref function and the values:  
+we allocate 5 (* word) bytes in memory then we store the address, the address of the addref function, the deref function
+and the values:  
 [m] = lambda1  
 [m + word] = addref  
 [m + 2 * word] = deref  
 [m + 3 * word] = v1  
-[m + 4 * word] = v2  
+[m + 4 * word] = v2
 
 Then we do not pass the mnemonic address (lambda1) to the function (a_function), but m
 so the function, in order to call the lambda must get the real address from [m]
@@ -28,8 +31,8 @@ which is 0 for the first variant, 1 for the second and so on, the there is the l
 **Alloc**
 
 _allocation_table:
-0        4                                             8     12         16
-address, allocated (false = 0 true = any other value), size, ref count, reusable table 
+0 4 8 12 16
+address, allocated (false = 0 true = any other value), size, ref count, reusable table
 
 initial value
 "the address of the fist location" 0 MAX_MEMORY 0
@@ -70,9 +73,9 @@ if 0 I set allocated to 0 (false)
 - the addRef algorithm  
   TODO
 
-**Functions created by the compiler**
+***Functions created by the compiler***
 
-*Structs*  
+**Structs**  
 for each property:
 for a lambda property:  
 [property] that takes the Struct and the parameters to the lambda then "executes" the lambda  
@@ -80,9 +83,10 @@ for a lambda property:
 for not a lambda property:
 [property] that takes the Struct then returns the property value
 for all properties
-[property] that takes the Struct and the new value of the property then returns a copy of the Struct with the new property value
+[property] that takes the Struct and the new value of the property then returns a copy of the Struct with the new
+property value
 
-*Enums* 
+**Enums**  
 TODO
 
 

@@ -95,13 +95,45 @@ impl CFunctionCallParameters {
         };
         value
     }
+
+    fn add_code_for_reference_type(
+        &mut self,
+        module: &ASTTypedModule,
+        type_name: &str,
+        source: &str,
+        descr: &str,
+        statics: &mut Statics,
+    ) {
+        /*
+        self.code_gen_c
+            .call_add_ref(&mut self.before, source, type_name, descr, module, statics);
+
+        let mut after = String::new();
+        self.code_gen_c
+            .call_deref(&mut after, source, type_name, descr, module, statics);
+
+        self.after.insert(0, after);
+
+         */
+    }
 }
 
 impl FunctionCallParameters for CFunctionCallParameters {
     fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>) {
+        self.parameters_values
+            .insert(param_name.to_string(), CodeGenC::escape_string(&value));
+    }
+
+    fn add_string_constant(
+        &mut self,
+        param_name: &str,
+        value: &str,
+        comment: Option<&str>,
+        statics: &mut Statics,
+    ) {
         self.parameters_values.insert(
             param_name.to_string(),
-            format!("{}", CodeGenC::escape_string(&value)),
+            format!("\"{}\"", CodeGenC::escape_string(value)),
         );
     }
 
@@ -122,6 +154,9 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.push(&before);
             self.parameters_values
                 .insert(name, current.replace('\n', ""));
+        }
+        if let Some(name) = get_reference_type_name(&param_type, module) {
+            self.add_code_for_reference_type(module, &name, &name, comment, statics);
         }
     }
 
@@ -358,12 +393,16 @@ impl FunctionCallParameters for CFunctionCallParameters {
         self.after.insert(0, s.into());
     }
 
-    fn after(&self) -> Vec<String> {
-        self.after.clone()
-    }
-
     fn before(&self) -> String {
         self.before.clone()
+    }
+
+    fn current(&self) -> String {
+        self.current.clone()
+    }
+
+    fn after(&self) -> Vec<String> {
+        self.after.clone()
     }
 
     fn resolve_native_parameters(
@@ -411,22 +450,5 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
     fn parameters_values(&self) -> &LinkedHashMap<String, String> {
         &self.parameters_values
-    }
-
-    fn current(&self) -> String {
-        self.current.clone()
-    }
-
-    fn add_string_constant(
-        &mut self,
-        param_name: &str,
-        value: &str,
-        comment: Option<&str>,
-        statics: &mut Statics,
-    ) {
-        self.parameters_values.insert(
-            param_name.to_string(),
-            format!("\"{}\"", CodeGenC::escape_string(value)),
-        );
     }
 }

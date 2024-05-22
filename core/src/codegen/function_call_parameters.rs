@@ -859,7 +859,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
     fn add_code_for_reference_type(
         &mut self,
         module: &ASTTypedModule,
-        name: &str,
+        type_name: &str,
         source: &str,
         descr: &str,
         statics: &mut Statics,
@@ -867,7 +867,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
         // TODO I really don't know if it is correct not to add ref and deref for immediate
         if self.dereference {
             self.code_gen
-                .call_add_ref(&mut self.before, source, name, descr, module, statics);
+                .call_add_ref(&mut self.before, source, type_name, descr, module, statics);
             let pos = self
                 .code_gen
                 .push_to_scope_stack(&mut self.before, source, &self.stack_vals);
@@ -877,7 +877,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
                 Self::pop_from_scope_stack_and_deref(
                     module,
                     self.backend,
-                    name,
+                    type_name,
                     descr,
                     pos,
                     statics,

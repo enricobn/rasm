@@ -130,6 +130,35 @@ impl CodeGenC {
         result = result.replace("\"", "\\\"");
         result
     }
+
+    pub fn call_add_ref(
+        &self,
+        out: &mut String,
+        source: &str,
+        type_name: &str,
+        descr_for_debug: &str,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+    ) {
+        self.add(
+            out,
+            &format!("addRef({source});"),
+            Some(descr_for_debug),
+            true,
+        );
+    }
+
+    pub fn call_deref(
+        &self,
+        out: &mut String,
+        source: &str,
+        type_name: &str,
+        descr_for_debug: &str,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+    ) {
+        self.add(out, &format!("deref({source});"), None, true);
+    }
 }
 
 impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
@@ -263,7 +292,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         index: &ASTIndex,
         type_name: &String,
     ) {
-        // TODO
+        //self.add(body, &format!("addRef({name});"), None, true);
     }
 
     fn call_deref_for_let_val(
@@ -274,8 +303,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         type_name: &String,
         typed_module: &ASTTypedModule,
     ) -> String {
+        let mut result = String::new();
+
         // TODO
-        "// call_deref_for_let_val".to_string()
+        //   self.add(&mut result, &format!("deref({name});"), None, true);
+
+        result
     }
 
     fn call_add_ref_for_let_val(
@@ -289,6 +322,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         typed_module: &ASTTypedModule,
     ) {
         // TODO
+        //   self.add(before, &format!("addRef({name});"), None, true);
     }
 
     fn set_let_const_for_function_call_result(
@@ -610,7 +644,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         statics: &Statics,
         typed_module: &ASTTypedModule,
     ) -> (String, String) {
-        // TODO
         let mut before = String::new();
         let after = String::new();
 
@@ -620,6 +653,22 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             }
             self.add_empty_line(&mut before);
         }
+
+        self.add_rows(
+            &mut before,
+            vec![
+                "struct RasmReference {",
+                "  void *address;",
+                "  int count;",
+                "};",
+                "",
+                "int RASM_REFERENCES_COUNT = 10000;",
+                "struct RasmReference **RASM_REFERENCES;",
+                "",
+            ],
+            None,
+            false,
+        );
 
         if let Some(consts) = statics.any::<CConsts>() {
             for c in consts.vec.iter() {
@@ -742,12 +791,29 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
-        self.add(&mut before, "static int _argc;", None, false);
-        self.add(&mut before, "static char **_argv;", None, false);
-        self.add(&mut before, "int main(int argc, char **argv)", None, false);
-        self.add(&mut before, "{", None, false);
-        self.add(&mut before, "_argc = argc;", None, true);
-        self.add(&mut before, "_argv = argv;", None, true);
+        self.add_rows(
+            &mut before,
+            vec![
+                "static int _argc;",
+                "static char **_argv;",
+                "",
+                "int main(int argc, char **argv)",
+                "{",
+            ],
+            None,
+            false,
+        );
+        self.add_rows(
+            &mut before,
+            vec![
+                "RASM_REFERENCES = malloc(sizeof(struct RasmReference*) * RASM_REFERENCES_COUNT);",
+                "initRasmReferences();",
+                "_argc = argc;",
+                "_argv = argv;",
+            ],
+            None,
+            true,
+        );
 
         (before, after)
     }

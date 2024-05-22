@@ -38,7 +38,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
-use crate::parser::ast::{ASTFunctionDef, BuiltinTypeKind};
+use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::project::RasmProject;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
@@ -456,7 +456,27 @@ impl CompileTarget {
                     ),
                 ]
             }
-            CompileTarget::C(_) => Vec::new(),
+            CompileTarget::C(_) => vec![
+                DefaultFunction {
+                    name: "addRef".to_string(),
+                    param_types: vec![ASTType::Custom {
+                        namespace: ASTNameSpace::global(),
+                        name: "RasmPointer".to_string(),
+                        param_types: vec![],
+                        index: ASTIndex::none(),
+                    }],
+                },
+                DefaultFunction {
+                    name: "deref".to_string(),
+                    param_types: vec![ASTType::Custom {
+                        namespace: ASTNameSpace::global(),
+                        name: "RasmPointer".to_string(),
+                        param_types: vec![],
+                        index: ASTIndex::none(),
+                    }],
+                },
+                DefaultFunction::new_0("initRasmReferences"),
+            ],
         };
 
         if print_allocation {

@@ -1,3 +1,5 @@
+type RasmPointer(false, "void *");
+
 pub native exitMain(status: i32) /{
     exit($status);
 }/
@@ -19,4 +21,59 @@ pub native argv(i: i32) -> Option<str> /{
         ;
     }
 
+}/
+
+/* struct RasmReference {
+        void *address;
+        int count;
+   }
+*/
+pub native deref(address: RasmPointer) /{
+    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
+        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
+            if (RASM_REFERENCES[i]->count != 0 && --RASM_REFERENCES[i]->count == 0) {
+                // printf("it should be freed\n");
+                free(RASM_REFERENCES[i]->address);
+                RASM_REFERENCES[i] = NULL;
+            }
+            return;
+        }
+    }
+    printf("Cannot find reference!!");
+    $call(exitMain, 1)
+    return;
+
+}/
+
+pub native addRef(address: RasmPointer) /{
+    int firstFree = -1;
+
+    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
+        if (RASM_REFERENCES[i] == NULL) {
+            if (firstFree == -1) {
+                firstFree = i;
+            }
+        } else if (RASM_REFERENCES[i]->address == address) {
+            RASM_REFERENCES[i]->count++;
+            return;
+        }
+    }
+
+    if (firstFree == -1) {
+        printf("Out of memory for references!!");
+        $call(exitMain, 1)
+        return;
+    }
+
+    struct RasmReference *rasmReference = malloc(sizeof(struct RasmReference));
+    rasmReference->address = address;
+    rasmReference->count = 0;
+    RASM_REFERENCES[firstFree] = rasmReference;
+}/
+
+
+pub native initRasmReferences() /{
+    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
+        RASM_REFERENCES[i] = NULL;
+    }
 }/
