@@ -42,12 +42,14 @@ use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, Builti
 use crate::project::RasmProject;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
-    DummyTypedFunctionsCreator, TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
+    TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
 };
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
 use crate::utils::OptionDisplay;
+
+use super::c::typed_function_creator::TypedFunctionsCreatorC;
 
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/nasmi386"]
@@ -160,7 +162,10 @@ impl CompileTarget {
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
                 Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen, debug))
             }
-            CompileTarget::C(_) => Box::new(DummyTypedFunctionsCreator),
+            CompileTarget::C(options) => {
+                let code_gen = CodeGenC::new(options.clone());
+                Box::new(TypedFunctionsCreatorC::new(code_gen))
+            }
         }
     }
 

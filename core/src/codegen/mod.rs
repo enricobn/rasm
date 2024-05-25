@@ -286,10 +286,10 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         self.restore(&stack, &mut generated_code);
 
-        self.function_end(&mut generated_code, false);
+        self.function_end(&mut generated_code, false, None);
 
         if self.options().print_memory {
-            self.print_memory_info(&mut generated_code);
+            self.print_memory_info(&mut generated_code, &statics);
         }
 
         self.end_main(&mut generated_code);
@@ -588,6 +588,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                 .map(|it| it.return_type != ASTTypedType::Unit)
                                 .unwrap_or(false),
                         is_inner_call,
+                        parent_def.map(|it| it.return_type.clone()).as_ref(),
+                        statics,
                     ),
                 );
                 current.push('\n');
@@ -655,6 +657,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         .map(|it| it.return_type != ASTTypedType::Unit)
                         .unwrap_or(false),
                 is_inner_call,
+                parent_def.map(|it| it.return_type.clone()).as_ref(),
+                statics,
             );
         }
 
@@ -1051,7 +1055,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
-                TypedValKind::ParameterRef(index, _par) => {
+                TypedValKind::ParameterRef(index, par) => {
                     call_parameters.add_parameter_ref(
                         param_name.into(),
                         val_name,
@@ -1061,10 +1065,11 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         stack_vals,
                         statics,
                         typed_module,
+                        &par.ast_type,
                     );
                 }
 
-                TypedValKind::LetRef(_index, _ast_typed_type) => {
+                TypedValKind::LetRef(_index, ast_typed_type) => {
                     let index_in_context = stack_vals.find_local_val_relative_to_bp(val_name);
 
                     call_parameters.add_let_val_ref(
@@ -1077,6 +1082,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         ast_index,
                         statics,
                         typed_module,
+                        ast_typed_type,
                     )
                 }
             }
@@ -1086,6 +1092,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 entry.key.clone(),
                 val_name.to_string(),
                 Some(&format!("static {val_name}")),
+                &entry.ast_typed_type,
+                statics,
             )
         } else {
             panic!("Error adding val {}: {}", param_name, error_msg);
@@ -1219,6 +1227,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                     );
 
                                     before.push_str(&parameters.before());
+                                    before.push_str(&parameters.current());
 
                                     Self::insert_on_top(&parameters.after().join("\n"), &mut after);
                                 }
@@ -1309,9 +1318,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                     }
                                 }
                                 ASTTypedExpression::Value(value_type, _) => {
-                                    let v = self.value_to_string(value_type);
-
-                                    self.value_as_return(&mut before, &v);
+                                    self.value_as_return(&mut before, value_type, statics);
                                 }
                             }
                         }
@@ -1354,6 +1361,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                     indent,
                     function_def.return_type == ASTTypedType::Unit,
                     false,
+                    Some(&function_def.return_type),
+                    statics,
                 );
                 before.push_str(&new_body);
             }
@@ -1368,7 +1377,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         self.restore(&stack, definitions);
 
-        self.function_end(definitions, true);
+        self.function_end(definitions, true, Some(function_def));
 
         lambda_calls
     }
@@ -1388,7 +1397,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals);
 
-    fn value_as_return(&self, before: &mut String, v: &str);
+    fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics);
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
 
@@ -1734,7 +1743,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator;
 
-    fn print_memory_info(&self, native_code: &mut String);
+    fn print_memory_info(&self, native_code: &mut String, statics: &Statics);
 
     fn optimize_unused_functions(&self) -> bool;
 
@@ -1798,6 +1807,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         call_parameters: Option<&FUNCTION_CALL_PARAMETERS>,
         return_value: bool,
         is_inner_call: bool,
+        return_type: Option<&ASTTypedType>,
+        statics: &Statics,
     );
 
     fn call_function(
@@ -1977,7 +1988,12 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn restore(&self, stack: &StackVals, out: &mut String);
 
-    fn function_end(&self, out: &mut String, add_return: bool);
+    fn function_end(
+        &self,
+        out: &mut String,
+        add_return: bool,
+        function_def: Option<&ASTTypedFunctionDef>,
+    );
 
     fn add_statics(&self, statics: &mut Statics);
 
@@ -3115,9 +3131,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn value_as_return(&self, before: &mut String, v: &str) {
+    fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics) {
         let ws = self.backend.word_size();
         let rr = self.return_register();
+        let v = self.value_to_string(value_type);
         self.add(before, &format!("mov     {ws} {rr}, {v}"), None, true);
     }
 
@@ -3133,9 +3150,25 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn print_memory_info(&self, native_code: &mut String) {
-        self.call_function_simple(native_code, "printAllocated", None, false, false);
-        self.call_function_simple(native_code, "printTableSlotsAllocated", None, false, false);
+    fn print_memory_info(&self, native_code: &mut String, statics: &Statics) {
+        self.call_function_simple(
+            native_code,
+            "printAllocated",
+            None,
+            false,
+            false,
+            None,
+            statics,
+        );
+        self.call_function_simple(
+            native_code,
+            "printTableSlotsAllocated",
+            None,
+            false,
+            false,
+            None,
+            statics,
+        );
     }
 
     fn optimize_unused_functions(&self) -> bool {
@@ -3168,6 +3201,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         call_parameters: Option<&Box<dyn FunctionCallParametersAsm + 'a>>,
         return_value: bool,
         is_inner_call: bool,
+        return_type: Option<&ASTTypedType>,
+        statics: &Statics,
     ) {
         self.add(out, &format!("call    {}", function_name), None, true);
     }
@@ -3507,7 +3542,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         }
     }
 
-    fn function_end(&self, out: &mut String, add_return: bool) {
+    fn function_end(
+        &self,
+        out: &mut String,
+        add_return: bool,
+        function_def: Option<&ASTTypedFunctionDef>,
+    ) {
         let bp = self.backend.stack_base_pointer();
         self.add(out, &format!("pop     {}", bp), None, true);
         if add_return {

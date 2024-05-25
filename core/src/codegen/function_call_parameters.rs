@@ -17,7 +17,15 @@ use crate::type_check::typed_ast::{
 
 #[auto_impl(Box)]
 pub trait FunctionCallParameters {
-    fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>);
+    fn add_label(
+        &mut self,
+        param_name: &str,
+        label: String,
+        value: String,
+        comment: Option<&str>,
+        typed_type: &ASTTypedType,
+        statics: &Statics,
+    );
 
     fn add_string_constant(
         &mut self,
@@ -64,6 +72,7 @@ pub trait FunctionCallParameters {
         stack_vals: &StackVals,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
+        typed_type: &ASTTypedType,
     );
 
     fn add_let_val_ref(
@@ -77,6 +86,7 @@ pub trait FunctionCallParameters {
         ast_index: &ASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
+        typed_type: &ASTTypedType,
     );
 
     fn add_value_type(&mut self, name: &str, value_type: &ValueType);
@@ -98,6 +108,8 @@ pub trait FunctionCallParameters {
         ident: usize,
         return_value: bool,
         is_inner_call: bool,
+        return_type: Option<&ASTTypedType>,
+        statics: &Statics,
     ) -> String;
 
     fn body_references_to_context(
@@ -261,7 +273,15 @@ pub struct FunctionCallParametersAsmImpl<'a> {
 }
 
 impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
-    fn add_label(&mut self, param_name: &str, label: String, value: String, comment: Option<&str>) {
+    fn add_label(
+        &mut self,
+        param_name: &str,
+        label: String,
+        value: String,
+        comment: Option<&str>,
+        typed_type: &ASTTypedType,
+        statics: &Statics,
+    ) {
         if self.inline {
             self.parameters_values
                 .insert(param_name.into(), format!("[{label}]"));
@@ -299,7 +319,14 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         statics: &mut Statics,
     ) {
         let label = statics.add_str(value);
-        self.add_label(param_name, label, value.to_string(), comment);
+        self.add_label(
+            param_name,
+            label,
+            value.to_string(),
+            comment,
+            &ASTTypedType::Builtin(crate::type_check::typed_ast::BuiltinTypedTypeKind::String),
+            &statics,
+        );
     }
 
     fn add_function_call(
@@ -611,6 +638,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         stack_vals: &StackVals,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
+        typed_type: &ASTTypedType,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
@@ -642,6 +670,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         ast_index: &ASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
+        typed_type: &ASTTypedType,
     ) {
         self.debug_and_before(
             &format!("adding let val {val_name} original_param_name {original_param_name}"),
@@ -726,6 +755,8 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         ident: usize,
         return_value: bool,
         is_inner_value: bool,
+        return_type: Option<&ASTTypedType>,
+        statics: &Statics,
     ) -> String {
         let mut result = body.to_string();
 

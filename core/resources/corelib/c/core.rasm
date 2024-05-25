@@ -29,23 +29,26 @@ pub native argv(i: i32) -> Option<str> /{
    }
 */
 pub native deref(address: RasmPointer) /{
+    // printf("deref %p\n", address);
     for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
         if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
             if (RASM_REFERENCES[i]->count != 0 && --RASM_REFERENCES[i]->count == 0) {
-                // printf("it should be freed\n");
-                free(RASM_REFERENCES[i]->address);
+                // printf("freed\n");
+                // free(RASM_REFERENCES[i]->address);
+                // free(RASM_REFERENCES[i]);
                 RASM_REFERENCES[i] = NULL;
             }
             return;
         }
     }
-    printf("Cannot find reference!!");
-    $call(exitMain, 1)
+    // printf("Cannot find reference!!\n");
+    // $call(exitMain, 1)
     return;
 
 }/
 
 pub native addRef(address: RasmPointer) /{
+    // printf("addRef %p\n", address);
     int firstFree = -1;
 
     for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
@@ -60,8 +63,8 @@ pub native addRef(address: RasmPointer) /{
     }
 
     if (firstFree == -1) {
-        printf("Out of memory for references!!");
-        $call(exitMain, 1)
+        printf("Out of memory for references!!\n");
+        // $call(exitMain, 1)
         return;
     }
 

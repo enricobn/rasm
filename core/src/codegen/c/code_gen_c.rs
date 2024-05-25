@@ -32,9 +32,12 @@ use crate::codegen::text_macro::{TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
+use crate::transformations::typed_functions_creator::{
+    enum_has_references, struct_has_references, type_has_references,
+};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
-    BuiltinTypedTypeKind,
+    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
 
@@ -140,6 +143,48 @@ impl CodeGenC {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) {
+        let (has_references, is_type) =
+            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+                (struct_has_references(struct_def, type_def_provider), false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (enum_has_references(enum_def, type_def_provider), false)
+            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+                (type_has_references(type_def), true)
+            } else if "str" == type_name || "_fn" == type_name {
+                (false, false)
+            } else {
+                panic!("call_add_ref, cannot find type {type_name}");
+            };
+
+        if has_references {
+            if is_type {
+                // it has an extra argument for description
+                self.add(
+                    out,
+                    &format!("{type_name}_addRef({source}, \"\");"),
+                    Some(descr_for_debug),
+                    true,
+                );
+            } else {
+                self.add(
+                    out,
+                    &format!("{type_name}_addRef({source});"),
+                    Some(descr_for_debug),
+                    true,
+                );
+            }
+        } else {
+            self.call_add_ref_simple(out, source, descr_for_debug, statics);
+        }
+    }
+
+    pub fn call_add_ref_simple(
+        &self,
+        out: &mut String,
+        source: &str,
+        descr_for_debug: &str,
+        statics: &mut Statics,
+    ) {
         self.add(
             out,
             &format!("addRef({source});"),
@@ -157,7 +202,54 @@ impl CodeGenC {
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) {
-        self.add(out, &format!("deref({source});"), None, true);
+        let (has_references, is_type) =
+            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
+                (struct_has_references(struct_def, type_def_provider), false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (enum_has_references(enum_def, type_def_provider), false)
+            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+                (type_has_references(type_def), true)
+            } else if "str" == type_name || "_fn" == type_name {
+                (false, false)
+            } else {
+                panic!("call_add_ref, cannot find type {type_name}");
+            };
+
+        if has_references {
+            if is_type {
+                // it has an extra argument for description
+                self.add(
+                    out,
+                    &format!("{type_name}_deref({source}, \"\");"),
+                    Some(descr_for_debug),
+                    true,
+                );
+            } else {
+                self.add(
+                    out,
+                    &format!("{type_name}_deref({source});"),
+                    Some(descr_for_debug),
+                    true,
+                );
+            }
+        } else {
+            self.call_deref_simple(out, source, descr_for_debug, statics);
+        }
+    }
+
+    pub fn call_deref_simple(
+        &self,
+        out: &mut String,
+        source: &str,
+        descr_for_debug: &str,
+        statics: &mut Statics,
+    ) {
+        self.add(
+            out,
+            &format!("deref({source});"),
+            Some(descr_for_debug),
+            true,
+        );
     }
 }
 
@@ -217,22 +309,40 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .iter()
             .map(|(name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
+        let lambda_type = CodeGenC::type_to_string(ast_type_type, statics);
         let casted_lambda = format!(
             "(({})_lambda->args[{}])",
-            CodeGenC::type_to_string(ast_type_type, statics),
+            lambda_type,
             index_in_lambda_space - 1
         );
 
         args.push((&casted_lambda, None));
 
-        self.call_function(
-            before,
-            &format!("{casted_lambda}->functionPtr"),
-            &args,
-            None,
-            return_value,
-            is_inner_call,
-        );
+        if return_value {
+            self.add(
+                before,
+                &format!("{lambda_type} _return_value_ = "),
+                None,
+                true,
+            );
+            self.call_function(
+                before,
+                &format!("{casted_lambda}->functionPtr"),
+                &args,
+                None,
+                false,
+                is_inner_call,
+            );
+        } else {
+            self.call_function(
+                before,
+                &format!("{casted_lambda}->functionPtr"),
+                &args,
+                None,
+                return_value,
+                is_inner_call,
+            );
+        }
     }
 
     fn restore_stack(
@@ -505,14 +615,27 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // TODO
     }
 
-    fn value_as_return(&self, before: &mut String, v: &str) {
-        self.code_manipulator
-            .add(before, &format!("return {v};"), None, true);
+    fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics) {
+        let v = self.value_to_string(value_type);
+        let t = value_type.to_typed_type();
+        self.code_manipulator.add(
+            before,
+            &format!(
+                "{} _return_value_ = {v};",
+                CodeGenC::type_to_string(&t, statics)
+            ),
+            None,
+            true,
+        );
     }
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
-        self.code_manipulator
-            .add(before, &format!("return \"{value}\";"), None, true);
+        self.code_manipulator.add(
+            before,
+            &format!("*char _return_value_ = \"{value}\";"),
+            None,
+            true,
+        );
     }
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
@@ -541,7 +664,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))
     }
 
-    fn print_memory_info(&self, native_code: &mut String) {
+    fn print_memory_info(&self, native_code: &mut String, statics: &Statics) {
         todo!()
     }
 
@@ -564,6 +687,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         call_parameters: Option<&Box<CFunctionCallParameters>>,
         return_value: bool,
         is_inner_call: bool,
+        return_type: Option<&ASTTypedType>,
+        statics: &Statics,
     ) {
         let args = call_parameters
             .unwrap()
@@ -571,9 +696,25 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .iter()
             .map(|(name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
-        self.call_function(out, function_name, &args, None, return_value, is_inner_call);
-        //println!("call_parameters, {}", call_parameters.unwrap().before());
-        //todo!("call_function_simple {function_name}")
+        if return_value {
+            if let Some(rt) = return_type {
+                self.add(
+                    out,
+                    &format!(
+                        "{} _return_value_ = ",
+                        CodeGenC::type_to_string(rt, statics)
+                    ),
+                    None,
+                    true,
+                );
+            } else {
+                panic!("cannot set return value without a type");
+            }
+        }
+        self.call_function(out, function_name, &args, None, false, is_inner_call);
+        if return_value {
+            self.add(out, ";", None, true);
+        }
     }
 
     fn call_function(
@@ -591,7 +732,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .map(|it| it.0.to_string())
             .collect::<Vec<_>>();
 
-        let prefix = if return_value { "return " } else { "" };
+        let prefix = if return_value {
+            "// call_function return\nreturn "
+        } else {
+            ""
+        };
         let suffix = if is_inner_call { "" } else { ";" };
 
         let inner_call = format!("{prefix}{function_name}({}){suffix}", arg_vec.join(", "));
@@ -830,7 +975,24 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // TODO
     }
 
-    fn function_end(&self, out: &mut String, add_return: bool) {
+    fn function_end(
+        &self,
+        out: &mut String,
+        add_return: bool,
+        function_def: Option<&ASTTypedFunctionDef>,
+    ) {
+        if add_return {
+            if let Some(fd) = function_def {
+                if matches!(fd.body, ASTTypedFunctionBody::RASMBody(_))
+                    && !matches!(fd.return_type, ASTTypedType::Unit)
+                {
+                    if "lambda_368" == &fd.name {
+                        println!("is lambda_368");
+                    }
+                    self.add(out, "return _return_value_;", None, true);
+                }
+            }
+        }
         self.add(out, "}", None, false);
     }
 

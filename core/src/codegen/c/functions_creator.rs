@@ -19,6 +19,7 @@
 use crate::codegen::c::code_gen_c::CCodeManipulator;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
 use crate::transformations::functions_creator::FunctionsCreator;
@@ -82,7 +83,10 @@ impl FunctionsCreator for CFunctionsCreator {
 
         self.code_manipulator.add(
             &mut result,
-            &format!("printf(\"unknown variant %d\\n\", $value->variant_num);"),
+            &format!(
+                "printf(\"unknown variant %d for {}\\n\", $value->variant_num);",
+                enum_def.name
+            ),
             None,
             true,
         );
@@ -151,7 +155,7 @@ impl FunctionsCreator for CFunctionsCreator {
 
     fn enum_variant_constructor_body(
         &self,
-        _module: &mut ASTModule,
+        module: &mut ASTModule,
         _enum_def: &ASTEnumDef,
         _statics: &mut Statics,
         variant_num: usize,

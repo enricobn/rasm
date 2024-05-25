@@ -21,3 +21,4 @@ pub mod function_call_parameters;
 pub mod functions_creator;
 pub mod options;
 mod text_macro;
+pub mod typed_function_creator;

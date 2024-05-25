@@ -1,4 +1,4 @@
-pub type File(true, "FILE*");
+pub type File(false, "FILE*");
 
 pub native readFile(path: str) -> str /{
     $include(<stdio.h>)

@@ -26,27 +26,41 @@ pub trait TypedFunctionsCreator {
             self.for_type(module, statics, typed_type_def);
         }
     }
-
     fn for_type(
         &self,
         module: &mut ASTTypedModule,
         statics: &mut Statics,
         typed_type_def: &ASTTypedTypeDef,
-    );
+    ) {
+        if typed_type_def.is_ref {
+            self.create_type_free(typed_type_def, "deref", module, statics);
+            self.create_type_free(typed_type_def, "addRef", module, statics);
+        }
+    }
 
     fn for_enum(
         &self,
         module: &mut ASTTypedModule,
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
-    );
+    ) {
+        if enum_has_references(enum_def, module) {
+            self.create_enum_free(enum_def, "deref", module, statics);
+            self.create_enum_free(enum_def, "addRef", module, statics);
+        }
+    }
 
     fn for_struct(
         &self,
         module: &mut ASTTypedModule,
         statics: &mut Statics,
         struct_def: &ASTTypedStructDef,
-    );
+    ) {
+        if struct_has_references(struct_def, module) {
+            self.create_struct_free(struct_def, "deref", module, statics);
+            self.create_struct_free(struct_def, "addRef", module, statics);
+        }
+    }
 
     fn add_function(
         &self,
@@ -90,6 +104,98 @@ pub trait TypedFunctionsCreator {
 
         module.functions_by_name.insert(fun_name, function_def);
     }
+
+    fn create_struct_free(
+        &self,
+        struct_def: &ASTTypedStructDef,
+        function_name: &str,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+    ) {
+        let body_str = self.create_struct_free_body(struct_def, function_name, module, statics);
+        let body = ASTTypedFunctionBody::NativeBody(body_str);
+
+        self.add_function(
+            &struct_def.namespace,
+            module,
+            struct_def.ast_typed_type.clone(),
+            body,
+            function_name,
+            &struct_def.name,
+            false,
+        );
+    }
+
+    fn create_enum_free(
+        &self,
+        enum_def: &ASTTypedEnumDef,
+        function_name: &str,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+    ) {
+        let body_str = self.create_enum_free_body(enum_def, function_name, module, statics);
+        let body = ASTTypedFunctionBody::NativeBody(body_str);
+
+        self.add_function(
+            &enum_def.namespace,
+            module,
+            enum_def.ast_typed_type.clone(),
+            body,
+            function_name,
+            &enum_def.name,
+            false,
+        );
+    }
+
+    fn create_type_free(
+        &self,
+        typed_type_def: &ASTTypedTypeDef,
+        function_name: &str,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+    ) {
+        let ast_type = ASTTypedType::Struct {
+            namespace: typed_type_def.namespace.clone(),
+            name: typed_type_def.name.clone(),
+        };
+
+        let body_str = self.create_type_free_body(typed_type_def, function_name, module, statics);
+        let body = ASTTypedFunctionBody::NativeBody(body_str);
+
+        self.add_function(
+            &typed_type_def.namespace,
+            module,
+            typed_type_def.ast_typed_type.clone(),
+            body,
+            function_name,
+            &typed_type_def.name,
+            true,
+        );
+    }
+
+    fn create_struct_free_body(
+        &self,
+        struct_def: &ASTTypedStructDef,
+        function_name: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
+    ) -> String;
+
+    fn create_enum_free_body(
+        &self,
+        enum_def: &ASTTypedEnumDef,
+        function_name: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
+    ) -> String;
+
+    fn create_type_free_body(
+        &self,
+        type_def: &ASTTypedTypeDef,
+        function_name: &str,
+        module: &ASTTypedModule,
+        statics: &mut Statics,
+    ) -> String;
 }
 
 pub struct TypedFunctionsCreatorNasmi386 {
@@ -155,110 +261,12 @@ impl TypedFunctionsCreatorNasmi386 {
         );
         result
     }
+}
 
-    fn create_struct_free(
-        &self,
-        struct_def: &ASTTypedStructDef,
-        asm_function_name: &str,
-        function_name_suffix: &str,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-    ) {
-        let ast_type = ASTTypedType::Struct {
-            namespace: struct_def.namespace.clone(),
-            name: struct_def.name.clone(),
-        };
-
-        let body_str = self.create_struct_free_body(
-            struct_def,
-            asm_function_name,
-            function_name_suffix,
-            module,
-            statics,
-        );
-        let body = ASTTypedFunctionBody::NativeBody(body_str);
-
-        self.add_function(
-            &struct_def.namespace,
-            module,
-            ast_type,
-            body,
-            function_name_suffix,
-            &struct_def.name,
-            false,
-        );
-    }
-
-    fn create_enum_free(
-        &self,
-        enum_def: &ASTTypedEnumDef,
-        asm_function_name: &str,
-        function_name_suffix: &str,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-    ) {
-        let ast_type = ASTTypedType::Struct {
-            namespace: enum_def.namespace.clone(),
-            name: enum_def.name.clone(),
-        };
-
-        let body_str = self.create_enum_free_body(
-            enum_def,
-            asm_function_name,
-            function_name_suffix,
-            module,
-            statics,
-        );
-        let body = ASTTypedFunctionBody::NativeBody(body_str);
-
-        self.add_function(
-            &enum_def.namespace,
-            module,
-            ast_type,
-            body,
-            function_name_suffix,
-            &enum_def.name,
-            false,
-        );
-    }
-
-    fn create_type_free(
-        &self,
-        typed_type_def: &ASTTypedTypeDef,
-        asm_function_name: &str,
-        function_name_suffix: &str,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-    ) {
-        let ast_type = ASTTypedType::Struct {
-            namespace: typed_type_def.namespace.clone(),
-            name: typed_type_def.name.clone(),
-        };
-
-        let body_str = self.create_type_free_body(
-            typed_type_def,
-            asm_function_name,
-            function_name_suffix,
-            module,
-            statics,
-        );
-        let body = ASTTypedFunctionBody::NativeBody(body_str);
-
-        self.add_function(
-            &typed_type_def.namespace,
-            module,
-            ast_type,
-            body,
-            function_name_suffix,
-            &typed_type_def.name,
-            true,
-        );
-    }
-
+impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
-        asm_function_name: &str,
         function_name: &str,
         module: &ASTTypedModule,
         statics: &mut Statics,
@@ -278,7 +286,7 @@ impl TypedFunctionsCreatorNasmi386 {
 
         self.code_gen.call_function(
             &mut result,
-            asm_function_name,
+            function_name,
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
             false,
@@ -330,7 +338,6 @@ impl TypedFunctionsCreatorNasmi386 {
     fn create_enum_free_body(
         &self,
         enum_def: &ASTTypedEnumDef,
-        asm_function_name: &str,
         function_name: &str,
         module: &ASTTypedModule,
         statics: &mut Statics,
@@ -372,7 +379,7 @@ impl TypedFunctionsCreatorNasmi386 {
                     );
                     self.code_gen.call_function(
                         &mut result,
-                        asm_function_name,
+                        function_name,
                         &[("$address", None), (&format!("[{key}]"), None)],
                         Some(&descr),
                         false,
@@ -420,7 +427,6 @@ impl TypedFunctionsCreatorNasmi386 {
     fn create_type_free_body(
         &self,
         type_def: &ASTTypedTypeDef,
-        asm_function_name: &str,
         function_name: &str,
         module: &ASTTypedModule,
         statics: &mut Statics,
@@ -434,7 +440,7 @@ impl TypedFunctionsCreatorNasmi386 {
 
         self.code_gen.call_function(
             &mut result,
-            asm_function_name,
+            function_name,
             &[("$address", None), ("$descr", None)],
             Some(&descr),
             false,
@@ -463,72 +469,6 @@ impl TypedFunctionsCreatorNasmi386 {
             }
         }
         result
-    }
-}
-
-impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
-    fn for_type(
-        &self,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-        typed_type_def: &ASTTypedTypeDef,
-    ) {
-        if typed_type_def.is_ref {
-            self.create_type_free(typed_type_def, "deref", "deref", module, statics);
-            self.create_type_free(typed_type_def, "addRef", "addRef", module, statics);
-        }
-    }
-
-    fn for_enum(
-        &self,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-        enum_def: &ASTTypedEnumDef,
-    ) {
-        if enum_has_references(enum_def, module) {
-            self.create_enum_free(enum_def, "deref", "deref", module, statics);
-            self.create_enum_free(enum_def, "addRef", "addRef", module, statics);
-        }
-    }
-
-    fn for_struct(
-        &self,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-        struct_def: &ASTTypedStructDef,
-    ) {
-        if struct_has_references(struct_def, module) {
-            self.create_struct_free(struct_def, "deref", "deref", module, statics);
-            self.create_struct_free(struct_def, "addRef", "addRef", module, statics);
-        }
-    }
-}
-
-pub struct DummyTypedFunctionsCreator;
-
-impl TypedFunctionsCreator for DummyTypedFunctionsCreator {
-    fn for_type(
-        &self,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-        typed_type_def: &ASTTypedTypeDef,
-    ) {
-    }
-
-    fn for_enum(
-        &self,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-        enum_def: &ASTTypedEnumDef,
-    ) {
-    }
-
-    fn for_struct(
-        &self,
-        module: &mut ASTTypedModule,
-        statics: &mut Statics,
-        struct_def: &ASTTypedStructDef,
-    ) {
     }
 }
 
