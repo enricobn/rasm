@@ -68,6 +68,7 @@ impl CodeManipulator for CCodeManipulator {
     }
 }
 
+#[derive(Clone)]
 pub struct CodeGenC {
     code_manipulator: CCodeManipulator,
     options: AsmOptions,
@@ -141,7 +142,7 @@ impl CodeGenC {
         type_name: &str,
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
-        statics: &mut Statics,
+        statics: &Statics,
     ) {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
@@ -174,7 +175,16 @@ impl CodeGenC {
                 );
             }
         } else {
-            self.call_add_ref_simple(out, source, descr_for_debug, statics);
+            if "_fn" == type_name {
+                self.add(
+                    out,
+                    &format!("({source})->addref_function({source});"),
+                    None,
+                    true,
+                );
+            } else {
+                self.call_add_ref_simple(out, source, descr_for_debug, statics);
+            }
         }
     }
 
@@ -183,7 +193,7 @@ impl CodeGenC {
         out: &mut String,
         source: &str,
         descr_for_debug: &str,
-        statics: &mut Statics,
+        statics: &Statics,
     ) {
         self.add(
             out,
@@ -200,7 +210,7 @@ impl CodeGenC {
         type_name: &str,
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
-        statics: &mut Statics,
+        statics: &Statics,
     ) {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
@@ -233,7 +243,16 @@ impl CodeGenC {
                 );
             }
         } else {
-            self.call_deref_simple(out, source, descr_for_debug, statics);
+            if "_fn" == type_name {
+                self.add(
+                    out,
+                    &format!("({source})->deref_function({source});"),
+                    None,
+                    true,
+                );
+            } else {
+                self.call_deref_simple(out, source, descr_for_debug, statics);
+            }
         }
     }
 
@@ -242,7 +261,7 @@ impl CodeGenC {
         out: &mut String,
         source: &str,
         descr_for_debug: &str,
-        statics: &mut Statics,
+        statics: &Statics,
     ) {
         self.add(
             out,
@@ -923,6 +942,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                     None,
                     true,
                 );
+
+                self.add(&mut before, "void (*addref_function)(void **);", None, true);
+                self.add(&mut before, "void (*deref_function)(void **);", None, true);
+
                 self.add(&mut before, "};", None, false);
                 self.add_empty_line(&mut before);
             }

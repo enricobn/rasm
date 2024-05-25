@@ -62,18 +62,14 @@ pub trait TypedFunctionsCreator {
         }
     }
 
-    fn add_function(
+    fn create_function(
         &self,
         namespace: &ASTNameSpace,
-        module: &mut ASTTypedModule,
+        fun_name: &str,
         ast_type: ASTTypedType,
         body: ASTTypedFunctionBody,
-        function_name_suffix: &str,
-        name: &str,
         with_descr: bool,
-    ) {
-        let fun_name = format!("{}_{function_name_suffix}", name);
-
+    ) -> ASTTypedFunctionDef {
         let mut parameters = vec![ASTTypedParameterDef {
             name: "address".into(),
             ast_type,
@@ -88,17 +84,32 @@ pub trait TypedFunctionsCreator {
             })
         }
 
-        let function_def = ASTTypedFunctionDef {
+        ASTTypedFunctionDef {
             namespace: namespace.clone(),
-            name: fun_name.clone(),
-            original_name: fun_name.clone(),
+            name: fun_name.to_string(),
+            original_name: fun_name.to_ascii_lowercase(),
             parameters,
             body,
             inline: false,
             return_type: ASTTypedType::Unit,
             generic_types: LinkedHashMap::new(),
             index: ASTIndex::none(),
-        };
+        }
+    }
+
+    fn add_function(
+        &self,
+        namespace: &ASTNameSpace,
+        module: &mut ASTTypedModule,
+        ast_type: ASTTypedType,
+        body: ASTTypedFunctionBody,
+        function_name_suffix: &str,
+        name: &str,
+        with_descr: bool,
+    ) {
+        let fun_name = format!("{}_{function_name_suffix}", name);
+
+        let function_def = self.create_function(namespace, &fun_name, ast_type, body, with_descr);
 
         debug!("created function {function_def}");
 

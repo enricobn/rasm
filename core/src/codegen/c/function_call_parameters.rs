@@ -35,6 +35,8 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use super::typed_function_creator::TypedFunctionsCreatorC;
+
 static ID: AtomicUsize = AtomicUsize::new(0);
 
 pub struct CFunctionCallParameters {
@@ -339,6 +341,44 @@ impl FunctionCallParameters for CFunctionCallParameters {
             true,
         );
 
+        let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
+
+        let addref_function = typed_function_creator.create_lambda_free(
+            &c_lambda_name,
+            &lambda_space,
+            "addref",
+            module,
+            statics,
+        );
+
+        let deref_function = typed_function_creator.create_lambda_free(
+            &c_lambda_name,
+            &lambda_space,
+            "deref",
+            module,
+            statics,
+        );
+
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!(
+                "{lambda_var_name}->addref_function = {};",
+                addref_function.name
+            ),
+            None,
+            true,
+        );
+
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!(
+                "{lambda_var_name}->deref_function = {};",
+                deref_function.name
+            ),
+            None,
+            true,
+        );
+
         //arg_values.push(format!("lambda{param_index}"));
         if self.immediate {
             self.code_manipulator.add(
@@ -351,6 +391,9 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.parameters_values
                 .insert(name.to_string(), lambda_var_name);
         }
+
+        lambda_space.add_ref_function(addref_function);
+        lambda_space.add_ref_function(deref_function);
 
         lambda_space
     }
