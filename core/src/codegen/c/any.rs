@@ -17,7 +17,7 @@
  */
 
 use crate::codegen::statics::Statics;
-use crate::type_check::typed_ast::ASTTypedType;
+use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -147,6 +147,19 @@ impl CLambdas {
             lambdas.add(c_lambda);
             statics.add_any(lambdas);
             name
+        }
+    }
+
+    pub fn add_to_statics_if_lambda(typed_type: &ASTTypedType, statics: &mut Statics) {
+        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+            parameters,
+            return_type,
+        }) = typed_type
+        {
+            CLambdas::add_to_statics(
+                statics,
+                CLambda::new(parameters.clone(), return_type.as_ref().clone()),
+            );
         }
     }
 }

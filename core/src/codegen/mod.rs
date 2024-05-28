@@ -335,6 +335,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         call_parameters: &FUNCTION_CALL_PARAMETERS,
         return_value: bool,
         is_inner_call: bool,
+        statics: &Statics,
     );
 
     fn call_function_(
@@ -629,6 +630,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             .map(|it| it.return_type != ASTTypedType::Unit)
                             .unwrap_or(false),
                     is_inner_call,
+                    statics,
                 );
             } else {
                 panic!(
@@ -2679,6 +2681,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
         return_value: bool,
         is_inner_call: bool,
+        statics: &Statics,
     ) {
         let rr = self.return_register();
 

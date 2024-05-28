@@ -166,11 +166,11 @@ pub native keyEvent() -> Option<KeyEvent> /{
         }
     }
 
-    $enumDeclaration(_result)
-    $enumVariantDeclaration(_none,None)
-    _result->variant_num = 1;
-    _result->variant = _none;
-    return _result;
+    $enumDeclaration(result_)
+    $enumVariantDeclaration(none_,None)
+    result_->variant_num = 1;
+    result_->variant = none_;
+    return result_;
 }/
 
 // LOOP

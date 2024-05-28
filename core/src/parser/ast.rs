@@ -21,6 +21,9 @@ pub struct ASTNameSpace {
 
 impl ASTNameSpace {
     pub fn new(lib: String, path: String) -> Self {
+        if lib.is_empty() {
+            panic!("lib cannot be empty");
+        }
         if path.ends_with(".rasm") {
             panic!("path should not end with .rasm {path}")
         }
@@ -41,7 +44,7 @@ impl ASTNameSpace {
 
     pub fn global() -> Self {
         Self {
-            lib: "".to_string(),
+            lib: "crate".to_string(),
             path: "".to_string(),
         }
     }

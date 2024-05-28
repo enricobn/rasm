@@ -8,11 +8,11 @@ native optIOError() -> Option<IOError> /{
     $include(<string.h>)
 
     if (errno == 0) {
-        $enumDeclaration(_result)
-        $enumVariantDeclaration(_none,None)
-        _result->variant_num = 1;
-        _result->variant = _none;
-        return _result;
+        $enumDeclaration(result)
+        $enumVariantDeclaration(none,None)
+        result->variant_num = 1;
+        result->variant = none;
+        return result;
     } else {
         char *message = strerror(errno);
         void *error = $call(IOError, message: str); //"Error writing to file.");

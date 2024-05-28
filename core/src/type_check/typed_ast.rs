@@ -1809,9 +1809,9 @@ mod tests {
 
     #[test]
     pub fn get_def_typed_type() {
-        let first_namespace = ASTNameSpace::new("".to_string(), "first".to_string());
+        let first_namespace = ASTNameSpace::new("test".to_string(), "first".to_string());
 
-        let second_namespace = ASTNameSpace::new("".to_string(), "second".to_string());
+        let second_namespace = ASTNameSpace::new("test".to_string(), "second".to_string());
 
         let module = enhanced_module();
         let sut = ConvContext::new(&module);
@@ -1853,9 +1853,9 @@ mod tests {
 
     #[test]
     fn test_typed_type() {
-        let first_namespace = ASTNameSpace::new("".to_string(), "first".to_string());
+        let first_namespace = ASTNameSpace::new("test".to_string(), "first".to_string());
 
-        let second_namespace = ASTNameSpace::new("".to_string(), "second".to_string());
+        let second_namespace = ASTNameSpace::new("test".to_string(), "second".to_string());
 
         let module = enhanced_module();
         let mut sut = ConvContext::new(&module);
@@ -1906,9 +1906,9 @@ mod tests {
 
     fn enhanced_module() -> EnhancedASTModule {
         let result_type_def = result_type_def();
-        let first_namespace = ASTNameSpace::new("".to_string(), "first".to_string());
+        let first_namespace = ASTNameSpace::new("test".to_string(), "first".to_string());
 
-        let second_namespace = ASTNameSpace::new("".to_string(), "second".to_string());
+        let second_namespace = ASTNameSpace::new("test".to_string(), "second".to_string());
 
         EnhancedASTModule {
             body: vec![],

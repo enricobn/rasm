@@ -526,17 +526,17 @@ impl RasmProject {
     ) -> Vec<(ASTModule, Vec<CompilationError>)> {
         if self.from_file {
             let main_src_file = self.main_src_file().unwrap();
+
+            let name = main_src_file
+                .with_extension("")
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+
             vec![self.module_from_file(
                 &PathBuf::from(&main_src_file).canonicalize().unwrap(),
-                ASTNameSpace::new(
-                    "".to_string(),
-                    main_src_file
-                        .with_extension("")
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
+                ASTNameSpace::new(name.clone(), name),
             )]
         } else {
             WalkDir::new(source_folder)
@@ -815,6 +815,12 @@ fn get_rasm_config(src_path: &Path) -> RasmConfig {
 fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
     let parent = src_path.parent().unwrap().to_string_lossy().to_string();
     let main_name = src_path.file_name().unwrap().to_string_lossy().to_string();
+    let name = src_path
+        .with_extension("")
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
     let mut dependencies_map = Map::new();
     let mut stdlib = Map::new();
     stdlib.insert("path".to_owned(), Value::String(get_std_lib_path()));
@@ -822,7 +828,7 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
 
     RasmConfig {
         package: RasmPackage {
-            name: "".to_string(),
+            name,
             version: "1.0.0".to_owned(),
             source_folder: Some(parent.to_owned()),
             main: Some(main_name.to_string()),

@@ -29,7 +29,7 @@ use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, CodeGen};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
@@ -134,7 +134,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.code_manipulator.add(
                 &mut self.current,
                 &format!(
-                    "{} _return_value_ = {value};",
+                    "{} return_value_ = {value};",
                     CodeGenC::type_to_string(typed_type, statics)
                 ),
                 None,
@@ -169,7 +169,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         before: String,
         current: String,
     ) {
-        let tmp_val_name = format!("_call_{}", ID.fetch_add(1, Ordering::SeqCst));
+        let tmp_val_name = format!("call_{}_", ID.fetch_add(1, Ordering::SeqCst));
 
         let code = if current.is_empty() {
             before
@@ -177,6 +177,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.push(&before);
             current
         };
+
+        CLambdas::add_to_statics_if_lambda(&param_type, statics);
 
         self.code_manipulator.add(
             &mut self.before,
@@ -201,16 +203,16 @@ impl FunctionCallParameters for CFunctionCallParameters {
         }
 
         if let Some(type_name) = get_reference_type_name(&param_type, module) {
-            let mut add_ref_code = String::new();
+            let mut deref_code = String::new();
             self.code_gen_c.call_deref(
-                &mut add_ref_code,
+                &mut deref_code,
                 &tmp_val_name,
                 &type_name,
                 "",
                 module,
                 statics,
             );
-            self.after.push(add_ref_code);
+            self.add_on_top_of_after(&deref_code);
         }
 
         self.parameters_values.insert(name, tmp_val_name);
@@ -300,10 +302,10 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     &mut self.before,
                     vec![
                         &format!(
-                            "{} *_{lambda_var_name}_{name} = malloc(sizeof({}));",
+                            "{} *{lambda_var_name}_{name} = malloc(sizeof({}));",
                             type_to_string, type_to_string
                         ),
-                        &format!("*_{lambda_var_name}_{name} = {name};"),
+                        &format!("*{lambda_var_name}_{name} = {name};"),
                     ],
                     None,
                     true,
@@ -317,7 +319,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             let real_name = if get_reference_type_name(t, module).is_some() {
                 name.to_string()
             } else {
-                format!("_{lambda_var_name}_{name}")
+                format!("{lambda_var_name}_{name}")
             };
 
             let value = if let Some(idx) = parent_lambda_space.and_then(|it| it.get_index(name)) {
@@ -383,11 +385,22 @@ impl FunctionCallParameters for CFunctionCallParameters {
         if self.immediate {
             self.code_manipulator.add(
                 &mut self.current,
-                &format!("return {lambda_var_name}; // return lambda"),
+                &format!(
+                    "struct {c_lambda_name} *return_value_ = {lambda_var_name}; // return lambda"
+                ),
                 None,
                 true,
             );
         } else {
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!("{}({lambda_var_name});", addref_function.name),
+                None,
+                true,
+            );
+
+            self.add_on_top_of_after(&format!("{}({lambda_var_name});", deref_function.name));
+
             self.parameters_values
                 .insert(name.to_string(), lambda_var_name);
         }
@@ -425,7 +438,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     self.code_manipulator.add(
                         &mut self.before,
                         &format!(
-                            "{} _return_value_ = {value};",
+                            "{} return_value_ = {value};",
                             CodeGenC::type_to_string(ast_typed_type, statics)
                         ),
                         None,
@@ -443,7 +456,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.code_manipulator.add(
                 &mut self.before,
                 &format!(
-                    "{} _return_value_ = {val_name};",
+                    "{} return_value_ = {val_name};",
                     CodeGenC::type_to_string(typed_type, statics)
                 ),
                 None,
@@ -487,7 +500,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.code_manipulator.add(
                 &mut self.before,
                 &format!(
-                    "{} _return_value_ = {value};",
+                    "{} return_value_ = {value};",
                     CodeGenC::type_to_string(typed_type, statics)
                 ),
                 None,
@@ -541,7 +554,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             if let Some(rt) = return_type {
                 if !matches!(rt, ASTTypedType::Unit) {
                     format!(
-                        "{} _return_value_ =  {body};",
+                        "{} return_value_ =  {body};",
                         CodeGenC::type_to_string(rt, statics),
                     )
                 } else {

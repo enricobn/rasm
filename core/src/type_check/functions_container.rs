@@ -994,7 +994,7 @@ mod tests {
             root: PathBuf::new(),
             config: RasmConfig {
                 package: RasmPackage {
-                    name: "".to_string(),
+                    name: "test".to_string(),
                     version: "".to_string(),
                     main: None,
                     out: None,

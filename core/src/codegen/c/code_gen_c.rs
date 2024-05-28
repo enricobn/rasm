@@ -195,6 +195,15 @@ impl CodeGenC {
         descr_for_debug: &str,
         statics: &Statics,
     ) {
+        /*
+        self.add(
+            out,
+            &format!("printf(\"call_add_ref_simple {descr_for_debug}\\n\");"),
+            Some(descr_for_debug),
+            true,
+        );
+        */
+
         self.add(
             out,
             &format!("addRef({source});"),
@@ -250,7 +259,7 @@ impl CodeGenC {
                     None,
                     true,
                 );
-            } else {
+            } else if "str" != type_name {
                 self.call_deref_simple(out, source, descr_for_debug, statics);
             }
         }
@@ -263,6 +272,15 @@ impl CodeGenC {
         descr_for_debug: &str,
         statics: &Statics,
     ) {
+        /*
+        self.add(
+            out,
+            &format!("printf(\"call_deref_simple {descr_for_debug}\\n\");"),
+            Some(descr_for_debug),
+            true,
+        );
+        */
+
         self.add(
             out,
             &format!("deref({source});"),
@@ -290,10 +308,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
         _stack_vals: &StackVals,
-        _kind: &TypedValKind,
+        kind: &TypedValKind,
         call_parameters: &Box<CFunctionCallParameters>,
         return_value: bool,
         is_inner_call: bool,
+        statics: &Statics,
     ) {
         let mut args = call_parameters
             .parameters_values()
@@ -301,12 +320,25 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .map(|(name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
         args.push((function_call.function_name.as_str(), None));
+
+        if return_value {
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) = kind.typed_type()
+            {
+                let t = CodeGenC::type_to_string(&return_type.as_ref(), statics);
+                self.add(before, &format!("{t} return_value_ = "), None, true);
+            } else {
+                panic!("expected lambda : {}", function_call.index);
+            }
+        }
         self.call_function(
             before,
             &format!("{}->functionPtr", function_call.function_name),
             &args,
             None,
-            return_value,
+            false,
             is_inner_call,
         );
     }
@@ -340,7 +372,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         if return_value {
             self.add(
                 before,
-                &format!("{lambda_type} _return_value_ = "),
+                &format!("{lambda_type} return_value_ = "),
                 None,
                 true,
             );
@@ -434,8 +466,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     ) -> String {
         let mut result = String::new();
 
-        // TODO
-        //   self.add(&mut result, &format!("deref({name});"), None, true);
+        self.call_deref(&mut result, name, type_name, "", typed_module, statics);
 
         result
     }
@@ -450,8 +481,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         type_name: &String,
         typed_module: &ASTTypedModule,
     ) {
-        // TODO
-        //   self.add(before, &format!("addRef({name});"), None, true);
+        self.call_add_ref(before, name, type_name, "", typed_module, statics);
     }
 
     fn set_let_const_for_function_call_result(
@@ -568,32 +598,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         let mut args = Vec::new();
         for par in function_def.parameters.iter() {
             // probably sometimes we need to add the lambda def here
-            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                parameters,
-                return_type,
-            }) = &par.ast_type
-            {
-                CLambdas::add_to_statics(
-                    statics,
-                    CLambda::new(parameters.clone(), return_type.as_ref().clone()),
-                );
-            }
+            CLambdas::add_to_statics_if_lambda(&par.ast_type, statics);
 
             let arg_type = Self::type_to_string(&par.ast_type, statics);
             args.push(format!("{arg_type} {}", par.name));
         }
 
         // probably sometimes we need to add the lambda def here
-        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-            parameters,
-            return_type,
-        }) = &function_def.return_type
-        {
-            CLambdas::add_to_statics(
-                statics,
-                CLambda::new(parameters.clone(), return_type.as_ref().clone()),
-            );
-        }
+        CLambdas::add_to_statics_if_lambda(&function_def.return_type, statics);
 
         self.add(
             out,
@@ -640,7 +652,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         self.code_manipulator.add(
             before,
             &format!(
-                "{} _return_value_ = {v};",
+                "{} return_value_ = {v};",
                 CodeGenC::type_to_string(&t, statics)
             ),
             None,
@@ -651,7 +663,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
         self.code_manipulator.add(
             before,
-            &format!("*char _return_value_ = \"{value}\";"),
+            &format!("char* return_value_ = \"{value}\";"),
             None,
             true,
         );
@@ -719,10 +731,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             if let Some(rt) = return_type {
                 self.add(
                     out,
-                    &format!(
-                        "{} _return_value_ = ",
-                        CodeGenC::type_to_string(rt, statics)
-                    ),
+                    &format!("{} return_value_ = ", CodeGenC::type_to_string(rt, statics)),
                     None,
                     true,
                 );
@@ -752,7 +761,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .collect::<Vec<_>>();
 
         let prefix = if return_value {
-            "// call_function return\nreturn "
+            "// call_function return\nreturn_value = "
         } else {
             ""
         };
@@ -962,8 +971,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         self.add_rows(
             &mut before,
             vec![
-                "static int _argc;",
-                "static char **_argv;",
+                "static int argc_;",
+                "static char **argv_;",
                 "",
                 "int main(int argc, char **argv)",
                 "{",
@@ -976,8 +985,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             vec![
                 "RASM_REFERENCES = malloc(sizeof(struct RasmReference*) * RASM_REFERENCES_COUNT);",
                 "initRasmReferences();",
-                "_argc = argc;",
-                "_argv = argv;",
+                "argc_ = argc;",
+                "argv_ = argv;",
             ],
             None,
             true,
@@ -1012,7 +1021,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                     if "lambda_368" == &fd.name {
                         println!("is lambda_368");
                     }
-                    self.add(out, "return _return_value_;", None, true);
+                    self.add(out, "return return_value_;", None, true);
                 }
             }
         }

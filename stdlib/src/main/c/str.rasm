@@ -9,50 +9,50 @@ pub native add(s1: str, s2: str) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    int _len = strlen($s1) + strlen($s2);
+    int len_ = strlen($s1) + strlen($s2);
 
-    char *_result = malloc(_len + 1); // +1 for the null-terminator
+    char *result = malloc(len_ + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
-    strcpy(_result, $s1);
-    strcat(_result, $s2);
-    _result[_len] = 0;
-    return _result;
+    strcpy(result, $s1);
+    strcat(result, $s2);
+    result[len_] = 0;
+    return result;
 }/
 
 pub native add(s: str, c: char) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    int _len = strlen($s) + strlen($c);
+    int len_ = strlen($s) + strlen($c);
 
-    char *_result = malloc(_len + 1); // +1 for the null-terminator
+    char *result = malloc(len_ + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
-    strcpy(_result, $s);
-    strcat(_result, $c);
-    _result[_len] = 0;
-    return _result;
+    strcpy(result, $s);
+    strcat(result, $c);
+    result[len_] = 0;
+    return result;
 }/
 
 // from https://stackoverflow.com/questions/26080829/detecting-strtol-failure
 pub native toi32(s: str) -> Option<i32> /{
     $include(<errno.h>)
 
-    char *_end = NULL;
+    char *end = NULL;
 
     errno = 0;
-    int _result = (int) strtol($s, &_end, 10);
+    int result = (int) strtol($s, &end, 10);
 
-    if (errno == 0 && $s && !*_end) {
+    if (errno == 0 && $s && !*end) {
         return
-        $call(Option::Some, _result)
+        $call(Option::Some, result)
         ;
     } else {
         // a "typed" None based on the typed return value of the function
-        $enumDeclaration(_result)
-        $enumVariantDeclaration(_none,None)
-        _result->variant_num = 1;
-        _result->variant = _none;
-        return _result;
+        $enumDeclaration(result)
+        $enumVariantDeclaration(none,None)
+        result->variant_num = 1;
+        result->variant = none;
+        return result;
     }
 }/
 
@@ -115,19 +115,19 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
     if (pos + len > input_len)
     {
         // a "typed" None based on the typed return value of the function
-        $enumDeclaration(_result)
-        $enumVariantDeclaration(_none,None)
-        _result->variant_num = 1;
-        _result->variant = _none;
-        return _result;
+        $enumDeclaration(result)
+        $enumVariantDeclaration(none,None)
+        result->variant_num = 1;
+        result->variant = none;
+        return result;
     }
 
-    char *_dest = malloc((sizeof(char)) * len + 1);
+    char *dest = malloc((sizeof(char)) * len + 1);
 
-    strncpy(_dest, $s + pos, len);
-    _dest[len] = '\0'; // place the null terminator
+    strncpy(dest, $s + pos, len);
+    dest[len] = '\0'; // place the null terminator
 
-    return $call(Option::Some, _dest:str);
+    return $call(Option::Some, dest:str);
 }/
 
 pub inline native isAlpha(c: char) -> bool /{

@@ -207,6 +207,7 @@ fn test_list_flatten() {
 
 #[test]
 fn test_gameoflife_runs() {
+    todo!("test_gameoflife_runs");
     run(
         "resources/examples/gameoflife",
         vec!["resources/examples/simple.cells", "5"],
