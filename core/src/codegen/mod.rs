@@ -923,6 +923,12 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 before.push_str(&cur);
             }
 
+            let not_empty_after_lines = af
+                .into_iter()
+                .filter(|it| !it.is_empty())
+                .collect::<Vec<String>>();
+            Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
+
             if self.options().dereference {
                 if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
                     self.call_add_ref_for_let_val(
@@ -945,12 +951,6 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                     Self::insert_on_top(&deref_str, after);
                 }
             }
-
-            let not_empty_after_lines = af
-                .into_iter()
-                .filter(|it| !it.is_empty())
-                .collect::<Vec<String>>();
-            Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
         }
 
         new_lambda_calls

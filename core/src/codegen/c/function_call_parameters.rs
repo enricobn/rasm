@@ -208,7 +208,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut deref_code,
                 &tmp_val_name,
                 &type_name,
-                "",
+                &type_name,
                 module,
                 statics,
             );

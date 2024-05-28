@@ -219,11 +219,13 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                         parameter.name
                     );
                     if function_name == "deref" {
-                        self.code_gen
-                            .call_deref(&mut body, &source, &type_name, "", module, statics);
+                        self.code_gen.call_deref(
+                            &mut body, &source, &type_name, &type_name, module, statics,
+                        );
                     } else {
-                        self.code_gen
-                            .call_add_ref(&mut body, &source, &type_name, "", module, statics);
+                        self.code_gen.call_add_ref(
+                            &mut body, &source, &type_name, &type_name, module, statics,
+                        );
                     }
                 }
             }

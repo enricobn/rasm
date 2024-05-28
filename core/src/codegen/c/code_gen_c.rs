@@ -182,7 +182,9 @@ impl CodeGenC {
                     None,
                     true,
                 );
-            } else {
+            // TODO handle str, for now it's not possible since there's no difference,
+            //   between heap ans static allocated strings
+            } else if "str" != type_name {
                 self.call_add_ref_simple(out, source, descr_for_debug, statics);
             }
         }
@@ -259,6 +261,8 @@ impl CodeGenC {
                     None,
                     true,
                 );
+            // TODO handle str, for now it's not possible since there's no difference,
+            //   between heap ans static allocated strings
             } else if "str" != type_name {
                 self.call_deref_simple(out, source, descr_for_debug, statics);
             }
