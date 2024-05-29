@@ -143,26 +143,30 @@ typedef struct{
 pub native keyEvent() -> Option<KeyEvent> /{
     SDL_Event event;
     if (SDL_PollEvent(&event)) {
+        void * state = NULL;
+
         if (event.type == SDL_KEYDOWN) {
-            void * state =
+            state =
                 $call(KeyState::Down)
             ;
-            void * keyEvent =
-            $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
-            ;
-            return
-            $call(Option::Some, keyEvent: KeyEvent)
-            ;
         } else if (event.type == SDL_KEYUP) {
-            void * state =
+            state =
                 $call(KeyState::Up)
             ;
+        }
+
+        if (state != NULL) {
+            $addRef(state:KeyState)
             void * keyEvent =
             $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
             ;
-            return
+            $addRef(keyEvent:KeyEvent)
+            void *result = 
             $call(Option::Some, keyEvent: KeyEvent)
             ;
+            $deref(keyEvent:KeyEvent)
+            $deref(state:KeyState)
+            return result;
         }
     }
 
@@ -176,11 +180,19 @@ pub native keyEvent() -> Option<KeyEvent> /{
 // LOOP
 
 pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
-    void *newModel = model;
+    void *currentModel = model;
     while (1) {
-        newModel =
-            $call(sdlSingleLoop, $ctx:CTX, newModel:MODEL, $update, $render)
+        void *newModel =
+            $call(sdlSingleLoop, $ctx:CTX, currentModel:MODEL, $update, $render)
         ;
+
+        if (newModel != currentModel) {
+            $addRef(newModel:MODEL)
+            if (currentModel != model) {
+                $deref(currentModel:MODEL)
+            }
+        }
+        currentModel = newModel;
     }
 }/
 
