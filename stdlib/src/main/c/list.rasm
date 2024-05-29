@@ -52,6 +52,7 @@ pub native lines(s: str) -> List<str> /{
     $enumVariantDeclaration(empty,Empty)
     result->variant_num = 1;
     result->variant = empty;
+    $addRef(result:List<str>)
 
     int len = strlen(s);
     int i = 0;
@@ -64,9 +65,16 @@ pub native lines(s: str) -> List<str> /{
            char *line = rasmMalloc(sizeof(char) * (i - line_pos + 1));
            strncpy(line, s + line_pos, i - line_pos);
            line[i - line_pos] = 0;
-           result =
-           $call(push, result: List<str>, line: str)
-           ;
+           $addRef(line:str)
+           void *tmp = 
+              $call(push, result: List<str>, line: str)
+              ;
+           $addRef(tmp:List<str>)
+
+           $deref(line:str)
+           $deref(result:List<str>)
+           result = tmp;
+           
            i++;
            line_pos = i;
            continue;
@@ -85,5 +93,6 @@ pub native lines(s: str) -> List<str> /{
            return result;
        }
     }
+    $deref(result:List<str>)
     return result;
 }/
