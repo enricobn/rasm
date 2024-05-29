@@ -12,6 +12,7 @@ use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
+use crate::codegen::c::any::CStructs;
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::function_call_parameters::{
@@ -514,7 +515,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             original_name: name.clone(),
                             parameters: Vec::new(), // parametrs are calculated later
                             return_type: rt,
-                            body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
+                            body: ASTTypedFunctionBody::RASMBody(lambda_def.body.clone()),
                             inline: false,
                             generic_types: LinkedHashMap::new(),
                             index: lambda_def.index.clone(),
@@ -1142,7 +1143,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         }
 
         if is_lambda {
-            self.reserve_lambda_space(&mut before, &stack);
+            self.reserve_lambda_space(&mut before, &stack, statics, lambda_space.unwrap());
         }
 
         let mut context = TypedValContext::new(Some(parent_context));
@@ -1397,7 +1398,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn word_size(&self) -> &str;
 
-    fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals);
+    fn reserve_lambda_space(
+        &self,
+        before: &mut String,
+        stack: &StackVals,
+        statics: &mut Statics,
+        lambda_space: &LambdaSpace,
+    );
 
     fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics);
 
@@ -3119,7 +3126,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         self.backend.word_size()
     }
 
-    fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals) {
+    fn reserve_lambda_space(
+        &self,
+        before: &mut String,
+        stack: &StackVals,
+        statics: &mut Statics,
+        lambda_space: &LambdaSpace,
+    ) {
         let register = stack.reserve_tmp_register(before, "lambda_space_address", self);
 
         self.add(

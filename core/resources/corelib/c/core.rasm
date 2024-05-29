@@ -68,7 +68,6 @@ pub native addRef(address: RasmPointer) /{
     int firstFree = -1;
 
     for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        
         if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
             RASM_REFERENCES[i]->count++;
             // printf("addRef count = %d\n", RASM_REFERENCES[i]->count);

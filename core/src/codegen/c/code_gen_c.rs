@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambda, CLambdas};
+use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas, CStructs};
 use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro::{
@@ -351,7 +351,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn call_lambda(
         &self,
-        _function_call: &ASTTypedFunctionCall,
+        function_call: &ASTTypedFunctionCall,
         before: &mut String,
         _stack_vals: &StackVals,
         index_in_lambda_space: usize,
@@ -368,9 +368,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .collect::<Vec<_>>();
         let lambda_type = CodeGenC::type_to_string(ast_type_type, statics);
         let casted_lambda = format!(
-            "(({})_lambda->args[{}])",
-            lambda_type,
-            index_in_lambda_space - 1
+            "(({})lambda_space->{})",
+            lambda_type, function_call.function_name
         );
 
         args.push((&casted_lambda, None));
@@ -648,8 +647,22 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn reserve_lambda_space(&self, before: &mut String, stack: &StackVals) {
-        // TODO
+    fn reserve_lambda_space(
+        &self,
+        before: &mut String,
+        stack: &StackVals,
+        statics: &mut Statics,
+        lambda_space: &LambdaSpace,
+    ) {
+        let lambda_space_type_name = CStructs::add_lambda_space_to_statics(statics, lambda_space);
+        self.add(
+                    before,
+                    &format!(
+                        "struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) _lambda->lambda_space;"
+                    ),
+                    None,
+                    true,
+                );
     }
 
     fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics) {
@@ -851,7 +864,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 "  int count;",
                 "};",
                 "",
-                "int RASM_REFERENCES_COUNT = 10000;",
+                "int RASM_REFERENCES_COUNT = 100;",
                 "struct RasmReference **RASM_REFERENCES;",
                 "",
             ],
@@ -945,7 +958,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                     None,
                     false,
                 );
-                self.add(&mut before, "void **args;", None, true);
+                self.add(&mut before, "void *lambda_space;", None, true);
                 let mut args = clambda
                     .args
                     .iter()
@@ -975,6 +988,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 self.add_empty_line(&mut before);
             }
             self.add_empty_line(&mut before);
+        }
+
+        if let Some(cstructs) = statics.any::<CStructs>() {
+            for cstruct in cstructs.structs.iter() {
+                before.push_str(&cstruct.generate(&self.code_manipulator))
+            }
         }
 
         if let Some(declarations) = statics.any::<CFunctionsDeclarations>() {

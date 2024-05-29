@@ -29,7 +29,7 @@ use crate::type_check::typed_ast::{
     ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
-use super::any::{CLambda, CLambdas};
+use super::any::{CLambda, CLambdas, CStructs};
 use super::code_gen_c::CodeGenC;
 
 static REF_FUNCTIONS_ID: AtomicUsize = AtomicUsize::new(0);
@@ -49,7 +49,7 @@ impl TypedFunctionsCreatorC {
         function_name: &str,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
-        statics: &Statics,
+        statics: &mut Statics,
     ) -> String {
         let mut body = String::new();
 
@@ -61,12 +61,21 @@ impl TypedFunctionsCreatorC {
             true,
         );
 
+        let lambda_space_type_name = CStructs::add_lambda_space_to_statics(statics, lambda_space);
+
+        self.code_gen.add(
+            &mut body,
+            &format!("struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) lambda_->lambda_space;"),
+            None,
+            true,
+        );
+
         for (i, (name, kind)) in lambda_space.iter().enumerate() {
             let t = kind.typed_type();
 
             if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
                 let source = format!(
-                    "({}) lambda_->args[{i}]",
+                    "({}) lambda_space->{name}",
                     CodeGenC::type_to_string(t, statics)
                 );
                 if function_name == "deref" {
@@ -108,7 +117,7 @@ impl TypedFunctionsCreatorC {
         lambda_space: &LambdaSpace,
         function_name: &str,
         module: &ASTTypedModule,
-        statics: &Statics,
+        statics: &mut Statics,
     ) -> ASTTypedFunctionDef {
         let body_str = self.create_lambda_free_body(
             c_lambda_name,

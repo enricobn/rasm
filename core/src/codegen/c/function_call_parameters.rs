@@ -35,6 +35,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use super::any::{CStruct, CStructs};
 use super::typed_function_creator::TypedFunctionsCreatorC;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
@@ -79,11 +80,13 @@ impl CFunctionCallParameters {
         i: usize,
         ast_typed_type: &ASTTypedType,
         dereference: bool,
+        name: &str,
     ) -> String {
         let is_ref_type = get_reference_type_name(&ast_typed_type, type_def_provider).is_some();
 
         let deref_s = if dereference { "*" } else { "" };
 
+        /*
         let value = if is_ref_type {
             format!(
                 " (({})_lambda->args[{i}])",
@@ -96,6 +99,11 @@ impl CFunctionCallParameters {
             )
         };
         value
+        */
+        format!(
+            " (({})lambda_space->{name})",
+            CodeGenC::type_to_string(ast_typed_type, statics)
+        )
     }
 
     fn add_code_for_reference_type(
@@ -258,7 +266,14 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
         // debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
 
-        // TODO parent_lambda space
+        let mut references = self.body_references_to_context(&def.body, context);
+        references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
+        references.dedup_by(|(name1, _), (name2, _)| name1 == name2);
+
+        let mut context = TypedValContext::new(None);
+        for (key, kind) in references {
+            context.insert(key, kind);
+        }
 
         let mut lambda_space = LambdaSpace::new(context.clone());
 
@@ -266,7 +281,10 @@ impl FunctionCallParameters for CFunctionCallParameters {
             lambda_space.add(name.clone(), kind.clone());
         }
 
-        let lambda_var_name = format!("lambda_{}", ID.fetch_add(1, Ordering::SeqCst));
+        let lambda_space_struct_name =
+            CStructs::add_lambda_space_to_statics(statics, &lambda_space);
+
+        let lambda_var_name = format!("lambda_var_{}", ID.fetch_add(1, Ordering::SeqCst));
 
         self.code_manipulator.add(
             &mut self.before,
@@ -277,61 +295,45 @@ impl FunctionCallParameters for CFunctionCallParameters {
             true,
         );
 
+        let lambda_space_name = format!("lambda_space_{}", ID.fetch_add(1, Ordering::SeqCst));
+
         self.code_manipulator.add(
             &mut self.before,
             &format!(
-                "{lambda_var_name}->args = rasmMalloc(sizeof(void *) * {});",
-                lambda_space.size()
+                "struct {} *{lambda_space_name} = rasmMalloc(sizeof(struct {}));",
+                lambda_space_struct_name, lambda_space_struct_name
             ),
             None,
             true,
         );
 
-        // for primitive types (int, float etc.) we cannot use a pointer to a function argument,
-        // it must be allocated on the heap
-        for (_i, (name, kind)) in lambda_space.iter().enumerate() {
-            let t = kind.typed_type();
-
-            if get_reference_type_name(t, module).is_none()
-                && parent_lambda_space
-                    .and_then(|it| it.get_index(name))
-                    .is_none()
-            {
-                let type_to_string = CodeGenC::type_to_string(t, statics);
-                self.code_manipulator.add_rows(
-                    &mut self.before,
-                    vec![
-                        &format!(
-                            "{} *{lambda_var_name}_{name} = rasmMalloc(sizeof({}));",
-                            type_to_string, type_to_string
-                        ),
-                        &format!("*{lambda_var_name}_{name} = {name};"),
-                    ],
-                    None,
-                    true,
-                );
-            };
-        }
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!("{lambda_var_name}->lambda_space = {lambda_space_name};",),
+            None,
+            true,
+        );
 
         for (i, (name, kind)) in lambda_space.iter().enumerate() {
-            let t = kind.typed_type();
-
-            let real_name = if get_reference_type_name(t, module).is_some() {
-                name.to_string()
-            } else {
-                format!("{lambda_var_name}_{name}")
-            };
-
             let value = if let Some(idx) = parent_lambda_space.and_then(|it| it.get_index(name)) {
-                let t = parent_lambda_space.unwrap().get_type(name).unwrap();
-                Self::get_value_from_lambda_space(statics, module, idx - 1, t, false)
+                let pls = parent_lambda_space.unwrap();
+                let t = pls.get_type(name).unwrap();
+
+                let parent_ls_type_name = CStructs::add_lambda_space_to_statics(statics, pls);
+
+                format!(
+                    " (({})((struct {parent_ls_type_name}*)_lambda->lambda_space)->{name})",
+                    CodeGenC::type_to_string(t, statics)
+                )
+
+                //Self::get_value_from_lambda_space(statics, module, idx - 1, t, false, name)
             } else {
-                real_name
+                name.to_string()
             };
 
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{lambda_var_name}->args[{i}] = {value};"),
+                &format!("{lambda_space_name}->{name} = {value};"),
                 None,
                 true,
             );
@@ -431,7 +433,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     type_def_provider,
                     index_in_lambda_space - 1,
                     ast_typed_type,
-                    true,
+                    false,
+                    val_name,
                 );
 
                 if self.immediate {
@@ -488,7 +491,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     type_def_provider,
                     index_in_lambda - 1,
                     lambda_space.unwrap().get_type(val_name).unwrap(),
-                    true,
+                    false,
+                    val_name,
                 );
 
                 value_from_lambda_space

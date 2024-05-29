@@ -16,11 +16,17 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use linked_hash_map::LinkedHashMap;
+
+use crate::codegen::code_manipulator::CodeManipulator;
+use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+use super::code_gen_c::{CCodeManipulator, CodeGenC};
 
 pub struct CConsts {
     pub vec: Vec<String>,
@@ -77,7 +83,7 @@ impl CInclude {
     }
 }
 
-static LAMBDA_ID: AtomicUsize = AtomicUsize::new(0);
+static ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Eq)]
 pub struct CLambda {
@@ -101,7 +107,7 @@ impl Hash for CLambda {
 
 impl CLambda {
     pub fn new(args: Vec<ASTTypedType>, return_type: ASTTypedType) -> Self {
-        let name = format!("Lambda_{}", LAMBDA_ID.fetch_add(1, Ordering::SeqCst));
+        let name = format!("Lambda_{}", ID.fetch_add(1, Ordering::SeqCst));
         Self {
             args,
             return_type,
@@ -179,6 +185,80 @@ impl CFunctionsDeclarations {
             let mut declarations = CFunctionsDeclarations::new();
             declarations.vec.push(def);
             statics.add_any(declarations);
+        }
+    }
+}
+
+pub struct CStruct {
+    pub name: String,
+    map: LinkedHashMap<String, String>,
+}
+
+impl CStruct {
+    pub fn new(name: String, map: LinkedHashMap<String, String>) -> Self {
+        Self { name, map }
+    }
+
+    /*
+    pub fn add(&mut self, name: String, type_as_string: String) {
+        if self.map.insert(name.clone(), type_as_string).is_some() {
+            panic!("{name} already defined");
+        }
+    }
+    */
+
+    pub fn generate(&self, code_manipulator: &CCodeManipulator) -> String {
+        let mut body = String::new();
+        code_manipulator.add(&mut body, &format!("struct {} {{", self.name), None, false);
+        for (name, type_as_string) in self.map.iter() {
+            code_manipulator.add(&mut body, &format!("{type_as_string} {name} ;"), None, true);
+        }
+        code_manipulator.add(&mut body, "};", None, false);
+
+        body
+    }
+}
+
+pub struct CStructs {
+    pub structs: Vec<CStruct>,
+}
+
+impl CStructs {
+    fn new() -> Self {
+        Self {
+            structs: Vec::new(),
+        }
+    }
+    pub fn add_lambda_space_to_statics(
+        statics: &mut Statics,
+        lambda_space: &LambdaSpace,
+    ) -> String {
+        let mut map = LinkedHashMap::new();
+
+        for (name, kind) in lambda_space.iter() {
+            map.insert(
+                name.clone(),
+                CodeGenC::type_to_string(&kind.typed_type(), &statics),
+            );
+        }
+
+        if let Some(structs) = statics.any_mut::<CStructs>() {
+            if let Some(s) = structs.structs.iter().find(|it| it.map == map) {
+                s.name.clone()
+            } else {
+                let name = format!("LambdaSpace_{}", ID.fetch_add(1, Ordering::SeqCst));
+                let s = CStruct::new(name.clone(), map);
+                structs.structs.push(s);
+                name
+            }
+        } else {
+            let name = format!("LambdaSpace_{}", ID.fetch_add(1, Ordering::SeqCst));
+            let s = CStruct::new(name.clone(), map);
+
+            let mut structs = CStructs::new();
+            structs.structs.push(s);
+            statics.add_any(structs);
+            name
         }
     }
 }

@@ -369,6 +369,7 @@ impl CompileTarget {
                     "-O0".to_string(),
                     "-o".to_string(),
                     out_path.with_extension("").to_string_lossy().to_string(),
+                    "-Wno-incompatible-pointer-types".to_string(),
                 ];
 
                 if !options.includes.is_empty() {
