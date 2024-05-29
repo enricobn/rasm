@@ -28,42 +28,53 @@ pub native argv(i: i32) -> Option<str> /{
         int count;
    }
 */
+
 pub native deref(address: RasmPointer) /{
-    return;
-    //printf("deref %p\n", address);
+    $include(<stdlib.h>)
+    // return;
+    // printf("deref %p\n", address);
     for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
         if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
-            // printf("found with count %d\n", RASM_REFERENCES[i]->count);
+            //printf("found with count %d\n", RASM_REFERENCES[i]->count);
+            if (RASM_REFERENCES[i]->count < 0) {
+                printf("count < 0");
+            }
+
             if (--RASM_REFERENCES[i]->count == 0) {
+                /*
                 printf("freeing %p\n", address);
                 free(RASM_REFERENCES[i]->address);
                 free(RASM_REFERENCES[i]);
                 RASM_REFERENCES[i] = NULL;
                 printf("freed %p\n", address);
+                */
             }
             return;
         }
     }
-    printf("Cannot find reference!!\n");
+    // printf("Cannot find reference!!\n");
     // $call(exitMain, 1)
     return;
 
 }/
 
 pub native addRef(address: RasmPointer) /{
-    return;
-    printf("addRef %p\n", address);
+    $include(<stdlib.h>)
+
+    // return;
+    // printf("addRef %p\n", address);
     int firstFree = -1;
 
     for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        if (RASM_REFERENCES[i] == NULL) {
+        
+        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
+            RASM_REFERENCES[i]->count++;
+            // printf("addRef count = %d\n", RASM_REFERENCES[i]->count);
+            return;
+        } else if (RASM_REFERENCES[i] == NULL || RASM_REFERENCES[i]->count == 0) {
             if (firstFree == -1) {
                 firstFree = i;
             }
-        } else if (RASM_REFERENCES[i]->address == address) {
-            RASM_REFERENCES[i]->count++;
-            printf("addRef count = %d\n", RASM_REFERENCES[i]->count);
-            return;
         }
     }
 
@@ -73,11 +84,16 @@ pub native addRef(address: RasmPointer) /{
         return;
     }
 
+    if (RASM_REFERENCES[firstFree] != NULL  && RASM_REFERENCES[firstFree]->count == 0) {
+        free(RASM_REFERENCES[firstFree]->address);
+        free(RASM_REFERENCES[firstFree]);
+    }
+
     struct RasmReference *rasmReference = malloc(sizeof(struct RasmReference));
     rasmReference->address = address;
     rasmReference->count = 1;
     RASM_REFERENCES[firstFree] = rasmReference;
-    printf("addRef count = 1\n");
+    // printf("addRef count = 1\n");
 }/
 
 
