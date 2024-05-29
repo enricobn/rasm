@@ -97,7 +97,7 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
 }/
 
 native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
-    SDL_Rect *result = malloc(sizeof(struct SDL_Rect));
+    SDL_Rect *result = rasmMalloc(sizeof(struct SDL_Rect));
     result->x = rect->x;
     result->y = rect->y;
     result->w = rect->width;

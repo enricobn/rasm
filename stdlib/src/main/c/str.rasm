@@ -11,7 +11,7 @@ pub native add(s1: str, s2: str) -> str /{
 
     int len_ = strlen($s1) + strlen($s2);
 
-    char *result = malloc(len_ + 1); // +1 for the null-terminator
+    char *result = rasmMalloc(len_ + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
     strcpy(result, $s1);
     strcat(result, $s2);
@@ -25,7 +25,7 @@ pub native add(s: str, c: char) -> str /{
 
     int len_ = strlen($s) + strlen($c);
 
-    char *result = malloc(len_ + 1); // +1 for the null-terminator
+    char *result = rasmMalloc(len_ + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
     strcpy(result, $s);
     strcat(result, $c);
@@ -122,7 +122,7 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
         return result;
     }
 
-    char *dest = malloc((sizeof(char)) * len + 1);
+    char *dest = rasmMalloc((sizeof(char)) * len + 1);
 
     strncpy(dest, $s + pos, len);
     dest[len] = '\0'; // place the null terminator

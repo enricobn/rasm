@@ -430,6 +430,7 @@ impl CompileTarget {
                         });
                     }
                 }
+                result.push(DefaultFunction::new_1("rasmMalloc", BuiltinTypeKind::I32));
             }
         }
 

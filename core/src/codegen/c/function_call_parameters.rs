@@ -271,7 +271,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         self.code_manipulator.add(
             &mut self.before,
             &format!(
-                "struct {c_lambda_name} *{lambda_var_name} = malloc(sizeof(struct {c_lambda_name}));"
+                "struct {c_lambda_name} *{lambda_var_name} = rasmMalloc(sizeof(struct {c_lambda_name}));"
             ),
             None,
             true,
@@ -280,7 +280,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         self.code_manipulator.add(
             &mut self.before,
             &format!(
-                "{lambda_var_name}->args = malloc(sizeof(void *) * {});",
+                "{lambda_var_name}->args = rasmMalloc(sizeof(void *) * {});",
                 lambda_space.size()
             ),
             None,
@@ -302,7 +302,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     &mut self.before,
                     vec![
                         &format!(
-                            "{} *{lambda_var_name}_{name} = malloc(sizeof({}));",
+                            "{} *{lambda_var_name}_{name} = rasmMalloc(sizeof({}));",
                             type_to_string, type_to_string
                         ),
                         &format!("*{lambda_var_name}_{name} = {name};"),

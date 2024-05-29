@@ -289,6 +289,13 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     false,
                     false,
                 );
+                // TODO the result of *References function is not freed, but for now only Vec in the std lib is a type with
+                //   references and VecReferences returns itself, so it is freed at the end, probably better should be that it returns a copy of itself,
+                //   but it's slower. However it's not a good design that types with references relies on a type (Vec), that is itself a custom
+                //   type, but it's in an external library. And it's not a good design that, in the definition of a type, we must declare if it has
+                //   references and the native type, it could have non meaning for some compiler / target, for example, for Nasm the native type
+                //   is not used. We must find another solution for types in general and in particular for handling references for those compilers/ target
+                //   that must manage memory
 
                 self.code_gen.add_rows(
                     &mut body,

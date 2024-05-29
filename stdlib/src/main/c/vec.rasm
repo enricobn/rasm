@@ -12,8 +12,8 @@ pub fn VecReferences(vec: RasmPointer, generic: i32) -> RasmPointer {
 pub native Vec<T>() -> Vec<T> /{
     $include(<stdlib.h>)
 
-    void **result = malloc(sizeof(void *) * 2);
-    int* length = malloc(sizeof(int));
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    int* length = rasmMalloc(sizeof(int));
     *length = 0;
     result[0] = length;
     result[1] = NULL;
@@ -32,6 +32,7 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     } else {
         void **array = $vec[1];
         void *value = array[0];
+        $addRef(value:T)
         return
         $call(Option::Some, value:T)
         ;
@@ -50,6 +51,7 @@ pub native last<T>(vec: Vec<T>) -> Option<T> /{
     } else {
         void **array = $vec[1];
         void *value = array[length - 1];
+        $addRef(value:T)
         return
         $call(Option::Some, value:T)
         ;
@@ -61,15 +63,15 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     $include(<string.h>)
 
     void **old_vec = vec;
-    void **result = malloc(sizeof(void *) * 2);
+    void **result = rasmMalloc(sizeof(void *) * 2);
 
     int old_length = *((int*)old_vec[0]);
 
-    int *new_length = malloc(sizeof(int));
+    int *new_length = rasmMalloc(sizeof(int));
     *new_length = old_length + 1;
 
     result[0] = new_length;
-    result[1] = malloc(sizeof(void *) * (old_length + 1));
+    result[1] = rasmMalloc(sizeof(void *) * (old_length + 1));
 
     void **old_array = old_vec[1];
     void **array = result[1];
@@ -134,12 +136,12 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> V
 native vecOfInternal<T>(len: i32, o: T) -> Vec<T> /{
     $include(<stdlib.h>)
 
-    void **result = malloc(sizeof(void *) * 2);
+    void **result = rasmMalloc(sizeof(void *) * 2);
 
-    int *length = malloc(sizeof(int));
+    int *length = rasmMalloc(sizeof(int));
     *length = len;
 
-    void **vec = malloc(sizeof(void *) * len);
+    void **vec = rasmMalloc(sizeof(void *) * len);
 
     result[0] = length;
     result[1] = vec;
@@ -180,12 +182,12 @@ pub native print<T>(file: File, v: Vec<T>) -> Option<IOError> /{
 pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
     $include(<stdlib.h>)
 
-    void **result = malloc(sizeof(void *) * 2);
+    void **result = rasmMalloc(sizeof(void *) * 2);
 
-    int *length = malloc(sizeof(int));
+    int *length = rasmMalloc(sizeof(int));
     *length = end - start;
 
-    void **vec = malloc(sizeof(void *) * *length);
+    void **vec = rasmMalloc(sizeof(void *) * *length);
 
     int counter = 0;
     for (int i = start; i < end; i++) {
@@ -200,18 +202,25 @@ pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
 pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     int old_length = *(int *)vec[0];
 
-    int *length = malloc(sizeof(int));
+    int *length = rasmMalloc(sizeof(int));
+    $call(addRef, length:RasmPointer)
     *length = old_length;
 
-    void **result = malloc(sizeof(void *) * 2);
-    void **vec_ = malloc(sizeof(void *) * old_length);
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    $call(addRef, result:RasmPointer)
+    void **vec_ = rasmMalloc(sizeof(void *) * old_length);
+    $call(addRef, vec_:RasmPointer)
+
     result[0] = length;
     result[1] = vec_;
 
     for (int i = 0; i < old_length; i++) {
-        vec_[i] = f->functionPtr(((void **)vec[1])[i], f);
+        void *tmp = f->functionPtr(((void **)vec[1])[i], f);
+        $addRef(tmp:T1)
+        vec_[i] = tmp;
     }
 
+    $deref(result:Vec<T1>)
     return result;
 }/
 
@@ -248,11 +257,11 @@ pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
 pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     int original_length = *(int *)vec[0];
 
-    void **result = malloc(sizeof(void *) * 2);
-    int* length = malloc(sizeof(int));
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    int* length = rasmMalloc(sizeof(int));
 
     void **old_vec = (void **) vec[1];
-    void **new_vec = malloc(sizeof(void *) * original_length);
+    void **new_vec = rasmMalloc(sizeof(void *) * original_length);
 
     int dest_1 = 0;
     for (int i = 0; i < original_length; i++) {
@@ -277,16 +286,20 @@ pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) ->
         length = length1;
     }
 
-    void **result = malloc(sizeof(void *) * 2);
-    void **vec = malloc(sizeof(void *) * length);
-    int *length_ = malloc(sizeof(int));
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    void **vec = rasmMalloc(sizeof(void *) * length);
+    int *length_ = rasmMalloc(sizeof(int));
     *length_ = length;
     result[0] = length_;
     result[1] = vec;
 
     for (int i = 0; i < length; i++) {
-        vec[i] = zipFunction->functionPtr(((void **)vec1[1])[i], ((void **)vec2[1])[i], zipFunction);
+        void *tmp = zipFunction->functionPtr(((void **)vec1[1])[i], ((void **)vec2[1])[i], zipFunction);
+        $addRef(tmp:T)
+        vec[i] = tmp;
     }
+
+    $call(deref, result:RasmPointer)
 
     return result;
 }/
@@ -297,12 +310,12 @@ pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     int length1 = *(int *)vec1[0];
     int length2 = *(int *)vec2[0];
 
-    void **result = malloc(sizeof(void *) * 2);
-    int* length = malloc(sizeof(int));
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    int* length = rasmMalloc(sizeof(int));
     *length = length1 + length2;
     result[0] = length;
 
-    void **vec = malloc(sizeof(void *) * (length1 + length2));
+    void **vec = rasmMalloc(sizeof(void *) * (length1 + length2));
 
     memcpy(vec, vec1[1], sizeof(void *) * length1);
 
@@ -323,9 +336,9 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
         length += *(int *)innerVec[0];
     }
 
-    void **result = malloc(sizeof(void *) * 2);
-    void **result_vec = malloc(sizeof(void *) * length);
-    int *_length = malloc(sizeof(int));
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    void **result_vec = rasmMalloc(sizeof(void *) * length);
+    int *_length = rasmMalloc(sizeof(int));
     *_length = length;
     result[0] = _length;
     result[1] = result_vec;
@@ -347,7 +360,10 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     void **vec_ = (void **)vec[1];
 
     for (int i = 0; i < length; i++) {
-        result = accum->functionPtr(result, vec_[i], accum);
+        $addRef(result: T1)
+        void *tmpResult = accum->functionPtr(result, vec_[i], accum);
+        $deref(result: T1)
+        result = tmpResult;
     }
 
     return result;
@@ -356,15 +372,15 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 pub native charsVec(s: str) -> Vec<char> /{
     $include(<stdlib.h>)
 
-    void **result = malloc(sizeof(void *) * 2);
-    int* length = malloc(sizeof(int));
+    void **result = rasmMalloc(sizeof(void *) * 2);
+    int* length = rasmMalloc(sizeof(int));
     result[0] = length;
     result[1] = NULL;
 
     *length =
         $call(len, $s)
     ;
-    void **vec = malloc(sizeof(void *) * *length);
+    void **vec = rasmMalloc(sizeof(void *) * *length);
 
     result[1] = vec;
 
@@ -376,25 +392,25 @@ pub native charsVec(s: str) -> Vec<char> /{
         char lb = s[i];
         char *c;
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
-           c = malloc(sizeof(char) * 2);
+           c = rasmMalloc(sizeof(char) * 2);
            c[0] = lb;
            c[1] = 0;
            i += 1;
         } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
-          c = malloc(sizeof(char) * 3);
+          c = rasmMalloc(sizeof(char) * 3);
           c[0] = lb;
           c[1] = s[i + 1];
           c[2] = 0;
           i += 2;
         } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
-          c = malloc(sizeof(char) * 4);
+          c = rasmMalloc(sizeof(char) * 4);
           c[0] = lb;
           c[1] = s[i + 1];
           c[2] = s[i + 2];
           c[3] = 0;
           i += 3;
         } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
-          c = malloc(sizeof(char) * 5);
+          c = rasmMalloc(sizeof(char) * 5);
           c[0] = lb;
           c[1] = s[i + 1];
           c[2] = s[i + 2];

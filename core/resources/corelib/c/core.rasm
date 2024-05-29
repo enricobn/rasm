@@ -29,26 +29,28 @@ pub native argv(i: i32) -> Option<str> /{
    }
 */
 
+pub native rasmMalloc(size: i32) -> RasmPointer /{
+    $include(<stdlib.h>)
+
+    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
+        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->count == 0) {
+            free(RASM_REFERENCES[i]->address);
+            free(RASM_REFERENCES[i]);
+            RASM_REFERENCES[i] = NULL;
+            break;
+        }
+    }
+
+    return malloc(size);
+}/
+
 pub native deref(address: RasmPointer) /{
     $include(<stdlib.h>)
     // return;
     // printf("deref %p\n", address);
     for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
         if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
-            //printf("found with count %d\n", RASM_REFERENCES[i]->count);
-            if (RASM_REFERENCES[i]->count < 0) {
-                printf("count < 0");
-            }
-
-            if (--RASM_REFERENCES[i]->count == 0) {
-                /*
-                printf("freeing %p\n", address);
-                free(RASM_REFERENCES[i]->address);
-                free(RASM_REFERENCES[i]);
-                RASM_REFERENCES[i] = NULL;
-                printf("freed %p\n", address);
-                */
-            }
+            RASM_REFERENCES[i]->count--;
             return;
         }
     }
@@ -71,7 +73,7 @@ pub native addRef(address: RasmPointer) /{
             RASM_REFERENCES[i]->count++;
             // printf("addRef count = %d\n", RASM_REFERENCES[i]->count);
             return;
-        } else if (RASM_REFERENCES[i] == NULL || RASM_REFERENCES[i]->count == 0) {
+        } else if (RASM_REFERENCES[i] == NULL) {
             if (firstFree == -1) {
                 firstFree = i;
             }
@@ -82,11 +84,6 @@ pub native addRef(address: RasmPointer) /{
         // printf("Out of memory for references!!\n");
         // $call(exitMain, 1)
         return;
-    }
-
-    if (RASM_REFERENCES[firstFree] != NULL  && RASM_REFERENCES[firstFree]->count == 0) {
-        free(RASM_REFERENCES[firstFree]->address);
-        free(RASM_REFERENCES[firstFree]);
     }
 
     struct RasmReference *rasmReference = malloc(sizeof(struct RasmReference));

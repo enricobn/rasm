@@ -28,7 +28,7 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{TextMacroEval, TextMacroEvaluator};
+use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
 use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
@@ -40,6 +40,8 @@ use crate::type_check::typed_ast::{
     ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
 };
 use linked_hash_map::LinkedHashMap;
+
+use super::text_macro::CAddRefMacro;
 
 #[derive(Clone)]
 pub struct CCodeManipulator;
@@ -694,6 +696,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         evaluators.insert(
             "enumVariantAssignment".to_string(),
             Box::new(CEnumVariantAssignmentMacro),
+        );
+
+        evaluators.insert(
+            "addRef".to_string(),
+            Box::new(CAddRefMacro::new(self.clone(), RefType::AddRef, true)),
+        );
+
+        evaluators.insert(
+            "deref".to_string(),
+            Box::new(CAddRefMacro::new(self.clone(), RefType::Deref, true)),
         );
 
         TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))

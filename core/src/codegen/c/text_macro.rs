@@ -17,10 +17,16 @@
  */
 
 use crate::codegen::c::any::CInclude;
+use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEval};
+use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType, DefaultFunctionCall};
+use crate::type_check::typed_ast::{
+    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+};
+use crate::utils::OptionDisplay;
+
+use super::code_gen_c::CodeGenC;
 
 pub struct CIncludeMacro;
 
@@ -69,7 +75,9 @@ impl TextMacroEval for CStructDeclarationMacro {
                     CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
 
                     let safe_name = format!("{}_{}", namespace.safe_name(), name);
-                    format!("struct {safe_name}* {var_name} = malloc(sizeof(struct {safe_name}));")
+                    format!(
+                        "struct {safe_name}* {var_name} = rasmMalloc(sizeof(struct {safe_name}));"
+                    )
                 } else {
                     panic!(
                         "Error in structDeclaration macro. Function does not return a struct {}",
@@ -154,7 +162,7 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
                         let safe_name =
                             format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
                         format!(
-                            "struct {safe_name}* {var_name} = malloc(sizeof(struct {safe_name}));"
+                            "struct {safe_name}* {var_name} = rasmMalloc(sizeof(struct {safe_name}));"
                         )
                     } else {
                         panic!(
@@ -249,7 +257,9 @@ impl TextMacroEval for CEnumDeclarationMacro {
                     CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
 
                     let safe_name = format!("{}_{}", namespace.safe_name(), name);
-                    format!("struct {safe_name}* {var_name} = malloc(sizeof(struct {safe_name}));")
+                    format!(
+                        "struct {safe_name}* {var_name} = rasmMalloc(sizeof(struct {safe_name}));"
+                    )
                 } else {
                     panic!(
                         "Error in enumDeclaration macro. Function does not return an enum {}",
@@ -305,6 +315,94 @@ impl TextMacroEval for CCallMacro {
             .collect::<Vec<_>>();
 
         format!("{function_name}({});", parameters.join(", "))
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
+pub struct CAddRefMacro {
+    code_gen: CodeGenC,
+    ref_type: RefType,
+    dereference_enabled: bool,
+}
+
+impl CAddRefMacro {
+    pub fn new(code_gen: CodeGenC, ref_type: RefType, dereference_enabled: bool) -> Self {
+        Self {
+            code_gen,
+            ref_type,
+            dereference_enabled,
+        }
+    }
+}
+
+impl TextMacroEval for CAddRefMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        let mut result = String::new();
+
+        if !self.dereference_enabled {
+            return result;
+        }
+        if let Some(fd) = function_def {
+            if fd.name == "addRef" {
+                return result;
+            }
+
+            let (address, ast_typed_type) = match text_macro.parameters.get(0) {
+                Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
+                    (address, ast_typed_type)
+                }
+                Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
+                    (address, ast_typed_type)
+                }
+                _ => panic!(
+                    "Error: addRef/deref macro, a typed type must be specified in function {} but got {}: {}",
+                    OptionDisplay(&function_def),
+                    text_macro.parameters.get(0).unwrap(),
+                    text_macro.index
+                ),
+            };
+
+            if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider) {
+                let descr = &format!("addref macro type {type_name}");
+
+                match self.ref_type {
+                    RefType::Deref => {
+                        self.code_gen.call_deref(
+                            &mut result,
+                            address,
+                            &type_name,
+                            descr,
+                            type_def_provider,
+                            statics,
+                        );
+                    }
+                    RefType::AddRef => {
+                        self.code_gen.call_add_ref(
+                            &mut result,
+                            address,
+                            &type_name,
+                            descr,
+                            type_def_provider,
+                            statics,
+                        );
+                    }
+                }
+            }
+        }
+        result
     }
 
     fn is_pre_macro(&self) -> bool {
