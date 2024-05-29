@@ -5,6 +5,10 @@ the structure of vec
 */
 pub type Vec<T>(true, "void **");
 
+pub fn VecReferences(vec: RasmPointer, generic: i32) -> RasmPointer {
+    vec;
+}
+
 pub native Vec<T>() -> Vec<T> /{
     $include(<stdlib.h>)
 

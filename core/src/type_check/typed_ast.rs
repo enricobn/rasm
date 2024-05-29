@@ -1602,7 +1602,7 @@ fn typed_type(
                     "{:?}",
                     conv_context
                         .module
-                        .structs
+                        .types
                         .iter()
                         .map(|it| format!("{}:{}", it.namespace, it.name))
                         .collect::<Vec<_>>()

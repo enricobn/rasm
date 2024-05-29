@@ -266,6 +266,73 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         module: &ASTTypedModule,
         statics: &mut Statics,
     ) -> String {
-        String::new()
+        let mut body = String::new();
+
+        if type_def.generic_types.iter().any(|(_, generic_type_def)| {
+            get_reference_type_name(generic_type_def, module).is_some()
+        }) {
+            self.code_gen.add_rows(
+                &mut body,
+                vec!["int length;", "void ** array;", "void ** vec;"],
+                None,
+                true,
+            );
+            for (i, (_generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate()
+            {
+                self.code_gen.add(&mut body, "vec = ", None, true);
+
+                self.code_gen.call_function(
+                    &mut body,
+                    &format!("{}References", type_def.original_name),
+                    &[("address", None), (&format!("{i}"), None)],
+                    None,
+                    false,
+                    false,
+                );
+
+                self.code_gen.add_rows(
+                    &mut body,
+                    vec![
+                        "length = *((int*)vec[0]);",
+                        "array = ((void **)vec[1]);",
+                        "for (int i = 0; i < length; i++) {",
+                    ],
+                    None,
+                    true,
+                );
+
+                if let Some(name) = get_reference_type_name(generic_type_def, module) {
+                    if function_name == "deref" {
+                        self.code_gen
+                            .call_deref(&mut body, "array[i]", &name, &name, module, statics);
+                    } else {
+                        self.code_gen
+                            .call_add_ref(&mut body, "array[i]", &name, &name, module, statics);
+                    }
+                }
+                self.code_gen.add(&mut body, "}", None, true);
+            }
+        }
+
+        self.code_gen.add(
+            &mut body,
+            "void ** addressArray = (void **)address[1];",
+            None,
+            true,
+        );
+
+        if function_name == "deref" {
+            self.code_gen
+                .call_deref_simple(&mut body, "addressArray", &type_def.name, statics);
+            self.code_gen
+                .call_deref_simple(&mut body, "address", &type_def.name, statics);
+        } else {
+            self.code_gen
+                .call_add_ref_simple(&mut body, "address", &type_def.name, statics);
+            self.code_gen
+                .call_add_ref_simple(&mut body, "addressArray", &type_def.name, statics);
+        }
+
+        body
     }
 }

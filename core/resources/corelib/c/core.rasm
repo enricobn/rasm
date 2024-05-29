@@ -1,4 +1,4 @@
-type RasmPointer(false, "void *");
+pub type RasmPointer(false, "void *");
 
 pub native exitMain(status: i32) /{
     exit($status);

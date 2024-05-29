@@ -415,7 +415,22 @@ impl CompileTarget {
                     }
                 }
             }
-            CompileTarget::C(_) => {}
+            CompileTarget::C(_) => {
+                for def in &module.types {
+                    if !def.type_parameters.is_empty() {
+                        let name = format!("{}References", def.name);
+                        result.push(DefaultFunction {
+                            name,
+                            param_types: vec![ASTType::Custom {
+                                namespace: ASTNameSpace::global(),
+                                name: "RasmPointer".to_string(),
+                                param_types: vec![],
+                                index: ASTIndex::none(),
+                            }],
+                        });
+                    }
+                }
+            }
         }
 
         result
