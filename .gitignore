@@ -2,6 +2,6 @@ target/
 /.idea/
 /.swp
 /local/
-/.vscode/launch.json
+/.vscode/
 debug.log.xml
 tmp/
