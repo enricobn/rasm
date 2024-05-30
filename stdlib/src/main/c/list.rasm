@@ -3,6 +3,7 @@ pub native chars(s: str) -> List<str> /{
     $enumVariantDeclaration(empty,Empty)
     result->variant_num = 1;
     result->variant = empty;
+    $addRef(result:List<str>)
 
     int len = strlen(s);
     int i = 0;
@@ -40,10 +41,18 @@ pub native chars(s: str) -> List<str> /{
            printf( "Unrecognized lead byte (%02x)\n", lb );
            return result;
        }
-       result =
-       $call(push, result: List<str>, c: str)
+       $addRef(c:str)
+       void *tmp = 
+          $call(push, result: List<str>, c: str)
        ;
+       $addRef(tmp:List<str>)
+       $deref(line:str)
+       $deref(result:List<str>)
+
+       result = tmp;
+       
     }
+    $deref(result:List<str>)
     return result;
 }/
 
@@ -69,10 +78,11 @@ pub native lines(s: str) -> List<str> /{
            void *tmp = 
               $call(push, result: List<str>, line: str)
               ;
-           $addRef(tmp:List<str>)
 
+           $addRef(tmp:List<str>)
            $deref(line:str)
            $deref(result:List<str>)
+
            result = tmp;
            
            i++;
@@ -93,6 +103,8 @@ pub native lines(s: str) -> List<str> /{
            return result;
        }
     }
-    $deref(result:List<str>)
+    if (line_pos > 0) {
+      $deref(result:List<str>)
+    }
     return result;
 }/

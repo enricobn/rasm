@@ -301,7 +301,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         &self.options // TODO it should be generic, we have c_options?
     }
 
-    fn end_main(&self, code: &mut String) {}
+    fn end_main(&self, code: &mut String) {
+        self.add(code, "freeReferences();", None, true);
+    }
 
     fn transform_before(&self, stack: &StackVals, before: String) -> String {
         before
@@ -458,7 +460,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         index: &ASTIndex,
         type_name: &String,
     ) {
-        //self.add(body, &format!("addRef({name});"), None, true);
+        self.call_add_ref(body, name, type_name, &type_name, typed_module, &statics);
     }
 
     fn call_deref_for_let_val(
@@ -864,7 +866,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 "  int count;",
                 "};",
                 "",
-                "int RASM_REFERENCES_COUNT = 100;",
+                "int RASM_REFERENCES_COUNT = 1000;",
+                "int RASM_DEBUG = 0;", // false 0 1 true
                 "struct RasmReference **RASM_REFERENCES;",
                 "",
             ],

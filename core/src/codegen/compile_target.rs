@@ -498,6 +498,7 @@ impl CompileTarget {
                     }],
                 },
                 DefaultFunction::new_0("initRasmReferences"),
+                DefaultFunction::new_0("freeReferences"),
             ],
         };
 

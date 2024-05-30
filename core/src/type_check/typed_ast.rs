@@ -38,6 +38,17 @@ pub struct ASTTypedFunctionDef {
     pub index: ASTIndex,
 }
 
+impl ASTTypedFunctionDef {
+    pub fn original_signature(&self) -> String {
+        let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
+        let mut result = format!("{}({})", self.original_name, pars.join(","));
+        if self.return_type != ASTTypedType::Unit {
+            result.push_str(&format!(" -> {}", self.return_type));
+        }
+        result
+    }
+}
+
 impl Display for ASTTypedFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();

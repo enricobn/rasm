@@ -287,13 +287,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         self.restore(&stack, &mut generated_code);
 
-        self.function_end(&mut generated_code, false, None);
-
         if self.options().print_memory {
             self.print_memory_info(&mut generated_code, &statics);
         }
 
         self.end_main(&mut generated_code);
+
+        self.function_end(&mut generated_code, false, None);
 
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
@@ -1129,7 +1129,11 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         if function_def.index.file_name.is_some() {
             self.add_comment(definitions, &format!("{}", function_def.index), false);
         }
-        self.add_comment(definitions, &format!("function {}", function_def), false);
+        self.add_comment(
+            definitions,
+            &format!("function {}", function_def.original_signature()),
+            false,
+        );
         self.function_def(definitions, function_def, statics);
 
         let mut before = String::new();
