@@ -292,6 +292,7 @@ pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) ->
     *length_ = length;
     result[0] = length_;
     result[1] = vec;
+    $call(addRef, result:RasmPointer)
 
     for (int i = 0; i < length; i++) {
         void *tmp = zipFunction->functionPtr(((void **)vec1[1])[i], ((void **)vec2[1])[i], zipFunction);
