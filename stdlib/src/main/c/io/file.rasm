@@ -12,7 +12,7 @@ pub native readFile(path: str) -> str /{
       fseek (f, 0, SEEK_END);
       length = ftell (f);
       fseek (f, 0, SEEK_SET);
-      buffer = malloc (length + sizeof(char));
+      buffer = rasmMalloc (length + sizeof(char));
       if (buffer)
       {
         fread (buffer, 1, length, f);

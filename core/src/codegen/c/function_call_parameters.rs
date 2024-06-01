@@ -70,7 +70,7 @@ impl CFunctionCallParameters {
             inline,
             stack_vals,
             immediate,
-            code_gen_c: CodeGenC::new(COptions::default()),
+            code_gen_c: CodeGenC::new(COptions::default(), false),
         }
     }
 

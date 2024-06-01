@@ -54,7 +54,7 @@ pub struct RasmProject {
 }
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/rasm"]
-struct RasmCoreLibAssets;
+pub struct RasmCoreLibAssets;
 
 impl RasmProject {
     pub fn new(root: PathBuf) -> Self {

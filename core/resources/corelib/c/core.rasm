@@ -32,16 +32,12 @@ pub native argv(i: i32) -> Option<str> /{
 pub native rasmMalloc(size: i32) -> RasmPointer /{
     $include(<stdlib.h>)
 
-    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->count == 0) {
-            if (RASM_DEBUG) {
-                printf("free(%p)\n", RASM_REFERENCES[i]->address);
-            }
-            free(RASM_REFERENCES[i]->address);
-            free(RASM_REFERENCES[i]);
-            RASM_REFERENCES[i] = NULL;
-            break;
+    void *address_to_free;
+    while ((address_to_free = rc_remove_zero(rasm_rc_table)) != NULL) {
+        if (RASM_DEBUG) {
+            printf("free(%p).\n", address_to_free);
         }
+        free(address_to_free);
     }
 
     void *result = malloc(size);
@@ -64,15 +60,14 @@ pub native deref(address: RasmPointer) /{
     if (RASM_DEBUG) {
         printf("deref(%p)", address);
     }
-    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
-            RASM_REFERENCES[i]->count--;
-            if (RASM_DEBUG) {
-                printf("[%d] count %d\n", i, RASM_REFERENCES[i]->count);
-            }
-            return;
-        }
+
+    int count;
+    if ((count = rc_dec(rasm_rc_table, address)) == INT_MIN) {
+        printf("Error in rc_dec.\n");
+    } else if (RASM_DEBUG) {
+        printf(" count %d\n", count);
     }
+
     // printf("Cannot find reference!!\n");
     // $call(exitMain, 1)
     return;
@@ -92,53 +87,18 @@ pub native addRef(address: RasmPointer) /{
     if (RASM_DEBUG) {
         printf("addRef(%p)", address);
     }
-    int firstFree = -1;
-
-    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->address == address) {
-            RASM_REFERENCES[i]->count++;
-            if (RASM_DEBUG) {
-                printf("[%d] count = %d\n", i, RASM_REFERENCES[i]->count);
-            }
-            return;
-        } else if (RASM_REFERENCES[i] == NULL) {
-            if (firstFree == -1) {
-                firstFree = i;
-            }
-        }
-    }
-
-    if (firstFree == -1) {
-        // printf("Out of memory for references!!\n");
-        // $call(exitMain, 1)
-        return;
-    }
-
-    struct RasmReference *rasmReference = malloc(sizeof(struct RasmReference));
-    rasmReference->address = address;
-    rasmReference->count = 1;
-    RASM_REFERENCES[firstFree] = rasmReference;
-    if (RASM_DEBUG) {
-        printf("[%d] count = 1\n", firstFree);
+    int count;
+    if ((count = rc_inc(rasm_rc_table, address)) == INT_MIN) {
+        printf("Error in rc_inc.\n");
+    } else if (RASM_DEBUG) {
+        printf(" count %d\n", count);
     }
 }/
 
-
 pub native freeReferences() /{
-    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        if (RASM_REFERENCES[i] != NULL && RASM_REFERENCES[i]->count == 0) {
-            if (RASM_DEBUG) {
-                printf("free(%p)\n", RASM_REFERENCES[i]->address);
-            }
-            free(RASM_REFERENCES[i]->address);
-            free(RASM_REFERENCES[i]);
-            RASM_REFERENCES[i] = NULL;
-        }
-    }
+    rc_deep_free(rasm_rc_table);
 }/
 
 pub native initRasmReferences() /{
-    for (int i = 0; i < RASM_REFERENCES_COUNT; i++) {
-        RASM_REFERENCES[i] = NULL;
-    }
+    rasm_rc_table = rc_table(100000, 50);
 }/

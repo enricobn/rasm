@@ -75,14 +75,16 @@ pub struct CodeGenC {
     code_manipulator: CCodeManipulator,
     options: AsmOptions,
     c_options: COptions,
+    debug: bool,
 }
 
 impl CodeGenC {
-    pub fn new(options: COptions) -> Self {
+    pub fn new(options: COptions, debug: bool) -> Self {
         Self {
             code_manipulator: CCodeManipulator,
             options: AsmOptions::default(),
             c_options: options,
+            debug,
         }
     }
 
@@ -867,7 +869,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 "};",
                 "",
                 "int RASM_REFERENCES_COUNT = 1000;",
-                "int RASM_DEBUG = 0;", // false 0 1 true
+                &format!("int RASM_DEBUG = {};", if self.debug { 1 } else { 0 }), // false 0 1 true
                 "struct RasmReference **RASM_REFERENCES;",
                 "",
             ],
@@ -1011,23 +1013,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             vec![
                 "static int argc_;",
                 "static char **argv_;",
+                "static struct RCTable *rasm_rc_table;",
                 "",
                 "int main(int argc, char **argv)",
                 "{",
+                "    initRasmReferences();",
+                "    argc_ = argc;",
+                "    argv_ = argv;",
             ],
             None,
             false,
-        );
-        self.add_rows(
-            &mut before,
-            vec![
-                "RASM_REFERENCES = malloc(sizeof(struct RasmReference*) * RASM_REFERENCES_COUNT);",
-                "initRasmReferences();",
-                "argc_ = argc;",
-                "argv_ = argv;",
-            ],
-            None,
-            true,
         );
 
         (before, after)
@@ -1092,7 +1087,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = CodeGenC::new(COptions::default());
+        let sut = CodeGenC::new(COptions::default(), false);
         let mut statics = Statics::new();
 
         let functions = sut

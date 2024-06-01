@@ -18,7 +18,7 @@
 
 use log::info;
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -28,6 +28,7 @@ use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::backend::{log_command, Backend, BackendNasmi386};
+use crate::codegen::c::any::CInclude;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
@@ -129,7 +130,7 @@ impl CompileTarget {
                 CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
             }
             CompileTarget::C(options) => {
-                CodeGenC::new(options.clone()).generate(typed_module, statics)
+                CodeGenC::new(options.clone(), debug).generate(typed_module, statics)
             }
         }
     }
@@ -163,7 +164,7 @@ impl CompileTarget {
                 Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen, debug))
             }
             CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone());
+                let code_gen = CodeGenC::new(options.clone(), debug);
                 Box::new(TypedFunctionsCreatorC::new(code_gen))
             }
         }
@@ -203,7 +204,7 @@ impl CompileTarget {
                 code_gen.get_text_macro_evaluator()
             }
             CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone());
+                let code_gen = CodeGenC::new(options.clone(), debug);
                 code_gen.get_text_macro_evaluator()
             }
         }
@@ -232,7 +233,7 @@ impl CompileTarget {
                 )
             }
             CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone());
+                let code_gen = CodeGenC::new(options.clone(), debug);
                 code_gen.called_functions(
                     typed_function_def,
                     function_def,
@@ -348,29 +349,51 @@ impl CompileTarget {
                 }
             },
             CompileTarget::C(options) => {
+                let out_path = Path::new(&out);
+                let parent_path = out_path.parent().unwrap();
+
+                let mut source_files_to_include = Vec::new();
+
+                CLibAssets::iter()
+                    .filter(|it| it.ends_with(".c") || it.ends_with(".h"))
+                    .for_each(|it| {
+                        let dest = parent_path.to_path_buf().join(it.to_string());
+                        info!("Including {}", dest.to_string_lossy());
+                        if it.ends_with(".h") {
+                            CInclude::add_to_statics(&mut statics, format!("\"{it}\""));
+                        } else {
+                            source_files_to_include.push(dest.to_string_lossy().to_string());
+                        }
+                        if let Some(asset) = CLibAssets::get(&it) {
+                            fs::write(dest, asset.data).unwrap();
+                        } else {
+                            panic!()
+                        }
+                    });
+
                 let native_code = self.generate(statics, &typed_module, command_line_options.debug);
 
                 info!("code generation ended in {:?}", start.elapsed());
 
-                let out_path = Path::new(&out);
                 File::create(out_path)
                     .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
                     .write_all(native_code.as_bytes())
                     .unwrap();
 
                 let start = Instant::now();
-                info!("source file : '{:?}'", out_path);
+                info!("source file: {}", out_path.to_string_lossy());
                 let mut command = Command::new("gcc");
 
-                let mut args = vec![
-                    out_path.with_extension("c").to_string_lossy().to_string(),
+                let mut args = vec![out_path.with_extension("c").to_string_lossy().to_string()];
+                args.append(&mut source_files_to_include);
+                args.append(&mut vec![
                     "-std=c17".to_string(),
                     "-g".to_string(),
                     "-O0".to_string(),
                     "-o".to_string(),
                     out_path.with_extension("").to_string_lossy().to_string(),
                     "-Wno-incompatible-pointer-types".to_string(),
-                ];
+                ]);
 
                 if !options.includes.is_empty() {
                     for inc in options.includes.iter() {
