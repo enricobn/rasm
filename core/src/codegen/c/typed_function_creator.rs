@@ -102,8 +102,12 @@ impl TypedFunctionsCreatorC {
 
         if function_name == "deref" {
             self.code_gen
+                .call_deref_simple(&mut body, "lambda_space", c_lambda_name, statics);
+            self.code_gen
                 .call_deref_simple(&mut body, "lambda_", c_lambda_name, statics);
         } else {
+            self.code_gen
+                .call_add_ref_simple(&mut body, "lambda_space", c_lambda_name, statics);
             self.code_gen
                 .call_add_ref_simple(&mut body, "lambda_", c_lambda_name, statics);
         }
