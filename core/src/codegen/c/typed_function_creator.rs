@@ -195,6 +195,18 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         body
     }
 
+    // we override rhe default implementation that checks if the enum hs references, we want to do it anyway, since
+    // enum itself and variant are two separated allocations and we always have to addref/deref both
+    fn for_enum(
+        &self,
+        module: &mut ASTTypedModule,
+        statics: &mut Statics,
+        enum_def: &ASTTypedEnumDef,
+    ) {
+        self.create_enum_free(enum_def, "deref", module, statics);
+        self.create_enum_free(enum_def, "addRef", module, statics);
+    }
+
     fn create_enum_free_body(
         &self,
         enum_def: &ASTTypedEnumDef,
