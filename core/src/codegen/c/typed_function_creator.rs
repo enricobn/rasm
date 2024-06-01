@@ -195,7 +195,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         body
     }
 
-    // we override rhe default implementation that checks if the enum hs references, we want to do it anyway, since
+    // we override the default implementation that checks if the enum hs references, we want to do it anyway, since
     // enum itself and variant are two separated allocations and we always have to addref/deref both
     fn for_enum(
         &self,
