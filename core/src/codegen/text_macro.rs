@@ -524,10 +524,8 @@ impl TextMacroEvaluator {
                         };
                         (
                             par_name,
-                            Some(t),
-                            type_def_provider
-                                .get_typed_type_def_from_type_name(par_type_name)
-                                .map(|it| it.ast_typed_type),
+                            Some(t.clone()),
+                            type_def_provider.get_ast_typed_type_from_ast_type(&t),
                         )
                     }
                 }

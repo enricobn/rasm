@@ -140,23 +140,47 @@ pub trait TypeDefProvider {
     }
 
     fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
-        if let Some(e) = find_one(self.enums().iter(), |it| {
-            it.ast_type.equals_excluding_namespace(ast_type)
-                && (it.modifiers.public || it.namespace == ast_type.namespace())
-        }) {
-            Some(e.clone().ast_typed_type)
-        } else if let Some(s) = find_one(self.structs().iter(), |it| {
-            it.ast_type.equals_excluding_namespace(ast_type)
-                && (it.modifiers.public || it.namespace == ast_type.namespace())
-        }) {
-            Some(s.clone().ast_typed_type)
-        } else {
-            find_one(self.types().iter(), |it| {
-                // println!("found type {it}");
-                it.ast_type.equals_excluding_namespace(ast_type)
-                    && (it.modifiers.public || it.namespace == ast_type.namespace())
-            })
-            .map(|t| t.clone().ast_typed_type)
+        match ast_type {
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::Bool => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
+                BuiltinTypeKind::Char => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
+                BuiltinTypeKind::I32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+                BuiltinTypeKind::F32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
+                BuiltinTypeKind::String => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
+                }
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => todo!(),
+            },
+            ASTType::Generic(_) => None,
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => {
+                if let Some(e) = find_one(self.enums().iter(), |it| {
+                    it.ast_type.equals_excluding_namespace(ast_type)
+                        && (it.modifiers.public || it.namespace == ast_type.namespace())
+                }) {
+                    Some(e.clone().ast_typed_type)
+                } else if let Some(s) = find_one(self.structs().iter(), |it| {
+                    it.ast_type.equals_excluding_namespace(ast_type)
+                        && (it.modifiers.public || it.namespace == ast_type.namespace())
+                }) {
+                    Some(s.clone().ast_typed_type)
+                } else {
+                    find_one(self.types().iter(), |it| {
+                        // println!("found type {it}");
+                        it.ast_type.equals_excluding_namespace(ast_type)
+                            && (it.modifiers.public || it.namespace == ast_type.namespace())
+                    })
+                    .map(|t| t.clone().ast_typed_type)
+                }
+            }
+            ASTType::Unit => Some(ASTTypedType::Unit),
         }
     }
 

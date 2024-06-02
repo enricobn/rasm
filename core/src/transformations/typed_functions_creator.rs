@@ -3,62 +3,108 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
 use crate::parser::ast::{ASTIndex, ASTNameSpace};
 use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
+    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
+    ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
 };
 
 pub trait TypedFunctionsCreator {
-    fn create(&self, module: &mut ASTTypedModule, statics: &mut Statics) {
-        for struct_def in module.structs.clone().iter() {
-            self.for_struct(module, statics, struct_def);
+    fn create(
+        &self,
+        module: &EnhancedASTModule,
+        typed_module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
+        statics: &mut Statics,
+    ) {
+        for struct_def in typed_module.structs().iter() {
+            self.for_struct(module, typed_module, functions_by_name, statics, struct_def);
         }
 
-        for enum_def in module.enums.clone().iter() {
-            self.for_enum(module, statics, enum_def);
+        for enum_def in typed_module.enums().iter() {
+            self.for_enum(module, typed_module, functions_by_name, statics, enum_def);
         }
 
-        for typed_type_def in module.types.clone().iter() {
-            self.for_type(module, statics, typed_type_def);
+        for typed_type_def in typed_module.types().iter() {
+            self.for_type(
+                module,
+                typed_module,
+                functions_by_name,
+                statics,
+                typed_type_def,
+            );
         }
     }
+
     fn for_type(
         &self,
-        module: &mut ASTTypedModule,
+        module: &EnhancedASTModule,
+        typed_module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
         typed_type_def: &ASTTypedTypeDef,
     ) {
         if typed_type_def.is_ref {
-            self.create_type_free(typed_type_def, "deref", module, statics);
-            self.create_type_free(typed_type_def, "addRef", module, statics);
+            self.create_type_free(
+                module,
+                typed_type_def,
+                "deref",
+                typed_module,
+                functions_by_name,
+                statics,
+            );
+            self.create_type_free(
+                module,
+                typed_type_def,
+                "addRef",
+                typed_module,
+                functions_by_name,
+                statics,
+            );
         }
     }
 
     fn for_enum(
         &self,
-        module: &mut ASTTypedModule,
+        module: &EnhancedASTModule,
+        typed_module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
-        if enum_has_references(enum_def, module) {
-            self.create_enum_free(enum_def, "deref", module, statics);
-            self.create_enum_free(enum_def, "addRef", module, statics);
+        if enum_has_references(enum_def, typed_module) {
+            self.create_enum_free(enum_def, "deref", typed_module, functions_by_name, statics);
+            self.create_enum_free(enum_def, "addRef", typed_module, functions_by_name, statics);
         }
     }
 
     fn for_struct(
         &self,
-        module: &mut ASTTypedModule,
+        module: &EnhancedASTModule,
+        typed_module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
         struct_def: &ASTTypedStructDef,
     ) {
-        if struct_has_references(struct_def, module) {
-            self.create_struct_free(struct_def, "deref", module, statics);
-            self.create_struct_free(struct_def, "addRef", module, statics);
+        if struct_has_references(struct_def, typed_module) {
+            self.create_struct_free(
+                struct_def,
+                "deref",
+                typed_module,
+                functions_by_name,
+                statics,
+            );
+            self.create_struct_free(
+                struct_def,
+                "addRef",
+                typed_module,
+                functions_by_name,
+                statics,
+            );
         }
     }
 
@@ -100,7 +146,7 @@ pub trait TypedFunctionsCreator {
     fn add_function(
         &self,
         namespace: &ASTNameSpace,
-        module: &mut ASTTypedModule,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         ast_type: ASTTypedType,
         body: ASTTypedFunctionBody,
         function_name_suffix: &str,
@@ -113,14 +159,15 @@ pub trait TypedFunctionsCreator {
 
         debug!("created function {function_def}");
 
-        module.functions_by_name.insert(fun_name, function_def);
+        functions_by_name.insert(fun_name, function_def);
     }
 
     fn create_struct_free(
         &self,
         struct_def: &ASTTypedStructDef,
         function_name: &str,
-        module: &mut ASTTypedModule,
+        module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
     ) {
         let body_str = self.create_struct_free_body(struct_def, function_name, module, statics);
@@ -128,7 +175,7 @@ pub trait TypedFunctionsCreator {
 
         self.add_function(
             &struct_def.namespace,
-            module,
+            functions_by_name,
             struct_def.ast_typed_type.clone(),
             body,
             function_name,
@@ -141,7 +188,8 @@ pub trait TypedFunctionsCreator {
         &self,
         enum_def: &ASTTypedEnumDef,
         function_name: &str,
-        module: &mut ASTTypedModule,
+        module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
     ) {
         let body_str = self.create_enum_free_body(enum_def, function_name, module, statics);
@@ -149,7 +197,7 @@ pub trait TypedFunctionsCreator {
 
         self.add_function(
             &enum_def.namespace,
-            module,
+            functions_by_name,
             enum_def.ast_typed_type.clone(),
             body,
             function_name,
@@ -160,9 +208,11 @@ pub trait TypedFunctionsCreator {
 
     fn create_type_free(
         &self,
+        module: &EnhancedASTModule,
         typed_type_def: &ASTTypedTypeDef,
         function_name: &str,
-        module: &mut ASTTypedModule,
+        typed_module: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
     ) {
         let ast_type = ASTTypedType::Struct {
@@ -170,12 +220,18 @@ pub trait TypedFunctionsCreator {
             name: typed_type_def.name.clone(),
         };
 
-        let body_str = self.create_type_free_body(typed_type_def, function_name, module, statics);
+        let body_str = self.create_type_free_body(
+            module,
+            typed_type_def,
+            function_name,
+            typed_module,
+            statics,
+        );
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
             &typed_type_def.namespace,
-            module,
+            functions_by_name,
             typed_type_def.ast_typed_type.clone(),
             body,
             function_name,
@@ -188,7 +244,7 @@ pub trait TypedFunctionsCreator {
         &self,
         struct_def: &ASTTypedStructDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
 
@@ -196,15 +252,16 @@ pub trait TypedFunctionsCreator {
         &self,
         enum_def: &ASTTypedEnumDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
 
     fn create_type_free_body(
         &self,
+        module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
 }
@@ -279,7 +336,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         &self,
         struct_def: &ASTTypedStructDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let ws = self.backend.word_size();
@@ -350,7 +407,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         &self,
         enum_def: &ASTTypedEnumDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let ws = self.backend.word_size();
@@ -437,9 +494,10 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
     fn create_type_free_body(
         &self,
+        module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         if !type_def.is_ref {
@@ -461,15 +519,21 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         if type_has_references(type_def) {
             for (i, (_generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate()
             {
-                if let Some(name) = get_reference_type_name(generic_type_def, module) {
+                if let Some(name) = get_reference_type_name(generic_type_def, typed_module) {
                     let descr = "$descr";
                     let call_deref = if function_name == "deref" {
                         self.code_gen
-                            .call_deref("[ebx]", &name, descr, module, statics)
+                            .call_deref("[ebx]", &name, descr, typed_module, statics)
                     } else {
                         let mut s = String::new();
-                        self.code_gen
-                            .call_add_ref(&mut s, "[ebx]", &name, descr, module, statics);
+                        self.code_gen.call_add_ref(
+                            &mut s,
+                            "[ebx]",
+                            &name,
+                            descr,
+                            typed_module,
+                            statics,
+                        );
                         s
                     };
 

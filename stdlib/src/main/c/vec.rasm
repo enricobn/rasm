@@ -5,9 +5,31 @@ the structure of vec
 */
 pub type Vec<T>(true, "void **");
 
-pub fn VecReferences(vec: RasmPointer, generic: i32) -> RasmPointer {
-    vec;
-}
+pub native VecAddRef<T>(address: Vec<T>) /{
+    int *length = address[0];
+    void **array = address[1];
+    
+    addRef(array);
+    addRef(length);
+
+    for (int i=0; i < *length; i++) {
+        $addRef(array[i]: T);
+    }
+    addRef(address);
+}/
+
+pub native VecDeref<T>(address: Vec<T>) /{
+    int *length = address[0];
+    void **array = address[1];
+    
+    for (int i=0; i < *length; i++) {
+        $deref(array[i]: T);
+    }
+
+    deref(array);
+    deref(length);
+    deref(address);
+}/
 
 pub native Vec<T>() -> Vec<T> /{
     $include(<stdlib.h>)

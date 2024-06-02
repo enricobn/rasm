@@ -18,18 +18,21 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use linked_hash_map::LinkedHashMap;
+
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
-use crate::parser::ast::ASTNameSpace;
+use crate::parser::ast::{ASTFunctionBody, ASTNameSpace};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedStructDef,
-    ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
+    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedTypeDef,
 };
 
-use super::any::{CLambda, CLambdas, CStructs};
+use super::any::{CLambdas, CStructs};
 use super::code_gen_c::CodeGenC;
 
 static REF_FUNCTIONS_ID: AtomicUsize = AtomicUsize::new(0);
@@ -120,14 +123,14 @@ impl TypedFunctionsCreatorC {
         c_lambda_name: &str,
         lambda_space: &LambdaSpace,
         function_name: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> ASTTypedFunctionDef {
         let body_str = self.create_lambda_free_body(
             c_lambda_name,
             function_name,
             lambda_space,
-            module,
+            type_def_provider,
             statics,
         );
         let body = ASTTypedFunctionBody::NativeBody(body_str);
@@ -156,13 +159,14 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         &self,
         struct_def: &ASTTypedStructDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let mut body = String::new();
 
         for property in struct_def.properties.iter() {
-            if let Some(type_name) = get_reference_type_name(&property.ast_type, module) {
+            if let Some(type_name) = get_reference_type_name(&property.ast_type, type_def_provider)
+            {
                 CLambdas::add_to_statics_if_lambda(&property.ast_type, statics);
                 let source = format!(
                     "({}) address->{}",
@@ -170,11 +174,23 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     property.name
                 );
                 if function_name == "deref" {
-                    self.code_gen
-                        .call_deref(&mut body, &source, &type_name, "", module, statics);
+                    self.code_gen.call_deref(
+                        &mut body,
+                        &source,
+                        &type_name,
+                        "",
+                        type_def_provider,
+                        statics,
+                    );
                 } else {
-                    self.code_gen
-                        .call_add_ref(&mut body, &source, &type_name, "", module, statics);
+                    self.code_gen.call_add_ref(
+                        &mut body,
+                        &source,
+                        &type_name,
+                        "",
+                        type_def_provider,
+                        statics,
+                    );
                 }
             }
         }
@@ -199,19 +215,33 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
     // enum itself and variant are two separated allocations and we always have to addref/deref both
     fn for_enum(
         &self,
-        module: &mut ASTTypedModule,
+        module: &EnhancedASTModule,
+        type_def_provider: &dyn TypeDefProvider,
+        functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
-        self.create_enum_free(enum_def, "deref", module, statics);
-        self.create_enum_free(enum_def, "addRef", module, statics);
+        self.create_enum_free(
+            enum_def,
+            "deref",
+            type_def_provider,
+            functions_by_name,
+            statics,
+        );
+        self.create_enum_free(
+            enum_def,
+            "addRef",
+            type_def_provider,
+            functions_by_name,
+            statics,
+        );
     }
 
     fn create_enum_free_body(
         &self,
         enum_def: &ASTTypedEnumDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let mut body = String::new();
@@ -236,7 +266,9 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             );
 
             for parameter in &variant.parameters {
-                if let Some(type_name) = get_reference_type_name(&parameter.ast_type, module) {
+                if let Some(type_name) =
+                    get_reference_type_name(&parameter.ast_type, type_def_provider)
+                {
                     CLambdas::add_to_statics_if_lambda(&parameter.ast_type, statics);
                     let source = format!(
                         "({}) variant->{}",
@@ -245,11 +277,21 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     );
                     if function_name == "deref" {
                         self.code_gen.call_deref(
-                            &mut body, &source, &type_name, &type_name, module, statics,
+                            &mut body,
+                            &source,
+                            &type_name,
+                            &type_name,
+                            type_def_provider,
+                            statics,
                         );
                     } else {
                         self.code_gen.call_add_ref(
-                            &mut body, &source, &type_name, &type_name, module, statics,
+                            &mut body,
+                            &source,
+                            &type_name,
+                            &type_name,
+                            type_def_provider,
+                            statics,
                         );
                     }
                 }
@@ -286,85 +328,63 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
 
     fn create_type_free_body(
         &self,
+        module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
         function_name: &str,
-        module: &ASTTypedModule,
+        type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
-        let mut body = String::new();
-
-        if type_def.generic_types.iter().any(|(_, generic_type_def)| {
-            get_reference_type_name(generic_type_def, module).is_some()
-        }) {
-            self.code_gen.add_rows(
-                &mut body,
-                vec!["int length;", "void ** array;", "void ** vec;"],
-                None,
-                true,
-            );
-            for (i, (_generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate()
-            {
-                self.code_gen.add(&mut body, "vec = ", None, true);
-
-                self.code_gen.call_function(
-                    &mut body,
-                    &format!("{}References", type_def.original_name),
-                    &[("address", None), (&format!("{i}"), None)],
-                    None,
-                    false,
-                    false,
-                );
-                // TODO the result of *References function is not freed, but for now only Vec in the std lib is a type with
-                //   references and VecReferences returns itself, so it is freed at the end, probably better should be that it returns a copy of itself,
-                //   but it's slower. However it's not a good design that types with references relies on a type (Vec), that is itself a custom
-                //   type, but it's in an external library. And it's not a good design that, in the definition of a type, we must declare if it has
-                //   references and the native type, it could have non meaning for some compiler / target, for example, for Nasm the native type
-                //   is not used. We must find another solution for types in general and in particular for handling references for those compilers/ target
-                //   that must manage memory
-
-                self.code_gen.add_rows(
-                    &mut body,
-                    vec![
-                        "length = *((int*)vec[0]);",
-                        "array = ((void **)vec[1]);",
-                        "for (int i = 0; i < length; i++) {",
-                    ],
-                    None,
-                    true,
-                );
-
-                if let Some(name) = get_reference_type_name(generic_type_def, module) {
-                    if function_name == "deref" {
-                        self.code_gen
-                            .call_deref(&mut body, "array[i]", &name, &name, module, statics);
-                    } else {
-                        self.code_gen
-                            .call_add_ref(&mut body, "array[i]", &name, &name, module, statics);
-                    }
-                }
-                self.code_gen.add(&mut body, "}", None, true);
-            }
-        }
-
-        self.code_gen.add(
-            &mut body,
-            "void ** addressArray = (void **)address[1];",
-            None,
-            true,
-        );
-
-        if function_name == "deref" {
-            self.code_gen
-                .call_deref_simple(&mut body, "addressArray", &type_def.name, statics);
-            self.code_gen
-                .call_deref_simple(&mut body, "address", &type_def.name, statics);
+        let suffix = if function_name == "deref" {
+            "Deref"
         } else {
-            self.code_gen
-                .call_add_ref_simple(&mut body, "address", &type_def.name, statics);
-            self.code_gen
-                .call_add_ref_simple(&mut body, "addressArray", &type_def.name, statics);
-        }
+            "AddRef"
+        };
 
-        body
+        // we are looking for a function that the "user" must define to add / remove a reference
+        let ref_function_name = format!("{}{suffix}", type_def.original_name);
+
+        let original_function = module
+            .functions_by_name
+            .find_function_by_original_name(&ref_function_name)
+            .expect(&format!(
+                "Cannot find {ref_function_name}. It's needed to handle references."
+            ));
+
+        // the function should have a native body
+        if let ASTFunctionBody::NativeBody(body) = &original_function.body {
+            let evaluator = self.code_gen.get_text_macro_evaluator();
+
+            let mut function = original_function.clone();
+
+            let mut dummy = self.create_function(
+                &type_def.namespace,
+                "dummy",
+                type_def.ast_typed_type.clone(),
+                ASTTypedFunctionBody::NativeBody(String::new()),
+                false,
+            );
+
+            function.resolved_generic_types = ResolvedGenericTypes::new();
+            for (name, t) in type_def.generic_types.iter() {
+                function.resolved_generic_types.insert(
+                    name.clone(),
+                    type_def_provider.get_type_from_typed_type(&t).unwrap(),
+                );
+                dummy.generic_types.insert(name.clone(), t.clone());
+            }
+
+            evaluator
+                .translate(
+                    statics,
+                    Some(&dummy),
+                    Some(&function),
+                    body,
+                    false,
+                    type_def_provider,
+                )
+                .unwrap()
+        } else {
+            panic!("{ref_function_name} should be a native function.");
+        }
     }
 }

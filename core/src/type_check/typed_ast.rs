@@ -840,6 +840,13 @@ pub fn convert_to_typed_module(
         );
     }
 
+    target.typed_functions_creator(debug).create(
+        &original_module,
+        &conv_context,
+        &mut functions_by_name,
+        statics,
+    );
+
     let evaluator = target.get_evaluator(debug);
 
     for (_name, function) in functions_by_name.iter_mut() {

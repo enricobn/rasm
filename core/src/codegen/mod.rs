@@ -133,7 +133,7 @@ pub fn get_typed_module(
     let mandatory_functions = target.get_mandatory_functions(&module);
     let default_functions = target.get_default_functions(print_memory_info);
 
-    let mut typed_module = convert_to_typed_module(
+    convert_to_typed_module(
         &module,
         print_module,
         mandatory_functions,
@@ -141,11 +141,7 @@ pub fn get_typed_module(
         default_functions,
         target,
         debug,
-    )?;
-    target
-        .typed_functions_creator(debug)
-        .create(&mut typed_module, statics);
-    Ok(typed_module)
+    )
 }
 
 pub fn get_std_lib_path() -> String {
@@ -279,7 +275,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         }
 
         let new_body = self
-            .translate_body(body, &mut statics, typed_module)
+            .translate_body(&body, &mut statics, typed_module)
             .unwrap();
 
         generated_code.push_str(&new_body);
@@ -1719,7 +1715,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn translate_body(
         &self,
-        body: String,
+        body: &str,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> Result<String, String> {
@@ -1727,7 +1723,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         let evaluator = self.get_text_macro_evaluator();
 
-        let new_body = evaluator.translate(statics, None, None, &body, true, typed_module)?;
+        let new_body = evaluator.translate(statics, None, None, body, true, typed_module)?;
 
         let result = evaluator.translate(statics, None, None, &new_body, false, typed_module)?;
 
