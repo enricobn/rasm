@@ -8,6 +8,13 @@ pub fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
     flatten(map(l, f));
 }
 
+// TODO native implementation
+pub fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
+    let v1 = map(v, fn(n) { print(file, n, ",");});
+    let errors = v1.filter( fn(o) { o.isSome; });
+    errors.first.flatten;
+}
+
 pub fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
     forEach(v, fn(n) {printFunction(n); print(",");});
 }

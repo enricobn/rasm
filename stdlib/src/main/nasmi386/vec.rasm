@@ -691,10 +691,3 @@ pub native charsVec(s: str) -> Vec<char> /{
     pop     ecx
     pop     ebx
 }/
-
-// TODO native implementation
-pub fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
-    let v1 = map(v, fn(n) { print(file, n, ",");});
-    let errors = v1.filter( fn(o) { o.isSome; });
-    errors.first.flatten;
-}

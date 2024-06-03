@@ -185,6 +185,8 @@ native optIOError() -> Option<IOError> /{
     }
 }/
 
+/*
+TODO it does not addRef/deref in call print of single element, so for now, we use the non native implementation
 pub native print<T>(file: File, v: Vec<T>) -> Option<IOError> /{
     $include(<stdio.h>)
 
@@ -199,6 +201,7 @@ pub native print<T>(file: File, v: Vec<T>) -> Option<IOError> /{
     }
     return $call(optIOError);
 }/
+*/
 
 // end exclusive
 pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
