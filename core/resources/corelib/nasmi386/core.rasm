@@ -61,9 +61,10 @@ pub native argv(i: i32) -> Option<str> /{
     push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
-    mov ebx, _rasm_args
+    mov ebx, [_rasm_args]
     cmp $i,ebx
     jge .notFound
+    mov ebx, _rasm_args
     mov ecx,4           ; i add 4*i to the base address (_rasm_args)
     mov eax,$i
     inc eax             ; we skip the length (argc)
@@ -74,7 +75,6 @@ pub native argv(i: i32) -> Option<str> /{
     jmp .end
 .notFound:
     mov     dword eax, [_enum_stdlib_option_Option_None]
-    jmp     .end
 .end:
     pop ecx
     pop ebx
