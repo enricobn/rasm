@@ -1,7 +1,8 @@
 struct Model {
     quads: Vec<Quad>,
     fps: FPS,
-    font: SDLFont
+    font: SDLFont,
+    count:i32
 }
 
 struct Quad {
@@ -35,7 +36,7 @@ let quads = vecRange(0, QUADS).map(fn(it) {
                     let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
                     Quad(x, y, xDir, yDir);
                 });
-let initialModel = Model(quads, FPS(0, now(), 0), font);
+let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(fn(it) {it.toi32;}).getOrElse(5000));
 
 let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
@@ -46,7 +47,9 @@ sdlLoop(ren, initialModel,
 );
 
 fn update(event: Option<KeyEvent>, model: Model) -> Model {
-    model.quads(model.quads.map(fn(quad) { quad.update;})).fps(model.fps.update);
+    let newModel = model.quads(model.quads.map(fn(quad) { quad.update;})).fps(model.fps.update).count(model.count.sub(1));
+    if(newModel.count.less(0), {sdlQuit(); exitMain(0);}, {});
+    newModel;
 }
 
 fn update(quad: Quad) -> Quad {
