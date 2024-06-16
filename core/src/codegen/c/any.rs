@@ -195,7 +195,7 @@ pub struct CStruct {
 }
 
 impl CStruct {
-    pub fn new(name: String, map: LinkedHashMap<String, String>) -> Self {
+    fn new(name: String, map: LinkedHashMap<String, String>) -> Self {
         Self { name, map }
     }
 
@@ -229,6 +229,21 @@ impl CStructs {
             structs: Vec::new(),
         }
     }
+
+    pub fn add_struct_to_statics(
+        statics: &mut Statics,
+        name: String,
+        map: LinkedHashMap<String, String>,
+    ) {
+        if let Some(structs) = statics.any_mut::<CStructs>() {
+            structs.structs.push(CStruct::new(name, map));
+        } else {
+            let mut structs = CStructs::new();
+            structs.structs.push(CStruct::new(name, map));
+            statics.add_any(structs)
+        }
+    }
+
     pub fn add_lambda_space_to_statics(
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
@@ -244,22 +259,13 @@ impl CStructs {
 
         if let Some(structs) = statics.any_mut::<CStructs>() {
             if let Some(s) = structs.structs.iter().find(|it| it.map == map) {
-                s.name.clone()
-            } else {
-                let name = format!("LambdaSpace_{}", ID.fetch_add(1, Ordering::SeqCst));
-                let s = CStruct::new(name.clone(), map);
-                structs.structs.push(s);
-                name
+                return s.name.clone();
             }
-        } else {
-            let name = format!("LambdaSpace_{}", ID.fetch_add(1, Ordering::SeqCst));
-            let s = CStruct::new(name.clone(), map);
-
-            let mut structs = CStructs::new();
-            structs.structs.push(s);
-            statics.add_any(structs);
-            name
         }
+
+        let name = format!("LambdaSpace_{}", ID.fetch_add(1, Ordering::SeqCst));
+        Self::add_struct_to_statics(statics, name.clone(), map);
+        name
     }
 }
 

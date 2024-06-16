@@ -1,12 +1,12 @@
 # RASM
 
 A native compiler (for now it produces only 386 linux executables) for a "not pure" functional language.  
-It is still in experimental phase (and probably it will always be...).   
+It is still in experimental phase (and probably it will always be...).
 **It is not secure, so try it at your own risk!!!**
 
 ## Build
 
-To build the compiler you need the rust toolchain (https://www.rust-lang.org/tools/install):  
+To build the compiler you need the rust toolchain (<https://www.rust-lang.org/tools/install>):  
 `cargo build --release`
 
 ## Compile
@@ -121,5 +121,5 @@ CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -p rasm build -f rasm/resource
 ## profiling executable
 
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
-valgrind --tool=callgrind "executable"  
-callgrind_annotate --auto=yes callgrind.out."pid"
+valgrind --tool=callgrind `<executable>`
+callgrind_annotate --auto=yes callgrind.out.`<pid>`

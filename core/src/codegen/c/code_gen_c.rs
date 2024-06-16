@@ -1062,7 +1062,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     }
 
     fn add_statics(&self, statics: &mut Statics) {
-        // TODO
+        /*
+        let mut map = LinkedHashMap::new();
+        map.insert("address".to_string(), "void *".to_string());
+        map.insert("count".to_string(), "int".to_string());
+        CStructs::add_struct_to_statics(statics, "RasmPointer".to_string(), map)
+        */
     }
 
     fn value_to_string(&self, value_type: &ValueType) -> String {
