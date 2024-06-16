@@ -863,14 +863,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         self.add_rows(
             &mut before,
             vec![
-                "struct RasmReference {",
-                "  void *address;",
-                "  int count;",
-                "};",
-                "",
-                "int RASM_REFERENCES_COUNT = 1000;",
                 &format!("int RASM_DEBUG = {};", if self.debug { 1 } else { 0 }), // false 0 1 true
-                "struct RasmReference **RASM_REFERENCES;",
                 "",
             ],
             None,
