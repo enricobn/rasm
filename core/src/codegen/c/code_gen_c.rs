@@ -863,7 +863,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         self.add_rows(
             &mut before,
             vec![
-                &format!("int RASM_DEBUG = {};", if self.debug { 1 } else { 0 }), // false 0 1 true
+                &format!("int RASM_DEBUG = {};", if self.debug { 1 } else { 0 }), // 0 false, 1 true
                 "",
             ],
             None,
