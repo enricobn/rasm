@@ -121,5 +121,5 @@ CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -p rasm build -f rasm/resource
 ## profiling executable
 
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
-valgrind --tool=callgrind `<executable>`
+valgrind --tool=callgrind `<executable>`  
 callgrind_annotate --auto=yes callgrind.out.`<pid>`
