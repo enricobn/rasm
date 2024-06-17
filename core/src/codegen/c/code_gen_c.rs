@@ -117,7 +117,7 @@ impl CodeGenC {
                 format!("struct {}_{name}*", namespace.safe_name())
             }
             ASTTypedType::Enum { namespace, name } => {
-                format!("struct {}_{name}*", namespace.safe_name())
+                format!("struct Enum*")
             }
             ASTTypedType::Type {
                 namespace,
@@ -877,17 +877,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
-        for s in typed_module.enums.iter() {
-            self.add(
-                &mut before,
-                &format!("struct {}_{} {{", s.namespace.safe_name(), s.name),
-                None,
-                false,
-            );
-            self.add(&mut before, "void *variant;", None, true);
-            self.add(&mut before, "int variant_num;", None, true);
-            self.add(&mut before, "};", None, false);
+        self.add_rows(
+            &mut before,
+            vec!["struct Enum {", "void *variant;", "int variant_num;", "};"],
+            None,
+            false,
+        );
 
+        for s in typed_module.enums.iter() {
             for variant in s.variants.iter() {
                 self.add(
                     &mut before,

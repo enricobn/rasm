@@ -257,9 +257,7 @@ impl TextMacroEval for CEnumDeclarationMacro {
                     CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
 
                     let safe_name = format!("{}_{}", namespace.safe_name(), name);
-                    format!(
-                        "struct {safe_name}* {var_name} = rasmMalloc(sizeof(struct {safe_name}));"
-                    )
+                    format!("struct Enum* {var_name} = rasmMalloc(sizeof(struct Enum));")
                 } else {
                     panic!(
                         "Error in enumDeclaration macro. Function does not return an enum {}",
