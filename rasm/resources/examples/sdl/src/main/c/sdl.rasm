@@ -9,6 +9,16 @@ native isSDLNull<T>(value: T) -> bool /{
     return (value == NULL);
 }/
 
+/*
+pub native NativeSDLRectDeref<T>(address: NativeSDLRect) /{
+    deref(address);
+}/
+
+pub native NativeSDLRectAddRef<T>(address: NativeSDLRect) /{
+    addRef(address);
+}/
+*/
+
 native sdlFailure(message: str) /{
     printf(message, SDL_GetError());
     SDL_Quit();
@@ -94,6 +104,7 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
         $call(rectToSDL, $rect)
     ;
     SDL_RenderFillRect(ren, sdlRect);
+    free(sdlRect);
 }/
 
 native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
@@ -225,4 +236,6 @@ pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /
     ;
 
     SDL_RenderCopy(ren, $message, NULL, sdlRect);
+
+    free(sdlRect);
 }/
