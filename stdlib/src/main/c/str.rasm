@@ -48,11 +48,11 @@ pub native toi32(s: str) -> Option<i32> /{
         ;
     } else {
         // a "typed" None based on the typed return value of the function
-        $enumDeclaration(result)
+        $enumDeclaration(result_none)
         $enumVariantDeclaration(none,None)
-        result->variant_num = 1;
-        result->variant = none;
-        return result;
+        result_none->variant_num = 1;
+        result_none->variant = none;
+        return result_none;
     }
 }/
 
