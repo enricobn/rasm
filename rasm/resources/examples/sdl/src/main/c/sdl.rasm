@@ -9,16 +9,6 @@ native isSDLNull<T>(value: T) -> bool /{
     return (value == NULL);
 }/
 
-/*
-pub native NativeSDLRectDeref<T>(address: NativeSDLRect) /{
-    deref(address);
-}/
-
-pub native NativeSDLRectAddRef<T>(address: NativeSDLRect) /{
-    addRef(address);
-}/
-*/
-
 native sdlFailure(message: str) /{
     printf(message, SDL_GetError());
     SDL_Quit();
