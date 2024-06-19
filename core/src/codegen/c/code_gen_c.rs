@@ -180,9 +180,13 @@ impl CodeGenC {
             }
         } else {
             if "_fn" == type_name {
-                self.add(
+                self.add_rows(
                     out,
-                    &format!("({source})->addref_function({source});"),
+                    vec![
+                        &format!("if (({source})->addref_function != NULL) {{"),
+                        &format!("({source})->addref_function({source});"),
+                        "}",
+                    ],
                     None,
                     true,
                 );
@@ -259,9 +263,13 @@ impl CodeGenC {
             }
         } else {
             if "_fn" == type_name {
-                self.add(
+                self.add_rows(
                     out,
-                    &format!("({source})->deref_function({source});"),
+                    vec![
+                        &format!("if (({source})->deref_function != NULL) {{"),
+                        &format!("({source})->deref_function({source});"),
+                        "}",
+                    ],
                     None,
                     true,
                 );

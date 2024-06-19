@@ -526,24 +526,6 @@ impl CompileTarget {
                         index: ASTIndex::none(),
                     }],
                 },
-                DefaultFunction {
-                    name: "addrefDummy".to_string(),
-                    param_types: vec![ASTType::Custom {
-                        namespace: ASTNameSpace::global(),
-                        name: "RasmPointer".to_string(),
-                        param_types: vec![],
-                        index: ASTIndex::none(),
-                    }],
-                },
-                DefaultFunction {
-                    name: "derefDummy".to_string(),
-                    param_types: vec![ASTType::Custom {
-                        namespace: ASTNameSpace::global(),
-                        name: "RasmPointer".to_string(),
-                        param_types: vec![],
-                        index: ASTIndex::none(),
-                    }],
-                },
                 DefaultFunction::new_0("initRasmReferences"),
                 DefaultFunction::new_0("freeReferences"),
             ],

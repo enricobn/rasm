@@ -501,14 +501,14 @@ impl FunctionCallParameters for CFunctionCallParameters {
         } else {
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{lambda_var_name}{pointer_operator}addref_function = addrefDummy;"),
+                &format!("{lambda_var_name}{pointer_operator}addref_function = NULL;"),
                 None,
                 true,
             );
 
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{lambda_var_name}{pointer_operator}deref_function = derefDummy;"),
+                &format!("{lambda_var_name}{pointer_operator}deref_function = NULL;"),
                 None,
                 true,
             );
