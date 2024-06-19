@@ -23,6 +23,9 @@
 // ?
 // real    0m1,894s
 
+// C backend
+// real    0m2,499s
+
 argv(1).fmap(fn(s) {s.toi32;}).match(fn(n) {
     println(fib(n));
 }, { println("Expected a numeric parameter");});

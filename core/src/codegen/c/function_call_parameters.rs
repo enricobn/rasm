@@ -312,6 +312,11 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
         let optimize_lambda_space = references.is_empty();
 
+        let no_ref_count_for_lambda_space = lambda_in_stack
+            && references
+                .iter()
+                .all(|it| get_reference_type_name(it.1.typed_type(), module).is_none());
+
         let mut context = TypedValContext::new(None);
         for (key, kind) in references {
             context.insert(key, kind);
@@ -358,22 +363,44 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
             let lambda_space_name = format!("lambda_space_{}", ID.fetch_add(1, Ordering::SeqCst));
 
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!(
-                    "struct {} *{lambda_space_name} = rasmMalloc(sizeof(struct {}));",
-                    lambda_space_struct_name, lambda_space_struct_name
-                ),
-                None,
-                true,
-            );
+            let lambda_space_pointer_operator = if no_ref_count_for_lambda_space {
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!("struct {} {lambda_space_name};", lambda_space_struct_name),
+                    None,
+                    true,
+                );
 
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!("{lambda_var_name}{pointer_operator}lambda_space = {lambda_space_name};",),
-                None,
-                true,
-            );
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!(
+                        "{lambda_var_name}{pointer_operator}lambda_space = &{lambda_space_name};",
+                    ),
+                    None,
+                    true,
+                );
+                "."
+            } else {
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!(
+                        "struct {} *{lambda_space_name} = rasmMalloc(sizeof(struct {}));",
+                        lambda_space_struct_name, lambda_space_struct_name
+                    ),
+                    None,
+                    true,
+                );
+
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!(
+                        "{lambda_var_name}{pointer_operator}lambda_space = {lambda_space_name};",
+                    ),
+                    None,
+                    true,
+                );
+                "->"
+            };
 
             for (i, (name, _kind)) in lambda_space.iter().enumerate() {
                 let value = if let Some(_idx) =
@@ -396,7 +423,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
                 self.code_manipulator.add(
                     &mut self.before,
-                    &format!("{lambda_space_name}->{name} = {value};"),
+                    &format!("{lambda_space_name}{lambda_space_pointer_operator}{name} = {value};"),
                     None,
                     true,
                 );
@@ -421,7 +448,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         }
         */
 
-        if !lambda_in_stack || !optimize_lambda_space {
+        if !lambda_in_stack || !(optimize_lambda_space || no_ref_count_for_lambda_space) {
             let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
 
             let addref_function = typed_function_creator.create_lambda_free(
@@ -431,7 +458,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 module,
                 statics,
                 lambda_in_stack,
-                optimize_lambda_space,
+                optimize_lambda_space || no_ref_count_for_lambda_space,
             );
 
             let deref_function = typed_function_creator.create_lambda_free(
@@ -441,7 +468,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 module,
                 statics,
                 lambda_in_stack,
-                optimize_lambda_space,
+                optimize_lambda_space || no_ref_count_for_lambda_space,
             );
 
             self.code_manipulator.add(

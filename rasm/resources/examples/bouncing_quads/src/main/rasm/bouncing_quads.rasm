@@ -1,3 +1,14 @@
+/*
+time tmp/bouncing_quads 20
+
+Nasmi386 backend
+real    0m0,668s
+
+C backend
+real    0m3,772s
+
+*/
+
 struct Model {
     quads: Vec<Quad>,
     fps: FPS,
