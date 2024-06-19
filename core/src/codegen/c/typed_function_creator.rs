@@ -53,6 +53,8 @@ impl TypedFunctionsCreatorC {
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
+        optimize_lambda: bool,
+        optimize_lambda_space: bool,
     ) -> String {
         let mut body = String::new();
 
@@ -64,55 +66,70 @@ impl TypedFunctionsCreatorC {
             true,
         );
 
-        let lambda_space_type_name = CStructs::add_lambda_space_to_statics(statics, lambda_space);
+        if !optimize_lambda_space {
+            let lambda_space_type_name =
+                CStructs::add_lambda_space_to_statics(statics, lambda_space);
 
-        self.code_gen.add(
-            &mut body,
-            &format!("struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) lambda_->lambda_space;"),
-            None,
-            true,
-        );
+            self.code_gen.add(
+                &mut body,
+                &format!("struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) lambda_->lambda_space;"),
+                None,
+                true,
+            );
 
-        for (i, (name, kind)) in lambda_space.iter().enumerate() {
-            let t = kind.typed_type();
+            for (i, (name, kind)) in lambda_space.iter().enumerate() {
+                let t = kind.typed_type();
 
-            if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
-                let source = format!(
-                    "({}) lambda_space->{name}",
-                    CodeGenC::type_to_string(t, statics)
-                );
-                if function_name == "deref" {
-                    self.code_gen.call_deref(
-                        &mut body,
-                        &source,
-                        &type_name,
-                        &type_name,
-                        type_def_provider,
-                        statics,
+                if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
+                    let source = format!(
+                        "({}) lambda_space->{name}",
+                        CodeGenC::type_to_string(t, statics)
                     );
-                } else {
-                    self.code_gen.call_add_ref(
-                        &mut body,
-                        &source,
-                        &type_name,
-                        &type_name,
-                        type_def_provider,
-                        statics,
-                    );
+                    if function_name == "deref" {
+                        self.code_gen.call_deref(
+                            &mut body,
+                            &source,
+                            &type_name,
+                            &type_name,
+                            type_def_provider,
+                            statics,
+                        );
+                    } else {
+                        self.code_gen.call_add_ref(
+                            &mut body,
+                            &source,
+                            &type_name,
+                            &type_name,
+                            type_def_provider,
+                            statics,
+                        );
+                    }
                 }
             }
         }
 
         if function_name == "deref" {
-            self.code_gen
-                .call_deref_simple(&mut body, "lambda_space", c_lambda_name, statics);
-            self.code_gen
-                .call_deref_simple(&mut body, "lambda_", c_lambda_name, statics);
+            if !optimize_lambda_space {
+                self.code_gen
+                    .call_deref_simple(&mut body, "lambda_space", c_lambda_name, statics);
+            }
+            if !optimize_lambda {
+                self.code_gen
+                    .call_deref_simple(&mut body, "lambda_", c_lambda_name, statics);
+            }
         } else {
-            self.code_gen
-                .call_add_ref_simple(&mut body, "lambda_space", c_lambda_name, statics);
-            self.code_gen
-                .call_add_ref_simple(&mut body, "lambda_", c_lambda_name, statics);
+            if !optimize_lambda_space {
+                self.code_gen.call_add_ref_simple(
+                    &mut body,
+                    "lambda_space",
+                    c_lambda_name,
+                    statics,
+                );
+            }
+            if !optimize_lambda {
+                self.code_gen
+                    .call_add_ref_simple(&mut body, "lambda_", c_lambda_name, statics);
+            }
         }
 
         body
@@ -125,6 +142,8 @@ impl TypedFunctionsCreatorC {
         function_name: &str,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
+        optimize_lambda: bool,
+        optimize_lambda_space: bool,
     ) -> ASTTypedFunctionDef {
         let body_str = self.create_lambda_free_body(
             c_lambda_name,
@@ -132,6 +151,8 @@ impl TypedFunctionsCreatorC {
             lambda_space,
             type_def_provider,
             statics,
+            optimize_lambda,
+            optimize_lambda_space,
         );
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 

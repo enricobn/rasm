@@ -214,6 +214,35 @@ pub struct ASTTypedFunctionCall {
     pub index: ASTIndex,
 }
 
+impl ASTTypedFunctionCall {
+    pub fn return_type(
+        &self,
+        context: &TypedValContext,
+        typed_module: &ASTTypedModule,
+    ) -> ASTTypedType {
+        if let Some(kind) = context.get(&self.function_name) {
+            let typed_type = kind.typed_type();
+
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters: _,
+                return_type,
+            }) = typed_type
+            {
+                return_type.deref().clone()
+            } else {
+                panic!("Expected lambda but got {typed_type}: {}", self.index);
+            }
+        } else {
+            typed_module
+                .functions_by_name
+                .get(&self.function_name.replace("::", "_"))
+                .expect(&self.function_name)
+                .return_type
+                .clone()
+        }
+    }
+}
+
 impl Display for ASTTypedFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();

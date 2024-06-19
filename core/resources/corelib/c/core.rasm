@@ -47,6 +47,12 @@ pub native rasmMalloc(size: i32) -> RasmPointer /{
     return result;
 }/
 
+pub native derefDummy(address: RasmPointer) /{
+}/
+
+pub native addrefDummy(address: RasmPointer) /{
+}/
+
 pub native deref(address: RasmPointer) /{
     $include(<stdlib.h>)
 

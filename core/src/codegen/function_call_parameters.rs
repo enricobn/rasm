@@ -55,7 +55,7 @@ pub trait FunctionCallParameters {
         statics: &mut Statics,
         module: &ASTTypedModule,
         stack_vals: &StackVals,
-        optimize: bool,
+        lambda_in_stack: bool,
         function_def: &ASTTypedFunctionDef,
         param_type: &ASTTypedType,
         name: &str,
@@ -372,7 +372,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         statics: &mut Statics,
         module: &ASTTypedModule,
         stack_vals: &StackVals,
-        optimize: bool,
+        lambda_in_stack: bool,
         function_def: &ASTTypedFunctionDef,
         param_type: &ASTTypedType,
         name: &str,
@@ -435,7 +435,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         } else {
             let num_of_values_in_context = context.iter().count();
 
-            if optimize {
+            if lambda_in_stack {
                 self.code_gen.allocate_lambda_space_in_stack(
                     &mut self.before,
                     &lambda_space_address,
@@ -591,7 +591,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             );
         }
 
-        if !context.is_empty() && !optimize && self.dereference {
+        if !context.is_empty() && !lambda_in_stack && self.dereference {
             // we don't need a "deep" reference / dereference here
             self.code_gen.call_add_ref_simple(
                 &mut self.before,

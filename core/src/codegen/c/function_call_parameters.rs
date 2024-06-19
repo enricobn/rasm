@@ -74,6 +74,46 @@ impl CFunctionCallParameters {
         }
     }
 
+    fn type_contains(
+        typed_type: &ASTTypedType,
+        type_def_provider: &dyn TypeDefProvider,
+        check: fn(&ASTTypedType) -> bool,
+    ) -> bool {
+        if check(typed_type) {
+            return true;
+        }
+
+        return match typed_type {
+            ASTTypedType::Builtin(_) => false,
+            ASTTypedType::Enum { namespace: _, name } => {
+                let e = type_def_provider.get_enum_def_by_name(name).unwrap();
+                for v in e.variants.iter() {
+                    for p in v.parameters.iter() {
+                        if check(&p.ast_type) {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+            ASTTypedType::Struct { namespace: _, name } => {
+                let s = type_def_provider.get_struct_def_by_name(name).unwrap();
+                for p in s.properties.iter() {
+                    if check(&p.ast_type) {
+                        return true;
+                    }
+                }
+                false
+            }
+            ASTTypedType::Type {
+                namespace,
+                name,
+                native_type,
+            } => false,
+            ASTTypedType::Unit => false,
+        };
+    }
+
     fn get_value_from_lambda_space(
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
@@ -239,7 +279,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         statics: &mut Statics,
         module: &ASTTypedModule,
         stack_vals: &StackVals,
-        optimize: bool,
+        lambda_in_stack: bool,
         function_def: &ASTTypedFunctionDef,
         param_type: &ASTTypedType,
         name: &str,
@@ -270,6 +310,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
         references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
         references.dedup_by(|(name1, _), (name2, _)| name1 == name2);
 
+        let optimize_lambda_space = references.is_empty();
+
         let mut context = TypedValContext::new(None);
         for (key, kind) in references {
             context.insert(key, kind);
@@ -281,134 +323,212 @@ impl FunctionCallParameters for CFunctionCallParameters {
             lambda_space.add(name.clone(), kind.clone());
         }
 
-        let lambda_space_struct_name =
-            CStructs::add_lambda_space_to_statics(statics, &lambda_space);
-
         let lambda_var_name = format!("lambda_var_{}", ID.fetch_add(1, Ordering::SeqCst));
 
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!(
-                "struct {c_lambda_name} *{lambda_var_name} = rasmMalloc(sizeof(struct {c_lambda_name}));"
-            ),
-            None,
-            true,
-        );
-
-        let lambda_space_name = format!("lambda_space_{}", ID.fetch_add(1, Ordering::SeqCst));
-
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!(
-                "struct {} *{lambda_space_name} = rasmMalloc(sizeof(struct {}));",
-                lambda_space_struct_name, lambda_space_struct_name
-            ),
-            None,
-            true,
-        );
-
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!("{lambda_var_name}->lambda_space = {lambda_space_name};",),
-            None,
-            true,
-        );
-
-        for (i, (name, kind)) in lambda_space.iter().enumerate() {
-            let value = if let Some(idx) = parent_lambda_space.and_then(|it| it.get_index(name)) {
-                let pls = parent_lambda_space.unwrap();
-                let t = pls.get_type(name).unwrap();
-
-                let parent_ls_type_name = CStructs::add_lambda_space_to_statics(statics, pls);
-
-                format!(
-                    " (({})((struct {parent_ls_type_name}*)_lambda->lambda_space)->{name})",
-                    CodeGenC::type_to_string(t, statics)
-                )
-
-                //Self::get_value_from_lambda_space(statics, module, idx - 1, t, false, name)
-            } else {
-                name.to_string()
-            };
-
+        let (pointer_operator, dereference_operator) = if lambda_in_stack {
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{lambda_space_name}->{name} = {value};"),
+                &format!("struct {c_lambda_name} {lambda_var_name};"),
                 None,
                 true,
             );
-        }
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!("{lambda_var_name}->functionPtr = &{name};"),
-            None,
-            true,
-        );
-
-        let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
-
-        let addref_function = typed_function_creator.create_lambda_free(
-            &c_lambda_name,
-            &lambda_space,
-            "addref",
-            module,
-            statics,
-        );
-
-        let deref_function = typed_function_creator.create_lambda_free(
-            &c_lambda_name,
-            &lambda_space,
-            "deref",
-            module,
-            statics,
-        );
-
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!(
-                "{lambda_var_name}->addref_function = {};",
-                addref_function.name
-            ),
-            None,
-            true,
-        );
-
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!(
-                "{lambda_var_name}->deref_function = {};",
-                deref_function.name
-            ),
-            None,
-            true,
-        );
-
-        //arg_values.push(format!("lambda{param_index}"));
-        if self.immediate {
+            (".", "&")
+        } else {
             self.code_manipulator.add(
-                &mut self.current,
+                &mut self.before,
                 &format!(
-                    "struct {c_lambda_name} *return_value_ = {lambda_var_name}; // return lambda"
+                    "struct {c_lambda_name} *{lambda_var_name} = rasmMalloc(sizeof(struct {c_lambda_name}));"
                 ),
                 None,
                 true,
             );
-        } else {
+            ("->", "")
+        };
+
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!("{lambda_var_name}{pointer_operator}functionPtr = &{name};"),
+            None,
+            true,
+        );
+
+        if !optimize_lambda_space {
+            let lambda_space_struct_name =
+                CStructs::add_lambda_space_to_statics(statics, &lambda_space);
+
+            let lambda_space_name = format!("lambda_space_{}", ID.fetch_add(1, Ordering::SeqCst));
+
             self.code_manipulator.add(
                 &mut self.before,
-                &format!("{}({lambda_var_name});", addref_function.name),
+                &format!(
+                    "struct {} *{lambda_space_name} = rasmMalloc(sizeof(struct {}));",
+                    lambda_space_struct_name, lambda_space_struct_name
+                ),
                 None,
                 true,
             );
 
-            self.add_on_top_of_after(&format!("{}({lambda_var_name});", deref_function.name));
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!("{lambda_var_name}{pointer_operator}lambda_space = {lambda_space_name};",),
+                None,
+                true,
+            );
 
-            self.parameters_values
-                .insert(name.to_string(), lambda_var_name);
+            for (i, (name, _kind)) in lambda_space.iter().enumerate() {
+                let value = if let Some(_idx) =
+                    parent_lambda_space.and_then(|it| it.get_index(name))
+                {
+                    let pls = parent_lambda_space.unwrap();
+                    let t = pls.get_type(name).unwrap();
+
+                    let parent_ls_type_name = CStructs::add_lambda_space_to_statics(statics, pls);
+
+                    format!(
+                        " (({})((struct {parent_ls_type_name}*)_lambda->lambda_space)->{name})",
+                        CodeGenC::type_to_string(t, statics)
+                    )
+
+                    //Self::get_value_from_lambda_space(statics, module, idx - 1, t, false, name)
+                } else {
+                    name.to_string()
+                };
+
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!("{lambda_space_name}->{name} = {value};"),
+                    None,
+                    true,
+                );
+            }
         }
 
-        lambda_space.add_ref_function(addref_function);
-        lambda_space.add_ref_function(deref_function);
+        /*
+        if optimize_lambda {
+            if self.immediate {
+                self.code_manipulator.add(
+                    &mut self.current,
+                    &format!(
+                    "struct {c_lambda_name} *return_value_ = &{lambda_var_name}; // return lambda"
+                ),
+                    None,
+                    true,
+                );
+            } else {
+                self.parameters_values
+                    .insert(name.to_string(), format!("&{lambda_var_name}"));
+            }
+        }
+        */
+
+        if !lambda_in_stack || !optimize_lambda_space {
+            let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
+
+            let addref_function = typed_function_creator.create_lambda_free(
+                &c_lambda_name,
+                &lambda_space,
+                "addref",
+                module,
+                statics,
+                lambda_in_stack,
+                optimize_lambda_space,
+            );
+
+            let deref_function = typed_function_creator.create_lambda_free(
+                &c_lambda_name,
+                &lambda_space,
+                "deref",
+                module,
+                statics,
+                lambda_in_stack,
+                optimize_lambda_space,
+            );
+
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!(
+                    "{lambda_var_name}{pointer_operator}addref_function = {};",
+                    addref_function.name
+                ),
+                None,
+                true,
+            );
+
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!(
+                    "{lambda_var_name}{pointer_operator}deref_function = {};",
+                    deref_function.name
+                ),
+                None,
+                true,
+            );
+
+            //arg_values.push(format!("lambda{param_index}"));
+            if self.immediate {
+                self.code_manipulator.add(
+                    &mut self.current,
+                    &format!(
+                    "struct {c_lambda_name} *return_value_ = {dereference_operator}{lambda_var_name}; // return lambda"
+                ),
+                    None,
+                    true,
+                );
+            } else {
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!(
+                        "{}({dereference_operator}{lambda_var_name});",
+                        addref_function.name
+                    ),
+                    None,
+                    true,
+                );
+
+                self.add_on_top_of_after(&format!(
+                    "{}({dereference_operator}{lambda_var_name});",
+                    deref_function.name
+                ));
+
+                self.parameters_values.insert(
+                    name.to_string(),
+                    format!("{dereference_operator}{lambda_var_name}"),
+                );
+            }
+
+            lambda_space.add_ref_function(addref_function);
+            lambda_space.add_ref_function(deref_function);
+        } else {
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!("{lambda_var_name}{pointer_operator}addref_function = addrefDummy;"),
+                None,
+                true,
+            );
+
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!("{lambda_var_name}{pointer_operator}deref_function = derefDummy;"),
+                None,
+                true,
+            );
+
+            if self.immediate {
+                self.code_manipulator.add(
+                    &mut self.current,
+                    &format!(
+                    "struct {c_lambda_name} *return_value_ = {dereference_operator}{lambda_var_name}; // return lambda"
+                ),
+                    None,
+                    true,
+                );
+            } else {
+                self.parameters_values.insert(
+                    name.to_string(),
+                    format!("{dereference_operator}{lambda_var_name}"),
+                );
+            }
+        }
 
         lambda_space
     }

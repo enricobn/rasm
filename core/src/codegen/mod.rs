@@ -526,8 +526,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             .get(&function_call.function_name)
                             .unwrap();
 
-                        let optimize = function_def.return_type.is_unit()
-                            || can_optimize_lambda_space(&function_def.return_type, typed_module);
+                        let lambda_in_stack = function_def.return_type.is_unit()
+                            || can_lambda_be_in_stack(&function_def.return_type, typed_module);
 
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {
@@ -552,7 +552,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             statics,
                             typed_module,
                             stack_vals,
-                            optimize,
+                            lambda_in_stack,
                             function_def,
                             &param_type,
                             &name,
@@ -738,7 +738,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     ) -> Vec<LambdaCall> {
         let address_relative_to_bp = stack.reserve_local_val(name);
 
-        let (ast_typed_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
+        let (return_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if let Some(kind) = context.get(&call.function_name) {
                     let typed_type = kind.typed_type();
@@ -782,13 +782,9 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         call.index.clone(),
                     )
                 } else {
+                    let return_type = call.return_type(context, typed_module);
                     (
-                        typed_module
-                            .functions_by_name
-                            .get(&call.function_name.replace("::", "_"))
-                            .unwrap()
-                            .return_type
-                            .clone(),
+                        return_type,
                         self.generate_call_function(
                             namespace,
                             call,
@@ -879,28 +875,28 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             if !bf.is_empty() || !cur.is_empty() {
                 body.push_str(&bf);
 
-                let key = statics.add_typed_const(name.to_owned(), ast_typed_type.clone());
+                let key = statics.add_typed_const(name.to_owned(), return_type.clone());
 
                 self.set_let_const_for_function_call_result(
                     &key,
                     body,
                     &mut cur,
                     name,
-                    &ast_typed_type,
+                    &return_type,
                     statics,
                 );
                 body.push_str(&cur);
             }
 
             if self.options().dereference {
-                if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
+                if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
                     self.add_ref(&name, statics, body, typed_module, &index, &type_name);
                 }
             }
         } else {
             context.insert_let(
                 name.into(),
-                ast_typed_type.clone(),
+                return_type.clone(),
                 Some(address_relative_to_bp),
             );
 
@@ -927,7 +923,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
 
             if self.options().dereference {
-                if let Some(type_name) = get_reference_type_name(&ast_typed_type, typed_module) {
+                if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
                     self.call_add_ref_for_let_val(
                         name,
                         &index,
@@ -2037,15 +2033,15 @@ pub fn get_reference_type_name(
     }
 }
 
-pub fn can_optimize_lambda_space(
+pub fn can_lambda_be_in_stack(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> bool {
     let mut already_checked = HashSet::new();
-    can_optimize_lambda_space_(lambda_return_type, type_def_provider, &mut already_checked)
+    can_lambda_be_in_stack_(lambda_return_type, type_def_provider, &mut already_checked)
 }
 
-fn can_optimize_lambda_space_(
+fn can_lambda_be_in_stack_(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
     already_checked: &mut HashSet<String>,
@@ -2064,7 +2060,7 @@ fn can_optimize_lambda_space_(
                     .iter()
                     .flat_map(|it| it.parameters.iter())
                     .all(|it| {
-                        can_optimize_lambda_space_(&it.ast_type, type_def_provider, already_checked)
+                        can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
                     })
             } else {
                 panic!();
@@ -2078,7 +2074,7 @@ fn can_optimize_lambda_space_(
             already_checked.insert(name.to_owned());
             if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
                 s.properties.iter().all(|it| {
-                    can_optimize_lambda_space_(&it.ast_type, type_def_provider, already_checked)
+                    can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
                 })
             } else {
                 panic!()
