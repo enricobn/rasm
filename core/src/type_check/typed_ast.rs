@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
@@ -127,6 +128,93 @@ pub enum ASTTypedType {
 impl ASTTypedType {
     pub fn is_unit(&self) -> bool {
         self == &ASTTypedType::Unit
+    }
+
+    pub fn contains<F>(
+        &self,
+        type_def_provider: &dyn TypeDefProvider,
+        check: &F,
+        value_if_recursive: bool,
+    ) -> bool
+    where
+        F: Fn(&ASTTypedType) -> bool,
+    {
+        let mut already_checked = HashSet::new();
+        self.contains_(
+            type_def_provider,
+            check,
+            value_if_recursive,
+            &mut already_checked,
+        )
+    }
+
+    fn contains_<F>(
+        &self,
+        type_def_provider: &dyn TypeDefProvider,
+        check: &F,
+        value_if_recursive: bool,
+        already_checked: &mut HashSet<String>,
+    ) -> bool
+    where
+        F: Fn(&ASTTypedType) -> bool,
+    {
+        if check(self) {
+            return true;
+        }
+        match self {
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) => false,
+            ASTTypedType::Enum { namespace: _, name } => {
+                if already_checked.contains(name) {
+                    return value_if_recursive;
+                }
+
+                already_checked.insert(name.clone());
+
+                if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
+                    let result = e
+                        .variants
+                        .iter()
+                        .flat_map(|it| it.parameters.iter())
+                        .any(|it| {
+                            it.ast_type.contains_(
+                                type_def_provider,
+                                check,
+                                value_if_recursive,
+                                already_checked,
+                            )
+                        });
+                    result
+                } else {
+                    panic!();
+                }
+            }
+            ASTTypedType::Struct { namespace: _, name } => {
+                if already_checked.contains(name) {
+                    return value_if_recursive;
+                }
+
+                already_checked.insert(name.clone());
+
+                if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
+                    let result = s.properties.iter().any(|it| {
+                        it.ast_type.contains_(
+                            type_def_provider,
+                            check,
+                            value_if_recursive,
+                            already_checked,
+                        )
+                    });
+
+                    result
+                } else {
+                    panic!()
+                }
+            }
+            _ => false,
+        }
     }
 }
 
