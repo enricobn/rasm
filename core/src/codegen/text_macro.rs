@@ -100,7 +100,7 @@ impl TextMacro {
 }
 
 lazy_static! {
-    static ref RE: Regex = Regex::new(r"\$([A-Za-z]*)\((.*)\)").unwrap();
+    static ref RE: Regex = Regex::new(r"\$([A-Za-z]*)\(([^\)]*)\)").unwrap();
 }
 
 pub struct TextMacroEvaluator {
@@ -574,6 +574,7 @@ impl TextMacroEvaluator {
                 namespace: _,
                 name,
                 native_type: _,
+                is_ref: _,
             } => type_def_provider
                 .get_type_from_typed_type_name(name)
                 .unwrap(),
@@ -895,6 +896,7 @@ fn get_type(
             namespace: namespace.clone(),
             name: s.name.clone(),
             native_type: s.native_type.clone(),
+            is_ref: s.is_ref,
         }
     } else if orig_name == "str" {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
@@ -963,6 +965,7 @@ impl TextMacroEval for AddRefMacro {
                     namespace: _,
                     name,
                     native_type: _,
+                    is_ref: _,
                 } => name.clone(),
                 _ => return String::new(),
             };
@@ -1142,6 +1145,7 @@ impl PrintRefMacro {
                 namespace: _,
                 name,
                 native_type: _,
+                is_ref: _,
             } => (
                 name.clone(),
                 self.print_ref_type(&name, src, type_def_provider, indent + 1, code_gen),
@@ -1457,6 +1461,8 @@ impl PrintRefMacro {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::c::code_gen_c::CodeGenC;
+    use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
     use linked_hash_map::LinkedHashMap;
@@ -1465,8 +1471,8 @@ mod tests {
     use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTParameterDef, ASTType,
-        BuiltinTypeKind,
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
     };
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -1767,6 +1773,42 @@ mod tests {
                 }
             ),
         }
+    }
+
+    #[test]
+    fn parse_param() {
+        let mut statics = Statics::new();
+
+        let function_def = ASTTypedFunctionDef {
+            namespace: ASTNameSpace::global(),
+            name: "f".to_string(),
+            original_name: String::new(),
+            parameters: vec![ASTTypedParameterDef {
+                name: "par".to_string(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+                ast_index: ASTIndex::none(),
+            }],
+            return_type: ASTTypedType::Unit,
+            body: ASTTypedFunctionBody::RASMBody(Vec::new()),
+            inline: false,
+            generic_types: LinkedHashMap::new(),
+            index: ASTIndex::none(),
+        };
+
+        let result = CodeGenC::new(COptions::default(), false)
+            .get_text_macro_evaluator()
+            .get_macros(
+                Some(&function_def),
+                None,
+                "($call(aFun,$par))->value",
+                &DummyTypeDefProvider::new(),
+            )
+            .unwrap();
+
+        assert_eq!(
+            format!("{}", result.get(0).unwrap().0),
+            "$call(Plain(aFun, None, None), Ref($par, Some(i32), Some(i32)))"
+        );
     }
 
     fn target() -> CompileTarget {

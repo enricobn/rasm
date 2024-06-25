@@ -29,7 +29,8 @@ use crate::parser::ast::{ASTFunctionBody, ASTNameSpace};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{
-    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedTypeDef,
+    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedType,
+    ASTTypedTypeDef,
 };
 
 use super::any::{CLambdas, CStructs};
@@ -61,7 +62,7 @@ impl TypedFunctionsCreatorC {
         let lambda_type = format!("struct {}*", c_lambda_name);
         self.code_gen.add(
             &mut body,
-            &format!("{lambda_type} lambda_ = ({lambda_type}) address;"),
+            &format!("{lambda_type} lambda_ = ({lambda_type}) address->address;"),
             None,
             true,
         );
@@ -71,8 +72,15 @@ impl TypedFunctionsCreatorC {
                 CStructs::add_lambda_space_to_statics(statics, lambda_space);
 
             self.code_gen.add(
+                    &mut body,
+                    &format!("struct RasmPointer_ *lambda_space_ = (struct RasmPointer_ *) lambda_->lambda_space;"),
+                    None,
+                    true,
+                );
+
+            self.code_gen.add(
                 &mut body,
-                &format!("struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) lambda_->lambda_space;"),
+                &format!("struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) lambda_->lambda_space->address;"),
                 None,
                 true,
             );
@@ -81,10 +89,36 @@ impl TypedFunctionsCreatorC {
                 let t = kind.typed_type();
 
                 if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
-                    let source = format!(
-                        "({}) lambda_space->{name}",
-                        CodeGenC::type_to_string(t, statics)
-                    );
+                    let mut source = format!("lambda_space->{name}");
+
+                    if &type_name == "_fn" {
+                        let ts = CodeGenC::type_to_string(t, statics);
+
+                        if function_name == "deref" {
+                            self.code_gen.add(
+                                &mut body,
+                                &format!(
+                                    "if ((({ts}){source}->address)->deref_function != NULL) {{"
+                                ),
+                                None,
+                                true,
+                            );
+                            source =
+                                format!("(({ts}){source}->address)->deref_function({source});");
+                        } else {
+                            self.code_gen.add(
+                                &mut body,
+                                &format!(
+                                    "if ((({ts}){source}->address)->addref_function != NULL) {{"
+                                ),
+                                None,
+                                true,
+                            );
+                            source =
+                                format!("(({ts}){source}->address)->addref_function({source});");
+                        }
+                    }
+
                     if function_name == "deref" {
                         self.code_gen.call_deref(
                             &mut body,
@@ -104,6 +138,9 @@ impl TypedFunctionsCreatorC {
                             statics,
                         );
                     }
+                    if &type_name == "_fn" {
+                        self.code_gen.add(&mut body, "}", None, true);
+                    }
                 }
             }
         }
@@ -111,24 +148,24 @@ impl TypedFunctionsCreatorC {
         if function_name == "deref" {
             if !optimize_lambda_space {
                 self.code_gen
-                    .call_deref_simple(&mut body, "lambda_space", c_lambda_name, statics);
+                    .call_deref_simple(&mut body, "lambda_space_", c_lambda_name, statics);
             }
             if !optimize_lambda {
                 self.code_gen
-                    .call_deref_simple(&mut body, "lambda_", c_lambda_name, statics);
+                    .call_deref_simple(&mut body, "address", c_lambda_name, statics);
             }
         } else {
             if !optimize_lambda_space {
                 self.code_gen.call_add_ref_simple(
                     &mut body,
-                    "lambda_space",
+                    "lambda_space_",
                     c_lambda_name,
                     statics,
                 );
             }
             if !optimize_lambda {
                 self.code_gen
-                    .call_add_ref_simple(&mut body, "lambda_", c_lambda_name, statics);
+                    .call_add_ref_simple(&mut body, "address", c_lambda_name, statics);
             }
         }
 
@@ -168,6 +205,7 @@ impl TypedFunctionsCreatorC {
                 namespace: ASTNameSpace::global(),
                 name: "CTargetLambda".to_string(),
                 native_type: Some("void **".to_string()),
+                is_ref: true,
             },
             body,
             false,
@@ -189,11 +227,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             if let Some(type_name) = get_reference_type_name(&property.ast_type, type_def_provider)
             {
                 CLambdas::add_to_statics_if_lambda(&property.ast_type, statics);
-                let source = format!(
-                    "({}) address->{}",
-                    CodeGenC::type_to_string(&property.ast_type, statics),
-                    property.name
-                );
+                let source = format!("($castAddress($address))->{}", property.name);
                 if function_name == "deref" {
                     self.code_gen.call_deref(
                         &mut body,
@@ -216,17 +250,12 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
         }
 
-        let source = format!(
-            "({}) address",
-            CodeGenC::type_to_string(&struct_def.ast_typed_type, statics)
-        );
-
         if function_name == "deref" {
             self.code_gen
-                .call_deref_simple(&mut body, &source, &struct_def.name, statics);
+                .call_deref_simple(&mut body, "address", &struct_def.name, statics);
         } else {
             self.code_gen
-                .call_add_ref_simple(&mut body, &source, &struct_def.name, statics);
+                .call_add_ref_simple(&mut body, "address", &struct_def.name, statics);
         }
 
         body
@@ -268,19 +297,29 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         let mut body = String::new();
         let enum_type_name = format!("{}_{}", enum_def.namespace.safe_name(), enum_def.name);
 
+        self.code_gen.add(
+            &mut body,
+            "struct Enum *e = (struct Enum*)address->address;",
+            None,
+            true,
+        );
+
         for (i, variant) in enum_def.variants.iter().enumerate() {
             self.code_gen.add(
                 &mut body,
-                &format!("if (address->variant_num == {i}) {{"),
+                &format!("if (e->variant_num == {i}) {{"),
                 None,
                 true,
             );
+
+            self.code_gen
+                .add(&mut body, "if (e->variant != NULL) {", None, true);
 
             let variant_type_name = format!("{enum_type_name}_{}", variant.name);
             self.code_gen.add(
                 &mut body,
                 &format!(
-                    "struct {variant_type_name} *variant = (struct {variant_type_name}*) address->variant;"
+                    "struct {variant_type_name} *variant = (struct {variant_type_name}*) e->variant->address;"
                 ),
                 None,
                 true,
@@ -291,11 +330,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     get_reference_type_name(&parameter.ast_type, type_def_provider)
                 {
                     CLambdas::add_to_statics_if_lambda(&parameter.ast_type, statics);
-                    let source = format!(
-                        "({}) variant->{}",
-                        CodeGenC::type_to_string(&parameter.ast_type, statics),
-                        parameter.name
-                    );
+                    let source = format!("variant->{}", parameter.name);
                     if function_name == "deref" {
                         self.code_gen.call_deref(
                             &mut body,
@@ -318,30 +353,30 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 }
             }
             if function_name == "deref" {
-                self.code_gen
-                    .call_deref_simple(&mut body, "variant", &variant_type_name, statics);
+                self.code_gen.call_deref_simple(
+                    &mut body,
+                    "e->variant",
+                    &variant_type_name,
+                    statics,
+                );
             } else {
                 self.code_gen.call_add_ref_simple(
                     &mut body,
-                    "variant",
+                    "e->variant",
                     &variant_type_name,
                     statics,
                 );
             }
-            self.code_gen.add(&mut body, &format!("}}"), None, true);
+            self.code_gen.add(&mut body, "}", None, true);
+            self.code_gen.add(&mut body, "}", None, true);
         }
-
-        let source = format!(
-            "({}) address",
-            CodeGenC::type_to_string(&enum_def.ast_typed_type, statics)
-        );
 
         if function_name == "deref" {
             self.code_gen
-                .call_deref_simple(&mut body, &source, &enum_type_name, statics);
+                .call_deref_simple(&mut body, "address", &enum_type_name, statics);
         } else {
             self.code_gen
-                .call_add_ref_simple(&mut body, &source, &enum_type_name, statics);
+                .call_add_ref_simple(&mut body, "address", &enum_type_name, statics);
         }
 
         body

@@ -120,6 +120,7 @@ pub enum ASTTypedType {
     Type {
         namespace: ASTNameSpace,
         name: String,
+        is_ref: bool,
         native_type: Option<String>,
     },
     Unit,
@@ -252,6 +253,7 @@ impl Display for ASTTypedType {
                 namespace: _,
                 name,
                 native_type: _,
+                is_ref: _,
             } => f.write_str(&name.to_string()),
             ASTTypedType::Unit => f.write_str("()"),
         }
@@ -844,6 +846,7 @@ impl<'a> ConvContext<'a> {
                     namespace: type_def.namespace.clone(),
                     name: new_name.clone(),
                     native_type: type_def.native_type.clone(),
+                    is_ref: type_def.is_ref,
                 };
 
                 self.type_defs.push(ASTTypedTypeDef {
@@ -1506,6 +1509,7 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
             namespace,
             name,
             native_type: _,
+            is_ref: _,
         } => ASTType::Custom {
             namespace: namespace.clone(),
             name: name.into(),

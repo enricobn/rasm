@@ -16,7 +16,8 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::fs::File;
+use std::env;
+use std::fs::{self, File};
 use std::io::Read;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -90,7 +91,14 @@ impl ServerState {
     fn new(project: RasmProject) -> Result<Self, TypeCheckError> {
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, _errors) = project.get_all_modules(&mut statics, false, &target, false);
+
+        let (modules, _errors) = project.get_all_modules(
+            &mut statics,
+            false,
+            &target,
+            false,
+            &env::temp_dir().join("tmp"),
+        );
 
         // TODO errors
 

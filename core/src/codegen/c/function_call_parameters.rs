@@ -74,46 +74,6 @@ impl CFunctionCallParameters {
         }
     }
 
-    fn type_contains(
-        typed_type: &ASTTypedType,
-        type_def_provider: &dyn TypeDefProvider,
-        check: fn(&ASTTypedType) -> bool,
-    ) -> bool {
-        if check(typed_type) {
-            return true;
-        }
-
-        return match typed_type {
-            ASTTypedType::Builtin(_) => false,
-            ASTTypedType::Enum { namespace: _, name } => {
-                let e = type_def_provider.get_enum_def_by_name(name).unwrap();
-                for v in e.variants.iter() {
-                    for p in v.parameters.iter() {
-                        if check(&p.ast_type) {
-                            return true;
-                        }
-                    }
-                }
-                false
-            }
-            ASTTypedType::Struct { namespace: _, name } => {
-                let s = type_def_provider.get_struct_def_by_name(name).unwrap();
-                for p in s.properties.iter() {
-                    if check(&p.ast_type) {
-                        return true;
-                    }
-                }
-                false
-            }
-            ASTTypedType::Type {
-                namespace,
-                name,
-                native_type,
-            } => false,
-            ASTTypedType::Unit => false,
-        };
-    }
-
     fn get_value_from_lambda_space(
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
@@ -140,10 +100,7 @@ impl CFunctionCallParameters {
         };
         value
         */
-        format!(
-            " (({})lambda_space->{name})",
-            CodeGenC::type_to_string(ast_typed_type, statics)
-        )
+        format!(" lambda_space->{name}")
     }
 
     fn add_code_for_reference_type(
@@ -183,7 +140,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut self.current,
                 &format!(
                     "{} return_value_ = {value};",
-                    CodeGenC::type_to_string(typed_type, statics)
+                    CodeGenC::real_type_to_string(typed_type, statics)
                 ),
                 None,
                 true,
@@ -232,7 +189,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             &mut self.before,
             &format!(
                 "{} {tmp_val_name} = {};",
-                CodeGenC::type_to_string(&param_type, statics),
+                CodeGenC::real_type_to_string(&param_type, statics),
                 code.replace('\n', "")
             ),
             None,
@@ -337,12 +294,32 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 None,
                 true,
             );
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!("struct RasmPointer_ {lambda_var_name}_;"),
+                None,
+                true,
+            );
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!("{lambda_var_name}_.address = &{lambda_var_name};"),
+                None,
+                true,
+            );
             (".", "&")
         } else {
             self.code_manipulator.add(
                 &mut self.before,
                 &format!(
-                    "struct {c_lambda_name} *{lambda_var_name} = rasmMalloc(sizeof(struct {c_lambda_name}));"
+                    "struct RasmPointer_ *{lambda_var_name}_ = rasmMalloc(sizeof(struct {c_lambda_name}));"
+                ),
+                None,
+                true,
+            );
+            self.code_manipulator.add(
+                &mut self.before,
+                &format!(
+                    "struct {c_lambda_name} *{lambda_var_name} = (struct {c_lambda_name}*) {c_lambda_name}_->address;"
                 ),
                 None,
                 true,
@@ -366,6 +343,13 @@ impl FunctionCallParameters for CFunctionCallParameters {
             let lambda_space_pointer_operator = if no_ref_count_for_lambda_space {
                 self.code_manipulator.add(
                     &mut self.before,
+                    &format!("struct RasmPointer_ {lambda_space_name}_;"),
+                    None,
+                    true,
+                );
+
+                self.code_manipulator.add(
+                    &mut self.before,
                     &format!("struct {} {lambda_space_name};", lambda_space_struct_name),
                     None,
                     true,
@@ -373,8 +357,15 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
                 self.code_manipulator.add(
                     &mut self.before,
+                    &format!("{lambda_space_name}_.address = &{lambda_space_name};"),
+                    None,
+                    true,
+                );
+
+                self.code_manipulator.add(
+                    &mut self.before,
                     &format!(
-                        "{lambda_var_name}{pointer_operator}lambda_space = &{lambda_space_name};",
+                        "{lambda_var_name}{pointer_operator}lambda_space = &{lambda_space_name}_;",
                     ),
                     None,
                     true,
@@ -384,8 +375,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 self.code_manipulator.add(
                     &mut self.before,
                     &format!(
-                        "struct {} *{lambda_space_name} = rasmMalloc(sizeof(struct {}));",
-                        lambda_space_struct_name, lambda_space_struct_name
+                        "struct RasmPointer_ *{lambda_space_name}_ = rasmMalloc(sizeof(struct {lambda_space_struct_name}));",
                     ),
                     None,
                     true,
@@ -394,7 +384,16 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 self.code_manipulator.add(
                     &mut self.before,
                     &format!(
-                        "{lambda_var_name}{pointer_operator}lambda_space = {lambda_space_name};",
+                        "struct {lambda_space_struct_name} *{lambda_space_name} = (struct {lambda_space_struct_name}*) {lambda_space_name}_->address;"
+                    ),
+                    None,
+                    true,
+                );
+
+                self.code_manipulator.add(
+                    &mut self.before,
+                    &format!(
+                        "{lambda_var_name}{pointer_operator}lambda_space = {lambda_space_name}_;",
                     ),
                     None,
                     true,
@@ -429,24 +428,6 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 );
             }
         }
-
-        /*
-        if optimize_lambda {
-            if self.immediate {
-                self.code_manipulator.add(
-                    &mut self.current,
-                    &format!(
-                    "struct {c_lambda_name} *return_value_ = &{lambda_var_name}; // return lambda"
-                ),
-                    None,
-                    true,
-                );
-            } else {
-                self.parameters_values
-                    .insert(name.to_string(), format!("&{lambda_var_name}"));
-            }
-        }
-        */
 
         if !lambda_in_stack || !(optimize_lambda_space || no_ref_count_for_lambda_space) {
             let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
@@ -496,7 +477,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 self.code_manipulator.add(
                     &mut self.current,
                     &format!(
-                    "struct {c_lambda_name} *return_value_ = {dereference_operator}{lambda_var_name}; // return lambda"
+                    "struct RasmPointer_ *return_value_ = {dereference_operator}{lambda_var_name}_; // return lambda"
                 ),
                     None,
                     true,
@@ -505,7 +486,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 self.code_manipulator.add(
                     &mut self.before,
                     &format!(
-                        "{}({dereference_operator}{lambda_var_name});",
+                        "{}({dereference_operator}{lambda_var_name}_);",
                         addref_function.name
                     ),
                     None,
@@ -513,13 +494,13 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 );
 
                 self.add_on_top_of_after(&format!(
-                    "{}({dereference_operator}{lambda_var_name});",
+                    "{}({dereference_operator}{lambda_var_name}_);",
                     deref_function.name
                 ));
 
                 self.parameters_values.insert(
                     name.to_string(),
-                    format!("{dereference_operator}{lambda_var_name}"),
+                    format!("{dereference_operator}{lambda_var_name}_"),
                 );
             }
 
@@ -544,7 +525,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 self.code_manipulator.add(
                     &mut self.current,
                     &format!(
-                    "struct {c_lambda_name} *return_value_ = {dereference_operator}{lambda_var_name}; // return lambda"
+                    "struct RasmPointer_ *return_value_ = {dereference_operator}{lambda_var_name}_; // return lambda"
                 ),
                     None,
                     true,
@@ -552,7 +533,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             } else {
                 self.parameters_values.insert(
                     name.to_string(),
-                    format!("{dereference_operator}{lambda_var_name}"),
+                    format!("{dereference_operator}{lambda_var_name}_"),
                 );
             }
         }
@@ -589,7 +570,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                         &mut self.before,
                         &format!(
                             "{} return_value_ = {value};",
-                            CodeGenC::type_to_string(ast_typed_type, statics)
+                            CodeGenC::real_type_to_string(ast_typed_type, statics)
                         ),
                         None,
                         true,
@@ -607,7 +588,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut self.before,
                 &format!(
                     "{} return_value_ = {val_name};",
-                    CodeGenC::type_to_string(typed_type, statics)
+                    CodeGenC::real_type_to_string(typed_type, statics)
                 ),
                 None,
                 true,
@@ -652,7 +633,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut self.before,
                 &format!(
                     "{} return_value_ = {value};",
-                    CodeGenC::type_to_string(typed_type, statics)
+                    CodeGenC::real_type_to_string(typed_type, statics)
                 ),
                 None,
                 true,
@@ -706,7 +687,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 if !matches!(rt, ASTTypedType::Unit) {
                     format!(
                         "{} return_value_ =  {body};",
-                        CodeGenC::type_to_string(rt, statics),
+                        CodeGenC::real_type_to_string(rt, statics),
                     )
                 } else {
                     format!("{body};")

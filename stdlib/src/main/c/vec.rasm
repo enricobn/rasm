@@ -1,58 +1,51 @@
-/*
-the structure of vec
-    int length;
-    void **values;
-*/
-pub type Vec<T>(true, "void **");
+pub type Vec<T>(true, "struct Vector*");
 
 pub native VecAddRef<T>(address: Vec<T>) /{
-    int *length = address[0];
-    void **array = address[1];
+    size_t length = $castAddress($address)->length;
+    void **array = $castAddress($address)->values;
     
-    addRef(array);
-    addRef(length);
+    if (array != NULL) {
+        addRef(array);
+    }
 
-    for (int i=0; i < *length; i++) {
+    for (int i=0; i < length; i++) {
         $addRef(array[i]: T);
     }
     addRef(address);
 }/
 
 pub native VecDeref<T>(address: Vec<T>) /{
-    int *length = address[0];
-    void **array = address[1];
+    size_t length = $castAddress($address)->length;
+    void **array = $castAddress($address)->values;
     
-    for (int i=0; i < *length; i++) {
+    for (int i=0; i < length; i++) {
         $deref(array[i]: T);
     }
 
-    deref(array);
-    deref(length);
+    if (array != NULL) {
+        deref(array);
+    }
+
     deref(address);
 }/
 
 pub native Vec<T>() -> Vec<T> /{
     $include(<stdlib.h>)
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
-    int* length = rasmMalloc(sizeof(int));
-    *length = 0;
-    result[0] = length;
-    result[1] = NULL;
+    struct RasmPointer_ *result = rasmMalloc(sizeof(void *) * 2);
+    ((struct Vector*)result->address)->length = 0;
+    ((struct Vector*)result->address)->values = NULL;
     return result;
 }/
 
 pub native first<T>(vec: Vec<T>) -> Option<T> /{
-    int length = *((int*)$vec[0]);
+    size_t length = $castAddress($vec)->length;
 
     if (length == 0) {
-        $enumDeclaration(result)
-        $enumVariantDeclaration(none,None)
-        result->variant_num = 1;
-        result->variant = none;
+        $enumSimple(result,None)
         return result;
     } else {
-        void **array = $vec[1];
+        void **array = $castAddress($vec)->values;
         void *value = array[0];
         $addRef(value:T)
         return
@@ -62,7 +55,7 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
 }/
 
 pub native last<T>(vec: Vec<T>) -> Option<T> /{
-    int length = *((int*)$vec[0]);
+    size_t length = $castAddress($address)->length;
 
     if (length == 0) {
         $enumDeclaration(result)
@@ -71,7 +64,7 @@ pub native last<T>(vec: Vec<T>) -> Option<T> /{
         result->variant = none;
         return result;
     } else {
-        void **array = $vec[1];
+        void **array = $castAddress($vec)->values;
         void *value = array[length - 1];
         $addRef(value:T)
         return
@@ -225,7 +218,7 @@ pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
 }/
 
 pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
-    int old_length = *(int *)vec[0];
+    int old_length = *(int *)vec->address[0];
 
     int *length = rasmMalloc(sizeof(int));
     $call(addRef, length:RasmPointer)
@@ -240,7 +233,8 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     result[1] = vec_;
 
     for (int i = 0; i < old_length; i++) {
-        void *tmp = f->functionPtr(((void **)vec[1])[i], f);
+        void *tmp = $castAddress($f)
+        ->functionPtr(((void **)vec[1])[i], f);
         $addRef(tmp:T1)
         vec_[i] = tmp;
     }
@@ -453,9 +447,10 @@ pub native charsVec(s: str) -> Vec<char> /{
 }/
 
 pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
-    int length = *(int *)vec[0];
+    int length = *(int *)vec->address[0];
 
     for (int i = 0; i < length; i++) {
-        f->functionPtr(((void **)vec[1])[i], f);
+        $castAddress($f)
+        ->functionPtr(((void **)vec[1])[i], f);
     }
 }/

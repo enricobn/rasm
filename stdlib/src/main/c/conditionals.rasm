@@ -1,8 +1,10 @@
 pub native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
 	if ($cond) {
-		return $ftrue->functionPtr($ftrue);
+		return $castAddress($ftrue)
+        ->functionPtr($ftrue);
 	} else {
-		return $ffalse->functionPtr($ffalse);
+		return $castAddress($ffalse)
+        ->functionPtr($ffalse);
 	}
 }/
 
@@ -31,6 +33,7 @@ pub native if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
 	if ($cond) {
 		return $vtrue;
 	} else {
-		return $ffalse->functionPtr($ffalse);
+		return $castAddress($ffalse)
+        ->functionPtr($ffalse);
 	}
 }/

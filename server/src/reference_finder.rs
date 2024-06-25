@@ -1271,7 +1271,13 @@ mod tests {
 
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, _errors) = project.get_all_modules(&mut statics, false, &target, false);
+        let (modules, _errors) = project.get_all_modules(
+            &mut statics,
+            false,
+            &target,
+            false,
+            &env::temp_dir().join("tmp"),
+        );
         // TODO errors
         let enhanced_ast_module =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);

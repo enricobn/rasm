@@ -4,6 +4,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use c::any::CLambdas;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use pad::PadStr;
@@ -1139,7 +1140,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         }
 
         if is_lambda {
-            self.reserve_lambda_space(&mut before, &stack, statics, lambda_space.unwrap());
+            self.reserve_lambda_space(
+                &mut before,
+                &stack,
+                statics,
+                lambda_space.unwrap(),
+                function_def,
+            );
         }
 
         let mut context = TypedValContext::new(Some(parent_context));
@@ -1400,6 +1407,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         stack: &StackVals,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
+        def: &ASTTypedFunctionDef,
     );
 
     fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics);
@@ -2018,15 +2026,12 @@ pub fn get_reference_type_name(
             namespace: _,
             name,
             native_type: _,
+            is_ref,
         } => {
-            if let Some(t) = type_def_provider.get_type_def_by_name(name) {
-                if t.is_ref {
-                    Some(name.clone())
-                } else {
-                    None
-                }
+            if *is_ref {
+                Some(name.clone())
             } else {
-                panic!("get_reference_type_name, cannot find type {name}");
+                None
             }
         }
         _ => None,
@@ -3128,6 +3133,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         stack: &StackVals,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
+        def: &ASTTypedFunctionDef,
     ) {
         let register = stack.reserve_tmp_register(before, "lambda_space_address", self);
 

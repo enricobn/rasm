@@ -23,6 +23,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
 use log::info;
 use pathdiff::diff_paths;
@@ -271,6 +272,8 @@ impl RasmProject {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
+        for_tests: bool,
+        out: &PathBuf,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
@@ -305,6 +308,35 @@ impl RasmProject {
                 })
                 .collect::<Vec<_>>(),
         );
+
+        if matches!(target, CompileTarget::C(..)) {
+            self.get_all_dependencies().iter().for_each(|dependency| {
+                if let Some(native_source_folder) = dependency.native_source_folder(target.folder())
+                {
+                    if native_source_folder.exists() {
+                        WalkDir::new(native_source_folder)
+                            .into_iter()
+                            .filter_map(Result::ok)
+                            .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
+                            .for_each(|it| {
+                                CInclude::add_to_statics(
+                                    statics,
+                                    format!("\"{}\"", it.clone().file_name().to_string_lossy()),
+                                );
+
+                                let dest = out
+                                    .parent()
+                                    .unwrap()
+                                    .join(Path::new(it.file_name().to_string_lossy().as_ref()));
+
+                                println!("dest {}", dest.to_string_lossy());
+
+                                fs::copy(it.clone().into_path(), dest).unwrap();
+                            });
+                    }
+                }
+            });
+        }
 
         pairs
             .into_iter()
@@ -347,8 +379,9 @@ impl RasmProject {
         for_tests: bool,
         target: &CompileTarget,
         debug: bool,
+        out: &PathBuf,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(statics, target, debug);
+        let (mut modules, mut errors) = self.all_modules(statics, target, debug, for_tests, out);
 
         if for_tests {
             modules.iter_mut().for_each(|it| {

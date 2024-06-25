@@ -249,6 +249,7 @@ impl CompletionService {
                         namespace,
                         name,
                         native_type: _,
+                        is_ref: _,
                     } => self
                         .typed_module
                         .types
@@ -600,7 +601,13 @@ mod tests {
         let mut statics = Statics::new();
 
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, errors) = project.get_all_modules(&mut statics, false, &target, false);
+        let (modules, errors) = project.get_all_modules(
+            &mut statics,
+            false,
+            &target,
+            false,
+            &env::temp_dir().join("tmp"),
+        );
 
         let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 

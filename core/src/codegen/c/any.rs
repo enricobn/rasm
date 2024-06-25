@@ -21,6 +21,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
+use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -131,11 +132,21 @@ impl CLambdas {
         self.lambdas.insert(clambda);
     }
 
-    pub fn find_name(&self, args: &Vec<ASTTypedType>, return_type: &ASTTypedType) -> Option<&str> {
+    pub fn find_name_in_statics(
+        statics: &Statics,
+        args: &Vec<ASTTypedType>,
+        return_type: &ASTTypedType,
+    ) -> Option<String> {
+        statics
+            .any::<CLambdas>()
+            .and_then(|it| it.find_name(args, return_type))
+    }
+
+    fn find_name(&self, args: &Vec<ASTTypedType>, return_type: &ASTTypedType) -> Option<String> {
         self.lambdas
             .iter()
             .find(|it| &it.args == args && &it.return_type == return_type)
-            .map(|it| it.name.as_str())
+            .map(|it| it.name.clone())
     }
 
     pub fn add_to_statics(statics: &mut Statics, c_lambda: CLambda) -> String {
@@ -253,7 +264,7 @@ impl CStructs {
         for (name, kind) in lambda_space.iter() {
             map.insert(
                 name.clone(),
-                CodeGenC::type_to_string(&kind.typed_type(), &statics),
+                CodeGenC::real_type_to_string(&kind.typed_type(), &statics),
             );
         }
 

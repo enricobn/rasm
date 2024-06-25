@@ -19,7 +19,6 @@
 use crate::codegen::c::code_gen_c::CCodeManipulator;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
 use crate::transformations::functions_creator::FunctionsCreator;
@@ -44,49 +43,64 @@ impl FunctionsCreator for CFunctionsCreator {
     fn enum_match_body(&self, _name: &str, enum_def: &ASTEnumDef) -> String {
         let mut result = String::new();
 
+        self.code_manipulator.add(
+            &mut result,
+            &format!("struct Enum *enum_value = (struct Enum *) $value->address;"),
+            None,
+            true,
+        );
+
         for (i, variant) in enum_def.variants.iter().enumerate() {
             self.code_manipulator.add(
                 &mut result,
-                &format!("if ($value->variant_num == {i}) {{"),
+                &format!("if (enum_value->variant_num == {i}) {{"),
                 None,
                 true,
             );
 
-            self.code_manipulator.add(
-                &mut result,
-                &format!("$enumVariantAssignment(variant, {})", variant.name),
-                None,
-                true,
-            );
+            if (variant.parameters.is_empty()) {
+                self.code_manipulator.add_rows(
+                    &mut result,
+                    vec![
+                        &format!("return $castAddress(${})", variant.name),
+                        &format!("->functionPtr(${});", variant.name),
+                    ],
+                    None,
+                    true,
+                );
+            } else {
+                self.code_manipulator.add(
+                    &mut result,
+                    &format!("$enumVariantAssignment(variant, {})", variant.name),
+                    None,
+                    true,
+                );
 
-            let mut args = Vec::new();
+                let mut args = Vec::new();
 
-            for parameter in variant.parameters.iter() {
-                args.push(format!("variant->{}", parameter.name));
+                for parameter in variant.parameters.iter() {
+                    args.push(format!("variant->{}", parameter.name));
+                }
+
+                //args.push("$value->variant".to_string());
+                args.push(format!("${}", variant.name));
+
+                self.code_manipulator.add_rows(
+                    &mut result,
+                    vec![
+                        &format!("return $castAddress(${})", variant.name),
+                        &format!("->functionPtr({});", args.join(", ")),
+                    ],
+                    None,
+                    true,
+                );
             }
-
-            //args.push("$value->variant".to_string());
-            args.push(format!("${}", variant.name));
-
-            self.code_manipulator.add(
-                &mut result,
-                &format!(
-                    "return ${}->functionPtr({});",
-                    variant.name,
-                    args.join(", ")
-                ),
-                None,
-                true,
-            );
             self.code_manipulator.add(&mut result, "}", None, true);
         }
 
         self.code_manipulator.add(
             &mut result,
-            &format!(
-                "printf(\"unknown variant %d for {}\\n\", $value->variant_num);",
-                enum_def.name
-            ),
+            &format!("printf(\"unknown variant for {}\\n\");", enum_def.name),
             None,
             true,
         );
@@ -97,6 +111,13 @@ impl FunctionsCreator for CFunctionsCreator {
     fn enum_match_one_body(&self, enum_def: &ASTEnumDef, variant: &ASTEnumVariantDef) -> String {
         let mut result = String::new();
 
+        self.code_manipulator.add(
+            &mut result,
+            &format!("struct Enum *enum_value = $value->address;"),
+            None,
+            true,
+        );
+
         if let Some(i) = enum_def
             .variants
             .iter()
@@ -105,7 +126,7 @@ impl FunctionsCreator for CFunctionsCreator {
             self.code_manipulator.add_rows(
                 &mut result,
                 vec![
-                    &format!("if ($value->variant_num == {i}) {{"),
+                    &format!("if (enum_value->variant_num == {i}) {{"),
                     &format!("$enumVariantAssignment(variant, {})", variant.name),
                 ],
                 None,
@@ -163,8 +184,19 @@ impl FunctionsCreator for CFunctionsCreator {
         _descr: &String,
     ) -> (String, bool) {
         let mut result = String::new();
-        self.code_manipulator
-            .add(&mut result, "$enumDeclaration(e_)", None, true);
+        self.code_manipulator.add(
+            &mut result,
+            &format!("struct RasmPointer_* e__ = rasmMalloc(sizeof(struct Enum));"),
+            None,
+            true,
+        );
+        self.code_manipulator.add(
+            &mut result,
+            &format!("struct Enum* e_ = (struct Enum*)e__->address;"),
+            None,
+            true,
+        );
+
         self.code_manipulator.add(
             &mut result,
             &format!("$enumVariantDeclaration(v_,{})", variant.name),
@@ -181,7 +213,7 @@ impl FunctionsCreator for CFunctionsCreator {
         }
 
         self.code_manipulator
-            .add(&mut result, "e_->variant = v_;", None, true);
+            .add(&mut result, "e_->variant = v__;", None, true);
         self.code_manipulator.add(
             &mut result,
             &format!("e_->variant_num = {variant_num};"),
@@ -190,7 +222,7 @@ impl FunctionsCreator for CFunctionsCreator {
         );
 
         self.code_manipulator
-            .add(&mut result, "return e_;", None, true);
+            .add(&mut result, "return e__;", None, true);
 
         (result, false)
     }
@@ -198,7 +230,17 @@ impl FunctionsCreator for CFunctionsCreator {
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
         let mut result = String::new();
         self.code_manipulator
-            .add(&mut result, "$structDeclaration(s_)", None, true);
+            .add(&mut result, "$structDeclaration(s__)", None, true);
+
+        self.code_manipulator
+            .add(&mut result, "$structType()", None, true);
+
+        self.code_manipulator
+            .add(&mut result, "*s_ = ($structType()", None, true);
+
+        self.code_manipulator
+            .add(&mut result, " *) s__->address;", None, true);
+
         for property_def in struct_def.properties.iter() {
             self.code_manipulator.add(
                 &mut result,
@@ -209,14 +251,17 @@ impl FunctionsCreator for CFunctionsCreator {
         }
 
         self.code_manipulator
-            .add(&mut result, "return s_;", None, true);
+            .add(&mut result, "return s__;", None, true);
         result
     }
 
     fn struct_property_body(&self, _i: usize, name: &str) -> (String, bool) {
         let mut result = String::new();
+
         self.code_manipulator
-            .add(&mut result, &format!("$v->{name}"), None, false);
+            .add(&mut result, &format!("(($typeName($v)"), None, false);
+        self.code_manipulator
+            .add(&mut result, &format!(")$v->address)->{name}"), None, false);
         (result, true)
     }
 
@@ -227,10 +272,10 @@ impl FunctionsCreator for CFunctionsCreator {
             vec![
                 "$include(<string.h>)",
                 "$structDeclaration(newStruct)",
-                "memcpy(newStruct, $receiver, sizeof(",
+                "memcpy(newStruct->address, $receiver->address, sizeof(",
                 "$structType()",
                 "));",
-                &format!("newStruct->{name} = $v;"),
+                &format!("newStruct_->{name} = $v;"),
                 "return newStruct;",
             ],
             None,

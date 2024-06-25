@@ -1,10 +1,11 @@
-/* struct RasmPointer {
+/* struct RasmPointer_ {
         void *address;
         int count;
-   }
+        struct RCList* zero;
+   };
 */
 
-pub type RasmPointer(false, "void *");
+pub type RasmPointer(false, "struct RasmPointer_ *");
 
 pub native exitMain(status: i32) /{
     exit($status);
@@ -16,11 +17,12 @@ pub native argc() -> i32 /{
 
 pub native argv(i: i32) -> Option<str> /{
     if (i >= argc_) {
-        $enumDeclaration(result_)
+        struct RasmPointer_ *result__ = rasmMalloc(sizeof(struct Enum));
+        struct Enum *result_ = (struct Enum *)result__->address;
         $enumVariantDeclaration(v_, None)
         result_->variant_num = 1;
-        result_->variant = v_;
-        return result_;
+        result_->variant = v__;
+        return result__;
     } else {
         return
         $call(Option::Some, argv_[$i]:str)
@@ -40,10 +42,16 @@ pub native rasmMalloc(size: i32) -> RasmPointer /{
         free(address_to_free);
     }
 
-    void *result = malloc(size);
+    void *address = malloc(size);
     if (RASM_DEBUG) {
-        printf("allocated(%p)\n", result);
+        printf("allocated(%p)\n", address);
     }
+
+    struct RasmPointer_ *result = malloc(sizeof(struct RasmPointer_));
+    result->address = address;
+    result->count = 0;
+    result->zero = NULL;
+
     return result;
 }/
 
@@ -58,14 +66,16 @@ pub native deref(address: RasmPointer) /{
     }
 
     if (RASM_DEBUG) {
-        printf("deref(%p)", address);
+        printf("deref(%p)", address->address);
     }
 
-    int count;
-    if ((count = rc_dec(rasm_rc_table, address)) == INT_MIN) {
-        printf("Error in rc_dec.\n");
-    } else if (RASM_DEBUG) {
+    int count = --address->count;
+    if (RASM_DEBUG) {
         printf(" count %d\n", count);
+    }
+
+    if (count == 0) {
+        // TODO
     }
 
     // printf("Cannot find reference!!\n");
@@ -85,13 +95,12 @@ pub native addRef(address: RasmPointer) /{
     }
 
     if (RASM_DEBUG) {
-        printf("addRef(%p)", address);
+        printf("addRef(%p)", address->address);
     }
-    int count;
-    if ((count = rc_inc(rasm_rc_table, address)) == INT_MIN) {
-        printf("Error in rc_inc.\n");
-    } else if (RASM_DEBUG) {
-        printf(" count %d\n", count);
+    int count = ++address->count;
+
+    if (count == 1) {
+        // TODO 
     }
 }/
 

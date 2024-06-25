@@ -8,10 +8,7 @@ native optIOError() -> Option<IOError> /{
     $include(<string.h>)
 
     if (errno == 0) {
-        $enumDeclaration(result)
-        $enumVariantDeclaration(none,None)
-        result->variant_num = 1;
-        result->variant = none;
+        $enumSimple(result,None)
         return result;
     } else {
         char *message = strerror(errno);
