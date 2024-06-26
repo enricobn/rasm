@@ -246,24 +246,37 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             {
                 CLambdas::add_to_statics_if_lambda(&property.ast_type, statics);
                 let source = format!("($castAddress($address))->{}", property.name);
-                if function_name == "deref" {
-                    self.code_gen.call_deref(
+
+                if type_name == "_fn" {
+                    TypedFunctionsCreatorC::addref_deref_lambda(
                         &mut body,
+                        function_name,
                         &source,
-                        &type_name,
-                        "",
+                        &property.ast_type,
                         type_def_provider,
+                        &self.code_gen,
                         statics,
                     );
                 } else {
-                    self.code_gen.call_add_ref(
-                        &mut body,
-                        &source,
-                        &type_name,
-                        "",
-                        type_def_provider,
-                        statics,
-                    );
+                    if function_name == "deref" {
+                        self.code_gen.call_deref(
+                            &mut body,
+                            &source,
+                            &type_name,
+                            "",
+                            type_def_provider,
+                            statics,
+                        );
+                    } else {
+                        self.code_gen.call_add_ref(
+                            &mut body,
+                            &source,
+                            &type_name,
+                            "",
+                            type_def_provider,
+                            statics,
+                        );
+                    }
                 }
             }
         }

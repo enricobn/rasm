@@ -42,6 +42,7 @@ use crate::type_check::typed_ast::{
 use linked_hash_map::LinkedHashMap;
 
 use super::text_macro::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
+use super::typed_function_creator::TypedFunctionsCreatorC;
 
 #[derive(Clone)]
 pub struct CCodeManipulator;
@@ -526,10 +527,23 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
     ) -> String {
         let mut result = String::new();
 
-        self.call_deref(&mut result, name, type_name, "", typed_module, statics);
+        if type_name == "_fn" {
+            TypedFunctionsCreatorC::addref_deref_lambda(
+                &mut result,
+                "deref",
+                name,
+                t,
+                typed_module,
+                self,
+                statics,
+            );
+        } else {
+            self.call_deref(&mut result, name, type_name, "", typed_module, statics);
+        }
 
         result
     }
@@ -543,8 +557,21 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
     ) {
-        self.call_add_ref(before, name, type_name, "", typed_module, statics);
+        if type_name == "_fn" {
+            TypedFunctionsCreatorC::addref_deref_lambda(
+                before,
+                "addRef",
+                name,
+                t,
+                typed_module,
+                self,
+                statics,
+            );
+        } else {
+            self.call_add_ref(before, name, type_name, "", typed_module, statics);
+        }
     }
 
     fn set_let_const_for_function_call_result(

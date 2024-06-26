@@ -934,6 +934,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         &address_relative_to_bp,
                         &type_name,
                         typed_module,
+                        &return_type,
                     );
 
                     let deref_str = self.call_deref_for_let_val(
@@ -942,6 +943,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         &address_relative_to_bp,
                         &type_name,
                         typed_module,
+                        &return_type,
                     );
                     Self::insert_on_top(&deref_str, after);
                 }
@@ -977,6 +979,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
     ) -> String;
 
     fn call_add_ref_for_let_val(
@@ -988,6 +991,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
     );
 
     fn set_let_const_for_function_call_result(
@@ -2915,6 +2919,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
     ) -> String {
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
@@ -2937,6 +2942,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
     ) {
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();

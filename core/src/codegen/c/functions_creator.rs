@@ -58,7 +58,7 @@ impl FunctionsCreator for CFunctionsCreator {
                 true,
             );
 
-            if (variant.parameters.is_empty()) {
+            if variant.parameters.is_empty() {
                 self.code_manipulator.add_rows(
                     &mut result,
                     vec![
