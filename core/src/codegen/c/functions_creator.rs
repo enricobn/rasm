@@ -113,7 +113,7 @@ impl FunctionsCreator for CFunctionsCreator {
 
         self.code_manipulator.add(
             &mut result,
-            &format!("struct Enum *enum_value = $value->address;"),
+            &format!("struct Enum *enum_value = (struct Enum *) $value->address;"),
             None,
             true,
         );
@@ -145,7 +145,7 @@ impl FunctionsCreator for CFunctionsCreator {
             self.code_manipulator.add(
                 &mut result,
                 &format!(
-                    "return ${}->functionPtr({});",
+                    "return $castAddress(${})->functionPtr({});",
                     variant.name,
                     args.join(", ")
                 ),
@@ -156,7 +156,7 @@ impl FunctionsCreator for CFunctionsCreator {
                 &mut result,
                 vec![
                     "} else {",
-                    "return elseLambda->functionPtr(elseLambda);",
+                    "return $castAddress($elseLambda)->functionPtr(elseLambda);",
                     "}",
                 ],
                 None,
@@ -291,10 +291,11 @@ impl FunctionsCreator for CFunctionsCreator {
             vec![
                 "$include(<string.h>)",
                 "$structDeclaration(newStruct)",
-                "memcpy(newStruct, $receiver, sizeof(",
+                &format!("$structType()* s = ($structType()*)newStruct->address;"),
+                "memcpy(s, $castAddress($receiver), sizeof(",
                 "$structType()",
                 "));",
-                &format!("newStruct->{name} = f->functionPtr(newStruct->{name}, f);"),
+                &format!("s->{name} = $castAddress($f)->functionPtr(s->{name}, f);"),
                 "return newStruct;",
             ],
             None,
