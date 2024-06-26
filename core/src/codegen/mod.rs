@@ -463,6 +463,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             param_name,
                             bf,
                             cur,
+                            &param_type,
                         );
 
                         lambda_calls.append(&mut inner_lambda_calls);

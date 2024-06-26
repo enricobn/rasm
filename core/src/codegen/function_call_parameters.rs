@@ -44,6 +44,7 @@ pub trait FunctionCallParameters {
         name: String,
         before: String,
         current: String,
+        t: &ASTTypedType,
     );
 
     fn add_lambda(
@@ -338,6 +339,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         name: String,
         before: String,
         current: String,
+        t: &ASTTypedType,
     ) {
         if self.immediate {
             panic!();

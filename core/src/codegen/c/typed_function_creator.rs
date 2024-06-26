@@ -172,6 +172,43 @@ impl TypedFunctionsCreatorC {
         body
     }
 
+    pub fn addref_deref_lambda(
+        body: &mut String,
+        function_name: &str,
+        orig_source: &str,
+        t: &ASTTypedType,
+        type_def_provider: &dyn TypeDefProvider,
+        code_gen: &CodeGenC,
+        statics: &Statics,
+    ) {
+        let ts = CodeGenC::type_to_string(t, statics);
+
+        let source = if function_name == "deref" {
+            code_gen.add(
+                body,
+                &format!("if ((({ts}){orig_source}->address)->deref_function != NULL) {{"),
+                None,
+                true,
+            );
+            format!("(({ts}){orig_source}->address)->deref_function({orig_source});")
+        } else {
+            code_gen.add(
+                body,
+                &format!("if ((({ts}){orig_source}->address)->addref_function != NULL) {{"),
+                None,
+                true,
+            );
+            format!("(({ts}){orig_source}->address)->addref_function({orig_source});")
+        };
+
+        if function_name == "deref" {
+            code_gen.call_deref(body, &source, "_fn", "_fn", type_def_provider, statics);
+        } else {
+            code_gen.call_add_ref(body, &source, "_fn", "_fn", type_def_provider, statics);
+        }
+        code_gen.add(body, "}", None, true);
+    }
+
     pub fn create_lambda_free(
         &self,
         c_lambda_name: &str,
@@ -261,7 +298,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         body
     }
 
-    // we override the default implementation that checks if the enum hs references, we want to do it anyway, since
+    // we override the default implementation that checks if the enum has references, we want to do it anyway, since
     // enum itself and variant are two separated allocations and we always have to addref/deref both
     fn for_enum(
         &self,
@@ -331,24 +368,37 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 {
                     CLambdas::add_to_statics_if_lambda(&parameter.ast_type, statics);
                     let source = format!("variant->{}", parameter.name);
-                    if function_name == "deref" {
-                        self.code_gen.call_deref(
+
+                    if type_name == "_fn" {
+                        TypedFunctionsCreatorC::addref_deref_lambda(
                             &mut body,
+                            function_name,
                             &source,
-                            &type_name,
-                            &type_name,
+                            &parameter.ast_type,
                             type_def_provider,
+                            &self.code_gen,
                             statics,
                         );
                     } else {
-                        self.code_gen.call_add_ref(
-                            &mut body,
-                            &source,
-                            &type_name,
-                            &type_name,
-                            type_def_provider,
-                            statics,
-                        );
+                        if function_name == "deref" {
+                            self.code_gen.call_deref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        } else {
+                            self.code_gen.call_add_ref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        }
                     }
                 }
             }

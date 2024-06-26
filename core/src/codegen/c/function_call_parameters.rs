@@ -173,6 +173,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         name: String,
         before: String,
         current: String,
+        t: &ASTTypedType,
     ) {
         let tmp_val_name = format!("call_{}_", ID.fetch_add(1, Ordering::SeqCst));
 
@@ -197,26 +198,51 @@ impl FunctionCallParameters for CFunctionCallParameters {
         );
 
         if let Some(type_name) = get_reference_type_name(&param_type, module) {
-            self.code_gen_c.call_add_ref(
-                &mut self.before,
-                &tmp_val_name,
-                &type_name,
-                "",
-                module,
-                statics,
-            );
+            if type_name == "_fn" {
+                TypedFunctionsCreatorC::addref_deref_lambda(
+                    &mut self.before,
+                    "addRef",
+                    &tmp_val_name,
+                    t,
+                    module,
+                    &self.code_gen_c,
+                    statics,
+                );
+            } else {
+                self.code_gen_c.call_add_ref(
+                    &mut self.before,
+                    &tmp_val_name,
+                    &type_name,
+                    "",
+                    module,
+                    statics,
+                );
+            }
         }
 
         if let Some(type_name) = get_reference_type_name(&param_type, module) {
             let mut deref_code = String::new();
-            self.code_gen_c.call_deref(
-                &mut deref_code,
-                &tmp_val_name,
-                &type_name,
-                &type_name,
-                module,
-                statics,
-            );
+
+            if type_name == "_fn" {
+                TypedFunctionsCreatorC::addref_deref_lambda(
+                    &mut deref_code,
+                    "deref",
+                    &tmp_val_name,
+                    t,
+                    module,
+                    &self.code_gen_c,
+                    statics,
+                );
+            } else {
+                self.code_gen_c.call_deref(
+                    &mut deref_code,
+                    &tmp_val_name,
+                    &type_name,
+                    &type_name,
+                    module,
+                    statics,
+                );
+            }
             self.add_on_top_of_after(&deref_code);
         }
 
@@ -319,7 +345,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             self.code_manipulator.add(
                 &mut self.before,
                 &format!(
-                    "struct {c_lambda_name} *{lambda_var_name} = (struct {c_lambda_name}*) {c_lambda_name}_->address;"
+                    "struct {c_lambda_name} *{lambda_var_name} = (struct {c_lambda_name}*) {lambda_var_name}_->address;"
                 ),
                 None,
                 true,
@@ -432,7 +458,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             let addref_function = typed_function_creator.create_lambda_free(
                 &c_lambda_name,
                 &lambda_space,
-                "addref",
+                "addRef",
                 module,
                 statics,
                 lambda_in_stack,
