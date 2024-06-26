@@ -92,54 +92,35 @@ impl TypedFunctionsCreatorC {
                     let mut source = format!("lambda_space->{name}");
 
                     if &type_name == "_fn" {
-                        let ts = CodeGenC::type_to_string(t, statics);
-
-                        if function_name == "deref" {
-                            self.code_gen.add(
-                                &mut body,
-                                &format!(
-                                    "if ((({ts}){source}->address)->deref_function != NULL) {{"
-                                ),
-                                None,
-                                true,
-                            );
-                            source =
-                                format!("(({ts}){source}->address)->deref_function({source});");
-                        } else {
-                            self.code_gen.add(
-                                &mut body,
-                                &format!(
-                                    "if ((({ts}){source}->address)->addref_function != NULL) {{"
-                                ),
-                                None,
-                                true,
-                            );
-                            source =
-                                format!("(({ts}){source}->address)->addref_function({source});");
-                        }
-                    }
-
-                    if function_name == "deref" {
-                        self.code_gen.call_deref(
+                        Self::addref_deref_lambda(
                             &mut body,
+                            function_name,
                             &source,
-                            &type_name,
-                            &type_name,
+                            t,
                             type_def_provider,
-                            statics,
+                            &self.code_gen,
+                            &statics,
                         );
                     } else {
-                        self.code_gen.call_add_ref(
-                            &mut body,
-                            &source,
-                            &type_name,
-                            &type_name,
-                            type_def_provider,
-                            statics,
-                        );
-                    }
-                    if &type_name == "_fn" {
-                        self.code_gen.add(&mut body, "}", None, true);
+                        if function_name == "deref" {
+                            self.code_gen.call_deref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        } else {
+                            self.code_gen.call_add_ref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        }
                     }
                 }
             }
