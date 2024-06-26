@@ -98,12 +98,11 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
 }/
 
 native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
-    struct RasmPointer_ *result = rasmMalloc(sizeof(struct SDL_Rect));
-    SDL_Rect *result_ = (SDL_Rect *) result->address;
-    result_->x = $castAddress($rect)->x;
-    result_->y = $castAddress($rect)->y;
-    result_->w = $castAddress($rect)->width;
-    result_->h = $castAddress($rect)->height;
+    struct SDL_Rect *result = rasmMalloc(sizeof(struct SDL_Rect));
+    result->x = $castAddress($rect)->x;
+    result->y = $castAddress($rect)->y;
+    result->w = $castAddress($rect)->width;
+    result->h = $castAddress($rect)->height;
 
     return result;
 }/

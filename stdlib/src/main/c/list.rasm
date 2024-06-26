@@ -9,25 +9,25 @@ pub native chars(s: str) -> List<str> /{
         char lb = $s[i];
         char *c;
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
-           c = rasmMalloc(sizeof(char) * 2);
+           c = malloc(sizeof(char) * 2);
            c[0] = lb;
            c[1] = 0;
            i += 1;
         } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
-          c = rasmMalloc(sizeof(char) * 3);
+          c = malloc(sizeof(char) * 3);
           c[0] = lb;
           c[1] = $s[i + 1];
           c[2] = 0;
           i += 2;
         } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
-          c = rasmMalloc(sizeof(char) * 4);
+          c = malloc(sizeof(char) * 4);
           c[0] = lb;
           c[1] = $s[i + 1];
           c[2] = $s[i + 2];
           c[3] = 0;
           i += 3;
         } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
-          c = rasmMalloc(sizeof(char) * 5);
+          c = malloc(sizeof(char) * 5);
           c[0] = lb;
           c[1] = $s[i + 1];
           c[2] = $s[i + 2];
@@ -65,7 +65,7 @@ pub native lines(s: str) -> List<str> /{
         char lb = $s[i];
 
         if (lb == '\n') {
-           char *line = rasmMalloc(sizeof(char) * (i - line_pos + 1));
+           char *line = malloc(sizeof(char) * (i - line_pos + 1));
            strncpy(line, s + line_pos, i - line_pos);
            line[i - line_pos] = 0;
            $addRef(line:str)

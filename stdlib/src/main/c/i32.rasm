@@ -26,7 +26,7 @@ pub native toString(n: i32) -> str /{
     //int s_len = (int)((ceil(log10((double)$n));
     int s_len = 20;
 
-    char *_str = rasmMalloc((s_len + 1) * sizeof(char));
+    char *_str = malloc((s_len + 1) * sizeof(char));
     sprintf(_str, "%d", $n);
     return _str;
 }/
