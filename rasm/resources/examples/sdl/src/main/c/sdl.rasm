@@ -98,11 +98,12 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
 }/
 
 native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
-    SDL_Rect *result = rasmMalloc(sizeof(struct SDL_Rect));
-    result->x = rect->x;
-    result->y = rect->y;
-    result->w = rect->width;
-    result->h = rect->height;
+    struct RasmPointer_ *result = rasmMalloc(sizeof(struct SDL_Rect));
+    SDL_Rect *result_ = (SDL_Rect *) result->address;
+    result_->x = $castAddress($rect)->x;
+    result_->y = $castAddress($rect)->y;
+    result_->w = $castAddress($rect)->width;
+    result_->h = $castAddress($rect)->height;
 
     return result;
 }/
@@ -171,10 +172,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
         }
     }
 
-    $enumDeclaration(result_)
-    $enumVariantDeclaration(none_,None)
-    result_->variant_num = 1;
-    result_->variant = none_;
+    $enumSimple(result_,None)
     return result_;
 }/
 
@@ -214,7 +212,7 @@ native sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a
 }/
 
 pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSurface /{
-    SDL_Color color = {c->r, c->g, c->b};
+    SDL_Color color = {$castAddress($c)->r, $castAddress($c)->g, $castAddress($c)->b};
 
     return TTF_RenderText_Solid(font, message, color);
 }/

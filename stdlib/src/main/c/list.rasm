@@ -54,10 +54,7 @@ pub native chars(s: str) -> List<str> /{
 }/
 
 pub native lines(s: str) -> List<str> /{
-    $enumDeclaration(result)
-    $enumVariantDeclaration(empty,Empty)
-    result->variant_num = 1;
-    result->variant = empty;
+    $enumSimple(result,Empty)
     $addRef(result:List<str>)
 
     int len = strlen(s);

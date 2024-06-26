@@ -100,7 +100,7 @@ impl TextMacro {
 }
 
 lazy_static! {
-    static ref RE: Regex = Regex::new(r"\$([A-Za-z]*)\(([^\)]*)\)").unwrap();
+    static ref RE: Regex = Regex::new(r#"\$([A-Za-z]*)\(((?:[^\")]*|".*?")*)\)"#).unwrap();
 }
 
 pub struct TextMacroEvaluator {

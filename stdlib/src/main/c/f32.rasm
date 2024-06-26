@@ -3,8 +3,9 @@ pub inline native tof32(n: i32) -> f32 /{
 }/
 
 pub native toi32(n: f32) -> Option<i32> /{
+    int result = (int)$n;
     return
-        $call(Option::Some, (int)$n)
+        $call(Option::Some, result)
     ;
 }/
 
