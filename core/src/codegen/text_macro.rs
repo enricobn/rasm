@@ -313,7 +313,7 @@ impl TextMacroEvaluator {
                                 None,
                             ))
                         } else {
-                            panic!("Cannot find parameter {name}");
+                            panic!("Cannot find parameter {name} : {}", f.index);
                         }
                     }
                 },

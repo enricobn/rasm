@@ -329,7 +329,7 @@ impl RasmProject {
                                     .unwrap()
                                     .join(Path::new(it.file_name().to_string_lossy().as_ref()));
 
-                                println!("dest {}", dest.to_string_lossy());
+                                info!("including file {}", it.path().to_string_lossy());
 
                                 fs::copy(it.clone().into_path(), dest).unwrap();
                             });

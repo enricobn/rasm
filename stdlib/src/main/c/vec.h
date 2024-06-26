@@ -1,4 +1,4 @@
 struct Vector {
   size_t length;
-  void **values;
+  struct RasmPointer_ *values;
 };

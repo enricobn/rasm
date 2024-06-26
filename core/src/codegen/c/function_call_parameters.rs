@@ -410,10 +410,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
 
                     let parent_ls_type_name = CStructs::add_lambda_space_to_statics(statics, pls);
 
-                    format!(
-                        " (({})((struct {parent_ls_type_name}*)_lambda->lambda_space)->{name})",
-                        CodeGenC::type_to_string(t, statics)
-                    )
+                    format!(" lambda_space->{name}")
 
                     //Self::get_value_from_lambda_space(statics, module, idx - 1, t, false, name)
                 } else {

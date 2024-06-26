@@ -1,41 +1,55 @@
 pub type Vec<T>(true, "struct Vector*");
 
+native Vec(length: i32) -> RasmPointer /{
+    struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
+    struct Vector *new_vec = (struct Vector*)result->address;
+    new_vec->length = length;
+    new_vec->values = rasmMalloc(sizeof(void *) * length);
+    return result;
+}/
+
 pub native VecAddRef<T>(address: Vec<T>) /{
     size_t length = $castAddress($address)->length;
-    void **array = $castAddress($address)->values;
-    
-    if (array != NULL) {
-        addRef(array);
-    }
+    struct RasmPointer_ *values = $castAddress($address)->values;
 
-    for (int i=0; i < length; i++) {
-        $addRef(array[i]: T);
+    if (values != NULL) {
+        addRef(values);
+        void **array = (void **)values->address;
+
+        for (int i=0; i < length; i++) {
+            $addRef(array[i]: T);
+        }
     }
     addRef(address);
 }/
 
 pub native VecDeref<T>(address: Vec<T>) /{
     size_t length = $castAddress($address)->length;
-    void **array = $castAddress($address)->values;
-    
-    for (int i=0; i < length; i++) {
-        $deref(array[i]: T);
-    }
+    struct RasmPointer_ *values = $castAddress($address)->values;
 
-    if (array != NULL) {
-        deref(array);
+    // TODO remove this optimization, an empty Vec is created with values containing an empty array
+    if (values != NULL) {
+        void **array = (void **)values->address;
+
+        for (int i=0; i < length; i++) {
+            $deref(array[i]: T);
+        }
+
+        deref(values);
     }
 
     deref(address);
 }/
 
 pub native Vec<T>() -> Vec<T> /{
-    $include(<stdlib.h>)
-
-    struct RasmPointer_ *result = rasmMalloc(sizeof(void *) * 2);
-    ((struct Vector*)result->address)->length = 0;
-    ((struct Vector*)result->address)->values = NULL;
+    return $call(Vec,0);
+    /*
+    struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
+    struct Vector *new_vec = (struct Vector*)result->address;
+    new_vec->length = 0;
+    new_vec->values = NULL;
     return result;
+    */
 }/
 
 pub native first<T>(vec: Vec<T>) -> Option<T> /{
@@ -45,7 +59,8 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
         $enumSimple(result,None)
         return result;
     } else {
-        void **array = $castAddress($vec)->values;
+        struct RasmPointer_ *values = $castAddress($vec)->values;
+        void **array = (void **)values->address;
         void *value = array[0];
         $addRef(value:T)
         return
@@ -55,16 +70,14 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
 }/
 
 pub native last<T>(vec: Vec<T>) -> Option<T> /{
-    size_t length = $castAddress($address)->length;
+    size_t length = $castAddress($vec)->length;
 
     if (length == 0) {
-        $enumDeclaration(result)
-        $enumVariantDeclaration(none,None)
-        result->variant_num = 1;
-        result->variant = none;
+        $enumSimple(result,None)
         return result;
     } else {
-        void **array = $castAddress($vec)->values;
+        struct RasmPointer_ *values = $castAddress($vec)->values;
+        void **array = (void **)values->address;
         void *value = array[length - 1];
         $addRef(value:T)
         return
@@ -77,89 +90,76 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    void **old_vec = vec;
-    void **result = rasmMalloc(sizeof(void *) * 2);
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
-    int old_length = *((int*)old_vec[0]);
+    struct RasmPointer_ *result = $call(Vec,length + 1);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
-    int *new_length = rasmMalloc(sizeof(int));
-    *new_length = old_length + 1;
+    memcpy(result_array, array, sizeof(void *) * length);
 
-    result[0] = new_length;
-    result[1] = rasmMalloc(sizeof(void *) * (old_length + 1));
-
-    void **old_array = old_vec[1];
-    void **array = result[1];
-
-    memcpy(array, old_array, sizeof(void *) * old_length);
-
-    array[old_length] = $o;
+    result_array[length] = $o;
     return result;
 }/
 
 pub native len<T>(vec: Vec<T>) -> i32 /{
-    return *(int*)(vec[0]);
+    return $castAddress($vec)->length;
 }/
 
 pub native vecOf<T>(o: T) -> Vec<T> /{
-    void **result = $call(vecOfInternal, 1, $o);
+    struct RasmPointer_ *result = $call(Vec,1);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
-    void **vec = result[1];
-    vec[0] = o;
+    result_array[0] = o;
 
     return result;
 }/
 
 pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
-    void **result = $call(vecOfInternal, 2, $o1);
+    struct RasmPointer_ *result = $call(Vec,2);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
-    void **vec = result[1];
-    vec[0] = o1;
-    vec[1] = o2;
+    result_array[0] = o1;
+    result_array[1] = o2;
 
     return result;
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
-    void **result = $call(vecOfInternal, 3, $o1);
+    struct RasmPointer_ *result = $call(Vec,3);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
-    void **vec = result[1];
-    vec[0] = o1;
-    vec[1] = o2;
-    vec[2] = o3;
+    result_array[0] = o1;
+    result_array[1] = o2;
+    result_array[2] = o3;
 
     return result;
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
-    void **result = $call(vecOfInternal, 8, $o1);
+    struct RasmPointer_ *result = $call(Vec,8);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
-    void **vec = result[1];
-    vec[0] = o1;
-    vec[1] = o2;
-    vec[2] = o3;
-    vec[3] = o4;
-    vec[4] = o5;
-    vec[5] = o6;
-    vec[6] = o7;
-    vec[7] = o8;
+    result_array[0] = o1;
+    result_array[1] = o2;
+    result_array[2] = o3;
+    result_array[3] = o4;
+    result_array[4] = o5;
+    result_array[5] = o6;
+    result_array[6] = o7;
+    result_array[7] = o8;
 
-    return result;
-}/
-
-// o is used to determine the type
-native vecOfInternal<T>(len: i32, o: T) -> Vec<T> /{
-    $include(<stdlib.h>)
-
-    void **result = rasmMalloc(sizeof(void *) * 2);
-
-    int *length = rasmMalloc(sizeof(int));
-    *length = len;
-
-    void **vec = rasmMalloc(sizeof(void *) * len);
-
-    result[0] = length;
-    result[1] = vec;
     return result;
 }/
 
@@ -167,10 +167,7 @@ native optIOError() -> Option<IOError> /{
     $include(<errno.h>)
 
     if (errno == 0) {
-        $enumDeclaration(result)
-        $enumVariantDeclaration(none,None)
-        result->variant_num = 1;
-        result->variant = none;
+        $enumSimple(result,None)
         return result;
     } else {
         void *error = $call(IOError, "IO Error");
@@ -180,16 +177,17 @@ native optIOError() -> Option<IOError> /{
 
 /*
 TODO it does not addRef/deref in call print of single element, so for now, we use the non native implementation
-pub native print<T>(file: File, v: Vec<T>) -> Option<IOError> /{
+pub native print<T>(file: File, vec: Vec<T>) -> Option<IOError> /{
     $include(<stdio.h>)
 
-    int length = *(int*)$v[0];
-    void **args = $v[1];
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
     errno = 0;
 
     for (int i = 0; i < length; i++) {
-        $call(print, file: File, args[i]:T)
+        $call(print, file: File, array[i]:T)
         fprintf(file, ",");
     }
     return $call(optIOError);
@@ -200,57 +198,51 @@ pub native print<T>(file: File, v: Vec<T>) -> Option<IOError> /{
 pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
     $include(<stdlib.h>)
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
+    size_t length = end-start;
 
-    int *length = rasmMalloc(sizeof(int));
-    *length = end - start;
-
-    void **vec = rasmMalloc(sizeof(void *) * *length);
+    struct RasmPointer_ *result = $call(Vec,length);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
     int counter = 0;
     for (int i = start; i < end; i++) {
-        vec[counter++] = i;
+        result_array[counter++] = i;
     }
-    result[0] = length;
-    result[1] = vec;
 
     return result;
 }/
 
 pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
-    int old_length = *(int *)vec->address[0];
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
-    int *length = rasmMalloc(sizeof(int));
-    $call(addRef, length:RasmPointer)
-    *length = old_length;
-
-    void **result = rasmMalloc(sizeof(void *) * 2);
+    struct RasmPointer_ *result = $call(Vec,length);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
+    
     $call(addRef, result:RasmPointer)
-    void **vec_ = rasmMalloc(sizeof(void *) * old_length);
-    $call(addRef, vec_:RasmPointer)
 
-    result[0] = length;
-    result[1] = vec_;
-
-    for (int i = 0; i < old_length; i++) {
-        void *tmp = $castAddress($f)
-        ->functionPtr(((void **)vec[1])[i], f);
+    for (int i = 0; i < length; i++) {
+        void *tmp = $castAddress($f)->functionPtr(array[i], f);
         $addRef(tmp:T1)
-        vec_[i] = tmp;
+        result_array[i] = tmp;
     }
 
-    $deref(result:Vec<T1>)
+    $deref(result:RasmPointer)
     return result;
 }/
 
 // false 0 true 1
 pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
-    int length = *(int *)vec[0];
-
-    void **vec_ = (void **)vec[1];
-
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
+    
     for (int i = 0; i < length; i++) {
-        if (f->functionPtr(vec_[i], f)) {
+        if ($castAddress($f)->functionPtr(array[i], f)) {
             return 1;
         }
     }
@@ -259,13 +251,13 @@ pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
 }/
 
 pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
-    int length = *(int *)vec[0];
-
-    void **vec_ = (void **)vec[1];
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
     int result = 0;
     for (int i = 0; i < length; i++) {
-        if (f->functionPtr(vec_[i], f)) {
+        if ($castAddress($f)->functionPtr(array[i], f)) {
             result++;
         }
     }
@@ -274,49 +266,52 @@ pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
 }/
 
 pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
-    int original_length = *(int *)vec[0];
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
-    int* length = rasmMalloc(sizeof(int));
-
-    void **old_vec = (void **) vec[1];
-    void **new_vec = rasmMalloc(sizeof(void *) * original_length);
+    struct RasmPointer_ *result = $call(Vec,length);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
     int dest_1 = 0;
-    for (int i = 0; i < original_length; i++) {
-        if (filter->functionPtr(old_vec[i], filter)) {
-            new_vec[dest_1++] = old_vec[i];
+    for (int i = 0; i < length; i++) {
+        if ($castAddress($filter)->functionPtr(array[i], filter)) {
+            result_array[dest_1++] = array[i];
         }
     }
 
-    *length = dest_1;
+    result_vec->length = dest_1;
 
-    result[0] = length;
-    result[1] = new_vec;
     return result;
 }/
 
 pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
-    int length1 = *(int *)vec1[0];
-    int length2 = *(int *)vec2[0];
+    size_t length1 = $castAddress($vec1)->length;
+    struct RasmPointer_ *values1 = $castAddress($vec1)->values;
+    void **array1 = (void **)values1->address;
+
+    size_t length2 = $castAddress($vec2)->length;
+    struct RasmPointer_ *values2 = $castAddress($vec2)->values;
+    void **array2 = (void **)values2->address;
 
     int length = length2;
     if (length1 < length2) {
         length = length1;
     }
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
-    void **vec = rasmMalloc(sizeof(void *) * length);
-    int *length_ = rasmMalloc(sizeof(int));
-    *length_ = length;
-    result[0] = length_;
-    result[1] = vec;
+    struct RasmPointer_ *result = $call(Vec,length);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
+
     $call(addRef, result:RasmPointer)
 
     for (int i = 0; i < length; i++) {
-        void *tmp = zipFunction->functionPtr(((void **)vec1[1])[i], ((void **)vec2[1])[i], zipFunction);
+        void *tmp = $castAddress($zipFunction)->functionPtr(array1[i], array2[i], zipFunction);
         $addRef(tmp:T)
-        vec[i] = tmp;
+        result_array[i] = tmp;
     }
 
     $call(deref, result:RasmPointer)
@@ -327,47 +322,54 @@ pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) ->
 pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     $include(<string.h>)
 
-    int length1 = *(int *)vec1[0];
-    int length2 = *(int *)vec2[0];
+    size_t length1 = $castAddress($vec1)->length;
+    struct RasmPointer_ *values1 = $castAddress($vec1)->values;
+    void **array1 = (void **)values1->address;
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
-    int* length = rasmMalloc(sizeof(int));
-    *length = length1 + length2;
-    result[0] = length;
+    size_t length2 = $castAddress($vec2)->length;
+    struct RasmPointer_ *values2 = $castAddress($vec2)->values;
+    void **array2 = (void **)values2->address;
 
-    void **vec = rasmMalloc(sizeof(void *) * (length1 + length2));
+    struct RasmPointer_ *result = $call(Vec,length1 + length2);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
-    memcpy(vec, vec1[1], sizeof(void *) * length1);
+    memcpy(result_array, array1, sizeof(void *) * length1);
 
-    void **vec1_pos = vec + length1;
+    void **vec1_pos = result_array + length1;
 
-    memcpy(vec1_pos, vec2[1], sizeof(void *) * length2);
-    result[1] = vec;
+    memcpy(vec1_pos, array2, sizeof(void *) * length2);
 
     return result;
 }/
 
 pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
-    int length = 0;
-    void **vec_ = (void **)vec[1];
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
-    for (int i = 0; i < *(int *)vec[0]; i++) {
-        void **innerVec = vec_[i];
-        length += *(int *)innerVec[0];
+    size_t new_length = 0;
+    for (int i = 0; i < length; i++) {
+        struct Vector *innerVec = (struct Vector *)((struct RasmPointer_*)array[i])->address;
+        int inner_lenght = innerVec->length;
+
+        new_length += inner_lenght;
     }
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
-    void **result_vec = rasmMalloc(sizeof(void *) * length);
-    int *_length = rasmMalloc(sizeof(int));
-    *_length = length;
-    result[0] = _length;
-    result[1] = result_vec;
+    struct RasmPointer_ *result = $call(Vec,new_length);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
     int dest_i = 0;
-    for (int i = 0; i < *(int *)vec[0]; i++) {
-        void **innerVec = vec_[i];
-        int inner_lenght = *(int *)innerVec[0];
-        memcpy(result_vec + dest_i, innerVec[1], inner_lenght * sizeof(void *));
+    for (int i = 0; i < length; i++) {
+        struct Vector *innerVec = (struct Vector *)((struct RasmPointer_*)array[i])->address;
+        int inner_lenght = innerVec->length;
+        struct RasmPointer_ *inner_values = innerVec->values;
+        void ** inner_array = (void **) inner_values->address;
+
+        memcpy(result_array + dest_i, inner_array, inner_lenght * sizeof(void *));
         dest_i += inner_lenght;
     }
 
@@ -375,13 +377,15 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
 }/
 
 pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
+
     void *result = zero;
-    int length = *(int *)vec[0];
-    void **vec_ = (void **)vec[1];
 
     for (int i = 0; i < length; i++) {
         $addRef(result: T1)
-        void *tmpResult = accum->functionPtr(result, vec_[i], accum);
+        void *tmpResult = $castAddress($accum)->functionPtr(result, array[i], accum);
         $deref(result: T1)
         result = tmpResult;
     }
@@ -392,17 +396,12 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 pub native charsVec(s: str) -> Vec<char> /{
     $include(<stdlib.h>)
 
-    void **result = rasmMalloc(sizeof(void *) * 2);
-    int* length = rasmMalloc(sizeof(int));
-    result[0] = length;
-    result[1] = NULL;
-
-    *length =
-        $call(len, $s)
-    ;
-    void **vec = rasmMalloc(sizeof(void *) * *length);
-
-    result[1] = vec;
+    int length = 
+    $call(len, $s)
+    struct RasmPointer_ *result = $call(Vec,length);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    void **result_array = (void **)result_values->address;
 
     int len = strlen(s);
     int i = 0;
@@ -411,26 +410,31 @@ pub native charsVec(s: str) -> Vec<char> /{
     while (i < len) {
         char lb = s[i];
         char *c;
+        struct RasmPointer_ *c_;
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
-           c = rasmMalloc(sizeof(char) * 2);
+           c_ = rasmMalloc(sizeof(char) * 2);
+           c = (char*)c_->address;
            c[0] = lb;
            c[1] = 0;
            i += 1;
         } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
-          c = rasmMalloc(sizeof(char) * 3);
+          c_ = rasmMalloc(sizeof(char) * 3);
+          c = (char*)c_->address;
           c[0] = lb;
           c[1] = s[i + 1];
           c[2] = 0;
           i += 2;
         } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
-          c = rasmMalloc(sizeof(char) * 4);
+          c_ = rasmMalloc(sizeof(char) * 4);
+          c = (char*)c_->address;
           c[0] = lb;
           c[1] = s[i + 1];
           c[2] = s[i + 2];
           c[3] = 0;
           i += 3;
         } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
-          c = rasmMalloc(sizeof(char) * 5);
+          c_ = rasmMalloc(sizeof(char) * 5);
+          c = (char*)c_->address;
           c[0] = lb;
           c[1] = s[i + 1];
           c[2] = s[i + 2];
@@ -441,16 +445,20 @@ pub native charsVec(s: str) -> Vec<char> /{
            printf( "Unrecognized lead byte (%02x)\n", lb );
            return result;
        }
-       vec[count++] = c;
+       // TODO for now char and string are an array of C char, NULL terminated, and are not taken in account for reference counting,
+       // so the use of RasmAlloc is pointless, but in the future they should be, so we let the code create a RasmPointer (c_), 
+       // but we put the inner address (c)
+       result_array[count++] = c;
     }
     return result;
 }/
 
 pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
-    int length = *(int *)vec->address[0];
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
 
     for (int i = 0; i < length; i++) {
-        $castAddress($f)
-        ->functionPtr(((void **)vec[1])[i], f);
+        $castAddress($f)->functionPtr(array[i], f);
     }
 }/
