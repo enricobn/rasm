@@ -98,7 +98,7 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
 }/
 
 native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
-    struct SDL_Rect *result = rasmMalloc(sizeof(struct SDL_Rect));
+    struct SDL_Rect *result = malloc(sizeof(struct SDL_Rect));
     result->x = $castAddress($rect)->x;
     result->y = $castAddress($rect)->y;
     result->w = $castAddress($rect)->width;
