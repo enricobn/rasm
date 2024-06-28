@@ -25,6 +25,11 @@
 
 // C backend
 // real    0m2,499s
+// 
+// added free
+//
+// real    0m2,642s
+// -r real    0m0,898s
 
 argv(1).fmap(fn(s) {s.toi32;}).match(fn(n) {
     println(fib(n));

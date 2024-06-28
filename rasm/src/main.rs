@@ -102,6 +102,14 @@ fn main() {
                 .required(false)
                 .index(2),
         )
+        .arg(
+            Arg::new("release")
+                .help("optimize for release")
+                .long("release")
+                .short('r')
+                .action(ArgAction::SetTrue)
+                .required(false),
+        )
         .get_matches();
 
     let current_path = env::current_dir().unwrap();
@@ -132,6 +140,7 @@ fn main() {
         print_memory: matches.get_flag("memoryinfo"),
         only_compile: matches.get_flag("compile"),
         out: matches.get_one::<String>("out").cloned(),
+        release: matches.get_flag("release"),
     };
 
     let src_path = Path::new(&src);

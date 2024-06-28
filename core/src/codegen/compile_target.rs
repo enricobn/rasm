@@ -389,12 +389,16 @@ impl CompileTarget {
                 args.append(&mut source_files_to_include);
                 args.append(&mut vec![
                     "-std=c17".to_string(),
-                    "-g".to_string(),
-                    "-O0".to_string(),
                     "-o".to_string(),
                     out_path.with_extension("").to_string_lossy().to_string(),
                     //"-Wno-incompatible-pointer-types".to_string(),
                 ]);
+                if command_line_options.release {
+                    args.push("-O3".to_string());
+                } else {
+                    args.push("-g".to_string());
+                    args.push("-O0".to_string());
+                }
 
                 if !options.includes.is_empty() {
                     for inc in options.includes.iter() {

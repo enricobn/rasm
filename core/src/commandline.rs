@@ -32,6 +32,7 @@ pub struct CommandLineOptions {
     pub print_memory: bool,
     pub only_compile: bool,
     pub out: Option<String>,
+    pub release: bool,
 }
 
 impl Default for CommandLineOptions {
@@ -42,6 +43,7 @@ impl Default for CommandLineOptions {
             print_code: false,
             print_memory: false,
             only_compile: false,
+            release: false,
             out: None,
         }
     }
