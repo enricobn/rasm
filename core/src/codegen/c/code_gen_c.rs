@@ -197,7 +197,7 @@ impl CodeGenC {
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (struct_has_references(struct_def, type_def_provider), false)
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (true, false)
+                (enum_has_references(enum_def, type_def_provider), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_has_references(type_def), true)
             } else if "str" == type_name || "_fn" == type_name {

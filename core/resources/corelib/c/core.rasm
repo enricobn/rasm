@@ -34,13 +34,7 @@ pub native argv(i: i32) -> Option<str> /{
 pub native rasmMalloc(size: i32) -> RasmPointer /{
     $include(<stdlib.h>)
 
-    void *address_to_free;
-    while ((address_to_free = rc_remove_zero(rasm_rc_table)) != NULL) {
-        if (RASM_DEBUG) {
-            printf("free(%p).\n", address_to_free);
-        }
-        free(address_to_free);
-    }
+    free_zero();
 
     void *address = malloc(size);
     if (RASM_DEBUG) {
@@ -75,7 +69,7 @@ pub native deref(address: RasmPointer) /{
     }
 
     if (count == 0) {
-        // TODO
+        push_zero(address);
     }
 
     // printf("Cannot find reference!!\n");
@@ -100,14 +94,17 @@ pub native addRef(address: RasmPointer) /{
     int count = ++address->count;
 
     if (count == 1) {
-        // TODO 
+        if (address->zero != NULL) {
+            remove_from_zero_list(address->zero);
+            address->zero = NULL;
+        }
     }
 }/
 
 pub native freeReferences() /{
-    rc_deep_free(rasm_rc_table);
+    free_zero();
 }/
 
 pub native initRasmReferences() /{
-    rasm_rc_table = rc_table(100000, 50);
+    // rasm_rc_table = rc_table(100000, 50);
 }/

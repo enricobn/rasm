@@ -90,11 +90,13 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i3
 }/
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
-    SDL_Rect *sdlRect =
-        $call(rectToSDL, $rect)
-    ;
-    SDL_RenderFillRect(ren, sdlRect);
-    free(sdlRect);
+    struct SDL_Rect result;
+    result.x = $castAddress($rect)->x;
+    result.y = $castAddress($rect)->y;
+    result.w = $castAddress($rect)->width;
+    result.h = $castAddress($rect)->height;
+
+    SDL_RenderFillRect(ren, &result);
 }/
 
 native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
