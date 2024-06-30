@@ -392,6 +392,7 @@ impl CompileTarget {
                     "-o".to_string(),
                     out_path.with_extension("").to_string_lossy().to_string(),
                     //"-Wno-incompatible-pointer-types".to_string(),
+                    "-Wno-int-conversion".to_string(),
                 ]);
                 if command_line_options.release {
                     args.push("-O3".to_string());
