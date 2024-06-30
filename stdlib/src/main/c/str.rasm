@@ -116,7 +116,7 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
         return result;
     }
 
-    char *dest = rasmMalloc((sizeof(char)) * len + 1);
+    char *dest = malloc((sizeof(char)) * len + 1);
 
     strncpy(dest, $s + pos, len);
     dest[len] = '\0'; // place the null terminator
