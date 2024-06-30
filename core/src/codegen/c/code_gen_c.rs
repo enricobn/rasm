@@ -1165,9 +1165,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 if matches!(fd.body, ASTTypedFunctionBody::RASMBody(_))
                     && !matches!(fd.return_type, ASTTypedType::Unit)
                 {
-                    if "lambda_368" == &fd.name {
-                        println!("is lambda_368");
-                    }
                     self.add(out, "return return_value_;", None, true);
                 }
             }
