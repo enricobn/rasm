@@ -57,7 +57,7 @@ pub enum TokenKind {
     Number(String),
     Punctuation(PunctuationKind),
     StringLiteral(String),
-    CharLiteral(char),
+    CharLiteral(String),
     WhiteSpaces(String),
 }
 

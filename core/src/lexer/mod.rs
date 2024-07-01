@@ -3,6 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use log::debug;
+use snailquote::unescape;
 
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
@@ -21,6 +22,7 @@ enum LexStatus {
     Numeric,
     String,
     StringEscape,
+    CharEscape,
     WhiteSpace,
     Char,
 }
@@ -236,39 +238,30 @@ impl Lexer {
                     status = LexStatus::String;
                 }
                 LexStatus::Char => {
-                    if c == '\'' {
-                        //println!("Char literal '{actual}'");
-                        let mut actual_char = '?';
-
-                        if actual.chars().count() != 1 {
-                            if actual.len() == 2 && actual.starts_with('\\') {
-                                if actual == "\\n" {
-                                    actual_char = '\n';
-                                } else if actual == "\\t" {
-                                    actual_char = '\t';
-                                } else if actual == "\\\\" {
-                                    actual_char = '\\';
-                                } else {
-                                    self.add_error(format!("Invalid char literal '{actual}'"));
-                                };
-                            } else {
-                                self.add_error(format!("Invalid char literal '{actual}'"));
-                            }
-                        } else if actual == "\\" {
-                            actual = "'".to_string();
-                            self.index += 1;
-                            self.column += 1;
-                            continue;
-                        } else {
-                            actual_char = actual.chars().next().unwrap();
+                    if c == '\\' {
+                        status = LexStatus::CharEscape;
+                    } else if c == '\'' {
+                        let unescaped =
+                            unescape(&format!("\"{}\"", actual.replace("\"", "\\\""))).unwrap();
+                        if unescaped.chars().count() != 1 {
+                            self.add_error("bad char literal".to_string())
                         }
-                        let token = self.some_token(TokenKind::CharLiteral(actual_char));
+                        let token = self.some_token(TokenKind::CharLiteral(actual));
                         self.index += 1;
                         self.column += 1;
                         return token;
                     } else {
                         actual.push(c);
                     }
+                }
+                LexStatus::CharEscape => {
+                    if c == '\'' {
+                        actual.push(c);
+                    } else {
+                        actual.push('\\');
+                        actual.push(c);
+                    }
+                    status = LexStatus::Char;
                 }
                 LexStatus::AlphaNumeric => {
                     if c.is_alphanumeric() {

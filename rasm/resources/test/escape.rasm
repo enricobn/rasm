@@ -1,0 +1,5 @@
+let c = '\n';
+print(c.eq('\n'));
+print('\n');
+println('\'');
+println('"');

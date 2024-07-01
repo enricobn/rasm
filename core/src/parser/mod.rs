@@ -1257,7 +1257,7 @@ impl Parser {
             )));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Char(*c), self.get_index(0)),
+                ASTExpression::Value(ValueType::Char(c.clone()), self.get_index(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {

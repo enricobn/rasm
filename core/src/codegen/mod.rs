@@ -4,16 +4,15 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use c::any::CLambdas;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use pad::PadStr;
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
+use snailquote::unescape;
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
-use crate::codegen::c::any::CStructs;
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::function_call_parameters::{
@@ -3628,7 +3627,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             }
             ValueType::Char(c) => {
                 let mut b = [0; 4];
-                c.encode_utf8(&mut b);
+                let unescaped = unescape(&format!("\"{}\"", c.replace("\"", "\\\""))).unwrap();
+                unescaped.chars().next().unwrap().encode_utf8(&mut b);
 
                 let result = Self::array_to_u32_le(&b);
 

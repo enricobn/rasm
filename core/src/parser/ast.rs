@@ -478,7 +478,7 @@ impl Display for ASTIndex {
 pub enum ValueType {
     Boolean(bool),
     I32(i32),
-    Char(char),
+    Char(String),
     F32(f32),
 }
 

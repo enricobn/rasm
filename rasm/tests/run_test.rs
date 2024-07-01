@@ -581,6 +581,11 @@ fn test_structpropertysetter1() {
     );
 }
 
+#[test]
+fn test_escape() {
+    run_test("escape", vec![], "true\n'\n\"\n");
+}
+
 // Compile tests
 
 #[test]

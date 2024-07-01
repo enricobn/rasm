@@ -1908,7 +1908,7 @@ impl DefaultFunction {
                             ASTExpression::Value(ValueType::Boolean(true), ASTIndex::none())
                         }
                         BuiltinTypeKind::Char => {
-                            ASTExpression::Value(ValueType::Char('a'), ASTIndex::none())
+                            ASTExpression::Value(ValueType::Char("a".to_string()), ASTIndex::none())
                         }
                         BuiltinTypeKind::F32 => {
                             ASTExpression::Value(ValueType::F32(1.0), ASTIndex::none())
