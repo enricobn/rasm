@@ -950,8 +950,9 @@ impl TextMacroEval for AddRefMacro {
                     (address, ast_typed_type)
                 }
                 _ => panic!(
-                    "Error: addRef/deref macro, a typed type must be specified in function {} but got {}: {}",
+                    "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
                     OptionDisplay(&function_def),
+                    OptionDisplay(&function_def.map(|it|&it.index)),
                     text_macro.parameters.get(0).unwrap(),
                     text_macro.index
                 ),
