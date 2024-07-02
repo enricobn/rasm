@@ -1,6 +1,6 @@
 pub native chars(s: str) -> List<str> /{
     $enumSimple(result,Empty)
-    $addRef(result:RasmPointer)
+    $addRef(result:List<str>)
 
     int len = strlen(s);
     int i = 0;
