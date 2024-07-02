@@ -5,3 +5,4 @@ target/
 /.vscode/
 debug.log.xml
 tmp/
+scores.txt
