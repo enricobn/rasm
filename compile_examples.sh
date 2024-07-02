@@ -1,3 +1,4 @@
+mkdir -p tmp
 set -e
 time RUST_LOG=info RUST_BACKTRACE=full cargo run --release build rasm/resources/examples/breakout -o tmp/breakout
 time RUST_LOG=info RUST_BACKTRACE=full cargo run --release build rasm/resources/examples/gameoflife -o tmp/gameoflife
