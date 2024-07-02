@@ -38,20 +38,23 @@ void push_zero(struct RasmPointer_ *pointer) {
 
 void free_zero() {
   struct RCZeroList *current = zero_list;
-  size_t count = 0;
+
+  //  size_t count = 0;
+
   while (current != NULL) {
     struct RasmPointer_ *pointer = current->pointer;
     struct RCZeroList *next = current->next;
-    free(pointer->address);
-    free(pointer);
+    rasmFree(pointer);
     free(current);
     current = next;
-    count++;
+    //    count++;
   }
 
-  if (count > 1000) {
-    printf("count zero %zu\n", count);
-  }
+  /*
+    if (count > 1000) {
+      printf("count zero %zu\n", count);
+    }
+  */
 
   zero_list = NULL;
 }

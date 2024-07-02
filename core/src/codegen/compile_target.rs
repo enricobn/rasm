@@ -446,27 +446,7 @@ impl CompileTarget {
                 }
             }
             CompileTarget::C(_) => {
-                /*
-                for def in &module.types {
-                    if !def.type_parameters.is_empty() {
-                        let name = format!("{}References", def.name);
-                        result.push(DefaultFunction {
-                            name,
-                            param_types: vec![ASTType::Custom {
-                                namespace: def.namespace.clone(),
-                                name: def.name.clone(),
-                                param_types: def
-                                    .type_parameters
-                                    .iter()
-                                    .map(|it| ASTType::Generic(it.clone()))
-                                    .collect(),
-                                index: def.index.clone(),
-                            }],
-                        });
-                    }
-                }
-                */
-                result.push(DefaultFunction::new_1("rasmMalloc", BuiltinTypeKind::I32));
+                //result.push(DefaultFunction::new_1("rasmMalloc", BuiltinTypeKind::I32));
             }
         }
 
@@ -532,7 +512,9 @@ impl CompileTarget {
                         index: ASTIndex::none(),
                     }],
                 },
+                /*
                 DefaultFunction::new_0("initRasmReferences"),
+                */
                 DefaultFunction::new_0("freeReferences"),
             ],
         };

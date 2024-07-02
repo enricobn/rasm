@@ -31,42 +31,22 @@ pub native argv(i: i32) -> Option<str> /{
 
 }/
 
-pub native rasmMalloc(size: i32) -> RasmPointer /{
-    $include(<stdlib.h>)
-
-    free_zero();
-
-    void *address = malloc(size);
-    if (RASM_DEBUG) {
-        printf("allocated(%p)\n", address);
-    }
-
-    struct RasmPointer_ *result = malloc(sizeof(struct RasmPointer_));
-    result->address = address;
-    result->count = 0;
-    result->zero = NULL;
-
-    return result;
-}/
-
 pub native deref(address: RasmPointer) /{
     $include(<stdlib.h>)
 
+    #ifdef __RASM_DEBUG__
     if (address == NULL) {
-        if (RASM_DEBUG) {
-            printf("NULL address\n");
-        }
+        printf("NULL address\n");
         return;
     }
 
-    if (RASM_DEBUG) {
-        printf("deref(%p)", address->address);
-    }
+    printf("deref(%p)", address->address);
+    #endif
 
     int count = --address->count;
-    if (RASM_DEBUG) {
+    #ifdef __RASM_DEBUG__
         printf(" count %d\n", count);
-    }
+    #endif
 
     if (count == 0) {
         push_zero(address);
@@ -81,16 +61,15 @@ pub native deref(address: RasmPointer) /{
 pub native addRef(address: RasmPointer) /{
     $include(<stdlib.h>)
 
+    #ifdef __RASM_DEBUG__
     if (address == NULL) {
-        if (RASM_DEBUG) {
-            printf("NULL address\n");
-        }
+        printf("NULL address\n");
         return;
     }
 
-    if (RASM_DEBUG) {
-        printf("addRef(%p)", address->address);
-    }
+    printf("addRef(%p)", address->address);
+    #endif
+
     int count = ++address->count;
 
     if (count == 1) {
@@ -103,8 +82,4 @@ pub native addRef(address: RasmPointer) /{
 
 pub native freeReferences() /{
     free_zero();
-}/
-
-pub native initRasmReferences() /{
-    // rasm_rc_table = rc_table(100000, 50);
 }/

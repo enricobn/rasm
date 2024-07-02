@@ -965,15 +965,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
-        self.add_rows(
-            &mut before,
-            vec![
-                &format!("int RASM_DEBUG = {};", if self.debug { 1 } else { 0 }), // 0 false, 1 true
-                "",
-            ],
-            None,
-            false,
-        );
+        if self.debug {
+            self.add(&mut before, "#define __RASM_DEBUG__", None, false);
+        }
 
         if let Some(consts) = statics.any::<CConsts>() {
             for c in consts.vec.iter() {
