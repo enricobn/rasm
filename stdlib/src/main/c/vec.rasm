@@ -224,6 +224,7 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     void **result_array = (void **)result_values->address;
     
     $call(addRef, result:RasmPointer)
+    $call(addRef, result_values:RasmPointer)
 
     for (int i = 0; i < length; i++) {
         void *tmp = $castAddress($f)->functionPtr(array[i], f);
@@ -231,7 +232,7 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
         result_array[i] = tmp;
     }
 
-    $deref(result:RasmPointer)
+    $deref(result:Vec<T1>)
     return result;
 }/
 
