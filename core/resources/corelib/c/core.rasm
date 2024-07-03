@@ -35,47 +35,35 @@ pub native deref(address: RasmPointer) /{
     $include(<stdlib.h>)
 
     #ifdef __RASM_DEBUG__
-    if (address == NULL) {
+    if ($address == NULL) {
         printf("NULL address\n");
         return;
     }
 
-    printf("deref(%p)", address->address);
+    printf("deref(%p)", $address->address);
     #endif
 
-    int count = --address->count;
-    #ifdef __RASM_DEBUG__
-        printf(" count %d\n", count);
-    #endif
-
-    if (count == 0) {
-        push_zero(address);
+    if (--$address->count == 0) {
+        push_zero($address);
     }
-
-    // printf("Cannot find reference!!\n");
-    // $call(exitMain, 1)
-    return;
-
 }/
 
 pub native addRef(address: RasmPointer) /{
     $include(<stdlib.h>)
 
     #ifdef __RASM_DEBUG__
-    if (address == NULL) {
+    if ($address == NULL) {
         printf("NULL address\n");
         return;
     }
 
-    printf("addRef(%p)", address->address);
+    printf("addRef(%p)", $address->address);
     #endif
 
-    int count = ++address->count;
-
-    if (count == 1) {
-        if (address->zero != NULL) {
-            remove_from_zero_list(address->zero);
-            address->zero = NULL;
+    if (++$address->count == 1) {
+        if ($address->zero != NULL) {
+            remove_from_zero_list($address->zero);
+            $address->zero = NULL;
         }
     }
 }/

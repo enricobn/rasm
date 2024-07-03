@@ -700,10 +700,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // probably sometimes we need to add the lambda def here
         CLambdas::add_to_statics_if_lambda(&function_def.return_type, statics);
 
+        let inline = &function_def.name == "addRef" || &function_def.name == "deref";
+
+        let inline_str = if inline { " inline " } else { "" };
+
         self.add(
             out,
             &format!(
-                "{} {}({}) {{",
+                "{inline_str}{} {}({}) {{",
                 Self::real_type_to_string(&function_def.return_type, statics),
                 function_def.name,
                 args.join(", ")
