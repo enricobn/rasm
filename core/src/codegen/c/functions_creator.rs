@@ -23,6 +23,8 @@ use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
 use crate::transformations::functions_creator::FunctionsCreator;
 
+use super::code_gen_c::CodeGenC;
+
 pub struct CFunctionsCreator {
     code_manipulator: CCodeManipulator,
 }
@@ -123,15 +125,21 @@ impl FunctionsCreator for CFunctionsCreator {
             .iter()
             .position(|it| it.name == variant.name)
         {
-            self.code_manipulator.add_rows(
+            self.code_manipulator.add(
                 &mut result,
-                vec![
-                    &format!("if (enum_value->variant_num == {i}) {{"),
-                    &format!("$enumVariantAssignment(variant, {})", variant.name),
-                ],
+                &format!("if (enum_value->variant_num == {i}) {{"),
                 None,
                 true,
             );
+
+            if !variant.parameters.is_empty() {
+                self.code_manipulator.add(
+                    &mut result,
+                    &format!("$enumVariantAssignment(variant, {})", variant.name),
+                    None,
+                    true,
+                );
+            }
 
             let mut args = Vec::new();
 
@@ -177,12 +185,25 @@ impl FunctionsCreator for CFunctionsCreator {
     fn enum_variant_constructor_body(
         &self,
         module: &mut ASTModule,
-        _enum_def: &ASTEnumDef,
+        enum_def: &ASTEnumDef,
         _statics: &mut Statics,
         variant_num: usize,
         variant: &ASTEnumVariantDef,
         _descr: &String,
     ) -> (String, bool) {
+        if variant.parameters.is_empty() {
+            return (
+                format!(
+                    "return {};",
+                    CodeGenC::variant_const_name(
+                        &enum_def.namespace,
+                        &enum_def.name,
+                        &variant.name
+                    )
+                ),
+                false,
+            );
+        }
         let mut result = String::new();
         self.code_manipulator.add(
             &mut result,

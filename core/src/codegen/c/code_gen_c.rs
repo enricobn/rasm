@@ -30,14 +30,12 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, AsmOptions, CodeGen, TypedValKind};
-use crate::parser::ast::{ASTIndex, ASTNameSpace, ValueType};
-use crate::transformations::typed_functions_creator::{
-    enum_has_references, struct_has_references, type_has_references,
-};
+use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
+use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, ValueType};
+use crate::transformations::typed_functions_creator::struct_has_references;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
+    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
 };
 use linked_hash_map::LinkedHashMap;
 
@@ -330,6 +328,10 @@ impl CodeGenC {
             Some(descr_for_debug),
             true,
         );
+    }
+
+    pub fn variant_const_name(namespace: &ASTNameSpace, e: &str, v: &str) -> String {
+        format!("{}_{}_{}_value_", namespace.safe_name(), e, v)
     }
 }
 
@@ -994,32 +996,53 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
         for s in typed_module.enums.iter() {
             for variant in s.variants.iter() {
-                self.add(
-                    &mut before,
-                    &format!(
-                        "struct {}_{}_{} {{",
-                        s.namespace.safe_name(),
-                        s.name,
-                        variant.name
-                    ),
-                    None,
-                    false,
-                );
-
-                for property in variant.parameters.iter() {
+                if variant.parameters.is_empty() {
+                    if let ASTType::Custom {
+                        namespace,
+                        name,
+                        param_types,
+                        index,
+                    } = &s.ast_type
+                    {
+                        let variant_const_name =
+                            Self::variant_const_name(s.namespace(), name, &variant.name);
+                        self.add(
+                            &mut before,
+                            &format!("struct RasmPointer_ *{variant_const_name};"),
+                            None,
+                            false,
+                        );
+                    } else {
+                        panic!();
+                    }
+                } else {
                     self.add(
                         &mut before,
                         &format!(
-                            "{} {};",
-                            CodeGenC::real_type_to_string(&property.ast_type, statics),
-                            property.name
+                            "struct {}_{}_{} {{",
+                            s.namespace.safe_name(),
+                            s.name,
+                            variant.name
                         ),
                         None,
-                        true,
+                        false,
                     );
-                }
 
-                self.add(&mut before, "};", None, false);
+                    for property in variant.parameters.iter() {
+                        self.add(
+                            &mut before,
+                            &format!(
+                                "{} {};",
+                                CodeGenC::real_type_to_string(&property.ast_type, statics),
+                                property.name
+                            ),
+                            None,
+                            true,
+                        );
+                    }
+
+                    self.add(&mut before, "};", None, false);
+                }
             }
         }
 
@@ -1136,6 +1159,40 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             None,
             false,
         );
+
+        for s in typed_module.enums.iter() {
+            for (i, variant) in s.variants.iter().enumerate() {
+                if variant.parameters.is_empty() {
+                    if let ASTType::Custom {
+                        namespace,
+                        name,
+                        param_types,
+                        index,
+                    } = &s.ast_type
+                    {
+                        let variant_const_name =
+                            Self::variant_const_name(s.namespace(), name, &variant.name);
+                        self.add(
+                            &mut before,
+                            &format!("{variant_const_name} = rasmMalloc(sizeof(struct Enum));"),
+                            None,
+                            true,
+                        );
+                        self.add(
+                            &mut before,
+                            &format!(
+                                "((struct Enum *){variant_const_name}->address)->variant_num = {};",
+                                i
+                            ),
+                            None,
+                            true,
+                        );
+                    } else {
+                        panic!();
+                    }
+                }
+            }
+        }
 
         (before, after)
     }

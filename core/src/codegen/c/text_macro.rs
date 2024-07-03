@@ -21,12 +21,13 @@ use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::parser::ast::ASTType;
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
+    ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
 };
 use crate::utils::OptionDisplay;
 
-use super::any::{CLambda, CLambdas};
+use super::any::CLambdas;
 use super::code_gen_c::CodeGenC;
 
 pub struct CIncludeMacro;
@@ -517,14 +518,6 @@ impl TextMacroEval for CEnumSimpleMacro {
             if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
                 if let Some(def) = function_def {
                     let mut result = String::new();
-                    result.push_str(&format!(
-                        "struct RasmPointer_ *{var_name} = rasmMalloc(sizeof(struct Enum));"
-                    ));
-
-                    result.push_str(&format!(
-                        "struct Enum *{var_name}_var = (struct Enum*) {var_name}->address;"
-                    ));
-
                     let (namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
                         &def.parameters.get(0).map(|it| &it.ast_type)
                     {
@@ -545,14 +538,30 @@ impl TextMacroEval for CEnumSimpleMacro {
                             .enumerate()
                             .find(|(i, v)| &v.name == variant_name)
                         {
-                            result.push_str(&format!("{var_name}_var->variant_num = {i};"));
+                            if let ASTType::Custom {
+                                namespace,
+                                name,
+                                param_types,
+                                index,
+                            } = &enum_def.ast_type
+                            {
+                                result.push_str(&format!(
+                                    "struct RasmPointer_ *{var_name} = {};",
+                                    CodeGenC::variant_const_name(
+                                        enum_def.namespace(),
+                                        name,
+                                        &variant.name
+                                    )
+                                ));
+                            } else {
+                                panic!();
+                            }
                         } else {
                             panic!(
                                 "Cannot find variant {variant_name} for enum {name} : {}",
                                 text_macro.index
                             )
                         }
-                        result.push_str(&format!("{var_name}_var->variant = NULL;"));
                         result
                     } else {
                         panic!("Cannot find enum {name} : {}", text_macro.index)

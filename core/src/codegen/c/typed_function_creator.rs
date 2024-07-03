@@ -343,6 +343,12 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 true,
             );
 
+            if variant.parameters.is_empty() {
+                self.code_gen.add(&mut body, "return;", None, true);
+                self.code_gen.add(&mut body, "}", None, true);
+                continue;
+            }
+
             self.code_gen
                 .add(&mut body, "if (e->variant != NULL) {", None, true);
 
