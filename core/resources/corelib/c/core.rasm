@@ -17,12 +17,8 @@ pub native argc() -> i32 /{
 
 pub native argv(i: i32) -> Option<str> /{
     if (i >= argc_) {
-        struct RasmPointer_ *result__ = rasmMalloc(sizeof(struct Enum));
-        struct Enum *result_ = (struct Enum *)result__->address;
-        $enumVariantDeclaration(v_, None)
-        result_->variant_num = 1;
-        result_->variant = v__;
-        return result__;
+        $enumSimple(result, None)
+        return result;
     } else {
         return
         $call(Option::Some, argv_[$i]:str)
