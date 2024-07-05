@@ -336,21 +336,27 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         );
 
         for (i, variant) in enum_def.variants.iter().enumerate() {
-            self.code_gen.add(
-                &mut body,
-                &format!("if (e->variant_num == {i}) {{"),
-                None,
-                true,
-            );
+            if i == 0 {
+                self.code_gen.add(
+                    &mut body,
+                    &format!("if (e->variant_num == {i}) {{"),
+                    None,
+                    true,
+                );
+            } else {
+                self.code_gen.add(
+                    &mut body,
+                    &format!("else if (e->variant_num == {i}) {{"),
+                    None,
+                    true,
+                );
+            }
 
             if variant.parameters.is_empty() {
                 self.code_gen.add(&mut body, "return;", None, true);
                 self.code_gen.add(&mut body, "}", None, true);
                 continue;
             }
-
-            self.code_gen
-                .add(&mut body, "if (e->variant != NULL) {", None, true);
 
             let variant_type_name = format!("{enum_type_name}_{}", variant.name);
             self.code_gen.add(
@@ -417,7 +423,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     statics,
                 );
             }
-            self.code_gen.add(&mut body, "}", None, true);
             self.code_gen.add(&mut body, "}", None, true);
         }
 
