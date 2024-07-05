@@ -1,20 +1,24 @@
 #include "rasm.h"
+#include "fs_allocator.h"
 #include "rc_zero_list.h"
 #include <stdlib.h>
 
-// size_t allocationCount = 0;
+size_t allocationCount = 0;
+struct fs_allocator *fs_allocator;
 
 struct RasmPointer_ *rasmMalloc(size_t size) {
 
-  // if (++allocationCount > 100) {
   free_zero();
-  // wof_gc(wof_allocator);
-  // allocationCount = 0;
-  //}
+
+  if (++allocationCount > 100) {
+    // wof_gc(wof_allocator);
+    allocationCount = 0;
+  }
 
   void *address = malloc(size);
 
-  struct RasmPointer_ *result = malloc(sizeof(struct RasmPointer_));
+  // struct RasmPointer_ *result = malloc(sizeof(struct RasmPointer_));
+  struct RasmPointer_ *result = fs_alloc(fs_allocator);
   result->address = address;
   result->count = 0;
   result->zero = NULL;
@@ -24,7 +28,10 @@ struct RasmPointer_ *rasmMalloc(size_t size) {
 
 void rasmFree(struct RasmPointer_ *pointer) {
   free(pointer->address);
-  free(pointer);
+  fs_free(fs_allocator, pointer);
+  // free(pointer);
 }
 
-void initRasmReferences() {}
+void initRasmReferences() {
+  fs_allocator = fs_allocator_new(sizeof(struct RasmPointer_), 1000000);
+}

@@ -11,8 +11,9 @@ struct fs_allocator {
   size_t size;
   size_t count;
   void *mem;
-  struct fs_pointer *next_free;
+  struct fs_pointer **last_free;
   struct fs_pointer *pointers;
+  struct fs_pointer **free;
 };
 
 struct fs_allocator *fs_allocator_new(size_t size, size_t count);
