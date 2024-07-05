@@ -426,6 +426,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             self.code_gen.add(&mut body, "}", None, true);
         }
 
+        // TODO else with arror
+
         if function_name == "deref" {
             self.code_gen
                 .call_deref_simple(&mut body, "address", &enum_type_name, statics);
