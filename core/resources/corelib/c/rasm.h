@@ -6,6 +6,11 @@ struct RasmPointer_ {
   struct RCZeroList *zero;
 };
 
+struct Enum {
+  struct RasmPointer_ *variant;
+  int variant_num;
+};
+
 struct RasmPointer_ *rasmMalloc(size_t size);
 
 void rasmFree(struct RasmPointer_ *pointer);

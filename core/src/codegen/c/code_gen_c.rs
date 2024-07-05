@@ -982,18 +982,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.add_empty_line(&mut before);
         }
 
-        self.add_rows(
-            &mut before,
-            vec![
-                "struct Enum {",
-                "struct RasmPointer_ *variant;",
-                "int variant_num;",
-                "};",
-            ],
-            None,
-            false,
-        );
-
         for s in typed_module.enums.iter() {
             for variant in s.variants.iter() {
                 if variant.parameters.is_empty() {
