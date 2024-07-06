@@ -3,7 +3,6 @@
 
 // false = 0
 struct fs_pointer {
-  unsigned char allocated;
   void *address;
 };
 

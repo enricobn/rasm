@@ -5,7 +5,7 @@ struct fs_allocator *fs_allocator_new(size_t size, size_t count) {
   struct fs_allocator *result = malloc(sizeof(struct fs_allocator));
   result->size = size;
   result->count = count;
-  result->mem = calloc(count, size);
+  result->mem = malloc(count * size);
   result->pointers = malloc(count * sizeof(struct fs_pointer));
   result->free = malloc(count * sizeof(struct fs_pointer **));
 
@@ -14,7 +14,6 @@ struct fs_allocator *fs_allocator_new(size_t size, size_t count) {
   struct fs_pointer **free = result->free;
 
   for (int i = 0; i < count; i++) {
-    pointer->allocated = 0;
     pointer->address = (void *)mem;
     *free = pointer;
     free++;
@@ -27,7 +26,6 @@ struct fs_allocator *fs_allocator_new(size_t size, size_t count) {
 
 void *fs_alloc(struct fs_allocator *allocator) {
   struct fs_pointer *result = *allocator->last_free;
-  result->allocated = 1;
   allocator->last_free--;
   return result->address;
 }
@@ -38,7 +36,6 @@ void fs_free(struct fs_allocator *allocator, void *address) {
       allocator->size;
 
   struct fs_pointer *result = allocator->pointers + slot;
-  result->allocated = 0;
   ++allocator->last_free;
   *allocator->last_free = result;
 }
