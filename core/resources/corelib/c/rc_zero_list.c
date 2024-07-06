@@ -1,9 +1,15 @@
 #include "rc_zero_list.h"
+#include "fs_allocator.h"
 #include "rasm.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-struct RCZeroList *zero_list;
+struct RCZeroList *zero_list = NULL;
+struct fs_allocator *fs_zero_list_allocator;
+
+void init_zero_list() {
+  fs_zero_list_allocator = fs_allocator_new(sizeof(struct RCZeroList), 1000000);
+}
 
 void remove_from_zero_list(struct RCZeroList *actual) {
   // printf("remove_from_zero_list\n");
@@ -20,12 +26,12 @@ void remove_from_zero_list(struct RCZeroList *actual) {
     next->prev = prev;
   }
   // print_one_list(actual);
-  free(actual);
+  fs_free(fs_zero_list_allocator, actual);
 }
 
 void push_zero(struct RasmPointer_ *pointer) {
   // printf("push_zero\n");
-  struct RCZeroList *new_zero = malloc(sizeof(struct RCZeroList));
+  struct RCZeroList *new_zero = fs_alloc(fs_zero_list_allocator);
   new_zero->pointer = pointer;
   new_zero->next = zero_list;
   new_zero->prev = NULL;
@@ -45,7 +51,7 @@ void free_zero() {
     struct RasmPointer_ *pointer = current->pointer;
     struct RCZeroList *next = current->next;
     rasmFree(pointer);
-    free(current);
+    fs_free(fs_zero_list_allocator, current);
     current = next;
     //    count++;
   }
