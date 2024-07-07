@@ -61,10 +61,10 @@ pub native lines(s: str) -> List<str> /{
     int i = 0;
     int line_pos = 0;
 
-    while (i < len) {
+    while (i <= len) {
         char lb = $s[i];
 
-        if (lb == '\n') {
+        if (lb == '\n' || i == len) {
            char *line = malloc(sizeof(char) * (i - line_pos + 1));
            strncpy(line, s + line_pos, i - line_pos);
            line[i - line_pos] = 0;
@@ -81,6 +81,9 @@ pub native lines(s: str) -> List<str> /{
            
            i++;
            line_pos = i;
+           if (i == len) {
+            break;
+           }
            continue;
         }
 
