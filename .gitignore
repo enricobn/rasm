@@ -6,3 +6,4 @@ target/
 debug.log.xml
 tmp/
 scores.txt
+callgrind.out.*
