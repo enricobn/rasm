@@ -84,7 +84,7 @@ impl TypedFunctionsCreatorC {
                 None,
                 true,
             );
-
+            /*
             for (i, (name, kind)) in lambda_space.iter().enumerate() {
                 let t = kind.typed_type();
 
@@ -124,12 +124,15 @@ impl TypedFunctionsCreatorC {
                     }
                 }
             }
+            */
         }
 
         if function_name == "deref" {
             if !optimize_lambda_space {
                 self.code_gen
                     .call_deref_simple(&mut body, "lambda_space_", c_lambda_name, statics);
+                self.code_gen
+                    .add(&mut body, "if (lambda_space_->count == 0) {", None, true);
             }
             if !optimize_lambda {
                 self.code_gen
@@ -143,11 +146,56 @@ impl TypedFunctionsCreatorC {
                     c_lambda_name,
                     statics,
                 );
+                self.code_gen
+                    .add(&mut body, "if (lambda_space_->count == 1) {", None, true);
             }
             if !optimize_lambda {
                 self.code_gen
                     .call_add_ref_simple(&mut body, "address", c_lambda_name, statics);
             }
+        }
+
+        if !optimize_lambda_space {
+            for (i, (name, kind)) in lambda_space.iter().enumerate() {
+                let t = kind.typed_type();
+
+                if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
+                    let mut source = format!("lambda_space->{name}");
+
+                    if &type_name == "_fn" {
+                        Self::addref_deref_lambda(
+                            &mut body,
+                            function_name,
+                            &source,
+                            t,
+                            type_def_provider,
+                            &self.code_gen,
+                            &statics,
+                        );
+                    } else {
+                        if function_name == "deref" {
+                            self.code_gen.call_deref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        } else {
+                            self.code_gen.call_add_ref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        }
+                    }
+                }
+            }
+            self.code_gen.add(&mut body, "}", None, true);
         }
 
         body
@@ -241,6 +289,60 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
     ) -> String {
         let mut body = String::new();
 
+        /*
+        for property in struct_def.properties.iter() {
+            if let Some(type_name) = get_reference_type_name(&property.ast_type, type_def_provider)
+            {
+                CLambdas::add_to_statics_if_lambda(&property.ast_type, statics);
+                let source = format!("($castAddress($address))->{}", property.name);
+
+                if type_name == "_fn" {
+                    TypedFunctionsCreatorC::addref_deref_lambda(
+                        &mut body,
+                        function_name,
+                        &source,
+                        &property.ast_type,
+                        type_def_provider,
+                        &self.code_gen,
+                        statics,
+                    );
+                } else {
+                    if function_name == "deref" {
+                        self.code_gen.call_deref(
+                            &mut body,
+                            &source,
+                            &type_name,
+                            "",
+                            type_def_provider,
+                            statics,
+                        );
+                    } else {
+                        self.code_gen.call_add_ref(
+                            &mut body,
+                            &source,
+                            &type_name,
+                            "",
+                            type_def_provider,
+                            statics,
+                        );
+                    }
+                }
+            }
+        }
+        */
+
+        if function_name == "deref" {
+            self.code_gen
+                .call_deref_simple(&mut body, "address", &struct_def.name, statics);
+            self.code_gen
+                .add(&mut body, "if (address->count == 0) {", None, true);
+        } else {
+            self.code_gen
+                .call_add_ref_simple(&mut body, "address", &struct_def.name, statics);
+            self.code_gen
+                .add(&mut body, "if (address->count == 1) {", None, true);
+        }
+
         for property in struct_def.properties.iter() {
             if let Some(type_name) = get_reference_type_name(&property.ast_type, type_def_provider)
             {
@@ -281,13 +383,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
         }
 
-        if function_name == "deref" {
-            self.code_gen
-                .call_deref_simple(&mut body, "address", &struct_def.name, statics);
-        } else {
-            self.code_gen
-                .call_add_ref_simple(&mut body, "address", &struct_def.name, statics);
-        }
+        self.code_gen.add(&mut body, "}", None, true);
 
         body
     }
@@ -368,6 +464,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 true,
             );
 
+            /*
             for parameter in &variant.parameters {
                 if let Some(type_name) =
                     get_reference_type_name(&parameter.ast_type, type_def_provider)
@@ -408,6 +505,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     }
                 }
             }
+            */
+
             if function_name == "deref" {
                 self.code_gen.call_deref_simple(
                     &mut body,
@@ -415,6 +514,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     &variant_type_name,
                     statics,
                 );
+                self.code_gen
+                    .add(&mut body, "if (e->variant->count == 0) {", None, true);
             } else {
                 self.code_gen.call_add_ref_simple(
                     &mut body,
@@ -422,7 +523,52 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     &variant_type_name,
                     statics,
                 );
+                self.code_gen
+                    .add(&mut body, "if (e->variant->count == 1) {", None, true);
             }
+
+            for parameter in &variant.parameters {
+                if let Some(type_name) =
+                    get_reference_type_name(&parameter.ast_type, type_def_provider)
+                {
+                    CLambdas::add_to_statics_if_lambda(&parameter.ast_type, statics);
+                    let source = format!("variant->{}", parameter.name);
+
+                    if type_name == "_fn" {
+                        TypedFunctionsCreatorC::addref_deref_lambda(
+                            &mut body,
+                            function_name,
+                            &source,
+                            &parameter.ast_type,
+                            type_def_provider,
+                            &self.code_gen,
+                            statics,
+                        );
+                    } else {
+                        if function_name == "deref" {
+                            self.code_gen.call_deref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        } else {
+                            self.code_gen.call_add_ref(
+                                &mut body,
+                                &source,
+                                &type_name,
+                                &type_name,
+                                type_def_provider,
+                                statics,
+                            );
+                        }
+                    }
+                }
+            }
+
+            self.code_gen.add(&mut body, "}", None, true);
             self.code_gen.add(&mut body, "}", None, true);
         }
 
