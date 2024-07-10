@@ -112,8 +112,14 @@ fn main() {
         )
         .arg(
             Arg::new("arguments")
-                .help("arguments to be passed to main/test")
+                .help("arguments to be passed to main/test when run")
                 .long("arguments")
+                .required(false),
+        )
+        .arg(
+            Arg::new("include-tests")
+                .help("tests to be included, separated by comma")
+                .long("include-tests")
                 .required(false),
         )
         .get_matches();
@@ -150,6 +156,11 @@ fn main() {
         arguments: matches
             .get_one::<String>("arguments")
             .map_or(Vec::new(), |it| vec![it.clone()]),
+        include_tests: matches
+            .get_one::<String>("include-tests")
+            .map_or(Vec::new(), |it| {
+                it.split(',').map(|it| it.to_string()).into_iter().collect()
+            }),
     };
 
     let src_path = Path::new(&src);

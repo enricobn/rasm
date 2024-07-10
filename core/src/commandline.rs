@@ -34,6 +34,7 @@ pub struct CommandLineOptions {
     pub out: Option<String>,
     pub release: bool,
     pub arguments: Vec<String>,
+    pub include_tests: Vec<String>,
 }
 
 impl Default for CommandLineOptions {
@@ -47,6 +48,7 @@ impl Default for CommandLineOptions {
             release: false,
             out: None,
             arguments: Vec::new(),
+            include_tests: Vec::new(),
         }
     }
 }

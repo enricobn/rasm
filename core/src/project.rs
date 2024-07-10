@@ -420,6 +420,8 @@ impl RasmProject {
     ) -> ASTModule {
         let mut module_src = String::new();
 
+        module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");");
+
         module_src.push_str("let tests = Vec()");
 
         let mut count = 0;
@@ -430,7 +432,8 @@ impl RasmProject {
             .filter(|it| {
                 it.modifiers.public
                     && it.name.starts_with("test")
-                    && (options.arguments.is_empty() || options.arguments.contains(&it.name))
+                    && (options.include_tests.is_empty()
+                        || options.include_tests.contains(&it.name))
             })
             .for_each(|it| {
                 let valid = if let ASTType::Custom {
@@ -465,9 +468,7 @@ impl RasmProject {
             module_src = "println(\"No tests found!\");\n".to_string();
         } else {
             module_src.push_str(";\n");
-
-            module_src
-            .push_str("if(tests.foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"Errors\");}, {});\n");
+            module_src.push_str("if(tests.filter(fn(it){test.eq(\"_ALL_\").or(it.name.eq(test));}).foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"Errors\");}, {});\n");
         }
 
         // let mut test_main_module_body = Vec::new();
@@ -487,22 +488,6 @@ impl RasmProject {
         }
 
         return module;
-    }
-
-    fn or_expression(
-        namespace: &ASTNameSpace,
-        e1: ASTExpression,
-        e2: ASTExpression,
-    ) -> ASTExpression {
-        let call = ASTFunctionCall {
-            namespace: namespace.clone(),
-            original_function_name: "or".to_string(),
-            function_name: "or".to_string(),
-            parameters: vec![e1, e2],
-            index: ASTIndex::none(),
-            generics: Vec::new(),
-        };
-        ASTFunctionCallExpression(call)
     }
 
     fn get_modules(
