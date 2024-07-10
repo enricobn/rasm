@@ -110,6 +110,12 @@ fn main() {
                 .action(ArgAction::SetTrue)
                 .required(false),
         )
+        .arg(
+            Arg::new("arguments")
+                .help("arguments to be passed to main/test")
+                .long("arguments")
+                .required(false),
+        )
         .get_matches();
 
     let current_path = env::current_dir().unwrap();
@@ -141,6 +147,9 @@ fn main() {
         only_compile: matches.get_flag("compile"),
         out: matches.get_one::<String>("out").cloned(),
         release: matches.get_flag("release"),
+        arguments: matches
+            .get_one::<String>("arguments")
+            .map_or(Vec::new(), |it| vec![it.clone()]),
     };
 
     let src_path = Path::new(&src);

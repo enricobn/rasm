@@ -33,6 +33,7 @@ pub struct CommandLineOptions {
     pub only_compile: bool,
     pub out: Option<String>,
     pub release: bool,
+    pub arguments: Vec<String>,
 }
 
 impl Default for CommandLineOptions {
@@ -45,6 +46,7 @@ impl Default for CommandLineOptions {
             only_compile: false,
             release: false,
             out: None,
+            arguments: Vec::new(),
         }
     }
 }
