@@ -420,8 +420,9 @@ impl RasmProject {
     ) -> ASTModule {
         let mut module_src = String::new();
 
-        module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");");
         module_src.push_str("let tests = Vec()");
+
+        let mut count = 0;
 
         test_modules
             .iter()
@@ -456,12 +457,18 @@ impl RasmProject {
                         ".push(RunTest(\"{}\", \"{}\",{{{}();}}))\n",
                         it.name, it.index, it.name
                     ));
+                    count += 1;
                 }
             });
-        module_src.push_str(";\n");
 
-        module_src
-            .push_str("if(tests.filter(fn(it){test.eq(\"_ALL_\").or(it.name.eq(test));}).foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"Errors\");}, {});\n");
+        if count == 0 {
+            module_src = "println(\"No tests found!\");\n".to_string();
+        } else {
+            module_src.push_str(";\n");
+
+            module_src
+            .push_str("if(tests.foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"Errors\");}, {});\n");
+        }
 
         // let mut test_main_module_body = Vec::new();
         // let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
