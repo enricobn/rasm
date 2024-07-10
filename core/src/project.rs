@@ -25,6 +25,7 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
+use crate::commandline::CommandLineOptions;
 use log::info;
 use pathdiff::diff_paths;
 use rayon::prelude::*;
@@ -40,8 +41,7 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::{
-    ASTExpression, ASTFunctionCall, ASTIndex, ASTLambdaDef, ASTModule, ASTNameSpace, ASTStatement,
-    ASTType, ValueType,
+    ASTExpression, ASTFunctionCall, ASTIndex, ASTModule, ASTNameSpace, ASTStatement, ASTType,
 };
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
@@ -380,6 +380,7 @@ impl RasmProject {
         target: &CompileTarget,
         debug: bool,
         out: &PathBuf,
+        options: &CommandLineOptions,
     ) -> (Vec<ASTModule>, Vec<CompilationError>) {
         let (mut modules, mut errors) = self.all_modules(statics, target, debug, for_tests, out);
 
@@ -401,7 +402,7 @@ impl RasmProject {
             });
             let (test_modules, test_errors) = self.all_test_modules(statics, target, debug);
 
-            let test_module = self.main_test_module(&mut errors, &test_modules);
+            let test_module = self.main_test_module(&mut errors, &test_modules, options);
 
             modules.push(test_module);
             modules.extend(test_modules);
@@ -415,15 +416,21 @@ impl RasmProject {
         &self,
         errors: &mut Vec<CompilationError>,
         test_modules: &[ASTModule],
+        options: &CommandLineOptions,
     ) -> ASTModule {
-        let mut test_main_module_body = Vec::new();
-        let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
-        let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
+        let mut module_src = String::new();
+
+        module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");");
+        module_src.push_str("let tests = Vec()");
 
         test_modules
             .iter()
             .flat_map(|it| it.functions.iter())
-            .filter(|it| it.modifiers.public && it.name.starts_with("test"))
+            .filter(|it| {
+                it.modifiers.public
+                    && it.name.starts_with("test")
+                    && (options.arguments.is_empty() || options.arguments.contains(&it.name))
+            })
             .for_each(|it| {
                 let valid = if let ASTType::Custom {
                     namespace: _,
@@ -445,95 +452,34 @@ impl RasmProject {
                         ),
                     });
                 } else {
-                    let test_call = ASTFunctionCall {
-                        namespace: namespace.clone(),
-                        original_function_name: it.original_name.clone(),
-                        function_name: it.name.clone(),
-                        parameters: Vec::new(),
-                        index: ASTIndex::none(),
-                        generics: Vec::new(),
-                    };
-                    let lambda_def = ASTLambdaDef {
-                        parameter_names: Vec::new(),
-                        body: vec![ASTStatement::Expression(ASTFunctionCallExpression(
-                            test_call,
-                        ))],
-                        index: ASTIndex::none(),
-                    };
-                    let run_test_call = ASTFunctionCall {
-                        namespace: namespace.clone(),
-                        original_function_name: "runTest".to_string(),
-                        function_name: "runTest".to_string(),
-                        parameters: vec![
-                            ASTExpression::StringLiteral(it.name.clone()),
-                            ASTExpression::StringLiteral(format!("{}", it.index)),
-                            ASTExpression::Lambda(lambda_def),
-                        ],
-                        index: ASTIndex::none(),
-                        generics: Vec::new(),
-                    };
-                    expr = Self::or_expression(
-                        &namespace,
-                        expr.clone(),
-                        ASTFunctionCallExpression(run_test_call),
-                    );
+                    module_src.push_str(&format!(
+                        ".push(RunTest(\"{}\", \"{}\",{{{}();}}))\n",
+                        it.name, it.index, it.name
+                    ));
                 }
             });
+        module_src.push_str(";\n");
 
-        test_main_module_body.push(ASTStatement::LetStatement(
-            "results".to_string(),
-            expr,
-            false,
-            ASTIndex::none(),
-        ));
+        module_src
+            .push_str("if(tests.filter(fn(it){test.eq(\"_ALL_\").or(it.name.eq(test));}).foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"Errors\");}, {});\n");
 
-        let panic_call = ASTFunctionCall {
-            namespace: namespace.clone(),
-            original_function_name: "panic".to_string(),
-            function_name: "panic".to_string(),
-            parameters: vec![ASTExpression::StringLiteral("Tests failed.".to_string())],
-            index: ASTIndex::none(),
-            generics: Vec::new(),
-        };
-        let panic_lambda = ASTLambdaDef {
-            parameter_names: Vec::new(),
-            body: vec![ASTStatement::Expression(ASTFunctionCallExpression(
-                panic_call,
-            ))],
-            index: ASTIndex::none(),
-        };
-        let empty_lambda = ASTLambdaDef {
-            parameter_names: Vec::new(),
-            body: vec![],
-            index: ASTIndex::none(),
-        };
+        // let mut test_main_module_body = Vec::new();
+        // let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
+        let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
 
-        let if_call = ASTFunctionCall {
-            namespace: namespace.clone(),
-            original_function_name: "if".to_string(),
-            function_name: "if".to_string(),
-            parameters: vec![
-                ASTExpression::ValueRef("results".to_string(), ASTIndex::none()),
-                ASTExpression::Lambda(panic_lambda),
-                ASTExpression::Lambda(empty_lambda),
-            ],
-            index: ASTIndex::none(),
-            generics: Vec::new(),
-        };
+        let (module, errors) = Parser::new(Lexer::new(module_src.clone(), None), None)
+            .parse(&Path::new(""), &namespace);
 
-        let if_expression = ASTFunctionCallExpression(if_call);
+        if !errors.is_empty() {
+            println!("generated test code:\n{module_src}");
 
-        test_main_module_body.push(ASTStatement::Expression(if_expression));
-
-        ASTModule {
-            path: Default::default(),
-            body: test_main_module_body,
-            functions: vec![],
-            enums: vec![],
-            structs: vec![],
-            types: vec![],
-            namespace,
+            for error in errors {
+                println!("{error}");
+            }
+            panic!();
         }
+
+        return module;
     }
 
     fn or_expression(

@@ -28,6 +28,7 @@ use axum::response::Html;
 use axum::{routing::get, Router};
 use log::info;
 use rasm_core::codegen::AsmOptions;
+use rasm_core::commandline::CommandLineOptions;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -98,6 +99,7 @@ impl ServerState {
             &target,
             false,
             &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
         );
 
         // TODO errors

@@ -263,7 +263,7 @@ impl CompileTarget {
             panic!("unsupported action '{}'", command_line_options.action)
         }
 
-        let out = if let Some(o) = command_line_options.out {
+        let out = if let Some(o) = command_line_options.out.clone() {
             Path::new(&o).to_path_buf()
         } else {
             project
@@ -284,6 +284,7 @@ impl CompileTarget {
             self,
             command_line_options.debug,
             &out,
+            &command_line_options,
         );
 
         if !errors.is_empty() {

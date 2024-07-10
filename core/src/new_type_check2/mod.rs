@@ -1401,6 +1401,7 @@ mod tests {
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
+    use crate::commandline::CommandLineOptions;
     use crate::new_type_check2::TypeCheck;
     use crate::parser::ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
@@ -1730,6 +1731,7 @@ mod tests {
             &target,
             false,
             &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
         );
 
         let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);

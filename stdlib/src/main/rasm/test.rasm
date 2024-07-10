@@ -2,6 +2,16 @@ pub struct Assertions {
     failed: Vec<str>
 }
 
+pub struct RunTest {
+   name: str,
+   index: str,
+   function: fn() -> Assertions
+}
+
+pub fn run(test: RunTest) -> bool {
+    runTest(test.name, test.index, test.function);
+}
+
 pub fn Assertions() -> Assertions {
     Assertions(Vec());
 }

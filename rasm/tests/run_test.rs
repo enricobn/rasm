@@ -585,6 +585,11 @@ fn test_escape() {
     run_test("escape", vec![], "true\n'\n\"\n");
 }
 
+#[test]
+fn test_test() {
+    run_test_no_verify("test", vec![]);
+}
+
 // Compile tests
 
 #[test]

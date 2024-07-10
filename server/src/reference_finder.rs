@@ -816,6 +816,7 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
+    use rasm_core::commandline::CommandLineOptions;
     use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
@@ -1277,6 +1278,7 @@ mod tests {
             &target,
             false,
             &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
         );
         // TODO errors
         let enhanced_ast_module =
