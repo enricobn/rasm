@@ -99,6 +99,8 @@ it should print the fortieth fibonacci number (102334155)
 
 ## SDL examples
 
+### Nasm
+
 ### To install SDL 32 bit libraries on Ubuntu
 
 `sudo apt-get install libsdl2-dev:i386`
@@ -106,6 +108,16 @@ it should print the fortieth fibonacci number (102334155)
 ### To install SDL TTF 32 bit libraries on Ubuntu
 
 `sudo apt-get install libsdl2-ttf-dev:i386`
+
+### C
+
+### To install SDL libraries on Ubuntu
+
+`sudo apt-get install libsdl2-dev`
+
+### To install SDL TTF libraries on Ubuntu
+
+`sudo apt-get install libsdl2-ttf-dev`
 
 ## valgrind
 
