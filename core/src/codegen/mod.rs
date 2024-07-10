@@ -1903,90 +1903,90 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         let evaluator = self.get_text_macro_evaluator();
 
-        for (m, i) in
-            evaluator.get_macros(typed_function_def, function_def, body, type_def_provider)?
-        {
-            if m.name == "call" {
-                debug_i!("found call macro {m}");
-                let types: Vec<ASTType> = m
-                    .parameters
-                    .iter()
-                    .skip(1)
-                    .map(|it| {
-                        let ast_type = match it {
-                            MacroParam::Plain(_, opt_type, _) => match opt_type {
-                                None => ASTType::Builtin(BuiltinTypeKind::I32),
-                                Some(ast_type) => ast_type.clone(),
-                            },
-                            MacroParam::StringLiteral(_) => {
-                                ASTType::Builtin(BuiltinTypeKind::String)
+        for (m, i) in evaluator.get_macros_filter(
+            typed_function_def,
+            function_def,
+            body,
+            type_def_provider,
+            &|name, _parameter| name == "call",
+        )? {
+            debug_i!("found call macro {m}");
+            let types: Vec<ASTType> = m
+                .parameters
+                .iter()
+                .skip(1)
+                .map(|it| {
+                    let ast_type = match it {
+                        MacroParam::Plain(_, opt_type, _) => match opt_type {
+                            None => ASTType::Builtin(BuiltinTypeKind::I32),
+                            Some(ast_type) => ast_type.clone(),
+                        },
+                        MacroParam::StringLiteral(_) => ASTType::Builtin(BuiltinTypeKind::String),
+                        MacroParam::Ref(name, None, _) => {
+                            debug_i!("found ref {name}");
+                            match context.get(name.strip_prefix('$').unwrap()).unwrap() {
+                                ValKind::ParameterRef(_, par) => par.ast_type.clone(),
+                                ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
                             }
-                            MacroParam::Ref(name, None, _) => {
-                                debug_i!("found ref {name}");
-                                match context.get(name.strip_prefix('$').unwrap()).unwrap() {
-                                    ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                                    ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
-                                }
-                            }
-                            MacroParam::Ref(name, Some(ast_type), _) => {
-                                debug_i!("found ref {name} : {ast_type}");
-                                ast_type.clone()
-                            }
-                        };
-
-                        match &ast_type {
-                            ASTType::Generic(name) => {
-                                if let Some(f) = typed_function_def {
-                                    let t = type_def_provider
-                                        .get_type_from_custom_typed_type(
-                                            f.generic_types.get(name).unwrap(),
-                                        )
-                                        .unwrap();
-                                    debug_i!("Function specified, found type {:?} for {name}", t);
-                                    Ok(t)
-                                } else {
-                                    debug_i!("Function not specified, cannot find type {name}");
-                                    Ok(ast_type.clone())
-                                }
-                            }
-                            ASTType::Custom {
-                                namespace: _,
-                                name,
-                                param_types: _,
-                                index: _,
-                            } => {
-                                let result = if let Some(f) = typed_function_def {
-                                    if let Some(t) = f.generic_types.get(name) {
-                                        type_def_provider
-                                            .get_type_from_typed_type(t)
-                                            .ok_or(format!("name {name} t {t}"))
-                                    } else if let Some(t) =
-                                        type_def_provider.get_type_from_typed_type_name(name)
-                                    {
-                                        Ok(t)
-                                    } else {
-                                        Ok(ast_type.clone())
-                                    }
-                                } else {
-                                    Ok(ast_type.clone())
-                                };
-
-                                result
-                            }
-                            _ => Ok(ast_type),
                         }
-                    })
-                    .collect::<Result<Vec<ASTType>, String>>()?;
-
-                let function_name =
-                    if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
-                        function_name
-                    } else {
-                        return Err(format!("Cannot find function : {i}"));
+                        MacroParam::Ref(name, Some(ast_type), _) => {
+                            debug_i!("found ref {name} : {ast_type}");
+                            ast_type.clone()
+                        }
                     };
 
-                result.push((m.clone(), DefaultFunctionCall::new(function_name, types, i)));
-            }
+                    match &ast_type {
+                        ASTType::Generic(name) => {
+                            if let Some(f) = typed_function_def {
+                                let t = type_def_provider
+                                    .get_type_from_custom_typed_type(
+                                        f.generic_types.get(name).unwrap(),
+                                    )
+                                    .unwrap();
+                                debug_i!("Function specified, found type {:?} for {name}", t);
+                                Ok(t)
+                            } else {
+                                debug_i!("Function not specified, cannot find type {name}");
+                                Ok(ast_type.clone())
+                            }
+                        }
+                        ASTType::Custom {
+                            namespace: _,
+                            name,
+                            param_types: _,
+                            index: _,
+                        } => {
+                            let result = if let Some(f) = typed_function_def {
+                                if let Some(t) = f.generic_types.get(name) {
+                                    type_def_provider
+                                        .get_type_from_typed_type(t)
+                                        .ok_or(format!("name {name} t {t}"))
+                                } else if let Some(t) =
+                                    type_def_provider.get_type_from_typed_type_name(name)
+                                {
+                                    Ok(t)
+                                } else {
+                                    Ok(ast_type.clone())
+                                }
+                            } else {
+                                Ok(ast_type.clone())
+                            };
+
+                            result
+                        }
+                        _ => Ok(ast_type),
+                    }
+                })
+                .collect::<Result<Vec<ASTType>, String>>()?;
+
+            let function_name =
+                if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
+                    function_name
+                } else {
+                    return Err(format!("Cannot find function : {i}"));
+                };
+
+            result.push((m.clone(), DefaultFunctionCall::new(function_name, types, i)));
         }
         Ok(result)
     }

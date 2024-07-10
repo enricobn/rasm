@@ -609,6 +609,23 @@ impl TextMacroEvaluator {
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
+        self.get_macros_filter(
+            typed_function_def,
+            function_def,
+            body,
+            type_def_provider,
+            &|name, params| true,
+        )
+    }
+
+    pub fn get_macros_filter(
+        &self,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
+        function_def: Option<&ASTFunctionDef>,
+        body: &str,
+        type_def_provider: &dyn TypeDefProvider,
+        filter: &dyn Fn(&str, &str) -> bool,
+    ) -> Result<Vec<(TextMacro, usize)>, String> {
         let index = typed_function_def
             .map(|tfd| tfd.index.clone())
             .or_else(|| function_def.map(|fd| fd.index.clone()))
@@ -627,6 +644,10 @@ impl TextMacroEvaluator {
             for cap in matches {
                 let name = cap.get(1).unwrap().as_str();
                 let parameters = cap.get(2).unwrap().as_str();
+
+                if !filter(name, parameters) {
+                    continue;
+                }
 
                 let text_macro = TextMacro {
                     index: index.mv_down(i),

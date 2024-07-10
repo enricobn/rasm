@@ -4,4 +4,4 @@ println(v);
 
 println(v.map(fn(shape) { shape.move(100, 100);}));
 
-println(map(v, fn(shape) { shape.center;}));
+println(map(v, fn(shape) { shape.center.call();}));

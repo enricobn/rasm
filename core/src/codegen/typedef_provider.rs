@@ -172,14 +172,29 @@ pub trait TypeDefProvider {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
                 }
                 BuiltinTypeKind::Lambda {
-                    parameters: _,
-                    return_type: _,
-                } => todo!(),
+                    parameters,
+                    return_type,
+                } => {
+                    None
+                    /*
+                    let new_parameters = parameters
+                        .iter()
+                        .map(|it| self.get_ast_typed_type_from_ast_type(it).unwrap())
+                        .collect_vec();
+                    let new_return_type = self
+                        .get_ast_typed_type_from_ast_type(&return_type)
+                        .expect(&format!("Cannot find typed type for {return_type}"));
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                        parameters: new_parameters,
+                        return_type: Box::new(new_return_type),
+                    }))
+                    */
+                }
             },
             ASTType::Generic(_) => None,
             ASTType::Custom {
                 namespace: _,
-                name: _,
+                name,
                 param_types,
                 index: _,
             } => {
