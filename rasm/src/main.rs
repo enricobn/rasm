@@ -118,7 +118,7 @@ fn main() {
         )
         .arg(
             Arg::new("include-tests")
-                .help("tests to be included, separated by comma")
+                .help("a comma separated list of test functions to be included")
                 .long("include-tests")
                 .required(false),
         )
