@@ -163,7 +163,10 @@ impl TypeCheck {
                             vec![
                                 TypeCheckError::new(
                                     function.index.clone(),
-                                    format!("Error in function {}", function.original_name),
+                                    format!(
+                                        "Error in function {} ({})",
+                                        function.name, function.original_name
+                                    ),
                                     self.stack.clone(),
                                 ),
                                 it,
