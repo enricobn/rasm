@@ -499,7 +499,7 @@ fn test_error_handling() {
 fn test_error_handling1() {
     run_test_with_target(
         "error_handling",
-        vec!["/error_handling.txt"],
+        vec!["unknown_folder/error_handling.txt"],
         "IOError(Error writing to file.)\n",
         CompileTarget::Nasmi386(AsmOptions::default()),
     );
@@ -509,7 +509,7 @@ fn test_error_handling1() {
 fn test_error_handling1_c() {
     run_test_with_target(
         "error_handling",
-        vec!["/error_handling.txt"],
+        vec!["unknown_folder/error_handling.txt"],
         "IOError(Bad file descriptor)\n",
         CompileTarget::C(COptions::default()),
     );
