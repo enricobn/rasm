@@ -8,6 +8,7 @@ license.workspace = true
 clap.workspace = true
 env_logger.workspace = true
 chrono.workspace = true
+linked-hash-map.workspace = true
 log.workspace = true
 rayon.workspace = true
 # local deps

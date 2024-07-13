@@ -16,8 +16,8 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use linked_hash_map::LinkedHashMap;
 use log::info;
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
@@ -170,8 +170,8 @@ impl CompileTarget {
         }
     }
 
-    pub fn get_core_lib_files(&self) -> HashMap<String, EmbeddedFile> {
-        let mut result = HashMap::new();
+    pub fn get_core_lib_files(&self) -> LinkedHashMap<String, EmbeddedFile> {
+        let mut result = LinkedHashMap::new();
 
         match self {
             CompileTarget::Nasmi386(_) => {

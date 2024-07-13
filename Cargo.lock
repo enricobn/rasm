@@ -1026,6 +1026,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "linked-hash-map",
  "log",
  "rasm-core",
  "rayon",

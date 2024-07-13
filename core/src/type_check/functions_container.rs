@@ -828,6 +828,8 @@ impl FunctionsContainer {
 
 #[cfg(test)]
 mod tests {
+    use linked_hash_map::LinkedHashMap;
+
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
@@ -842,7 +844,6 @@ mod tests {
     use crate::type_check::functions_container::TypeFilter::Exact;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
-    use std::collections::HashMap;
     use std::path::PathBuf;
 
     #[test]
@@ -1004,7 +1005,7 @@ mod tests {
                 natives: None,
             },
             from_file: false,
-            in_memory_files: HashMap::new(),
+            in_memory_files: LinkedHashMap::new(),
         };
 
         let mut statics = Statics::new();

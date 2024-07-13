@@ -17,7 +17,6 @@
  */
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -26,6 +25,7 @@ use std::path::{Path, PathBuf};
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
 use crate::commandline::CommandLineOptions;
+use linked_hash_map::LinkedHashMap;
 use log::info;
 use pathdiff::diff_paths;
 use rayon::prelude::*;
@@ -40,9 +40,7 @@ use crate::codegen::statics::Statics;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
-use crate::parser::ast::{
-    ASTExpression, ASTFunctionCall, ASTIndex, ASTModule, ASTNameSpace, ASTStatement, ASTType,
-};
+use crate::parser::ast::{ASTIndex, ASTModule, ASTNameSpace, ASTStatement, ASTType};
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
 
@@ -51,7 +49,7 @@ pub struct RasmProject {
     pub root: PathBuf,
     pub config: RasmConfig,
     pub from_file: bool,
-    pub in_memory_files: HashMap<PathBuf, String>,
+    pub in_memory_files: LinkedHashMap<PathBuf, String>,
 }
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/rasm"]
@@ -63,7 +61,7 @@ impl RasmProject {
             root: root.clone(),
             config: get_rasm_config(root.as_path()),
             from_file: !root.is_dir(),
-            in_memory_files: HashMap::new(),
+            in_memory_files: LinkedHashMap::new(),
         }
     }
 

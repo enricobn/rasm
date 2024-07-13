@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::iter::zip;
@@ -599,6 +598,7 @@ pub trait MyToString {
     fn my_to_string(&self) -> String;
 }
 
+/*
 impl MyToString for HashMap<String, ASTType> {
     fn my_to_string(&self) -> String {
         let pars: Vec<String> = self
@@ -608,6 +608,7 @@ impl MyToString for HashMap<String, ASTType> {
         pars.join(",")
     }
 }
+*/
 
 impl MyToString for LinkedHashMap<String, ASTType> {
     fn my_to_string(&self) -> String {

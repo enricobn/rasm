@@ -17,7 +17,8 @@
  */
 
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use linked_hash_map::LinkedHashMap;
+use std::collections::HashSet;
 use std::iter::zip;
 use std::ops::Deref;
 
@@ -47,7 +48,7 @@ type OutputModule = EnhancedASTModule;
 pub struct TypeCheck {
     module: OutputModule,
     stack: Vec<ASTIndex>,
-    functions_stack: HashMap<String, Vec<ASTIndex>>,
+    functions_stack: LinkedHashMap<String, Vec<ASTIndex>>,
     strict: bool,
 }
 
