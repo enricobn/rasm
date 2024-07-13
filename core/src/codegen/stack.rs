@@ -1,6 +1,7 @@
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::rc::Rc;
+
+use linked_hash_set::LinkedHashSet;
 
 use crate::codegen::{CodeGen, CodeGenAsm};
 
@@ -127,7 +128,7 @@ impl StackVals {
         }
     }
 
-    fn tmp_registers(&self) -> HashSet<String> {
+    fn tmp_registers(&self) -> LinkedHashSet<String> {
         self.reserved_slots
             .borrow()
             .iter()

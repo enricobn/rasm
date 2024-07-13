@@ -21,9 +21,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
-use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
-use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -86,7 +84,7 @@ impl CInclude {
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Eq)]
+#[derive(Eq, Clone)]
 pub struct CLambda {
     pub name: String,
     pub args: Vec<ASTTypedType>,
@@ -118,18 +116,18 @@ impl CLambda {
 }
 
 pub struct CLambdas {
-    pub lambdas: HashSet<CLambda>,
+    pub lambdas: LinkedHashMap<CLambda, CLambda>,
 }
 
 impl CLambdas {
     pub fn new() -> Self {
         Self {
-            lambdas: HashSet::new(),
+            lambdas: LinkedHashMap::new(),
         }
     }
 
     pub fn add(&mut self, clambda: CLambda) {
-        self.lambdas.insert(clambda);
+        self.lambdas.insert(clambda.clone(), clambda);
     }
 
     pub fn find_name_in_statics(
@@ -144,7 +142,7 @@ impl CLambdas {
 
     fn find_name(&self, args: &Vec<ASTTypedType>, return_type: &ASTTypedType) -> Option<String> {
         self.lambdas
-            .iter()
+            .values()
             .find(|it| &it.args == args && &it.return_type == return_type)
             .map(|it| it.name.clone())
     }

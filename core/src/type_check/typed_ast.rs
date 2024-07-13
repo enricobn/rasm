@@ -1,8 +1,8 @@
-use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
+use linked_hash_set::LinkedHashSet;
 use log::{debug, info};
 
 use crate::codegen::compile_target::CompileTarget;
@@ -140,7 +140,7 @@ impl ASTTypedType {
     where
         F: Fn(&ASTTypedType) -> bool,
     {
-        let mut already_checked = HashSet::new();
+        let mut already_checked = LinkedHashSet::new();
         self.contains_(
             type_def_provider,
             check,
@@ -154,7 +154,7 @@ impl ASTTypedType {
         type_def_provider: &dyn TypeDefProvider,
         check: &F,
         value_if_recursive: bool,
-        already_checked: &mut HashSet<String>,
+        already_checked: &mut LinkedHashSet<String>,
     ) -> bool
     where
         F: Fn(&ASTTypedType) -> bool,

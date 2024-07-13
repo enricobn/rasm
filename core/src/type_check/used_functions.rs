@@ -20,25 +20,25 @@ use crate::parser::ast::ASTIndex;
 use crate::type_check::traverse_typed_ast::TraverseTypedAST;
 use crate::type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
 use lazy_static::lazy_static;
+use linked_hash_set::LinkedHashSet;
 use regex::Regex;
-use std::collections::HashSet;
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"call (.*)").unwrap();
 }
 
 pub struct UsedFunctions {
-    functions: HashSet<String>,
+    functions: LinkedHashSet<String>,
 }
 
 impl UsedFunctions {
     fn new() -> Self {
         Self {
-            functions: HashSet::new(),
+            functions: LinkedHashSet::new(),
         }
     }
 
-    pub fn find(module: &ASTTypedModule) -> HashSet<String> {
+    pub fn find(module: &ASTTypedModule) -> LinkedHashSet<String> {
         let mut used_functions = Self::new();
 
         used_functions.traverse(module);
@@ -88,8 +88,8 @@ impl TraverseTypedAST for UsedFunctions {
 }
 
 impl UsedFunctions {
-    pub fn get_used_functions(native_code: &str) -> HashSet<String> {
-        let mut used_functions: HashSet<String> = HashSet::new();
+    pub fn get_used_functions(native_code: &str) -> LinkedHashSet<String> {
+        let mut used_functions: LinkedHashSet<String> = LinkedHashSet::new();
 
         for line in native_code.lines() {
             let trimmed_line = if let Some(found) = line.find(';') {

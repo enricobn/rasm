@@ -18,7 +18,7 @@
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashSet;
+use linked_hash_set::LinkedHashSet;
 use std::iter::zip;
 use std::ops::Deref;
 
@@ -952,7 +952,7 @@ impl TypeCheck {
                     })?
                     .iter()
                     .map(|(m, _i)| m.name.clone())
-                    .collect::<HashSet<_>>();
+                    .collect::<LinkedHashSet<_>>();
 
                 for text_macro_name in text_macro_names {
                     let default_function_calls = evaluator
@@ -1789,27 +1789,6 @@ mod tests {
 
         RasmProject::new(file_name)
     }
-
-    /*
-    fn to_ast_module(test_file: &str) -> (ASTModule, BackendNasm386, Statics) {
-        let project = file_to_project(test_file);
-
-        let mut statics = Statics::new();
-        let mut module = project.get_module();
-
-        let backend = BackendNasm386::new(HashSet::new(), HashSet::new(), false);
-
-        enrich_module(
-            &backend,
-            project.resource_folder(),
-            &mut statics,
-            &mut module,
-        );
-
-        (module, backend, statics)
-    }
-
-     */
 
     fn dir_to_project(test_folder: &str) -> RasmProject {
         init();

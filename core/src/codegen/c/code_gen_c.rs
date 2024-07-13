@@ -1065,7 +1065,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         }
 
         if let Some(clambdas) = statics.any::<CLambdas>() {
-            for (i, clambda) in clambdas.lambdas.iter().enumerate() {
+            for (i, clambda) in clambdas.lambdas.values().enumerate() {
                 self.add(
                     &mut before,
                     &format!("struct {} {{", clambda.name),

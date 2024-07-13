@@ -1,10 +1,10 @@
-use std::collections::HashSet;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use linked_hash_map::LinkedHashMap;
+use linked_hash_set::LinkedHashSet;
 use log::debug;
 use pad::PadStr;
 
@@ -1783,7 +1783,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
             used_functions.extend(UsedFunctions::get_used_functions(native_code));
 
-            let mut used_functions_in_defs = HashSet::new();
+            let mut used_functions_in_defs = LinkedHashSet::new();
 
             for (_name, (defs, _bd)) in functions_native_code
                 .iter()
@@ -2046,14 +2046,14 @@ pub fn can_lambda_be_in_stack(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> bool {
-    let mut already_checked = HashSet::new();
+    let mut already_checked = LinkedHashSet::new();
     can_lambda_be_in_stack_(lambda_return_type, type_def_provider, &mut already_checked)
 }
 
 fn can_lambda_be_in_stack_(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
-    already_checked: &mut HashSet<String>,
+    already_checked: &mut LinkedHashSet<String>,
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
