@@ -766,13 +766,13 @@ impl TypeCheck {
                     self.stack.clone(),
                 ));
             }
-            self.stack.pop();
+            //self.stack.pop();
             dedent!();
             let (valid_function, _x, resolved_generic_types, expressions) =
                 dis_valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types, expressions))
         } else {
-            self.stack.pop();
+            //self.stack.pop();
             dedent!();
             let (valid_function, _x, resolved_generic_types, expressions) =
                 valid_functions.remove(0);
