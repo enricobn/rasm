@@ -221,6 +221,36 @@ pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     pop     ebx
 }/
 
+/** false = 0 true = any other value **/
+pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+    push    ebx
+    push    ecx
+
+    mov     dword ebx, $vec
+    mov     dword ebx, [ebx]    ; the address of the allocated memory
+    mov     dword ecx, [ebx]    ; size
+    add     ebx, 4              ; the address of the first value
+.loop:
+    cmp     dword ecx, 0
+    jz      .true
+    push    dword [ebx]
+    mov     dword eax, $f
+    mov     dword eax,[eax]
+    push    dword eax
+    call    [eax]
+    add     esp, 8
+    cmp     dword eax, 0
+    jz      .end
+    add     ebx, 4
+    dec     ecx
+    jmp     .loop
+.true:
+    mov     dword eax, 1
+.end:
+    pop     ecx
+    pop     ebx
+}/
+
 pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
     push    ebx
     push    ecx

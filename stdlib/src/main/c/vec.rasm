@@ -251,6 +251,21 @@ pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     return 0;
 }/
 
+// false 0 true 1
+pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+    size_t length = $castAddress($vec)->length;
+    struct RasmPointer_ *values = $castAddress($vec)->values;
+    void **array = (void **)values->address;
+    
+    for (int i = 0; i < length; i++) {
+        if (!$castAddress($f)->functionPtr(array[i], f)) {
+            return 0;
+        }
+    }
+
+    return 1;
+}/
+
 pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;

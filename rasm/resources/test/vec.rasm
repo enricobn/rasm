@@ -42,3 +42,6 @@ let popped = vecOf(1, 2).pop;
 
 println(popped.first);
 println(popped.second);
+
+if(allMatch(vecRange(0, 2), fn(n) { eq(n, 2);}), { println("true");}, { println("false");});
+if(allMatch(vecRange(0, 2), fn(n) { n.greater(-1);}), { println("true");}, { println("false");});
