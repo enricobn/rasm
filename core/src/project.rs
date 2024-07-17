@@ -713,6 +713,14 @@ impl RasmProject {
         result
     }
 
+    pub fn content_from_file(&self, file: &PathBuf) -> std::io::Result<String> {
+        if let Some(content) = self.in_memory_files.get(file) {
+            Ok(content.to_string())
+        } else {
+            fs::read_to_string(file)
+        }
+    }
+
     fn module_from_file(
         &self,
         file: &PathBuf,
