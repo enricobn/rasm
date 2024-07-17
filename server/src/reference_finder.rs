@@ -15,11 +15,12 @@ use rasm_core::parser::ast::{
     ASTLambdaDef, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
     ASTTypeDef, BuiltinTypeKind,
 };
+use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 
-use crate::completion_service::{CompletionItem, CompletionResult};
+use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::reference_context::ReferenceContext;
 use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
@@ -53,12 +54,59 @@ impl ReferenceFinder {
 
     pub fn get_completions(
         &self,
+        project: &RasmProject,
         index: &ASTIndex,
         enhanched_module: &EnhancedASTModule,
+        trigger: &CompletionTrigger,
     ) -> Result<CompletionResult, io::Error> {
-        let index = index.mv_left(2);
+        let module_content = project.content_from_file(&self.path)?;
+
+        let lines = module_content.lines().collect::<Vec<_>>();
+
+        let mut last_item_index = index.clone();
+
+        match trigger {
+            CompletionTrigger::Invoked => {
+                last_item_index = if let Some(index) =
+                    Self::find_last_char_excluding(&lines, &last_item_index, &|c| c == '.')
+                {
+                    index
+                } else {
+                    return Ok(CompletionResult::NotFound(
+                        "Cannot find last '.'".to_string(),
+                    ));
+                };
+            }
+            CompletionTrigger::Character('.') => {
+                last_item_index = last_item_index.mv_left(1);
+            }
+            CompletionTrigger::Character(c) => {
+                return Ok(CompletionResult::NotFound(format!(
+                    "Unsupported completion trigger char '{c}'."
+                )));
+            }
+            CompletionTrigger::IncompleteCompletion => {
+                return Ok(CompletionResult::NotFound(
+                    "Incomplete completion is not supported.".to_string(),
+                ))
+            }
+        }
+
+        last_item_index = if let Some(index) =
+            Self::find_last_char_excluding(&lines, &last_item_index, &|c| c.is_alphabetic())
+        {
+            index
+        } else {
+            return Ok(CompletionResult::NotFound(
+                "Cannot find last identifier.".to_string(),
+            ));
+        };
+
+        // println!("before open bracket : {last_item_index}");
+
+        //let last_item_index = index.mv_left(2);
         for selectable_item in self.selectable_items.iter() {
-            if selectable_item.contains(&index)? {
+            if selectable_item.contains(&last_item_index)? {
                 if let Some(ast_type) = selectable_item.target.completion_type() {
                     let filter = TypeFilter::Exact(ast_type.clone());
                     let mut items = Vec::new();
@@ -88,6 +136,86 @@ impl ReferenceFinder {
         Ok(CompletionResult::NotFound(
             "Cannot find completion".to_owned(),
         ))
+    }
+
+    fn find_last_char_excluding(
+        lines: &Vec<&str>,
+        index: &ASTIndex,
+        find: &dyn Fn(char) -> bool,
+    ) -> Option<ASTIndex> {
+        let mut result = index.clone();
+        loop {
+            let c = Self::char_at_index(&lines, &result)?;
+            if find(c) {
+                return Some(result);
+            } else if c == ')' {
+                result = Self::find_open_bracket(&lines, &Self::move_left(&lines, &result)?)?;
+                return Self::move_left(&lines, &result);
+            }
+            result = Self::move_left(lines, &result)?;
+        }
+    }
+
+    fn ignore_whitespaces(lines: &Vec<&str>, index: &ASTIndex) -> Option<ASTIndex> {
+        let mut result = index.clone();
+        while Self::char_at_index(&lines, &result)?.is_whitespace() {
+            result = Self::move_left(&lines, &result)?;
+        }
+        Some(result)
+    }
+
+    fn ignore_until(lines: &Vec<&str>, index: &ASTIndex, c: char) -> Option<ASTIndex> {
+        let mut result = index.clone();
+        while Self::char_at_index(&lines, &result)? != c {
+            result = Self::move_left(&lines, &result)?;
+        }
+        Some(result)
+    }
+
+    fn char_at_index(lines: &Vec<&str>, index: &ASTIndex) -> Option<char> {
+        lines.get(index.row - 1).and_then(|line| {
+            line.get((index.column - 1)..index.column)
+                .and_then(|chars| chars.chars().next())
+        })
+    }
+
+    fn move_left(lines: &Vec<&str>, index: &ASTIndex) -> Option<ASTIndex> {
+        let mut row = index.row as i32;
+        let mut column = index.column as i32 - 1;
+
+        if column <= 0 {
+            row -= 1;
+            if row <= 0 {
+                return None;
+            }
+            column = (lines.get((row - 1) as usize).unwrap().len()) as i32;
+        }
+        Some(ASTIndex::new(
+            index.file_name.clone(),
+            row as usize,
+            column as usize,
+        ))
+    }
+
+    fn find_open_bracket(lines: &Vec<&str>, index: &ASTIndex) -> Option<ASTIndex> {
+        let mut result = index.clone();
+        let mut count = 0;
+        loop {
+            let c = Self::char_at_index(lines, &result)?;
+            if c == ')' {
+                count += 1;
+            } else if c == '(' {
+                if count == 0 {
+                    break;
+                } else {
+                    count -= 1;
+                }
+            }
+
+            result = Self::move_left(lines, &result)?;
+        }
+
+        Some(result)
     }
 
     pub fn is_path(&self, path: &PathBuf) -> bool {
@@ -821,13 +949,14 @@ mod tests {
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
 
-    use crate::completion_service::CompletionItem;
+    use crate::completion_service::{CompletionItem, CompletionTrigger};
     use crate::reference_finder::{CompletionResult, ReferenceFinder};
     use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
     #[test]
     fn simple() {
-        let (eh_module, module) = get_reference_finder("resources/test/simple.rasm", None);
+        let (_project, eh_module, module) =
+            get_reference_finder("resources/test/simple.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/simple.rasm");
@@ -894,7 +1023,7 @@ mod tests {
 
     #[test]
     fn types() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/types.rasm");
@@ -951,12 +1080,10 @@ mod tests {
 
     #[test]
     fn struct_constructor() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/types.rasm");
-
-        let project = RasmProject::new(file_name.to_path_buf());
 
         let source_file = Path::new(&file_name);
 
@@ -972,11 +1099,10 @@ mod tests {
 
     #[test]
     fn types_1() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = PathBuf::from("resources/test/types.rasm");
-        let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
             .find(&ASTIndex::new(Some(file_name.clone()), 27, 31))
             .unwrap();
@@ -989,11 +1115,10 @@ mod tests {
 
     #[test]
     fn types_2() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = PathBuf::from("resources/test/types.rasm");
-        let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
             .find(&ASTIndex::new(Some(file_name.clone()), 9, 1))
             .unwrap();
@@ -1006,11 +1131,10 @@ mod tests {
 
     #[test]
     fn types_3() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = PathBuf::from("resources/test/types.rasm");
-        let project = RasmProject::new(file_name.to_path_buf());
         let found = finder
             .find(&ASTIndex::new(Some(file_name.clone()), 9, 13))
             .unwrap();
@@ -1023,12 +1147,17 @@ mod tests {
 
     #[test]
     fn types_completion() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.get_completions(&ASTIndex::new(file_name.clone(), 12, 17), &eh_module) {
+        match finder.get_completions(
+            &project,
+            &ASTIndex::new(file_name.clone(), 12, 16),
+            &eh_module,
+            &CompletionTrigger::Character('.'),
+        ) {
             Ok(CompletionResult::Found(items)) => {
                 assert!(format_collection_items(&items)
                     .contains(&"anI32(v: AStruct) -> i32".to_string()));
@@ -1042,12 +1171,17 @@ mod tests {
 
     #[test]
     fn types_completion1() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.get_completions(&ASTIndex::new(file_name.clone(), 13, 8), &eh_module) {
+        match finder.get_completions(
+            &project,
+            &ASTIndex::new(file_name.clone(), 13, 7),
+            &eh_module,
+            &CompletionTrigger::Character('.'),
+        ) {
             Ok(CompletionResult::Found(items)) => {
                 let result = items
                     .iter()
@@ -1069,8 +1203,46 @@ mod tests {
     }
 
     #[test]
+    fn types_completion2() {
+        let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
+        let (eh_module, module) = get_reference_finder_for_project(
+            &project,
+            "../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm",
+        );
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Some(PathBuf::from(
+            "../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm",
+        ));
+
+        match finder.get_completions(
+            &project,
+            &ASTIndex::new(file_name.clone(), 268, 9),
+            &eh_module,
+            &CompletionTrigger::Character('.'),
+        ) {
+            Ok(CompletionResult::Found(items)) => {
+                let result = items
+                    .iter()
+                    .filter(|it| it.descr.starts_with("run"))
+                    .collect::<Vec<_>>();
+
+                result
+                    .iter()
+                    .for_each(|it| println!("comp. item {}", it.descr));
+
+                assert_eq!(2, result.len());
+            }
+            Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
+            Err(error) => {
+                panic!("{error}")
+            }
+        }
+    }
+
+    #[test]
     fn types_lambda_param_type() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
@@ -1110,7 +1282,7 @@ mod tests {
 
         let result_rasm = stdlib_path.join("src/main/rasm/result.rasm");
 
-        let (eh_module, module) = get_reference_finder(
+        let (_project, eh_module, module) = get_reference_finder(
             "resources/test/types.rasm",
             Some(&result_rasm.to_string_lossy()),
         );
@@ -1138,7 +1310,7 @@ mod tests {
 
     #[test]
     fn enums() {
-        let (eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+        let (_project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/enums.rasm");
@@ -1161,7 +1333,7 @@ mod tests {
 
     #[test]
     fn enums_1() {
-        let (eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+        let (_project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/enums.rasm");
@@ -1190,7 +1362,7 @@ mod tests {
 
     #[test]
     fn references() {
-        let (eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Path::new("resources/test/types.rasm");
@@ -1263,12 +1435,21 @@ mod tests {
     fn get_reference_finder(
         source: &str,
         module_path: Option<&str>,
+    ) -> (RasmProject, EnhancedASTModule, ASTModule) {
+        env::set_var("RASM_STDLIB", "../../../stdlib");
+
+        let file_name = Path::new(source);
+        let project = RasmProject::new(file_name.to_path_buf());
+        let (enhanced_module, module) =
+            get_reference_finder_for_project(&project, module_path.unwrap_or(source));
+        (project, enhanced_module, module)
+    }
+
+    fn get_reference_finder_for_project(
+        project: &RasmProject,
+        module_path: &str,
     ) -> (EnhancedASTModule, ASTModule) {
         init_log();
-        env::set_var("RASM_STDLIB", "../../../stdlib");
-        let file_name = Path::new(source);
-
-        let project = RasmProject::new(file_name.to_path_buf());
 
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
@@ -1284,12 +1465,7 @@ mod tests {
         let enhanced_ast_module =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
-        let (module, errors) = if let Some(m) = module_path {
-            project.get_module(Path::new(&m), &target)
-        } else {
-            project.get_module(file_name, &target)
-        }
-        .unwrap();
+        let (module, errors) = project.get_module(Path::new(module_path), &target).unwrap();
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));

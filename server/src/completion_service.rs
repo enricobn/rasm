@@ -119,6 +119,13 @@ pub enum CompletionResult {
     NotFound(String),
 }
 
+#[derive(Debug)]
+pub enum CompletionTrigger {
+    Invoked,
+    Character(char),
+    IncompleteCompletion,
+}
+
 pub enum CompletableItemResult {
     Found(CompletableItem),
     NotFound(String),
