@@ -1522,7 +1522,7 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
 
 fn expression(conv_context: &mut ConvContext, expression: &ASTExpression) -> ASTTypedExpression {
     match expression {
-        ASTExpression::StringLiteral(s) => ASTTypedExpression::StringLiteral(s.to_string()),
+        ASTExpression::StringLiteral(s, _) => ASTTypedExpression::StringLiteral(s.to_string()),
         ASTExpression::ASTFunctionCallExpression(fc) => {
             ASTTypedExpression::ASTFunctionCallExpression(function_call(conv_context, fc))
         }
@@ -1900,7 +1900,9 @@ impl DefaultFunction {
                 .iter()
                 .map(|it| match it {
                     ASTType::Builtin(kind) => match kind {
-                        BuiltinTypeKind::String => ASTExpression::StringLiteral("".into()),
+                        BuiltinTypeKind::String => {
+                            ASTExpression::StringLiteral("".into(), ASTIndex::none())
+                        }
                         BuiltinTypeKind::I32 => {
                             ASTExpression::Value(ValueType::I32(0), ASTIndex::none())
                         }

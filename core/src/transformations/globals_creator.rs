@@ -22,6 +22,7 @@ pub fn add_folder(
                         .to_str()
                         .unwrap()
                         .to_owned(),
+                    ASTIndex::none(),
                 ),
                 true,
                 ASTIndex::none(),

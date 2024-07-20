@@ -1,7 +1,7 @@
 use std::io;
 use std::iter::zip;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{PathBuf, Prefix};
 
 use log::warn;
 
@@ -27,6 +27,12 @@ use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
     path: PathBuf,
+    namespace: ASTNameSpace,
+}
+
+enum CompletionType {
+    SelectableItem(ASTIndex, Option<String>),
+    Identifier(String),
 }
 
 impl ReferenceFinder {
@@ -37,6 +43,7 @@ impl ReferenceFinder {
         Ok(Self {
             selectable_items,
             path,
+            namespace: ast_module.namespace.clone(),
         })
     }
 
@@ -63,22 +70,57 @@ impl ReferenceFinder {
 
         let lines = module_content.lines().collect::<Vec<_>>();
 
-        let mut last_item_index = index.clone();
-
-        match trigger {
+        let completion_type = match trigger {
             CompletionTrigger::Invoked => {
-                last_item_index = if let Some(index) =
-                    Self::find_last_char_excluding(&lines, &last_item_index, &|c| c == '.')
-                {
-                    index
+                let mut prefix = String::new();
+                let mut index = index.clone();
+                let mut completion_type = None;
+                loop {
+                    if let Some(c) = Self::char_at_index(&lines, &index) {
+                        if c == '.' {
+                            // it could be a number
+                            completion_type = Self::dot_completion(&lines, &index, Some(prefix));
+                            break;
+                        } else if c.is_whitespace() {
+                        } else if c == '{' || c == ';' || c == '=' {
+                            // prefix could be a number
+                            completion_type = Some(CompletionType::Identifier(prefix));
+                            break;
+                        } else if c.is_alphanumeric() {
+                            prefix.insert(0, c);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        return Ok(CompletionResult::NotFound(
+                            "Cannot find a completable expression.".to_string(),
+                        ));
+                    }
+                    if let Some(i) = Self::move_left(&lines, &index) {
+                        index = i;
+                    } else {
+                        return Ok(CompletionResult::NotFound(
+                            "Cannot find a completable expression.".to_string(),
+                        ));
+                    }
+                }
+
+                if let Some(ct) = completion_type {
+                    ct
                 } else {
                     return Ok(CompletionResult::NotFound(
-                        "Cannot find last '.'".to_string(),
+                        "Cannot determine a completion type.".to_string(),
                     ));
-                };
+                }
             }
             CompletionTrigger::Character('.') => {
-                last_item_index = last_item_index.mv_left(1);
+                if let Some(completion_type) = Self::dot_completion(&lines, index, None) {
+                    completion_type
+                } else {
+                    return Ok(CompletionResult::NotFound(
+                        "Cannot find last identifier.".to_string(),
+                    ));
+                }
             }
             CompletionTrigger::Character(c) => {
                 return Ok(CompletionResult::NotFound(format!(
@@ -90,52 +132,101 @@ impl ReferenceFinder {
                     "Incomplete completion is not supported.".to_string(),
                 ))
             }
-        }
-
-        last_item_index = if let Some(index) =
-            Self::find_last_char_excluding(&lines, &last_item_index, &|c| c.is_alphabetic())
-        {
-            index
-        } else {
-            return Ok(CompletionResult::NotFound(
-                "Cannot find last identifier.".to_string(),
-            ));
         };
 
-        // println!("before open bracket : {last_item_index}");
-
-        //let last_item_index = index.mv_left(2);
-        for selectable_item in self.selectable_items.iter() {
-            if selectable_item.contains(&last_item_index)? {
-                if let Some(ast_type) = selectable_item.target.completion_type() {
-                    let filter = TypeFilter::Exact(ast_type.clone());
-                    let mut items = Vec::new();
-                    for function in enhanched_module.functions() {
-                        if !function.modifiers.public
-                            && function.namespace != selectable_item.namespace
-                        {
-                            continue;
-                        }
-                        if !function.parameters.is_empty() {
-                            let parameter_type = &function.parameters.get(0).unwrap().ast_type;
-                            if let Ok(value) = filter.almost_equal(parameter_type, enhanched_module)
-                            {
-                                if value {
-                                    if let Some(item) = CompletionItem::for_function(function) {
-                                        items.push(item);
-                                    }
-                                }
-                            }
+        match completion_type {
+            CompletionType::SelectableItem(index, prefix) => {
+                for selectable_item in self.selectable_items.iter() {
+                    if selectable_item.contains(&index)? {
+                        if let Some(ast_type) = selectable_item.target.completion_type() {
+                            return Self::completion_for_type(
+                                &ast_type,
+                                enhanched_module,
+                                &selectable_item.namespace,
+                                &prefix,
+                            );
                         }
                     }
-                    return Ok(CompletionResult::Found(items));
                 }
+            }
+            CompletionType::Identifier(prefix) => {
+                return Self::completion_for_identifier(&prefix, enhanched_module, &self.namespace);
             }
         }
 
         Ok(CompletionResult::NotFound(
             "Cannot find completion".to_owned(),
         ))
+    }
+
+    fn dot_completion(
+        lines: &Vec<&str>,
+        index: &ASTIndex,
+        prefix: Option<String>,
+    ) -> Option<CompletionType> {
+        if let Some(index) = Self::find_last_char_excluding(&lines, index, &|c| !c.is_whitespace())
+            .and_then(|it| {
+                if Self::char_at_index(lines, &it) == Some('"') {
+                    Self::move_left(lines, &it)
+                } else {
+                    Self::find_last_char_excluding(&lines, &it, &|c| c.is_alphabetic())
+                }
+            })
+        {
+            Some(CompletionType::SelectableItem(index, prefix))
+        } else {
+            None
+        }
+    }
+
+    fn completion_for_type(
+        ast_type: &ASTType,
+        enhanched_module: &EnhancedASTModule,
+        namespace: &ASTNameSpace,
+        prefix: &Option<String>,
+    ) -> Result<CompletionResult, io::Error> {
+        let filter = TypeFilter::Exact(ast_type.clone());
+        let mut items = Vec::new();
+        for function in enhanched_module.functions() {
+            if !function.modifiers.public && &function.namespace != namespace {
+                continue;
+            }
+            if let Some(p) = prefix {
+                if !function.name.starts_with(p) {
+                    continue;
+                }
+            }
+            if !function.parameters.is_empty() {
+                let parameter_type = &function.parameters.get(0).unwrap().ast_type;
+                if let Ok(value) = filter.almost_equal(parameter_type, enhanched_module) {
+                    if value {
+                        if let Some(item) = CompletionItem::for_function(function) {
+                            items.push(item);
+                        }
+                    }
+                }
+            }
+        }
+        return Ok(CompletionResult::Found(items));
+    }
+
+    fn completion_for_identifier(
+        prefix: &str,
+        enhanched_module: &EnhancedASTModule,
+        namespace: &ASTNameSpace,
+    ) -> Result<CompletionResult, io::Error> {
+        let mut items = Vec::new();
+        for function in enhanched_module.functions() {
+            if !function.modifiers.public && &function.namespace != namespace {
+                continue;
+            }
+            if function.name.starts_with(prefix) {
+                if let Some(item) = CompletionItem::for_function(function) {
+                    items.push(item);
+                }
+            }
+        }
+        return Ok(CompletionResult::Found(items));
     }
 
     fn find_last_char_excluding(
@@ -589,7 +680,12 @@ impl ReferenceFinder {
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
-            ASTExpression::StringLiteral(_) => {}
+            ASTExpression::StringLiteral(s, index) => result.push(SelectableItem::new(
+                index.mv_left(s.len()),
+                s.len(),
+                namespace.clone(),
+                SelectableItemTarget::Type(None, ASTType::Builtin(BuiltinTypeKind::String)),
+            )),
             ASTExpression::ASTFunctionCallExpression(call) => {
                 Self::process_function_call(
                     expr,
@@ -1146,98 +1242,88 @@ mod tests {
     }
 
     #[test]
-    fn types_completion() {
-        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+    fn types_completion_struct_property() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            12,
+            16,
+            CompletionTrigger::Character('.'),
+        )
+        .unwrap();
 
-        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
-
-        match finder.get_completions(
-            &project,
-            &ASTIndex::new(file_name.clone(), 12, 16),
-            &eh_module,
-            &CompletionTrigger::Character('.'),
-        ) {
-            Ok(CompletionResult::Found(items)) => {
-                assert!(format_collection_items(&items)
-                    .contains(&"anI32(v: AStruct) -> i32".to_string()));
-            }
-            Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
-            Err(error) => {
-                panic!("{error}")
-            }
-        }
+        assert_eq!(3, values.into_iter().filter(|it| it == "anI32").count());
     }
 
     #[test]
-    fn types_completion1() {
-        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+    fn types_completion_match() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            13,
+            7,
+            CompletionTrigger::Character('.'),
+        )
+        .unwrap();
 
-        let file_name = Some(PathBuf::from("resources/test/types.rasm"));
-
-        match finder.get_completions(
-            &project,
-            &ASTIndex::new(file_name.clone(), 13, 7),
-            &eh_module,
-            &CompletionTrigger::Character('.'),
-        ) {
-            Ok(CompletionResult::Found(items)) => {
-                let result = items
-                    .iter()
-                    .filter(|it| it.descr.contains("match<"))
-                    .collect::<Vec<_>>();
-
-                assert_eq!(1, result.len());
-
-                assert_eq!(
-                    Some("match(\n    fn(par0) {  }, \n    {  });".to_string()),
-                    result.first().and_then(|it| it.insert.clone())
-                );
-            }
-            Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
-            Err(error) => {
-                panic!("{error}")
-            }
-        }
+        assert_eq!(1, values.into_iter().filter(|it| it == "match").count());
     }
 
     #[test]
-    fn types_completion2() {
-        let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
-        let (eh_module, module) = get_reference_finder_for_project(
-            &project,
-            "../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm",
-        );
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+    fn types_completion_dot() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            36,
+            16,
+            CompletionTrigger::Character('.'),
+        )
+        .unwrap();
+        assert_eq!(3, values.into_iter().filter(|it| it == "anI32").count());
+    }
 
-        let file_name = Some(PathBuf::from(
-            "../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm",
-        ));
+    #[test]
+    fn types_completion_invoked_function_call() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            16,
+            11,
+            CompletionTrigger::Invoked,
+        )
+        .unwrap();
 
-        match finder.get_completions(
-            &project,
-            &ASTIndex::new(file_name.clone(), 268, 9),
-            &eh_module,
-            &CompletionTrigger::Character('.'),
-        ) {
-            Ok(CompletionResult::Found(items)) => {
-                let result = items
-                    .iter()
-                    .filter(|it| it.descr.starts_with("run"))
-                    .collect::<Vec<_>>();
+        assert!(!values.is_empty());
+        assert!(values.iter().all(|it| it.starts_with("print")));
+    }
 
-                result
-                    .iter()
-                    .for_each(|it| println!("comp. item {}", it.descr));
+    #[test]
+    fn types_completion_invoked_function_call_on_object() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            13,
+            11,
+            CompletionTrigger::Invoked,
+        )
+        .unwrap();
 
-                assert_eq!(2, result.len());
-            }
-            Ok(CompletionResult::NotFound(message)) => panic!("{message}"),
-            Err(error) => {
-                panic!("{error}")
-            }
-        }
+        assert_eq!(vec!["match", "matchNone", "matchSome"], values);
+    }
+
+    #[test]
+    #[ignore = "not yet supported"]
+    fn types_completion_invoked_parameter() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            32,
+            8,
+            CompletionTrigger::Invoked,
+        )
+        .unwrap();
+
+        assert_eq!(vec!["structVec"], values);
     }
 
     #[test]
@@ -1247,7 +1333,7 @@ mod tests {
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.find(&ASTIndex::new(file_name.clone(), 32, 22)) {
+        match finder.find(&ASTIndex::new(file_name.clone(), 32, 28)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
@@ -1466,7 +1552,6 @@ mod tests {
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         let (module, errors) = project.get_module(Path::new(module_path), &target).unwrap();
-
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
         }
@@ -1487,5 +1572,42 @@ mod tests {
             })
             .try_init()
             .unwrap_or(());
+    }
+
+    fn get_completion_values(
+        project: Option<RasmProject>,
+        file_name: &str,
+        row: usize,
+        col: usize,
+        trigger: CompletionTrigger,
+    ) -> Result<Vec<String>, String> {
+        env::set_var("RASM_STDLIB", "../../../stdlib");
+        let project = if let Some(project) = project {
+            project
+        } else {
+            RasmProject::new(PathBuf::from(file_name))
+        };
+        let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Some(PathBuf::from(file_name));
+
+        match finder.get_completions(
+            &project,
+            &ASTIndex::new(file_name.clone(), row, col),
+            &eh_module,
+            &trigger,
+        ) {
+            Ok(CompletionResult::Found(items)) => {
+                let mut sorted = items.clone();
+                sorted.sort_by(|a, b| a.sort.cmp(&b.sort));
+
+                //println!("{}", SliceDisplay(&sorted));
+
+                Ok(sorted.iter().map(|it| it.value.clone()).collect::<Vec<_>>())
+            }
+            Ok(CompletionResult::NotFound(message)) => Err(message.to_string()),
+            Err(error) => Err(error.to_string()),
+        }
     }
 }

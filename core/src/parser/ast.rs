@@ -504,7 +504,7 @@ impl ValueType {
 // TODO can we do partialeq? It depends on ASTIndex
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTExpression {
-    StringLiteral(String),
+    StringLiteral(String, ASTIndex),
     ASTFunctionCallExpression(ASTFunctionCall),
     ValueRef(String, ASTIndex),
     Value(ValueType, ASTIndex),
@@ -515,7 +515,7 @@ pub enum ASTExpression {
 impl ASTExpression {
     pub fn get_index(&self) -> ASTIndex {
         match self {
-            ASTExpression::StringLiteral(_) => ASTIndex::none(),
+            ASTExpression::StringLiteral(_, index) => index.clone(),
             ASTExpression::ASTFunctionCallExpression(call) => call.index.clone(),
             ASTExpression::ValueRef(_, index) => index.clone(),
             ASTExpression::Value(_, index) => index.clone(),
@@ -528,7 +528,7 @@ impl ASTExpression {
 impl Display for ASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
+            ASTExpression::StringLiteral(s, _) => f.write_str(&format!("\"{s}\"")),
             ASTExpression::ASTFunctionCallExpression(call) => {
                 /*let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();

@@ -1137,7 +1137,7 @@ impl TypeCheck {
         );
         indent!();
         let result = match typed_expression {
-            ASTExpression::StringLiteral(_) => {
+            ASTExpression::StringLiteral(_, _) => {
                 TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::String))
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
