@@ -164,7 +164,12 @@ impl ReferenceFinder {
         index: &ASTIndex,
         prefix: Option<String>,
     ) -> Option<CompletionType> {
-        if let Some(index) = Self::find_last_char_excluding(&lines, index, &|c| !c.is_whitespace())
+        let index = if let Some(i) = Self::move_left(lines, index) {
+            i
+        } else {
+            return None;
+        };
+        if let Some(index) = Self::find_last_char_excluding(&lines, &index, &|c| !c.is_whitespace())
             .and_then(|it| {
                 if Self::char_at_index(lines, &it) == Some('"') {
                     Self::move_left(lines, &it)
@@ -1324,6 +1329,20 @@ mod tests {
         .unwrap();
 
         assert_eq!(vec!["structVec"], values);
+    }
+
+    #[test]
+    fn types_completion_dot_string() {
+        let values = get_completion_values(
+            None,
+            "resources/test/types.rasm",
+            40,
+            14,
+            CompletionTrigger::Character('.'),
+        )
+        .unwrap();
+
+        assert_eq!(1, values.into_iter().filter(|it| it == "substr").count());
     }
 
     #[test]

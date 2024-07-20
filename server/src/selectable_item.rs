@@ -88,7 +88,7 @@ impl SelectableItemTarget {
         match self {
             SelectableItemTarget::Ref(_, t) => t.clone(),
             SelectableItemTarget::Function(_, t, _) => Some(t.clone()),
-            SelectableItemTarget::Type(_, _) => None,
+            SelectableItemTarget::Type(_, t) => Some(t.clone()),
         }
     }
 }

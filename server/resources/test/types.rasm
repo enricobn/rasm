@@ -35,3 +35,7 @@ fn lambda(structVec: Vec<AStruct>) -> Vec<AStruct> {
 fn property() -> i32 {
     AStruct(10).anI32;
 }
+
+fn string() -> i32 {
+    "aString".length;
+}
