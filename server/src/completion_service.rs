@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::fmt::Display;
 use std::io;
 use std::ops::Deref;
 
@@ -33,15 +34,27 @@ use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use rasm_core::utils::OptionDisplay;
 
 use crate::file_token::FileToken;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct CompletionItem {
     pub value: String,
     pub descr: String,
     pub sort: Option<String>,
     pub insert: Option<String>,
+}
+
+impl Display for CompletionItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "CompletionItem({}, {}, {}, ...)",
+            self.value,
+            self.descr,
+            OptionDisplay(&self.sort),
+        ))
+    }
 }
 
 impl CompletionItem {

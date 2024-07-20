@@ -29,13 +29,13 @@ use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, CodeGen};
 use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
+    ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use super::any::{CStruct, CStructs};
+use super::any::CStructs;
 use super::typed_function_creator::TypedFunctionsCreatorC;
 
 static ID: AtomicUsize = AtomicUsize::new(0);

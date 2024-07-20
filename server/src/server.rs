@@ -17,7 +17,7 @@
  */
 
 use std::env;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};

@@ -28,6 +28,10 @@ fn doSomething(value: Vec<AStruct>) {
     println("aStruct");
 }
 
-fn lambda(vec: Vec<AStruct>) -> Vec<AStruct> {
-    vec.map(fn(it) {it;});
+fn lambda(structVec: Vec<AStruct>) -> Vec<AStruct> {
+    structVec.map(fn(it) {it;});
+}
+
+fn property() -> i32 {
+    AStruct(10).anI32;
 }

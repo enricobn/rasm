@@ -5,9 +5,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTModifiers, ASTNameSpace, ASTParameterDef,
-};
+use crate::parser::ast::{ASTEnumVariantDef, ASTModifiers, ASTNameSpace, ASTParameterDef};
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
@@ -56,33 +54,6 @@ impl EnumParser {
                     parser.get_i() + result.next_n(),
                 )
             })
-    }
-
-    #[cfg(test)]
-    pub fn try_parse_enum(
-        &self,
-        namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-    ) -> Result<Option<(ASTEnumDef, usize)>, String> {
-        if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(namespace, parser)
-        {
-            if let Some((variants, next_i)) =
-                self.parse_variants(namespace, parser, &type_parameters, next_i - parser.get_i())?
-            {
-                return Ok(Some((
-                    ASTEnumDef {
-                        namespace: namespace.clone(),
-                        name: token.alpha().unwrap(),
-                        type_parameters,
-                        variants,
-                        index: token.index().mv_left(token.alpha().unwrap().len()),
-                        modifiers,
-                    },
-                    next_i,
-                )));
-            }
-        }
-        Ok(None)
     }
 
     pub fn parse_variants(
@@ -274,12 +245,44 @@ impl TokensMatcherTrait for ParameterMatcher {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::ASTType::Generic;
-    use crate::parser::ast::{ASTEnumVariantDef, ASTIndex, ASTParameterDef, ASTType};
+    use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTIndex, ASTParameterDef, ASTType};
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
     use crate::utils::tests::test_namespace;
 
     use super::*;
+
+    impl EnumParser {
+        pub fn try_parse_enum(
+            &self,
+            namespace: &ASTNameSpace,
+            parser: &dyn ParserTrait,
+        ) -> Result<Option<(ASTEnumDef, usize)>, String> {
+            if let Some((token, type_parameters, modifiers, next_i)) =
+                self.try_parse(namespace, parser)
+            {
+                if let Some((variants, next_i)) = self.parse_variants(
+                    namespace,
+                    parser,
+                    &type_parameters,
+                    next_i - parser.get_i(),
+                )? {
+                    return Ok(Some((
+                        ASTEnumDef {
+                            namespace: namespace.clone(),
+                            name: token.alpha().unwrap(),
+                            type_parameters,
+                            variants,
+                            index: token.index().mv_left(token.alpha().unwrap().len()),
+                            modifiers,
+                        },
+                        next_i,
+                    )));
+                }
+            }
+            Ok(None)
+        }
+    }
 
     #[test]
     fn empty_enum() {

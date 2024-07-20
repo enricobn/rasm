@@ -1,7 +1,7 @@
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{ASTModifiers, ASTNameSpace, ASTStructDef, ASTStructPropertyDef};
+use crate::parser::ast::{ASTModifiers, ASTNameSpace, ASTStructPropertyDef};
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
@@ -47,45 +47,6 @@ impl StructParser {
                     parser.get_i() + result.next_n(),
                 )
             })
-    }
-
-    #[cfg(test)]
-    pub fn try_parse_struct(
-        &self,
-        namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-    ) -> Result<Option<(ASTStructDef, usize)>, String> {
-        if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(namespace, parser)
-        {
-            if let Some(name) = token.alpha() {
-                if let Some((properties, next_i)) = self.parse_properties(
-                    namespace,
-                    parser,
-                    &type_parameters,
-                    &name,
-                    next_i - parser.get_i(),
-                )? {
-                    return Ok(Some((
-                        ASTStructDef {
-                            namespace: namespace.clone(),
-                            name,
-                            type_parameters,
-                            properties,
-                            index: parser.get_index(0),
-                            modifiers,
-                        },
-                        next_i,
-                    )));
-                }
-            } else {
-                return Err(format!(
-                    "Expected alphanumeric, got {:?}: {}",
-                    token,
-                    parser.get_index(0)
-                ));
-            }
-        }
-        Ok(None)
     }
 
     fn properties_matcher(
@@ -160,7 +121,49 @@ mod tests {
     };
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
+    use crate::parser::ParserTrait;
     use crate::utils::tests::test_namespace;
+
+    impl StructParser {
+        pub fn try_parse_struct(
+            &self,
+            namespace: &ASTNameSpace,
+            parser: &dyn ParserTrait,
+        ) -> Result<Option<(ASTStructDef, usize)>, String> {
+            if let Some((token, type_parameters, modifiers, next_i)) =
+                self.try_parse(namespace, parser)
+            {
+                if let Some(name) = token.alpha() {
+                    if let Some((properties, next_i)) = self.parse_properties(
+                        namespace,
+                        parser,
+                        &type_parameters,
+                        &name,
+                        next_i - parser.get_i(),
+                    )? {
+                        return Ok(Some((
+                            ASTStructDef {
+                                namespace: namespace.clone(),
+                                name,
+                                type_parameters,
+                                properties,
+                                index: parser.get_index(0),
+                                modifiers,
+                            },
+                            next_i,
+                        )));
+                    }
+                } else {
+                    return Err(format!(
+                        "Expected alphanumeric, got {:?}: {}",
+                        token,
+                        parser.get_index(0)
+                    ));
+                }
+            }
+            Ok(None)
+        }
+    }
 
     #[test]
     fn test() {
