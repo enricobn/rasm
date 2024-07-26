@@ -281,7 +281,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         expression: &ASTExpression,
-        val_context: &mut ValContext,
+        val_context: &ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
@@ -331,7 +331,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         call: &ASTFunctionCall,
-        val_context: &mut ValContext,
+        val_context: &ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
@@ -563,7 +563,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         call: &ASTFunctionCall,
-        val_context: &mut ValContext,
+        val_context: &ValContext,
         statics: &mut Statics,
         expected_return_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
@@ -616,9 +616,9 @@ impl TypeCheck {
         }
         */
 
-        /*
         let mut filters_resolved_generic_types = ResolvedGenericTypes::new();
 
+        /*
         let mut filters_new_functions = Vec::new();
 
 
@@ -627,7 +627,6 @@ impl TypeCheck {
             .iter()
             .filter(|e| !matches!(e, ASTExpression::Lambda(_)))
             .map(|expr| {
-                println!("filter for {expr} : {}", expr.get_index());
                 let new_filter = self.get_filter(
                     module,
                     val_context,
@@ -641,6 +640,7 @@ impl TypeCheck {
                 );
 
                 if let Ok((nf, _)) = &new_filter {
+                    println!("filter for {expr} : {}", expr.get_index());
                     println!("  {nf}");
                 }
 
@@ -1010,7 +1010,7 @@ impl TypeCheck {
     fn get_filter(
         &mut self,
         module: &InputModule,
-        val_context: &mut ValContext,
+        val_context: &ValContext,
         statics: &mut Statics,
         resolved_generic_types: &mut ResolvedGenericTypes,
         expr: &ASTExpression,
@@ -1346,7 +1346,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         typed_expression: &ASTExpression,
-        val_context: &mut ValContext,
+        val_context: &ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
@@ -1543,7 +1543,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         lambda_def: &ASTLambdaDef,
-        val_context: &mut ValContext,
+        val_context: &ValContext,
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
