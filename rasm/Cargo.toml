@@ -19,3 +19,4 @@ rand.workspace = true
 tempdir.workspace = true
 test_bin.workspace = true
 test-log.workspace = true
+ntest = "0.9.3"

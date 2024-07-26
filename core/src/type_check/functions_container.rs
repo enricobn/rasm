@@ -123,6 +123,21 @@ impl FunctionsContainer {
         function.body = body;
     }
 
+    pub fn remove(&mut self, function_def: &ASTFunctionDef) {
+        let function = self
+            .functions_by_name
+            .get_mut(&function_def.original_name)
+            .unwrap();
+        function.remove(
+            function
+                .iter()
+                .enumerate()
+                .find(|(_, it)| it.name == function_def.name)
+                .unwrap()
+                .0,
+        );
+    }
+
     pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
         let functions = self.functions();
         let found = functions

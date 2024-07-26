@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use ntest::timeout;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
 use rasm_core::codegen::AsmOptions;
@@ -379,6 +380,11 @@ fn test_type_check_1() {
 }
 
 #[test]
+fn test_type_check_2() {
+    run_test("type_check_2", vec![], "true\n");
+}
+
+#[test]
 fn test_println() {
     run_test("println", vec![], "a string\n10\n");
 }
@@ -455,6 +461,7 @@ fn test_allocation() {
 }
 
 #[test]
+//#[timeout(1000)]
 fn test_oop() {
     run_test(
         "oop",
@@ -464,6 +471,7 @@ fn test_oop() {
 }
 
 #[test]
+//#[timeout(1000)]
 fn test_oopv2() {
     run_test(
         "oopv2",
@@ -613,6 +621,7 @@ fn test_gameoflife_vec_sdl_compile() {
 }
 
 #[test]
+//#[timeout(5000)]
 fn test_breakout() {
     compile_example("resources/examples/breakout", true);
 }

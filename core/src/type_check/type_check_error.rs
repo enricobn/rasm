@@ -20,7 +20,14 @@ use crate::parser::ast::ASTIndex;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum TypeCheckErrorKind {
+    Standard,
+    Ignorable,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypeCheckError {
+    pub kind: TypeCheckErrorKind,
     main: (ASTIndex, String, Vec<ASTIndex>),
     messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,
     children: Vec<TypeCheckError>,
@@ -30,6 +37,17 @@ pub struct TypeCheckError {
 impl TypeCheckError {
     pub fn new(index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
         TypeCheckError {
+            kind: TypeCheckErrorKind::Standard,
+            main: (index, message, stack),
+            messages: Vec::new(),
+            children: Vec::new(),
+            dummy: false,
+        }
+    }
+
+    pub fn new_ignorable(index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
+        TypeCheckError {
+            kind: TypeCheckErrorKind::Ignorable,
             main: (index, message, stack),
             messages: Vec::new(),
             children: Vec::new(),
@@ -39,6 +57,7 @@ impl TypeCheckError {
 
     pub fn dummy() -> Self {
         TypeCheckError {
+            kind: TypeCheckErrorKind::Ignorable,
             main: (ASTIndex::none(), "Dummy".to_string(), Vec::new()),
             messages: Vec::new(),
             children: Vec::new(),
@@ -63,14 +82,21 @@ impl TypeCheckError {
     fn write_one(&self, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
         let spaces = " ".repeat(indent * 2);
         f.write_str(&format!("{spaces}{} : {}\n", self.main.1, self.main.0))?;
-        for i in self.main.2.iter() {
-            f.write_str(&format!("{}\n", i))?;
+
+        if matches!(self.kind, TypeCheckErrorKind::Ignorable) {
+            //f.write_str(&format!("{spaces}  ignored\n"))?;
+            // return Ok(());
         }
+
+        for i in self.main.2.iter().rev() {
+            f.write_str(&format!("{spaces}{}\n", i))?;
+        }
+
         for (index, message, stack) in self.messages.iter() {
             f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
 
-            for i in stack {
-                f.write_str(&format!("{}\n", i))?;
+            for i in stack.iter().rev() {
+                f.write_str(&format!("{spaces}  {}\n", i))?;
             }
         }
 

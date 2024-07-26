@@ -1,7 +1,7 @@
 use std::io;
 use std::iter::zip;
 use std::ops::Deref;
-use std::path::{PathBuf, Prefix};
+use std::path::PathBuf;
 
 use log::warn;
 
@@ -577,6 +577,7 @@ impl ReferenceFinder {
         namespace: &ASTNameSpace,
         type_check: &mut TypeCheck,
     ) -> Result<TypeFilter, TypeCheckError> {
+        let mut new_functions = Vec::new();
         type_check.type_of_expression(
             enhanced_ast_module,
             expr,
@@ -584,6 +585,7 @@ impl ReferenceFinder {
             statics,
             expected_type,
             namespace,
+            &mut new_functions,
         )
     }
 
@@ -910,6 +912,8 @@ impl ReferenceFinder {
             return Ok(());
         }
 
+        let mut new_functions = Vec::new();
+
         match type_check.get_valid_function(
             module,
             call,
@@ -918,6 +922,7 @@ impl ReferenceFinder {
             expected_return_type,
             namespace,
             inside_function,
+            &mut new_functions,
         ) {
             Ok((function_def, resolved_generic_types, expressions)) => {
                 // println!("expressions {}", SliceDisplay(&expressions));

@@ -1,0 +1,13 @@
+const BALLSIZE = 5;
+
+struct Ball {
+    x: f32,
+    y: f32
+}
+
+println(collides(Ball(1.0, 2.0), 1.0));
+
+pub fn collides(ball: Ball, barPos: f32) -> bool {
+    // ball.x.add(BALLSIZE).greater(barPos);
+    greater(add(x(ball), BALLSIZE), barPos);
+}

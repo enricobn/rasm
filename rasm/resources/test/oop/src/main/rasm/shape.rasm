@@ -3,3 +3,7 @@ pub struct Shape {
     move: fn(i32,i32) -> Shape,
     toString: fn() -> str
 }
+
+pub fn print(file: File, shape: Shape) -> Option<IOError> {
+    print(file, shape.toString.call());
+}

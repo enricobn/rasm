@@ -36,8 +36,8 @@ use crate::parser::ast::{
     ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
 };
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::type_check::type_check_error::TypeCheckError;
+use crate::type_check::resolved_generic_types::{self, ResolvedGenericTypes};
+use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
 use crate::type_check::typed_ast::DefaultFunction;
 use crate::type_check::{resolve_generic_types_from_effective_type, substitute};
 use crate::utils::{OptionDisplay, SliceDisplay};
@@ -110,6 +110,8 @@ impl TypeCheck {
             }
         }
 
+        let mut new_functions = Vec::new();
+
         let new_body = self
             .transform_statements(
                 module,
@@ -119,6 +121,7 @@ impl TypeCheck {
                 None,
                 &module.body_namespace,
                 None,
+                &mut new_functions,
             )
             .map_err(|it| CompilationError {
                 index: ASTIndex::none(),
@@ -130,13 +133,28 @@ impl TypeCheck {
                     vec![it],
                 ),
             })?;
+
+        for (f, s) in new_functions {
+            let new_function_name = f.name.clone();
+            if !self.functions_stack.contains_key(&new_function_name) {
+                self.module
+                    .functions_by_name
+                    .add_function(f.original_name.clone(), f);
+                self.functions_stack.insert(new_function_name, s);
+            }
+        }
+
         self.module.body = new_body;
+
+        let mut deleted = false;
 
         loop {
             let functions_len = self.module.functions().len();
             info!("Type check loop {}", functions_len);
 
             let new_function_names = self.functions_stack.keys().cloned().collect::<Vec<_>>();
+
+            deleted = false;
 
             for function_name in new_function_names {
                 if let Some(stack) = self.functions_stack.remove(&function_name) {
@@ -152,8 +170,16 @@ impl TypeCheck {
                     .unwrap()
                     .clone();
 
-                if let Some(new_body) = self
-                    .transform_function(module, statics, &function, target, debug)
+                let mut new_functions = Vec::new();
+                match self
+                    .transform_function(
+                        module,
+                        statics,
+                        &function,
+                        target,
+                        debug,
+                        &mut new_functions,
+                    )
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
@@ -173,11 +199,27 @@ impl TypeCheck {
                                 it,
                             ],
                         ),
-                    })?
-                {
-                    self.module
-                        .functions_by_name
-                        .replace_body(&function, new_body);
+                    })? {
+                    Some(new_body) => {
+                        for (f, s) in new_functions {
+                            let new_function_name = f.name.clone();
+                            if !self.functions_stack.contains_key(&new_function_name) {
+                                self.module
+                                    .functions_by_name
+                                    .add_function(f.original_name.clone(), f);
+                                self.functions_stack.insert(new_function_name, s);
+                            }
+                        }
+                        self.module
+                            .functions_by_name
+                            .replace_body(&function, new_body)
+                    }
+                    None => {} /*Err(e) => {
+                                   println!("deleted {function}");
+                                   deleted = true;
+                                   self.module.functions_by_name.remove(&function)
+                               }
+                               */
                 }
             }
 
@@ -205,6 +247,7 @@ impl TypeCheck {
         expected_return_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<ASTStatement, TypeCheckError> {
         match statement {
             ASTStatement::Expression(e) => self
@@ -216,6 +259,7 @@ impl TypeCheck {
                     expected_return_type,
                     namespace,
                     inside_function,
+                    new_functions,
                 )
                 .map(ASTStatement::Expression),
             ASTStatement::LetStatement(name, e, is_const, index) => self
@@ -227,6 +271,7 @@ impl TypeCheck {
                     None,
                     namespace,
                     inside_function,
+                    new_functions,
                 )
                 .map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const, index.clone())),
         }
@@ -241,6 +286,7 @@ impl TypeCheck {
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<ASTExpression, TypeCheckError> {
         match expression {
             ASTExpression::ASTFunctionCallExpression(call) => self
@@ -252,6 +298,7 @@ impl TypeCheck {
                     expected_type,
                     namespace,
                     inside_function,
+                    new_functions,
                 )
                 .map(ASTExpression::ASTFunctionCallExpression),
             ASTExpression::Lambda(lambda_def) => self
@@ -263,20 +310,21 @@ impl TypeCheck {
                     expected_type,
                     namespace,
                     inside_function,
+                    new_functions,
                 )
                 .map(ASTExpression::Lambda),
             _ => Ok(expression.clone()),
-        }
-        .map_err(|it| {
-            it.add(
-                expression.get_index(),
-                format!(
-                    "converting expression, expected_type {}",
-                    OptionDisplay(&expected_type),
-                ),
-                self.stack.clone(),
-            )
-        })
+        } /*
+          .map_err(|it| {
+              it.add(
+                  expression.get_index(),
+                  format!(
+                      "converting expression, expected_type {}",
+                      OptionDisplay(&expected_type),
+                  ),
+                  self.stack.clone(),
+              )
+          })*/
     }
 
     fn transform_call(
@@ -288,6 +336,7 @@ impl TypeCheck {
         expected_return_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<ASTFunctionCall, TypeCheckError> {
         debug_i!(
             "transform_call {call} expected_return_type {}",
@@ -314,6 +363,7 @@ impl TypeCheck {
                             Some(ast_type),
                             namespace,
                             inside_function,
+                            new_functions,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()
@@ -346,8 +396,10 @@ impl TypeCheck {
                 expected_return_type,
                 namespace,
                 inside_function,
+                new_functions,
             )
             .map_err(|it| {
+                self.stack.pop();
                 dedent!();
                 it.clone()
             })?;
@@ -435,12 +487,16 @@ impl TypeCheck {
 
             debug_i!("adding new function {}", new_function_def);
 
+            new_functions.push((new_function_def, self.stack.clone()));
             // TODO check error
+
+            /*
             self.module
                 .functions_by_name
                 .add_function(new_function_def.original_name.clone(), new_function_def);
             self.functions_stack
                 .insert(new_function_name, self.stack.clone());
+            */
         }
         dedent!();
         self.stack.pop();
@@ -512,6 +568,7 @@ impl TypeCheck {
         expected_return_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<(ASTFunctionDef, ResolvedGenericTypes, Vec<ASTExpression>), TypeCheckError> {
         debug_i!(
             "get_valid_function call {call} expected_return_type {}: {}",
@@ -519,20 +576,96 @@ impl TypeCheck {
             call.index
         );
         indent!();
-        let mut valid_functions = Vec::new();
+
+        let mut valid_functions: Vec<(
+            ASTFunctionDef,
+            usize,
+            ResolvedGenericTypes,
+            Vec<ASTExpression>,
+        )> = Vec::new();
         let mut errors = Vec::new();
+
+        /*
+        let same_in_new_functions = new_functions
+            .iter()
+            .map(|(f, _i)| {
+                let mut ff = f.clone();
+                ff.rank += 1;
+                ff
+            })
+            .filter(|it| it.original_name == call.original_function_name)
+            .collect_vec();
+        */
 
         let original_functions = module
             .find_functions_by_original_name(&call.original_function_name)
             .iter()
+            //.chain(same_in_new_functions.iter())
             .filter(|it| {
                 (it.modifiers.public || &it.namespace == namespace)
                     && it.parameters.len() == call.parameters.len()
             })
             .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank));
+        /*
+        if new_functions.iter().any(|(f, i)| {
+            f.original_name == call.original_function_name
+                && (f.modifiers.public || &f.namespace == namespace)
+                && f.parameters.len() == call.parameters.len()
+        }) {
+            println!("found a function");
+        }
+        */
+
+        /*
+        let mut filters_resolved_generic_types = ResolvedGenericTypes::new();
+
+        let mut filters_new_functions = Vec::new();
+
+
+        let filters: Result<Vec<(TypeFilter, ASTExpression)>, TypeCheckError> = call
+            .parameters
+            .iter()
+            .filter(|e| !matches!(e, ASTExpression::Lambda(_)))
+            .map(|expr| {
+                println!("filter for {expr} : {}", expr.get_index());
+                let new_filter = self.get_filter(
+                    module,
+                    val_context,
+                    statics,
+                    &mut filters_resolved_generic_types,
+                    expr,
+                    None,
+                    namespace,
+                    inside_function,
+                    &mut filters_new_functions,
+                );
+
+                if let Ok((nf, _)) = &new_filter {
+                    println!("  {nf}");
+                }
+
+                new_filter
+            })
+            .collect();
+        */
+
+        let mut ok_inner_new_functions = Vec::new();
 
         for function in original_functions {
+            let mut inner_new_functions = Vec::new();
+
             debug_i!("verifying function {function}");
+
+            if let Some((old_function, _, _, _)) = valid_functions.get(0) {
+                // if we have already found a valid function, check another function only if it has the same rank,
+                // because if two functions are valid, but with the same rank, there's a problem: we cannot identify
+                // the right function to call
+                if old_function.rank != function.rank {
+                    debug_i!("A valid function has already been found and the current one has a different rank.");
+                    break;
+                }
+            }
+
             indent!();
 
             let mut resolved_generic_types = ResolvedGenericTypes::new();
@@ -578,8 +711,9 @@ impl TypeCheck {
                     errors.push(TypeCheckError::new(
                         function.index.clone(),
                         format!(
-                            "Unmatching return type expected {rt} but got {}",
-                            function.return_type
+                            "Function {function}, unmatching return type expected {rt} but got {} : {}",
+                            function.return_type,
+                            function.index
                         ),
                         self.stack.clone(),
                     ));
@@ -605,6 +739,39 @@ impl TypeCheck {
                     }
                 }
             }
+
+            /*
+            if let Ok(filters) = &filters {
+                if filters.iter().all(|(f, _)| {
+                    if let TypeFilter::Exact(t) = f {
+                        !matches!(t, ASTType::Generic(_))
+                    } else {
+                        false
+                    }
+                }) && function.generic_types.is_empty()
+                {
+                    if zip(filters.iter(), function.parameters.iter())
+                        .all(|((f, _), p)| f.almost_equal(&p.ast_type, module).unwrap_or(false))
+                    {
+                        println!(
+                            "found good function {function} for {}",
+                            SliceDisplay(&filters.iter().map(|(f, _)| f).collect::<Vec<_>>())
+                        );
+
+                        new_functions.append(&mut filters_new_functions);
+
+                        valid_functions.push((
+                            function.clone(),
+                            function.rank,
+                            filters_resolved_generic_types,
+                            filters.iter().map(|(_, e)| e.clone()).collect(),
+                        ));
+                        dedent!();
+                        break;
+                    }
+                }
+            }
+            */
 
             let mut something_resolved = true;
 
@@ -643,10 +810,12 @@ impl TypeCheck {
                                 statics,
                                 &mut resolved_generic_types,
                                 expr,
-                                param_type,
+                                Some(param_type),
                                 namespace,
                                 inside_function,
-                            )
+                                &mut inner_new_functions
+                                //new_functions
+                            )?/*
                             .map_err(|it| {
                                 it.add(
                                     expr.get_index(),
@@ -655,16 +824,16 @@ impl TypeCheck {
                                     ),
                                     self.stack.clone(),
                                 )
-                            })?;
+                            })?*/;
                         if resolved_count != resolved_generic_types.len() {
                             something_resolved = true;
                         }
                         debug_i!("filter {t}");
                         if !t.almost_equal(param_type, module)? {
                             valid = false;
-                            return Err(TypeCheckError::new(
+                            return Err(TypeCheckError::new_ignorable(
                                 expr.get_index(),
-                                format!("not matching type {t}"),
+                                format!("not matching type expected {t} got {param_type}"),
                                 self.stack.clone(),
                             ));
                         }
@@ -681,12 +850,23 @@ impl TypeCheck {
 
             if let Err(e) = result {
                 debug_i!("ignored function due to {e}");
-                let error = TypeCheckError::new(
-                    call.index.clone(),
-                    format!("ignoring function {function} : {}", function.index),
-                    Vec::new(),
-                )
-                .add_errors(vec![e]);
+
+                let error = if matches!(e.kind, TypeCheckErrorKind::Ignorable) {
+                    TypeCheckError::new_ignorable(
+                        call.index.clone(),
+                        format!("ignoring function {function} : {}", function.index),
+                        self.stack.clone(),
+                    )
+                    .add_errors(vec![e])
+                } else {
+                    TypeCheckError::new(
+                        call.index.clone(),
+                        format!("ignoring function {function} : {}", function.index),
+                        self.stack.clone(),
+                    )
+                    .add_errors(vec![e])
+                };
+
                 errors.push(error);
                 dedent!();
                 continue;
@@ -703,16 +883,43 @@ impl TypeCheck {
             }
 
             if valid {
-                valid_functions.push((
-                    function.clone(),
-                    function.rank,
-                    resolved_generic_types,
-                    result.unwrap(),
-                ));
-                debug_i!("it's valid with rank {}", function.rank);
-                // since function are already sorted by rank, we don't need to look at the other functions
-                dedent!();
-                break;
+                if let Some((old_function, _, _, _)) = valid_functions.get(0) {
+                    if old_function.rank == function.rank {
+                        dedent!();
+
+                        // println!("ignoring function {function} : {} because it has the same ranking of {old_function} : {}", function.index, old_function.index);
+
+                        let error = TypeCheckError::new(
+                            call.index.clone(),
+                            format!("ignoring function {function} : {} because it has the same ranking of {old_function} : {}", function.index, old_function.index),
+                            self.stack.clone(),
+                        );
+                        //self.stack.pop();
+                        return Err(error);
+                    }
+
+                    // since function are already sorted by rank, we don't need to look at the other functions
+                    dedent!();
+                    break;
+                } else {
+                    /*
+                    for (new_f, i) in inner_new_functions.into_iter() {
+                        if !new_functions.iter().any(|(it, _)| it.name == new_f.name) {
+                            new_functions.push((new_f, i));
+                        }
+                    }
+                    */
+
+                    ok_inner_new_functions = inner_new_functions;
+
+                    valid_functions.push((
+                        function.clone(),
+                        function.rank,
+                        resolved_generic_types,
+                        result.unwrap(),
+                    ));
+                    debug_i!("it's valid with rank {}", function.rank);
+                }
             }
             dedent!();
         }
@@ -727,7 +934,7 @@ impl TypeCheck {
                     OptionDisplay(&expected_return_type)),
                 self.stack.clone(),
             ).add_errors(errors));
-            self.stack.pop();
+            //self.stack.pop();
             result
         } else if valid_functions.len() > 1 {
             // we must disambiguate, but it should not happen because we break when we found a valid function.
@@ -742,7 +949,7 @@ impl TypeCheck {
                 .collect::<Vec<_>>();
 
             if dis_valid_functions.is_empty() {
-                self.stack.pop();
+                //self.stack.pop();
                 // I think it should not happen
                 dedent!();
                 return Err(TypeCheckError::new(
@@ -751,7 +958,7 @@ impl TypeCheck {
                     self.stack.clone(),
                 ));
             } else if dis_valid_functions.len() > 1 {
-                self.stack.pop();
+                //self.stack.pop();
                 dedent!();
                 return Err(TypeCheckError::new(
                     call.index.clone(),
@@ -773,6 +980,7 @@ impl TypeCheck {
                 dis_valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types, expressions))
         } else {
+            new_functions.append(&mut ok_inner_new_functions);
             //self.stack.pop();
             dedent!();
             let (valid_function, _x, resolved_generic_types, expressions) =
@@ -806,18 +1014,20 @@ impl TypeCheck {
         statics: &mut Statics,
         resolved_generic_types: &mut ResolvedGenericTypes,
         expr: &ASTExpression,
-        param_type: &ASTType,
+        param_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<(TypeFilter, ASTExpression), TypeCheckError> {
         let e = self.transform_expression(
             module,
             expr,
             val_context,
             statics,
-            Some(param_type),
+            param_type,
             namespace,
             inside_function,
+            new_functions,
         )?;
 
         let t = self.type_of_expression(
@@ -825,28 +1035,31 @@ impl TypeCheck {
             &e,
             val_context,
             statics,
-            Some(param_type),
+            param_type,
             namespace,
+            new_functions,
         )?;
         if let TypeFilter::Exact(et) = &t {
             if !et.is_generic() {
-                resolved_generic_types
-                    .extend(resolve_generic_types_from_effective_type(param_type, et)?)
-                    .map_err(|it| {
-                        TypeCheckError::new(
-                            expr.get_index(),
-                            format!("cannot resolve {param_type} with {et}, {it}"),
-                            self.stack.clone(),
-                        )
-                    })?;
+                if let Some(pt) = param_type {
+                    resolved_generic_types
+                        .extend(resolve_generic_types_from_effective_type(pt, et)?)
+                        .map_err(|it| {
+                            TypeCheckError::new(
+                                expr.get_index(),
+                                format!("cannot resolve {pt} with {et}, {it}"),
+                                self.stack.clone(),
+                            )
+                        })?;
+                }
             }
         } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
             if let TypeFilter::Exact(et) = lrt.deref() {
                 if !et.is_generic() {
-                    if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
                         parameters: _,
                         return_type,
-                    }) = param_type
+                    })) = param_type
                     {
                         resolved_generic_types
                             .extend(resolve_generic_types_from_effective_type(
@@ -902,6 +1115,7 @@ impl TypeCheck {
         new_function_def: &ASTFunctionDef,
         target: &CompileTarget,
         debug: bool,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<Option<ASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
@@ -933,6 +1147,7 @@ impl TypeCheck {
                     Some(&new_function_def.return_type),
                     &new_function_def.namespace,
                     Some(&new_function_def),
+                    new_functions,
                 )?;
                 Some(ASTFunctionBody::RASMBody(new_statements))
             }
@@ -976,6 +1191,7 @@ impl TypeCheck {
                                 None,
                                 &new_function_def.namespace,
                                 Some(new_function_def),
+                                new_functions,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1022,6 +1238,7 @@ impl TypeCheck {
                                 None,
                                 &new_function_def.namespace,
                                 Some(new_function_def),
+                                new_functions,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1052,6 +1269,7 @@ impl TypeCheck {
         expected_return_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<Vec<ASTStatement>, TypeCheckError> {
         debug_i!(
             "transform_statements expected_return_type {}",
@@ -1075,6 +1293,7 @@ impl TypeCheck {
                     er,
                     namespace,
                     inside_function,
+                    new_functions,
                 );
 
                 if let Ok(ASTStatement::LetStatement(name, expr, is_cons, index)) = &new_statement {
@@ -1085,6 +1304,7 @@ impl TypeCheck {
                         statics,
                         None,
                         namespace,
+                        new_functions,
                     )?;
 
                     if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -1130,6 +1350,7 @@ impl TypeCheck {
         statics: &mut Statics,
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<TypeFilter, TypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
@@ -1182,6 +1403,7 @@ impl TypeCheck {
                     None,
                     namespace,
                     None,
+                    new_functions,
                 ) {
                     Ok((found_function, resolved_generic_types, _)) => {
                         let return_ast_type = if let Some(new_t) =
@@ -1239,7 +1461,7 @@ impl TypeCheck {
                     return Ok(TypeFilter::Lambda(def.parameter_names.len(), None));
                 }
 
-                let mut return_type = None;
+                let mut return_type = Some(Box::new(TypeFilter::Exact(ASTType::Unit)));
                 let mut lambda_val_context = ValContext::new(Some(val_context));
 
                 self.add_lambda_parameters_to_val_context(
@@ -1257,6 +1479,7 @@ impl TypeCheck {
                             statics,
                             None,
                             namespace,
+                            new_functions,
                         )?;
 
                         if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -1289,6 +1512,7 @@ impl TypeCheck {
                                 statics,
                                 None,
                                 namespace,
+                                new_functions,
                             )?));
                         }
                     }
@@ -1324,6 +1548,7 @@ impl TypeCheck {
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<ASTLambdaDef, TypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
@@ -1359,6 +1584,7 @@ impl TypeCheck {
             ert?,
             namespace,
             inside_function,
+            new_functions,
         )?;
 
         Ok(new_lambda)

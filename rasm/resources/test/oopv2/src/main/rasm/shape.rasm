@@ -11,3 +11,7 @@ pub fn toShape<T>(inner: T) -> Shape {
         { inner.toString; }
     );
 }
+
+pub fn print(file: File, shape: Shape) -> Option<IOError> {
+    print(file, shape.toString.call());
+}

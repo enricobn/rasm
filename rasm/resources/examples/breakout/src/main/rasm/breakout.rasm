@@ -101,7 +101,7 @@ finished in 378.460432ms
 
 /*
 may be because loadHighScores is more complex, because toi32 returns an Option (a change that has been done a couple of
-commits ago, but only now I have updated this perf. backlog
+commits ago, but only now I have updated this perf. backlog)
 
 type check ended in 78.464592ms
 code generation ended in 42.02035ms

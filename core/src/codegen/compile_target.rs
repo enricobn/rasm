@@ -351,6 +351,8 @@ impl CompileTarget {
                 }
             },
             CompileTarget::C(options) => {
+                let start = Instant::now();
+
                 let out_path = Path::new(&out);
                 let parent_path = out_path.parent().unwrap();
 
@@ -375,12 +377,12 @@ impl CompileTarget {
 
                 let native_code = self.generate(statics, &typed_module, command_line_options.debug);
 
-                info!("code generation ended in {:?}", start.elapsed());
-
                 File::create(out_path)
                     .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
                     .write_all(native_code.as_bytes())
                     .unwrap();
+
+                info!("code generation ended in {:?}", start.elapsed());
 
                 let start = Instant::now();
                 info!("source file: {}", out_path.to_string_lossy());
