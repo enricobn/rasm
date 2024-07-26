@@ -15,16 +15,17 @@ pub struct ValContext {
 
 impl ValContext {
     pub fn new(parent_context: Option<&ValContext>) -> Self {
-        let mut value_to_address = LinkedHashMap::new();
-        if let Some(pc) = parent_context {
-            for (key, value) in pc.value_to_address.iter() {
-                value_to_address.insert(key.clone(), value.clone());
+        let (value_to_address, par_index, let_index) = {
+            if let Some(pc) = parent_context {
+                (pc.value_to_address.clone(), pc.par_index, pc.let_index)
+            } else {
+                (LinkedHashMap::new(), 0, 0)
             }
-        }
+        };
         Self {
             value_to_address,
-            par_index: 0,
-            let_index: 0,
+            par_index,
+            let_index,
         }
     }
 
