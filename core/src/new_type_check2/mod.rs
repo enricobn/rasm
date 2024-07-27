@@ -617,10 +617,9 @@ impl TypeCheck {
         */
 
         let mut filters_resolved_generic_types = ResolvedGenericTypes::new();
-
         /*
-        let mut filters_new_functions = Vec::new();
 
+        let mut filters_new_functions = Vec::new();
 
         let filters: Result<Vec<(TypeFilter, ASTExpression)>, TypeCheckError> = call
             .parameters
@@ -639,10 +638,12 @@ impl TypeCheck {
                     &mut filters_new_functions,
                 );
 
+                /*
                 if let Ok((nf, _)) = &new_filter {
                     println!("filter for {expr} : {}", expr.get_index());
                     println!("  {nf}");
                 }
+                */
 
                 new_filter
             })
@@ -720,6 +721,7 @@ impl TypeCheck {
                     dedent!();
                     continue;
                 }
+
                 if !rt.is_generic() && function.return_type.is_generic() {
                     if let Ok(result) =
                         resolve_generic_types_from_effective_type(&function.return_type, rt)
@@ -753,10 +755,12 @@ impl TypeCheck {
                     if zip(filters.iter(), function.parameters.iter())
                         .all(|((f, _), p)| f.almost_equal(&p.ast_type, module).unwrap_or(false))
                     {
+                        /*
                         println!(
                             "found good function {function} for {}",
                             SliceDisplay(&filters.iter().map(|(f, _)| f).collect::<Vec<_>>())
                         );
+                        */
 
                         new_functions.append(&mut filters_new_functions);
 
@@ -1393,6 +1397,14 @@ impl TypeCheck {
                 {
                     dedent!();
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
+                } else {
+                    if let Some((f, _)) = new_functions
+                        .iter()
+                        .find(|(f, _)| f.name == call.function_name)
+                    {
+                        dedent!();
+                        return Ok(TypeFilter::Exact(f.return_type.clone()));
+                    }
                 }
 
                 match self.get_valid_function(
@@ -1400,7 +1412,7 @@ impl TypeCheck {
                     call,
                     val_context,
                     statics,
-                    None,
+                    expected_type,
                     namespace,
                     None,
                     new_functions,
