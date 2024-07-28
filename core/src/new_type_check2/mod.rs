@@ -200,26 +200,20 @@ impl TypeCheck {
                             ],
                         ),
                     })? {
-                    Some(new_body) => {
-                        for (f, s) in new_functions {
-                            let new_function_name = f.name.clone();
-                            if !self.functions_stack.contains_key(&new_function_name) {
-                                self.module
-                                    .functions_by_name
-                                    .add_function(f.original_name.clone(), f);
-                                self.functions_stack.insert(new_function_name, s);
-                            }
-                        }
+                    Some(new_body) => self
+                        .module
+                        .functions_by_name
+                        .replace_body(&function, new_body),
+                    None => {}
+                }
+                for (f, s) in new_functions {
+                    let new_function_name = f.name.clone();
+                    if !self.functions_stack.contains_key(&new_function_name) {
                         self.module
                             .functions_by_name
-                            .replace_body(&function, new_body)
+                            .add_function(f.original_name.clone(), f);
+                        self.functions_stack.insert(new_function_name, s);
                     }
-                    None => {} /*Err(e) => {
-                                   println!("deleted {function}");
-                                   deleted = true;
-                                   self.module.functions_by_name.remove(&function)
-                               }
-                               */
                 }
             }
 
