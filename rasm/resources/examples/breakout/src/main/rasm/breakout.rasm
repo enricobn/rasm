@@ -118,6 +118,21 @@ type check ended in 87.39312
 
 */
 
+/*
+    some changes, the main is collecting new functions in a Vec during type check
+
+    type check ended in 146.112022ms
+*/
+
+/*
+    C backend
+
+    type check ended in 114.15174ms
+    code generation ended in 27.682163ms
+    compiler ended in 741.361392ms
+    finished in 902.150321ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
