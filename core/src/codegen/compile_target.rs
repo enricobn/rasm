@@ -307,7 +307,7 @@ impl CompileTarget {
         let start = Instant::now();
 
         let typed_module = get_typed_module(
-            enhanced_ast_module,
+            &enhanced_ast_module,
             command_line_options.print_memory,
             command_line_options.print_code,
             &mut statics,

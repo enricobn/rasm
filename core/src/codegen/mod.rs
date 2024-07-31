@@ -123,7 +123,7 @@ impl TypedValKind {
 }
 
 pub fn get_typed_module(
-    module: EnhancedASTModule,
+    module: &EnhancedASTModule,
     print_memory_info: bool,
     print_module: bool,
     statics: &mut Statics,

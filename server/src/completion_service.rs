@@ -174,7 +174,7 @@ impl CompletionService {
         statics: &mut Statics,
         target: &CompileTarget,
     ) -> Result<Self, CompilationError> {
-        let typed_module = get_typed_module(module.clone(), false, false, statics, target, false)?;
+        let typed_module = get_typed_module(module, false, false, statics, target, false)?;
 
         let mut completable_items = Vec::new();
 
