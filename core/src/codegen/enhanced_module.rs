@@ -1,5 +1,8 @@
+use std::iter::zip;
+
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
+use crate::errors::{self, CompilationError};
 use log::debug;
 
 use crate::debug_i;
@@ -39,35 +42,6 @@ impl EnhancedASTModule {
 
         for module in modules {
             module.functions.into_iter().for_each(|mut it| {
-                /*
-                   let similar_functions = container
-                       .find_functions_by_original_name(&it.original_name)
-                       .iter()
-                       .filter(|function| {
-                           it.parameters.len() == function.parameters.len()
-                               && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
-                               TypeFilter::Exact(p1.ast_type.clone())
-                                   .almost_equal(&p2.ast_type)
-                                   .unwrap()
-                           })
-                       })
-                       .collect::<Vec<_>>();
-                   if !similar_functions.is_empty() {
-                       let coeff : usize = TypeCheck::function_generic_coeff(&it);
-                       if similar_functions.iter().filter(|function| TypeCheck::function_generic_coeff(function) == coeff).count() > 0 {
-                           panic!(
-                               "function {it} has the same signature of other generic functions : {}\nsimilar functions:\n{}",
-                               it.index,
-                               similar_functions
-                                   .iter()
-                                   .map(|it| format!("{it} : {}", it.index))
-                                   .collect::<Vec<_>>()
-                                   .join("\n")
-                           );
-                       }
-                   }
-
-                */
                 it.update_calculated_properties();
                 container.add_function(it.original_name.clone(), it);
             });
@@ -77,7 +51,7 @@ impl EnhancedASTModule {
             types.extend(module.types);
         }
 
-        let mut module = Self {
+        let mut enhanced_module = Self {
             body,
             functions_by_name: container,
             enums,
@@ -87,21 +61,21 @@ impl EnhancedASTModule {
         };
 
         add_folder(
-            &mut module,
+            &mut enhanced_module,
             "RASMRESOURCEFOLDER",
             project.main_resource_folder(),
         );
         add_folder(
-            &mut module,
+            &mut enhanced_module,
             "RASMTESTRESOURCEFOLDER",
             project.test_resource_folder(),
         );
 
         target
             .functions_creator(debug)
-            .create_globals(&mut module, statics);
+            .create_globals(&mut enhanced_module, statics);
 
-        module
+        enhanced_module
     }
 
     pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {
@@ -289,5 +263,46 @@ impl EnhancedASTModule {
         } else {
             None
         }
+    }
+
+    pub fn check_for_duplicates(&self) -> Vec<CompilationError> {
+        let mut errors = Vec::new();
+
+        for it in self.functions() {
+            let similar_functions = self
+                .find_functions_by_original_name(&it.original_name)
+                .iter()
+                .filter(|function| {
+                    it.index != function.index
+                        && it.parameters.len() == function.parameters.len()
+                        && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
+                            TypeFilter::Exact(p1.ast_type.clone())
+                                .almost_equal(&p2.ast_type, self)
+                                .unwrap()
+                        })
+                        && it.rank == function.rank
+                        && (it.modifiers.public
+                            || function.modifiers.public
+                            || (it.namespace == function.namespace))
+                })
+                .collect::<Vec<_>>();
+
+            if !similar_functions.is_empty() {
+                let message = format!(
+                "function {it} has the same signature of other functions : {}\nsimilar functions:\n{}",
+                it.index,
+                similar_functions
+                    .iter()
+                    .map(|it| format!("{it} : {}", it.index))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+                errors.push(CompilationError {
+                    index: it.index.clone(),
+                    error_kind: errors::CompilationErrorKind::Generic(message),
+                })
+            }
+        }
+        errors
     }
 }
