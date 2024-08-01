@@ -72,52 +72,6 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn try_add_new(
-        &mut self,
-        original_name: &str,
-        function_def: &ASTFunctionDef,
-    ) -> Option<ASTFunctionDef> {
-        if !function_def.generic_types.is_empty() {
-            panic!("adding generic function {function_def}");
-        }
-        // let original_name = &function_def.original_name;
-        debug!("trying to add new function {function_def}");
-
-        for par in function_def.parameters.iter() {
-            if matches!(par.ast_type, ASTType::Unit) {
-                panic!("Parameters cannot have unit type.");
-            }
-        }
-
-        if let Some(same_name_functions) = self.functions_by_name.get_mut(original_name) {
-            if let Some(already_present) = same_name_functions.iter().find(|it| {
-                it.parameters == function_def.parameters
-                    && it.return_type == function_def.return_type
-            }) {
-                debug!("already added as {already_present}");
-                if already_present.name == function_def.name {
-                    None
-                } else {
-                    Some(already_present.clone())
-                }
-            } else {
-                let mut def = function_def.clone();
-                def.name = format!("{}_{}", def.name, same_name_functions.len());
-                debug_i!("added {def} to function context");
-                same_name_functions.push(def.clone());
-                Some(def)
-            }
-        } else {
-            let mut def = function_def.clone();
-            def.name = format!("{}_{}", def.name, 0);
-            debug_i!("added {def} to function context");
-            let same_name_functions = vec![def.clone()];
-            self.functions_by_name
-                .insert(original_name.into(), same_name_functions);
-            Some(def)
-        }
-    }
-
     pub fn replace_body(&mut self, function_def: &ASTFunctionDef, body: ASTFunctionBody) {
         let function = self.get_function(&function_def.name);
         function.body = body;
@@ -813,32 +767,6 @@ impl FunctionsContainer {
         }
         dedent!();
     }
-
-    pub fn check_duplicate_functions(&self) {
-        for (_name, functions) in self.functions_by_name.iter() {
-            if functions.len() > 1 {
-                for function in functions.iter() {
-                    for other_function in functions.iter() {
-                        if function.name != other_function.name
-                            && function.parameters.len() == other_function.parameters.len()
-                            && zip(&function.parameters, &other_function.parameters).all(
-                                |(a, b)| {
-                                    a.ast_type == b.ast_type
-                                        || matches!(a.ast_type, ASTType::Generic(_))
-                                            && matches!(b.ast_type, ASTType::Generic(_))
-                                },
-                            )
-                        {
-                            panic!(
-                                "Duplicate function signature {} {}",
-                                function.index, other_function.index
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -862,99 +790,35 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test() {
-        let mut sut = FunctionsContainer::new();
-
-        let function_def = create_function("toString", "n", BuiltinTypeKind::I32);
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
-
-        assert_eq!(result.unwrap().name, "toString_0");
-    }
-
-    #[test]
-    fn test_1() {
-        let mut sut = FunctionsContainer::new();
-
-        let function_def = create_function("toString", "n", BuiltinTypeKind::I32);
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
-
-        let function_def = create_function("toString", "b", BuiltinTypeKind::Bool);
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
-    }
-
-    #[test]
     fn test_2() {
         let mut sut = FunctionsContainer::new();
 
-        let function_def = create_function("AModule::toString", "n", BuiltinTypeKind::I32);
+        let function_def = create_function("AModule::toString_0", "n", BuiltinTypeKind::I32);
 
-        let result = sut.try_add_new("toString", &function_def);
+        sut.add_function("toString".to_string(), function_def);
 
-        assert!(result.is_some());
+        let function_def = create_function("AModule::toString_1", "b", BuiltinTypeKind::Bool);
 
-        let function_def = create_function("AModule::toString", "b", BuiltinTypeKind::Bool);
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
+        sut.add_function("toString".to_string(), function_def);
 
         assert!(sut.find_function("AModule::toString_0").is_some());
         assert!(sut.find_function("AModule::toString_1").is_some());
     }
 
-    /*
     #[test]
     fn test_3() {
         let mut sut = FunctionsContainer::new();
 
-        let function_def = create_function("AModule::toString", "n", BuiltinTypeKind::I32);
+        let function_def = create_function("toString_0", "n", BuiltinTypeKind::I32);
 
-        let result = sut.try_add_new("AModule::toString", &function_def);
-
-        assert!(result.is_none());
-
-        assert!(sut.find_function("AModule::toString").is_some());
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_none());
-
-        assert!(sut.find_function("AModule::toString").is_some());
-    }
-
-     */
-
-    #[test]
-    fn test_3() {
-        let mut sut = FunctionsContainer::new();
-
-        let function_def = create_function("toString", "n", BuiltinTypeKind::I32);
-
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
+        sut.add_function("toString".to_string(), function_def);
 
         assert!(sut.find_function("toString_0").is_some());
 
-        let mut function_def = create_function("toString", "n", BuiltinTypeKind::I32);
+        let mut function_def = create_function("toString_1", "n", BuiltinTypeKind::I32);
         function_def.parameters = vec![];
 
-        let result = sut.try_add_new("toString", &function_def);
-
-        assert!(result.is_some());
+        sut.add_function("toString".to_string(), function_def);
 
         assert!(sut.find_function("toString_0").is_some());
         assert!(sut.find_function("toString_1").is_some());
@@ -966,15 +830,11 @@ mod tests {
 
         let function_def = create_add_function("n", BuiltinTypeKind::I32);
 
-        let result = sut.try_add_new("add", &function_def);
-
-        assert!(result.is_some());
+        sut.add_function("add".to_string(), function_def);
 
         let function_def = create_add_function("s", BuiltinTypeKind::String);
 
-        let result = sut.try_add_new("add", &function_def);
-
-        assert!(result.is_some());
+        sut.add_function("add".to_string(), function_def);
 
         let call = ASTFunctionCall {
             namespace: test_namespace(),
@@ -1047,14 +907,10 @@ mod tests {
     fn test_5() {
         let mut functions_container = FunctionsContainer::new();
 
-        functions_container.try_add_new("aFun", &simple_function_def("aFun"));
+        functions_container.add_function("aFun".to_string(), simple_function_def("aFun_0"));
 
-        assert!(functions_container
-            .try_add_new("f", &simple_function_def("newFun"))
-            .is_some());
-        assert!(functions_container
-            .try_add_new("ff", &simple_function_def("anotherNewFun"))
-            .is_some());
+        functions_container.add_function("f".to_string(), simple_function_def("newFun_0"));
+        functions_container.add_function("ff".to_string(), simple_function_def("anotherNewFun_0"));
 
         assert!(functions_container.find_function("aFun_0").is_some());
         assert!(functions_container.find_function("newFun_0").is_some());

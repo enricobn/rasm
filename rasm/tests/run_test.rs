@@ -461,7 +461,7 @@ fn test_allocation() {
 }
 
 #[test]
-//#[timeout(1000)]
+// #[timeout(1000)]
 fn test_oop() {
     run_test(
         "oop",
@@ -471,7 +471,7 @@ fn test_oop() {
 }
 
 #[test]
-//#[timeout(1000)]
+// #[timeout(1000)]
 fn test_oopv2() {
     run_test(
         "oopv2",
@@ -621,7 +621,7 @@ fn test_gameoflife_vec_sdl_compile() {
 }
 
 #[test]
-//#[timeout(5000)]
+#[timeout(5000)]
 fn test_breakout() {
     compile_example("resources/examples/breakout", true);
 }

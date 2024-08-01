@@ -178,10 +178,6 @@ impl EnhancedASTModule {
         self.functions_by_name.debug_i("module");
     }
 
-    pub fn check_duplicate_functions(&self) {
-        self.functions_by_name.check_duplicate_functions();
-    }
-
     pub fn print(&self) {
         for s in self.structs.iter() {
             println!("{s}");
