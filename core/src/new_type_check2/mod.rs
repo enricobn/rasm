@@ -903,14 +903,6 @@ impl TypeCheck {
                     dedent!();
                     break;
                 } else {
-                    /*
-                    for (new_f, i) in inner_new_functions.into_iter() {
-                        if !new_functions.iter().any(|(it, _)| it.name == new_f.name) {
-                            new_functions.push((new_f, i));
-                        }
-                    }
-                    */
-
                     ok_inner_new_functions = inner_new_functions;
 
                     valid_functions.push((

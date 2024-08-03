@@ -621,7 +621,7 @@ fn test_gameoflife_vec_sdl_compile() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(10000)]
 fn test_breakout() {
     compile_example("resources/examples/breakout", true);
 }

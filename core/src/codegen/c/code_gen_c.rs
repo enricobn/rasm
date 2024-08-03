@@ -107,20 +107,22 @@ impl CodeGenC {
                         panic!("Cannot find lambda def");
                     }
                 }
-                _ => todo!("{kind:?}"),
             },
             ASTTypedType::Unit => "void".to_string(),
             ASTTypedType::Struct { namespace, name } => {
                 format!("struct {}_{name}*", namespace.safe_name())
             }
-            ASTTypedType::Enum { namespace, name } => {
+            ASTTypedType::Enum {
+                namespace: _,
+                name: _,
+            } => {
                 format!("struct Enum*")
             }
             ASTTypedType::Type {
                 namespace,
                 name,
                 native_type,
-                is_ref,
+                is_ref: _,
             } => native_type
                 .clone()
                 .unwrap_or_else(|| {
@@ -142,7 +144,7 @@ impl CodeGenC {
                     parameters,
                     return_type,
                 } => {
-                    if let Some(name) =
+                    if let Some(_name) =
                         CLambdas::find_name_in_statics(statics, parameters, return_type)
                     {
                         "struct RasmPointer_*".to_string()
@@ -150,11 +152,16 @@ impl CodeGenC {
                         panic!("Cannot find lambda def");
                     }
                 }
-                _ => todo!("{kind:?}"),
             },
             ASTTypedType::Unit => "void".to_string(),
-            ASTTypedType::Struct { namespace, name } => "struct RasmPointer_*".to_string(),
-            ASTTypedType::Enum { namespace, name } => "struct RasmPointer_*".to_string(),
+            ASTTypedType::Struct {
+                namespace: _,
+                name: _,
+            } => "struct RasmPointer_*".to_string(),
+            ASTTypedType::Enum {
+                namespace: _,
+                name: _,
+            } => "struct RasmPointer_*".to_string(),
             ASTTypedType::Type {
                 namespace,
                 name,
@@ -194,7 +201,7 @@ impl CodeGenC {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (struct_has_references(struct_def, type_def_provider), false)
-            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+            } else if let Some(_enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
                 (true, false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_def.is_ref, true)
