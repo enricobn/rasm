@@ -133,6 +133,12 @@ type check ended in 87.39312
     finished in 902.150321ms
 */
 
+/*
+    optimized type check for a call using first argument
+
+    type check ended in 78.275627ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)

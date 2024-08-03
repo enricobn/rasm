@@ -597,6 +597,8 @@ impl TypeCheck {
             .collect_vec();
         */
 
+        let first_type = Self::get_first_type(call, val_context);
+
         let original_functions = module
             .find_functions_by_original_name(&call.original_function_name)
             .iter()
@@ -604,6 +606,18 @@ impl TypeCheck {
             .filter(|it| {
                 (it.modifiers.public || &it.namespace == namespace)
                     && it.parameters.len() == call.parameters.len()
+            })
+            .filter(|it| {
+                if let Some(ref ft) = first_type {
+                    match TypeFilter::Exact(ft.clone())
+                        .almost_equal(&it.parameters.get(0).unwrap().ast_type, module)
+                    {
+                        Ok(b) => b,
+                        Err(_) => false,
+                    }
+                } else {
+                    true
+                }
             })
             .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank));
         /*
@@ -979,6 +993,40 @@ impl TypeCheck {
             let (valid_function, _x, resolved_generic_types, expressions) =
                 valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types, expressions))
+        }
+    }
+
+    fn get_first_type(call: &ASTFunctionCall, val_context: &ValContext) -> Option<ASTType> {
+        if call.parameters.len() > 0 {
+            if let Some(p) = call.parameters.get(0) {
+                match p {
+                    ASTExpression::StringLiteral(_, _) => {
+                        Some(ASTType::Builtin(BuiltinTypeKind::String))
+                    }
+                    ASTExpression::ValueRef(name, _) => {
+                        if let Some(t) = val_context.get(name) {
+                            match t {
+                                ValKind::ParameterRef(_, par) => Some(par.ast_type.clone()),
+                                ValKind::LetRef(_, t, _) => Some(t.clone()),
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    ASTExpression::Value(vt_, _) => match vt_ {
+                        ValueType::Boolean(_) => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
+                        ValueType::I32(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+                        ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
+                        ValueType::F32(_) => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                    },
+                    ASTExpression::Any(t) => Some(t.clone()),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
