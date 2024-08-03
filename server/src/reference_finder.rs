@@ -352,9 +352,11 @@ impl ReferenceFinder {
 
         let mut result = Vec::new();
 
-        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace, false);
+        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace);
 
         Self::process_statics(enhanced_module, &mut reference_static_context, &mut statics);
+
+        let mut new_functions = Vec::new();
 
         Self::process_statements(
             enhanced_module,
@@ -368,6 +370,7 @@ impl ReferenceFinder {
             Some(&ASTType::Unit),
             None,
             &mut type_check,
+            &mut new_functions,
         )?;
 
         result.append(
@@ -383,6 +386,7 @@ impl ReferenceFinder {
                         &mut function_val_context,
                         &mut statics,
                         &mut type_check,
+                        &mut new_functions,
                     )
                     .unwrap_or_default()
                 })
@@ -400,7 +404,9 @@ impl ReferenceFinder {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = ValContext::new(None);
-        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace, false);
+        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace);
+
+        let mut new_functions = Vec::new();
 
         let _ = Self::process_statements(
             enhanced_module,
@@ -414,6 +420,7 @@ impl ReferenceFinder {
             None,
             None,
             &mut type_check,
+            &mut new_functions,
         );
     }
 
@@ -424,6 +431,7 @@ impl ReferenceFinder {
         val_context: &mut ValContext,
         statics: &mut Statics,
         type_check: &mut TypeCheck,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
 
@@ -463,6 +471,7 @@ impl ReferenceFinder {
                 Some(&function.return_type),
                 Some(function),
                 type_check,
+                new_functions,
             )?;
         }
 
@@ -538,6 +547,7 @@ impl ReferenceFinder {
         expected_return_type: Option<&ASTType>,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         for (i, stmt) in statements.iter().enumerate() {
             let expected_type = if i == statements.len() - 1 {
@@ -556,6 +566,7 @@ impl ReferenceFinder {
                 expected_type,
                 inside_function,
                 type_check,
+                new_functions,
             ) {
                 Ok(mut inner) => {
                     result.append(&mut inner);
@@ -586,6 +597,7 @@ impl ReferenceFinder {
             expected_type,
             namespace,
             &mut new_functions,
+            true,
         )
     }
 
@@ -600,6 +612,7 @@ impl ReferenceFinder {
         expected_type: Option<&ASTType>,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
             ASTStatement::Expression(expr) => Self::process_expression(
@@ -613,6 +626,7 @@ impl ReferenceFinder {
                 expected_type,
                 inside_function,
                 type_check,
+                new_functions,
             ),
             ASTStatement::LetStatement(name, expr, is_const, index) => {
                 let filter = Self::get_filter_of_expression(
@@ -667,6 +681,7 @@ impl ReferenceFinder {
                     None,
                     inside_function,
                     type_check,
+                    new_functions,
                 )?);
                 Ok(result)
             }
@@ -684,6 +699,7 @@ impl ReferenceFinder {
         expected_type: Option<&ASTType>,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
@@ -707,6 +723,7 @@ impl ReferenceFinder {
                     expected_type,
                     inside_function,
                     type_check,
+                    new_functions,
                 )?;
             }
             ASTExpression::ValueRef(name, index) => {
@@ -731,6 +748,7 @@ impl ReferenceFinder {
                     &mut result,
                     def,
                     type_check,
+                    new_functions,
                 )?;
             }
             ASTExpression::Any(_) => {}
@@ -774,6 +792,7 @@ impl ReferenceFinder {
         result: &mut Vec<SelectableItem>,
         def: &ASTLambdaDef,
         type_check: &mut TypeCheck,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
         let mut lambda_val_context = ValContext::new(Some(val_context));
@@ -837,6 +856,7 @@ impl ReferenceFinder {
             expected_lambda_return_type,
             None, // TODO
             type_check,
+            new_functions,
         )?;
         result.append(&mut lambda_result);
         Ok(())
@@ -855,6 +875,7 @@ impl ReferenceFinder {
         expected_return_type: Option<&ASTType>,
         inside_function: Option<&ASTFunctionDef>,
         type_check: &mut TypeCheck,
+        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         if let Some(val_kind) = val_context.get(&call.function_name) {
             let (index, ast_type) = match val_kind {
@@ -895,6 +916,7 @@ impl ReferenceFinder {
                             Some(par),
                             inside_function,
                             type_check,
+                            new_functions,
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
@@ -912,8 +934,6 @@ impl ReferenceFinder {
             return Ok(());
         }
 
-        let mut new_functions = Vec::new();
-
         match type_check.get_valid_function(
             module,
             call,
@@ -922,7 +942,8 @@ impl ReferenceFinder {
             expected_return_type,
             namespace,
             inside_function,
-            &mut new_functions,
+            new_functions,
+            false,
         ) {
             Ok((function_def, resolved_generic_types, expressions)) => {
                 // println!("expressions {}", SliceDisplay(&expressions));
@@ -961,6 +982,7 @@ impl ReferenceFinder {
                             Some(&par_ast_type),
                             inside_function,
                             type_check,
+                            new_functions,
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
@@ -990,6 +1012,7 @@ impl ReferenceFinder {
                             None,
                             inside_function,
                             type_check,
+                            new_functions,
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
@@ -1046,6 +1069,7 @@ mod tests {
 
     use env_logger::Builder;
 
+    use log::info;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
@@ -1507,6 +1531,59 @@ mod tests {
         );
     }
 
+    #[test]
+    fn references_ext() {
+        let _ = env_logger::builder()
+            .is_test(true)
+            .filter_level(log::LevelFilter::Info)
+            .try_init();
+
+        info!("start test");
+        let (_project, eh_module, module) = get_reference_finder(
+            "/home/enrico/development/rasm/xmllib",
+            Some("/home/enrico/development/rasm/xmllib/src/main/rasm/eventBasedLexer.rasm"),
+        );
+
+        info!("after get_reference_finder");
+
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        info!("after finder");
+
+        /*
+        let file_name = Path::new("resources/test/types.rasm");
+
+        let mut items = finder
+            .references(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 7))
+            .unwrap();
+
+        assert_eq!(3, items.len());
+
+        let item1 = items.remove(0);
+        let item2 = items.remove(0);
+        let item3 = items.remove(0);
+
+        assert_eq!(
+            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 6, 5),
+            item1.file_token.start
+        );
+
+        assert_eq!(
+            ASTIndex::new(
+                Some(file_name.canonicalize().unwrap().to_path_buf()),
+                10,
+                13
+            ),
+            item2.file_token.start
+        );
+
+        assert_eq!(
+            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 12, 9),
+            item3.file_token.start
+        );
+        */
+    }
+
     fn stdlib_path(file_name: &Path) -> PathBuf {
         let project = RasmProject::new(file_name.to_path_buf());
 
@@ -1571,11 +1648,16 @@ mod tests {
             &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
-        // TODO errors
-        let enhanced_ast_module =
+
+        let (enhanced_ast_module, errors) =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
+        if !errors.is_empty() {
+            panic!("{}", SliceDisplay(&errors));
+        }
+
         let (module, errors) = project.get_module(Path::new(module_path), &target).unwrap();
+
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
         }

@@ -915,7 +915,7 @@ pub fn convert_to_typed_module(
     target: &CompileTarget,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new(&original_module.body_namespace, true);
+    let type_check = TypeCheck::new(&original_module.body_namespace);
 
     let module = type_check.type_check(
         original_module,

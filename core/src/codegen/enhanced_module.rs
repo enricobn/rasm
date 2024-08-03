@@ -32,7 +32,7 @@ impl EnhancedASTModule {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-    ) -> Self {
+    ) -> (Self, Vec<CompilationError>) {
         let mut body = Vec::new();
         let mut enums = Vec::new();
         let mut structs = Vec::new();
@@ -75,7 +75,9 @@ impl EnhancedASTModule {
             .functions_creator(debug)
             .create_globals(&mut enhanced_module, statics);
 
-        enhanced_module
+        let errors = enhanced_module.check_for_duplicates();
+
+        (enhanced_module, errors)
     }
 
     pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {

@@ -102,10 +102,10 @@ impl ServerState {
             &CommandLineOptions::default(),
         );
 
-        // TODO errors
-
-        let enhanced_ast_module =
+        let (enhanced_ast_module, _errors) =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+
+        // TODO errors
 
         Ok(Self {
             enhanced_modules: enhanced_ast_module,

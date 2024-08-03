@@ -885,7 +885,7 @@ mod tests {
 
         let mut statics = Statics::new();
 
-        let module = EnhancedASTModule::new(vec![], &project, &mut statics, &target(), false);
+        let (module, _) = EnhancedASTModule::new(vec![], &project, &mut statics, &target(), false);
 
         let result = sut.find_call(
             &call.function_name,

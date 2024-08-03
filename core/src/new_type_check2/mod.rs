@@ -49,11 +49,10 @@ pub struct TypeCheck {
     module: OutputModule,
     stack: Vec<ASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<ASTIndex>>,
-    strict: bool,
 }
 
 impl TypeCheck {
-    pub fn new(body_namespace: &ASTNameSpace, strict: bool) -> Self {
+    pub fn new(body_namespace: &ASTNameSpace) -> Self {
         let typed_module = EnhancedASTModule {
             body: vec![],
             functions_by_name: FunctionsContainer::new(),
@@ -67,7 +66,6 @@ impl TypeCheck {
             module: typed_module,
             stack: vec![],
             functions_stack: Default::default(),
-            strict,
         }
     }
 
@@ -254,6 +252,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
+                    true,
                 )
                 .map(ASTStatement::Expression),
             ASTStatement::LetStatement(name, e, is_const, index) => self
@@ -266,6 +265,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
+                    true,
                 )
                 .map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const, index.clone())),
         }
@@ -281,6 +281,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<ASTExpression, TypeCheckError> {
         match expression {
             ASTExpression::ASTFunctionCallExpression(call) => self
@@ -293,6 +294,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
+                    strict,
                 )
                 .map(ASTExpression::ASTFunctionCallExpression),
             ASTExpression::Lambda(lambda_def) => self
@@ -331,6 +333,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<ASTFunctionCall, TypeCheckError> {
         debug_i!(
             "transform_call {call} expected_return_type {}",
@@ -358,6 +361,7 @@ impl TypeCheck {
                             namespace,
                             inside_function,
                             new_functions,
+                            strict,
                         )
                     })
                     .collect::<Result<Vec<_>, TypeCheckError>>()
@@ -391,6 +395,7 @@ impl TypeCheck {
                 namespace,
                 inside_function,
                 new_functions,
+                strict,
             )
             .map_err(|it| {
                 self.stack.pop();
@@ -407,7 +412,7 @@ impl TypeCheck {
                 }
                 if p.ast_type.is_generic() {
                     dedent!();
-                    if self.strict {
+                    if strict {
                         let result = Err(TypeCheckError::new(
                             p.ast_index.clone(),
                             format!(
@@ -432,7 +437,7 @@ impl TypeCheck {
 
             if new_function_def.return_type.is_generic() {
                 dedent!();
-                if self.strict {
+                if strict {
                     let result = Err(TypeCheckError::new(
                         new_function_def.index.clone(),
                         format!(
@@ -563,6 +568,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<(ASTFunctionDef, ResolvedGenericTypes, Vec<ASTExpression>), TypeCheckError> {
         debug_i!(
             "get_valid_function call {call} expected_return_type {}: {}",
@@ -811,8 +817,8 @@ impl TypeCheck {
                                 Some(param_type),
                                 namespace,
                                 inside_function,
-                                &mut inner_new_functions
-                                //new_functions
+                                &mut inner_new_functions,
+                                strict
                             )?/*
                             .map_err(|it| {
                                 it.add(
@@ -884,9 +890,6 @@ impl TypeCheck {
                 if let Some((old_function, _, _, _)) = valid_functions.get(0) {
                     if old_function.rank == function.rank {
                         dedent!();
-
-                        // println!("ignoring function {function} : {} because it has the same ranking of {old_function} : {}", function.index, old_function.index);
-
                         let error = TypeCheckError::new(
                             call.index.clone(),
                             format!("ignoring function {function} : {} because it has the same ranking of {old_function} : {}", function.index, old_function.index),
@@ -1016,6 +1019,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<(TypeFilter, ASTExpression), TypeCheckError> {
         let e = self.transform_expression(
             module,
@@ -1026,6 +1030,7 @@ impl TypeCheck {
             namespace,
             inside_function,
             new_functions,
+            strict,
         )?;
 
         let t = self.type_of_expression(
@@ -1036,6 +1041,7 @@ impl TypeCheck {
             param_type,
             namespace,
             new_functions,
+            strict,
         )?;
         if let TypeFilter::Exact(et) = &t {
             if !et.is_generic() {
@@ -1190,6 +1196,7 @@ impl TypeCheck {
                                 &new_function_def.namespace,
                                 Some(new_function_def),
                                 new_functions,
+                                true,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1237,6 +1244,7 @@ impl TypeCheck {
                                 &new_function_def.namespace,
                                 Some(new_function_def),
                                 new_functions,
+                                true,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1303,6 +1311,7 @@ impl TypeCheck {
                         None,
                         namespace,
                         new_functions,
+                        true,
                     )?;
 
                     if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -1349,6 +1358,7 @@ impl TypeCheck {
         expected_type: Option<&ASTType>,
         namespace: &ASTNameSpace,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<TypeFilter, TypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
@@ -1410,6 +1420,7 @@ impl TypeCheck {
                     namespace,
                     None,
                     new_functions,
+                    strict,
                 ) {
                     Ok((found_function, resolved_generic_types, _)) => {
                         let return_ast_type = if let Some(new_t) =
@@ -1486,6 +1497,7 @@ impl TypeCheck {
                             None,
                             namespace,
                             new_functions,
+                            strict,
                         )?;
 
                         if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -1519,6 +1531,7 @@ impl TypeCheck {
                                 None,
                                 namespace,
                                 new_functions,
+                                strict,
                             )?));
                         }
                     }
@@ -1980,7 +1993,7 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
-        let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+        let (module, _) = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         let mandatory_functions = target.get_mandatory_functions(&module);
 

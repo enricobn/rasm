@@ -631,7 +631,10 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
-        let module = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+        assert!(errors.is_empty());
+
+        let (module, errors) =
+            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         assert!(errors.is_empty());
 

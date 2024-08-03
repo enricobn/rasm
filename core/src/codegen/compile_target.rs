@@ -294,7 +294,7 @@ impl CompileTarget {
             panic!()
         }
 
-        let enhanced_ast_module = EnhancedASTModule::new(
+        let (enhanced_ast_module, errors) = EnhancedASTModule::new(
             modules,
             &project,
             &mut statics,
@@ -303,6 +303,13 @@ impl CompileTarget {
         );
 
         info!("parse ended in {:?}", start.elapsed());
+
+        if !errors.is_empty() {
+            for error in errors {
+                eprintln!("{error}");
+            }
+            panic!()
+        }
 
         let start = Instant::now();
 
