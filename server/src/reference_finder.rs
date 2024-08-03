@@ -1532,56 +1532,18 @@ mod tests {
     }
 
     #[test]
-    fn references_ext() {
+    fn references_breakout() {
         let _ = env_logger::builder()
             .is_test(true)
             .filter_level(log::LevelFilter::Info)
             .try_init();
 
-        info!("start test");
         let (_project, eh_module, module) = get_reference_finder(
-            "/home/enrico/development/rasm/xmllib",
-            Some("/home/enrico/development/rasm/xmllib/src/main/rasm/eventBasedLexer.rasm"),
+            "../rasm/resources/examples/breakout",
+            Some("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
         );
-
-        info!("after get_reference_finder");
 
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
-
-        info!("after finder");
-
-        /*
-        let file_name = Path::new("resources/test/types.rasm");
-
-        let mut items = finder
-            .references(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 7))
-            .unwrap();
-
-        assert_eq!(3, items.len());
-
-        let item1 = items.remove(0);
-        let item2 = items.remove(0);
-        let item3 = items.remove(0);
-
-        assert_eq!(
-            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 6, 5),
-            item1.file_token.start
-        );
-
-        assert_eq!(
-            ASTIndex::new(
-                Some(file_name.canonicalize().unwrap().to_path_buf()),
-                10,
-                13
-            ),
-            item2.file_token.start
-        );
-
-        assert_eq!(
-            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 12, 9),
-            item3.file_token.start
-        );
-        */
     }
 
     fn stdlib_path(file_name: &Path) -> PathBuf {
