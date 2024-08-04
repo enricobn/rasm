@@ -1799,7 +1799,7 @@ mod tests {
 
     #[test]
     fn parse_param() {
-        let mut statics = Statics::new();
+        let statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
             namespace: ASTNameSpace::global(),

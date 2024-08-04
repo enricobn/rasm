@@ -160,7 +160,7 @@ impl TypedFunctionsCreatorC {
                 let t = kind.typed_type();
 
                 if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
-                    let mut source = format!("lambda_space->{name}");
+                    let source = format!("lambda_space->{name}");
 
                     if &type_name == "_fn" {
                         Self::addref_deref_lambda(

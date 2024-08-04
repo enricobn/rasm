@@ -1069,7 +1069,7 @@ mod tests {
 
     use env_logger::Builder;
 
-    use log::info;
+    
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;

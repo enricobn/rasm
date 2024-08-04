@@ -36,7 +36,7 @@ use crate::parser::ast::{
     ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
 };
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
-use crate::type_check::resolved_generic_types::{self, ResolvedGenericTypes};
+use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
 use crate::type_check::typed_ast::DefaultFunction;
 use crate::type_check::{resolve_generic_types_from_effective_type, substitute};
@@ -630,7 +630,7 @@ impl TypeCheck {
         }
         */
 
-        let mut filters_resolved_generic_types = ResolvedGenericTypes::new();
+        let filters_resolved_generic_types = ResolvedGenericTypes::new();
         /*
 
         let mut filters_new_functions = Vec::new();
