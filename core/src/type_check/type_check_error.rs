@@ -88,15 +88,21 @@ impl TypeCheckError {
             // return Ok(());
         }
 
+        /*
         for i in self.main.2.iter().rev() {
-            f.write_str(&format!("{spaces}{}\n", i))?;
+            if i.file_name.is_some() {
+                f.write_str(&format!("{spaces}{}\n", i))?;
+            }
         }
+        */
 
         for (index, message, stack) in self.messages.iter() {
-            f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
+            if index.file_name.is_some() {
+                f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
 
-            for i in stack.iter().rev() {
-                f.write_str(&format!("{spaces}  {}\n", i))?;
+                for i in stack.iter().rev() {
+                    f.write_str(&format!("{spaces}  {}\n", i))?;
+                }
             }
         }
 

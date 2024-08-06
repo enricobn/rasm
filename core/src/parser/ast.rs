@@ -458,7 +458,7 @@ impl Display for ASTIndex {
             "{}:{}:{}",
             &self
                 .file_name
-                .clone()
+                .as_ref()
                 .map(|it| {
                     if it.exists() {
                         format!("file:///{}", it.canonicalize().unwrap().to_str().unwrap())
