@@ -197,7 +197,7 @@ impl TokensMatcherTrait for ParameterMatcher {
                 // I don't care of type since who evaluates this resul gets only the tokens
                 if let Some((_ast_type, next_i)) = type_parser
                     .try_parse_ast_type(namespace, n + 2, &self.context_generic_types)
-                    .unwrap()
+                    .unwrap_or(None)
                 // TODO error handling
                 {
                     let next_n = next_i - parser.get_i();
