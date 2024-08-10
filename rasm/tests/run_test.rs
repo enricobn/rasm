@@ -598,6 +598,26 @@ fn test_test() {
     run_test_no_verify("test", vec![]);
 }
 
+#[test]
+fn test_complex_expression2_asm() {
+    run_test_with_target(
+        "complex_expression2",
+        vec![],
+        "10\n10.100000379\n",
+        CompileTarget::Nasmi386(AsmOptions::default()),
+    );
+}
+
+#[test]
+fn test_complex_expression2_c() {
+    run_test_with_target(
+        "complex_expression2",
+        vec![],
+        "10\n10.100000381\n",
+        CompileTarget::C(COptions::default()),
+    );
+}
+
 // Compile tests
 
 #[test]

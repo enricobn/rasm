@@ -17,8 +17,8 @@ use rasm_core::parser::ast::{
 };
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::TypeFilter;
-use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
+use rasm_core::type_check::{self, substitute};
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::reference_context::ReferenceContext;
@@ -350,15 +350,14 @@ impl ReferenceFinder {
         let mut val_context = ValContext::new(None);
         let mut statics = Statics::new();
 
-        let mut result = Vec::new();
-
         let mut type_check = TypeCheck::new(&enhanced_module.body_namespace);
 
+        let mut result = Vec::new();
         Self::process_statics(enhanced_module, &mut reference_static_context, &mut statics);
 
         let mut new_functions = Vec::new();
 
-        Self::process_statements(
+        let _ = Self::process_statements(
             enhanced_module,
             &module.body,
             &mut result,
@@ -371,7 +370,7 @@ impl ReferenceFinder {
             None,
             &mut type_check,
             &mut new_functions,
-        )?;
+        );
 
         result.append(
             &mut module
@@ -400,7 +399,7 @@ impl ReferenceFinder {
         enhanced_module: &EnhancedASTModule,
         reference_static_context: &mut ReferenceContext,
         statics: &mut Statics,
-    ) {
+    ) -> Vec<SelectableItem> {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = ValContext::new(None);
@@ -422,6 +421,7 @@ impl ReferenceFinder {
             &mut type_check,
             &mut new_functions,
         );
+        result
     }
 
     fn process_function(
@@ -459,7 +459,7 @@ impl ReferenceFinder {
         );
 
         if let ASTFunctionBody::RASMBody(statements) = &function.body {
-            Self::process_statements(
+            let _ = Self::process_statements(
                 module,
                 statements,
                 &mut result,
@@ -472,7 +472,7 @@ impl ReferenceFinder {
                 Some(function),
                 type_check,
                 new_functions,
-            )?;
+            );
         }
 
         Ok(result)
@@ -597,7 +597,7 @@ impl ReferenceFinder {
             expected_type,
             namespace,
             &mut new_functions,
-            true,
+            false,
         )
     }
 
@@ -710,7 +710,7 @@ impl ReferenceFinder {
                 SelectableItemTarget::Type(None, ASTType::Builtin(BuiltinTypeKind::String)),
             )),
             ASTExpression::ASTFunctionCallExpression(call) => {
-                Self::process_function_call(
+                let _ = Self::process_function_call(
                     expr,
                     reference_context,
                     reference_static_context,
@@ -724,7 +724,7 @@ impl ReferenceFinder {
                     inside_function,
                     type_check,
                     new_functions,
-                )?;
+                );
             }
             ASTExpression::ValueRef(name, index) => {
                 Self::process_value_ref(
@@ -738,7 +738,7 @@ impl ReferenceFinder {
             }
             ASTExpression::Value(_value_type, _index) => {}
             ASTExpression::Lambda(def) => {
-                Self::process_lambda(
+                let _ = Self::process_lambda(
                     reference_context,
                     module,
                     namespace,
@@ -749,7 +749,7 @@ impl ReferenceFinder {
                     def,
                     type_check,
                     new_functions,
-                )?;
+                );
             }
             ASTExpression::Any(_) => {}
         }
@@ -844,7 +844,7 @@ impl ReferenceFinder {
             None
         };
         let mut lambda_result = Vec::new();
-        Self::process_statements(
+        let _ = Self::process_statements(
             module,
             &def.body,
             &mut lambda_result,
@@ -857,7 +857,7 @@ impl ReferenceFinder {
             None, // TODO
             type_check,
             new_functions,
-        )?;
+        );
         result.append(&mut lambda_result);
         Ok(())
     }
@@ -1025,7 +1025,7 @@ impl ReferenceFinder {
                     })
                     .collect::<Vec<_>>();
                 result.append(&mut v);
-                warn!("Cannot find function for call {call}:\n{e}");
+                warn!("Cannot find function for call {call}: {}\n{e}", call.index);
             }
         }
         Ok(())
@@ -1069,7 +1069,6 @@ mod tests {
 
     use env_logger::Builder;
 
-    
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
@@ -1198,14 +1197,48 @@ mod tests {
     }
 
     #[test]
-    fn complex_expression() {
-        let file_name = Path::new("resources/test/complex_expression.rasm");
+    fn complex_expression_completions() {
+        let values = get_completion_values(
+            None,
+            "resources/test/complex_expression.rasm",
+            6,
+            9,
+            CompletionTrigger::Character('.'),
+        )
+        .unwrap();
 
-        let project = RasmProject::new(file_name.to_path_buf());
-        let _ = project
-            .from_relative_to_root(Path::new("../../../stdlib"))
-            .canonicalize()
-            .unwrap();
+        // println!("values {}", SliceDisplay(&values));
+
+        assert!(values.iter().find(|it| it.as_str() == "elseIf").is_some());
+    }
+
+    #[test]
+    fn complex_expression_ref() {
+        let values = get_find(None, "resources/test/complex_expression.rasm", 11, 13);
+
+        println!("values {}", SliceDisplay(&values));
+
+        assert_eq!(1, values.len());
+
+        assert!(format!("{}", values.get(0).unwrap()).ends_with("if.rasm:9:8"));
+    }
+
+    #[test]
+    fn complex_expression_ref1() {
+        let values = get_find(
+            Some(RasmProject::new(PathBuf::from(
+                "/home/enrico/development/rasm/xmllib",
+            ))),
+            "/home/enrico/development/rasm/xmllib/src/main/rasm/parser.rasm",
+            69,
+            17,
+        );
+
+        println!("values {}", SliceDisplay(&values));
+
+        assert_eq!(1, values.len());
+
+        assert!(format!("{}", values.get(0).unwrap()).ends_with("if.rasm:9:8"));
     }
 
     #[test]
@@ -1659,13 +1692,9 @@ mod tests {
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
+        let index = ASTIndex::new(file_name.clone(), row, col);
 
-        match finder.get_completions(
-            &project,
-            &ASTIndex::new(file_name.clone(), row, col),
-            &eh_module,
-            &trigger,
-        ) {
+        match finder.get_completions(&project, &index, &eh_module, &trigger) {
             Ok(CompletionResult::Found(items)) => {
                 let mut sorted = items.clone();
                 sorted.sort_by(|a, b| a.sort.cmp(&b.sort));
@@ -1677,5 +1706,26 @@ mod tests {
             Ok(CompletionResult::NotFound(message)) => Err(message.to_string()),
             Err(error) => Err(error.to_string()),
         }
+    }
+
+    fn get_find(
+        project: Option<RasmProject>,
+        file_name: &str,
+        row: usize,
+        col: usize,
+    ) -> Vec<ASTIndex> {
+        env::set_var("RASM_STDLIB", "../../../stdlib");
+        let project = if let Some(project) = project {
+            project
+        } else {
+            RasmProject::new(PathBuf::from(file_name))
+        };
+        let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        let file_name = Some(PathBuf::from(file_name));
+        let index = ASTIndex::new(file_name.clone(), row, col);
+
+        vec_selectable_item_to_vec_index(finder.find(&index).unwrap())
     }
 }

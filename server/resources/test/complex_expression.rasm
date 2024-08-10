@@ -1,12 +1,36 @@
-let n = if(true, {"1";})
-.elseIf(true, {"2";})
-.elseIf(true, {"3";})
-.elseIf(true, {"4";})
-.elseIf(true, {"5";})
-.elseIf(true, {"6";})
-.elseIf(true, {"7";})
-.elseIf(true, {"8";})
-.else({"9";})
-.call();
+test(true, Option::Some(0));
+test2(true, Option::Some(0));
 
-println(n);
+fn test<T>(value: bool, o: Option<T>) {
+    let n = if(true, {"1";})
+        .elseIf(true, {"2";})
+        .elseIf(true, {"3";})
+        .elseIf(true, {"4";})
+        .elseIf(true, {"5";})
+        .elseIf(true, {"6";})
+        .elseIf(true, {"7";})
+        .elseIf(true, {
+            println(o);
+            println(value);
+            "8";
+        })
+        .else({"9";})
+        .call();
+
+    println(n);
+}
+
+fn test2<TT>(value: bool, o: Option<TT>) {
+    let ff = if(true, {"1";})
+        .elseIf(true, {"2";})
+        .elseIf(true, {
+            println(o);
+            println(value);
+            "8";
+        })
+        .else({"9";});
+
+    let n = ff.call();
+
+    println(n);
+}

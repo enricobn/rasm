@@ -1,0 +1,11 @@
+println(operation(20, 10, "sub"));
+println(operation(20.2, 10.1, "sub"));
+
+fn operation<T>(v1: T, v2: T, op: str) -> T {
+    let lambda = if<fn(T,T) -> T>(op.eq("add"), fn(a,b) { a.add(b);})
+    .elseIf(op.eq("sub"), fn(a,b) { a.sub(b); })
+    .elseIf(op.eq("mul"), fn(a,b) { a.mul(b); })
+    .else(fn(a,b) { a.div(b); });
+
+    lambda(v1, v2);
+}

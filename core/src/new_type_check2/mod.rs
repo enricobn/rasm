@@ -120,6 +120,7 @@ impl TypeCheck {
                 &module.body_namespace,
                 None,
                 &mut new_functions,
+                true,
             )
             .map_err(|it| CompilationError {
                 index: ASTIndex::none(),
@@ -240,6 +241,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<ASTStatement, TypeCheckError> {
         match statement {
             ASTStatement::Expression(e) => self
@@ -252,7 +254,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
-                    true,
+                    strict,
                 )
                 .map(ASTStatement::Expression),
             ASTStatement::LetStatement(name, e, is_const, index) => self
@@ -265,7 +267,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
-                    true,
+                    strict,
                 )
                 .map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const, index.clone())),
         }
@@ -307,6 +309,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
+                    strict,
                 )
                 .map(ASTExpression::Lambda),
             _ => Ok(expression.clone()),
@@ -411,8 +414,8 @@ impl TypeCheck {
                     p.ast_type = new_t;
                 }
                 if p.ast_type.is_generic() {
-                    dedent!();
                     if strict {
+                        dedent!();
                         let result = Err(TypeCheckError::new(
                             p.ast_index.clone(),
                             format!(
@@ -423,9 +426,6 @@ impl TypeCheck {
                         ));
                         self.stack.pop();
                         return result;
-                    } else {
-                        self.stack.pop();
-                        return Ok(call.clone());
                     }
                 }
             }
@@ -436,8 +436,8 @@ impl TypeCheck {
             }
 
             if new_function_def.return_type.is_generic() {
-                dedent!();
                 if strict {
+                    dedent!();
                     let result = Err(TypeCheckError::new(
                         new_function_def.index.clone(),
                         format!(
@@ -449,9 +449,6 @@ impl TypeCheck {
                     ));
                     self.stack.pop();
                     return result;
-                } else {
-                    self.stack.pop();
-                    return Ok(call.clone());
                 }
             }
 
@@ -537,7 +534,7 @@ impl TypeCheck {
                 }
                 _ => format!("{ast_type}"),
             },
-            ASTType::Generic(_name) => panic!(),
+            ASTType::Generic(name) => name.clone(), // TODO it should not happen when strict = true
             ASTType::Custom {
                 namespace,
                 name,
@@ -1192,6 +1189,7 @@ impl TypeCheck {
                     &new_function_def.namespace,
                     Some(&new_function_def),
                     new_functions,
+                    true,
                 )?;
                 Some(ASTFunctionBody::RASMBody(new_statements))
             }
@@ -1316,6 +1314,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<Vec<ASTStatement>, TypeCheckError> {
         debug_i!(
             "transform_statements expected_return_type {}",
@@ -1340,6 +1339,7 @@ impl TypeCheck {
                     namespace,
                     inside_function,
                     new_functions,
+                    strict,
                 );
 
                 if let Ok(ASTStatement::LetStatement(name, expr, is_cons, index)) = &new_statement {
@@ -1351,7 +1351,7 @@ impl TypeCheck {
                         None,
                         namespace,
                         new_functions,
-                        true,
+                        strict,
                     )?;
 
                     if let TypeFilter::Exact(ast_type) = type_of_expr {
@@ -1608,6 +1608,7 @@ impl TypeCheck {
         namespace: &ASTNameSpace,
         inside_function: Option<&ASTFunctionDef>,
         new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        strict: bool,
     ) -> Result<ASTLambdaDef, TypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
@@ -1644,6 +1645,7 @@ impl TypeCheck {
             namespace,
             inside_function,
             new_functions,
+            strict,
         )?;
 
         Ok(new_lambda)
@@ -1677,11 +1679,27 @@ impl TypeCheck {
                         })?;
                 }
             } else {
+                for (i, (name, index)) in lambda_def.parameter_names.iter().enumerate() {
+                    val_context
+                        .insert_par(
+                            name.to_owned(),
+                            ASTParameterDef {
+                                name: name.to_owned(),
+                                ast_type: ASTType::Generic(format!("L_{i}")),
+                                ast_index: index.clone(),
+                            },
+                        )
+                        .map_err(|e| {
+                            TypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
+                        })?;
+                }
+                /*
                 return Err(TypeCheckError::new(
                     lambda_def.index.clone(),
                     format!("Expecting lambda but got {}", OptionDisplay(expected_type)),
                     self.stack.clone(),
                 ));
+                */
             }
         }
         Ok(())

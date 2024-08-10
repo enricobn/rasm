@@ -107,6 +107,15 @@ pub enum ValKind {
     LetRef(usize, ASTType, ASTIndex),
 }
 
+impl ValKind {
+    pub fn ast_type(&self) -> ASTType {
+        match self {
+            ValKind::ParameterRef(_, par) => par.ast_type.clone(),
+            ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum TypedValKind {
     ParameterRef(usize, ASTTypedParameterDef),

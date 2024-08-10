@@ -122,7 +122,6 @@ impl EnhancedASTModule {
         parameter_types_filter: Vec<TypeFilter>,
         return_type_filter: Option<ASTType>,
         index: &ASTIndex,
-        enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Option<&ASTFunctionDef>, TypeCheckError> {
         self.functions_by_name.find_call(
             function_name,
@@ -131,7 +130,7 @@ impl EnhancedASTModule {
             return_type_filter,
             false,
             index,
-            enhanced_astmodule,
+            self,
         )
     }
 
