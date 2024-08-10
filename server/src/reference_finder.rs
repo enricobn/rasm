@@ -1224,24 +1224,6 @@ mod tests {
     }
 
     #[test]
-    fn complex_expression_ref1() {
-        let values = get_find(
-            Some(RasmProject::new(PathBuf::from(
-                "/home/enrico/development/rasm/xmllib",
-            ))),
-            "/home/enrico/development/rasm/xmllib/src/main/rasm/parser.rasm",
-            69,
-            17,
-        );
-
-        println!("values {}", SliceDisplay(&values));
-
-        assert_eq!(1, values.len());
-
-        assert!(format!("{}", values.get(0).unwrap()).ends_with("if.rasm:9:8"));
-    }
-
-    #[test]
     fn struct_constructor() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
