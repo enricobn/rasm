@@ -45,3 +45,19 @@ pub fn endsWith(s: str, postfix: str) -> bool {
         fn(par0) { par0.eq(postfix); }, 
         { false; });
 }
+
+pub fn removePrefix(s: str, prefix: str) -> str {
+    if(s.startsWith(prefix), {
+        s.substr(prefix.len, s.len.sub(prefix.len)).getOrElse(s);
+    }, {
+        s;
+    });
+}
+
+pub fn removeSuffix(s: str, suffix: str) -> str {
+    if(s.endsWith(suffix), {
+        s.substr(0, s.len.sub(suffix.len)).getOrElse(s);
+    }, {
+        s;
+    });
+}
