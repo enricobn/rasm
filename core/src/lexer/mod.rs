@@ -213,6 +213,9 @@ impl Lexer {
                         actual.push(c);
                     } else {
                         //self.chars.next_back();
+                        if actual.chars().any(|it| !it.is_whitespace()) {
+                            self.add_error(format!("invalid chars in {actual}"));
+                        }
                         return self.some_token(TokenKind::WhiteSpaces(actual));
                     }
                 }
@@ -271,6 +274,9 @@ impl Lexer {
                         return self.some_token(keyword);
                     } else {
                         //self.chars.next_back();
+                        if actual.chars().any(|it| !it.is_alphanumeric()) {
+                            self.add_error(format!("invalid chars in {actual}"));
+                        }
                         return self.some_token(TokenKind::AlphaNumeric(actual));
                     }
                 }
@@ -279,6 +285,9 @@ impl Lexer {
                         actual.push(c);
                     } else {
                         //self.chars.next_back();
+                        if actual.chars().any(|it| !it.is_numeric() && it != '-') {
+                            self.add_error(format!("invalid chars in {actual}"));
+                        }
                         return self.some_token(TokenKind::Number(actual));
                     }
                 }
@@ -563,6 +572,24 @@ mod tests {
         let (_tokens, errors) = lexer.process();
 
         assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn test_invalid_chars() {
+        let lexer = Lexer::new("let a = f.len - 1;".to_string(), None);
+
+        let (_tokens, errors) = lexer.process();
+
+        assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn test_invalid_chars_1() {
+        let lexer = Lexer::new("let a = f.len /1;".to_string(), None);
+
+        let (_tokens, errors) = lexer.process();
+
+        assert!(!errors.is_empty());
     }
 
     /*
