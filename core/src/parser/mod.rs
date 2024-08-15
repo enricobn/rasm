@@ -834,17 +834,42 @@ impl Parser {
 
      */
 
+    fn get_before_last_token_kind_n(&self, n: usize) -> Option<&TokenKind> {
+        let index = self.i - n;
+        self.tokens.get(index).map(|it| &it.kind)
+    }
+
     fn process_function_call(&mut self, token: Token) -> Result<(), String> {
         if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
-            self.i += 1;
-        } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+            if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
+                    self.parser_data.pop();
+                    self.add_parameter_to_call_and_update_parser_data(call, expr);
+                    self.i += 1;
+                } else {
+                    return Err(format!("expected function call: {}", self.get_index(0)));
+                }
+            } else {
+                return Err("expected expression".to_string());
+            }
+        }
+        /*else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
             if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
                 self.parser_data.pop();
                 self.add_parameter_to_call_and_update_parser_data(call, expr);
             } else {
                 return Err(format!("expected function call: {}", self.get_index(0)));
             }
-        } else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
+        }*/
+        else if let TokenKind::Bracket(BracketKind::Round, BracketStatus::Close) = token.kind {
+            if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
+                    self.parser_data.pop();
+                    self.add_parameter_to_call_and_update_parser_data(call, expr);
+                } else {
+                    return Err(format!("expected function call: {}", self.get_index(0)));
+                }
+            }
             if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
                 self.state.pop();
                 self.parser_data.pop();
@@ -860,6 +885,7 @@ impl Parser {
         }
         Ok(())
     }
+
     fn process_function_def(&mut self, token: Token) -> Result<(), String> {
         if let Some(ParserData::FunctionDefParameter(param_def)) = self.last_parser_data() {
             if let Some(ParserData::FunctionDef(mut def)) = self.before_last_parser_data() {
@@ -1450,6 +1476,7 @@ mod tests {
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
+    use crate::utils::SliceDisplay;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1681,6 +1708,54 @@ mod tests {
             error.error_kind,
             CompilationErrorKind::Parser("Unexpected end of block.".to_string())
         );
+    }
+
+    #[test]
+    fn invalid_sequence() {
+        init();
+
+        let lexer = Lexer::new("something(current.len -2);".to_string(), None);
+
+        let mut parser = Parser::new(lexer, None);
+
+        let (_, errors) = parser.parse(Path::new("."), &test_namespace());
+
+        // println!("errors {}", SliceDisplay(&errors));
+
+        assert!(!errors.is_empty());
+
+        // TODO I don't like this error, I would like an "expected expression" error
+        assert!(format!("{}", errors.get(0).unwrap()).contains("undefined parse error"));
+    }
+
+    #[test]
+    fn invalid_sequence1() {
+        init();
+
+        let lexer = Lexer::new("something(,1);".to_string(), None);
+
+        let mut parser = Parser::new(lexer, None);
+
+        let (_, errors) = parser.parse(Path::new("."), &test_namespace());
+
+        // println!("errors {}", SliceDisplay(&errors));
+
+        assert!(!errors.is_empty());
+
+        assert!(format!("{}", errors.get(0).unwrap()).contains("expected expression"));
+    }
+
+    #[test]
+    fn valid_sequence() {
+        init();
+
+        let lexer = Lexer::new("something(current.len, -2);".to_string(), None);
+
+        let mut parser = Parser::new(lexer, None);
+
+        let (_, errors) = parser.parse(Path::new("."), &test_namespace());
+
+        assert!(errors.is_empty());
     }
 
     fn parse(source: &str) -> ASTModule {
