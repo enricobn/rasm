@@ -438,6 +438,7 @@ impl Parser {
 
         let index = self
             .get_token_n(0)
+            .or_else(|| self.tokens.last())
             .map(|it| it.index())
             .unwrap_or_else(|| ASTIndex::new(self.file_name.clone(), 0, 0));
 
