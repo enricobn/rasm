@@ -43,7 +43,7 @@ pub fn count<T>(l: Iter<T>, predicate: fn(T) -> bool) -> i32 {
 }
 
 pub fn foldLeft<T,T1>(iter: Iter<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    iter.next.call().match(fn(it) {
+    iter.next.match(fn(it) {
         it.next.foldLeft(accum(zero, it.value), accum);
     }, {
         zero;
@@ -51,7 +51,7 @@ pub fn foldLeft<T,T1>(iter: Iter<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 pub fn filter<T>(l: Iter<T>, f: fn(T) -> bool) -> Iter<T> {
-    l.next.call().match(fn(it) {
+    l.next.match(fn(it) {
         if(f(it.value), { Iter({ Option::Some(IterValue(it.value, it.next.filter(f))); }); }, { it.next.filter(f);});
     }, { emptyIter<T>(); });
 }

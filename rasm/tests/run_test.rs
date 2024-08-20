@@ -623,7 +623,7 @@ fn test_iter() {
     run_test(
         "iter",
         vec![],
-        "10,\n\n0,1,\n0\n1,2,\n01\ntrue\nfalse\n1\n0,1,2,3,\n0,1,1,2,\n0,1,2,3,\n",
+        "10,\n\n0,1,\n0,\n1,2,\n01\ntrue\nfalse\n1\n0,1,2,3,\n0,1,1,2,\n0,1,2,3,\n",
     );
 }
 
