@@ -95,7 +95,7 @@ pub fn resolve_generic_types_from_effective_type(
                             let e_p = e_parameters.get(i).unwrap();
 
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
-                            .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
+                            .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}, eff. type {effective_type}"), Vec::new()))?;
 
                             result
                                 .extend(inner_result)
@@ -120,7 +120,7 @@ pub fn resolve_generic_types_from_effective_type(
 
                          */
                         let inner_result = resolve_generic_types_from_effective_type(p_return_type, e_return_type)
-                        .map_err(|e| e.add(ASTIndex::none(), format!("in return type gen type {generic_type}eff. type {effective_type}"), Vec::new()))?;
+                        .map_err(|e| e.add(ASTIndex::none(), format!("in return type gen type {generic_type}, eff. type {effective_type}"), Vec::new()))?;
 
                         result
                             .extend(inner_result)
@@ -159,7 +159,7 @@ pub fn resolve_generic_types_from_effective_type(
                 if g_name != e_name {
                     dedent!();
                     return Err(type_check_error(format!(
-                        "unmatched custom type name {g_name} {e_name}"
+                        "unmatched custom type name {g_name} != {e_name}"
                     )));
                 }
 
