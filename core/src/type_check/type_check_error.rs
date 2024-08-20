@@ -23,13 +23,14 @@ use std::fmt::{Display, Formatter};
 pub enum TypeCheckErrorKind {
     Standard,
     Ignorable,
+    Important,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeCheckError {
     pub kind: TypeCheckErrorKind,
-    main: (ASTIndex, String, Vec<ASTIndex>),
-    messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,
+    pub main: (ASTIndex, String, Vec<ASTIndex>),
+    pub messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,
     children: Vec<TypeCheckError>,
     dummy: bool,
 }
@@ -45,9 +46,14 @@ impl TypeCheckError {
         }
     }
 
-    pub fn new_ignorable(index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
+    pub fn new_with_kind(
+        index: ASTIndex,
+        message: String,
+        stack: Vec<ASTIndex>,
+        kind: TypeCheckErrorKind,
+    ) -> Self {
         TypeCheckError {
-            kind: TypeCheckErrorKind::Ignorable,
+            kind,
             main: (index, message, stack),
             messages: Vec::new(),
             children: Vec::new(),
@@ -81,7 +87,17 @@ impl TypeCheckError {
 
     fn write_one(&self, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
         let spaces = " ".repeat(indent * 2);
-        f.write_str(&format!("{spaces}{} : {}\n", self.main.1, self.main.0))?;
+
+        let kind = if self.kind == TypeCheckErrorKind::Important {
+            "!"
+        } else {
+            ""
+        };
+
+        f.write_str(&format!(
+            "{spaces}{kind}{} : {}\n",
+            self.main.1, self.main.0
+        ))?;
 
         if matches!(self.kind, TypeCheckErrorKind::Ignorable) {
             //f.write_str(&format!("{spaces}  ignored\n"))?;
@@ -89,25 +105,37 @@ impl TypeCheckError {
         }
 
         /*
-        for i in self.main.2.iter().rev() {
-            if i.file_name.is_some() {
-                f.write_str(&format!("{spaces}{}\n", i))?;
+        if !self.main.2.is_empty() {
+            f.write_str(&format!("{spaces}mains :\n"))?;
+
+            for i in self.main.2.iter().rev() {
+                if i.file_name.is_some() {
+                    f.write_str(&format!("{spaces}{}\n", i))?;
+                }
             }
         }
-        */
 
-        for (index, message, stack) in self.messages.iter() {
-            if index.file_name.is_some() {
+        if !self.messages.is_empty() {
+            f.write_str(&format!("{spaces}messages :\n"))?;
+
+            for (index, message, stack) in self.messages.iter() {
+                //if index.file_name.is_some() {
                 f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
 
                 for i in stack.iter().rev() {
                     f.write_str(&format!("{spaces}  {}\n", i))?;
                 }
+                //}
             }
         }
+        */
 
-        for child in self.children.iter() {
-            child.write_one(f, indent + 1)?;
+        if !self.children.is_empty() {
+            // f.write_str(&format!("{spaces}children :\n"))?;
+
+            for child in self.children.iter() {
+                child.write_one(f, indent + 1)?;
+            }
         }
 
         Ok(())
@@ -115,6 +143,14 @@ impl TypeCheckError {
 
     pub fn is_dummy(&self) -> bool {
         self.dummy
+    }
+
+    pub fn important(&self) -> Vec<&TypeCheckError> {
+        if self.kind == TypeCheckErrorKind::Important {
+            vec![self]
+        } else {
+            self.children.iter().flat_map(|it| it.important()).collect()
+        }
     }
 }
 

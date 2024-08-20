@@ -189,10 +189,7 @@ impl TypeCheck {
                             vec![
                                 TypeCheckError::new(
                                     function.index.clone(),
-                                    format!(
-                                        "Error in function {} ({})",
-                                        function.name, function.original_name
-                                    ),
+                                    format!("Error in function {}", function.original_name),
                                     self.stack.clone(),
                                 ),
                                 it,
@@ -617,6 +614,21 @@ impl TypeCheck {
                 }
             })
             .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank));
+
+        if original_functions.clone().count() == 0 {
+            dedent!();
+
+            return Err(TypeCheckError::new_with_kind(
+                call.index.clone(),
+                format!(
+                    "cannot find a function from namespace {namespace} for call {}. Expected return type {}",
+                    call.original_function_name,
+                    OptionDisplay(&expected_return_type)),
+                self.stack.clone(),
+                TypeCheckErrorKind::Important
+            ));
+        }
+
         /*
         if new_functions.iter().any(|(f, i)| {
             f.original_name == call.original_function_name
@@ -846,10 +858,11 @@ impl TypeCheck {
                         debug_i!("filter {t}");
                         if !t.almost_equal(param_type, module)? {
                             valid = false;
-                            return Err(TypeCheckError::new_ignorable(
+                            return Err(TypeCheckError::new_with_kind(
                                 expr.get_index(),
                                 format!("not matching type expected {t} got {param_type}"),
                                 self.stack.clone(),
+                                TypeCheckErrorKind::Ignorable,
                             ));
                         }
                         Ok(e)
@@ -867,10 +880,11 @@ impl TypeCheck {
                 debug_i!("ignored function due to {e}");
 
                 let error = if matches!(e.kind, TypeCheckErrorKind::Ignorable) {
-                    TypeCheckError::new_ignorable(
+                    TypeCheckError::new_with_kind(
                         call.index.clone(),
                         format!("ignoring function {function} : {}", function.index),
                         self.stack.clone(),
+                        TypeCheckErrorKind::Ignorable,
                     )
                     .add_errors(vec![e])
                 } else {
