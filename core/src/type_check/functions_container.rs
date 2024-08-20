@@ -642,7 +642,9 @@ impl FunctionsContainer {
                                 } else {
                                     Err(TypeCheckError::new(
                                         index.clone(),
-                                        format!("Cannot find custom type {type_name} definition"),
+                                        format!(
+                                            "Cannot find custom type definition for {type_name}"
+                                        ),
                                         vec![],
                                     )) // TODO stack?
                                 }
