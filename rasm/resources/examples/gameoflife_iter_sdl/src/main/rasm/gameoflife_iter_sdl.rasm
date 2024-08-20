@@ -1,0 +1,56 @@
+// run with: time ./gameoflife_iter_sdl resources/examples/f116.cells 100
+//
+// 481236 bytes allocated
+// 138099 table slots allocated
+//
+// real    0m21,196s
+
+sdlInit();
+
+argv(1).match(fn(file) {
+    let start = readCellFile(file).iter;
+
+    argv(2).fmap(fn(s) { toi32(s);}).match(fn(count) {
+        run(moveCells(start, 20), 80, 50, count);
+    }, { println("A number for count must be specified."); });
+}, { println("A file must be specified."); });
+
+fn run(start: Iter<Cell>, width: i32, height: i32, count: i32) {
+    let win = sdlErrorIfNull(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n");
+    let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
+
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+
+    let allCells = allCells(width, height).iter;
+
+    printCells(ren,
+        foldLeft(range(0, count).iter, start, fn(prev, act) {
+            printCells(ren, prev, width, height);
+            //sdlDelay(1000);
+            next(prev, allCells);
+          }), width, height);
+
+    sdlDestroyRenderer(ren);
+    sdlDestroyWindow(win);
+}
+
+fn printCells(ren: SDLRenderer, cells: Iter<Cell>, width: i32, height: i32) {
+    sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, 255, 0, 0, 0);
+    sdlRenderFillRect(ren, SDLRect(0, 0, mul(10, width), mul(10, height)));
+    sdlSetRenderDrawColor(ren, 255, 255, 255, 0);
+
+    let xRange = range(0, width);
+
+    forEach(range(0, height), fn(y) {
+        forEach(xRange, fn(x) {
+            if(isAlive(cells, Cell(x, y)), {
+                 sdlRenderFillRect(ren, SDLRect(mul(10, x), mul(10, y), 10, 10));
+            }, {});
+        });
+    });
+    sdlRenderPresent(ren);
+}

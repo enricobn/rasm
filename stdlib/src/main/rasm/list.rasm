@@ -98,7 +98,7 @@ pub fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
 }
 
 pub fn flatten<T>(l: List<List<T>>) -> List<T> {
-    match(l, fn(head, tail) {
+    l.match(fn(head, tail) {
         listAppend(head, flatten(tail));
     },
     {List::Empty(); });

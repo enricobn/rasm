@@ -1,29 +1,29 @@
-struct Range {
-    index: i32,
-    start: i32,
-    end: i32
-}
+let o = Option::Some(10);
+println(o.iter);
 
-println(collect(Range(0, 0, 1)));
+let o1 = Option::None<i32>();
+println(o1.iter);
 
-fn collect<T,T1>(l: T) -> Vec<T1> {
-    let a = actual(l);
-    match(a, { v -> vecOf(v);}, { -> Vec();});
-}
+let l = range(0, 2);
+println(l.iter);
 
-fn next(range: Range) -> Option<Range> {
-    let index = Range::index(range);
-    let start = Range::start(range);
-    let end = Range::index(end);
+println(l.filter(fn(it) { it.less(1); }));
 
-    if(less(index, end), Option::None(), Option::Some(Range(add(index, 1), start, end)));
-}
+println(l.iter.map(fn(it) { it.add(1);}));
 
-fn actual(range: Range) -> Option<i32> {
-    let index = Range::index(range);
-    let start = Range::start(range);
-    let end = Range::index(end);
+l.iter.forEach(fn(it) { print(it);});
+println();
 
-    if(less(index, end), Option::None(), Option::Some(index));
-}
+println(l.iter.anyMatch(fn(it) { it.eq(1); }));
 
+println(l.iter.anyMatch(fn(it) { it.eq(2); }));
+
+println(l.iter.count(fn(it) { it.less(1); }));
+
+let fl = iter(listOf(iter(listOf(0, 1)), iter(listOf(2, 3))));
+println(fl.flatten);
+
+let f = l.iter.fmap(fn(it) { listOf(it, it.add(1)).iter; });
+println(f);
+
+println(listOf(0, 1).iter.add(listOf(2, 3).iter));
