@@ -25,9 +25,15 @@ pub fn iter<T>(o: List<T>) -> Iter<T> {
 
 
 pub fn map<T,T1>(l: Iter<T>, f: fn(T) -> T1) -> Iter<T1> {
+    Iter({ 
+        l.next.map(fn(it) { IterValue(f(it.value), it.next.map(f)); });
+    });
+
+/*
     l.next.match(fn(it) { 
         Iter({ Option::Some(IterValue(f(it.value), it.next.map(f)));}); 
     }, { emptyIter();});
+*/
 }
 
 pub fn forEach<T>(l: Iter<T>, f: fn(T) -> ()) {
@@ -51,9 +57,17 @@ pub fn foldLeft<T,T1>(iter: Iter<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 }
 
 pub fn filter<T>(l: Iter<T>, f: fn(T) -> bool) -> Iter<T> {
+    Iter({
+        l.next.match(fn(it) {
+            if(f(it.value), { Option::Some(IterValue(it.value, it.next.filter(f))); }, { it.next.filter(f).next; });
+        }, { Option::None(); });
+    });
+
+/*
     l.next.match(fn(it) {
         if(f(it.value), { Iter({ Option::Some(IterValue(it.value, it.next.filter(f))); }); }, { it.next.filter(f);});
     }, { emptyIter<T>(); });
+*/
 }
 
 
