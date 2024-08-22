@@ -1,0 +1,25 @@
+// to build:
+// cargo run build rasm/resources/profile/iter.rasm
+
+// 3123750
+// real    0m2,209s
+// user    0m2,209s
+// sys     0m0,000s
+
+// C backend
+// cargo run build rasm/resources/profile/iter.rasm -t c
+// 3123750
+
+// real    0m0,504s
+// user    0m0,491s
+// sys     0m0,012s
+
+let n = argv(1).fmap(fn(it) { it.toi32();}).getOrElse(5000);
+
+let big = range(0, n).iter;
+println(
+    big
+    .map(fn(it) { Option::Some(it); })
+    .filter(fn(it) { it.map(fn(it1) { it1.less(n.div(2));}).getOrElse(false); })
+    .foldLeft(0, fn(result, actual) { result.add(actual.getOrElse(0)); })
+);

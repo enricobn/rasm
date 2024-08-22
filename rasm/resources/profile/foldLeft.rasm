@@ -1,0 +1,51 @@
+// to build:
+// cargo run --release build rasm/resources/profile/foldLeft.rasm
+
+// time ./foldLeft 10 1000
+// real    0m0,061s
+// user    0m0,061s
+// sys     0m0,000s
+
+// time ./foldLeft 10 2000
+// real    0m0,225s
+// user    0m0,220s
+// sys     0m0,004s
+
+// C backend
+// to build cargo run --release build rasm/resources/profile/foldLeft.rasm -t c
+
+// time ./foldLeft 10 1000
+// real    0m0,241s
+// user    0m0,237s
+// sys     0m0,004s
+
+// time ./foldLeft 10 2000
+// real    0m0,789s
+// user    0m0,776s
+// sys     0m0,012s
+
+struct Point {
+    x: i32,
+    y: i32
+}
+
+struct Container {
+    v: Vec<Option<i32>>
+}
+
+let n = argv(1).fmap(fn(it) { it.toi32();}).getOrElse(10);
+let n1 = argv(2).fmap(fn(it) { it.toi32();}).getOrElse(10);
+
+
+vecRange(0, n).forEach(fn(it) {
+    let result = vecRange(0, n1).foldLeft(Container(Vec<Option<i32>>()), fn(prev,i) { prev.v(fn(v) { v.push(Option::Some(i));});});
+    // println(result.v.len);
+    //let result = vecRange(0, 5000).foldLeft(Container(Vec<Option<i32>>()), { prev,i -> prev.v(prev.v.push(Option::Some(i)));});
+    //let result = vecRange(0, 5000).foldLeft(Vec<Option<i32>>(), { prev,i -> prev.push(Option::Some(i));});
+});
+
+// println(len(points(n)));
+
+fn points(count: i32) -> Vec<Point> {
+    vecRange(0, count).map(fn(it) { Point(it, it); });
+}
