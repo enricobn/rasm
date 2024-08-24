@@ -12,6 +12,7 @@ argv(1).match(fn(file) {
 
     argv(2).fmap(fn(s) { toi32(s);}).match(fn(count) {
         run(moveCells(start, 20), 80, 50, count);
+        //run(start, 2, 2, count);
     }, { println("A number for count must be specified."); });
 }, { println("A file must be specified."); });
 
@@ -25,12 +26,13 @@ fn run(start: Iter<Cell>, width: i32, height: i32, count: i32) {
 
     let allCells = allCells(width, height).iter;
 
-    printCells(ren,
-        foldLeft(range(0, count).iter, start, fn(prev, act) {
-            printCells(ren, prev, width, height);
-            //sdlDelay(1000);
-            next(prev, allCells);
-          }), width, height);
+    let result = range(1, count).iter.foldLeft(start, fn(prev, act) {
+        printCells(ren, prev, width, height);
+        //sdlDelay(1000);
+        next(prev, allCells);
+    });
+
+    printCells(ren, result, width, height);
 
     sdlDestroyRenderer(ren);
     sdlDestroyWindow(win);
@@ -47,7 +49,9 @@ fn printCells(ren: SDLRenderer, cells: Iter<Cell>, width: i32, height: i32) {
 
     forEach(range(0, height), fn(y) {
         forEach(xRange, fn(x) {
-            if(isAlive(cells, Cell(x, y)), {
+            let cell = Cell(x, y);
+            // println("print ", cell);
+            if(isAlive(cells, cell), {
                  sdlRenderFillRect(ren, SDLRect(mul(10, x), mul(10, y), 10, 10));
             }, {});
         });
