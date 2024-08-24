@@ -520,12 +520,12 @@ impl TypeCheck {
                     return_type,
                 } => {
                     format!(
-                        "fn_{}_{}",
+                        "fn{}{}",
                         parameters
                             .iter()
                             .map(Self::unique_type_name)
                             .collect::<Vec<_>>()
-                            .join("_"),
+                            .join(""),
                         Self::unique_type_name(return_type)
                     )
                 }
@@ -539,12 +539,13 @@ impl TypeCheck {
                 index: _,
             } => {
                 format!(
-                    "{name}_{}",
+                    "{}{name}{}",
+                    namespace.safe_name(),
                     param_types
                         .iter()
                         .map(Self::unique_type_name)
                         .collect::<Vec<_>>()
-                        .join("_")
+                        .join("")
                 )
             }
             ASTType::Unit => "Unit".to_string(),
