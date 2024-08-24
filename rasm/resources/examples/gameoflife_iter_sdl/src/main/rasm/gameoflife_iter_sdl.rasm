@@ -26,7 +26,7 @@ fn run(start: Iter<Cell>, width: i32, height: i32, count: i32) {
 
     let allCells = allCells(width, height).iter;
 
-    let result = range(1, count).iter.foldLeft(start, fn(prev, act) {
+    let result = range(0, count).iter.foldLeft(start, fn(prev, act) {
         printCells(ren, prev, width, height);
         //sdlDelay(1000);
         next(prev, allCells);
