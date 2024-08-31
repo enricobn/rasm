@@ -21,7 +21,7 @@ use log::info;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{exit, Command, Stdio};
 use std::time::Instant;
 
 use rust_embed::{EmbeddedFile, RustEmbed};
@@ -39,6 +39,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
+use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::project::RasmProject;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
@@ -321,9 +322,7 @@ impl CompileTarget {
             self,
             command_line_options.debug,
         )
-        .unwrap_or_else(|e| {
-            panic!("{e}");
-        });
+        .unwrap_or_else(|e| Self::raise_error(e));
 
         info!("type check ended in {:?}", start.elapsed());
 
@@ -437,6 +436,23 @@ impl CompileTarget {
                 }
             }
         }
+    }
+
+    fn raise_error(error: CompilationError) -> ! {
+        if let CompilationErrorKind::TypeCheck(a, b) = &error.error_kind {
+            let important = b.iter().flat_map(|it| it.important()).collect::<Vec<_>>();
+            if let Some(e) = important.first() {
+                let index = e.main.0.clone();
+                let message = e.main.1.clone();
+
+                eprintln!("{message} : {index}");
+                eprintln!("error: could not compile due to previous errors");
+                exit(-1);
+            }
+        }
+        eprintln!("{error}");
+        eprintln!("error: could not compile due to previous errors");
+        exit(-1);
     }
 
     pub fn get_mandatory_functions(&self, module: &EnhancedASTModule) -> Vec<DefaultFunction> {

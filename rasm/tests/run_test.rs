@@ -5,6 +5,7 @@ use ntest::timeout;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
 use rasm_core::codegen::AsmOptions;
+use rasm_core::commandline::CommandLineAction;
 use tempdir::TempDir;
 
 #[cfg(test)]
@@ -746,6 +747,16 @@ fn compile_with_target(
     only_compile: bool,
     target: CompileTarget,
 ) -> Option<String> {
+    compile_with_target_with_action(dir, source, only_compile, target, CommandLineAction::Build)
+}
+
+fn compile_with_target_with_action(
+    dir: &TempDir,
+    source: &str,
+    only_compile: bool,
+    target: CompileTarget,
+    action: CommandLineAction,
+) -> Option<String> {
     let source_without_extension = Path::new(source).with_extension("");
     let file_name = source_without_extension
         .file_name()
@@ -760,7 +771,7 @@ fn compile_with_target(
     };
 
     let mut args = vec![
-        "build".to_string(),
+        format!("{action}").to_lowercase(),
         source.to_owned(),
         "-o".to_string(),
         dest.clone(),
