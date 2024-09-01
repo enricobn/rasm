@@ -1499,10 +1499,11 @@ impl TypeCheck {
                         TypeFilter::Exact(c.ast_type.clone())
                     } else {
                         dedent!();
-                        return Err(TypeCheckError::new(
+                        return Err(TypeCheckError::new_with_kind(
                             index.clone(),
                             format!("Cannot find reference to {name}"),
                             self.stack.clone(),
+                            TypeCheckErrorKind::Important,
                         ));
                     }
                 }
