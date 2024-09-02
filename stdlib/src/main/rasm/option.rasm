@@ -15,7 +15,7 @@ pub fn getOrElse<T>(o: Option<T>, defaultValue: T) -> T {
     match(o, fn(v) {v;}, {defaultValue;});
 }
 
-pub fn run<T>(o: Option<T>, f: fn(T) -> ()) {
+pub fn forEach<T>(o: Option<T>, f: fn(T) -> ()) {
     match(o, f, {});
 }
 

@@ -26,12 +26,16 @@ use std::io;
 pub struct SelectableItem {
     pub file_token: FileToken,
     pub namespace: ASTNameSpace,
-    pub target: SelectableItemTarget,
+    pub target: Option<SelectableItemTarget>,
 }
 
 impl Display for SelectableItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{} -> {}", self.file_token, self.target))
+        f.write_str(&format!(
+            "{} -> {}",
+            self.file_token,
+            OptionDisplay(&self.target)
+        ))
     }
 }
 
@@ -40,7 +44,7 @@ impl SelectableItem {
         start: ASTIndex,
         len: usize,
         namespace: ASTNameSpace,
-        target: SelectableItemTarget,
+        target: Option<SelectableItemTarget>,
     ) -> Self {
         SelectableItem {
             file_token: FileToken::new(start, len),

@@ -231,12 +231,14 @@ async fn file<'a>(
             let name = format!("_{}_{}", it.row, it.column);
             if !vec.is_empty() {
                 let item = vec.remove(0);
-                if let Some((file_name, row, column)) = item.target.index().and_then(|index| {
-                    index
-                        .clone()
-                        .file_name
-                        .map(|it| (it, index.row, index.column))
-                }) {
+                if let Some((file_name, row, column)) =
+                    item.target.and_then(|it| it.index()).and_then(|index| {
+                        index
+                            .clone()
+                            .file_name
+                            .map(|it| (it, index.row, index.column))
+                    })
+                {
                     let ref_name = format!(
                         "/file?src={}#_{}_{}",
                         project

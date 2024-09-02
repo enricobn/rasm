@@ -9,4 +9,4 @@ println(orElse(Option::None(), { Option::Some(10);}));
 
 println(orElse(Option::Some(1), { Option::Some(10);}));
 
-Option::Some(10).run(fn(v) { println(v);});
+Option::Some(10).forEach(fn(v) { println(v);});

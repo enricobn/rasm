@@ -2,7 +2,7 @@ let fileName = argv(1).getOrElse("No file specified");
 let file = createFile(fileName);
 let p = println(file, 'c').orElse({ println(file, "Hello");});
 
-run(p, fn(v) {
+forEach(p, fn(v) {
             close(file);
             println(v);
             exitMain(0);

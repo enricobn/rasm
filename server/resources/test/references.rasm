@@ -1,0 +1,4 @@
+Option::Some("hello")
+.forEach(fn(it) {
+    println(it);
+});

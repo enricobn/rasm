@@ -17,12 +17,12 @@ fn m() {
     sleep(0, 10000);
     let event = keyEvent();
 
-    run(event, fn(e) {
+    forEach(event, fn(e) {
         printAllocated();
         printTableSlotsAllocated();
     }, { });
 
-    run(event, fn(e) {
+    forEach(event, fn(e) {
         let key = KeyEvent::key(e);
         if(eq(key, 41), {
         }, {

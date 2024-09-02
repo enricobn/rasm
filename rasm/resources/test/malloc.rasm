@@ -5,5 +5,5 @@ printOption(Option::Some(Option::Some("1")));
 //printAllocated();
 
 fn printOption(o: Option<Option<str>>) {
-    run(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
+    forEach(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
 }

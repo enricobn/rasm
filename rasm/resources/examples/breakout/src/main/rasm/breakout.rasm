@@ -286,7 +286,7 @@ fn writeHighScores(highScores: Vec<HighScore>) {
         .orElse({print(file, it.time.sec);})
         .orElse({print(file, ",");})
         .orElse({println(file, it.time.nano);})
-        .run(fn(error) {
+        .forEach(fn(error) {
             println(error);
             exitMain(1);
         });

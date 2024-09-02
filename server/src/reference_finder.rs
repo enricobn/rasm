@@ -138,13 +138,15 @@ impl ReferenceFinder {
             CompletionType::SelectableItem(index, prefix) => {
                 for selectable_item in self.selectable_items.iter() {
                     if selectable_item.contains(&index)? {
-                        if let Some(ast_type) = selectable_item.target.completion_type() {
-                            return Self::completion_for_type(
-                                &ast_type,
-                                enhanched_module,
-                                &selectable_item.namespace,
-                                &prefix,
-                            );
+                        if let Some(ref target) = selectable_item.target {
+                            if let Some(ast_type) = target.completion_type() {
+                                return Self::completion_for_type(
+                                    &ast_type,
+                                    enhanched_module,
+                                    &selectable_item.namespace,
+                                    &prefix,
+                                );
+                            }
                         }
                     }
                 }
@@ -324,18 +326,18 @@ impl ReferenceFinder {
         if items.len() == 1 {
             let item = items.remove(0);
 
-            if let Some(target_index) = item.target.index() {
-                let mut result = Vec::new();
-                for se in self.selectable_items.iter() {
-                    if let Some(i) = se.target.index() {
-                        if i == target_index {
+            let mut result = Vec::new();
+            for se in self.selectable_items.iter() {
+                if let Some(ref target) = se.target {
+                    if let Some(i) = target.index() {
+                        if i == item.file_token.start {
                             result.push(se.clone());
                         }
                     }
                 }
-
-                return Ok(result);
             }
+
+            return Ok(result);
         }
 
         Ok(Vec::new())
@@ -513,10 +515,10 @@ impl ReferenceFinder {
                 min,
                 name.len(),
                 namespace.clone(),
-                SelectableItemTarget::Type(
+                Some(SelectableItemTarget::Type(
                     Self::get_custom_type_index(module, name),
                     ast_type.clone(),
-                ),
+                )),
             );
 
             result.push(item);
@@ -646,7 +648,7 @@ impl ReferenceFinder {
                     index1.clone(),
                     name.len(),
                     namespace.clone(),
-                    SelectableItemTarget::Ref(index1, None),
+                    Some(SelectableItemTarget::Ref(index1, None)),
                 )];
 
                 if *is_const {
@@ -707,7 +709,10 @@ impl ReferenceFinder {
                 index.mv_left(s.len()),
                 s.len(),
                 namespace.clone(),
-                SelectableItemTarget::Type(None, ASTType::Builtin(BuiltinTypeKind::String)),
+                Some(SelectableItemTarget::Type(
+                    None,
+                    ASTType::Builtin(BuiltinTypeKind::String),
+                )),
             )),
             ASTExpression::ASTFunctionCallExpression(call) => {
                 let _ = Self::process_function_call(
@@ -777,7 +782,10 @@ impl ReferenceFinder {
                 index.mv_left(name.len()),
                 name.len(),
                 namespace.clone(),
-                SelectableItemTarget::Ref(v.index.mv_left(name.len()).clone(), ast_type),
+                Some(SelectableItemTarget::Ref(
+                    v.index.mv_left(name.len()).clone(),
+                    ast_type,
+                )),
             ));
         }
     }
@@ -796,6 +804,7 @@ impl ReferenceFinder {
     ) -> Result<(), TypeCheckError> {
         let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
         let mut lambda_val_context = ValContext::new(Some(val_context));
+        let mut lambda_result = Vec::new();
 
         let expected_lambda_return_type = if let Some(et) = expected_type {
             if let ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -819,9 +828,15 @@ impl ReferenceFinder {
                         })?;
                     lambda_reference_context.add(
                         par_name.clone(),
-                        par_index,
+                        par_index.clone(),
                         TypeFilter::Exact(par_type.clone()),
                     );
+                    lambda_result.push(SelectableItem::new(
+                        par_index.mv_left(par_name.len()),
+                        par_name.len(),
+                        namespace.clone(),
+                        None,
+                    ))
                 }
                 Some(return_type.deref())
             } else {
@@ -843,7 +858,7 @@ impl ReferenceFinder {
             }
             None
         };
-        let mut lambda_result = Vec::new();
+
         let _ = Self::process_statements(
             module,
             &def.body,
@@ -900,7 +915,7 @@ impl ReferenceFinder {
                     call.index.mv_left(call.original_function_name.len()),
                     call.original_function_name.len(),
                     namespace.clone(),
-                    SelectableItemTarget::Ref(index, Some(cloned_type)),
+                    Some(SelectableItemTarget::Ref(index, Some(cloned_type))),
                 ));
 
                 let mut v = zip(call.parameters.iter(), &parameters)
@@ -955,11 +970,11 @@ impl ReferenceFinder {
                     call.index.mv_left(call.original_function_name.len()),
                     call.original_function_name.len(),
                     namespace.clone(),
-                    SelectableItemTarget::Function(
+                    Some(SelectableItemTarget::Function(
                         function_def.index,
                         function_def.return_type,
                         descr,
-                    ),
+                    )),
                 ));
 
                 let mut v = zip(expressions.iter(), &function_def.parameters)
@@ -1400,19 +1415,21 @@ mod tests {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
-                    if let Some(ASTType::Custom {
-                        namespace: _,
-                        name,
-                        param_types: _,
-                        index: _,
-                    }) = selectable_item.target.completion_type()
-                    {
-                        assert_eq!("AStruct", name);
-                    } else {
-                        panic!(
-                            "Expected some Custom type but got {}",
-                            OptionDisplay(&selectable_item.target.completion_type())
-                        );
+                    if let Some(ref target) = selectable_item.target {
+                        if let Some(ASTType::Custom {
+                            namespace: _,
+                            name,
+                            param_types: _,
+                            index: _,
+                        }) = target.completion_type()
+                        {
+                            assert_eq!("AStruct", name);
+                        } else {
+                            panic!(
+                                "Expected some Custom type but got {}",
+                                OptionDisplay(&target.completion_type())
+                            );
+                        }
                     }
                 } else {
                     panic!("Found {} elements", selectable_items.len());
@@ -1442,7 +1459,9 @@ mod tests {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
                     let expected_index = ASTIndex::new(Some(result_rasm), 14, 8);
-                    if let SelectableItemTarget::Function(index, _, _) = selectable_item.target {
+                    if let Some(SelectableItemTarget::Function(index, _, _)) =
+                        selectable_item.target
+                    {
                         assert_eq!(index, expected_index);
                     } else {
                         panic!("Found {:?}", selectable_item.target);
@@ -1472,7 +1491,7 @@ mod tests {
 
         let item = items.remove(0);
 
-        if let SelectableItemTarget::Function(index, _, descr) = item.target {
+        if let Some(SelectableItemTarget::Function(index, _, descr)) = item.target {
             assert_eq!(ASTIndex::none(), index);
             assert!(descr.starts_with("native match"));
         } else {
@@ -1495,7 +1514,7 @@ mod tests {
 
         let item = items.remove(0);
 
-        if let SelectableItemTarget::Ref(index, _) = item.target {
+        if let Some(SelectableItemTarget::Ref(index, _)) = item.target {
             assert_eq!(
                 ASTIndex::new(
                     Some(file_name.canonicalize().unwrap().to_path_buf()),
@@ -1561,6 +1580,25 @@ mod tests {
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
     }
 
+    #[test]
+    fn reference1() {
+        let (_project, eh_module, module) =
+            get_reference_finder("resources/test/references.rasm", None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        for item in finder.selectable_items.iter() {
+            println!("{item}");
+        }
+
+        let file_name = Path::new("resources/test/references.rasm");
+
+        let references = finder
+            .references(&ASTIndex::new(Some(file_name.to_path_buf()), 2, 14))
+            .unwrap();
+
+        assert_eq!(1, references.len());
+    }
+
     fn stdlib_path(file_name: &Path) -> PathBuf {
         let project = RasmProject::new(file_name.to_path_buf());
 
@@ -1592,7 +1630,7 @@ mod tests {
 
     fn vec_selectable_item_to_vec_index(vec: Vec<SelectableItem>) -> Vec<ASTIndex> {
         vec.iter()
-            .flat_map(|it| it.target.index())
+            .flat_map(|it| it.target.clone().and_then(|item| item.index()))
             .collect::<Vec<_>>()
     }
 
