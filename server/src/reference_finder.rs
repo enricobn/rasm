@@ -17,12 +17,18 @@ use rasm_core::parser::ast::{
 };
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::TypeFilter;
+use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
-use rasm_core::type_check::{self, substitute};
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::reference_context::ReferenceContext;
 use crate::selectable_item::{SelectableItem, SelectableItemTarget};
+
+pub struct RasmTextEdit {
+    pub from: ASTIndex,
+    pub len: usize,
+    pub text: String,
+}
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
@@ -66,7 +72,13 @@ impl ReferenceFinder {
         enhanched_module: &EnhancedASTModule,
         trigger: &CompletionTrigger,
     ) -> Result<CompletionResult, io::Error> {
-        let module_content = project.content_from_file(&self.path)?;
+        if index.file_name.is_none() {
+            return Ok(CompletionResult::NotFound(
+                "Called completions with an unknown path.".to_string(),
+            ));
+        }
+
+        let module_content = project.content_from_file(&index.file_name.as_ref().unwrap())?;
 
         let lines = module_content.lines().collect::<Vec<_>>();
 
@@ -341,6 +353,44 @@ impl ReferenceFinder {
         }
 
         Ok(Vec::new())
+    }
+
+    pub fn rename(&self, index: &ASTIndex, new_name: String) -> Vec<RasmTextEdit> {
+        let mut result = Vec::new();
+
+        if let Ok(items) = self.find(&index) {
+            if let Some(item) = items.first() {
+                let root_index_o = if let Some(ref target) = item.target {
+                    target.index()
+                } else {
+                    Some(item.file_token.start.clone())
+                };
+
+                if let Some(root_index) = root_index_o {
+                    result.push(RasmTextEdit {
+                        from: root_index.clone(),
+                        len: item.file_token.len,
+                        text: new_name.clone(),
+                    });
+
+                    let references = self.references(&root_index).unwrap();
+
+                    if references.is_empty() {
+                        return Vec::new();
+                    }
+
+                    for reference in references.iter() {
+                        result.push(RasmTextEdit {
+                            from: reference.file_token.start.clone(),
+                            len: item.file_token.len,
+                            text: new_name.clone(),
+                        });
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     fn process_module(
