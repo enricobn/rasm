@@ -1,3 +1,28 @@
+pub struct Suite {
+    name: str,
+    tests: Vec<RunTest>
+}
+
+pub fn Suite(name: str) -> Suite {
+    Suite(name, Vec());
+}
+
+pub fn add(suite: Suite, name: str, index: str, function: fn() -> Assertions) -> Suite {
+    let newSuite = suite.tests.push(RunTest(name, index, function));
+    Suite(suite.name, newSuite);
+}
+
+pub fn run(suite: Suite) {
+    println("running ", suite.name);
+    let failures = suite.tests.filter(fn(it) { it.run();});
+    if(failures.isEmpty.not, {
+        println();
+        println("failures:");
+        failures.forEach(fn(it) { println(it.name);});
+        exitMain(-1);
+    } , { });
+}
+
 pub struct Assertions {
     failed: Vec<str>
 }
@@ -61,25 +86,23 @@ pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Asser
 }
 
 pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
-    println("Running ".add(name));
+    print(name);
     let startTime = now();
     let runResult = testRun();
     let elapsedTime = elapsedTime(now(), startTime);
-    print("test run in ");
+    print(" - ");
     print(elapsedTime.div(1000));
-    println(" ms");
+    print(" ms");
 
     runResult.failed.first.match(
         fn(error) {
-            let message = "test failed ".add(index).add(" : ");
+            let message = " - \033[31mFAILED\033[0m : ".add(index).add(" : ");
             print(message);
             println(error);
-            println();
             true;
         },
         {
-            println("test OK");
-            println();
+            println(" - \033[32mok\033[0m");
             false;
         }
     );

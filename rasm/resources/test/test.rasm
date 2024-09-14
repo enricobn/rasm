@@ -1,2 +1,13 @@
-let test = RunTest("aTest", "index", { Assertions();});
-println(test.run());
+Suite("My tests")
+    .add("test1", "given a failure it should fail", { test1();})
+    .add("test2", "given a success it should succeeds", { test2();})
+    .run();
+
+fn test1() -> Assertions {
+    Assertions()
+    .assertEquals(0, 1);
+}
+
+fn test2() -> Assertions {
+    Assertions();
+}
