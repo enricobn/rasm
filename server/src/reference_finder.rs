@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use log::warn;
 
+use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::ValContext;
@@ -33,7 +34,6 @@ pub struct RasmTextEdit {
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
     path: PathBuf,
-    namespace: ASTNameSpace,
 }
 
 enum CompletionType {
@@ -49,7 +49,6 @@ impl ReferenceFinder {
         Ok(Self {
             selectable_items,
             path,
-            namespace: ast_module.namespace.clone(),
         })
     }
 
@@ -71,12 +70,25 @@ impl ReferenceFinder {
         index: &ASTIndex,
         enhanched_module: &EnhancedASTModule,
         trigger: &CompletionTrigger,
+        target: &CompileTarget,
     ) -> Result<CompletionResult, io::Error> {
         if index.file_name.is_none() {
             return Ok(CompletionResult::NotFound(
                 "Called completions with an unknown path.".to_string(),
             ));
         }
+
+        let (module, _errors) = if let Some(m) = index
+            .file_name
+            .as_ref()
+            .and_then(|it| project.get_module(it.as_path(), target))
+        {
+            m
+        } else {
+            return Ok(CompletionResult::NotFound("".to_string()));
+        };
+
+        let namespace = module.namespace;
 
         let module_content = project.content_from_file(&index.file_name.as_ref().unwrap())?;
 
@@ -164,7 +176,7 @@ impl ReferenceFinder {
                 }
             }
             CompletionType::Identifier(prefix) => {
-                return Self::completion_for_identifier(&prefix, enhanched_module, &self.namespace);
+                return Self::completion_for_identifier(&prefix, enhanched_module, &namespace);
             }
         }
 
@@ -1134,6 +1146,7 @@ mod tests {
 
     use env_logger::Builder;
 
+    use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
@@ -1763,8 +1776,9 @@ mod tests {
 
         let file_name = Some(PathBuf::from(file_name));
         let index = ASTIndex::new(file_name.clone(), row, col);
+        let target = CompileTarget::C(COptions::default());
 
-        match finder.get_completions(&project, &index, &eh_module, &trigger) {
+        match finder.get_completions(&project, &index, &eh_module, &trigger, &target) {
             Ok(CompletionResult::Found(items)) => {
                 let mut sorted = items.clone();
                 sorted.sort_by(|a, b| a.sort.cmp(&b.sort));

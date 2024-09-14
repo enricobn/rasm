@@ -12,15 +12,15 @@ pub fn add(suite: Suite, name: str, index: str, function: fn() -> Assertions) ->
     Suite(suite.name, newSuite);
 }
 
-pub fn run(suite: Suite) {
+pub fn run(suite: Suite) -> bool {
     println("running ", suite.name);
     let failures = suite.tests.filter(fn(it) { it.run();});
     if(failures.isEmpty.not, {
         println();
         println("failures:");
         failures.forEach(fn(it) { println(it.name);});
-        exitMain(-1);
-    } , { });
+        false;
+    } , { true; });
 }
 
 pub struct Assertions {
