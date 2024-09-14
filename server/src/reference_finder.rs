@@ -3,7 +3,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
-use log::warn;
+use log::{debug, warn};
 
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
@@ -1102,7 +1102,8 @@ impl ReferenceFinder {
                     })
                     .collect::<Vec<_>>();
                 result.append(&mut v);
-                warn!("Cannot find function for call {call}: {}\n{e}", call.index);
+                warn!("Cannot find function for call {call}: {}", call.index);
+                debug!("{e}");
             }
         }
         Ok(())
@@ -1236,7 +1237,7 @@ mod tests {
         let file_name = Path::new("resources/test/types.rasm");
         let project = RasmProject::new(file_name.to_path_buf());
         let source_file = Path::new(&file_name);
-        let stdlib_path = stdlib_path(file_name);
+        let stdlib_path = stdlib_path();
 
         assert_eq!(
             vec_selectable_item_to_vec_index(
@@ -1506,8 +1507,7 @@ mod tests {
 
     #[test]
     fn types_flatten() {
-        let file_name = PathBuf::from("resources/test/types.rasm");
-        let stdlib_path = stdlib_path(file_name.as_path());
+        let stdlib_path = stdlib_path();
 
         let result_rasm = stdlib_path.join("src/main/rasm/result.rasm");
 
@@ -1662,15 +1662,8 @@ mod tests {
         assert_eq!(1, references.len());
     }
 
-    fn stdlib_path(file_name: &Path) -> PathBuf {
-        let project = RasmProject::new(file_name.to_path_buf());
-
-        let stdlib_path = project
-            .from_relative_to_root(Path::new("../../../stdlib"))
-            .canonicalize()
-            .unwrap();
-
-        stdlib_path
+    fn stdlib_path() -> PathBuf {
+        PathBuf::from("../stdlib").canonicalize().unwrap()
     }
 
     fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> ASTIndex {
