@@ -628,6 +628,11 @@ fn test_iter() {
     );
 }
 
+#[test]
+fn test_poly() {
+    run_test("poly", vec![], "f\n20\n");
+}
+
 // Compile tests
 
 #[test]

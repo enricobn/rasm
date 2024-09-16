@@ -1,0 +1,16 @@
+poly(10);
+poly("hello");
+
+fn poly<T>(v: T) {
+    // it's not possible to determine the type of v1, it depends on the type of v
+    let v1 = f(v);
+    println(v1);
+}
+
+fn f(v: i32) -> str {
+    "f";
+}
+
+fn f(v: str) -> i32 {
+    20;
+}
