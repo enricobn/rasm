@@ -14,6 +14,7 @@ pub mod resolved_generic_types;
 pub mod type_check_error;
 pub mod typed_ast;
 
+pub mod function_type_checker;
 pub mod traverse_typed_ast;
 pub mod used_functions;
 pub mod verify;
