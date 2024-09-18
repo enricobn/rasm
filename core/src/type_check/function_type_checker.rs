@@ -5,15 +5,15 @@ use log::warn;
 use crate::{
     codegen::{enhanced_module::EnhancedASTModule, val_context::ValContext},
     parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTParameterDef, ASTStatement,
-        ASTType, BuiltinTypeKind,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
+        ASTStatement, ASTType, BuiltinTypeKind,
     },
     utils::SliceDisplay,
 };
 
 use super::{
     functions_container::TypeFilter, resolve_generic_types_from_effective_type,
-    resolved_generic_types::ResolvedGenericTypes, substitute, substitute_types,
+    resolved_generic_types::ResolvedGenericTypes, substitute,
 };
 
 pub struct FunctionTypeChecker<'a> {
@@ -122,95 +122,12 @@ impl<'a> FunctionTypeChecker<'a> {
                 );
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
-                let mut first_try_of_map = HashMap::new();
-
-                for e in &call.parameters {
-                    first_try_of_map.extend(self.get_expr_type_map(function, e, val_context, None));
-                }
-
-                let mut parameter_types_filters = Vec::new();
-
-                for e in &call.parameters {
-                    if let Some(ast_type) = first_try_of_map.get(&e.get_index()) {
-                        parameter_types_filters.push(ast_type.clone());
-                    } else {
-                        parameter_types_filters.push(TypeFilter::Any);
-                    }
-                }
-
-                if let Ok(mut functions) =
-                    self.enhanced_ast_module
-                        .find_call_vec(call, &parameter_types_filters, None)
-                {
-                    if functions.is_empty() {
-                        print!(
-                            "no functions for {} : {} -> ",
-                            call.function_name, call.index
-                        );
-                        println!("{}", SliceDisplay(&parameter_types_filters));
-                    } else {
-                        let min_rank = functions
-                            .iter()
-                            .min_by(|f1, f2| f1.rank.cmp(&f2.rank))
-                            .unwrap()
-                            .rank;
-
-                        functions = functions
-                            .into_iter()
-                            .filter(|it| it.rank == min_rank)
-                            .collect::<Vec<_>>();
-
-                        if functions.len() > 1 {
-                            print!(
-                                "more than one function for {} : {} -> ",
-                                call.function_name, call.index
-                            );
-                            println!("{}", SliceDisplay(&parameter_types_filters));
-                            for fun in functions.iter() {
-                                println!("  function {fun}");
-                            }
-                        } else {
-                            let found_function = functions.remove(0);
-
-                            let return_type = if found_function.return_type.is_generic() {
-                                // TODO resolve
-                                let mut resolved_generic_types = ResolvedGenericTypes::new();
-                                for (i, parameter) in found_function.parameters.iter().enumerate() {
-                                    if parameter.ast_type.is_generic() {
-                                        let calculated_type_filter =
-                                            parameter_types_filters.get(i).unwrap();
-
-                                        if let TypeFilter::Exact(calculated_type) =
-                                            calculated_type_filter
-                                        {
-                                            if let Ok(rgt) =
-                                                resolve_generic_types_from_effective_type(
-                                                    &parameter.ast_type,
-                                                    calculated_type,
-                                                )
-                                            {
-                                                // TODO error
-                                                resolved_generic_types.extend(rgt);
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if let Some(return_type) =
-                                    substitute(&found_function.return_type, &resolved_generic_types)
-                                {
-                                    return_type
-                                } else {
-                                    found_function.return_type.clone()
-                                }
-                            } else {
-                                found_function.return_type.clone()
-                            };
-
-                            result.insert(call.index.clone(), TypeFilter::Exact(return_type));
-                        }
-                    }
-                }
+                result.extend(self.get_call_type_map(
+                    function,
+                    call,
+                    val_context,
+                    expected_expression_type,
+                ));
             }
             ASTExpression::ValueRef(name, index) => {
                 if let Some(kind) = val_context.get(name) {
@@ -266,6 +183,103 @@ impl<'a> FunctionTypeChecker<'a> {
             ASTExpression::Any(_) => todo!(),
         }
 
+        result
+    }
+
+    fn get_call_type_map(
+        &self,
+        function: &ASTFunctionDef,
+        call: &ASTFunctionCall,
+        val_context: &mut ValContext,
+        expected_expression_type: Option<ASTType>,
+    ) -> HashMap<ASTIndex, TypeFilter> {
+        let mut result = HashMap::new();
+
+        let mut first_try_of_map = HashMap::new();
+
+        for e in &call.parameters {
+            first_try_of_map.extend(self.get_expr_type_map(function, e, val_context, None));
+        }
+
+        let mut parameter_types_filters = Vec::new();
+
+        for e in &call.parameters {
+            if let Some(ast_type) = first_try_of_map.get(&e.get_index()) {
+                parameter_types_filters.push(ast_type.clone());
+            } else {
+                parameter_types_filters.push(TypeFilter::Any);
+            }
+        }
+
+        if let Ok(mut functions) =
+            self.enhanced_ast_module
+                .find_call_vec(call, &parameter_types_filters, None)
+        {
+            if functions.is_empty() {
+                print!(
+                    "no functions for {} : {} -> ",
+                    call.function_name, call.index
+                );
+                println!("{}", SliceDisplay(&parameter_types_filters));
+            } else {
+                let min_rank = functions
+                    .iter()
+                    .min_by(|f1, f2| f1.rank.cmp(&f2.rank))
+                    .unwrap()
+                    .rank;
+
+                functions = functions
+                    .into_iter()
+                    .filter(|it| it.rank == min_rank)
+                    .collect::<Vec<_>>();
+
+                if functions.len() > 1 {
+                    print!(
+                        "more than one function for {} : {} -> ",
+                        call.function_name, call.index
+                    );
+                    println!("{}", SliceDisplay(&parameter_types_filters));
+                    for fun in functions.iter() {
+                        println!("  function {fun}");
+                    }
+                } else {
+                    let found_function = functions.remove(0);
+
+                    let return_type = if found_function.return_type.is_generic() {
+                        // TODO resolve
+                        let mut resolved_generic_types = ResolvedGenericTypes::new();
+                        for (i, parameter) in found_function.parameters.iter().enumerate() {
+                            if parameter.ast_type.is_generic() {
+                                let calculated_type_filter =
+                                    parameter_types_filters.get(i).unwrap();
+
+                                if let TypeFilter::Exact(calculated_type) = calculated_type_filter {
+                                    if let Ok(rgt) = resolve_generic_types_from_effective_type(
+                                        &parameter.ast_type,
+                                        calculated_type,
+                                    ) {
+                                        // TODO error
+                                        resolved_generic_types.extend(rgt);
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some(return_type) =
+                            substitute(&found_function.return_type, &resolved_generic_types)
+                        {
+                            return_type
+                        } else {
+                            found_function.return_type.clone()
+                        }
+                    } else {
+                        found_function.return_type.clone()
+                    };
+
+                    result.insert(call.index.clone(), TypeFilter::Exact(return_type));
+                }
+            }
+        }
         result
     }
 }
