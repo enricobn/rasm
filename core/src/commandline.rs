@@ -23,6 +23,7 @@ pub enum CommandLineAction {
     Build,
     Test,
     Server,
+    UI,
 }
 
 pub struct CommandLineOptions {

@@ -1,0 +1,14 @@
+[package]
+name = "rasm-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+env_logger.workspace = true
+log.workspace = true
+# local deps
+rasm-core.workspace = true
+# others
+iced = "0.13.1"
+walkdir = "2.3"

@@ -16,6 +16,7 @@ use rasm_core::project::RasmProject;
 use rasm_server::server::rasm_server;
 
 use rasm_core::commandline::{CommandLineAction, CommandLineOptions};
+use rasm_ui::UI;
 
 fn main() {
     let start = Instant::now();
@@ -40,7 +41,7 @@ fn main() {
             Arg::new("ACTION")
                 .help("the action to perform")
                 .required(true)
-                .value_parser(["build", "test", "server"])
+                .value_parser(["build", "test", "server", "ui"])
                 .required(true)
                 .index(1),
         )
@@ -142,6 +143,7 @@ fn main() {
         "build" => CommandLineAction::Build,
         "test" => CommandLineAction::Test,
         "server" => CommandLineAction::Server,
+        "ui" => CommandLineAction::UI,
         it => panic!("Unsupported action {it}"),
     };
 
@@ -175,6 +177,8 @@ fn main() {
 
     if command_line_options.action == CommandLineAction::Server {
         rasm_server(project);
+    } else if command_line_options.action == CommandLineAction::UI {
+        UI::show(project);
     } else {
         debug_i!("project {:?}", project);
 

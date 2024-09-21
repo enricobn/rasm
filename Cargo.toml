@@ -10,6 +10,7 @@ license = "GPL-3.0-or-later"
 [workspace.dependencies]
 rasm-core = { path = "./core" }
 rasm-server = { path = "./server" }
+rasm-ui = { path = "./ui" }
 
 auto_impl = "1.1.0"
 backtrace = "0.3"
