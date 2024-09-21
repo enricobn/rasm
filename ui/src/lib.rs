@@ -14,21 +14,30 @@ pub enum Message {
     Home,
 }
 
-use std::{env, path::Path};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 use iced::{
-    widget::{button, column, keyed::column, text, Column, Row, Scrollable},
-    Element, Task,
+    widget::{button, text, Column, Row, Scrollable, Text},
+    Color, Element, Font, Padding, Task, Theme,
 };
+
 use rasm_core::{
     codegen::{
         c::options::COptions, compile_target::CompileTarget, enhanced_module::EnhancedASTModule,
         statics::Statics,
     },
     commandline::CommandLineOptions,
-    parser::ast::{ASTFunctionDef, ASTModule},
+    lexer::{tokens::TokenKind, Lexer},
+    parser::ast::ASTFunctionDef,
     project::RasmProject,
 };
+
+const COMMENT_COLOR: Color = Color::from_rgb(0.2, 0.8, 0.2);
+const NATIVE_COLOR: Color = Color::from_rgb(0.8, 0.4, 0.4);
+const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
 
 impl UI {
     pub fn show(project: RasmProject) -> iced::Result {
@@ -44,21 +53,23 @@ impl UI {
             &CommandLineOptions::default(),
         );
 
-        iced::application("Rasm project UI", UI::update, UI::view).run_with(|| {
-            (
-                UI {
-                    project,
-                    modules: modules
-                        .into_iter()
-                        .map(|it| it.path.to_string_lossy().to_owned().to_string())
-                        .collect(),
-                    target,
-                    current_module: None,
-                    current_function: None,
-                },
-                Task::none(),
-            )
-        })
+        iced::application("Rasm project UI", UI::update, UI::view)
+            .theme(|_ui| Theme::Dark)
+            .run_with(|| {
+                (
+                    UI {
+                        project,
+                        modules: modules
+                            .into_iter()
+                            .map(|it| it.path.to_string_lossy().to_owned().to_string())
+                            .collect(),
+                        target,
+                        current_module: None,
+                        current_function: None,
+                    },
+                    Task::none(),
+                )
+            })
     }
 
     pub fn view(&self) -> Element<Message> {
@@ -89,11 +100,14 @@ impl UI {
     }
 
     fn home(&self) -> Element<Message> {
-        let mut column = Column::new();
+        let mut column = Column::new().push(text(format!(
+            "Project {}",
+            self.project.config.package.name
+        )));
         for module in self.modules.iter() {
             let row = Row::new()
                 .spacing(10)
-                .push(button("open").on_press(Message::Module(module.clone())))
+                .push(button("Open").on_press(Message::Module(module.clone())))
                 .push(text(module));
             column = column.push(row);
         }
@@ -115,19 +129,84 @@ impl UI {
             .project
             .get_module(Path::new(module_path), &self.target)
         {
-            for function in module.functions.iter() {
-                let row = Row::new()
-                    .spacing(10)
-                    .push(button("show").on_press(Message::Function(function.clone())))
-                    .push(text(format!("{}", function)));
-                column = column.push(row);
+            let path = PathBuf::from(module_path);
+            if let Ok(source) = fs::read_to_string(&path) {
+                let mut code = Column::new().padding(Padding::new(5.0));
+
+                let lexer = Lexer::new(source, Some(path));
+
+                let (tokens, _errors) = lexer.process();
+
+                let mut row = Row::new();
+
+                let mut just_added_new_line = false;
+
+                for token in tokens {
+                    if matches!(token.kind, TokenKind::EndOfLine) {
+                        if just_added_new_line {
+                            row = row.push(text(""));
+                        }
+                        code = code.push(row);
+                        row = Row::new();
+                        just_added_new_line = true;
+                    } else {
+                        match token.kind {
+                            TokenKind::AlphaNumeric(s) => row = row.push(Self::monospace(s)),
+                            TokenKind::NativeBlock(s) => {
+                                row = row.push(Self::monospace(s).color(NATIVE_COLOR))
+                            }
+                            //TokenKind::Bracket(bracket_kind, bracket_status) => todo!(),
+                            TokenKind::Comment(s) => {
+                                row = row.push(Self::monospace(s).color(COMMENT_COLOR))
+                            }
+                            TokenKind::MultiLineComment(s) => {
+                                row = row.push(Self::monospace(s).color(COMMENT_COLOR))
+                            }
+                            TokenKind::KeyWord(keyword_kind) => {
+                                row = row
+                                    .push(Self::monospace(keyword_kind.name()).color(KEYWORD_COLOR))
+                            }
+                            //TokenKind::Number(_) => todo!(),
+                            //TokenKind::Punctuation(punctuation_kind) => todo!(),
+                            //TokenKind::StringLiteral(_) => todo!(),
+                            //TokenKind::CharLiteral(_) => todo!(),
+                            TokenKind::WhiteSpaces(s) => {
+                                row = row.push(Self::monospace(s));
+                            }
+                            _ => {
+                                row = row.push(Self::monospace(format!("{}", token.kind)));
+                            }
+                        }
+                        just_added_new_line = false;
+                    }
+                }
+
+                if !just_added_new_line {
+                    code = code.push(row);
+                }
+
+                /*
+                for function in module.functions.iter() {
+                    let row = Row::new()
+                        .spacing(10)
+                        .push(button("Show").on_press(Message::Function(function.clone())))
+                        .push(text(format!("{}", function)));
+                    column = column.push(row);
+                }
+                */
+                column = column.push(Scrollable::new(code));
             }
         }
+
         column.into()
     }
 
+    fn monospace(s: String) -> Text<'static> {
+        text(s).font(Font::MONOSPACE)
+    }
+
     fn show_function<'a>(&'a self, function: &'a ASTFunctionDef) -> Element<Message> {
-        let column = Column::new()
+        let mut column = Column::new()
             .spacing(10)
             .push(button("Back").on_press(Message::BackToModule))
             .push(text(format!("{}", function)));

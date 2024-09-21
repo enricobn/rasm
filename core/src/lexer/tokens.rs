@@ -48,7 +48,7 @@ impl Token {
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub enum TokenKind {
     AlphaNumeric(String),
-    NativeBLock(String),
+    NativeBlock(String),
     Bracket(BracketKind, BracketStatus),
     Comment(String),
     MultiLineComment(String),
@@ -67,7 +67,7 @@ impl Display for TokenKind {
             TokenKind::AlphaNumeric(s) => {
                 write!(f, "'{}'", s)
             }
-            TokenKind::NativeBLock(_) => {
+            TokenKind::NativeBlock(_) => {
                 write!(f, "native")
             }
             TokenKind::Bracket(kind, status) => match kind {

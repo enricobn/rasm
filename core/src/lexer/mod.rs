@@ -317,7 +317,7 @@ impl Lexer {
                 }
                 LexStatus::NativeBlock => {
                     if actual.ends_with("}/") {
-                        let token = self.some_token(TokenKind::NativeBLock(
+                        let token = self.some_token(TokenKind::NativeBlock(
                             actual.split_at(actual.len() - 2).0.into(),
                         ));
                         //self.chars.next_back();
@@ -482,12 +482,12 @@ mod tests {
         let lst: Vec<TokenKind> = tokens
             .into_iter()
             .map(|it| it.kind)
-            .filter(|it| matches!(it, TokenKind::NativeBLock(_)))
+            .filter(|it| matches!(it, TokenKind::NativeBlock(_)))
             .collect();
         assert_eq!(
             vec![
-                NativeBLock("\n    add assembler code\n".into()),
-                NativeBLock("\n    sub assembler code\n".into()),
+                NativeBlock("\n    add assembler code\n".into()),
+                NativeBlock("\n    sub assembler code\n".into()),
             ],
             lst
         );

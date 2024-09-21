@@ -909,7 +909,7 @@ impl Parser {
                 self.get_token_kind_n(1)
             {
                 self.i += 1;
-            } else if let Some(TokenKind::NativeBLock(_body)) = self.get_token_kind_n(1) {
+            } else if let Some(TokenKind::NativeBlock(_body)) = self.get_token_kind_n(1) {
                 self.i += 1;
             } else {
                 return Err(format!(
@@ -924,7 +924,7 @@ impl Parser {
             self.state.push(ParserState::FunctionBody);
             self.state.push(ParserState::Statement);
             self.i += 1;
-        } else if let TokenKind::NativeBLock(body) = &token.kind {
+        } else if let TokenKind::NativeBlock(body) = &token.kind {
             if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
                 def.body = NativeBody(body.into());
                 self.functions.push(def);

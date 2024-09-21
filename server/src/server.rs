@@ -275,13 +275,13 @@ async fn file<'a>(
 
 fn is_multiline(token: &Token) -> bool {
     matches!(token.kind, TokenKind::MultiLineComment(_))
-        || matches!(token.kind, TokenKind::NativeBLock(_))
+        || matches!(token.kind, TokenKind::NativeBlock(_))
 }
 
 fn token_to_string(token: &Token, row: usize) -> String {
     match &token.kind {
         TokenKind::AlphaNumeric(s) => s.clone(),
-        TokenKind::NativeBLock(s) => {
+        TokenKind::NativeBlock(s) => {
             let mut new_s = format!("{s}}}/");
             if new_s.starts_with('\n') {
                 new_s.remove(0);
