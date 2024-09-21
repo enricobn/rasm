@@ -166,13 +166,13 @@ impl<'a> FunctionTypeChecker<'a> {
                         Some(return_type.as_ref().clone()),
                     ));
 
-                    /*
-                    TODO
                     result.insert(
                         lambda.index.clone(),
-                        TypeFilter::Exact(expected_expression_type.clone()),
+                        TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        })),
                     );
-                    */
                 } else {
                     result.insert(
                         lambda.index.clone(),
