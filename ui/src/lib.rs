@@ -22,6 +22,9 @@ use rasm_core::{
     parser::ast::ASTFunctionDef,
     project::RasmProject,
 };
+use ui_tree::{ui_tree, UINode};
+
+mod ui_tree;
 
 pub struct UI {
     project: RasmProject,
@@ -132,6 +135,27 @@ impl UI {
     }
 
     fn home(&self) -> Element<Message> {
+        let tree = ui_tree(ui_tree::UINode::Node(
+            text("root").into(),
+            vec![UINode::Node(
+                text("dir1").into(),
+                vec![
+                    UINode::Leaf(text("file1").into()),
+                    UINode::Leaf(text("file2").into()),
+                ],
+            )],
+        ));
+
+        Scrollable::with_direction(
+            tree,
+            Direction::Both {
+                vertical: Scrollbar::default(),
+                horizontal: Scrollbar::default(),
+            },
+        )
+        .into()
+
+        /*
         let tree = Column::new();
         Self::add_to_tree(
             tree,
@@ -140,6 +164,7 @@ impl UI {
             &self.project.source_folder(),
         )
         .into()
+        */
     }
 
     fn add_to_tree<'a>(
