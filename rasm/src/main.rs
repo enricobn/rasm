@@ -182,7 +182,7 @@ fn main() {
     } else {
         debug_i!("project {:?}", project);
 
-        let resource_folder = project.main_resource_folder();
+        let resource_folder = project.main_resources_folder();
         info!("resource folder: {:?}", resource_folder);
 
         target.run(project, command_line_options);

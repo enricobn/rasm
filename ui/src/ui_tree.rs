@@ -67,7 +67,7 @@ where
                 }
             }
             UINode::Leaf(element) => {
-                new_tree = tree.push(Self::indent_row(indent + 1, element));
+                new_tree = tree.push(Self::indent_row(indent, element));
             }
         }
         new_tree

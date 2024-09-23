@@ -139,7 +139,7 @@ impl RasmProject {
         }
     }
 
-    pub fn main_resource_folder(&self) -> PathBuf {
+    pub fn main_resources_folder(&self) -> PathBuf {
         if self.is_dir() {
             Path::new(&self.root).join(
                 Path::new(
@@ -157,7 +157,7 @@ impl RasmProject {
         }
     }
 
-    pub fn test_folder(&self) -> PathBuf {
+    pub fn test_rasm_folder(&self) -> PathBuf {
         if self.is_dir() {
             Path::new(&self.root).join(
                 Path::new(
@@ -175,7 +175,7 @@ impl RasmProject {
         }
     }
 
-    pub fn test_resource_folder(&self) -> PathBuf {
+    pub fn test_resources_folder(&self) -> PathBuf {
         if self.is_dir() {
             Path::new(&self.root).join(
                 Path::new(
@@ -192,7 +192,7 @@ impl RasmProject {
         }
     }
 
-    pub fn native_source_folder(&self, native: &str) -> Option<PathBuf> {
+    pub fn main_native_source_folder(&self, native: &str) -> Option<PathBuf> {
         if self.is_dir() {
             Some(
                 Path::new(&self.root).join(
@@ -234,7 +234,7 @@ impl RasmProject {
         }
     }
 
-    pub fn relative_to_root_src(&self, path: &Path) -> Option<PathBuf> {
+    pub fn relative_to_main_rasm_source_folder(&self, path: &Path) -> Option<PathBuf> {
         diff_paths(
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
@@ -246,12 +246,24 @@ impl RasmProject {
         )
     }
 
+    pub fn relative_to_source_folder(&self, path: &Path) -> Option<PathBuf> {
+        diff_paths(
+            path.canonicalize()
+                .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
+            if self.root.is_dir() {
+                self.source_folder().canonicalize().unwrap()
+            } else {
+                self.root.parent().unwrap().canonicalize().unwrap()
+            },
+        )
+    }
+
     pub fn relative_to_root_test(&self, path: &Path) -> Option<PathBuf> {
         diff_paths(
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
-                self.test_folder().canonicalize().unwrap()
+                self.test_rasm_folder().canonicalize().unwrap()
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
@@ -269,7 +281,7 @@ impl RasmProject {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(self.test_folder(), target)
+        self.get_modules(self.test_rasm_folder(), target)
             .into_iter()
             .for_each(|(mut project_module, module_errors)| {
                 enrich_module(&target, statics, &mut project_module, debug);
@@ -294,7 +306,7 @@ impl RasmProject {
 
         pairs.push(self.get_modules(self.main_rasm_source_folder(), target));
 
-        if let Some(native_folder) = self.native_source_folder(target.folder()) {
+        if let Some(native_folder) = self.main_native_source_folder(target.folder()) {
             if native_folder.exists() {
                 pairs.push(self.get_modules(native_folder, target));
             }
@@ -310,7 +322,7 @@ impl RasmProject {
                     let mut dep_modules =
                         dependency.get_modules(dependency.main_rasm_source_folder(), target);
                     if let Some(native_source_folder) =
-                        dependency.native_source_folder(target.folder())
+                        dependency.main_native_source_folder(target.folder())
                     {
                         if native_source_folder.exists() {
                             dep_modules
@@ -324,7 +336,8 @@ impl RasmProject {
 
         if matches!(target, CompileTarget::C(..)) {
             self.get_all_dependencies().iter().for_each(|dependency| {
-                if let Some(native_source_folder) = dependency.native_source_folder(target.folder())
+                if let Some(native_source_folder) =
+                    dependency.main_native_source_folder(target.folder())
                 {
                     if native_source_folder.exists() {
                         WalkDir::new(native_source_folder)
@@ -568,10 +581,10 @@ impl RasmProject {
                 false
             };
             (self.main_rasm_source_folder(), body)
-        } else if path.starts_with(self.test_folder()) {
-            (self.test_folder(), false)
+        } else if path.starts_with(self.test_rasm_folder()) {
+            (self.test_rasm_folder(), false)
         } else {
-            if let Some(native_source_folder) = self.native_source_folder(target.folder()) {
+            if let Some(native_source_folder) = self.main_native_source_folder(target.folder()) {
                 (native_source_folder, false)
             } else {
                 return self

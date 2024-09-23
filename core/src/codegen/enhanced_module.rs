@@ -63,12 +63,12 @@ impl EnhancedASTModule {
         add_folder(
             &mut enhanced_module,
             "RASMRESOURCEFOLDER",
-            project.main_resource_folder(),
+            project.main_resources_folder(),
         );
         add_folder(
             &mut enhanced_module,
             "RASMTESTRESOURCEFOLDER",
-            project.test_resource_folder(),
+            project.test_resources_folder(),
         );
 
         target

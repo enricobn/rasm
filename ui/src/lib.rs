@@ -8,7 +8,7 @@ use iced::{
     widget::{
         button, horizontal_space, row,
         scrollable::{Direction, Scrollbar},
-        text, Column, Row, Scrollable,
+        text, Button, Column, Row, Scrollable,
     },
     Color, Element, Font, Length, Padding, Task, Theme,
 };
@@ -113,38 +113,26 @@ impl UI {
         }
     }
 
-    fn home_old(&self) -> Element<Message> {
-        let mut column = Column::new().push(text(format!(
-            "Project {}",
-            self.project.config.package.name
-        )));
-        for module in self.modules.iter() {
-            let row = Row::new()
-                .spacing(10)
-                .push(button("Open").on_press(Message::Module(module.clone())))
-                .push(text(module));
-            column = column.push(row);
-        }
-
-        /*
-        let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &self.project, &mut statics, &target, false);
-            */
-
-        Scrollable::new(column).width(Length::Fill).into()
+    fn text_button<'a>(t: impl text::IntoFragment<'a>) -> Button<'a, Message> {
+        button(text(t))
+            .style(|theme, status| iced::widget::button::text(theme, status))
+            .into()
     }
 
     fn home(&self) -> Element<Message> {
-        let tree = ui_tree(ui_tree::UINode::Node(
-            text("root").into(),
-            vec![UINode::Node(
-                text("dir1").into(),
-                vec![
-                    UINode::Leaf(text("file1").into()),
-                    UINode::Leaf(text("file2").into()),
-                ],
-            )],
-        ));
+        let root_o = Self::get_node(
+            0,
+            &self.project.config.package.name,
+            &self.project.source_folder(),
+        );
+        let tree = if let Some(root) = root_o {
+            ui_tree(root)
+        } else {
+            ui_tree(UINode::Node(
+                text(&self.project.config.package.name).into(),
+                Vec::new(),
+            ))
+        };
 
         Scrollable::with_direction(
             tree,
@@ -167,62 +155,66 @@ impl UI {
         */
     }
 
-    fn add_to_tree<'a>(
-        tree: Column<'a, Message>,
+    fn get_node<'a>(
         indent: usize,
         name: impl text::IntoFragment<'a>,
         path: &PathBuf,
-    ) -> Column<'a, Message> {
-        if let Ok(dir) = fs::read_dir(path) {
-            let mut new_tree = tree.push(Self::indent_row(
-                indent,
-                row!(
-                    // ▶
-                    button(text('▼'.to_string()).shaping(text::Shaping::Advanced))
-                        .style(|theme, status| iced::widget::button::text(theme, status)),
-                    text(name)
-                )
-                .into(),
-            ));
+    ) -> Option<UINode<'a, Message>> {
+        let mut children = Vec::new();
 
+        if let Ok(dir) = fs::read_dir(path) {
             for r_entry in dir {
                 if let Ok(entry) = r_entry {
                     if let Ok(file_type) = entry.file_type() {
                         let entry_name = entry.file_name().to_string_lossy().to_string();
                         if file_type.is_dir() {
-                            new_tree = Self::add_to_tree(
-                                new_tree,
+                            if let Some(child) = Self::get_node(
                                 indent + 1,
                                 entry_name.trim().to_string(),
                                 &entry.path(),
-                            );
+                            ) {
+                                children.push(child);
+                            }
                         } else if file_type.is_file() {
-                            new_tree = new_tree
-                                .push(Self::indent_row(indent + 1, text(entry_name).into()));
+                            if let Some(ext) = entry.path().extension() {
+                                if ext == "rasm" {
+                                    children.push(UINode::Leaf(
+                                        Self::text_button(entry_name)
+                                            .on_press(Message::Module(
+                                                entry
+                                                    .path()
+                                                    .to_string_lossy()
+                                                    .to_owned()
+                                                    .to_string(),
+                                            ))
+                                            .into(),
+                                    ));
+                                }
+                            }
                         }
                     }
                 }
             }
-
-            new_tree
-        } else {
-            tree
         }
-    }
 
-    fn indent_row(indent: usize, element: Element<Message>) -> Element<Message> {
-        let mut row = Row::new();
-
-        row = row.push(horizontal_space().width(40.0 * indent as f32));
-        row = row.push(element);
-        row.into()
+        if children.is_empty() {
+            None
+        } else {
+            Some(UINode::Node(text(name).into(), children))
+        }
     }
 
     fn show_module<'a>(&'a self, module_path: &'a str) -> Element<Message> {
         let mut column = Column::new()
             .spacing(10)
             .push(button("Back").on_press(Message::Home))
-            .push(text(module_path));
+            .push(text(
+                self.project
+                    .relative_to_source_folder(Path::new(module_path))
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string(),
+            ));
         if let Some((module, _errors)) = self
             .project
             .get_module(Path::new(module_path), &self.target)

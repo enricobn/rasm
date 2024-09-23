@@ -122,7 +122,7 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
     let project = &state.project;
 
     let root_file = project
-        .relative_to_root_src(
+        .relative_to_main_rasm_source_folder(
             project
                 .main_src_file()
                 .expect("undefined main in rasm.toml")
@@ -148,7 +148,9 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
         .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
     {
         let f_name = entry.into_path();
-        let file = project.relative_to_root_src(f_name.as_path()).unwrap();
+        let file = project
+            .relative_to_main_rasm_source_folder(f_name.as_path())
+            .unwrap();
         paths.push(file);
     }
 
@@ -242,7 +244,7 @@ async fn file<'a>(
                     let ref_name = format!(
                         "/file?src={}#_{}_{}",
                         project
-                            .relative_to_root_src(file_name.as_path())
+                            .relative_to_main_rasm_source_folder(file_name.as_path())
                             .unwrap_or_else(|| panic!("{:?}", file_name))
                             .to_str()
                             .unwrap(),
