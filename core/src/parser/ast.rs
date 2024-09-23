@@ -51,6 +51,10 @@ impl ASTNameSpace {
     pub fn safe_name(&self) -> String {
         format!("{self}").replace('/', "_").replace(':', "_")
     }
+
+    pub fn is_core(&self) -> bool {
+        self.lib == "::core"
+    }
 }
 
 impl Display for ASTNameSpace {

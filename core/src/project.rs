@@ -124,6 +124,21 @@ impl RasmProject {
         }
     }
 
+    pub fn source_folder(&self) -> PathBuf {
+        if self.is_dir() {
+            Path::new(&self.root).join(Path::new(
+                &self
+                    .config
+                    .package
+                    .source_folder
+                    .as_ref()
+                    .unwrap_or(&"src".to_string()),
+            ))
+        } else {
+            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+        }
+    }
+
     pub fn main_resource_folder(&self) -> PathBuf {
         if self.is_dir() {
             Path::new(&self.root).join(

@@ -178,7 +178,7 @@ fn main() {
     if command_line_options.action == CommandLineAction::Server {
         rasm_server(project);
     } else if command_line_options.action == CommandLineAction::UI {
-        UI::show(project);
+        UI::show(project, target);
     } else {
         debug_i!("project {:?}", project);
 
