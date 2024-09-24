@@ -1,16 +1,12 @@
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-};
+use std::{env, path::Path};
 
 use iced::{
     widget::{
-        button, container,
+        button,
         pane_grid::{self, ResizeEvent},
-        scrollable::{Direction, Scrollbar},
-        text, Button, Column, Row, Scrollable,
+        text, Button, Column,
     },
-    Background, Color, Element, Font, Length, Padding, Task, Theme,
+    Color, Element, Font, Task, Theme,
 };
 
 use rasm_core::{
@@ -18,11 +14,9 @@ use rasm_core::{
         compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
     },
     commandline::CommandLineOptions,
-    lexer::{tokens::TokenKind, Lexer},
     parser::ast::ASTFunctionDef,
     project::RasmProject,
 };
-use ui_tree::{ui_leaf, ui_node, ui_tree, UINode};
 
 mod module_view;
 mod project_tree;
