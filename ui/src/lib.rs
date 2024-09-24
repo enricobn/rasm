@@ -5,12 +5,12 @@ use std::{
 
 use iced::{
     widget::{
-        button,
-        pane_grid::{self, Highlight, Line, ResizeEvent},
+        button, container,
+        pane_grid::{self, ResizeEvent},
         scrollable::{Direction, Scrollbar},
-        text, Button, Column, PaneGrid, Row, Scrollable,
+        text, Button, Column, Row, Scrollable,
     },
-    Background, Border, Color, Element, Font, Length, Padding, Task, Theme,
+    Background, Color, Element, Font, Length, Padding, Task, Theme,
 };
 
 use rasm_core::{
@@ -21,7 +21,6 @@ use rasm_core::{
     lexer::{tokens::TokenKind, Lexer},
     parser::ast::ASTFunctionDef,
     project::RasmProject,
-    utils::OptionDisplay,
 };
 use ui_tree::{ui_leaf, ui_node, ui_tree, UINode};
 
@@ -57,10 +56,6 @@ enum MyPane {
 
 impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
-        for p in project.get_all_dependencies().iter() {
-            println!("project {}", p.config.package.name);
-        }
-
         let mut statics = Statics::new();
 
         let (modules, _errors) = project.get_all_modules(
@@ -85,16 +80,17 @@ impl UI {
             None
         };
 
-        println!("main {}", OptionDisplay(&main));
-
         let (mut pane_state, pane) = pane_grid::State::new(MyPane::Left);
-        pane_state.split(pane_grid::Axis::Vertical, pane, MyPane::Right);
+        if let Some((_, split)) = pane_state.split(pane_grid::Axis::Vertical, pane, MyPane::Right) {
+            pane_state.resize(split, 0.2);
+        }
 
         iced::application("Rasm project UI", UI::update, UI::view)
             .theme(|_ui| Theme::Dark)
             .default_font(Font::MONOSPACE)
             //.window(Settings::default())
             //.window_size(Size)
+            .centered()
             .run_with(|| {
                 (
                     UI {
@@ -116,7 +112,7 @@ impl UI {
 
     fn view<'a>(&'a self) -> Element<'a, Message> {
         iced::widget::pane_grid(&self.pane_state, |id, pane, maximized| match pane {
-            MyPane::Left => pane_grid::Content::new(self.home()),
+            MyPane::Left => pane_grid::Content::new(self.project_tree()),
             MyPane::Right => match &self.current_module {
                 Some(s) => pane_grid::Content::new(self.show_module(s)),
                 None => pane_grid::Content::new(Column::new()),
@@ -167,7 +163,7 @@ impl UI {
             .into()
     }
 
-    fn home(&self) -> Element<Message> {
+    fn project_tree(&self) -> Element<Message> {
         let root_o = self.get_node(
             0,
             &self.project.config.package.name,
@@ -182,9 +178,15 @@ impl UI {
             ))
         };
 
-        Scrollable::with_direction(tree, Direction::Vertical(Scrollbar::default()))
-            .width(Length::Fill)
-            .into()
+        Scrollable::with_direction(
+            tree,
+            Direction::Both {
+                vertical: Scrollbar::default(),
+                horizontal: Scrollbar::default(),
+            },
+        )
+        .width(Length::Fill)
+        .into()
     }
 
     fn get_node<'a>(
@@ -249,7 +251,7 @@ impl UI {
     }
 
     fn show_module<'a>(&'a self, module_path: &'a str) -> Element<Message> {
-        let mut column = Column::new()
+        let mut column: Column<'_, Message> = Column::new()
             .spacing(10)
             .push(button("Back").on_press(Message::Home))
             .push(text(
@@ -338,7 +340,15 @@ impl UI {
             }
         }
 
-        column.width(Length::Fill).into()
+        container(column.width(Length::Fill))
+            .style(|theme| {
+                let mut color = theme.extended_palette().background.base.color.clone();
+                color.r = color.r * 0.9;
+                color.g = color.g * 0.9;
+                color.b = color.b * 0.9;
+                container::Style::default().background(Background::Color(color))
+            })
+            .into()
     }
 
     fn show_function<'a>(&'a self, function: &'a ASTFunctionDef) -> Element<Message> {
