@@ -4,13 +4,13 @@ use std::{
 };
 
 use iced::{
-    alignment::Vertical,
     widget::{
-        button, horizontal_space, row,
+        button,
+        pane_grid::{self, Highlight, Line, ResizeEvent},
         scrollable::{Direction, Scrollbar},
-        text, Button, Column, Row, Scrollable,
+        text, Button, Column, PaneGrid, Row, Scrollable,
     },
-    Color, Element, Font, Length, Padding, Task, Theme,
+    Background, Border, Color, Element, Font, Length, Padding, Task, Theme,
 };
 
 use rasm_core::{
@@ -22,7 +22,7 @@ use rasm_core::{
     parser::ast::ASTFunctionDef,
     project::RasmProject,
 };
-use ui_tree::{ui_tree, UINode};
+use ui_tree::{ui_leaf, ui_node, ui_tree, UINode};
 
 mod ui_tree;
 
@@ -32,6 +32,7 @@ pub struct UI {
     modules: Vec<String>,
     target: CompileTarget,
     current_function: Option<ASTFunctionDef>,
+    pane_state: pane_grid::State<MyPane>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,11 +41,18 @@ pub enum Message {
     Function(ASTFunctionDef),
     BackToModule,
     Home,
+    ResizeSplit(ResizeEvent),
 }
 
 const COMMENT_COLOR: Color = Color::from_rgb(0.2, 0.8, 0.2);
 const NATIVE_COLOR: Color = Color::from_rgb(0.8, 0.4, 0.4);
 const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
+
+#[derive(Clone, Copy)]
+enum MyPane {
+    Left,
+    Right,
+}
 
 impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
@@ -63,6 +71,9 @@ impl UI {
             &CommandLineOptions::default(),
         );
 
+        let (mut pane_state, pane) = pane_grid::State::new(MyPane::Left);
+        pane_state.split(pane_grid::Axis::Vertical, pane, MyPane::Right);
+
         iced::application("Rasm project UI", UI::update, UI::view)
             .theme(|_ui| Theme::Dark)
             .default_font(Font::MONOSPACE)
@@ -80,13 +91,30 @@ impl UI {
                         target,
                         current_module: None,
                         current_function: None,
+                        pane_state,
                     },
                     Task::none(),
                 )
             })
     }
 
-    pub fn view(&self) -> Element<Message> {
+    fn view<'a>(&'a self) -> Element<'a, Message> {
+        iced::widget::pane_grid(&self.pane_state, |id, pane, maximized| match pane {
+            MyPane::Left => pane_grid::Content::new(self.home()),
+            MyPane::Right => match &self.current_module {
+                Some(s) => pane_grid::Content::new(self.show_module(s)),
+                None => pane_grid::Content::new(Column::new()),
+            },
+        })
+        .spacing(10)
+        .style(move |theme| {
+            let mut pane_style = iced::widget::pane_grid::default(theme);
+            pane_style.hovered_region.border.color = Color::from_rgb(0.0, 0.0, 1.0);
+            pane_style
+        })
+        .on_resize(10, |event| Message::ResizeSplit(event))
+        .into()
+        /*
         match &self.current_function {
             Some(function) => self.show_function(function),
             None => match &self.current_module {
@@ -94,6 +122,7 @@ impl UI {
                 None => self.home(),
             },
         }
+        */
 
         /*
         let (enhanced_ast_module, _errors) =
@@ -101,7 +130,7 @@ impl UI {
             */
     }
 
-    pub fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) {
         match message {
             Message::Home => {
                 self.current_module = None;
@@ -110,6 +139,9 @@ impl UI {
             Message::Module(s) => self.current_module = Some(s),
             Message::Function(function) => self.current_function = Some(function),
             Message::BackToModule => self.current_function = None,
+            Message::ResizeSplit(event) => {
+                self.pane_state.resize(event.split, event.ratio);
+            }
         }
     }
 
@@ -120,7 +152,7 @@ impl UI {
     }
 
     fn home(&self) -> Element<Message> {
-        let root_o = Self::get_node(
+        let root_o = self.get_node(
             0,
             &self.project.config.package.name,
             &self.project.source_folder(),
@@ -134,28 +166,13 @@ impl UI {
             ))
         };
 
-        Scrollable::with_direction(
-            tree,
-            Direction::Both {
-                vertical: Scrollbar::default(),
-                horizontal: Scrollbar::default(),
-            },
-        )
-        .into()
-
-        /*
-        let tree = Column::new();
-        Self::add_to_tree(
-            tree,
-            0,
-            &self.project.config.package.name,
-            &self.project.source_folder(),
-        )
-        .into()
-        */
+        Scrollable::with_direction(tree, Direction::Vertical(Scrollbar::default()))
+            .width(Length::Fill)
+            .into()
     }
 
     fn get_node<'a>(
+        &self,
         indent: usize,
         name: impl text::IntoFragment<'a>,
         path: &PathBuf,
@@ -168,7 +185,7 @@ impl UI {
                     if let Ok(file_type) = entry.file_type() {
                         let entry_name = entry.file_name().to_string_lossy().to_string();
                         if file_type.is_dir() {
-                            if let Some(child) = Self::get_node(
+                            if let Some(child) = self.get_node(
                                 indent + 1,
                                 entry_name.trim().to_string(),
                                 &entry.path(),
@@ -178,17 +195,24 @@ impl UI {
                         } else if file_type.is_file() {
                             if let Some(ext) = entry.path().extension() {
                                 if ext == "rasm" {
-                                    children.push(UINode::Leaf(
+                                    let module =
+                                        entry.path().to_string_lossy().to_owned().to_string();
+                                    let button = if self
+                                        .current_module
+                                        .as_ref()
+                                        .filter(|it| it == &&module)
+                                        .is_some()
+                                    {
+                                        Self::text_button(entry_name).style(|theme, _status| {
+                                            button::Style::default().with_background(
+                                                Background::from(theme.palette().primary),
+                                            )
+                                        })
+                                    } else {
                                         Self::text_button(entry_name)
-                                            .on_press(Message::Module(
-                                                entry
-                                                    .path()
-                                                    .to_string_lossy()
-                                                    .to_owned()
-                                                    .to_string(),
-                                            ))
-                                            .into(),
-                                    ));
+                                    };
+                                    children
+                                        .push(ui_leaf(button.on_press(Message::Module(module))));
                                 }
                             }
                         }
@@ -200,7 +224,7 @@ impl UI {
         if children.is_empty() {
             None
         } else {
-            Some(UINode::Node(text(name).into(), children))
+            Some(ui_node(text(name), children))
         }
     }
 

@@ -1,6 +1,6 @@
 use iced::{
-    widget::{button, horizontal_space, row, text, Column, Row},
-    Element,
+    widget::{button, container, horizontal_space, row, text, Column, Row},
+    Background, Color, Element, Length,
 };
 
 pub struct UITree<'a, Message> {
@@ -13,6 +13,23 @@ where
 {
     Node(Element<'a, Message>, Vec<UINode<'a, Message>>),
     Leaf(Element<'a, Message>),
+}
+
+pub fn ui_node<'a, Message>(
+    element: impl Into<Element<'a, Message>>,
+    children: Vec<UINode<'a, Message>>,
+) -> UINode<'a, Message>
+where
+    Message: Clone,
+{
+    UINode::Node(element.into(), children)
+}
+
+pub fn ui_leaf<'a, Message>(element: impl Into<Element<'a, Message>>) -> UINode<'a, Message>
+where
+    Message: Clone,
+{
+    UINode::Leaf(element.into())
 }
 
 impl<'a, Message> UINode<'a, Message>
