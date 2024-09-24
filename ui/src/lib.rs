@@ -21,6 +21,7 @@ use rasm_core::{
     lexer::{tokens::TokenKind, Lexer},
     parser::ast::ASTFunctionDef,
     project::RasmProject,
+    utils::OptionDisplay,
 };
 use ui_tree::{ui_leaf, ui_node, ui_tree, UINode};
 
@@ -71,6 +72,21 @@ impl UI {
             &CommandLineOptions::default(),
         );
 
+        let main = if let Some(main) = &project.config.package.main {
+            Some(
+                project
+                    .from_relative_to_main_src(Path::new(&main))
+                    .canonicalize()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string(),
+            )
+        } else {
+            None
+        };
+
+        println!("main {}", OptionDisplay(&main));
+
         let (mut pane_state, pane) = pane_grid::State::new(MyPane::Left);
         pane_state.split(pane_grid::Axis::Vertical, pane, MyPane::Right);
 
@@ -89,7 +105,7 @@ impl UI {
                             .map(|it| it.path.to_string_lossy().to_owned().to_string())
                             .collect(),
                         target,
-                        current_module: None,
+                        current_module: main,
                         current_function: None,
                         pane_state,
                     },
@@ -195,8 +211,12 @@ impl UI {
                         } else if file_type.is_file() {
                             if let Some(ext) = entry.path().extension() {
                                 if ext == "rasm" {
-                                    let module =
-                                        entry.path().to_string_lossy().to_owned().to_string();
+                                    let module = entry
+                                        .path()
+                                        .canonicalize()
+                                        .unwrap()
+                                        .to_string_lossy()
+                                        .to_string();
                                     let button = if self
                                         .current_module
                                         .as_ref()
