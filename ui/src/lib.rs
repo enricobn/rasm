@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{collections::HashMap, env, path::Path};
 
 use iced::{
     widget::{
@@ -14,8 +14,9 @@ use rasm_core::{
         compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
     },
     commandline::CommandLineOptions,
-    parser::ast::ASTFunctionDef,
+    parser::ast::{ASTFunctionDef, ASTIndex},
     project::RasmProject,
+    type_check::{function_type_checker::FunctionTypeChecker, functions_container::TypeFilter},
 };
 
 mod module_view;
@@ -24,11 +25,17 @@ mod ui_tree;
 
 pub struct UI {
     project: RasmProject,
-    current_module: Option<String>,
-    modules: Vec<String>,
+    current_module: Option<SelectedModule>,
     target: CompileTarget,
     current_function: Option<ASTFunctionDef>,
     pane_state: pane_grid::State<UIPane>,
+    enhanced_ast_module: EnhancedASTModule,
+    info: Option<String>,
+}
+
+pub struct SelectedModule {
+    path: String,
+    type_map: HashMap<ASTIndex, TypeFilter>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +45,7 @@ pub enum Message {
     BackToModule,
     Home,
     ResizeSplit(ResizeEvent),
+    Info(Option<String>),
 }
 
 #[derive(Clone, Copy)]
@@ -59,6 +67,9 @@ impl UI {
             &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
+
+        let (enhanced_ast_module, _errors) =
+            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         let main = if let Some(main) = &project.config.package.main {
             Some(
@@ -85,6 +96,9 @@ impl UI {
             }
         }
 
+        let current_module =
+            main.map(|it| Self::selected_module(&target, &project, &enhanced_ast_module, &it));
+
         iced::application("Rasm project UI", UI::update, UI::view)
             .theme(|_ui| Theme::Dark)
             .default_font(Font::MONOSPACE)
@@ -95,15 +109,12 @@ impl UI {
                 (
                     UI {
                         project,
-                        modules: modules
-                            .into_iter()
-                            .filter(|it| !it.namespace.is_core())
-                            .map(|it| it.path.to_string_lossy().to_owned().to_string())
-                            .collect(),
                         target,
-                        current_module: main,
+                        current_module,
                         current_function: None,
                         pane_state,
+                        enhanced_ast_module,
+                        info: None,
                     },
                     Task::none(),
                 )
@@ -117,7 +128,13 @@ impl UI {
                 Some(s) => pane_grid::Content::new(self.show_module(s)),
                 None => pane_grid::Content::new(Column::new()),
             },
-            UIPane::Info => pane_grid::Content::new(Column::new()),
+            UIPane::Info => {
+                let content: Element<'a, Message> = match &self.info {
+                    Some(s) => text(s).into(),
+                    None => Column::new().into(),
+                };
+                pane_grid::Content::new(content)
+            }
         })
         .spacing(10)
         .style(move |theme| {
@@ -136,11 +153,6 @@ impl UI {
             },
         }
         */
-
-        /*
-        let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &self.project, &mut statics, &target, false);
-            */
     }
 
     fn update(&mut self, message: Message) {
@@ -149,12 +161,44 @@ impl UI {
                 self.current_module = None;
                 self.current_function = None
             }
-            Message::Module(s) => self.current_module = Some(s),
+            Message::Module(s) => {
+                self.current_module = Some(Self::selected_module(
+                    &self.target,
+                    &self.project,
+                    &self.enhanced_ast_module,
+                    &s,
+                ));
+            }
             Message::Function(function) => self.current_function = Some(function),
             Message::BackToModule => self.current_function = None,
             Message::ResizeSplit(event) => {
                 self.pane_state.resize(event.split, event.ratio);
             }
+            Message::Info(info) => self.info = info,
+        }
+    }
+
+    pub(crate) fn selected_module(
+        target: &CompileTarget,
+        project: &RasmProject,
+        enhanced_ast_module: &EnhancedASTModule,
+        path: &str,
+    ) -> SelectedModule {
+        let type_map = if let Some((module, _errors)) = project.get_module(&Path::new(path), target)
+        {
+            let mut type_map = HashMap::new();
+            let function_type_checker = FunctionTypeChecker::new(enhanced_ast_module);
+            for function in module.functions {
+                type_map.extend(function_type_checker.get_type_map(&function));
+            }
+            type_map
+        } else {
+            HashMap::new()
+        };
+
+        SelectedModule {
+            path: path.to_string(),
+            type_map,
         }
     }
 

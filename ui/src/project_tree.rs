@@ -74,7 +74,7 @@ impl UI {
                                     let button = if self
                                         .current_module
                                         .as_ref()
-                                        .filter(|it| it == &&module)
+                                        .filter(|it| it.path == module)
                                         .is_some()
                                     {
                                         Self::text_button(entry_name).style(|theme, _status| {

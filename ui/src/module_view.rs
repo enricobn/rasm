@@ -5,37 +5,37 @@ use std::{
 
 use iced::{
     widget::{
-        button, container,
+        button, container, hover,
         scrollable::{self, Scrollbar},
         text, Column, Row, Scrollable,
     },
-    Background, Color, Element, Length, Padding,
+    Background, Border, Color, Element, Length, Padding,
 };
 use rasm_core::lexer::{tokens::TokenKind, Lexer};
 
-use crate::{Message, UI};
+use crate::{Message, SelectedModule, UI};
 
 const COMMENT_COLOR: Color = Color::from_rgb(0.2, 0.8, 0.2);
 const NATIVE_COLOR: Color = Color::from_rgb(0.8, 0.4, 0.4);
 const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
 
 impl UI {
-    pub fn show_module<'a>(&'a self, module_path: &'a str) -> Element<Message> {
+    pub fn show_module<'a>(&'a self, selected_module: &'a SelectedModule) -> Element<Message> {
         let mut column: Column<'_, Message> = Column::new()
             .spacing(10)
             .push(button("Back").on_press(Message::Home))
             .push(text(
                 self.project
-                    .relative_to_source_folder(Path::new(module_path))
+                    .relative_to_source_folder(Path::new(&selected_module.path))
                     .unwrap()
                     .to_string_lossy()
                     .to_string(),
             ));
         if let Some((module, _errors)) = self
             .project
-            .get_module(Path::new(module_path), &self.target)
+            .get_module(Path::new(&selected_module.path), &self.target)
         {
-            let path = PathBuf::from(module_path);
+            let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
 
@@ -50,14 +50,33 @@ impl UI {
                 for token in tokens {
                     if matches!(token.kind, TokenKind::EndOfLine) {
                         if just_added_new_line {
-                            row = row.push(text(" "));
+                            row = row.push(" ");
                         }
                         code = code.push(row);
                         row = Row::new();
                         just_added_new_line = true;
                     } else {
+                        let token_index = token.index();
                         match token.kind {
-                            TokenKind::AlphaNumeric(s) => row = row.push(text(s)),
+                            TokenKind::AlphaNumeric(s) => {
+                                let content: Element<'a, Message> = if let Some(type_filter) =
+                                    selected_module.type_map.get(&token_index)
+                                {
+                                    Self::text_button(s)
+                                        .style(|theme, _status| {
+                                            let mut style = button::Style::default();
+                                            style.text_color = theme.palette().text;
+                                            style.border =
+                                                style.border.color(theme.palette().text).width(1.0);
+                                            style
+                                        })
+                                        .on_press(Message::Info(Some(format!("{}", type_filter))))
+                                        .into()
+                                } else {
+                                    text(s).into()
+                                };
+                                row = row.push(content);
+                            }
                             TokenKind::NativeBlock(s) => {
                                 row = row.push("/{");
                                 code = code.push(row);

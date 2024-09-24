@@ -21,6 +21,12 @@ pub struct FunctionTypeChecker<'a> {
 }
 
 impl<'a> FunctionTypeChecker<'a> {
+    pub fn new(enhanced_ast_module: &'a EnhancedASTModule) -> Self {
+        Self {
+            enhanced_ast_module,
+        }
+    }
+
     pub fn get_type_map(&self, function: &ASTFunctionDef) -> HashMap<ASTIndex, TypeFilter> {
         //let mut result = HashMap::new();
         let mut val_context = ValContext::new(None);
@@ -52,7 +58,7 @@ impl<'a> FunctionTypeChecker<'a> {
         result
     }
 
-    pub fn get_body_type_map(
+    fn get_body_type_map(
         &self,
         function: &ASTFunctionDef,
         val_context: &mut ValContext,
@@ -340,9 +346,7 @@ mod tests {
 
         println!("type_checked_ast: {}", type_checked_ast.functions().len());
 
-        let function_type_checker = FunctionTypeChecker {
-            enhanced_ast_module: &enhanced_ast_module,
-        };
+        let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
 
         for function in enhanced_ast_module.functions().iter()
         //.filter(|it| it.name == "take")
