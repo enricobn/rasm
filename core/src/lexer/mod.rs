@@ -325,7 +325,9 @@ impl Lexer {
                     } else if c == '\n' {
                         self.row += 1;
                         self.column = 0;
-                        actual.push(c);
+                        if !actual.is_empty() {
+                            actual.push(c);
+                        }
                     } else {
                         actual.push(c);
                     }
@@ -486,8 +488,8 @@ mod tests {
             .collect();
         assert_eq!(
             vec![
-                NativeBlock("\n    add assembler code\n".into()),
-                NativeBlock("\n    sub assembler code\n".into()),
+                NativeBlock("    add assembler code\n".into()),
+                NativeBlock("    sub assembler code\n".into()),
             ],
             lst
         );
