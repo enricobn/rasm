@@ -280,7 +280,7 @@ impl UI {
                 for token in tokens {
                     if matches!(token.kind, TokenKind::EndOfLine) {
                         if just_added_new_line {
-                            row = row.push(text(""));
+                            row = row.push(text(" "));
                         }
                         code = code.push(row);
                         row = Row::new();
@@ -289,10 +289,18 @@ impl UI {
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => row = row.push(text(s)),
                             TokenKind::NativeBlock(s) => {
-                                row = row.push(text(s).color(NATIVE_COLOR))
+                                row = row.push("/{");
+                                code = code.push(row);
+                                code = code.push(text(s).color(NATIVE_COLOR));
+                                code = code.push(text("}/"));
+                                row = Row::new();
                             }
                             //TokenKind::Bracket(bracket_kind, bracket_status) => todo!(),
-                            TokenKind::Comment(s) => row = row.push(text(s).color(COMMENT_COLOR)),
+                            TokenKind::Comment(s) => {
+                                row = row.push(text(s).color(COMMENT_COLOR));
+                                code = code.push(row);
+                                row = Row::new();
+                            }
                             TokenKind::MultiLineComment(s) => {
                                 row = row.push(text(s).color(COMMENT_COLOR))
                             }
