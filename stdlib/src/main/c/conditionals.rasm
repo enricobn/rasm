@@ -1,11 +1,11 @@
 pub native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
-	if ($cond) {
-		return $castAddress($ftrue)
+    if ($cond) {
+        return $castAddress($ftrue)
         ->functionPtr($ftrue);
-	} else {
-		return $castAddress($ffalse)
+    } else {
+        return $castAddress($ffalse)
         ->functionPtr($ffalse);
-	}
+    }
 }/
 
 /**
@@ -30,10 +30,10 @@ pub native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
     if you need a short circuit then use if function with lambda
 **/
 pub native if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
-	if ($cond) {
-		return $vtrue;
-	} else {
-		return $castAddress($ffalse)
+    if ($cond) {
+        return $vtrue;
+    } else {
+        return $castAddress($ffalse)
         ->functionPtr($ffalse);
-	}
+    }
 }/
