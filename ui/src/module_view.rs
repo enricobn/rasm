@@ -1,0 +1,131 @@
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use iced::{
+    widget::{
+        button, container,
+        scrollable::{self, Scrollbar},
+        text, Column, Row, Scrollable,
+    },
+    Background, Color, Element, Length, Padding,
+};
+use rasm_core::lexer::{tokens::TokenKind, Lexer};
+
+use crate::{Message, UI};
+
+const COMMENT_COLOR: Color = Color::from_rgb(0.2, 0.8, 0.2);
+const NATIVE_COLOR: Color = Color::from_rgb(0.8, 0.4, 0.4);
+const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
+
+impl UI {
+    pub fn show_module<'a>(&'a self, module_path: &'a str) -> Element<Message> {
+        let mut column: Column<'_, Message> = Column::new()
+            .spacing(10)
+            .push(button("Back").on_press(Message::Home))
+            .push(text(
+                self.project
+                    .relative_to_source_folder(Path::new(module_path))
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string(),
+            ));
+        if let Some((module, _errors)) = self
+            .project
+            .get_module(Path::new(module_path), &self.target)
+        {
+            let path = PathBuf::from(module_path);
+            if let Ok(source) = fs::read_to_string(&path) {
+                let mut code = Column::new().padding(Padding::new(5.0));
+
+                let lexer = Lexer::new(source, Some(path));
+
+                let (tokens, _errors) = lexer.process();
+
+                let mut row = Row::new();
+
+                let mut just_added_new_line = false;
+
+                for token in tokens {
+                    if matches!(token.kind, TokenKind::EndOfLine) {
+                        if just_added_new_line {
+                            row = row.push(text(" "));
+                        }
+                        code = code.push(row);
+                        row = Row::new();
+                        just_added_new_line = true;
+                    } else {
+                        match token.kind {
+                            TokenKind::AlphaNumeric(s) => row = row.push(text(s)),
+                            TokenKind::NativeBlock(s) => {
+                                row = row.push("/{");
+                                code = code.push(row);
+                                code = code.push(text(s).color(NATIVE_COLOR));
+                                code = code.push(text("}/"));
+                                row = Row::new();
+                            }
+                            //TokenKind::Bracket(bracket_kind, bracket_status) => todo!(),
+                            TokenKind::Comment(s) => {
+                                row = row.push(text(s).color(COMMENT_COLOR));
+                                code = code.push(row);
+                                row = Row::new();
+                            }
+                            TokenKind::MultiLineComment(s) => {
+                                row = row.push(text(s).color(COMMENT_COLOR))
+                            }
+                            TokenKind::KeyWord(keyword_kind) => {
+                                row = row.push(text(keyword_kind.name()).color(KEYWORD_COLOR))
+                            }
+                            //TokenKind::Number(_) => todo!(),
+                            //TokenKind::Punctuation(punctuation_kind) => todo!(),
+                            //TokenKind::StringLiteral(_) => todo!(),
+                            //TokenKind::CharLiteral(_) => todo!(),
+                            TokenKind::WhiteSpaces(s) => {
+                                row = row.push(text(s));
+                            }
+                            _ => {
+                                row = row.push(text(format!("{}", token.kind)));
+                            }
+                        }
+                        just_added_new_line = false;
+                    }
+                }
+
+                if !just_added_new_line {
+                    code = code.push(row);
+                }
+
+                /*
+                for function in module.functions.iter() {
+                    let row = Row::new()
+                        .spacing(10)
+                        .push(button("Show").on_press(Message::Function(function.clone())))
+                        .push(text(format!("{}", function)));
+                    column = column.push(row);
+                }
+                */
+                column = column.push(
+                    Scrollable::with_direction(
+                        code,
+                        scrollable::Direction::Both {
+                            vertical: Scrollbar::default(),
+                            horizontal: Scrollbar::default(),
+                        },
+                    )
+                    .width(Length::Fill),
+                );
+            }
+        }
+
+        container(column.width(Length::Fill))
+            .style(|theme| {
+                let mut color = theme.extended_palette().background.base.color.clone();
+                color.r = color.r * 0.9;
+                color.g = color.g * 0.9;
+                color.b = color.b * 0.9;
+                container::Style::default().background(Background::Color(color))
+            })
+            .into()
+    }
+}
