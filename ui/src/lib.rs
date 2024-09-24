@@ -28,7 +28,7 @@ pub struct UI {
     modules: Vec<String>,
     target: CompileTarget,
     current_function: Option<ASTFunctionDef>,
-    pane_state: pane_grid::State<MyPane>,
+    pane_state: pane_grid::State<UIPane>,
 }
 
 #[derive(Debug, Clone)]
@@ -41,9 +41,10 @@ pub enum Message {
 }
 
 #[derive(Clone, Copy)]
-enum MyPane {
-    Left,
-    Right,
+enum UIPane {
+    ProjectTree,
+    ModuleCode,
+    Info,
 }
 
 impl UI {
@@ -72,9 +73,16 @@ impl UI {
             None
         };
 
-        let (mut pane_state, pane) = pane_grid::State::new(MyPane::Left);
-        if let Some((_, split)) = pane_state.split(pane_grid::Axis::Vertical, pane, MyPane::Right) {
+        let (mut pane_state, pane) = pane_grid::State::new(UIPane::ProjectTree);
+        if let Some((module_pane, split)) =
+            pane_state.split(pane_grid::Axis::Vertical, pane, UIPane::ModuleCode)
+        {
             pane_state.resize(split, 0.2);
+            if let Some((info_pane, split)) =
+                pane_state.split(pane_grid::Axis::Horizontal, module_pane, UIPane::Info)
+            {
+                pane_state.resize(split, 0.8);
+            }
         }
 
         iced::application("Rasm project UI", UI::update, UI::view)
@@ -104,11 +112,12 @@ impl UI {
 
     fn view<'a>(&'a self) -> Element<'a, Message> {
         iced::widget::pane_grid(&self.pane_state, |id, pane, maximized| match pane {
-            MyPane::Left => pane_grid::Content::new(self.project_tree()),
-            MyPane::Right => match &self.current_module {
+            UIPane::ProjectTree => pane_grid::Content::new(self.project_tree()),
+            UIPane::ModuleCode => match &self.current_module {
                 Some(s) => pane_grid::Content::new(self.show_module(s)),
                 None => pane_grid::Content::new(Column::new()),
             },
+            UIPane::Info => pane_grid::Content::new(Column::new()),
         })
         .spacing(10)
         .style(move |theme| {
