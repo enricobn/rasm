@@ -292,7 +292,10 @@ impl<'a> FunctionTypeChecker<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, path::PathBuf};
+    use std::{
+        env,
+        path::{Path, PathBuf},
+    };
 
     use crate::{
         codegen::{
@@ -329,7 +332,7 @@ mod tests {
             "eh_module_functions: {}",
             enhanced_ast_module.functions().len()
         );
-
+        /*
         let default_functions = target.get_default_functions(false);
         let mandatory_functions = target.get_mandatory_functions(&enhanced_ast_module);
 
@@ -345,10 +348,19 @@ mod tests {
             .unwrap();
 
         println!("type_checked_ast: {}", type_checked_ast.functions().len());
+        */
 
         let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
 
-        for function in enhanced_ast_module.functions().iter()
+        for function in project
+            .get_module(
+                Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+                &target,
+            )
+            .unwrap()
+            .0
+            .functions
+            .iter()
         //.filter(|it| it.name == "take")
         {
             //println!("function {}", function.name);

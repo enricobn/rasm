@@ -51,13 +51,15 @@ impl EnhancedASTModule {
             types.extend(module.types);
         }
 
+        let body_namespace = ASTNameSpace::root_namespace(project);
+
         let mut enhanced_module = Self {
             body,
             functions_by_name: container,
             enums,
             structs,
             types,
-            body_namespace: ASTNameSpace::root_namespace(project),
+            body_namespace,
         };
 
         add_folder(
