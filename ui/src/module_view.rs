@@ -5,13 +5,16 @@ use std::{
 
 use iced::{
     widget::{
-        button, container, hover,
+        button, container,
         scrollable::{self, Scrollbar},
         text, Column, Row, Scrollable,
     },
-    Background, Border, Color, Element, Length, Padding,
+    Background, Color, Element, Length, Padding,
 };
-use rasm_core::lexer::{tokens::TokenKind, Lexer};
+use rasm_core::{
+    lexer::{tokens::TokenKind, Lexer},
+    type_check::functions_container::TypeFilter,
+};
 
 use crate::{Message, SelectedModule, UI};
 
@@ -62,12 +65,25 @@ impl UI {
                                 let content: Element<'a, Message> = if let Some(type_filter) =
                                     selected_module.type_map.get(&token_index)
                                 {
+                                    let exact_and_not_generic =
+                                        if let TypeFilter::Exact(ast_type) = type_filter {
+                                            !ast_type.is_generic()
+                                        } else {
+                                            false
+                                        };
+
                                     Self::text_button(s)
-                                        .style(|theme, _status| {
+                                        .style(move |theme, _status| {
+                                            let border_color = if exact_and_not_generic {
+                                                theme.palette().text
+                                            } else {
+                                                theme.palette().danger
+                                            };
+
                                             let mut style = button::Style::default();
                                             style.text_color = theme.palette().text;
                                             style.border =
-                                                style.border.color(theme.palette().text).width(1.0);
+                                                style.border.color(border_color).width(1.0);
                                             style
                                         })
                                         .on_press(Message::Info(Some(format!("{}", type_filter))))
