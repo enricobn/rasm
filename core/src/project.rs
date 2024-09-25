@@ -574,9 +574,13 @@ impl RasmProject {
         path: &Path,
         target: &CompileTarget,
     ) -> Option<(ASTModule, Vec<CompilationError>)> {
-        let (source_folder, body) = if path.starts_with(self.main_rasm_source_folder()) {
+        let (source_folder, body) = if path
+            .canonicalize()
+            .unwrap()
+            .starts_with(self.main_rasm_source_folder().canonicalize().unwrap())
+        {
             let body = if let Some(main_src_file) = self.main_src_file() {
-                path == main_src_file.as_path()
+                path.canonicalize().unwrap() == main_src_file.as_path().canonicalize().unwrap()
             } else {
                 false
             };
@@ -597,11 +601,14 @@ impl RasmProject {
 
         let namespace = ASTNameSpace::new(
             self.config.package.name.clone(),
-            diff_paths(path, source_folder)
-                .unwrap()
-                .with_extension("")
-                .to_string_lossy()
-                .to_string(),
+            diff_paths(
+                path.canonicalize().unwrap(),
+                source_folder.canonicalize().unwrap(),
+            )
+            .unwrap()
+            .with_extension("")
+            .to_string_lossy()
+            .to_string(),
         );
         info!(
             "including file {} namespace {namespace}",
