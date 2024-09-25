@@ -31,7 +31,7 @@ impl<'a> FunctionTypeChecker<'a> {
         //let mut result = HashMap::new();
         let mut val_context = ValContext::new(None);
 
-        let mut result = self.get_body_type_map(
+        let (mut result, mut return_type) = self.get_body_type_map(
             function,
             &mut val_context,
             &self.enhanced_ast_module.body,
@@ -45,7 +45,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
-                result = self.get_body_type_map(
+                (result, return_type) = self.get_body_type_map(
                     function,
                     &mut val_context,
                     body,
@@ -64,8 +64,9 @@ impl<'a> FunctionTypeChecker<'a> {
         val_context: &mut ValContext,
         body: &Vec<ASTStatement>,
         expected_last_statement_type: Option<ASTType>,
-    ) -> HashMap<ASTIndex, TypeFilter> {
+    ) -> (HashMap<ASTIndex, TypeFilter>, Option<TypeFilter>) {
         let mut result = HashMap::new();
+        let mut return_type = None;
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
@@ -87,6 +88,8 @@ impl<'a> FunctionTypeChecker<'a> {
                                     None,
                                 ));
                             }
+
+                            return_type = result.get(&e.get_index()).cloned();
                         } else {
                             result.extend(self.get_expr_type_map(function, e, val_context, None));
                         }
@@ -108,7 +111,7 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
 
-        result
+        (result, return_type)
     }
 
     fn get_expr_type_map(
@@ -165,20 +168,32 @@ impl<'a> FunctionTypeChecker<'a> {
                         );
                     }
 
-                    result.extend(self.get_body_type_map(
+                    let (body_result, body_return_type) = self.get_body_type_map(
                         function,
                         &mut val_context,
                         &lambda.body,
                         Some(return_type.as_ref().clone()),
-                    ));
-
-                    result.insert(
-                        lambda.index.clone(),
-                        TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters,
-                            return_type,
-                        })),
                     );
+
+                    result.extend(body_result);
+
+                    if let Some(TypeFilter::Exact(brt)) = body_return_type {
+                        result.insert(
+                            lambda.index.clone(),
+                            TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters,
+                                return_type: Box::new(brt),
+                            })),
+                        );
+                    } else {
+                        result.insert(
+                            lambda.index.clone(),
+                            TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters,
+                                return_type,
+                            })),
+                        );
+                    }
                 } else {
                     result.insert(
                         lambda.index.clone(),
@@ -251,24 +266,65 @@ impl<'a> FunctionTypeChecker<'a> {
                 } else {
                     let found_function = functions.remove(0);
 
-                    let return_type = if found_function.return_type.is_generic() {
-                        // TODO resolve
-                        let mut resolved_generic_types = ResolvedGenericTypes::new();
-                        for (i, parameter) in found_function.parameters.iter().enumerate() {
-                            if parameter.ast_type.is_generic() {
-                                let calculated_type_filter =
-                                    parameter_types_filters.get(i).unwrap();
+                    if call.function_name == "match" {
+                        println!("found match {found_function}");
+                    }
 
-                                if let TypeFilter::Exact(calculated_type) = calculated_type_filter {
-                                    if let Ok(rgt) = resolve_generic_types_from_effective_type(
-                                        &parameter.ast_type,
-                                        calculated_type,
-                                    ) {
-                                        // TODO error
-                                        resolved_generic_types.extend(rgt);
+                    let mut resolved_generic_types = ResolvedGenericTypes::new();
+
+                    for (i, parameter) in found_function.parameters.iter().enumerate() {
+                        if parameter.ast_type.is_generic() {
+                            let calculated_type_filter = parameter_types_filters.get(i).unwrap();
+
+                            if let TypeFilter::Exact(calculated_type) = calculated_type_filter {
+                                if let Ok(rgt) = resolve_generic_types_from_effective_type(
+                                    &parameter.ast_type,
+                                    calculated_type,
+                                ) {
+                                    if call.function_name == "match" {
+                                        println!("match generic types {rgt}");
                                     }
+                                    // TODO error
+                                    resolved_generic_types.extend(rgt);
                                 }
                             }
+                        }
+                    }
+
+                    for (i, e) in call.parameters.iter().enumerate() {
+                        let parameter_type =
+                            found_function.parameters.get(i).unwrap().ast_type.clone();
+                        let ast_type = substitute(
+                            &found_function.parameters.get(i).unwrap().ast_type,
+                            &resolved_generic_types,
+                        )
+                        .unwrap_or(parameter_type.clone());
+
+                        result.extend(self.get_expr_type_map(
+                            function,
+                            e,
+                            val_context,
+                            Some(ast_type),
+                        ));
+
+                        if let Some(TypeFilter::Exact(expr_type)) = result.get(&e.get_index()) {
+                            if parameter_type.is_generic() {
+                                if let Ok(rgt) = resolve_generic_types_from_effective_type(
+                                    &parameter_type,
+                                    expr_type,
+                                ) {
+                                    let f = format!("{parameter_type} {expr_type} {rgt}");
+                                    // TODO error
+                                    resolved_generic_types.extend(rgt);
+                                }
+                            }
+                        }
+                    }
+
+                    let return_type = if found_function.return_type.is_generic() {
+                        // TODO resolve
+                        if resolved_generic_types.len() > 0 {
+                            //found_function.
                         }
 
                         if let Some(return_type) =
