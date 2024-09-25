@@ -266,10 +266,6 @@ impl<'a> FunctionTypeChecker<'a> {
                 } else {
                     let found_function = functions.remove(0);
 
-                    if call.function_name == "match" {
-                        println!("found match {found_function}");
-                    }
-
                     let mut resolved_generic_types = ResolvedGenericTypes::new();
 
                     for (i, parameter) in found_function.parameters.iter().enumerate() {
@@ -281,9 +277,6 @@ impl<'a> FunctionTypeChecker<'a> {
                                     &parameter.ast_type,
                                     calculated_type,
                                 ) {
-                                    if call.function_name == "match" {
-                                        println!("match generic types {rgt}");
-                                    }
                                     // TODO error
                                     resolved_generic_types.extend(rgt);
                                 }
@@ -313,7 +306,6 @@ impl<'a> FunctionTypeChecker<'a> {
                                     &parameter_type,
                                     expr_type,
                                 ) {
-                                    let f = format!("{parameter_type} {expr_type} {rgt}");
                                     // TODO error
                                     resolved_generic_types.extend(rgt);
                                 }
