@@ -12,8 +12,10 @@ use crate::{
 };
 
 use super::{
-    functions_container::TypeFilter, resolve_generic_types_from_effective_type,
-    resolved_generic_types::ResolvedGenericTypes, substitute,
+    functions_container::TypeFilter,
+    resolve_generic_types_from_effective_type,
+    resolved_generic_types::{self, ResolvedGenericTypes},
+    substitute,
 };
 
 pub struct FunctionTypeChecker<'a> {
@@ -232,10 +234,11 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
 
-        if let Ok(mut functions) =
-            self.enhanced_ast_module
-                .find_call_vec(call, &parameter_types_filters, None)
-        {
+        if let Ok(mut functions) = self.enhanced_ast_module.find_call_vec(
+            call,
+            &parameter_types_filters,
+            expected_expression_type,
+        ) {
             if functions.is_empty() {
                 print!(
                     "no functions for {} : {} -> ",
@@ -263,6 +266,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     for fun in functions.iter() {
                         println!("  function {fun}");
                     }
+                    result.extend(first_try_of_map);
                 } else {
                     let found_function = functions.remove(0);
 
@@ -284,41 +288,46 @@ impl<'a> FunctionTypeChecker<'a> {
                         }
                     }
 
-                    for (i, e) in call.parameters.iter().enumerate() {
-                        let parameter_type =
-                            found_function.parameters.get(i).unwrap().ast_type.clone();
-                        let ast_type = substitute(
-                            &found_function.parameters.get(i).unwrap().ast_type,
-                            &resolved_generic_types,
-                        )
-                        .unwrap_or(parameter_type.clone());
+                    loop {
+                        let resolved_generic_types_len = resolved_generic_types.len();
 
-                        result.extend(self.get_expr_type_map(
-                            function,
-                            e,
-                            val_context,
-                            Some(ast_type),
-                        ));
+                        for (i, e) in call.parameters.iter().enumerate() {
+                            let parameter_type =
+                                found_function.parameters.get(i).unwrap().ast_type.clone();
+                            let ast_type = substitute(
+                                &found_function.parameters.get(i).unwrap().ast_type,
+                                &resolved_generic_types,
+                            )
+                            .unwrap_or(parameter_type.clone());
 
-                        if let Some(TypeFilter::Exact(expr_type)) = result.get(&e.get_index()) {
-                            if parameter_type.is_generic() {
-                                if let Ok(rgt) = resolve_generic_types_from_effective_type(
-                                    &parameter_type,
-                                    expr_type,
-                                ) {
-                                    // TODO error
-                                    resolved_generic_types.extend(rgt);
+                            result.extend(self.get_expr_type_map(
+                                function,
+                                e,
+                                val_context,
+                                Some(ast_type),
+                            ));
+
+                            if let Some(TypeFilter::Exact(expr_type)) = result.get(&e.get_index()) {
+                                if parameter_type.is_generic() {
+                                    if let Ok(rgt) = resolve_generic_types_from_effective_type(
+                                        &parameter_type,
+                                        expr_type,
+                                    ) {
+                                        // TODO error
+                                        resolved_generic_types.extend(rgt);
+                                    }
                                 }
                             }
                         }
+
+                        if resolved_generic_types.len() == resolved_generic_types_len {
+                            break;
+                        }
                     }
 
-                    let return_type = if found_function.return_type.is_generic() {
-                        // TODO resolve
-                        if resolved_generic_types.len() > 0 {
-                            //found_function.
-                        }
-
+                    let return_type = if found_function.return_type.is_generic()
+                        && resolved_generic_types.len() > 0
+                    {
                         if let Some(return_type) =
                             substitute(&found_function.return_type, &resolved_generic_types)
                         {

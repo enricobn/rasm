@@ -74,19 +74,18 @@ impl UI {
 
                                     Self::text_button(s)
                                         .style(move |theme, _status| {
-                                            let border_color = if exact_and_not_generic {
-                                                theme.palette().text
+                                            let color = if exact_and_not_generic {
+                                                theme.palette().success
                                             } else {
                                                 theme.palette().danger
                                             };
 
                                             let mut style = button::Style::default();
-                                            style.text_color = theme.palette().text;
-                                            style.border =
-                                                style.border.color(border_color).width(1.0);
+                                            style.text_color = color;
                                             style
                                         })
                                         .on_press(Message::Info(Some(format!("{}", type_filter))))
+                                        .padding(Padding::ZERO)
                                         .into()
                                 } else {
                                     text(s).into()

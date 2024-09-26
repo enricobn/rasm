@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path::Path};
+use std::{collections::HashMap, env, path::Path, time::Instant};
 
 use iced::{
     widget::{
@@ -184,6 +184,7 @@ impl UI {
         enhanced_ast_module: &EnhancedASTModule,
         path: &str,
     ) -> SelectedModule {
+        let start = Instant::now();
         let type_map = if let Some((module, _errors)) = project.get_module(&Path::new(path), target)
         {
             let mut type_map = HashMap::new();
@@ -196,6 +197,7 @@ impl UI {
             HashMap::new()
         };
 
+        println!("selected_module takes {:?}", start.elapsed());
         SelectedModule {
             path: path.to_string(),
             type_map,
