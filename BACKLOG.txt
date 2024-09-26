@@ -1,9 +1,11 @@
 Doing
 ------
-- FunctionTypeChecker
+- FunctionTypeChecker + UI
 
 Major
 -----
+- consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, then
+  it will compile, but it will crash at runtime!!!
 - "Universal Polymorphism" can create an infinite recursion, for example:
   we declare a function like
     add<T>(o1: str, o2: T) -> str {
@@ -17,7 +19,8 @@ Major
     }
 
   and we don't declare a non-generic function for add(s1: str, s2: str), calling add with two strings leads to an infinite recursion!!!
-
+- types should be declared as "native type" and should be defined with /{ }/ : it will be a compiler responsibility to interpret the content,
+  as in native functions
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
@@ -38,7 +41,7 @@ Major
     println(10);
     ...
     - check for unused parameters, let and static let
-- cannot use .someFunction without parenthesis if the function does not return anything
+- it would be better if we cannot use .someFunction without parenthesis, if the function does not return anything
 - visibility
   - private
   - readonly
