@@ -2,10 +2,12 @@ use std::collections::HashMap;
 
 use crate::{
     codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
+    errors,
     parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
         ASTStatement, ASTType, BuiltinTypeKind,
     },
+    type_check::type_check_error::TypeCheckError,
     utils::SliceDisplay,
 };
 
@@ -220,6 +222,7 @@ impl<'a> FunctionTypeChecker<'a> {
         statics: &mut Statics,
         expected_expression_type: Option<&ASTType>,
     ) -> HashMap<ASTIndex, TypeFilter> {
+        let mut errors = Vec::new();
         let mut result = HashMap::new();
 
         let mut first_try_of_map = HashMap::new();
@@ -249,6 +252,11 @@ impl<'a> FunctionTypeChecker<'a> {
                     call.function_name, call.index
                 );
                 println!("{}", SliceDisplay(&parameter_types_filters));
+                errors.push(TypeCheckError::new(
+                    call.index.clone(),
+                    format!("no functions for {}", call.function_name),
+                    Vec::new(),
+                ));
             } else {
                 let min_rank = functions
                     .iter()
@@ -270,6 +278,13 @@ impl<'a> FunctionTypeChecker<'a> {
                     for fun in functions.iter() {
                         println!("  function {fun}");
                     }
+
+                    errors.push(TypeCheckError::new(
+                        call.index.clone(),
+                        format!("no functions for {}", call.function_name),
+                        Vec::new(),
+                    ));
+
                     result.extend(first_try_of_map);
                 } else {
                     let found_function = functions.remove(0);
@@ -280,15 +295,13 @@ impl<'a> FunctionTypeChecker<'a> {
                         if parameter.ast_type.is_generic() {
                             let calculated_type_filter = parameter_types_filters.get(i).unwrap();
 
-                            if let TypeFilter::Exact(calculated_type) = calculated_type_filter {
-                                if let Ok(rgt) = resolve_generic_types_from_effective_type(
-                                    &parameter.ast_type,
-                                    calculated_type,
-                                ) {
-                                    // TODO error
-                                    resolved_generic_types.extend(rgt);
-                                }
-                            }
+                            Self::resolve_type_filter(
+                                call.index.clone(),
+                                &parameter.ast_type,
+                                calculated_type_filter,
+                                &mut resolved_generic_types,
+                                &mut errors,
+                            );
                         }
                     }
 
@@ -308,16 +321,14 @@ impl<'a> FunctionTypeChecker<'a> {
                                 Some(&ast_type),
                             ));
 
-                            if let Some(TypeFilter::Exact(expr_type)) = result.get(&e.get_index()) {
-                                if parameter_type.is_generic() {
-                                    if let Ok(rgt) = resolve_generic_types_from_effective_type(
-                                        &parameter_type,
-                                        expr_type,
-                                    ) {
-                                        // TODO error
-                                        resolved_generic_types.extend(rgt);
-                                    }
-                                }
+                            if let Some(calculated_type_filter) = result.get(&e.get_index()) {
+                                Self::resolve_type_filter(
+                                    call.index.clone(),
+                                    &parameter_type,
+                                    calculated_type_filter,
+                                    &mut resolved_generic_types,
+                                    &mut errors,
+                                );
                             }
                         }
 
@@ -345,6 +356,25 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
         result
+    }
+
+    fn resolve_type_filter(
+        index: ASTIndex,
+        generic_type: &ASTType,
+        effective_filter: &TypeFilter,
+        resolved_generic_types: &mut ResolvedGenericTypes,
+        errors: &mut Vec<TypeCheckError>,
+    ) {
+        if let TypeFilter::Exact(calculated_type) = effective_filter {
+            match resolve_generic_types_from_effective_type(generic_type, calculated_type) {
+                Ok(rgt) => {
+                    if let Err(e) = resolved_generic_types.extend(rgt) {
+                        errors.push(TypeCheckError::new(index, e, Vec::new()));
+                    }
+                }
+                Err(e) => errors.push(e),
+            }
+        }
     }
 }
 
