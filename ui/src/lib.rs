@@ -18,6 +18,7 @@ use rasm_core::{
     parser::ast::{ASTFunctionDef, ASTIndex},
     project::RasmProject,
     type_check::{function_type_checker::FunctionTypeChecker, functions_container::TypeFilter},
+    utils::SliceDisplay,
 };
 
 mod module_view;
@@ -183,25 +184,29 @@ impl UI {
         let start = Instant::now();
         let type_map = if let Some((module, _errors)) = project.get_module(&Path::new(path), target)
         {
-            let mut type_map = HashMap::new();
             let function_type_checker = FunctionTypeChecker::new(enhanced_ast_module);
             let mut val_context = ValContext::new(None);
             let mut statics = Statics::new();
 
-            type_map.extend(
-                function_type_checker
-                    .get_body_type_map(
-                        &mut val_context,
-                        &mut statics,
-                        &enhanced_ast_module.body,
-                        None,
-                    )
-                    .0,
+            // TODO errors
+
+            let (mut type_map, _, mut errors) = function_type_checker.get_body_type_map(
+                &mut val_context,
+                &mut statics,
+                &enhanced_ast_module.body,
+                None,
             );
 
             for function in module.functions {
-                type_map.extend(function_type_checker.get_type_map(&function, &mut statics));
+                let (f_result, f_errors) =
+                    function_type_checker.get_type_map(&function, &mut statics);
+                type_map.extend(f_result);
+                errors.extend(f_errors);
             }
+
+            // TODO errors
+            println!("selected_module errors: {}", SliceDisplay(&errors));
+
             type_map
         } else {
             HashMap::new()

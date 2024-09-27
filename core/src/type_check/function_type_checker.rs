@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::{
     codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
-    errors,
     parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
         ASTStatement, ASTType, BuiltinTypeKind,
@@ -31,16 +30,19 @@ impl<'a> FunctionTypeChecker<'a> {
         &self,
         function: &ASTFunctionDef,
         statics: &mut Statics,
-    ) -> HashMap<ASTIndex, TypeFilter> {
-        //let mut result = HashMap::new();
+    ) -> (HashMap<ASTIndex, TypeFilter>, Vec<TypeCheckError>) {
+        let mut result = HashMap::new();
+        let mut errors = Vec::new();
         let mut val_context = ValContext::new(None);
 
-        let (mut result, mut return_type) = self.get_body_type_map(
+        /*
+        let (mut result, mut return_type, mut errors) = self.get_body_type_map(
             &mut val_context,
             statics,
             &self.enhanced_ast_module.body,
             None,
         );
+        */
 
         for par in &function.parameters {
             // TODO check error
@@ -49,7 +51,8 @@ impl<'a> FunctionTypeChecker<'a> {
 
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
-                (result, return_type) = self.get_body_type_map(
+                // TODO return_type
+                (result, _, errors) = self.get_body_type_map(
                     &mut val_context,
                     statics,
                     body,
@@ -59,7 +62,7 @@ impl<'a> FunctionTypeChecker<'a> {
             ASTFunctionBody::NativeBody(_body) => {}
         }
 
-        result
+        (result, errors)
     }
 
     pub fn get_body_type_map(
@@ -68,7 +71,12 @@ impl<'a> FunctionTypeChecker<'a> {
         statics: &mut Statics,
         body: &Vec<ASTStatement>,
         expected_last_statement_type: Option<&ASTType>,
-    ) -> (HashMap<ASTIndex, TypeFilter>, Option<TypeFilter>) {
+    ) -> (
+        HashMap<ASTIndex, TypeFilter>,
+        Option<TypeFilter>,
+        Vec<TypeCheckError>,
+    ) {
+        let mut errors = Vec::new();
         let mut result = HashMap::new();
         let mut return_type = None;
 
@@ -77,32 +85,35 @@ impl<'a> FunctionTypeChecker<'a> {
                 ASTStatement::Expression(e) => {
                     if i == body.len() - 1 {
                         if let Some(ref elst) = expected_last_statement_type {
-                            if !elst.is_unit() {
-                                result.extend(self.get_expr_type_map(
-                                    e,
-                                    val_context,
-                                    statics,
-                                    Some(elst.clone()),
-                                ));
+                            let (e_result, e_errors) = if !elst.is_unit() {
+                                self.get_expr_type_map(e, val_context, statics, Some(elst.clone()))
                             } else {
-                                result.extend(self.get_expr_type_map(
-                                    e,
-                                    val_context,
-                                    statics,
-                                    None,
-                                ));
-                            }
+                                self.get_expr_type_map(e, val_context, statics, None)
+                            };
+
+                            result.extend(e_result);
+                            errors.extend(e_errors);
 
                             return_type = result.get(&e.get_index()).cloned();
                         } else {
-                            result.extend(self.get_expr_type_map(e, val_context, statics, None));
+                            let (e_result, e_errors) =
+                                self.get_expr_type_map(e, val_context, statics, None);
+                            result.extend(e_result);
+                            errors.extend(e_errors);
                         }
                     } else {
-                        result.extend(self.get_expr_type_map(e, val_context, statics, None));
+                        let (e_result, e_errors) =
+                            self.get_expr_type_map(e, val_context, statics, None);
+                        result.extend(e_result);
+                        errors.extend(e_errors);
                     }
                 }
                 ASTStatement::LetStatement(key, e, is_const, index) => {
-                    result.extend(self.get_expr_type_map(e, val_context, statics, None));
+                    let (e_result, e_errors) =
+                        self.get_expr_type_map(e, val_context, statics, None);
+                    result.extend(e_result);
+                    errors.extend(e_errors);
+
                     if let Some(filter) = result.get(&e.get_index()) {
                         if let TypeFilter::Exact(ast_type) = filter {
                             if *is_const {
@@ -119,7 +130,7 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
 
-        (result, return_type)
+        (result, return_type, errors)
     }
 
     fn get_expr_type_map(
@@ -128,7 +139,8 @@ impl<'a> FunctionTypeChecker<'a> {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_expression_type: Option<&ASTType>,
-    ) -> HashMap<ASTIndex, TypeFilter> {
+    ) -> (HashMap<ASTIndex, TypeFilter>, Vec<TypeCheckError>) {
+        let mut errors = Vec::new();
         let mut result = HashMap::new();
 
         match expr {
@@ -139,12 +151,10 @@ impl<'a> FunctionTypeChecker<'a> {
                 );
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
-                result.extend(self.get_call_type_map(
-                    call,
-                    val_context,
-                    statics,
-                    expected_expression_type,
-                ));
+                let (call_result, call_errors) =
+                    self.get_call_type_map(call, val_context, statics, expected_expression_type);
+                result.extend(call_result);
+                errors.extend(call_errors);
             }
             ASTExpression::ValueRef(name, index) => {
                 if let Some(kind) = val_context.get(name) {
@@ -166,17 +176,19 @@ impl<'a> FunctionTypeChecker<'a> {
                         lambda.parameter_names.iter().zip(parameters.iter())
                     {
                         // TODO check error
-                        val_context.insert_par(
+                        if let Err(e) = val_context.insert_par(
                             name.clone(),
                             ASTParameterDef {
                                 name: name.clone(),
                                 ast_type: ast_type.clone(),
                                 ast_index: index.clone(),
                             },
-                        );
+                        ) {
+                            errors.push(TypeCheckError::new(lambda.index.clone(), e, Vec::new()));
+                        }
                     }
 
-                    let (body_result, body_return_type) = self.get_body_type_map(
+                    let (body_result, body_return_type, body_errors) = self.get_body_type_map(
                         &mut val_context,
                         statics,
                         &lambda.body,
@@ -184,6 +196,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     );
 
                     result.extend(body_result);
+                    errors.extend(body_errors);
 
                     if let Some(TypeFilter::Exact(brt)) = body_return_type {
                         result.insert(
@@ -212,7 +225,7 @@ impl<'a> FunctionTypeChecker<'a> {
             ASTExpression::Any(_) => todo!(),
         }
 
-        result
+        (result, errors)
     }
 
     fn get_call_type_map(
@@ -221,14 +234,15 @@ impl<'a> FunctionTypeChecker<'a> {
         val_context: &mut ValContext,
         statics: &mut Statics,
         expected_expression_type: Option<&ASTType>,
-    ) -> HashMap<ASTIndex, TypeFilter> {
+    ) -> (HashMap<ASTIndex, TypeFilter>, Vec<TypeCheckError>) {
         let mut errors = Vec::new();
         let mut result = HashMap::new();
 
         let mut first_try_of_map = HashMap::new();
 
         for e in &call.parameters {
-            first_try_of_map.extend(self.get_expr_type_map(e, val_context, statics, None));
+            let (e_result, e_errors) = self.get_expr_type_map(e, val_context, statics, None);
+            first_try_of_map.extend(e_result);
         }
 
         let mut parameter_types_filters = Vec::new();
@@ -314,12 +328,11 @@ impl<'a> FunctionTypeChecker<'a> {
                             let ast_type = substitute(&parameter_type, &resolved_generic_types)
                                 .unwrap_or(parameter_type.clone());
 
-                            result.extend(self.get_expr_type_map(
-                                e,
-                                val_context,
-                                statics,
-                                Some(&ast_type),
-                            ));
+                            let (e_result, e_errors) =
+                                self.get_expr_type_map(e, val_context, statics, Some(&ast_type));
+
+                            result.extend(e_result);
+                            errors.extend(e_errors);
 
                             if let Some(calculated_type_filter) = result.get(&e.get_index()) {
                                 Self::resolve_type_filter(
@@ -355,7 +368,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 }
             }
         }
-        result
+        (result, errors)
     }
 
     fn resolve_type_filter(

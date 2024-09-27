@@ -43,7 +43,7 @@ impl ResolvedGenericTypes {
             if let Some(et) = self.get(key) {
                 if t != et {
                     return Err(format!(
-                        "Already resolved generic {key}, prev {et}, actual {t}"
+                        "Already resolved generic {key}, prev {et}, new {t}"
                     ));
                 }
             }
