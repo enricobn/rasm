@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use log::warn;
-
 use crate::{
     codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
     parser::ast::{
@@ -300,11 +298,8 @@ impl<'a> FunctionTypeChecker<'a> {
                         for (i, e) in call.parameters.iter().enumerate() {
                             let parameter_type =
                                 found_function.parameters.get(i).unwrap().ast_type.clone();
-                            let ast_type = substitute(
-                                &found_function.parameters.get(i).unwrap().ast_type,
-                                &resolved_generic_types,
-                            )
-                            .unwrap_or(parameter_type.clone());
+                            let ast_type = substitute(&parameter_type, &resolved_generic_types)
+                                .unwrap_or(parameter_type.clone());
 
                             result.extend(self.get_expr_type_map(
                                 e,
