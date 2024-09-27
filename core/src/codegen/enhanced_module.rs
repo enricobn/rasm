@@ -226,7 +226,7 @@ impl EnhancedASTModule {
                 if let ASTType::Custom { .. } = param_type {
                     if let Some(p_type_def) = self.get_type_def(param_type) {
                         p_type_def.modifiers().public
-                            || p_type_def.namespace() == &param_type.namespace()
+                            || p_type_def.namespace() == param_type.namespace()
                     } else {
                         // TODO we have not found the type definition, should we return an error?
                         false

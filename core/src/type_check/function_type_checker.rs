@@ -309,7 +309,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         if parameter.ast_type.is_generic() {
                             let calculated_type_filter = parameter_types_filters.get(i).unwrap();
 
-                            Self::resolve_type_filter(
+                            self.resolve_type_filter(
                                 call.index.clone(),
                                 &parameter.ast_type,
                                 calculated_type_filter,
@@ -335,7 +335,7 @@ impl<'a> FunctionTypeChecker<'a> {
                             errors.extend(e_errors);
 
                             if let Some(calculated_type_filter) = result.get(&e.get_index()) {
-                                Self::resolve_type_filter(
+                                self.resolve_type_filter(
                                     call.index.clone(),
                                     &parameter_type,
                                     calculated_type_filter,
@@ -372,6 +372,7 @@ impl<'a> FunctionTypeChecker<'a> {
     }
 
     fn resolve_type_filter(
+        &self,
         index: ASTIndex,
         generic_type: &ASTType,
         effective_filter: &TypeFilter,
@@ -381,7 +382,9 @@ impl<'a> FunctionTypeChecker<'a> {
         if let TypeFilter::Exact(calculated_type) = effective_filter {
             match resolve_generic_types_from_effective_type(generic_type, calculated_type) {
                 Ok(rgt) => {
-                    if let Err(e) = resolved_generic_types.extend(rgt) {
+                    if let Err(e) =
+                        resolved_generic_types.safe_extend(rgt, &self.enhanced_ast_module)
+                    {
                         errors.push(TypeCheckError::new(index, e, Vec::new()));
                     }
                 }

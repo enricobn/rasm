@@ -452,7 +452,7 @@ impl TextMacroEvaluator {
                     .collect::<Vec<_>>();
 
                 let ast_type_to_resolve = ASTType::Custom {
-                    namespace: ast_type.namespace(),
+                    namespace: ast_type.namespace().clone(),
                     name: name.clone(),
                     param_types: resolved_types,
                     index: ASTIndex::none(),

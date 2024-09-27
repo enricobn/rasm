@@ -291,7 +291,7 @@ pub trait TypeDefProvider {
                 .ast_type()
                 .equals_excluding_namespace(ast_type)
                 && (custom_typed_type_def.modifiers().public
-                    || custom_typed_type_def.namespace() == &ast_type.namespace())
+                    || custom_typed_type_def.namespace() == ast_type.namespace())
             {
                 zip(it_pt.iter(), param_types.iter()).all(|(a, b)| {
                     if a.equals_excluding_namespace(b) {

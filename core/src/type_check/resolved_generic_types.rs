@@ -20,7 +20,10 @@ use std::fmt::{Display, Formatter};
 
 use linked_hash_map::{Iter, LinkedHashMap};
 
-use crate::parser::ast::{ASTType, MyToString};
+use crate::{
+    codegen::enhanced_module::{self, EnhancedASTModule},
+    parser::ast::{ASTType, MyToString},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGenericTypes {
@@ -41,10 +44,45 @@ impl ResolvedGenericTypes {
     pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), String> {
         for (key, t) in other.iter() {
             if let Some(et) = self.get(key) {
-                if t != et {
+                if !t.equals_excluding_namespace(et) {
                     return Err(format!(
                         "Already resolved generic {key}, prev {et}, new {t}"
                     ));
+                }
+            }
+        }
+        self.map.extend(other.map);
+        Ok(())
+    }
+
+    pub fn safe_extend(
+        &mut self,
+        other: ResolvedGenericTypes,
+        enhanced_module: &EnhancedASTModule,
+    ) -> Result<(), String> {
+        for (key, new_type) in other.iter() {
+            if let Some(prev_type) = self.get(key) {
+                if !new_type.equals_excluding_namespace(prev_type) {
+                    return Err(format!(
+                        "Already resolved generic {key}, prev {prev_type}, new {new_type}"
+                    ));
+                } else {
+                    if new_type.namespace() != prev_type.namespace() {
+                        let prev_type_def = enhanced_module.get_type_def(prev_type);
+                        let new_type_def = enhanced_module.get_type_def(new_type);
+                        if prev_type_def
+                            .map(|p| {
+                                new_type_def
+                                    .map(|n| p.name() != n.name() || p.namespace() != n.namespace())
+                                    .unwrap_or(false)
+                            })
+                            .unwrap_or(false)
+                        {
+                            return Err(format!(
+                                "Already resolved generic {key}, prev {prev_type}, new {new_type}"
+                            ));
+                        }
+                    }
                 }
             }
         }

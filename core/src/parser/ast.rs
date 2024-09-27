@@ -41,10 +41,10 @@ impl ASTNameSpace {
         Self::new(project.config.package.name.clone(), namespace_path)
     }
 
-    pub fn global() -> Self {
+    pub const fn global() -> Self {
         Self {
-            lib: "crate".to_string(),
-            path: "".to_string(),
+            lib: String::new(),
+            path: String::new(),
         }
     }
 
@@ -190,20 +190,22 @@ pub enum ASTType {
     Unit,
 }
 
+const GLOBAL: &ASTNameSpace = &ASTNameSpace::global();
+
 impl ASTType {
     pub fn is_unit(&self) -> bool {
         self == &ASTType::Unit
     }
 
-    pub fn namespace(&self) -> ASTNameSpace {
+    pub fn namespace(&self) -> &ASTNameSpace {
         match self {
             ASTType::Custom {
                 namespace,
                 name: _,
                 param_types: _,
                 index: _,
-            } => namespace.clone(),
-            _ => ASTNameSpace::global(),
+            } => namespace,
+            _ => GLOBAL,
         }
     }
 
@@ -670,7 +672,6 @@ impl ASTModule {
 pub trait CustomTypeDef: Display {
     fn name(&self) -> &str;
     fn modifiers(&self) -> &ASTModifiers;
-
     fn namespace(&self) -> &ASTNameSpace;
 }
 

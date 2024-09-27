@@ -1713,7 +1713,7 @@ fn typed_type(
             index: _,
         } => {
             if let Some(enum_def) = conv_context.module.enums.iter().find(|it| {
-                (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
+                (it.modifiers.public || &it.namespace == ast_type.namespace()) && &it.name == name
             }) {
                 if let Some(e) = conv_context.get_enum(ast_type) {
                     e
@@ -1721,7 +1721,7 @@ fn typed_type(
                     conv_context.add_enum(namespace, ast_type, enum_def)
                 }
             } else if let Some(struct_def) = conv_context.module.structs.iter().find(|it| {
-                &it.name == name && (it.modifiers.public || it.namespace == ast_type.namespace())
+                &it.name == name && (it.modifiers.public || &it.namespace == ast_type.namespace())
             }) {
                 if let Some(e) = conv_context.get_struct(ast_type) {
                     e
@@ -1729,7 +1729,7 @@ fn typed_type(
                     conv_context.add_struct(ast_type, struct_def)
                 }
             } else if let Some(t) = conv_context.module.types.iter().find(|it| {
-                (it.modifiers.public || it.namespace == ast_type.namespace()) && &it.name == name
+                (it.modifiers.public || &it.namespace == ast_type.namespace()) && &it.name == name
             }) {
                 if let Some(e) = conv_context.get_type(ast_type) {
                     e
