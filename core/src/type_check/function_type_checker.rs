@@ -380,11 +380,13 @@ impl<'a> FunctionTypeChecker<'a> {
         errors: &mut Vec<TypeCheckError>,
     ) {
         if let TypeFilter::Exact(calculated_type) = effective_filter {
-            match resolve_generic_types_from_effective_type(generic_type, calculated_type) {
+            match resolve_generic_types_from_effective_type(
+                generic_type,
+                calculated_type,
+                &self.enhanced_ast_module,
+            ) {
                 Ok(rgt) => {
-                    if let Err(e) =
-                        resolved_generic_types.safe_extend(rgt, &self.enhanced_ast_module)
-                    {
+                    if let Err(e) = resolved_generic_types.extend(rgt, &self.enhanced_ast_module) {
                         errors.push(TypeCheckError::new(index, e, Vec::new()));
                     }
                 }

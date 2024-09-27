@@ -18,7 +18,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use linked_hash_map::{Iter, LinkedHashMap};
+use linked_hash_map::{IntoIter, Iter, LinkedHashMap};
 
 use crate::{
     codegen::enhanced_module::{self, EnhancedASTModule},
@@ -41,27 +41,13 @@ impl ResolvedGenericTypes {
         self.map.get(key)
     }
 
-    pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), String> {
-        for (key, t) in other.iter() {
-            if let Some(et) = self.get(key) {
-                if !t.equals_excluding_namespace(et) {
-                    return Err(format!(
-                        "Already resolved generic {key}, prev {et}, new {t}"
-                    ));
-                }
-            }
-        }
-        self.map.extend(other.map);
-        Ok(())
-    }
-
-    pub fn safe_extend(
+    pub fn extend(
         &mut self,
         other: ResolvedGenericTypes,
         enhanced_module: &EnhancedASTModule,
     ) -> Result<(), String> {
-        for (key, new_type) in other.iter() {
-            if let Some(prev_type) = self.get(key) {
+        for (key, new_type) in other.into_iter() {
+            if let Some(prev_type) = self.get(&key) {
                 if !new_type.equals_excluding_namespace(prev_type) {
                     return Err(format!(
                         "Already resolved generic {key}, prev {prev_type}, new {new_type}"
@@ -69,7 +55,7 @@ impl ResolvedGenericTypes {
                 } else {
                     if new_type.namespace() != prev_type.namespace() {
                         let prev_type_def = enhanced_module.get_type_def(prev_type);
-                        let new_type_def = enhanced_module.get_type_def(new_type);
+                        let new_type_def = enhanced_module.get_type_def(&new_type);
                         if prev_type_def
                             .map(|p| {
                                 new_type_def
@@ -85,8 +71,8 @@ impl ResolvedGenericTypes {
                     }
                 }
             }
+            self.map.insert(key, new_type);
         }
-        self.map.extend(other.map);
         Ok(())
     }
 
@@ -110,6 +96,10 @@ impl ResolvedGenericTypes {
 
     pub fn iter(&self) -> Iter<String, ASTType> {
         self.map.iter()
+    }
+
+    pub fn into_iter(self) -> IntoIter<String, ASTType> {
+        self.map.into_iter()
     }
 
     pub fn len(&self) -> usize {

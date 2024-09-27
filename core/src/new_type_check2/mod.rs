@@ -25,7 +25,7 @@ use std::ops::Deref;
 use crate::codegen::compile_target::CompileTarget;
 use log::{debug, info};
 
-use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::enhanced_module::{self, EnhancedASTModule};
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
 use crate::codegen::val_context::ValContext;
@@ -744,10 +744,12 @@ impl TypeCheck {
                 }
 
                 if !rt.is_generic() && function.return_type.is_generic() {
-                    if let Ok(result) =
-                        resolve_generic_types_from_effective_type(&function.return_type, rt)
-                    {
-                        if let Err(e) = resolved_generic_types.extend(result) {
+                    if let Ok(result) = resolve_generic_types_from_effective_type(
+                        &function.return_type,
+                        rt,
+                        &self.module,
+                    ) {
+                        if let Err(e) = resolved_generic_types.extend(result, module) {
                             errors.push(TypeCheckError::new(
                                 function.index.clone(),
                                 format!(
@@ -1096,7 +1098,10 @@ impl TypeCheck {
             if !et.is_generic() {
                 if let Some(pt) = param_type {
                     resolved_generic_types
-                        .extend(resolve_generic_types_from_effective_type(pt, et)?)
+                        .extend(
+                            resolve_generic_types_from_effective_type(pt, et, &self.module)?,
+                            module,
+                        )
                         .map_err(|it| {
                             TypeCheckError::new(
                                 expr.get_index(),
@@ -1115,10 +1120,14 @@ impl TypeCheck {
                     })) = param_type
                     {
                         resolved_generic_types
-                            .extend(resolve_generic_types_from_effective_type(
-                                return_type.deref(),
-                                et,
-                            )?)
+                            .extend(
+                                resolve_generic_types_from_effective_type(
+                                    return_type.deref(),
+                                    et,
+                                    &self.module,
+                                )?,
+                                module,
+                            )
                             .map_err(|it| {
                                 TypeCheckError::new(
                                     expr.get_index(),
