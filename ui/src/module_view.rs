@@ -21,6 +21,8 @@ use crate::{Message, SelectedModule, UI};
 const COMMENT_COLOR: Color = Color::from_rgb(0.2, 0.8, 0.2);
 const NATIVE_COLOR: Color = Color::from_rgb(0.8, 0.4, 0.4);
 const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
+const STRING_COLOR: Color = Color::from_rgb(0.5, 0.8, 0.8);
+const NUMBER_COLOR: Color = Color::from_rgb(0.8, 0.5, 0.8);
 
 impl UI {
     pub fn show_module<'a>(&'a self, selected_module: &'a SelectedModule) -> Element<Message> {
@@ -111,9 +113,13 @@ impl UI {
                             TokenKind::KeyWord(keyword_kind) => {
                                 row = row.push(text(keyword_kind.name()).color(KEYWORD_COLOR))
                             }
-                            //TokenKind::Number(_) => todo!(),
+                            TokenKind::Number(n) => {
+                                row = row.push(text(format!("{n}")).color(NUMBER_COLOR))
+                            }
                             //TokenKind::Punctuation(punctuation_kind) => todo!(),
-                            //TokenKind::StringLiteral(_) => todo!(),
+                            TokenKind::StringLiteral(s) => {
+                                row = row.push(text(format!("\"{s}\"")).color(STRING_COLOR))
+                            }
                             //TokenKind::CharLiteral(_) => todo!(),
                             TokenKind::WhiteSpaces(s) => {
                                 row = row.push(text(s));

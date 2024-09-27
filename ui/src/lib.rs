@@ -12,6 +12,7 @@ use iced::{
 use rasm_core::{
     codegen::{
         compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
+        val_context::ValContext,
     },
     commandline::CommandLineOptions,
     parser::ast::{ASTFunctionDef, ASTIndex},
@@ -137,11 +138,6 @@ impl UI {
             }
         })
         .spacing(10)
-        .style(move |theme| {
-            let mut pane_style = iced::widget::pane_grid::default(theme);
-            pane_style.hovered_region.border.color = Color::from_rgb(0.0, 0.0, 1.0);
-            pane_style
-        })
         .on_resize(10, |event| Message::ResizeSplit(event))
         .into()
         /*
@@ -189,8 +185,22 @@ impl UI {
         {
             let mut type_map = HashMap::new();
             let function_type_checker = FunctionTypeChecker::new(enhanced_ast_module);
+            let mut val_context = ValContext::new(None);
+            let mut statics = Statics::new();
+
+            type_map.extend(
+                function_type_checker
+                    .get_body_type_map(
+                        &mut val_context,
+                        &mut statics,
+                        &enhanced_ast_module.body,
+                        None,
+                    )
+                    .0,
+            );
+
             for function in module.functions {
-                type_map.extend(function_type_checker.get_type_map(&function));
+                type_map.extend(function_type_checker.get_type_map(&function, &mut statics));
             }
             type_map
         } else {

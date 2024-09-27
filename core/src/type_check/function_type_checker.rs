@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::warn;
 
 use crate::{
-    codegen::{enhanced_module::EnhancedASTModule, val_context::ValContext},
+    codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
     parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
         ASTStatement, ASTType, BuiltinTypeKind,
@@ -12,10 +12,8 @@ use crate::{
 };
 
 use super::{
-    functions_container::TypeFilter,
-    resolve_generic_types_from_effective_type,
-    resolved_generic_types::{self, ResolvedGenericTypes},
-    substitute,
+    functions_container::TypeFilter, resolve_generic_types_from_effective_type,
+    resolved_generic_types::ResolvedGenericTypes, substitute,
 };
 
 pub struct FunctionTypeChecker<'a> {
@@ -29,13 +27,17 @@ impl<'a> FunctionTypeChecker<'a> {
         }
     }
 
-    pub fn get_type_map(&self, function: &ASTFunctionDef) -> HashMap<ASTIndex, TypeFilter> {
+    pub fn get_type_map(
+        &self,
+        function: &ASTFunctionDef,
+        statics: &mut Statics,
+    ) -> HashMap<ASTIndex, TypeFilter> {
         //let mut result = HashMap::new();
         let mut val_context = ValContext::new(None);
 
         let (mut result, mut return_type) = self.get_body_type_map(
-            function,
             &mut val_context,
+            statics,
             &self.enhanced_ast_module.body,
             None,
         );
@@ -48,8 +50,8 @@ impl<'a> FunctionTypeChecker<'a> {
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
                 (result, return_type) = self.get_body_type_map(
-                    function,
                     &mut val_context,
+                    statics,
                     body,
                     Some(function.return_type.clone()),
                 );
@@ -60,10 +62,10 @@ impl<'a> FunctionTypeChecker<'a> {
         result
     }
 
-    fn get_body_type_map(
+    pub fn get_body_type_map(
         &self,
-        function: &ASTFunctionDef,
         val_context: &mut ValContext,
+        statics: &mut Statics,
         body: &Vec<ASTStatement>,
         expected_last_statement_type: Option<ASTType>,
     ) -> (HashMap<ASTIndex, TypeFilter>, Option<TypeFilter>) {
@@ -77,34 +79,38 @@ impl<'a> FunctionTypeChecker<'a> {
                         if let Some(ref elst) = expected_last_statement_type {
                             if !elst.is_unit() {
                                 result.extend(self.get_expr_type_map(
-                                    function,
                                     e,
                                     val_context,
+                                    statics,
                                     Some(elst.clone()),
                                 ));
                             } else {
                                 result.extend(self.get_expr_type_map(
-                                    function,
                                     e,
                                     val_context,
+                                    statics,
                                     None,
                                 ));
                             }
 
                             return_type = result.get(&e.get_index()).cloned();
                         } else {
-                            result.extend(self.get_expr_type_map(function, e, val_context, None));
+                            result.extend(self.get_expr_type_map(e, val_context, statics, None));
                         }
                     } else {
-                        result.extend(self.get_expr_type_map(function, e, val_context, None));
+                        result.extend(self.get_expr_type_map(e, val_context, statics, None));
                     }
                 }
-                ASTStatement::LetStatement(key, e, _, index) => {
-                    result.extend(self.get_expr_type_map(function, e, val_context, None));
+                ASTStatement::LetStatement(key, e, is_const, index) => {
+                    result.extend(self.get_expr_type_map(e, val_context, statics, None));
                     if let Some(filter) = result.get(&e.get_index()) {
                         if let TypeFilter::Exact(ast_type) = filter {
-                            // TODO error
-                            val_context.insert_let(key.clone(), ast_type.clone(), index);
+                            if *is_const {
+                                statics.add_const(key.clone(), ast_type.clone());
+                            } else {
+                                // TODO error
+                                val_context.insert_let(key.clone(), ast_type.clone(), index);
+                            }
                         }
 
                         result.insert(index.clone(), filter.clone());
@@ -118,9 +124,9 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn get_expr_type_map(
         &self,
-        function: &ASTFunctionDef,
         expr: &ASTExpression,
         val_context: &mut ValContext,
+        statics: &mut Statics,
         expected_expression_type: Option<ASTType>,
     ) -> HashMap<ASTIndex, TypeFilter> {
         let mut result = HashMap::new();
@@ -134,9 +140,9 @@ impl<'a> FunctionTypeChecker<'a> {
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
                 result.extend(self.get_call_type_map(
-                    function,
                     call,
                     val_context,
+                    statics,
                     expected_expression_type,
                 ));
             }
@@ -171,8 +177,8 @@ impl<'a> FunctionTypeChecker<'a> {
                     }
 
                     let (body_result, body_return_type) = self.get_body_type_map(
-                        function,
                         &mut val_context,
+                        statics,
                         &lambda.body,
                         Some(return_type.as_ref().clone()),
                     );
@@ -211,9 +217,9 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn get_call_type_map(
         &self,
-        function: &ASTFunctionDef,
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
+        statics: &mut Statics,
         expected_expression_type: Option<ASTType>,
     ) -> HashMap<ASTIndex, TypeFilter> {
         let mut result = HashMap::new();
@@ -221,7 +227,7 @@ impl<'a> FunctionTypeChecker<'a> {
         let mut first_try_of_map = HashMap::new();
 
         for e in &call.parameters {
-            first_try_of_map.extend(self.get_expr_type_map(function, e, val_context, None));
+            first_try_of_map.extend(self.get_expr_type_map(e, val_context, statics, None));
         }
 
         let mut parameter_types_filters = Vec::new();
@@ -301,9 +307,9 @@ impl<'a> FunctionTypeChecker<'a> {
                             .unwrap_or(parameter_type.clone());
 
                             result.extend(self.get_expr_type_map(
-                                function,
                                 e,
                                 val_context,
+                                statics,
                                 Some(ast_type),
                             ));
 
@@ -360,7 +366,6 @@ mod tests {
             enhanced_module::EnhancedASTModule, statics::Statics,
         },
         commandline::CommandLineOptions,
-        new_type_check2::TypeCheck,
         project::RasmProject,
         type_check::function_type_checker::FunctionTypeChecker,
     };
@@ -382,7 +387,7 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
-        let (enhanced_ast_module, errors) =
+        let (enhanced_ast_module, _errors) =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
         println!(
@@ -408,6 +413,7 @@ mod tests {
         */
 
         let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
+        let mut statics = Statics::new();
 
         for function in project
             .get_module(
@@ -421,7 +427,7 @@ mod tests {
         //.filter(|it| it.name == "take")
         {
             //println!("function {}", function.name);
-            function_type_checker.get_type_map(function);
+            function_type_checker.get_type_map(function, &mut statics);
         }
     }
 }
