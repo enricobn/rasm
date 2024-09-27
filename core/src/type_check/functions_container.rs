@@ -160,8 +160,8 @@ impl FunctionsContainer {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: Vec<TypeFilter>,
-        return_type_filter: Option<ASTType>,
+        parameter_types_filter: &Vec<TypeFilter>,
+        return_type_filter: Option<&ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
@@ -208,7 +208,7 @@ impl FunctionsContainer {
     fn find_call_vec_1<'a>(
         function_name: &str,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<ASTType>,
+        return_type_filter: Option<&ASTType>,
         filter_on_name: bool,
         index: &ASTIndex,
         functions: &'a [ASTFunctionDef],
@@ -272,7 +272,7 @@ impl FunctionsContainer {
         &self,
         call: &ASTFunctionCall,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<ASTType>,
+        return_type_filter: Option<&ASTType>,
         filter_only_on_name: bool,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<Vec<&ASTFunctionDef>, TypeCheckError> {
@@ -892,7 +892,7 @@ mod tests {
         let result = sut.find_call(
             &call.function_name,
             &call.original_function_name,
-            vec![
+            &vec![
                 Exact(ASTType::Builtin(BuiltinTypeKind::I32)),
                 Exact(ASTType::Generic("T".into())),
             ],

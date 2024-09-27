@@ -1039,7 +1039,7 @@ pub fn convert_to_typed_module(
                             .find_call(
                                 &it.name,
                                 &it.name,
-                                filters,
+                                &filters,
                                 None,
                                 false,
                                 &it.index(&function.index),

@@ -51,7 +51,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     &mut val_context,
                     statics,
                     body,
-                    Some(function.return_type.clone()),
+                    Some(&function.return_type),
                 );
             }
             ASTFunctionBody::NativeBody(_body) => {}
@@ -65,7 +65,7 @@ impl<'a> FunctionTypeChecker<'a> {
         val_context: &mut ValContext,
         statics: &mut Statics,
         body: &Vec<ASTStatement>,
-        expected_last_statement_type: Option<ASTType>,
+        expected_last_statement_type: Option<&ASTType>,
     ) -> (HashMap<ASTIndex, TypeFilter>, Option<TypeFilter>) {
         let mut result = HashMap::new();
         let mut return_type = None;
@@ -125,7 +125,7 @@ impl<'a> FunctionTypeChecker<'a> {
         expr: &ASTExpression,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_expression_type: Option<ASTType>,
+        expected_expression_type: Option<&ASTType>,
     ) -> HashMap<ASTIndex, TypeFilter> {
         let mut result = HashMap::new();
 
@@ -178,7 +178,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         &mut val_context,
                         statics,
                         &lambda.body,
-                        Some(return_type.as_ref().clone()),
+                        Some(return_type.as_ref()),
                     );
 
                     result.extend(body_result);
@@ -187,7 +187,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         result.insert(
                             lambda.index.clone(),
                             TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                parameters,
+                                parameters: parameters.clone(),
                                 return_type: Box::new(brt),
                             })),
                         );
@@ -195,8 +195,8 @@ impl<'a> FunctionTypeChecker<'a> {
                         result.insert(
                             lambda.index.clone(),
                             TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                parameters,
-                                return_type,
+                                parameters: parameters.clone(),
+                                return_type: return_type.clone(),
                             })),
                         );
                     }
@@ -218,7 +218,7 @@ impl<'a> FunctionTypeChecker<'a> {
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_expression_type: Option<ASTType>,
+        expected_expression_type: Option<&ASTType>,
     ) -> HashMap<ASTIndex, TypeFilter> {
         let mut result = HashMap::new();
 
@@ -305,7 +305,7 @@ impl<'a> FunctionTypeChecker<'a> {
                                 e,
                                 val_context,
                                 statics,
-                                Some(ast_type),
+                                Some(&ast_type),
                             ));
 
                             if let Some(TypeFilter::Exact(expr_type)) = result.get(&e.get_index()) {

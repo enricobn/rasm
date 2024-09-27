@@ -466,11 +466,9 @@ impl TypeCheck {
             .map(|it| TypeFilter::Exact(it.ast_type.clone()))
             .collect::<Vec<_>>();
 
-        let converted_functions = self.module.find_call_vec(
-            call,
-            &filters,
-            Some(new_function_def.return_type.clone()),
-        )?;
+        let converted_functions =
+            self.module
+                .find_call_vec(call, &filters, Some(&new_function_def.return_type))?;
 
         if converted_functions.len() == 1 {
             new_call.function_name = converted_functions.first().unwrap().name.clone();
