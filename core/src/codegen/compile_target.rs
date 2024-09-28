@@ -315,7 +315,7 @@ impl CompileTarget {
         let start = Instant::now();
 
         let typed_module = get_typed_module(
-            &enhanced_ast_module,
+            enhanced_ast_module,
             command_line_options.print_memory,
             command_line_options.print_code,
             &mut statics,
@@ -472,6 +472,18 @@ impl CompileTarget {
                 }
             }
             CompileTarget::C(_) => {
+                /*
+                for type_def in &module.types {
+                    if type_def.is_ref {
+                        let suffixes = vec!["Deref", "AddRef"];
+
+                        for suffix in suffixes {
+                            let name = format!("{}{suffix}", type_def.name);
+                            result.push(DefaultFunction::new_1(&name, BuiltinTypeKind::I32));
+                        }
+                    }
+                }
+                */
                 //result.push(DefaultFunction::new_1("rasmMalloc", BuiltinTypeKind::I32));
             }
         }

@@ -907,7 +907,7 @@ impl<'a> ConvContext<'a> {
 }
 
 pub fn convert_to_typed_module(
-    original_module: &EnhancedASTModule,
+    original_module: EnhancedASTModule,
     print_module: bool,
     mandatory_functions: Vec<DefaultFunction>,
     statics: &mut Statics,
@@ -915,10 +915,10 @@ pub fn convert_to_typed_module(
     target: &CompileTarget,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new(&original_module.body_namespace);
+    let type_check = TypeCheck::new();
 
     let module = type_check.type_check(
-        original_module,
+        original_module.clone(),
         statics,
         default_functions,
         mandatory_functions,
@@ -960,6 +960,10 @@ pub fn convert_to_typed_module(
         );
     }
 
+    // TODO we cannot use module because it does not contain the AddRef and Deref functions required for types,
+    // since they are not referenced in code, but added by the compiler itself.
+    // It could be an idea to add them as default functions in CompileTarget, but then we nust remove them
+    // after typed functions creator.
     target.typed_functions_creator(debug).create(
         &original_module,
         &conv_context,

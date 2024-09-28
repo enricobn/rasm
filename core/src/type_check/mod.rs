@@ -1,8 +1,6 @@
-use log::debug;
-
 use type_check_error::TypeCheckError;
 
-use crate::codegen::enhanced_module::{self, EnhancedASTModule};
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::parser::ast::{ASTIndex, MyToString};
 use crate::parser::ast::{ASTType, BuiltinTypeKind};

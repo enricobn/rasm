@@ -170,7 +170,7 @@ pub struct CompletionService {
 
 impl CompletionService {
     pub fn new(
-        module: &EnhancedASTModule,
+        module: EnhancedASTModule,
         statics: &mut Statics,
         target: &CompileTarget,
     ) -> Result<Self, CompilationError> {
@@ -639,7 +639,7 @@ mod tests {
         assert!(errors.is_empty());
 
         (
-            CompletionService::new(&module, &mut statics, &target).unwrap(),
+            CompletionService::new(module.clone(), &mut statics, &target).unwrap(),
             module,
         )
     }

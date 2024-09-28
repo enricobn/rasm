@@ -414,7 +414,7 @@ impl ReferenceFinder {
         let mut val_context = ValContext::new(None);
         let mut statics = Statics::new();
 
-        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace);
+        let mut type_check = TypeCheck::new();
 
         let mut result = Vec::new();
         Self::process_statics(enhanced_module, &mut reference_static_context, &mut statics);
@@ -467,7 +467,7 @@ impl ReferenceFinder {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = ValContext::new(None);
-        let mut type_check = TypeCheck::new(&enhanced_module.body_namespace);
+        let mut type_check = TypeCheck::new();
 
         let mut new_functions = Vec::new();
 

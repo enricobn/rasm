@@ -132,7 +132,7 @@ impl TypedValKind {
 }
 
 pub fn get_typed_module(
-    module: &EnhancedASTModule,
+    module: EnhancedASTModule,
     print_memory_info: bool,
     print_module: bool,
     statics: &mut Statics,
@@ -143,7 +143,7 @@ pub fn get_typed_module(
     let default_functions = target.get_default_functions(print_memory_info);
 
     convert_to_typed_module(
-        &module,
+        module,
         print_module,
         mandatory_functions,
         statics,

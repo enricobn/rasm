@@ -36,7 +36,7 @@ use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
     ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::type_check::functions_container::TypeFilter;
+use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
 use crate::type_check::typed_ast::DefaultFunction;
@@ -53,7 +53,7 @@ pub struct TypeCheck {
 }
 
 impl TypeCheck {
-    pub fn new(body_namespace: &ASTNameSpace) -> Self {
+    pub fn new() -> Self {
         Self {
             stack: vec![],
             functions_stack: Default::default(),
@@ -63,7 +63,7 @@ impl TypeCheck {
 
     pub fn type_check(
         mut self,
-        module: &EnhancedASTModule,
+        module: EnhancedASTModule,
         statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
@@ -75,12 +75,6 @@ impl TypeCheck {
         let mut default_functions = default_functions; // TODO print_allocation
 
         default_functions.extend(mandatory_functions);
-
-        let mut typed_module = EnhancedASTModule::empty();
-        typed_module.body_namespace = module.body_namespace.clone();
-        typed_module.types = module.types.clone();
-        typed_module.enums = module.enums.clone();
-        typed_module.structs = module.structs.clone();
 
         for default_function in default_functions {
             let call = default_function.to_call(&ASTNameSpace::global());
@@ -104,7 +98,7 @@ impl TypeCheck {
 
         let new_body = self
             .transform_statements(
-                module,
+                &module,
                 &module.body,
                 &mut val_context,
                 statics,
@@ -133,8 +127,6 @@ impl TypeCheck {
             }
         }
 
-        typed_module.body = new_body;
-
         loop {
             let functions_len = self.new_functions.len();
             info!("Type check loop {}", functions_len);
@@ -153,7 +145,7 @@ impl TypeCheck {
                 let mut new_functions = Vec::new();
                 match self
                     .transform_function(
-                        module,
+                        &module,
                         statics,
                         &function,
                         target,
@@ -196,6 +188,15 @@ impl TypeCheck {
                 break;
             }
         }
+
+        let mut typed_module = EnhancedASTModule {
+            body: new_body,
+            functions_by_name: FunctionsContainer::new(),
+            enums: module.enums,
+            structs: module.structs,
+            types: module.types,
+            body_namespace: module.body_namespace,
+        };
 
         for (_, function) in self.new_functions {
             typed_module.add_function(function.original_name.clone(), function);
@@ -624,9 +625,8 @@ impl TypeCheck {
         }
         */
 
-        let filters_resolved_generic_types = ResolvedGenericTypes::new();
         /*
-
+        let filters_resolved_generic_types = ResolvedGenericTypes::new();
         let mut filters_new_functions = Vec::new();
 
         let filters: Result<Vec<(TypeFilter, ASTExpression)>, TypeCheckError> = call
@@ -2067,7 +2067,7 @@ mod tests {
         //resolved_module.print();
 
         let _ = convert_to_typed_module(
-            &module,
+            module,
             false,
             mandatory_functions,
             &mut statics,
