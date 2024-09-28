@@ -139,6 +139,11 @@ type check ended in 87.39312
     type check ended in 78.275627ms
 */
 
+/*
+    optimized type check using new_functions hashmap and fixing unique type name using the real namespace of custom types
+    type check ended in 70.941997ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)

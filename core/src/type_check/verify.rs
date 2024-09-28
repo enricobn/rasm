@@ -30,7 +30,6 @@ use crate::type_check::typed_ast::{
 };
 use crate::utils::OptionDisplay;
 use crate::{debug_i, dedent, indent};
-use log::debug;
 use std::iter::zip;
 use std::ops::Deref;
 

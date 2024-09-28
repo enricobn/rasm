@@ -19,6 +19,7 @@
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
+use std::collections::HashMap;
 use std::iter::zip;
 use std::ops::Deref;
 
@@ -35,7 +36,7 @@ use crate::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
     ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
 };
-use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
 use crate::type_check::typed_ast::DefaultFunction;
@@ -46,26 +47,17 @@ type InputModule = EnhancedASTModule;
 type OutputModule = EnhancedASTModule;
 
 pub struct TypeCheck {
-    module: OutputModule,
     stack: Vec<ASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<ASTIndex>>,
+    new_functions: HashMap<String, ASTFunctionDef>,
 }
 
 impl TypeCheck {
     pub fn new(body_namespace: &ASTNameSpace) -> Self {
-        let typed_module = EnhancedASTModule {
-            body: vec![],
-            functions_by_name: FunctionsContainer::new(),
-            enums: vec![],
-            structs: vec![],
-            types: vec![],
-            body_namespace: body_namespace.clone(),
-        };
-
         Self {
-            module: typed_module,
             stack: vec![],
             functions_stack: Default::default(),
+            new_functions: HashMap::new(),
         }
     }
 
@@ -84,10 +76,11 @@ impl TypeCheck {
 
         default_functions.extend(mandatory_functions);
 
-        self.module.types = module.types.clone();
-        self.module.enums = module.enums.clone();
-        self.module.structs = module.structs.clone();
-        self.module.functions_by_name = FunctionsContainer::new();
+        let mut typed_module = EnhancedASTModule::empty();
+        typed_module.body_namespace = module.body_namespace.clone();
+        typed_module.types = module.types.clone();
+        typed_module.enums = module.enums.clone();
+        typed_module.structs = module.structs.clone();
 
         for default_function in default_functions {
             let call = default_function.to_call(&ASTNameSpace::global());
@@ -96,9 +89,8 @@ impl TypeCheck {
                 module.find_precise_function(&call.original_function_name, &call.function_name)
             {
                 // TODO check error
-                self.module
-                    .functions_by_name
-                    .add_function(call.original_function_name.clone(), f.clone());
+                self.new_functions
+                    .insert(call.function_name.clone(), f.clone());
                 self.functions_stack.insert(f.name.clone(), vec![]);
             } else {
                 return Err(Self::compilation_error(format!(
@@ -136,24 +128,18 @@ impl TypeCheck {
         for (f, s) in new_functions {
             let new_function_name = f.name.clone();
             if !self.functions_stack.contains_key(&new_function_name) {
-                self.module
-                    .functions_by_name
-                    .add_function(f.original_name.clone(), f);
+                self.new_functions.insert(new_function_name.clone(), f);
                 self.functions_stack.insert(new_function_name, s);
             }
         }
 
-        self.module.body = new_body;
-
-        let mut deleted = false;
+        typed_module.body = new_body;
 
         loop {
-            let functions_len = self.module.functions().len();
+            let functions_len = self.new_functions.len();
             info!("Type check loop {}", functions_len);
 
             let new_function_names = self.functions_stack.keys().cloned().collect::<Vec<_>>();
-
-            deleted = false;
 
             for function_name in new_function_names {
                 if let Some(stack) = self.functions_stack.remove(&function_name) {
@@ -162,12 +148,7 @@ impl TypeCheck {
                     continue;
                 }
 
-                let function = self
-                    .module
-                    .functions_by_name
-                    .find_function(&function_name)
-                    .unwrap()
-                    .clone();
+                let mut function = self.new_functions.get(&function_name).unwrap().clone();
 
                 let mut new_functions = Vec::new();
                 match self
@@ -196,29 +177,31 @@ impl TypeCheck {
                             ],
                         ),
                     })? {
-                    Some(new_body) => self
-                        .module
-                        .functions_by_name
-                        .replace_body(&function, new_body),
+                    Some(new_body) => {
+                        function.body = new_body;
+                        self.new_functions.insert(function.name.clone(), function);
+                    }
                     None => {}
                 }
                 for (f, s) in new_functions {
                     let new_function_name = f.name.clone();
                     if !self.functions_stack.contains_key(&new_function_name) {
-                        self.module
-                            .functions_by_name
-                            .add_function(f.original_name.clone(), f);
+                        self.new_functions.insert(f.name.clone(), f);
                         self.functions_stack.insert(new_function_name, s);
                     }
                 }
             }
 
-            if self.module.functions().len() == functions_len {
+            if self.new_functions.len() == functions_len {
                 break;
             }
         }
 
-        Ok(self.module)
+        for (_, function) in self.new_functions {
+            typed_module.add_function(function.original_name.clone(), function);
+        }
+
+        Ok(typed_module)
     }
 
     fn compilation_error(message: String) -> CompilationError {
@@ -453,7 +436,7 @@ impl TypeCheck {
             new_function_def.generic_types = Vec::new();
         }
 
-        let new_function_name = Self::unique_function_name(&new_function_def);
+        let new_function_name = Self::unique_function_name(&new_function_def, module);
 
         new_function_def.name = new_function_name.clone();
 
@@ -463,8 +446,9 @@ impl TypeCheck {
         // we check for an already converted function, but if it is a default function it has the original name,
         // so we check even with the original name
         let converted_functions = self
-            .module
-            .find_precise_or_original_function(&call.original_function_name, &new_function_name);
+            .new_functions
+            .get(&new_function_name)
+            .or(self.new_functions.get(&call.original_function_name));
 
         if let Some(converted_function) = converted_functions {
             new_call.function_name = converted_function.name.clone();
@@ -490,7 +474,10 @@ impl TypeCheck {
         Ok(new_call)
     }
 
-    fn unique_function_name(new_function_def: &ASTFunctionDef) -> String {
+    fn unique_function_name(
+        new_function_def: &ASTFunctionDef,
+        module: &EnhancedASTModule,
+    ) -> String {
         let namespace = new_function_def.namespace.safe_name();
         let name = new_function_def.original_name.replace("::", "_");
 
@@ -499,14 +486,14 @@ impl TypeCheck {
             new_function_def
                 .parameters
                 .iter()
-                .map(|it| Self::unique_type_name(&it.ast_type))
+                .map(|it| Self::unique_type_name(&it.ast_type, module))
                 .collect::<Vec<_>>()
                 .join("_"),
-            Self::unique_type_name(&new_function_def.return_type)
+            Self::unique_type_name(&new_function_def.return_type, module)
         )
     }
 
-    fn unique_type_name(ast_type: &ASTType) -> String {
+    fn unique_type_name(ast_type: &ASTType, module: &EnhancedASTModule) -> String {
         match ast_type {
             ASTType::Builtin(kind) => match kind {
                 BuiltinTypeKind::Lambda {
@@ -517,30 +504,34 @@ impl TypeCheck {
                         "fn_{}_{}",
                         parameters
                             .iter()
-                            .map(Self::unique_type_name)
+                            .map(|it| Self::unique_type_name(it, module))
                             .collect::<Vec<_>>()
                             .join("_"),
-                        Self::unique_type_name(return_type)
+                        Self::unique_type_name(return_type, module)
                     )
                 }
                 _ => format!("{ast_type}"),
             },
             ASTType::Generic(name) => name.clone(), // TODO it should not happen when strict = true
             ASTType::Custom {
-                namespace,
+                namespace: _,
                 name,
                 param_types,
                 index: _,
             } => {
-                format!(
-                    "{}_{name}_{}",
-                    namespace.safe_name(),
-                    param_types
-                        .iter()
-                        .map(Self::unique_type_name)
-                        .collect::<Vec<_>>()
-                        .join("_")
-                )
+                if let Some(type_def) = module.get_type_def(ast_type) {
+                    format!(
+                        "{}_{name}_{}",
+                        type_def.namespace().safe_name(),
+                        param_types
+                            .iter()
+                            .map(|it| Self::unique_type_name(it, module))
+                            .collect::<Vec<_>>()
+                            .join("_")
+                    )
+                } else {
+                    panic!("Cannot find type {ast_type} definition");
+                }
             }
             ASTType::Unit => "Unit".to_string(),
         }
@@ -740,11 +731,9 @@ impl TypeCheck {
                 }
 
                 if !rt.is_generic() && function.return_type.is_generic() {
-                    if let Ok(result) = resolve_generic_types_from_effective_type(
-                        &function.return_type,
-                        rt,
-                        &self.module,
-                    ) {
+                    if let Ok(result) =
+                        resolve_generic_types_from_effective_type(&function.return_type, rt, module)
+                    {
                         if let Err(e) = resolved_generic_types.extend(result, module) {
                             errors.push(TypeCheckError::new(
                                 function.index.clone(),
@@ -1095,7 +1084,7 @@ impl TypeCheck {
                 if let Some(pt) = param_type {
                     resolved_generic_types
                         .extend(
-                            resolve_generic_types_from_effective_type(pt, et, &self.module)?,
+                            resolve_generic_types_from_effective_type(pt, et, module)?,
                             module,
                         )
                         .map_err(|it| {
@@ -1120,7 +1109,7 @@ impl TypeCheck {
                                 resolve_generic_types_from_effective_type(
                                     return_type.deref(),
                                     et,
-                                    &self.module,
+                                    module,
                                 )?,
                                 module,
                             )
@@ -1452,10 +1441,11 @@ impl TypeCheck {
                     };
                 }
 
-                if let Some(f) = self.module.find_precise_or_original_function(
-                    &call.original_function_name,
-                    &call.function_name,
-                ) {
+                if let Some(f) = self
+                    .new_functions
+                    .get(&call.function_name)
+                    .or(self.new_functions.get(&call.original_function_name))
+                {
                     dedent!();
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 } else {
