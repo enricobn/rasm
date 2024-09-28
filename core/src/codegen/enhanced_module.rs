@@ -3,7 +3,6 @@ use std::iter::zip;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
 use crate::errors::{self, CompilationError};
-use log::debug;
 
 use crate::debug_i;
 use crate::parser::ast::{
@@ -86,6 +85,8 @@ impl EnhancedASTModule {
         target
             .functions_creator(debug)
             .create_globals(&mut enhanced_module, statics);
+
+        enhanced_module = enhanced_module.fix_namespaces();
 
         let errors = enhanced_module.check_for_duplicates();
 
@@ -332,5 +333,27 @@ impl EnhancedASTModule {
             }
         }
         errors
+    }
+
+    fn fix_namespaces(self) -> Self {
+        let mut result = self;
+        result.enums = result
+            .enums
+            .iter()
+            .map(|e| e.clone().fix_namespaces(&result))
+            .collect();
+        result.structs = result
+            .structs
+            .iter()
+            .map(|e| e.clone().fix_namespaces(&result))
+            .collect();
+        result.body = result
+            .body
+            .iter()
+            .map(|it| it.clone().fix_namespaces(&result))
+            .collect();
+        result.functions_by_name = result.functions_by_name.fix_namespaces(&result);
+
+        result
     }
 }

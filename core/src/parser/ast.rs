@@ -4,6 +4,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
@@ -122,6 +123,29 @@ impl ASTFunctionDef {
     pub fn update_calculated_properties(&mut self) {
         self.rank = TypeCheck::function_precedence_coeff(self);
     }
+
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self;
+        if let ASTFunctionBody::RASMBody(statements) = result.body {
+            result.body = ASTFunctionBody::RASMBody(
+                statements
+                    .into_iter()
+                    .map(|it| it.fix_namespaces(enhanced_module))
+                    .collect(),
+            )
+        }
+        result.parameters = result
+            .parameters
+            .into_iter()
+            .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        result.resolved_generic_types = result
+            .resolved_generic_types
+            .fix_namespaces(enhanced_module);
+        result.return_type = result.return_type.fix_namespaces(enhanced_module);
+
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,6 +153,18 @@ pub struct ASTLambdaDef {
     pub parameter_names: Vec<(String, ASTIndex)>,
     pub body: Vec<ASTStatement>,
     pub index: ASTIndex,
+}
+
+impl ASTLambdaDef {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self;
+        result.body = result
+            .body
+            .into_iter()
+            .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        result
+    }
 }
 
 impl Display for ASTLambdaDef {
@@ -230,7 +266,44 @@ impl ASTType {
                 }
                 _ => false,
             },
-            _ => self == other,
+            ASTType::Builtin(builtin_type_kind) => {
+                if let ASTType::Builtin(other_builtin) = other {
+                    match builtin_type_kind {
+                        BuiltinTypeKind::Bool => matches!(other_builtin, BuiltinTypeKind::Bool),
+                        BuiltinTypeKind::Char => matches!(other_builtin, BuiltinTypeKind::Char),
+                        BuiltinTypeKind::I32 => matches!(other_builtin, BuiltinTypeKind::I32),
+                        BuiltinTypeKind::F32 => matches!(other_builtin, BuiltinTypeKind::F32),
+                        BuiltinTypeKind::String => matches!(other_builtin, BuiltinTypeKind::String),
+                        BuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        } => {
+                            if let BuiltinTypeKind::Lambda {
+                                parameters: o_parameters,
+                                return_type: o_return_type,
+                            } = other_builtin
+                            {
+                                parameters.len() == o_parameters.len()
+                                    && zip(parameters.iter(), o_parameters.iter())
+                                        .all(|(p, o_p)| p.equals_excluding_namespace(o_p))
+                                    && return_type.equals_excluding_namespace(&o_return_type)
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                } else {
+                    false
+                }
+            }
+            ASTType::Generic(g) => {
+                if let ASTType::Generic(og) = other {
+                    g == og
+                } else {
+                    false
+                }
+            }
+            ASTType::Unit => other.is_unit(),
         }
     }
 
@@ -306,6 +379,50 @@ impl ASTType {
             false
         }
     }
+
+    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> ASTType {
+        match self {
+            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
+                BuiltinTypeKind::Bool => self.clone(),
+                BuiltinTypeKind::Char => self.clone(),
+                BuiltinTypeKind::I32 => self.clone(),
+                BuiltinTypeKind::F32 => self.clone(),
+                BuiltinTypeKind::String => self.clone(),
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters: parameters
+                        .iter()
+                        .map(|it| it.fix_namespaces(enhanced_module))
+                        .collect(),
+                    return_type: Box::new(return_type.fix_namespaces(enhanced_module)),
+                }),
+            },
+            ASTType::Generic(_) => self.clone(),
+            ASTType::Custom {
+                namespace: _,
+                name,
+                param_types,
+                index,
+            } => {
+                if let Some(type_def) = enhanced_module.get_type_def(self) {
+                    ASTType::Custom {
+                        namespace: type_def.namespace().clone(),
+                        name: name.clone(),
+                        param_types: param_types
+                            .iter()
+                            .map(|it| it.fix_namespaces(enhanced_module))
+                            .collect(),
+                        index: index.clone(),
+                    }
+                } else {
+                    panic!("Cannot find type declaration for {self}");
+                }
+            }
+            ASTType::Unit => self.clone(),
+        }
+    }
 }
 
 impl Display for ASTType {
@@ -363,19 +480,6 @@ impl Display for ASTParameterDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTStructPropertyDef {
-    pub name: String,
-    pub ast_type: ASTType,
-    pub index: ASTIndex,
-}
-
-impl Display for ASTStructPropertyDef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{}: {}", self.name, self.ast_type))
-    }
-}
-
 impl ASTParameterDef {
     pub fn new(name: &str, ast_type: ASTType, ast_index: ASTIndex) -> ASTParameterDef {
         ASTParameterDef {
@@ -383,6 +487,33 @@ impl ASTParameterDef {
             ast_type,
             ast_index,
         }
+    }
+
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self;
+        result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
+        result
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ASTStructPropertyDef {
+    pub name: String,
+    pub ast_type: ASTType,
+    pub index: ASTIndex,
+}
+
+impl ASTStructPropertyDef {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self;
+        result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
+        result
+    }
+}
+
+impl Display for ASTStructPropertyDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}: {}", self.name, self.ast_type))
     }
 }
 
@@ -394,6 +525,23 @@ pub struct ASTFunctionCall {
     pub parameters: Vec<ASTExpression>,
     pub index: ASTIndex,
     pub generics: Vec<ASTType>,
+}
+
+impl ASTFunctionCall {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self;
+        result.parameters = result
+            .parameters
+            .into_iter()
+            .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        result.generics = result
+            .generics
+            .into_iter()
+            .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        result
+    }
 }
 
 impl Display for ASTFunctionCall {
@@ -529,6 +677,23 @@ impl ASTExpression {
             ASTExpression::Any(_) => ASTIndex::none(),
         }
     }
+
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        match self {
+            ASTExpression::ASTFunctionCallExpression(astfunction_call) => {
+                ASTExpression::ASTFunctionCallExpression(
+                    astfunction_call.fix_namespaces(enhanced_module),
+                )
+            }
+            ASTExpression::Lambda(astlambda_def) => {
+                ASTExpression::Lambda(astlambda_def.fix_namespaces(enhanced_module))
+            }
+            ASTExpression::Any(asttype) => {
+                ASTExpression::Any(asttype.fix_namespaces(enhanced_module))
+            }
+            _ => self.clone(),
+        }
+    }
 }
 
 impl Display for ASTExpression {
@@ -569,6 +734,22 @@ impl ASTStatement {
         match self {
             ASTStatement::Expression(expr) => expr.get_index(),
             ASTStatement::LetStatement(_, _, _, index) => index.clone(),
+        }
+    }
+
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        match self {
+            ASTStatement::Expression(exp) => {
+                ASTStatement::Expression(exp.fix_namespaces(enhanced_module))
+            }
+            ASTStatement::LetStatement(name, exp, is_const, astindex) => {
+                ASTStatement::LetStatement(
+                    name,
+                    exp.fix_namespaces(enhanced_module),
+                    is_const,
+                    astindex,
+                )
+            }
         }
     }
 }
@@ -719,6 +900,16 @@ impl ASTEnumDef {
         result.push_str(&variant.name);
         result
     }
+
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self.clone();
+        result.variants = self
+            .variants
+            .into_iter()
+            .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -726,6 +917,20 @@ pub struct ASTEnumVariantDef {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
     pub index: ASTIndex,
+}
+
+impl ASTEnumVariantDef {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        Self {
+            name: self.name.clone(),
+            parameters: self
+                .parameters
+                .into_iter()
+                .map(|it| it.fix_namespaces(enhanced_module))
+                .collect(),
+            index: self.index.clone(),
+        }
+    }
 }
 
 impl Display for ASTEnumVariantDef {
@@ -748,6 +953,18 @@ pub struct ASTStructDef {
     pub properties: Vec<ASTStructPropertyDef>,
     pub index: ASTIndex,
     pub modifiers: ASTModifiers,
+}
+
+impl ASTStructDef {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        let mut result = self;
+        result.properties = result
+            .properties
+            .into_iter()
+            .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        return result;
+    }
 }
 
 impl CustomTypeDef for ASTStructDef {

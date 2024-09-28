@@ -5,7 +5,7 @@ use std::ops::Deref;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
-use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::enhanced_module::{self, EnhancedASTModule};
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind,
 };
@@ -768,6 +768,23 @@ impl FunctionsContainer {
             debug_i!("{x}");
         }
         dedent!();
+    }
+
+    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Self {
+        Self {
+            functions_by_name: self
+                .functions_by_name
+                .iter()
+                .map(|(key, f)| {
+                    (
+                        key.clone(),
+                        f.into_iter()
+                            .map(|it| it.clone().fix_namespaces(enhanced_module))
+                            .collect(),
+                    )
+                })
+                .collect(),
+        }
     }
 }
 

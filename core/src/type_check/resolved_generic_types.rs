@@ -113,6 +113,16 @@ impl ResolvedGenericTypes {
     pub fn keys(&self) -> Vec<String> {
         self.map.keys().cloned().collect()
     }
+
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+        Self {
+            map: self
+                .map
+                .into_iter()
+                .map(|(key, t)| (key, t.fix_namespaces(enhanced_module)))
+                .collect(),
+        }
+    }
 }
 
 impl Display for ResolvedGenericTypes {
