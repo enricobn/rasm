@@ -83,7 +83,7 @@ macro_rules! debug_i {
                 } else {
                     "|  ".repeat(*indent.borrow())
                 };
-                debug ! ("{}{}", s, & format ! ( $( $ a), * ));
+                log::debug!("{}{}", s, & format ! ( $( $ a), * ));
             });
         }
         if log::log_enabled!(log::Level::Debug) {

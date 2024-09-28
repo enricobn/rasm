@@ -23,9 +23,9 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use crate::codegen::compile_target::CompileTarget;
-use log::{debug, info};
+use log::info;
 
-use crate::codegen::enhanced_module::{self, EnhancedASTModule};
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
 use crate::codegen::val_context::ValContext;
@@ -460,18 +460,14 @@ impl TypeCheck {
         let mut new_call = call.clone();
         new_call.parameters = new_expressions;
 
-        let filters = new_function_def
-            .parameters
-            .iter()
-            .map(|it| TypeFilter::Exact(it.ast_type.clone()))
-            .collect::<Vec<_>>();
+        // we check for an already converted function, but if it is a default function it has the original name,
+        // so we check even with the original name
+        let converted_functions = self
+            .module
+            .find_precise_or_original_function(&call.original_function_name, &new_function_name);
 
-        let converted_functions =
-            self.module
-                .find_call_vec(call, &filters, Some(&new_function_def.return_type))?;
-
-        if converted_functions.len() == 1 {
-            new_call.function_name = converted_functions.first().unwrap().name.clone();
+        if let Some(converted_function) = converted_functions {
+            new_call.function_name = converted_function.name.clone();
             debug_i!("already added function {}", new_call.function_name);
         } else {
             new_call.function_name = new_function_name.clone();
@@ -1456,10 +1452,10 @@ impl TypeCheck {
                     };
                 }
 
-                if let Some(f) = self
-                    .module
-                    .find_precise_function(&call.original_function_name, &call.function_name)
-                {
+                if let Some(f) = self.module.find_precise_or_original_function(
+                    &call.original_function_name,
+                    &call.function_name,
+                ) {
                     dedent!();
                     return Ok(TypeFilter::Exact(f.return_type.clone()));
                 } else {
