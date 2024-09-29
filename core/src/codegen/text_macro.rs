@@ -451,14 +451,19 @@ impl TextMacroEvaluator {
                     })
                     .collect::<Vec<_>>();
 
-                let ast_type_to_resolve = ASTType::Custom {
-                    namespace: ast_type.namespace().clone(),
-                    name: name.clone(),
-                    param_types: resolved_types,
-                    index: ASTIndex::none(),
-                };
-
-                type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
+                if let Some(namespace) = type_def_provider.get_real_namespace(ast_type) {
+                    let ast_type_to_resolve = ASTType::Custom {
+                        namespace,
+                        name: name.clone(),
+                        param_types: resolved_types,
+                        index: ASTIndex::none(),
+                    };
+                    type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
+                } else {
+                    // TODO error?
+                    debug!("cannot find real namespace for {ast_type}");
+                    None
+                }
             }
         } else {
             None

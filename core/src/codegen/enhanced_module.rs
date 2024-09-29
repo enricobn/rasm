@@ -25,16 +25,6 @@ pub struct EnhancedASTModule {
 }
 
 impl EnhancedASTModule {
-    pub fn empty() -> Self {
-        Self {
-            body: Vec::new(),
-            functions_by_name: FunctionsContainer::new(),
-            enums: Vec::new(),
-            structs: Vec::new(),
-            types: Vec::new(),
-            body_namespace: ASTNameSpace::global(),
-        }
-    }
     pub fn new(
         modules: Vec<ASTModule>,
         project: &RasmProject,

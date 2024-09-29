@@ -217,6 +217,21 @@ impl ASTTypedType {
             _ => false,
         }
     }
+
+    pub fn namespace(&self) -> Option<ASTNameSpace> {
+        match self {
+            ASTTypedType::Builtin(_) => None,
+            ASTTypedType::Enum { namespace, name: _ } => Some(namespace.clone()),
+            ASTTypedType::Struct { namespace, name: _ } => Some(namespace.clone()),
+            ASTTypedType::Type {
+                namespace,
+                name: _,
+                is_ref: _,
+                native_type: _,
+            } => Some(namespace.clone()),
+            ASTTypedType::Unit => None,
+        }
+    }
 }
 
 impl Display for ASTTypedType {
@@ -578,6 +593,20 @@ pub trait CustomTypedTypeDef: Display + Debug {
     fn ast_typed_type(&self) -> &ASTTypedType;
 
     fn ast_type(&self) -> &ASTType;
+
+    fn custom_ast_type_name(&self) -> Option<String> {
+        if let ASTType::Custom {
+            namespace,
+            name,
+            param_types,
+            index,
+        } = self.ast_type()
+        {
+            Some(name.clone())
+        } else {
+            None
+        }
+    }
 }
 
 impl CustomTypedTypeDef for ASTTypedTypeDef {

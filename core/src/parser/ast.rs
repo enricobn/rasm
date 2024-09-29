@@ -19,6 +19,13 @@ pub struct ASTNameSpace {
     path: String,
 }
 
+const GLOBAL_NAMESPACE: ASTNameSpace = ASTNameSpace {
+    lib: String::new(),
+    path: String::new(),
+};
+
+const GLOBAL_NAMESPACE_REF: &'static ASTNameSpace = &GLOBAL_NAMESPACE;
+
 impl ASTNameSpace {
     pub fn new(lib: String, path: String) -> Self {
         if lib.is_empty() {
@@ -43,10 +50,11 @@ impl ASTNameSpace {
     }
 
     pub const fn global() -> Self {
-        Self {
-            lib: String::new(),
-            path: String::new(),
-        }
+        GLOBAL_NAMESPACE
+    }
+
+    pub const fn global_ref() -> &'static Self {
+        GLOBAL_NAMESPACE_REF
     }
 
     pub fn safe_name(&self) -> String {
@@ -226,8 +234,6 @@ pub enum ASTType {
     Unit,
 }
 
-const GLOBAL: &ASTNameSpace = &ASTNameSpace::global();
-
 impl ASTType {
     pub fn is_unit(&self) -> bool {
         self == &ASTType::Unit
@@ -241,10 +247,13 @@ impl ASTType {
                 param_types: _,
                 index: _,
             } => namespace,
-            _ => GLOBAL,
+            _ => ASTNameSpace::global_ref(),
         }
     }
 
+    #[deprecated(
+        note = "probably there's no need of this function, sice namespaces are fixed in EnhancedAstModule::new"
+    )]
     pub fn equals_excluding_namespace(&self, other: &Self) -> bool {
         match self {
             ASTType::Custom {
@@ -417,7 +426,7 @@ impl ASTType {
                         index: index.clone(),
                     }
                 } else {
-                    panic!("Cannot find type declaration for {self}");
+                    panic!("Cannot find custom type declaration for {self}");
                 }
             }
             ASTType::Unit => self.clone(),

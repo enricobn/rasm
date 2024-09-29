@@ -1,5 +1,3 @@
-use std::iter::zip;
-
 /*
  *     RASM compiler.
  *     Copyright (C) 2022-2023  Enrico Benedetti
@@ -17,6 +15,9 @@ use std::iter::zip;
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use itertools::Itertools;
+use std::iter::zip;
+
 use crate::parser::ast::{ASTModifiers, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
@@ -30,6 +31,68 @@ pub trait TypeDefProvider {
     fn structs(&self) -> &[ASTTypedStructDef];
 
     fn types(&self) -> &[ASTTypedTypeDef];
+
+    fn get_real_namespace(&self, ast_type: &ASTType) -> Option<ASTNameSpace> {
+        if let ASTType::Custom {
+            namespace: _,
+            name,
+            param_types: _,
+            index: _,
+        } = ast_type
+        {
+            let enums = self
+                .enums()
+                .iter()
+                .filter(|it| {
+                    it.custom_ast_type_name()
+                        .map(|n| &n == name)
+                        .unwrap_or(false)
+                        && (it.modifiers.public || &it.namespace == ast_type.namespace())
+                })
+                .map(|it| it.ast_type.namespace().clone())
+                .dedup()
+                .collect::<Vec<_>>();
+
+            let structs = self
+                .structs()
+                .iter()
+                .filter(|it| {
+                    it.custom_ast_type_name()
+                        .map(|n| &n == name)
+                        .unwrap_or(false)
+                        && (it.modifiers.public || &it.namespace == ast_type.namespace())
+                })
+                .map(|it| it.ast_type.namespace().clone())
+                .dedup()
+                .collect::<Vec<_>>();
+
+            let types = self
+                .types()
+                .iter()
+                .filter(|it| {
+                    it.custom_ast_type_name()
+                        .map(|n| &n == name)
+                        .unwrap_or(false)
+                        && (it.modifiers.public || &it.namespace == ast_type.namespace())
+                })
+                .map(|it| it.ast_type.namespace().clone())
+                .dedup()
+                .collect::<Vec<_>>();
+
+            let mut all = Vec::new();
+            all.extend(enums);
+            all.extend(structs);
+            all.extend(types);
+
+            if all.len() == 1 {
+                all.first().cloned()
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 
     fn get_enum_def_by_name(&self, name: &str) -> Option<&ASTTypedEnumDef> {
         self.enums().iter().find(|it| it.name == name)
@@ -172,8 +235,8 @@ pub trait TypeDefProvider {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
                 }
                 BuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
+                    parameters: _,
+                    return_type: _,
                 } => {
                     None
                     /*
@@ -194,7 +257,7 @@ pub trait TypeDefProvider {
             ASTType::Generic(_) => None,
             ASTType::Custom {
                 namespace: _,
-                name,
+                name: _,
                 param_types,
                 index: _,
             } => {
@@ -287,41 +350,8 @@ pub trait TypeDefProvider {
             index: _,
         } = custom_typed_type_def.ast_type()
         {
-            if custom_typed_type_def
-                .ast_type()
-                .equals_excluding_namespace(ast_type)
-                && (custom_typed_type_def.modifiers().public
-                    || custom_typed_type_def.namespace() == ast_type.namespace())
-            {
-                zip(it_pt.iter(), param_types.iter()).all(|(a, b)| {
-                    if a.equals_excluding_namespace(b) {
-                        if matches!(
-                            a,
-                            ASTType::Custom {
-                                namespace: it_ns,
-                                name: _,
-                                param_types: _,
-                                index: _
-                            }
-                        ) {
-                            if let Some(a_tt) = self.get_ast_typed_type_from_ast_type(a) {
-                                if let Some(b_tt) = self.get_ast_typed_type_from_ast_type(b) {
-                                    (self.get_modifier_by_typed_type(&a_tt).unwrap().public
-                                        && self.get_modifier_by_typed_type(&b_tt).unwrap().public)
-                                        || a.namespace() == b.namespace()
-                                } else {
-                                    panic!()
-                                }
-                            } else {
-                                panic!()
-                            }
-                        } else {
-                            true
-                        }
-                    } else {
-                        false
-                    }
-                })
+            if custom_typed_type_def.ast_type() == ast_type {
+                zip(it_pt.iter(), param_types.iter()).all(|(a, b)| a == b)
             } else {
                 false
             }

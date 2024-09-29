@@ -41,34 +41,13 @@ impl ResolvedGenericTypes {
         self.map.get(key)
     }
 
-    pub fn extend(
-        &mut self,
-        other: ResolvedGenericTypes,
-        enhanced_module: &EnhancedASTModule,
-    ) -> Result<(), String> {
+    pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), String> {
         for (key, new_type) in other.into_iter() {
             if let Some(prev_type) = self.get(&key) {
-                if !new_type.equals_excluding_namespace(prev_type) {
+                if &new_type != prev_type {
                     return Err(format!(
                         "Already resolved generic {key}, prev {prev_type}, new {new_type}"
                     ));
-                } else {
-                    if new_type.namespace() != prev_type.namespace() {
-                        let prev_type_def = enhanced_module.get_type_def(prev_type);
-                        let new_type_def = enhanced_module.get_type_def(&new_type);
-                        if prev_type_def
-                            .map(|p| {
-                                new_type_def
-                                    .map(|n| p.name() != n.name() || p.namespace() != n.namespace())
-                                    .unwrap_or(false)
-                            })
-                            .unwrap_or(false)
-                        {
-                            return Err(format!(
-                                "Already resolved generic {key}, prev {prev_type}, new {new_type}"
-                            ));
-                        }
-                    }
                 }
             }
             self.map.insert(key, new_type);

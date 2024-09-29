@@ -732,9 +732,9 @@ impl TypeCheck {
 
                 if !rt.is_generic() && function.return_type.is_generic() {
                     if let Ok(result) =
-                        resolve_generic_types_from_effective_type(&function.return_type, rt, module)
+                        resolve_generic_types_from_effective_type(&function.return_type, rt)
                     {
-                        if let Err(e) = resolved_generic_types.extend(result, module) {
+                        if let Err(e) = resolved_generic_types.extend(result) {
                             errors.push(TypeCheckError::new(
                                 function.index.clone(),
                                 format!(
@@ -1083,10 +1083,7 @@ impl TypeCheck {
             if !et.is_generic() {
                 if let Some(pt) = param_type {
                     resolved_generic_types
-                        .extend(
-                            resolve_generic_types_from_effective_type(pt, et, module)?,
-                            module,
-                        )
+                        .extend(resolve_generic_types_from_effective_type(pt, et)?)
                         .map_err(|it| {
                             TypeCheckError::new(
                                 expr.get_index(),
@@ -1105,14 +1102,10 @@ impl TypeCheck {
                     })) = param_type
                     {
                         resolved_generic_types
-                            .extend(
-                                resolve_generic_types_from_effective_type(
-                                    return_type.deref(),
-                                    et,
-                                    module,
-                                )?,
-                                module,
-                            )
+                            .extend(resolve_generic_types_from_effective_type(
+                                return_type.deref(),
+                                et,
+                            )?)
                             .map_err(|it| {
                                 TypeCheckError::new(
                                     expr.get_index(),
