@@ -44,7 +44,7 @@ impl ResolvedGenericTypes {
     pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), String> {
         for (key, new_type) in other.into_iter() {
             if let Some(prev_type) = self.get(&key) {
-                if &new_type != prev_type {
+                if &new_type != prev_type && new_type.is_generic() {
                     return Err(format!(
                         "Already resolved generic {key}, prev {prev_type}, new {new_type}"
                     ));
