@@ -102,6 +102,16 @@ impl ResolvedGenericTypes {
                 .collect(),
         }
     }
+
+    pub fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
+        Self {
+            map: self
+                .map
+                .into_iter()
+                .map(|(key, t)| (key, t.fix_generics(generics_prefix)))
+                .collect(),
+        }
+    }
 }
 
 impl Display for ResolvedGenericTypes {

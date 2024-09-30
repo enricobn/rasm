@@ -786,6 +786,21 @@ impl FunctionsContainer {
                 .collect(),
         }
     }
+
+    pub fn fix_generics(&self) -> Self {
+        Self {
+            functions_by_name: self
+                .functions_by_name
+                .iter()
+                .map(|(key, f)| {
+                    (
+                        key.clone(),
+                        f.into_iter().map(|it| it.clone().fix_generics()).collect(),
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 #[cfg(test)]

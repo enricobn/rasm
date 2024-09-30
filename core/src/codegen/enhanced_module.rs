@@ -346,4 +346,27 @@ impl EnhancedASTModule {
 
         result
     }
+
+    fn fix_generics(self) -> Self {
+        let mut result = self;
+        result.enums = result
+            .enums
+            .iter()
+            .map(|e| e.clone().fix_generics())
+            .collect();
+        result.structs = result
+            .structs
+            .iter()
+            .map(|e| e.clone().fix_generics())
+            .collect();
+        result.types = result
+            .types
+            .iter()
+            .map(|e| e.clone().fix_generics())
+            .collect();
+
+        result.functions_by_name = result.functions_by_name.fix_generics();
+
+        result
+    }
 }

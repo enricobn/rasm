@@ -154,6 +154,26 @@ impl ASTFunctionDef {
 
         result
     }
+
+    pub fn fix_generics(self) -> Self {
+        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+        let mut result = self;
+        result.parameters = result
+            .parameters
+            .into_iter()
+            .map(|it| it.fix_generics(&generics_prefix))
+            .collect();
+        result.resolved_generic_types =
+            result.resolved_generic_types.fix_generics(&generics_prefix);
+        result.return_type = result.return_type.fix_generics(&generics_prefix);
+        result.generic_types = result
+            .generic_types
+            .into_iter()
+            .map(|it| format!("{generics_prefix}:{it}"))
+            .collect();
+
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -389,7 +409,7 @@ impl ASTType {
         }
     }
 
-    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> ASTType {
+    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Self {
         match self {
             ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
                 BuiltinTypeKind::Bool => self.clone(),
@@ -429,6 +449,44 @@ impl ASTType {
                     panic!("Cannot find custom type declaration for {self}");
                 }
             }
+            ASTType::Unit => self.clone(),
+        }
+    }
+
+    pub fn fix_generics(&self, prefix: &dyn Display) -> Self {
+        match self {
+            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
+                BuiltinTypeKind::Bool => self.clone(),
+                BuiltinTypeKind::Char => self.clone(),
+                BuiltinTypeKind::I32 => self.clone(),
+                BuiltinTypeKind::F32 => self.clone(),
+                BuiltinTypeKind::String => self.clone(),
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters: parameters
+                        .iter()
+                        .map(|it| it.fix_generics(prefix))
+                        .collect(),
+                    return_type: Box::new(return_type.fix_generics(prefix)),
+                }),
+            },
+            ASTType::Generic(name) => ASTType::Generic(format!("{prefix}:{name}")),
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => ASTType::Custom {
+                namespace: namespace.clone(),
+                name: name.clone(),
+                param_types: param_types
+                    .iter()
+                    .map(|it| it.fix_generics(prefix))
+                    .collect(),
+                index: index.clone(),
+            },
             ASTType::Unit => self.clone(),
         }
     }
@@ -503,6 +561,12 @@ impl ASTParameterDef {
         result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
         result
     }
+
+    fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
+        let mut result = self;
+        result.ast_type = result.ast_type.fix_generics(generics_prefix);
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -516,6 +580,12 @@ impl ASTStructPropertyDef {
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self;
         result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
+        result
+    }
+
+    fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
+        let mut result = self;
+        result.ast_type = result.ast_type.fix_generics(generics_prefix);
         result
     }
 }
@@ -919,6 +989,24 @@ impl ASTEnumDef {
             .collect();
         result
     }
+
+    pub fn fix_generics(self) -> Self {
+        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+        let mut result = self.clone();
+
+        result.type_parameters = result
+            .type_parameters
+            .into_iter()
+            .map(|it| format!("{generics_prefix}:{it}"))
+            .collect();
+
+        result.variants = self
+            .variants
+            .into_iter()
+            .map(|it| it.fix_generics(&generics_prefix))
+            .collect();
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -936,6 +1024,18 @@ impl ASTEnumVariantDef {
                 .parameters
                 .into_iter()
                 .map(|it| it.fix_namespaces(enhanced_module))
+                .collect(),
+            index: self.index.clone(),
+        }
+    }
+
+    pub fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
+        Self {
+            name: self.name.clone(),
+            parameters: self
+                .parameters
+                .into_iter()
+                .map(|it| it.fix_generics(generics_prefix))
                 .collect(),
             index: self.index.clone(),
         }
@@ -971,6 +1071,22 @@ impl ASTStructDef {
             .properties
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
+            .collect();
+        return result;
+    }
+
+    pub fn fix_generics(self) -> Self {
+        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+        let mut result = self;
+        result.type_parameters = result
+            .type_parameters
+            .into_iter()
+            .map(|it| format!("{generics_prefix}:{it}"))
+            .collect();
+        result.properties = result
+            .properties
+            .into_iter()
+            .map(|it| it.fix_generics(&generics_prefix))
             .collect();
         return result;
     }
@@ -1011,6 +1127,20 @@ pub struct ASTTypeDef {
     pub index: ASTIndex,
     pub modifiers: ASTModifiers,
     pub native_type: Option<String>,
+}
+impl ASTTypeDef {
+    pub fn fix_generics(self) -> Self {
+        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+
+        let mut result = self;
+
+        result.type_parameters = result
+            .type_parameters
+            .into_iter()
+            .map(|it| format!("{generics_prefix}:{it}"))
+            .collect();
+        result
+    }
 }
 
 impl CustomTypeDef for ASTTypeDef {
