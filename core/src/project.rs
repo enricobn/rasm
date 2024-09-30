@@ -589,6 +589,9 @@ impl RasmProject {
             (self.test_rasm_folder(), false)
         } else {
             if let Some(native_source_folder) = self.main_native_source_folder(target.folder()) {
+                if !native_source_folder.exists() {
+                    return None;
+                }
                 (native_source_folder, false)
             } else {
                 return self
@@ -603,7 +606,10 @@ impl RasmProject {
             self.config.package.name.clone(),
             diff_paths(
                 path.canonicalize().unwrap(),
-                source_folder.canonicalize().unwrap(),
+                source_folder.canonicalize().expect(&format!(
+                    "cannot find source folder {}",
+                    source_folder.to_string_lossy()
+                )),
             )
             .unwrap()
             .with_extension("")
