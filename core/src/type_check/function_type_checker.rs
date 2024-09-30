@@ -79,6 +79,12 @@ impl<'a> FunctionTypeChecker<'a> {
         let mut errors = Vec::new();
         let mut result = HashMap::new();
         let mut return_type = None;
+        /*
+        println!(
+            "get_body_type_map expected_last_statement_type {}",
+            OptionDisplay(&expected_last_statement_type)
+        );
+        */
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
@@ -159,6 +165,8 @@ impl<'a> FunctionTypeChecker<'a> {
             ASTExpression::ValueRef(name, index) => {
                 if let Some(kind) = val_context.get(name) {
                     result.insert(index.clone(), TypeFilter::Exact(kind.ast_type()));
+                } else if let Some(entry) = statics.get_const(name) {
+                    result.insert(index.clone(), TypeFilter::Exact(entry.ast_type.clone()));
                 }
             }
             ASTExpression::Value(value_type, index) => {
@@ -235,6 +243,12 @@ impl<'a> FunctionTypeChecker<'a> {
         statics: &mut Statics,
         expected_expression_type: Option<&ASTType>,
     ) -> (HashMap<ASTIndex, TypeFilter>, Vec<TypeCheckError>) {
+        /*
+        println!(
+            "get_call_type_map {call} expected_expression_type {}",
+            OptionDisplay(&expected_expression_type)
+        );
+        */
         let mut errors = Vec::new();
         let mut result = HashMap::new();
 
@@ -285,7 +299,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
                 if functions.len() > 1 {
                     print!(
-                        "more than one function for {} : {} -> ",
+                        "found more than one function for {} : {} -> ",
                         call.function_name, call.index
                     );
                     println!("{}", SliceDisplay(&parameter_types_filters));
@@ -295,7 +309,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
                     errors.push(TypeCheckError::new(
                         call.index.clone(),
-                        format!("no functions for {}", call.function_name),
+                        format!("found more than one function for {}", call.function_name),
                         Vec::new(),
                     ));
 
@@ -309,13 +323,14 @@ impl<'a> FunctionTypeChecker<'a> {
                         if parameter.ast_type.is_generic() {
                             let calculated_type_filter = parameter_types_filters.get(i).unwrap();
 
-                            self.resolve_type_filter(
+                            let p_errors = self.resolve_type_filter(
                                 call.index.clone(),
                                 &parameter.ast_type,
                                 calculated_type_filter,
                                 &mut resolved_generic_types,
-                                &mut errors,
                             );
+
+                            errors.extend(p_errors);
                         }
                     }
 
@@ -335,13 +350,21 @@ impl<'a> FunctionTypeChecker<'a> {
                             errors.extend(e_errors);
 
                             if let Some(calculated_type_filter) = result.get(&e.get_index()) {
-                                self.resolve_type_filter(
+                                let p_errors = self.resolve_type_filter(
                                     call.index.clone(),
                                     &parameter_type,
                                     calculated_type_filter,
                                     &mut resolved_generic_types,
-                                    &mut errors,
                                 );
+
+                                if !p_errors.is_empty() {
+                                    println!("found errors resoving {e} expected expression type {ast_type}:");
+                                    for error in p_errors.iter() {
+                                        println!("  {error}");
+                                    }
+                                }
+
+                                errors.extend(p_errors);
                             }
                         }
 
@@ -350,7 +373,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         }
                     }
 
-                    let return_type = if found_function.return_type.is_generic()
+                    let mut return_type = if found_function.return_type.is_generic()
                         && resolved_generic_types.len() > 0
                     {
                         if let Some(return_type) =
@@ -363,6 +386,12 @@ impl<'a> FunctionTypeChecker<'a> {
                     } else {
                         found_function.return_type.clone()
                     };
+
+                    if let Some(ert) = expected_expression_type {
+                        if !ert.is_generic() {
+                            return_type = ert.clone();
+                        }
+                    }
 
                     result.insert(call.index.clone(), TypeFilter::Exact(return_type));
                 }
@@ -377,8 +406,8 @@ impl<'a> FunctionTypeChecker<'a> {
         generic_type: &ASTType,
         effective_filter: &TypeFilter,
         resolved_generic_types: &mut ResolvedGenericTypes,
-        errors: &mut Vec<TypeCheckError>,
-    ) {
+    ) -> Vec<TypeCheckError> {
+        let mut errors = Vec::new();
         if let TypeFilter::Exact(calculated_type) = effective_filter {
             match resolve_generic_types_from_effective_type(generic_type, calculated_type) {
                 Ok(rgt) => {
@@ -389,6 +418,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 Err(e) => errors.push(e),
             }
         }
+        errors
     }
 }
 
