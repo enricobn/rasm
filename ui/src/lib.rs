@@ -198,8 +198,8 @@ impl UI {
             );
 
             for function in module.functions {
-                let (f_result, f_errors) =
-                    function_type_checker.get_type_map(&function, &mut statics);
+                let (f_result, f_errors) = function_type_checker
+                    .get_type_map(&function.fix_namespaces(&enhanced_ast_module), &mut statics);
                 type_map.extend(f_result);
                 errors.extend(f_errors);
             }
@@ -213,6 +213,9 @@ impl UI {
         };
 
         println!("selected_module takes {:?}", start.elapsed());
+
+        // enhanced_ast_module.print();
+
         SelectedModule {
             path: path.to_string(),
             type_map,
