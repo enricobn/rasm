@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::zip};
 
 use crate::{
-    codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
+    codegen::{
+        enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext, ValKind,
+    },
     parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
         ASTStatement, ASTType, BuiltinTypeKind,
@@ -251,6 +253,29 @@ impl<'a> FunctionTypeChecker<'a> {
         */
         let mut errors = Vec::new();
         let mut result = HashMap::new();
+
+        let lambda_from_context_result = if let Some((lambda_return_type, parameters_types)) =
+            val_context.get_lambda(&call.function_name)
+        {
+            let lrt = lambda_return_type.as_ref().clone();
+            let pts = parameters_types.iter().cloned().collect::<Vec<_>>();
+            Some((lrt, pts))
+        } else {
+            None
+        };
+
+        if let Some((lambda_return_type, parameters_types)) = lambda_from_context_result {
+            for (expr, parameter_type) in zip(call.parameters.iter(), parameters_types) {
+                let (expr_result, expr_errors) =
+                    self.get_expr_type_map(expr, val_context, statics, Some(&parameter_type));
+                result.extend(expr_result);
+                errors.extend(expr_errors);
+            }
+
+            result.insert(call.index.clone(), TypeFilter::Exact(lambda_return_type));
+
+            return (result, errors);
+        }
 
         let mut first_try_of_map = HashMap::new();
 
