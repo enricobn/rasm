@@ -347,7 +347,7 @@ impl EnhancedASTModule {
         result
     }
 
-    fn fix_generics(self) -> Self {
+    pub fn fix_generics(self) -> Self {
         let mut result = self;
         result.enums = result
             .enums
