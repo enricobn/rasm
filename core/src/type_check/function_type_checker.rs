@@ -433,8 +433,9 @@ impl<'a> FunctionTypeChecker<'a> {
         resolved_generic_types: &mut ResolvedGenericTypes,
     ) -> Vec<TypeCheckError> {
         let mut errors = Vec::new();
-        if let TypeFilter::Exact(calculated_type) = effective_filter {
-            match resolve_generic_types_from_effective_type(generic_type, calculated_type) {
+        if let TypeFilter::Exact(effective_type) = effective_filter {
+            //if !effective_type.is_generic() {
+            match resolve_generic_types_from_effective_type(generic_type, effective_type) {
                 Ok(rgt) => {
                     if let Err(e) = resolved_generic_types.extend(rgt) {
                         errors.push(TypeCheckError::new(index, e, Vec::new()));
@@ -442,6 +443,9 @@ impl<'a> FunctionTypeChecker<'a> {
                 }
                 Err(e) => errors.push(e),
             }
+            //} else {
+            //    println!("resolve_type_filter effective_type is generic, generic_type {generic_type}, effective_type {effective_type}");
+            //}
         }
         errors
     }
@@ -450,6 +454,7 @@ impl<'a> FunctionTypeChecker<'a> {
 #[cfg(test)]
 mod tests {
     use std::{
+        collections::HashMap,
         env,
         path::{Path, PathBuf},
     };
@@ -457,11 +462,13 @@ mod tests {
     use crate::{
         codegen::{
             c::options::COptions, compile_target::CompileTarget,
-            enhanced_module::EnhancedASTModule, statics::Statics,
+            enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext,
         },
         commandline::CommandLineOptions,
+        parser::ast::{ASTIndex, ASTModule},
         project::RasmProject,
-        type_check::function_type_checker::FunctionTypeChecker,
+        type_check::{function_type_checker::FunctionTypeChecker, functions_container::TypeFilter},
+        utils::OptionDisplay,
     };
 
     #[test]
@@ -484,28 +491,6 @@ mod tests {
         let (enhanced_ast_module, _errors) =
             EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
 
-        println!(
-            "eh_module_functions: {}",
-            enhanced_ast_module.functions().len()
-        );
-        /*
-        let default_functions = target.get_default_functions(false);
-        let mandatory_functions = target.get_mandatory_functions(&enhanced_ast_module);
-
-        let type_checked_ast = TypeCheck::new(&enhanced_ast_module.body_namespace)
-            .type_check(
-                &enhanced_ast_module,
-                &mut statics,
-                default_functions,
-                mandatory_functions,
-                &target,
-                false,
-            )
-            .unwrap();
-
-        println!("type_checked_ast: {}", type_checked_ast.functions().len());
-        */
-
         let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
         let mut statics = Statics::new();
 
@@ -523,5 +508,196 @@ mod tests {
             //println!("function {}", function.name);
             function_type_checker.get_type_map(function, &mut statics);
         }
+    }
+
+    #[test]
+    fn test_svg_check_functions() {
+        let project = RasmProject::new(PathBuf::from("/home/enrico/development/rasm/svglib"));
+
+        let mut statics = Statics::new();
+
+        let target = CompileTarget::C(COptions::default());
+
+        let (modules, _errors) = project.get_all_modules(
+            &mut statics,
+            false,
+            &target,
+            false,
+            &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
+        );
+
+        let (enhanced_ast_module, _errors) =
+            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+
+        println!(
+            "eh_module_functions: {}",
+            enhanced_ast_module.functions().len()
+        );
+
+        let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
+        let mut statics = Statics::new();
+
+        for function in project
+            .get_module(
+                Path::new("/home/enrico/development/rasm/svglib/src/main/rasm/svg.rasm"),
+                &target,
+            )
+            .unwrap()
+            .0
+            .functions
+            .into_iter()
+        //.filter(|it| it.name == "take")
+        {
+            //println!("function {}", function.name);
+            function_type_checker
+                .get_type_map(&function.fix_namespaces(&enhanced_ast_module), &mut statics);
+        }
+    }
+
+    #[test]
+    fn test_functions_checker1() {
+        let file = "resources/test/functions_checker1.rasm";
+
+        let types_map = check_body(file);
+
+        let r_value = types_map.get(&ASTIndex::new(
+            Some(PathBuf::from(file).canonicalize().unwrap()),
+            1,
+            6,
+        ));
+
+        assert_eq!(
+            "Some(Exact(Option<i32>))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+        /*
+        for (index, type_filter) in result {
+            println!("{index} {type_filter}");
+        }
+        */
+    }
+
+    #[test]
+    fn test_functions_checker2() {
+        let file = "resources/test/functions_checker2.rasm";
+
+        let types_map = check_body(file);
+
+        let r_value = types_map.get(&ASTIndex::new(
+            Some(PathBuf::from(file).canonicalize().unwrap()),
+            1,
+            6,
+        ));
+
+        assert_eq!(
+            "Some(Exact(Option<i32>))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+
+        /*
+        for (index, type_filter) in result {
+            println!("{index} {type_filter}");
+        }
+        */
+    }
+
+    #[test]
+    fn test_functions_checker3() {
+        let file = "resources/test/functions_checker3.rasm";
+
+        let types_map = check_body(file);
+
+        let r_value = types_map.get(&ASTIndex::new(
+            Some(PathBuf::from(file).canonicalize().unwrap()),
+            1,
+            6,
+        ));
+
+        assert_eq!(
+            "Some(Exact(Option<i32>))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+
+        /*
+        for (index, type_filter) in result {
+            println!("{index} {type_filter}");
+        }
+        */
+    }
+
+    #[test]
+    fn test_functions_checker4() {
+        let file = "resources/test/functions_checker4.rasm";
+
+        let types_map = check_body(file);
+
+        let r_value = types_map.get(&ASTIndex::new(
+            Some(PathBuf::from(file).canonicalize().unwrap()),
+            1,
+            6,
+        ));
+
+        assert_eq!(
+            "Some(Exact(Option<i32>))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+
+        /*
+        for (index, type_filter) in result {
+            println!("{index} {type_filter}");
+        }
+        */
+    }
+
+    fn check_body(file: &str) -> HashMap<ASTIndex, TypeFilter> {
+        apply_to_functions_checker(file, file, |statics, ftc, module| {
+            let mut val_context = ValContext::new(None);
+            ftc.get_body_type_map(&mut val_context, statics, &module.body, None)
+                .0
+        })
+    }
+
+    fn apply_to_functions_checker<F>(
+        project_path: &str,
+        file: &str,
+        f: F,
+    ) -> HashMap<ASTIndex, TypeFilter>
+    where
+        F: Fn(&mut Statics, FunctionTypeChecker, ASTModule) -> HashMap<ASTIndex, TypeFilter>,
+    {
+        env::set_var("RASM_STDLIB", "/home/enrico/development/rust/rasm/stdlib");
+
+        let target = CompileTarget::C(COptions::default());
+        let mut statics = Statics::new();
+        let (project, enhanced_ast_module) =
+            project_and_enhanced_module(&target, &mut statics, &project_path);
+        let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
+
+        let (module, _) = project.get_module(Path::new(file), &target).unwrap();
+
+        f(&mut statics, function_type_checker, module)
+    }
+
+    fn project_and_enhanced_module(
+        target: &CompileTarget,
+        statics: &mut Statics,
+        project_path: &str,
+    ) -> (RasmProject, EnhancedASTModule) {
+        let project = RasmProject::new(PathBuf::from(project_path));
+
+        let (modules, _errors) = project.get_all_modules(
+            statics,
+            false,
+            target,
+            false,
+            &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
+        );
+
+        let (enhanced_ast_module, _errors) =
+            EnhancedASTModule::new(modules, &project, statics, target, false);
+
+        (project, enhanced_ast_module)
     }
 }
