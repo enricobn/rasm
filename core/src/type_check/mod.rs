@@ -128,7 +128,7 @@ pub fn resolve_generic_types_from_effective_type(
                     }
                     _ => {
                         dedent!();
-                        return Err(type_check_error("unmatched types".to_string()));
+                        return Err(type_check_error(format!("unmatched types, generic type is {generic_type}, real type is {effective_type}")));
                     }
                 },
             }
@@ -191,9 +191,7 @@ pub fn resolve_generic_types_from_effective_type(
             _ => {
                 dedent!();
                 return Err(type_check_error(format!(
-                    "unmatched types generic type: {:?}, effective type: {:?}",
-                    generic_type, effective_type
-                )));
+                    "unmatched types, generic type is {generic_type}, real type is {effective_type}")));
             }
         },
         ASTType::Unit => {}
