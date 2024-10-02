@@ -153,9 +153,21 @@ pub fn get_typed_module(
     )
 }
 
-pub fn get_std_lib_path() -> String {
+pub fn get_std_lib_path() -> Option<String> {
+    let from_env = env::var("RASM_STDLIB");
+
+    if let Ok(result) = from_env {
+        return Some(result);
+    }
+
     let current_dir = env::current_dir().unwrap();
-    env::var("RASM_STDLIB").unwrap_or(current_dir.join("stdlib").to_str().unwrap().to_owned())
+
+    let relative_stdlib_path = current_dir.join("stdlib");
+    if relative_stdlib_path.exists() {
+        Some(relative_stdlib_path.to_string_lossy().to_string())
+    } else {
+        None
+    }
 }
 
 pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {

@@ -685,9 +685,20 @@ impl RasmProject {
                 if let Value::Table(table) = dependency {
                     if let Some(path_value) = table.get("path") {
                         if let Value::String(path) = path_value {
-                            let path_from_relative_to_root =
-                                self.from_relative_to_root(Path::new(path));
-                            let path_buf = path_from_relative_to_root
+                            let path_buf = if Path::new(path).is_absolute() {
+                                PathBuf::from(path)
+                            } else {
+                                let path_from_relative_to_root =
+                                    self.from_relative_to_root(Path::new(path));
+
+                                if !path_from_relative_to_root.exists() {
+                                    panic!(
+                                        "Cannot find path ot dependency {dependency} in project {}",
+                                        self.config.package.name
+                                    );
+                                }
+
+                                path_from_relative_to_root
                                 .canonicalize()
                                 .unwrap_or_else(|_| {
                                     panic!(
@@ -695,7 +706,8 @@ impl RasmProject {
                                         path_from_relative_to_root.to_string_lossy(),
                                         self.root.to_string_lossy()
                                     )
-                                });
+                                })
+                            };
 
                             let dependency_project = RasmProject::new(path_buf);
                             result.append(&mut dependency_project.get_all_dependencies());
@@ -823,6 +835,9 @@ pub struct RasmConfig {
 }
 
 fn get_rasm_config(src_path: &Path) -> RasmConfig {
+    if !src_path.exists() {
+        panic!("path does not exists {}", src_path.to_string_lossy());
+    }
     if src_path.is_dir() {
         get_rasm_config_from_directory(src_path)
     } else {
@@ -841,7 +856,11 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
         .to_string();
     let mut dependencies_map = Map::new();
     let mut stdlib = Map::new();
-    stdlib.insert("path".to_owned(), Value::String(get_std_lib_path()));
+    if let Some(stdlib_path) = get_std_lib_path() {
+        stdlib.insert("path".to_owned(), Value::String(stdlib_path));
+    } else {
+        eprintln!("cannot find stdlib path. Define RASM_STDLIB environment variable.");
+    }
     dependencies_map.insert("stdlib".to_owned(), Value::Table(stdlib));
 
     RasmConfig {
