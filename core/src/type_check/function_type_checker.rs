@@ -5,11 +5,11 @@ use crate::{
         enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext, ValKind,
     },
     parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTParameterDef,
-        ASTStatement, ASTType, BuiltinTypeKind,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
+        ASTIndex, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
     },
     type_check::type_check_error::TypeCheckError,
-    utils::SliceDisplay,
+    utils::{OptionDisplay, SliceDisplay},
 };
 
 use super::{
@@ -251,32 +251,6 @@ impl<'a> FunctionTypeChecker<'a> {
             OptionDisplay(&expected_expression_type)
         );
         */
-        let mut errors = Vec::new();
-        let mut result = HashMap::new();
-
-        let lambda_from_context_result = if let Some((lambda_return_type, parameters_types)) =
-            val_context.get_lambda(&call.function_name)
-        {
-            let lrt = lambda_return_type.as_ref().clone();
-            let pts = parameters_types.iter().cloned().collect::<Vec<_>>();
-            Some((lrt, pts))
-        } else {
-            None
-        };
-
-        if let Some((lambda_return_type, parameters_types)) = lambda_from_context_result {
-            for (expr, parameter_type) in zip(call.parameters.iter(), parameters_types) {
-                let (expr_result, expr_errors) =
-                    self.get_expr_type_map(expr, val_context, statics, Some(&parameter_type));
-                result.extend(expr_result);
-                errors.extend(expr_errors);
-            }
-
-            result.insert(call.index.clone(), TypeFilter::Exact(lambda_return_type));
-
-            return (result, errors);
-        }
-
         let mut first_try_of_map = HashMap::new();
 
         for e in &call.parameters {
@@ -294,17 +268,84 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
 
+        let lambda_from_context_result = if let Some((lambda_return_type, parameters_types)) =
+            val_context.get_lambda(&call.function_name)
+        {
+            let lrt = lambda_return_type.as_ref().clone();
+            let pts = parameters_types.iter().cloned().collect::<Vec<_>>();
+            Some((lrt, pts))
+        } else {
+            None
+        };
+
+        if let Some((lambda_return_type, parameters_types)) = lambda_from_context_result {
+            let lambda_signature = ASTFunctionSignature {
+                name: String::new(),
+                parameters_types,
+                return_type: lambda_return_type,
+            };
+
+            let (result, errors) = self.process_function_signature(
+                &lambda_signature,
+                &parameter_types_filters,
+                call,
+                val_context,
+                statics,
+                expected_expression_type,
+            );
+
+            /*
+            println!(
+                "lambda {} types: {:?}",
+                call.function_name,
+                parameters_types.get(0)
+            );
+
+            let mut resolved_generic_types = ResolvedGenericTypes::new();
+
+            for (expr, parameter_type) in zip(call.parameters.iter(), parameters_types) {
+                let (expr_result, expr_errors) =
+                    self.get_expr_type_map(expr, val_context, statics, Some(&parameter_type));
+
+                if let Some(calculated_type_filter) = expr_result.get(&expr.get_index()) {
+                    let p_errors = self.resolve_type_filter(
+                        expr.get_index(),
+                        &&parameter_type,
+                        calculated_type_filter,
+                        &mut resolved_generic_types,
+                    );
+
+                    // println!("expr_result {}", HashMapDisplay(&expr_result));
+                    result.extend(expr_result);
+                    errors.extend(expr_errors);
+                    errors.extend(p_errors);
+                }
+            }
+
+            let return_type = substitute(&lambda_return_type, &resolved_generic_types)
+                .unwrap_or(lambda_return_type);
+
+            result.insert(call.index.clone(), TypeFilter::Exact(return_type));
+            */
+
+            return (result, errors);
+        }
+
+        let mut errors = Vec::new();
+        let mut result = HashMap::new();
+
         if let Ok(mut functions) = self.enhanced_ast_module.find_call_vec(
             call,
             &parameter_types_filters,
             expected_expression_type,
         ) {
             if functions.is_empty() {
-                print!(
-                    "no functions for {} : {} -> ",
-                    call.function_name, call.index
+                println!("no functions for {} : {}", call.function_name, call.index);
+                println!("filters {}", SliceDisplay(&parameter_types_filters));
+                println!(
+                    "expected_expression_type {}",
+                    OptionDisplay(&expected_expression_type)
                 );
-                println!("{}", SliceDisplay(&parameter_types_filters));
                 errors.push(TypeCheckError::new(
                     call.index.clone(),
                     format!("no functions for {}", call.function_name),
@@ -342,86 +383,113 @@ impl<'a> FunctionTypeChecker<'a> {
                 } else {
                     let found_function = functions.remove(0);
 
-                    let mut resolved_generic_types = ResolvedGenericTypes::new();
+                    let function_signature = found_function.signature();
 
-                    for (i, parameter) in found_function.parameters.iter().enumerate() {
-                        if parameter.ast_type.is_generic() {
-                            let calculated_type_filter = parameter_types_filters.get(i).unwrap();
+                    let (function_result, function_errors) = self.process_function_signature(
+                        &function_signature,
+                        &parameter_types_filters,
+                        call,
+                        val_context,
+                        statics,
+                        expected_expression_type,
+                    );
 
-                            let p_errors = self.resolve_type_filter(
-                                call.index.clone(),
-                                &parameter.ast_type,
-                                calculated_type_filter,
-                                &mut resolved_generic_types,
-                            );
-
-                            errors.extend(p_errors);
-                        }
-                    }
-
-                    loop {
-                        let resolved_generic_types_len = resolved_generic_types.len();
-
-                        for (i, e) in call.parameters.iter().enumerate() {
-                            let parameter_type =
-                                found_function.parameters.get(i).unwrap().ast_type.clone();
-                            let ast_type = substitute(&parameter_type, &resolved_generic_types)
-                                .unwrap_or(parameter_type.clone());
-
-                            let (e_result, e_errors) =
-                                self.get_expr_type_map(e, val_context, statics, Some(&ast_type));
-
-                            result.extend(e_result);
-                            errors.extend(e_errors);
-
-                            if let Some(calculated_type_filter) = result.get(&e.get_index()) {
-                                let p_errors = self.resolve_type_filter(
-                                    call.index.clone(),
-                                    &parameter_type,
-                                    calculated_type_filter,
-                                    &mut resolved_generic_types,
-                                );
-
-                                if !p_errors.is_empty() {
-                                    println!("found errors resoving {e} expected expression type {ast_type}:");
-                                    for error in p_errors.iter() {
-                                        println!("  {error}");
-                                    }
-                                }
-
-                                errors.extend(p_errors);
-                            }
-                        }
-
-                        if resolved_generic_types.len() == resolved_generic_types_len {
-                            break;
-                        }
-                    }
-
-                    let mut return_type = if found_function.return_type.is_generic()
-                        && resolved_generic_types.len() > 0
-                    {
-                        if let Some(return_type) =
-                            substitute(&found_function.return_type, &resolved_generic_types)
-                        {
-                            return_type
-                        } else {
-                            found_function.return_type.clone()
-                        }
-                    } else {
-                        found_function.return_type.clone()
-                    };
-
-                    if let Some(ert) = expected_expression_type {
-                        if !ert.is_generic() {
-                            return_type = ert.clone();
-                        }
-                    }
-
-                    result.insert(call.index.clone(), TypeFilter::Exact(return_type));
+                    result.extend(function_result);
+                    errors.extend(function_errors);
                 }
             }
         }
+        (result, errors)
+    }
+
+    fn process_function_signature(
+        &self,
+        function_signature: &ASTFunctionSignature,
+        parameter_types_filters: &Vec<TypeFilter>,
+        call: &ASTFunctionCall,
+        val_context: &mut ValContext,
+        statics: &mut Statics,
+        expected_expression_type: Option<&ASTType>,
+    ) -> (HashMap<ASTIndex, TypeFilter>, Vec<TypeCheckError>) {
+        let mut result = HashMap::new();
+        let mut errors = Vec::new();
+
+        let mut resolved_generic_types = ResolvedGenericTypes::new();
+
+        for (i, parameter) in function_signature.parameters_types.iter().enumerate() {
+            if parameter.is_generic() {
+                let calculated_type_filter = parameter_types_filters.get(i).unwrap();
+
+                let p_errors = self.resolve_type_filter(
+                    call.index.clone(),
+                    parameter,
+                    calculated_type_filter,
+                    &mut resolved_generic_types,
+                );
+
+                errors.extend(p_errors);
+            }
+        }
+
+        loop {
+            let resolved_generic_types_len = resolved_generic_types.len();
+
+            for (i, e) in call.parameters.iter().enumerate() {
+                let parameter_type = function_signature.parameters_types.get(i).unwrap();
+                let ast_type = substitute(&parameter_type, &resolved_generic_types)
+                    .unwrap_or(parameter_type.clone());
+
+                let (e_result, e_errors) =
+                    self.get_expr_type_map(e, val_context, statics, Some(&ast_type));
+
+                result.extend(e_result);
+                errors.extend(e_errors);
+
+                if let Some(calculated_type_filter) = result.get(&e.get_index()) {
+                    let p_errors = self.resolve_type_filter(
+                        call.index.clone(),
+                        &parameter_type,
+                        calculated_type_filter,
+                        &mut resolved_generic_types,
+                    );
+
+                    if !p_errors.is_empty() {
+                        println!("found errors resoving {e} expected expression type {ast_type}:");
+                        for error in p_errors.iter() {
+                            println!("  {error}");
+                        }
+                    }
+
+                    errors.extend(p_errors);
+                }
+            }
+
+            if resolved_generic_types.len() == resolved_generic_types_len {
+                break;
+            }
+        }
+
+        let mut return_type =
+            if function_signature.return_type.is_generic() && resolved_generic_types.len() > 0 {
+                if let Some(return_type) =
+                    substitute(&function_signature.return_type, &resolved_generic_types)
+                {
+                    return_type
+                } else {
+                    function_signature.return_type.clone()
+                }
+            } else {
+                function_signature.return_type.clone()
+            };
+
+        if let Some(ert) = expected_expression_type {
+            if !ert.is_generic() {
+                return_type = ert.clone();
+            }
+        }
+
+        result.insert(call.index.clone(), TypeFilter::Exact(return_type));
+
         (result, errors)
     }
 
@@ -650,10 +718,53 @@ mod tests {
         */
     }
 
+    #[test]
+    fn test_functions_checker5() {
+        let file = "resources/test/functions_checker5.rasm";
+
+        let types_map = check_body(file);
+
+        let r_value = types_map.get(&ASTIndex::new(
+            Some(PathBuf::from(file).canonicalize().unwrap()),
+            1,
+            6,
+        ));
+
+        assert_eq!(
+            "Some(Exact(List<Option<i32>>))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+    }
+
+    #[test]
+    fn test_functions_checker6() {
+        let file = "resources/test/functions_checker6.rasm";
+
+        let types_map = check_function(file);
+
+        let r_value = types_map.get(&ASTIndex::new(
+            Some(PathBuf::from(file).canonicalize().unwrap()),
+            3,
+            10,
+        ));
+
+        assert_eq!(
+            "Some(Exact(Option<i32>))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+    }
+
     fn check_body(file: &str) -> HashMap<ASTIndex, TypeFilter> {
         apply_to_functions_checker(file, file, |statics, ftc, module| {
             let mut val_context = ValContext::new(None);
             ftc.get_body_type_map(&mut val_context, statics, &module.body, None)
+                .0
+        })
+    }
+
+    fn check_function(file: &str) -> HashMap<ASTIndex, TypeFilter> {
+        apply_to_functions_checker(file, file, |statics, ftc, module| {
+            ftc.get_type_map(module.functions.first().unwrap(), statics)
                 .0
         })
     }

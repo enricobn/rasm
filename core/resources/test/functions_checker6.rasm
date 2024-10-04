@@ -1,0 +1,7 @@
+pub fn endsWith<T>(s: str, suffix: str, f: fn(str) -> Option<i32>) -> Option<i32> {
+    if(s.endsWith(suffix), {
+        f(s.removeSuffix(suffix));
+    }, {
+        Option::None();
+    });
+}

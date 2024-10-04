@@ -92,6 +92,13 @@ pub struct ASTFunctionDef {
     pub rank: usize,
 }
 
+pub struct ASTFunctionSignature {
+    pub name: String,
+    //pub generics: Vec<String>,
+    pub parameters_types: Vec<ASTType>,
+    pub return_type: ASTType,
+}
+
 impl Display for ASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let generic_types = if self.generic_types.is_empty() {
@@ -173,6 +180,18 @@ impl ASTFunctionDef {
             .collect();
 
         result
+    }
+
+    pub fn signature(&self) -> ASTFunctionSignature {
+        ASTFunctionSignature {
+            name: self.name.clone(),
+            parameters_types: self
+                .parameters
+                .iter()
+                .map(|it| it.ast_type.clone())
+                .collect(),
+            return_type: self.return_type.clone(),
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::slice::Iter;
@@ -48,6 +49,23 @@ impl<'a, T: fmt::Display + 'a> fmt::Display for SliceDisplay<'a, T> {
                 write!(f, ", {}", item)?;
             } else {
                 write!(f, "{}", item)?;
+            }
+            first = false;
+        }
+        Ok(())
+    }
+}
+
+pub struct HashMapDisplay<'a, K: 'a, V: 'a>(pub &'a HashMap<K, V>);
+
+impl<'a, K: fmt::Display + 'a, V: fmt::Display + 'a> fmt::Display for HashMapDisplay<'a, K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut first = true;
+        for (k, v) in self.0 {
+            if !first {
+                write!(f, ", {k} -> {v}")?;
+            } else {
+                write!(f, "{k} -> {v}")?;
             }
             first = false;
         }

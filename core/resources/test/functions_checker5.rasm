@@ -1,0 +1,5 @@
+let r = aFun(Option::Some(10), fn(v) { List::Empty();});
+
+fn aFun<T>(value: T, f: fn(T) -> List<T>) -> List<T> {
+    ...
+}
