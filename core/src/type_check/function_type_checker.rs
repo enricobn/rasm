@@ -268,21 +268,15 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
 
-        let lambda_from_context_result = if let Some((lambda_return_type, parameters_types)) =
+        if let Some((lambda_return_type, parameters_types)) =
             val_context.get_lambda(&call.function_name)
         {
             let lrt = lambda_return_type.as_ref().clone();
             let pts = parameters_types.iter().cloned().collect::<Vec<_>>();
-            Some((lrt, pts))
-        } else {
-            None
-        };
-
-        if let Some((lambda_return_type, parameters_types)) = lambda_from_context_result {
             let lambda_signature = ASTFunctionSignature {
                 name: String::new(),
-                parameters_types,
-                return_type: lambda_return_type,
+                parameters_types: pts,
+                return_type: lrt,
             };
 
             let (result, errors) = self.process_function_signature(
@@ -293,40 +287,6 @@ impl<'a> FunctionTypeChecker<'a> {
                 statics,
                 expected_expression_type,
             );
-
-            /*
-            println!(
-                "lambda {} types: {:?}",
-                call.function_name,
-                parameters_types.get(0)
-            );
-
-            let mut resolved_generic_types = ResolvedGenericTypes::new();
-
-            for (expr, parameter_type) in zip(call.parameters.iter(), parameters_types) {
-                let (expr_result, expr_errors) =
-                    self.get_expr_type_map(expr, val_context, statics, Some(&parameter_type));
-
-                if let Some(calculated_type_filter) = expr_result.get(&expr.get_index()) {
-                    let p_errors = self.resolve_type_filter(
-                        expr.get_index(),
-                        &&parameter_type,
-                        calculated_type_filter,
-                        &mut resolved_generic_types,
-                    );
-
-                    // println!("expr_result {}", HashMapDisplay(&expr_result));
-                    result.extend(expr_result);
-                    errors.extend(expr_errors);
-                    errors.extend(p_errors);
-                }
-            }
-
-            let return_type = substitute(&lambda_return_type, &resolved_generic_types)
-                .unwrap_or(lambda_return_type);
-
-            result.insert(call.index.clone(), TypeFilter::Exact(return_type));
-            */
 
             return (result, errors);
         }
