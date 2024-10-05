@@ -271,12 +271,12 @@ impl<'a> FunctionTypeChecker<'a> {
         if let Some((lambda_return_type, parameters_types)) =
             val_context.get_lambda(&call.function_name)
         {
-            let lrt = lambda_return_type.as_ref().clone();
-            let pts = parameters_types.iter().cloned().collect::<Vec<_>>();
+            let return_type = lambda_return_type.as_ref().clone();
+            let parameters_types = parameters_types.clone();
             let lambda_signature = ASTFunctionSignature {
                 name: String::new(),
-                parameters_types: pts,
-                return_type: lrt,
+                parameters_types,
+                return_type,
             };
 
             let (result, errors) = self.process_function_signature(
