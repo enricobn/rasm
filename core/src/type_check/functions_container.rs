@@ -3,9 +3,8 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
-use log::debug;
 
-use crate::codegen::enhanced_module::{self, EnhancedASTModule};
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::parser::ast::{
     ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind,
 };

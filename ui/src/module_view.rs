@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -9,10 +10,11 @@ use iced::{
         scrollable::{self, Scrollbar},
         text, Column, Row, Scrollable,
     },
-    Background, Color, Element, Length, Padding,
+    Background, Color, Element, Length, Padding, Theme,
 };
 use rasm_core::{
     lexer::{tokens::TokenKind, Lexer},
+    parser::ast::{ASTIndex, ASTModule, ASTType},
     type_check::functions_container::TypeFilter,
 };
 
@@ -23,6 +25,13 @@ const NATIVE_COLOR: Color = Color::from_rgb(0.8, 0.4, 0.4);
 const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
 const STRING_COLOR: Color = Color::from_rgb(0.5, 0.8, 0.8);
 const NUMBER_COLOR: Color = Color::from_rgb(0.8, 0.5, 0.8);
+const RESERVED_COLOR: Color = KEYWORD_COLOR;
+
+#[derive(PartialEq)]
+enum SyntaxKind {
+    UnTyped,
+    Typed,
+}
 
 impl UI {
     pub fn show_module<'a>(&'a self, selected_module: &'a SelectedModule) -> Element<Message> {
@@ -40,6 +49,7 @@ impl UI {
             .project
             .get_module(Path::new(&selected_module.path), &self.target)
         {
+            let module_syntax = Self::module_syntax(&module);
             let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
@@ -64,6 +74,14 @@ impl UI {
                         let token_index = token.index();
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
+                                if module_syntax
+                                    .get(&token_index)
+                                    .unwrap_or(&SyntaxKind::Typed)
+                                    == &SyntaxKind::UnTyped
+                                {
+                                    row = row.push(text(s));
+                                    continue;
+                                }
                                 let content: Element<'a, Message> = if let Some(type_filter) =
                                     selected_module.type_map.get(&token_index)
                                 {
@@ -79,7 +97,7 @@ impl UI {
                                             let color = if exact_and_not_generic {
                                                 theme.palette().success
                                             } else {
-                                                theme.palette().danger
+                                                Color::from_rgb(1.0, 1.0, 0.0)
                                             };
 
                                             let mut style = button::Style::default();
@@ -90,7 +108,13 @@ impl UI {
                                         .padding(Padding::ZERO)
                                         .into()
                                 } else {
-                                    text(s).into()
+                                    text(s)
+                                        .style(|theme: &Theme| {
+                                            let mut style = text::Style::default();
+                                            style.color = Some(theme.palette().danger);
+                                            style
+                                        })
+                                        .into()
                                 };
                                 row = row.push(content);
                             }
@@ -123,6 +147,9 @@ impl UI {
                             //TokenKind::CharLiteral(_) => todo!(),
                             TokenKind::WhiteSpaces(s) => {
                                 row = row.push(text(s));
+                            }
+                            TokenKind::Reserved(k) => {
+                                row = row.push(text(format!("{k}")).color(RESERVED_COLOR));
                             }
                             _ => {
                                 row = row.push(text(format!("{}", token.kind)));
@@ -167,5 +194,76 @@ impl UI {
                 container::Style::default().background(Background::Color(color))
             })
             .into()
+    }
+
+    fn module_syntax(module: &ASTModule) -> HashMap<ASTIndex, SyntaxKind> {
+        let mut result = HashMap::new();
+
+        for s in module.structs.iter() {
+            result.insert(s.index.mv_right(s.name.len()), SyntaxKind::UnTyped);
+
+            for p in s.properties.iter() {
+                result.insert(p.index.clone(), SyntaxKind::UnTyped);
+                result.extend(Self::set_untyped(&p.ast_type));
+            }
+        }
+
+        for e in module.enums.iter() {
+            result.insert(e.index.mv_right(e.name.len()), SyntaxKind::UnTyped);
+
+            for v in e.variants.iter() {
+                result.insert(v.index.clone(), SyntaxKind::UnTyped);
+
+                for p in v.parameters.iter() {
+                    result.insert(p.ast_index.clone(), SyntaxKind::UnTyped);
+                    result.extend(Self::set_untyped(&p.ast_type));
+                }
+            }
+        }
+
+        for f in module.functions.iter() {
+            result.insert(f.index.mv_right(f.name.len()), SyntaxKind::UnTyped);
+            for p in f.parameters.iter() {
+                result.insert(p.ast_index.clone(), SyntaxKind::UnTyped);
+                result.extend(Self::set_untyped(&p.ast_type));
+            }
+            result.extend(Self::set_untyped(&f.return_type));
+        }
+
+        result
+    }
+
+    fn set_untyped(ast_type: &ASTType) -> HashMap<ASTIndex, SyntaxKind> {
+        let mut result = HashMap::new();
+
+        match ast_type {
+            ASTType::Builtin(kind) => match kind {
+                rasm_core::parser::ast::BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    for p in parameters.iter() {
+                        result.extend(Self::set_untyped(p));
+                    }
+                    result.extend(Self::set_untyped(&return_type));
+                }
+                _ => {}
+            },
+            ASTType::Generic(_) => {}
+            ASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => {
+                result.insert(index.clone(), SyntaxKind::UnTyped);
+                for p in param_types.iter() {
+                    result.extend(Self::set_untyped(p));
+                }
+            }
+            ASTType::Unit => {}
+        }
+
+        result
     }
 }

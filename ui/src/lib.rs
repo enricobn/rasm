@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path::Path, time::Instant};
+use std::{env, path::Path, time::Instant};
 
 use iced::{
     widget::{
@@ -6,7 +6,7 @@ use iced::{
         pane_grid::{self, ResizeEvent},
         text, Button, Column,
     },
-    Color, Element, Font, Task, Theme,
+    Element, Font, Task, Theme,
 };
 
 use rasm_core::{
@@ -15,9 +15,9 @@ use rasm_core::{
         val_context::ValContext,
     },
     commandline::CommandLineOptions,
-    parser::ast::{ASTFunctionDef, ASTIndex},
+    parser::ast::ASTFunctionDef,
     project::RasmProject,
-    type_check::{function_type_checker::FunctionTypeChecker, functions_container::TypeFilter},
+    type_check::function_type_checker::{FunctionTypeChecker, FunctionTypeCheckerResult},
     utils::SliceDisplay,
 };
 
@@ -37,7 +37,7 @@ pub struct UI {
 
 pub struct SelectedModule {
     path: String,
-    type_map: HashMap<ASTIndex, TypeFilter>,
+    type_map: FunctionTypeCheckerResult,
 }
 
 #[derive(Debug, Clone)]
@@ -184,7 +184,9 @@ impl UI {
         let start = Instant::now();
         let type_map = if let Some((module, _errors)) = project.get_module(&Path::new(path), target)
         {
-            let function_type_checker = FunctionTypeChecker::new(enhanced_ast_module);
+            let em = enhanced_ast_module.clone().fix_generics();
+
+            let function_type_checker = FunctionTypeChecker::new(&em);
             let mut val_context = ValContext::new(None);
             let mut statics = Statics::new();
 
@@ -199,7 +201,7 @@ impl UI {
 
             for function in module.functions {
                 let (f_result, f_errors) = function_type_checker
-                    .get_type_map(&function.fix_namespaces(&enhanced_ast_module), &mut statics);
+                    .get_type_map(&function.fix_namespaces(&em).fix_generics(), &mut statics);
                 type_map.extend(f_result);
                 errors.extend(f_errors);
             }
@@ -209,7 +211,7 @@ impl UI {
 
             type_map
         } else {
-            HashMap::new()
+            FunctionTypeCheckerResult::new()
         };
 
         println!("selected_module takes {:?}", start.elapsed());

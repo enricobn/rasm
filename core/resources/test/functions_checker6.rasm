@@ -1,4 +1,4 @@
-pub fn endsWith<T>(s: str, suffix: str, f: fn(str) -> Option<i32>) -> Option<i32> {
+pub fn endsWith<T>(s: str, suffix: str, f: fn(str) -> Option<T>) -> Option<T> {
     if(s.endsWith(suffix), {
         f(s.removeSuffix(suffix));
     }, {
