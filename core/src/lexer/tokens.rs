@@ -59,6 +59,40 @@ pub enum TokenKind {
     StringLiteral(String),
     CharLiteral(String),
     WhiteSpaces(String),
+    Reserved(ReservedKind),
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, EnumIter)]
+pub enum ReservedKind {
+    I32,
+    F32,
+    STR,
+    BOOL,
+    CHAR,
+}
+
+impl ReservedKind {
+    pub fn from_name(name: &str) -> Option<TokenKind> {
+        ReservedKind::iter()
+            .find(|it| it.name() == name)
+            .map(TokenKind::Reserved)
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            ReservedKind::I32 => "i32",
+            ReservedKind::F32 => "f32",
+            ReservedKind::STR => "str",
+            ReservedKind::BOOL => "bool",
+            ReservedKind::CHAR => "char",
+        }
+    }
+}
+
+impl Display for ReservedKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
 }
 
 impl Display for TokenKind {
@@ -142,6 +176,7 @@ impl Display for TokenKind {
                 write!(f, "WS")
             }
             TokenKind::CharLiteral(c) => write!(f, "{c}"),
+            TokenKind::Reserved(reserved_kind) => write!(f, "{reserved_kind}"),
         }
     }
 }

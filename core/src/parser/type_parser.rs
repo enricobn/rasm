@@ -47,18 +47,26 @@ impl<'a> TypeParser<'a> {
     ) -> Result<Option<(ASTType, usize)>, String> {
         let result = if let Some(kind) = self.parser.get_token_kind_n(n) {
             let next_i = self.parser.get_i() + n + 1;
-            if let TokenKind::AlphaNumeric(type_name) = kind {
-                if type_name == "i32" {
-                    Some((Builtin(BuiltinTypeKind::I32), next_i))
-                } else if type_name == "str" {
-                    Some((Builtin(BuiltinTypeKind::String), next_i))
-                } else if type_name == "bool" {
-                    Some((Builtin(BuiltinTypeKind::Bool), next_i))
-                } else if type_name == "char" {
-                    Some((Builtin(BuiltinTypeKind::Char), next_i))
-                } else if type_name == "f32" {
-                    Some((Builtin(BuiltinTypeKind::F32), next_i))
-                } else if context_generic_types.contains(type_name) {
+            if let TokenKind::Reserved(reserved_kind) = kind {
+                match reserved_kind {
+                    crate::lexer::tokens::ReservedKind::I32 => {
+                        Some((Builtin(BuiltinTypeKind::I32), next_i))
+                    }
+                    crate::lexer::tokens::ReservedKind::F32 => {
+                        Some((Builtin(BuiltinTypeKind::F32), next_i))
+                    }
+                    crate::lexer::tokens::ReservedKind::STR => {
+                        Some((Builtin(BuiltinTypeKind::String), next_i))
+                    }
+                    crate::lexer::tokens::ReservedKind::BOOL => {
+                        Some((Builtin(BuiltinTypeKind::Bool), next_i))
+                    }
+                    crate::lexer::tokens::ReservedKind::CHAR => {
+                        Some((Builtin(BuiltinTypeKind::Char), next_i))
+                    }
+                }
+            } else if let TokenKind::AlphaNumeric(type_name) = kind {
+                if context_generic_types.contains(type_name) {
                     Some((Generic(type_name.into()), next_i))
                 } else {
                     let (param_types, next_i) = if let Some((param_types, next_i)) = self

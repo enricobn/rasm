@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use log::debug;
 use snailquote::unescape;
+use tokens::ReservedKind;
 
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
@@ -272,6 +273,9 @@ impl Lexer {
                     } else if let Some(keyword) = KeywordKind::from_name(&actual) {
                         //self.chars.next_back();
                         return self.some_token(keyword);
+                    } else if let Some(keyword) = ReservedKind::from_name(&actual) {
+                        //self.chars.next_back();
+                        return self.some_token(keyword);
                     } else {
                         //self.chars.next_back();
                         if actual.chars().any(|it| !it.is_alphanumeric()) {
@@ -440,18 +444,18 @@ mod tests {
                 AlphaNumeric("a".into()),
                 Punctuation(Colon),
                 WhiteSpaces(" ".into()),
-                AlphaNumeric("i32".into()),
+                Reserved(ReservedKind::I32),
                 Punctuation(Comma),
                 WhiteSpaces(" ".into()),
                 AlphaNumeric("b".into()),
                 Punctuation(Colon),
                 WhiteSpaces(" ".into()),
-                AlphaNumeric("i32".into()),
+                Reserved(ReservedKind::I32),
                 Bracket(Round, Close),
                 WhiteSpaces(" ".into()),
                 Punctuation(RightArrow),
                 WhiteSpaces(" ".into()),
-                AlphaNumeric("i32".into()),
+                Reserved(ReservedKind::I32),
                 WhiteSpaces(" ".into()),
                 Bracket(Brace, Open),
                 EndOfLine,
@@ -534,7 +538,7 @@ mod tests {
                 AlphaNumeric("s".into()),
                 Punctuation(Colon),
                 WhiteSpaces(" ".into()),
-                AlphaNumeric("str".into()),
+                Reserved(ReservedKind::STR),
                 Bracket(Round, Close),
                 WhiteSpaces(" ".into()),
                 Bracket(Brace, Open),
