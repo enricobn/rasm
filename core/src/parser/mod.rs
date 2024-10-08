@@ -1630,7 +1630,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), &test_namespace());
+        let (module, _) = parser.parse(Path::new("."), &test_namespace());
 
         let function_call = ASTFunctionCall {
             namespace: test_namespace(),
@@ -1640,7 +1640,7 @@ mod tests {
                 "it".to_string(),
                 ASTIndex::new(None, 1, 38),
             )],
-            generics: vec![ASTType::Generic("T".to_string())],
+            generics: vec![ASTType::Generic(ASTIndex::new(None, 1, 34), "T".to_string())],
             index: ASTIndex::new(None, 1, 32),
         };
 

@@ -133,8 +133,8 @@ pub fn resolve_generic_types_from_effective_type(
                 },
             }
         }
-        ASTType::Generic(p) => {
-            let ignore = if let ASTType::Generic(p1) = effective_type {
+        ASTType::Generic(_, p) => {
+            let ignore = if let ASTType::Generic(_, p1) = effective_type {
                 p == p1
             } else {
                 false
@@ -187,7 +187,7 @@ pub fn resolve_generic_types_from_effective_type(
                     })?;
                 }
             }
-            ASTType::Generic(_) => {}
+            ASTType::Generic(_, _) => {}
             _ => {
                 dedent!();
                 return Err(type_check_error(format!(
@@ -248,7 +248,7 @@ pub fn substitute(
             }
             _ => None,
         },
-        ASTType::Generic(p) => {
+        ASTType::Generic(_, p) => {
             if resolved_param_types.contains_key(p) {
                 resolved_param_types.get(p).cloned()
             } else {
@@ -413,7 +413,7 @@ mod tests {
     }
 
     fn generic(name: &str) -> ASTType {
-        ASTType::Generic(name.into())
+        ASTType::Generic(ASTIndex::none(), name.into())
     }
 
     fn i32() -> ASTType {

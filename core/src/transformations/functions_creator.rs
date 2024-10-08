@@ -19,7 +19,7 @@ pub trait FunctionsCreator {
             let generic_types: Vec<ASTType> = enum_def
                 .type_parameters
                 .iter()
-                .map(|it| ASTType::Generic(it.into()))
+                .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
                 .collect();
 
             self.enum_constructors(module, enum_def, &generic_types, statics);
@@ -28,7 +28,7 @@ pub trait FunctionsCreator {
                 module,
                 enum_def,
                 "match",
-                ASTType::Generic("_T".into()),
+                ASTType::Generic(ASTIndex::none(), "_T".into()),
                 Some("_T".into()),
             );
 
@@ -37,7 +37,7 @@ pub trait FunctionsCreator {
                     module,
                     enum_def,
                     &format!("match{}", variant.name),
-                    ASTType::Generic("_T".into()),
+                    ASTType::Generic(ASTIndex::none(), "_T".into()),
                     Some("_T".into()),
                     variant,
                 );
@@ -48,7 +48,7 @@ pub trait FunctionsCreator {
             let param_types: Vec<ASTType> = struct_def
                 .type_parameters
                 .iter()
-                .map(|it| ASTType::Generic(it.into()))
+                .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
                 .collect();
 
             let ast_type = ASTType::Custom {
@@ -138,7 +138,7 @@ pub trait FunctionsCreator {
         let generic_types = enum_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(it.into()))
+            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
             .collect();
 
         let mut parameters = vec![ASTParameterDef {
@@ -199,7 +199,7 @@ pub trait FunctionsCreator {
         let generic_types = enum_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(it.into()))
+            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
             .collect();
 
         let mut parameters = vec![ASTParameterDef {
@@ -264,7 +264,7 @@ pub trait FunctionsCreator {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(it.into()))
+            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
             .collect();
 
         let name = &property_def.name;
@@ -399,7 +399,7 @@ pub trait FunctionsCreator {
         let param_types = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(it.into()))
+            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
             .collect();
 
         let name = &property_def.name;
@@ -448,7 +448,7 @@ pub trait FunctionsCreator {
         let param_types = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(it.into()))
+            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
             .collect();
 
         let name = &property_def.name;

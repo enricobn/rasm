@@ -513,7 +513,7 @@ impl TypeCheck {
                 }
                 _ => format!("{ast_type}"),
             },
-            ASTType::Generic(name) => name.clone(), // TODO it should not happen when strict = true
+            ASTType::Generic(_, name) => name.clone(), // TODO it should not happen when strict = true
             ASTType::Custom {
                 namespace: _,
                 name,
@@ -1131,7 +1131,7 @@ impl TypeCheck {
         if ast_type.is_generic() {
             match ast_type {
                 ASTType::Builtin(_) => 0,
-                ASTType::Generic(_) => coeff,
+                ASTType::Generic(_, _) => coeff,
                 ASTType::Custom {
                     namespace: _,
                     name: _,
@@ -1624,7 +1624,7 @@ impl TypeCheck {
             }) = et
             {
                 Ok(Some(return_type.deref()))
-            } else if let ASTType::Generic(_name) = et {
+            } else if let ASTType::Generic(_, _name) = et {
                 Ok(None)
             } else {
                 Err(TypeCheckError::new(
@@ -1686,7 +1686,7 @@ impl TypeCheck {
                             name.to_owned(),
                             ASTParameterDef {
                                 name: name.to_owned(),
-                                ast_type: ASTType::Generic(format!("L_{i}")),
+                                ast_type: ASTType::Generic(ASTIndex::none(), format!("L_{i}")),
                                 ast_index: index.clone(),
                             },
                         )
@@ -1747,7 +1747,7 @@ mod tests {
     pub fn test_generic_type_coeff() {
         assert_eq!(
             usize::MAX / 100,
-            TypeCheck::generic_type_coeff(&ASTType::Generic("".to_owned()))
+            TypeCheck::generic_type_coeff(&ASTType::Generic(ASTIndex::none(), "".to_owned()))
         );
     }
 
@@ -1778,7 +1778,7 @@ mod tests {
             usize::MAX / 100 / 100,
             TypeCheck::generic_type_coeff(&ASTType::Custom {
                 namespace: test_namespace(),
-                param_types: vec![ASTType::Generic("".to_owned())],
+                param_types: vec![ASTType::Generic(ASTIndex::none(), "".to_owned())],
                 name: "".to_owned(),
                 index: ASTIndex::none()
             },)
@@ -1788,13 +1788,16 @@ mod tests {
     #[test]
     fn test_generic_function_coeff() {
         // this is "more" generic
-        let function1 = simple_function(vec![ASTType::Generic("T".to_string())], false);
+        let function1 = simple_function(
+            vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
+            false,
+        );
 
         let function2 = simple_function(
             vec![ASTType::Custom {
                 namespace: ASTNameSpace::global(),
                 name: "".to_string(),
-                param_types: vec![ASTType::Generic("T".to_string())],
+                param_types: vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
                 index: ASTIndex::none(),
             }],
             false,
@@ -1809,8 +1812,14 @@ mod tests {
     #[test]
     fn test_generic_native_function_coeff() {
         // not native function have lower priority (higher coeff)
-        let function1 = simple_function(vec![ASTType::Generic("T".to_string())], false);
-        let function2 = simple_function(vec![ASTType::Generic("T".to_string())], true);
+        let function1 = simple_function(
+            vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
+            false,
+        );
+        let function2 = simple_function(
+            vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
+            true,
+        );
 
         let coeff1 = TypeCheck::function_precedence_coeff(&function1);
         let coeff2 = TypeCheck::function_precedence_coeff(&function2);

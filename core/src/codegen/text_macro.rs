@@ -518,7 +518,7 @@ impl TextMacroEvaluator {
                     }
                     Some((ast_type, _)) => {
                         //println!("parse_typed_argument {ast_type}");
-                        let t = if let ASTType::Generic(_name) = &ast_type {
+                        let t = if let ASTType::Generic(_, _name) = &ast_type {
                             if let Some(t) = substitute(&ast_type, resolved_generic_types) {
                                 t
                             } else {
@@ -1131,7 +1131,7 @@ impl PrintRefMacro {
                         ASTType::Builtin(BuiltinTypeKind::String) => {
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                         }
-                        ASTType::Generic(generic_type_name) => match function_def {
+                        ASTType::Generic(_, generic_type_name) => match function_def {
                             None => panic!(),
                             Some(f) => match f.generic_types.get(generic_type_name) {
                                 None => {

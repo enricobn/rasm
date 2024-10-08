@@ -249,7 +249,9 @@ impl UI {
                 }
                 _ => {}
             },
-            ASTType::Generic(_) => {}
+            ASTType::Generic(index, _) => {
+                result.insert(index.clone(), SyntaxKind::UnTyped);
+            }
             ASTType::Custom {
                 namespace,
                 name,

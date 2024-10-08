@@ -316,7 +316,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic("T".into()),
+                ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
                 ast_index: ASTIndex::new(None, 3, 23),
             }],
             index: ASTIndex::new(None, 3, 17),
@@ -379,7 +379,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef::new(
                         "value",
-                        Generic("T".into()),
+                        Generic(ASTIndex::new(None, 1, 14), "T".into()),
                         ASTIndex::new(None, 1, 11)
                     )],
                     index: ASTIndex::new(None, 1, 5)
@@ -402,10 +402,14 @@ mod tests {
                 vec![ASTEnumVariantDef {
                     name: "Something".into(),
                     parameters: vec![
-                        ASTParameterDef::new("v", Generic("T".into()), ASTIndex::new(None, 1, 12)),
+                        ASTParameterDef::new(
+                            "v",
+                            Generic(ASTIndex::new(None, 1, 15), "T".into()),
+                            ASTIndex::new(None, 1, 12)
+                        ),
                         ASTParameterDef::new(
                             "v1",
-                            Generic("T1".into()),
+                            Generic(ASTIndex::new(None, 1, 23), "T1".into()),
                             ASTIndex::new(None, 1, 19)
                         ),
                     ],
@@ -430,7 +434,7 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "head",
-                            Generic("T".into()),
+                            Generic(ASTIndex::new(None, 1, 13), "T".into()),
                             ASTIndex::new(None, 1, 10)
                         ),
                         ASTParameterDef::new(
@@ -438,7 +442,7 @@ mod tests {
                             ASTType::Custom {
                                 namespace: test_namespace(),
                                 name: "List".into(),
-                                param_types: vec![Generic("T".into())],
+                                param_types: vec![Generic(ASTIndex::new(None, 1, 27), "T".into())],
                                 index: ASTIndex::none()
                             },
                             ASTIndex::new(None, 1, 19)
@@ -468,7 +472,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic("T".into()),
+                ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
                 ast_index: ASTIndex::new(None, 3, 23),
             }],
             index: ASTIndex::new(None, 3, 17),
@@ -513,7 +517,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        ast_type: Generic("T".into()),
+                        ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
                         ast_index: ASTIndex::new(None, 3, 23),
                     }],
                     index: ASTIndex::new(None, 3, 17),
@@ -553,7 +557,7 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: Generic("T".into()),
+                            ast_type: Generic(ASTIndex::new(None, 2, 27), "T".into()),
                             ast_index: ASTIndex::new(None, 2, 24),
                         },
                         ASTParameterDef {
@@ -561,7 +565,7 @@ mod tests {
                             ast_type: ASTType::Custom {
                                 namespace: test_namespace(),
                                 name: "List".into(),
-                                param_types: vec![Generic("T".into())],
+                                param_types: vec![Generic(ASTIndex::new(None, 2, 41), "T".into())],
                                 index: ASTIndex::new(None, 2, 39),
                             },
                             ast_index: ASTIndex::new(None, 2, 33),
@@ -603,7 +607,7 @@ mod tests {
                     name: "Left".into(),
                     parameters: vec![ASTParameterDef::new(
                         "l",
-                        Generic("L".into()),
+                        Generic(ASTIndex::new(None, 2, 22), "L".into()),
                         ASTIndex::new(None, 2, 19),
                     )],
                     index: ASTIndex::new(None, 2, 17),
@@ -613,7 +617,7 @@ mod tests {
                     name: "Right".into(),
                     parameters: vec![ASTParameterDef::new(
                         "r",
-                        Generic("R".into()),
+                        Generic(ASTIndex::new(None, 3, 23), "R".into()),
                         ASTIndex::new(None, 3, 20),
                     )],
                     index: ASTIndex::new(None, 3, 18),
@@ -645,7 +649,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic("T".into()),
+                ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
                 ast_index: ASTIndex::new(None, 3, 23),
             }],
             index: ASTIndex::new(None, 3, 17),

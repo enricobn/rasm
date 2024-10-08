@@ -604,7 +604,7 @@ mod tests {
         let mut function2 = function1.clone();
         function2.parameters = vec![ASTParameterDef {
             name: "par".to_string(),
-            ast_type: ASTType::Generic("T".to_string()),
+            ast_type: ASTType::Generic(ASTIndex::none(), "T".to_string()),
             ast_index: ASTIndex::none(),
         }];
 

@@ -1736,8 +1736,8 @@ fn typed_type(
                 )),
             }),
         },
-        ASTType::Generic(p) => {
-            panic!("Unresolved generic type '{p}': {message}");
+        ASTType::Generic(index, p) => {
+            panic!("Unresolved generic type '{p}' {message} : {index}");
         }
         ASTType::Custom {
             namespace: _,
@@ -1953,7 +1953,7 @@ impl DefaultFunction {
                             return_type: _,
                         } => ASTExpression::Any(it.clone()),
                     },
-                    ASTType::Generic(_) => panic!(),
+                    ASTType::Generic(_, _) => panic!(),
                     ASTType::Custom {
                         namespace: _,
                         name: _,

@@ -254,7 +254,7 @@ pub trait TypeDefProvider {
                     */
                 }
             },
-            ASTType::Generic(_) => None,
+            ASTType::Generic(_, _) => None,
             ASTType::Custom {
                 namespace: _,
                 name: _,
@@ -289,7 +289,7 @@ pub trait TypeDefProvider {
             //println!("inside find_one {it}");
             match &it.ast_type {
                 ASTType::Builtin(_) => false,
-                ASTType::Generic(_) => false,
+                ASTType::Generic(_, _) => false,
                 ASTType::Custom {
                     namespace: ast_type_namespace,
                     name: _,

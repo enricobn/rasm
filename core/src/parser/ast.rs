@@ -261,7 +261,7 @@ pub enum BuiltinTypeKind {
 #[derive(Debug, Clone, Eq)]
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
-    Generic(String),
+    Generic(ASTIndex, String),
     Custom {
         namespace: ASTNameSpace,
         name: String,
@@ -344,8 +344,8 @@ impl ASTType {
                     false
                 }
             }
-            ASTType::Generic(g) => {
-                if let ASTType::Generic(og) = other {
+            ASTType::Generic(_, g) => {
+                if let ASTType::Generic(_, og) = other {
                     g == og
                 } else {
                     false
@@ -374,14 +374,14 @@ impl ASTType {
                     par_types
                 }
             },
-            ASTType::Generic(_p) => true,
+            ASTType::Generic(_, _) => true,
             ASTType::Custom {
                 namespace: _,
                 name: _,
                 param_types: pt,
                 index: _,
             } => pt.iter().any(|it| match it {
-                ASTType::Generic(_name) => true,
+                ASTType::Generic(_, _) => true,
                 _ => Self::is_generic(it),
             }),
             ASTType::Unit => false,
@@ -447,7 +447,7 @@ impl ASTType {
                     return_type: Box::new(return_type.fix_namespaces(enhanced_module)),
                 }),
             },
-            ASTType::Generic(_) => self.clone(),
+            ASTType::Generic(_, _) => self.clone(),
             ASTType::Custom {
                 namespace: _,
                 name,
@@ -491,7 +491,9 @@ impl ASTType {
                     return_type: Box::new(return_type.fix_generics(prefix)),
                 }),
             },
-            ASTType::Generic(name) => ASTType::Generic(format!("{prefix}:{name}")),
+            ASTType::Generic(index, name) => {
+                ASTType::Generic(index.clone(), format!("{prefix}:{name}"))
+            }
             ASTType::Custom {
                 namespace,
                 name,
@@ -533,7 +535,7 @@ impl Display for ASTType {
                     ))
                 }
             },
-            ASTType::Generic(name) => f.write_str(name),
+            ASTType::Generic(_, name) => f.write_str(name),
             ASTType::Custom {
                 namespace: _,
                 name,
@@ -1225,7 +1227,7 @@ mod tests {
         let inner_type = ASTType::Custom {
             namespace: test_namespace(),
             name: "Option".to_owned(),
-            param_types: vec![ASTType::Generic("T".to_string())],
+            param_types: vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
             index: ASTIndex::none(),
         };
 
@@ -1244,7 +1246,7 @@ mod tests {
                 ast_type,
                 ast_index: ASTIndex::none(),
             }],
-            return_type: ASTType::Generic("T".to_string()),
+            return_type: ASTType::Generic(ASTIndex::none(), "T".to_string()),
             body: ASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec!["T".to_string()],

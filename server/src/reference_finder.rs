@@ -717,7 +717,10 @@ impl ReferenceFinder {
                     if let TypeFilter::Exact(ref ast_type) = filter {
                         statics.add_const(name.clone(), ast_type.clone());
                     } else {
-                        statics.add_const(name.clone(), ASTType::Generic("UNKNOWN".to_string()));
+                        statics.add_const(
+                            name.clone(),
+                            ASTType::Generic(ASTIndex::none(), "UNKNOWN".to_string()),
+                        );
                     }
                     reference_static_context.add(name.clone(), index.clone(), filter);
                 } else if let TypeFilter::Exact(ref ast_type) = filter {
@@ -728,7 +731,11 @@ impl ReferenceFinder {
                         })?;
                 } else {
                     val_context
-                        .insert_let(name.clone(), ASTType::Generic("UNKNOWN".to_string()), index)
+                        .insert_let(
+                            name.clone(),
+                            ASTType::Generic(ASTIndex::none(), "UNKNOWN".to_string()),
+                            index,
+                        )
                         .map_err(|err| {
                             TypeCheckError::new(index.clone(), err.clone(), Vec::new())
                         })?;
@@ -912,7 +919,7 @@ impl ReferenceFinder {
                         ASTParameterDef {
                             name: name.to_string(),
                             ast_index: index.clone(),
-                            ast_type: ASTType::Generic("UNKNOWN".to_string()),
+                            ast_type: ASTType::Generic(ASTIndex::none(), "UNKNOWN".to_string()),
                         },
                     )
                     .map_err(|err| TypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;

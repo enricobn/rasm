@@ -244,7 +244,7 @@ impl FunctionsContainer {
                     match return_type_filter {
                         None => Ok(true),
                         Some(ref rt) => {
-                            if matches!(rt, ASTType::Generic(_)) {
+                            if matches!(rt, ASTType::Generic(_, _)) {
                                 Ok(true)
                             } else {
                                 Self::almost_same_return_type(
@@ -548,7 +548,7 @@ impl FunctionsContainer {
 
                                 Ok(parameter_same && return_type_same)
                             }
-                            ASTType::Generic(name) => {
+                            ASTType::Generic(_, name) => {
                                 resolved_generic_types
                                     .insert(name.to_string(), filter_type.clone());
                                 Ok(true)
@@ -559,7 +559,7 @@ impl FunctionsContainer {
                             debug_i!("parameter type {parameter_type}");
                             let r = match parameter_type {
                                 ASTType::Builtin(_) => filter_type == parameter_type,
-                                ASTType::Generic(_) => true,
+                                ASTType::Generic(_, _) => true,
                                 ASTType::Custom { .. } => false,
                                 ASTType::Unit => {
                                     if return_type {
@@ -572,11 +572,11 @@ impl FunctionsContainer {
                             Ok(r)
                         }
                     },
-                    ASTType::Generic(filter_generic_type) => {
+                    ASTType::Generic(_, filter_generic_type) => {
                         let already_resolved_o = resolved_generic_types.get(filter_generic_type);
                         debug_i!("already_resolved {}", OptionDisplay(&already_resolved_o));
                         match parameter_type {
-                            ASTType::Generic(_parameter_generic_type) => {
+                            ASTType::Generic(_, _) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Generic : the context
                                 Ok(true)
@@ -603,7 +603,7 @@ impl FunctionsContainer {
                     } => {
                         match parameter_type {
                             ASTType::Builtin(_) => Ok(false),
-                            ASTType::Generic(_) => Ok(true), // TODO
+                            ASTType::Generic(_, _) => Ok(true), // TODO
                             ASTType::Custom {
                                 namespace: _,
                                 param_types,
@@ -659,7 +659,7 @@ impl FunctionsContainer {
                     }
                     ASTType::Unit => match parameter_type {
                         ASTType::Builtin(_) => Ok(false),
-                        ASTType::Generic(name) => {
+                        ASTType::Generic(_, name) => {
                             if let Some(gt) = resolved_generic_types.get(name) {
                                 Ok(gt.is_unit())
                             } else {
@@ -686,7 +686,7 @@ impl FunctionsContainer {
                 }) = parameter_type
                 {
                     Ok(len == &parameters.len())
-                } else if let ASTType::Generic(name) = parameter_type {
+                } else if let ASTType::Generic(_, name) = parameter_type {
                     if let Some(TypeFilter::Exact(lrt)) = lambda_return_type_filter.as_deref() {
                         if *len == 0 {
                             let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -925,7 +925,7 @@ mod tests {
             &call.original_function_name,
             &vec![
                 Exact(ASTType::Builtin(BuiltinTypeKind::I32)),
-                Exact(ASTType::Generic("T".into())),
+                Exact(ASTType::Generic(ASTIndex::none(), "T".into())),
             ],
             None,
             false,

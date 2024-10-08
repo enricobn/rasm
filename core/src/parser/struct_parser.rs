@@ -221,7 +221,7 @@ mod tests {
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
-            ast_type: Generic("T".into()),
+            ast_type: Generic(ASTIndex::new(None, 3, 21), "T".into()),
             index: ASTIndex::new(None, 3, 18),
         };
 

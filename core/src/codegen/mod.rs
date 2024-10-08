@@ -1957,7 +1957,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                     };
 
                     match &ast_type {
-                        ASTType::Generic(name) => {
+                        ASTType::Generic(_, name) => {
                             if let Some(f) = typed_function_def {
                                 let t = type_def_provider
                                     .get_type_from_custom_typed_type(

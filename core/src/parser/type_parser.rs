@@ -67,7 +67,7 @@ impl<'a> TypeParser<'a> {
                 }
             } else if let TokenKind::AlphaNumeric(type_name) = kind {
                 if context_generic_types.contains(type_name) {
-                    Some((Generic(type_name.into()), next_i))
+                    Some((Generic(self.parser.get_index(n), type_name.into()), next_i))
                 } else {
                     let (param_types, next_i) = if let Some((param_types, next_i)) = self
                         .try_parse_parameter_types(namespace, n + 1, context_generic_types, rec)?
@@ -290,7 +290,10 @@ mod tests {
                 Custom {
                     namespace: test_namespace(),
                     name: "Dummy".into(),
-                    param_types: vec![Generic("T".into()), Generic("T1".into()),],
+                    param_types: vec![
+                        Generic(ASTIndex::new(None, 1, 8), "T".into()),
+                        Generic(ASTIndex::new(None, 1, 11), "T1".into()),
+                    ],
                     index: ASTIndex::new(None, 1, 6)
                 },
                 6
@@ -302,7 +305,10 @@ mod tests {
     #[test]
     fn test_param_type() {
         let parse_result = try_parse_with_context("T", &["T".into()]);
-        assert_eq!(Some((Generic("T".into()), 1)), parse_result);
+        assert_eq!(
+            Some((Generic(ASTIndex::new(None, 1, 2), "T".into()), 1)),
+            parse_result
+        );
     }
 
     #[test]
@@ -328,7 +334,7 @@ mod tests {
         let option_t = Custom {
             namespace: test_namespace(),
             name: "Option".into(),
-            param_types: vec![Generic("T".into())],
+            param_types: vec![Generic(ASTIndex::new(None, 1, 14), "T".into())],
             index: ASTIndex::new(None, 1, 12),
         };
         assert_eq!(
