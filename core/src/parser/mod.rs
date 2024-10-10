@@ -133,20 +133,27 @@ enum ParserState {
 
 impl Parser {
     pub fn new(lexer: Lexer, file_name: Option<PathBuf>) -> Self {
-        let (lexer_tokens, lexer_errors) = lexer.process();
+        //let (lexer_tokens, lexer_errors) = lexer.process();
+        let mut errors = Vec::new();
 
-        let tokens = lexer_tokens
-            .into_iter()
-            .filter(|it| {
-                !matches!(
-                    it.kind,
-                    TokenKind::WhiteSpaces(_)
-                        | TokenKind::Comment(_)
-                        | TokenKind::MultiLineComment(_)
-                        | TokenKind::EndOfLine
-                )
+        let tokens = lexer
+            .filter(|(token_o, errs)| {
+                errors.extend(errs.clone());
+
+                if let Some(token) = token_o {
+                    !matches!(
+                        token.kind,
+                        TokenKind::WhiteSpaces(_)
+                            | TokenKind::Comment(_)
+                            | TokenKind::MultiLineComment(_)
+                            | TokenKind::EndOfLine
+                    )
+                } else {
+                    false
+                }
             })
-            .collect();
+            .map(|(token, _)| token.unwrap())
+            .collect::<Vec<_>>();
 
         Self {
             tokens,
@@ -159,7 +166,7 @@ impl Parser {
             structs: Vec::new(),
             file_name,
             types: Vec::new(),
-            errors: lexer_errors,
+            errors,
         }
     }
 
@@ -1640,7 +1647,10 @@ mod tests {
                 "it".to_string(),
                 ASTIndex::new(None, 1, 38),
             )],
-            generics: vec![ASTType::Generic(ASTIndex::new(None, 1, 34), "T".to_string())],
+            generics: vec![ASTType::Generic(
+                ASTIndex::new(None, 1, 34),
+                "T".to_string(),
+            )],
             index: ASTIndex::new(None, 1, 32),
         };
 

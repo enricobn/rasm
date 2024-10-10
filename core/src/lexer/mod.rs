@@ -38,7 +38,17 @@ pub struct Lexer {
     errors: Vec<CompilationError>,
 }
 
+impl Iterator for Lexer {
+    type Item = (Option<Token>, Vec<CompilationError>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner_next()
+    }
+}
+
 impl Lexer {
+    //pub fn from_read(read: impl Read) -> Result<Iterator<Token>, String> {}
+
     pub fn from_file(path: &Path) -> Result<Self, String> {
         let mut s = String::new();
         if let Ok(mut file) = File::open(path) {
@@ -64,13 +74,20 @@ impl Lexer {
         }
     }
 
-    fn some_token(&self, kind: TokenKind) -> Option<Token> {
-        Some(Token::new(
-            kind,
-            self.file_name.clone(),
-            self.row,
-            self.column,
-        ))
+    fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<CompilationError>)> {
+        let result = Some((
+            Some(Token::new(
+                kind,
+                self.file_name.clone(),
+                self.row,
+                self.column,
+            )),
+            self.errors.clone(),
+        ));
+
+        self.errors.clear();
+
+        result
     }
 
     fn get_bracket(c: char) -> Option<TokenKind> {
@@ -113,16 +130,20 @@ impl Lexer {
 
     pub fn process(mut self) -> (Vec<Token>, Vec<CompilationError>) {
         let mut tokens = Vec::new();
+        let mut errors = Vec::new();
         loop {
             match self.next() {
                 None => break,
-                Some(token) => {
-                    tokens.push(token);
+                Some((token_o, es)) => {
+                    if let Some(token) = token_o {
+                        tokens.push(token);
+                    }
+                    errors.extend(es);
                 }
             }
         }
 
-        (tokens, self.errors)
+        (tokens, errors)
     }
 
     fn add_error(&mut self, error_message: String) {
@@ -136,7 +157,7 @@ impl Lexer {
 const END_OF_FILE: char = '\u{0}';
 
 impl Lexer {
-    fn next(&mut self) -> Option<Token> {
+    fn inner_next(&mut self) -> Option<(Option<Token>, Vec<CompilationError>)> {
         let mut actual = String::new();
         let mut status = LexStatus::None;
         let mut exit = false;
@@ -343,7 +364,7 @@ impl Lexer {
         }
 
         if !actual.is_empty() {
-            debug!("Do you missed something? {}", actual);
+            self.add_error(format!("Unexpected chunk: {}", actual));
         }
 
         None
