@@ -4,10 +4,9 @@ use std::path::Path;
 
 use log::debug;
 use snailquote::unescape;
-use tokens::ReservedKind;
 
-use crate::lexer::tokens::{
-    BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
+use tokens::{
+    BracketKind, BracketStatus, KeywordKind, PunctuationKind, ReservedKind, Token, TokenKind,
 };
 
 pub mod tokens;
