@@ -210,7 +210,7 @@ async fn file<'a>(
         let mut html = format!("<b>{src}</b></br></br>");
         html.push_str("<pre>\n");
 
-        let lexer = Lexer::new(s, Some(file_path.clone()));
+        let lexer = Lexer::new(s);
 
         // TODO errors
 

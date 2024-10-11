@@ -54,7 +54,7 @@ impl UI {
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
 
-                let lexer = Lexer::new(source, Some(path.clone()));
+                let lexer = Lexer::new(source);
 
                 let (tokens, _errors) = lexer.process();
 

@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use log::debug;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
@@ -28,6 +27,7 @@ use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::utils::{OptionDisplay, SliceDisplay};
+use crate::{debug_i, errors};
 
 mod asm_def_parser;
 pub mod ast;
@@ -134,11 +134,11 @@ enum ParserState {
 impl Parser {
     pub fn new(lexer: Lexer, file_name: Option<PathBuf>) -> Self {
         //let (lexer_tokens, lexer_errors) = lexer.process();
-        let mut errors = Vec::new();
+        let mut lexer_errors = Vec::new();
 
         let tokens = lexer
             .filter(|(token_o, errs)| {
-                errors.extend(errs.clone());
+                lexer_errors.extend(errs.clone());
 
                 if let Some(token) = token_o {
                     !matches!(
@@ -154,6 +154,14 @@ impl Parser {
             })
             .map(|(token, _)| token.unwrap())
             .collect::<Vec<_>>();
+
+        let errors = lexer_errors
+            .into_iter()
+            .map(|it| CompilationError {
+                index: ASTIndex::new(file_name.clone(), it.row, it.column),
+                error_kind: CompilationErrorKind::Lexer(it.message),
+            })
+            .collect();
 
         Self {
             tokens,
@@ -1573,7 +1581,7 @@ mod tests {
 
     #[test]
     fn function_def_with_type_parameters() {
-        let lexer = Lexer::new("fn p<T,T1>() {}".into(), None);
+        let lexer = Lexer::new("fn p<T,T1>() {}".into());
 
         let mut parser = Parser::new(lexer, None);
 
@@ -1622,7 +1630,7 @@ mod tests {
 
     #[test]
     fn function_call_with_generics() {
-        let lexer = Lexer::new("println<i32>(20);".into(), None);
+        let lexer = Lexer::new("println<i32>(20);".into());
 
         let mut parser = Parser::new(lexer, None);
 
@@ -1648,7 +1656,7 @@ mod tests {
 
     #[test]
     fn function_call_with_generics_1() {
-        let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it); }".into(), None);
+        let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it); }".into());
 
         let mut parser = Parser::new(lexer, None);
 
@@ -1681,7 +1689,7 @@ mod tests {
 
     #[test]
     fn enum_constructor() {
-        let lexer = Lexer::new("Option::Some(20);".into(), None);
+        let lexer = Lexer::new("Option::Some(20);".into());
 
         let mut parser = Parser::new(lexer, None);
 
@@ -1740,7 +1748,7 @@ mod tests {
     fn invalid_sequence() {
         init();
 
-        let lexer = Lexer::new("something(current.len -2);".to_string(), None);
+        let lexer = Lexer::new("something(current.len -2);".to_string());
 
         let mut parser = Parser::new(lexer, None);
 
@@ -1758,7 +1766,7 @@ mod tests {
     fn invalid_sequence1() {
         init();
 
-        let lexer = Lexer::new("something(,1);".to_string(), None);
+        let lexer = Lexer::new("something(,1);".to_string());
 
         let mut parser = Parser::new(lexer, None);
 
@@ -1775,7 +1783,7 @@ mod tests {
     fn valid_sequence() {
         init();
 
-        let lexer = Lexer::new("something(current.len, -2);".to_string(), None);
+        let lexer = Lexer::new("something(current.len, -2);".to_string());
 
         let mut parser = Parser::new(lexer, None);
 

@@ -1,16 +1,14 @@
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use log::debug;
 use snailquote::unescape;
 use tokens::ReservedKind;
 
-use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::ASTIndex;
 
 pub mod tokens;
 
@@ -30,16 +28,22 @@ enum LexStatus {
 
 //#[derive(Clone)]
 pub struct Lexer {
-    file_name: Option<PathBuf>,
     index: usize,
     row: usize,
     column: usize,
     chars: Vec<char>,
-    errors: Vec<CompilationError>,
+    errors: Vec<LexerError>,
+}
+
+#[derive(Clone)]
+pub struct LexerError {
+    pub message: String,
+    pub row: usize,
+    pub column: usize,
 }
 
 impl Iterator for Lexer {
-    type Item = (Option<Token>, Vec<CompilationError>);
+    type Item = (Option<Token>, Vec<LexerError>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner_next()
@@ -54,7 +58,7 @@ impl Lexer {
         if let Ok(mut file) = File::open(path) {
             if let Ok(size) = file.read_to_string(&mut s) {
                 debug!("Reading file {:?}, size {}", path, size);
-                Ok(Lexer::new(s, Some(path.to_path_buf())))
+                Ok(Lexer::new(s))
             } else {
                 Err(format!("Cannot read file {:?}", path.to_str()))
             }
@@ -63,9 +67,8 @@ impl Lexer {
         }
     }
 
-    pub fn new(source: String, file_name: Option<PathBuf>) -> Self {
+    pub fn new(source: String) -> Self {
         Self {
-            file_name,
             index: 0,
             row: 1,
             column: 1,
@@ -74,7 +77,7 @@ impl Lexer {
         }
     }
 
-    fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<CompilationError>)> {
+    fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<LexerError>)> {
         let result = Some((
             Some(Token::new(kind, self.row, self.column)),
             self.errors.clone(),
@@ -119,11 +122,7 @@ impl Lexer {
         }
     }
 
-    fn get_index(&self) -> ASTIndex {
-        ASTIndex::new(self.file_name.clone(), self.row, self.column)
-    }
-
-    pub fn process(mut self) -> (Vec<Token>, Vec<CompilationError>) {
+    pub fn process(mut self) -> (Vec<Token>, Vec<LexerError>) {
         let mut tokens = Vec::new();
         let mut errors = Vec::new();
         loop {
@@ -142,9 +141,10 @@ impl Lexer {
     }
 
     fn add_error(&mut self, error_message: String) {
-        self.errors.push(CompilationError {
-            index: self.get_index(),
-            error_kind: CompilationErrorKind::Lexer(error_message),
+        self.errors.push(LexerError {
+            message: error_message,
+            row: self.row,
+            column: self.column,
         });
     }
 }
@@ -152,7 +152,7 @@ impl Lexer {
 const END_OF_FILE: char = '\u{0}';
 
 impl Lexer {
-    fn inner_next(&mut self) -> Option<(Option<Token>, Vec<CompilationError>)> {
+    fn inner_next(&mut self) -> Option<(Option<Token>, Vec<LexerError>)> {
         let mut actual = String::new();
         let mut status = LexStatus::None;
         let mut exit = false;
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn test_invalid_chars() {
-        let lexer = Lexer::new("let a = f.len - 1;".to_string(), None);
+        let lexer = Lexer::new("let a = f.len - 1;".to_string());
 
         let (_tokens, errors) = lexer.process();
 
@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     fn test_invalid_chars_1() {
-        let lexer = Lexer::new("let a = f.len /1;".to_string(), None);
+        let lexer = Lexer::new("let a = f.len /1;".to_string());
 
         let (_tokens, errors) = lexer.process();
 
