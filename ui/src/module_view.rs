@@ -54,7 +54,7 @@ impl UI {
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
 
-                let lexer = Lexer::new(source, Some(path));
+                let lexer = Lexer::new(source, Some(path.clone()));
 
                 let (tokens, _errors) = lexer.process();
 
@@ -71,7 +71,8 @@ impl UI {
                         row = Row::new();
                         just_added_new_line = true;
                     } else {
-                        let token_index = token.index();
+                        let token_index =
+                            ASTIndex::new(Some(path.clone()), token.row, token.column);
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
                                 if module_syntax

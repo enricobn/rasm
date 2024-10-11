@@ -29,6 +29,7 @@ use axum::{routing::get, Router};
 use log::info;
 use rasm_core::codegen::AsmOptions;
 use rasm_core::commandline::CommandLineOptions;
+use rasm_core::parser::ast::ASTIndex;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -220,7 +221,7 @@ async fn file<'a>(
 
         tokens.into_iter().for_each(|it| {
             // mv_left because the index of the token is at the end of the token itself, hence outside the text of the token...
-            let index = it.index().mv_left(1);
+            let index = ASTIndex::new(Some(file_path.to_path_buf()), it.row, it.column).mv_left(1);
             if row != index.row {
                 row = index.row;
                 if !(is_multiline(&it)

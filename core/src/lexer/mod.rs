@@ -76,12 +76,7 @@ impl Lexer {
 
     fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<CompilationError>)> {
         let result = Some((
-            Some(Token::new(
-                kind,
-                self.file_name.clone(),
-                self.row,
-                self.column,
-            )),
+            Some(Token::new(kind, self.row, self.column)),
             self.errors.clone(),
         ));
 
@@ -222,12 +217,7 @@ impl Lexer {
                     } else if c == '\'' {
                         status = LexStatus::Char
                     } else if c != END_OF_FILE {
-                        self.add_error(format!(
-                            "unknown char '{}' ({}) : {} ***",
-                            c,
-                            c.escape_debug(),
-                            self.get_index()
-                        ));
+                        self.add_error(format!("unknown char '{}' ({})", c, c.escape_debug(),));
                     }
                 }
                 LexStatus::WhiteSpace => {

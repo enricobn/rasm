@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::path::{Path, PathBuf};
 
 use linked_hash_map::LinkedHashMap;
 
@@ -12,6 +13,8 @@ use crate::parser::tokens_matcher::{
 };
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
+
+use super::ast::ASTIndex;
 
 pub struct EnumParser {
     matcher: TokensMatcher,
@@ -62,6 +65,7 @@ impl EnumParser {
         parser: &dyn ParserTrait,
         type_parameters: &[String],
         n: usize,
+        path: Option<PathBuf>,
     ) -> Result<Option<(Vec<ASTEnumVariantDef>, usize)>, String> {
         //println!("parse_variants n {}", n);
         let mut enum_variants_matcher = TokensMatcher::default();
@@ -109,7 +113,7 @@ impl EnumParser {
                                     parameters.push(ASTParameterDef {
                                         name: token.alpha().unwrap(),
                                         ast_type,
-                                        ast_index: token.index(),
+                                        ast_index: ASTIndex::new(path.clone(), token.row, token.column),
                                     });
                                 } else {
                                     return Err(parser.wrap_error(&format!(
@@ -130,7 +134,7 @@ impl EnumParser {
                     Ok(ASTEnumVariantDef {
                         name: name_token.alpha().unwrap(),
                         parameters: parameters?,
-                        index: name_token.index(),
+                        index: ASTIndex::new(path.clone(), name_token.row, name_token.column),
                     })
                 })
                 .collect::<Result<Vec<ASTEnumVariantDef>, String>>();
@@ -222,6 +226,7 @@ impl TokensMatcherTrait for ParameterMatcher {
                         LinkedHashMap::new(),
                         next_i - parser.get_i(),
                         1,
+                        parser.file_name(),
                     );
                     groups_results.insert("parameter_type".into(), vec![types_result]);
                     return Some(TokensMatcherResult::new(
@@ -230,6 +235,7 @@ impl TokensMatcherTrait for ParameterMatcher {
                         groups_results,
                         next_i - parser.get_i(),
                         1,
+                        parser.file_name(),
                     ));
                 }
             }
@@ -266,14 +272,17 @@ mod tests {
                     parser,
                     &type_parameters,
                     next_i - parser.get_i(),
+                    None,
                 )? {
+                    let index =
+                        ASTIndex::new(None, token.row, token.column - token.alpha().unwrap().len());
                     return Ok(Some((
                         ASTEnumDef {
                             namespace: namespace.clone(),
                             name: token.alpha().unwrap(),
                             type_parameters,
                             variants,
-                            index: token.index().mv_left(token.alpha().unwrap().len()),
+                            index,
                             modifiers,
                         },
                         next_i,
@@ -294,7 +303,7 @@ mod tests {
         assert_eq!(
             parse_result,
             Some((
-                Token::new(TokenKind::AlphaNumeric("Option".to_owned()), None, 1, 12),
+                Token::new(TokenKind::AlphaNumeric("Option".to_owned()), 1, 12),
                 vec!["T".to_owned()],
                 ASTModifiers::private(),
                 6
@@ -702,7 +711,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.parse_variants(&test_namespace(), &parser, type_parameters, n)
+        sut.parse_variants(&test_namespace(), &parser, type_parameters, n, None)
             .unwrap()
     }
 

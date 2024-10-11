@@ -85,7 +85,6 @@ mod tests {
         );
         let expected_token = Token {
             kind: TokenKind::AlphaNumeric("aFun".to_string()),
-            file_name: None,
             row: 1,
             column: 19,
         };

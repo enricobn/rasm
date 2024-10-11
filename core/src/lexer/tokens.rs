@@ -1,31 +1,18 @@
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::parser::ast::ASTIndex;
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub file_name: Option<PathBuf>,
     pub row: usize,
     pub column: usize,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, file_name: Option<PathBuf>, row: usize, column: usize) -> Self {
-        Self {
-            kind,
-            file_name,
-            row,
-            column,
-        }
-    }
-
-    pub fn index(&self) -> ASTIndex {
-        ASTIndex::new(self.file_name.clone(), self.row, self.column)
+    pub fn new(kind: TokenKind, row: usize, column: usize) -> Self {
+        Self { kind, row, column }
     }
 
     pub fn alpha(&self) -> Option<String> {

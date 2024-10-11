@@ -178,7 +178,7 @@ impl Parser {
         if self.i > 0 {
             panic!("Cannot parse twice");
         }
-        let last_token = Token::new(TokenKind::EndOfLine, self.file_name.clone(), 0, 0);
+        let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
 
         let mut count = 0;
 
@@ -308,8 +308,13 @@ impl Parser {
                 }
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
-                        match ENUM_PARSER.parse_variants(&namespace, self, &def.type_parameters, 0)
-                        {
+                        match ENUM_PARSER.parse_variants(
+                            &namespace,
+                            self,
+                            &def.type_parameters,
+                            0,
+                            Some(path.to_path_buf()),
+                        ) {
                             Ok(result) => {
                                 if let Some((variants, next_i)) = result {
                                     def.variants = variants;
@@ -446,13 +451,17 @@ impl Parser {
         let index = self
             .get_token_n(0)
             .or_else(|| self.tokens.last())
-            .map(|it| it.index())
+            .map(|it| self.token_index(it))
             .unwrap_or_else(|| ASTIndex::new(self.file_name.clone(), 0, 0));
 
         self.errors.push(CompilationError {
             index,
             error_kind: CompilationErrorKind::Parser(message),
         });
+    }
+
+    fn token_index(&self, token: &Token) -> ASTIndex {
+        ASTIndex::new(self.file_name.clone(), token.row, token.column)
     }
 
     ///
@@ -480,7 +489,7 @@ impl Parser {
                 inline: false,
                 generic_types,
                 resolved_generic_types: ResolvedGenericTypes::new(),
-                index: name_token.index().mv_left(name_len),
+                index: self.token_index(&name_token).mv_left(name_len),
                 modifiers,
                 namespace: namespace.clone(),
                 rank: 0,
@@ -503,7 +512,7 @@ impl Parser {
                 inline,
                 generic_types: param_types,
                 resolved_generic_types: ResolvedGenericTypes::new(),
-                index: name_token.index().mv_left(name_len),
+                index: self.token_index(&name_token).mv_left(name_len),
                 modifiers,
                 namespace: namespace.clone(),
                 rank: 0,
@@ -520,7 +529,7 @@ impl Parser {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
-                index: name.index().mv_left(name.alpha().unwrap().len()),
+                index: self.token_index(&name).mv_left(name.alpha().unwrap().len()),
                 modifiers,
             }));
             self.state.push(ParserState::EnumDef);
@@ -533,8 +542,8 @@ impl Parser {
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
-                index: name_token
-                    .index()
+                index: self
+                    .token_index(&name_token)
                     .mv_left(name_token.alpha().unwrap().len()),
                 modifiers,
             }));
@@ -810,7 +819,7 @@ impl Parser {
                         .push(ParserData::FunctionDefParameter(ASTParameterDef {
                             name,
                             ast_type,
-                            ast_index: token.index(),
+                            ast_index: self.token_index(token),
                         }));
                     self.state.pop();
                     Ok(())
@@ -1445,6 +1454,10 @@ impl ParserTrait for Parser {
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.tokens.get(self.i + n)
     }
+
+    fn file_name(&self) -> Option<PathBuf> {
+        self.file_name.clone()
+    }
 }
 
 pub trait ParserTrait {
@@ -1462,13 +1475,15 @@ pub trait ParserTrait {
 
     fn get_index(&self, n: usize) -> ASTIndex {
         self.get_token_n(n)
-            .map(|it| it.index())
+            .map(|it| ASTIndex::new(self.file_name(), it.row, it.column))
             .unwrap_or(ASTIndex::none())
     }
 
     fn wrap_error(&self, message: &str) -> String {
         format!("{message}: {}", self.get_index(0))
     }
+
+    fn file_name(&self) -> Option<PathBuf>;
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
+use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
@@ -98,6 +99,7 @@ pub struct TokensMatcherResult {
     next_n: usize,
     groups_results: LinkedHashMap<String, Vec<Self>>,
     num_of_matches: usize,
+    file_name: Option<PathBuf>,
 }
 
 impl TokensMatcherResult {
@@ -107,6 +109,7 @@ impl TokensMatcherResult {
         groups_results: LinkedHashMap<String, Vec<Self>>,
         next_n: usize,
         num_of_matches: usize,
+        file_name: Option<PathBuf>,
     ) -> Self {
         Self {
             tokens,
@@ -114,6 +117,7 @@ impl TokensMatcherResult {
             next_n,
             groups_results,
             num_of_matches,
+            file_name,
         }
     }
 
@@ -197,6 +201,10 @@ impl ParserTrait for TokensMatcherResult {
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.tokens.get(n)
     }
+
+    fn file_name(&self) -> Option<std::path::PathBuf> {
+        self.file_name.clone()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -251,6 +259,7 @@ where
                     LinkedHashMap::new(),
                     n + 1,
                     1,
+                    parser.file_name(),
                 ))
             } else {
                 None
@@ -321,7 +330,7 @@ mod tests {
         let mut results = LinkedHashMap::new();
         results.insert(name.into(), group_values);
 
-        TokensMatcherResult::new(Vec::new(), Vec::new(), results, 0, 0)
+        TokensMatcherResult::new(Vec::new(), Vec::new(), results, 0, 0, None)
     }
 
     fn new_result_with_values(values: Vec<&str>) -> TokensMatcherResult {
@@ -329,11 +338,12 @@ mod tests {
             Vec::new(),
             values
                 .into_iter()
-                .map(|it| Token::new(TokenKind::AlphaNumeric(it.to_owned()), None, 0, 0))
+                .map(|it| Token::new(TokenKind::AlphaNumeric(it.to_owned()), 0, 0))
                 .collect(),
             LinkedHashMap::new(),
             0,
             0,
+            None,
         )
     }
 

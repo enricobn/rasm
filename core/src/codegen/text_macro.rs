@@ -685,15 +685,17 @@ impl TextMacroEvaluator {
 
 struct TypeParserHelper {
     type_tokens: Vec<Token>,
+    file_name: Option<PathBuf>,
 }
 
 impl TypeParserHelper {
     fn new(file_name: Option<PathBuf>, type_str: &str) -> Self {
-        let lexer = Lexer::new(type_str.into(), file_name);
+        let lexer = Lexer::new(type_str.into(), file_name.clone());
         // TODO errors
         let (tokens, _errors) = lexer.process();
         Self {
             type_tokens: tokens,
+            file_name,
         }
     }
 }
@@ -705,6 +707,10 @@ impl ParserTrait for TypeParserHelper {
 
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.type_tokens.get(n)
+    }
+
+    fn file_name(&self) -> Option<PathBuf> {
+        self.file_name.clone()
     }
 }
 

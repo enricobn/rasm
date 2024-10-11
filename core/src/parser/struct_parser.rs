@@ -8,6 +8,8 @@ use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrai
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
+use super::ast::ASTIndex;
+
 pub struct StructParser {
     matcher: TokensMatcher,
 }
@@ -92,7 +94,7 @@ impl StructParser {
                     parameters.push(ASTStructPropertyDef {
                         name: token.alpha().unwrap(),
                         ast_type,
-                        index: token.index(),
+                        index: ASTIndex::new(parser.file_name(), token.row, token.column),
                     });
                 } else {
                     return Err(format!(
