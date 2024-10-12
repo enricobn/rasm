@@ -204,16 +204,19 @@ impl FunctionsCreator for CFunctionsCreator {
                 false,
             );
         }
+
         let mut result = String::new();
+
         self.code_manipulator.add(
             &mut result,
-            &format!("struct RasmPointer_* e__ = rasmMalloc(sizeof(struct Enum));"),
+            "struct RasmPointer_* e__ = rasmMalloc(sizeof(struct Enum));",
             None,
             true,
         );
+
         self.code_manipulator.add(
             &mut result,
-            &format!("struct Enum* e_ = (struct Enum*)e__->address;"),
+            "struct Enum* e_ = (struct Enum*)e__->address;",
             None,
             true,
         );
@@ -224,6 +227,7 @@ impl FunctionsCreator for CFunctionsCreator {
             None,
             true,
         );
+
         for property_def in variant.parameters.iter() {
             self.code_manipulator.add(
                 &mut result,
