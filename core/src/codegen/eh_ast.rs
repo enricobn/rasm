@@ -121,7 +121,17 @@ impl ASTFunctionDef {
                 function.parameters,
             ),
             return_type: ASTType::from_ast(path.clone(), namespace.clone(), function.return_type),
-            body: todo!(),
+            body: {
+                match function.body {
+                    ast::ASTFunctionBody::RASMBody(statements) => ASTFunctionBody::RASMBody(
+                        statements
+                            .into_iter()
+                            .map(|it| ASTStatement::from_ast(path.clone(), namespace.clone(), it))
+                            .collect(),
+                    ),
+                    ast::ASTFunctionBody::NativeBody(value) => ASTFunctionBody::NativeBody(value),
+                }
+            },
             inline: function.inline,
             generic_types: function.generic_types,
             resolved_generic_types: ResolvedGenericTypes::new(),
@@ -254,6 +264,26 @@ impl ASTLambdaDef {
             .map(|it| it.fix_namespaces(enhanced_module))
             .collect();
         result
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        lambda: ast::ASTLambdaDef,
+    ) -> Self {
+        Self {
+            parameter_names: lambda
+                .parameter_names
+                .into_iter()
+                .map(|(name, position)| (name, ASTIndex::from_position(path.clone(), position)))
+                .collect(),
+            body: lambda
+                .body
+                .into_iter()
+                .map(|it| ASTStatement::from_ast(path.clone(), namespace.clone(), it))
+                .collect(),
+            index: ASTIndex::from_position(path.clone(), lambda.index),
+        }
     }
 }
 
@@ -729,6 +759,18 @@ impl ASTStructPropertyDef {
         result.ast_type = result.ast_type.fix_generics(generics_prefix);
         result
     }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        property: ast::ASTStructPropertyDef,
+    ) -> Self {
+        Self {
+            name: property.name,
+            ast_type: ASTType::from_ast(path.clone(), namespace.clone(), property.ast_type),
+            index: ASTIndex::from_position(path.clone(), property.index),
+        }
+    }
 }
 
 impl Display for ASTStructPropertyDef {
@@ -761,6 +803,25 @@ impl ASTFunctionCall {
             .map(|it| it.fix_namespaces(enhanced_module))
             .collect();
         result
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        call: ast::ASTFunctionCall,
+    ) -> Self {
+        Self {
+            namespace: namespace.clone(),
+            original_function_name: call.function_name.clone(),
+            function_name: call.function_name,
+            parameters: call
+                .parameters
+                .into_iter()
+                .map(|it| ASTExpression::from_ast(path.clone(), namespace.clone(), it))
+                .collect(),
+            index: ASTIndex::from_position(path.clone(), call.index),
+            generics: ASTType::from_asts(path.clone(), namespace.clone(), call.generics),
+        }
     }
 }
 
@@ -881,6 +942,15 @@ impl ValueType {
             ValueType::F32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
         }
     }
+
+    pub fn from_ast(path: Option<PathBuf>, namespace: ASTNameSpace, value: ast::ValueType) -> Self {
+        match value {
+            ast::ValueType::Boolean(value) => ValueType::Boolean(value),
+            ast::ValueType::I32(value) => ValueType::I32(value),
+            ast::ValueType::Char(value) => ValueType::Char(value),
+            ast::ValueType::F32(value) => ValueType::F32(value),
+        }
+    }
 }
 
 // TODO can we do partialeq? It depends on ASTIndex
@@ -920,6 +990,40 @@ impl ASTExpression {
                 ASTExpression::Any(asttype.fix_namespaces(enhanced_module))
             }
             _ => self.clone(),
+        }
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        expr: ast::ASTExpression,
+    ) -> Self {
+        match expr {
+            ast::ASTExpression::StringLiteral(value, position) => {
+                ASTExpression::StringLiteral(value, ASTIndex::from_position(path.clone(), position))
+            }
+            ast::ASTExpression::ASTFunctionCallExpression(call) => {
+                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::from_ast(
+                    path.clone(),
+                    namespace.clone(),
+                    call,
+                ))
+            }
+            ast::ASTExpression::ValueRef(name, position) => {
+                ASTExpression::ValueRef(name, ASTIndex::from_position(path.clone(), position))
+            }
+            ast::ASTExpression::Value(value_type, position) => ASTExpression::Value(
+                ValueType::from_ast(path.clone(), namespace.clone(), value_type),
+                ASTIndex::from_position(path.clone(), position),
+            ),
+            ast::ASTExpression::Lambda(lambda) => ASTExpression::Lambda(ASTLambdaDef::from_ast(
+                path.clone(),
+                namespace.clone(),
+                lambda,
+            )),
+            ast::ASTExpression::Any(ast_type) => {
+                ASTExpression::Any(ASTType::from_ast(path.clone(), namespace.clone(), ast_type))
+            }
         }
     }
 }
@@ -976,6 +1080,27 @@ impl ASTStatement {
                     exp.fix_namespaces(enhanced_module),
                     is_const,
                     astindex,
+                )
+            }
+        }
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        statement: ast::ASTStatement,
+    ) -> Self {
+        match statement {
+            ast::ASTStatement::Expression(expr) => ASTStatement::Expression(
+                ASTExpression::from_ast(path.clone(), namespace.clone(), expr),
+            ),
+            ast::ASTStatement::LetStatement(name, astexpression, is_const, position) => {
+                let expr = ASTExpression::from_ast(path.clone(), namespace.clone(), astexpression);
+                ASTStatement::LetStatement(
+                    name,
+                    expr,
+                    is_const,
+                    ASTIndex::from_position(path.clone(), position),
                 )
             }
         }
@@ -1080,15 +1205,31 @@ impl ASTModule {
     pub fn from_ast(module: ast::ASTModule, info: EhModuleInfo) -> Self {
         Self {
             path: info.path.clone().unwrap(),
-            body: todo!(),
+            body: module
+                .body
+                .into_iter()
+                .map(|it| ASTStatement::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .collect(),
             functions: module
                 .functions
                 .into_iter()
                 .map(|it| ASTFunctionDef::from_ast(info.path.clone(), info.namespace.clone(), it))
                 .collect(),
-            enums: todo!(),
-            structs: todo!(),
-            types: todo!(),
+            enums: module
+                .enums
+                .into_iter()
+                .map(|it| ASTEnumDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .collect(),
+            structs: module
+                .structs
+                .into_iter()
+                .map(|it| ASTStructDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .collect(),
+            types: module
+                .types
+                .into_iter()
+                .map(|it| ASTTypeDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .collect(),
             namespace: info.namespace.clone(),
         }
     }
@@ -1172,6 +1313,27 @@ impl ASTEnumDef {
             .collect();
         result
     }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        enum_def: ast::ASTEnumDef,
+    ) -> Self {
+        Self {
+            namespace: namespace.clone(),
+            name: enum_def.name,
+            type_parameters: enum_def.type_parameters,
+            variants: enum_def
+                .variants
+                .into_iter()
+                .map(|it| ASTEnumVariantDef::from_ast(path.clone(), namespace.clone(), it))
+                .collect(),
+            index: ASTIndex::from_position(path, enum_def.index),
+            modifiers: ASTModifiers {
+                public: enum_def.modifiers.public,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1203,6 +1365,22 @@ impl ASTEnumVariantDef {
                 .map(|it| it.fix_generics(generics_prefix))
                 .collect(),
             index: self.index.clone(),
+        }
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        variant_def: ast::ASTEnumVariantDef,
+    ) -> Self {
+        Self {
+            name: variant_def.name,
+            parameters: ASTParameterDef::from_asts(
+                path.clone(),
+                namespace.clone(),
+                variant_def.parameters,
+            ),
+            index: ASTIndex::from_position(path.clone(), variant_def.index),
         }
     }
 }
@@ -1255,6 +1433,27 @@ impl ASTStructDef {
             .collect();
         return result;
     }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        struct_def: ast::ASTStructDef,
+    ) -> Self {
+        Self {
+            namespace: namespace.clone(),
+            name: struct_def.name,
+            type_parameters: struct_def.type_parameters,
+            properties: struct_def
+                .properties
+                .into_iter()
+                .map(|it| ASTStructPropertyDef::from_ast(path.clone(), namespace.clone(), it))
+                .collect(),
+            index: ASTIndex::from_position(path.clone(), struct_def.index),
+            modifiers: ASTModifiers {
+                public: struct_def.modifiers.public,
+            },
+        }
+    }
 }
 
 impl CustomTypeDef for ASTStructDef {
@@ -1305,6 +1504,24 @@ impl ASTTypeDef {
             .map(|it| format!("{generics_prefix}:{it}"))
             .collect();
         result
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: ASTNameSpace,
+        type_def: ast::ASTTypeDef,
+    ) -> Self {
+        Self {
+            namespace: namespace.clone(),
+            name: type_def.name,
+            type_parameters: type_def.type_parameters,
+            is_ref: type_def.is_ref,
+            index: ASTIndex::from_position(path.clone(), type_def.index),
+            modifiers: ASTModifiers {
+                public: type_def.modifiers.public,
+            },
+            native_type: type_def.native_type,
+        }
     }
 }
 

@@ -951,19 +951,6 @@ impl Parser {
         module.functions.iter().for_each(Self::print_function_def)
     }
 
-    /*
-    pub fn print_enhanced(module: &EnhancedASTModule) {
-        module.body.iter().for_each(|call| {
-            println!("{call}");
-        });
-        println!();
-        module
-            .functions()
-            .iter()
-            .for_each(|it| Self::print_function_def(it))
-    }
-    */
-
     pub fn print_function_def(f: &ASTFunctionDef) {
         print!("{}", f);
         match &f.body {
