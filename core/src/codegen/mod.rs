@@ -15,6 +15,9 @@ use snailquote::unescape;
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::eh_ast::{
+    ASTFunctionDef, ASTIndex, ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
+};
 use crate::codegen::function_call_parameters::{
     FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsmImpl,
 };
@@ -30,9 +33,6 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
-use crate::parser::ast::{
-    ASTFunctionDef, ASTIndex, ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
-};
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references,
 };
@@ -50,6 +50,7 @@ pub mod backend;
 pub mod c;
 mod code_manipulator;
 pub mod compile_target;
+pub mod eh_ast;
 pub mod enhanced_module;
 pub mod function_call_parameters;
 pub mod lambda;

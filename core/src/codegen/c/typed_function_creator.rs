@@ -20,12 +20,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use linked_hash_map::LinkedHashMap;
 
+use crate::codegen::eh_ast::{ASTFunctionBody, ASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
-use crate::parser::ast::{ASTFunctionBody, ASTNameSpace};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{

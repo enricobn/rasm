@@ -8,10 +8,11 @@ use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, CodeGenAsm};
 use crate::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTIndex, ASTModifiers, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef,
+    ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTStructDef,
     ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+
+use crate::codegen::eh_ast;
 
 pub trait FunctionsCreator {
     fn create(&self, module: &mut ASTModule, statics: &mut Statics) {
@@ -19,7 +20,7 @@ pub trait FunctionsCreator {
             let generic_types: Vec<ASTType> = enum_def
                 .type_parameters
                 .iter()
-                .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+                .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
                 .collect();
 
             self.enum_constructors(module, enum_def, &generic_types, statics);
@@ -28,7 +29,7 @@ pub trait FunctionsCreator {
                 module,
                 enum_def,
                 "match",
-                ASTType::Generic(ASTIndex::none(), "_T".into()),
+                ASTType::Generic(ASTPosition::none(), "_T".into()),
                 Some("_T".into()),
             );
 
@@ -37,7 +38,7 @@ pub trait FunctionsCreator {
                     module,
                     enum_def,
                     &format!("match{}", variant.name),
-                    ASTType::Generic(ASTIndex::none(), "_T".into()),
+                    ASTType::Generic(ASTPosition::none(), "_T".into()),
                     Some("_T".into()),
                     variant,
                 );
@@ -48,15 +49,14 @@ pub trait FunctionsCreator {
             let param_types: Vec<ASTType> = struct_def
                 .type_parameters
                 .iter()
-                .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+                .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
                 .collect();
 
             let ast_type = ASTType::Custom {
-                namespace: struct_def.namespace.clone(),
                 name: struct_def.name.clone(),
                 param_types: param_types.clone(),
                 // TODO for now here's no source fo generated functions
-                index: ASTIndex::none(),
+                index: ASTPosition::none(),
             };
             let return_type = ast_type;
             let body_str = self.struct_constructor_body(struct_def);
@@ -68,7 +68,7 @@ pub trait FunctionsCreator {
                 .map(|it| ASTParameterDef {
                     name: it.name.clone(),
                     ast_type: it.ast_type.clone(),
-                    ast_index: it.index.clone(),
+                    index: it.index.clone(),
                 })
                 .collect();
 
@@ -103,19 +103,14 @@ pub trait FunctionsCreator {
             }
 
             let function_def = ASTFunctionDef {
-                original_name: struct_def.name.clone(),
                 name: struct_def.name.clone(),
                 parameters,
                 body,
                 inline: false,
                 return_type,
                 generic_types: struct_def.type_parameters.clone(),
-                // TODO calculate, even if I don't know if it is useful
-                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: struct_def.index.clone(),
                 modifiers: struct_def.modifiers.clone(),
-                namespace: module.namespace.clone(),
-                rank: 0,
             };
             module.add_function(function_def);
         }
@@ -138,19 +133,18 @@ pub trait FunctionsCreator {
         let generic_types = enum_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
             .collect();
 
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
             ast_type: ASTType::Custom {
-                namespace: enum_def.namespace.clone(),
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 // TODO for now there's not a source for generated functions
-                index: ASTIndex::none(),
+                index: ASTPosition::none(),
             },
-            ast_index: ASTIndex::none(),
+            index: ASTPosition::none(),
         }];
         for variant in enum_def.variants.iter() {
             let ast_parameter_def = variant_lambda_parameter(&return_type, variant);
@@ -163,7 +157,6 @@ pub trait FunctionsCreator {
         }
 
         let function_def = ASTFunctionDef {
-            original_name: name.to_owned(),
             name: name.to_owned(),
             parameters,
             body: function_body,
@@ -171,11 +164,8 @@ pub trait FunctionsCreator {
             return_type,
             generic_types: param_types,
             // TODO calculate, even if I don't know if it's useful
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
             modifiers: enum_def.modifiers.clone(),
-            namespace: module.namespace.clone(),
-            rank: 0,
         };
 
         debug!("created function {function_def}");
@@ -199,19 +189,18 @@ pub trait FunctionsCreator {
         let generic_types = enum_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
             .collect();
 
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
             ast_type: ASTType::Custom {
-                namespace: enum_def.namespace.clone(),
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 // TODO for now there's not a source for generated functions
-                index: ASTIndex::none(),
+                index: ASTPosition::none(),
             },
-            ast_index: ASTIndex::none(),
+            index: ASTPosition::none(),
         }];
         let ast_parameter_def = variant_lambda_parameter(&return_type, variant);
         parameters.push(ast_parameter_def);
@@ -224,7 +213,7 @@ pub trait FunctionsCreator {
         parameters.push(ASTParameterDef {
             name: "elseLambda".to_string(),
             ast_type,
-            ast_index: ASTIndex::none(),
+            index: ASTPosition::none(),
         });
         let mut param_types = enum_def.type_parameters.clone();
 
@@ -233,7 +222,6 @@ pub trait FunctionsCreator {
         }
 
         let function_def = ASTFunctionDef {
-            original_name: name.to_owned(),
             name: name.to_owned(),
             parameters,
             body: function_body,
@@ -241,11 +229,8 @@ pub trait FunctionsCreator {
             return_type,
             generic_types: param_types,
             // TODO calculate, even if I don't know if it's useful
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
             modifiers: enum_def.modifiers.clone(),
-            namespace: module.namespace.clone(),
-            rank: 0,
         };
 
         debug!("created function {function_def}");
@@ -264,7 +249,7 @@ pub trait FunctionsCreator {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
             .collect();
 
         let name = &property_def.name;
@@ -277,12 +262,11 @@ pub trait FunctionsCreator {
             let mut f_parameters = vec![ASTParameterDef {
                 name: "v".into(),
                 ast_type: ASTType::Custom {
-                    namespace: struct_def.namespace.clone(),
                     name: struct_def.name.clone(),
                     param_types: param_types.clone(),
-                    index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 },
-                ast_index: ASTIndex::none(),
+                index: ASTPosition::none(),
             }];
 
             let mut lambda_parameters = parameters
@@ -291,7 +275,7 @@ pub trait FunctionsCreator {
                 .map(|(index, ast_type)| ASTParameterDef {
                     name: format!("p{index}"),
                     ast_type: ast_type.clone(),
-                    ast_index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 })
                 .collect::<Vec<_>>();
 
@@ -299,8 +283,7 @@ pub trait FunctionsCreator {
 
             let lambda_return_type = return_type.deref().clone();
 
-            let body =
-                self.struct_lambda_property_rasm_body(&struct_def.namespace, name, parameters);
+            let body = self.struct_lambda_property_rasm_body(name, parameters);
 
             /*
             print!("lambda get property {name}(");
@@ -316,18 +299,14 @@ pub trait FunctionsCreator {
              */
 
             let function_def = ASTFunctionDef {
-                original_name: name.clone(),
                 name: name.clone(),
                 parameters: f_parameters,
                 return_type: lambda_return_type.clone(),
                 body: ASTFunctionBody::RASMBody(body),
                 generic_types: struct_def.type_parameters.clone(),
                 inline: false,
-                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: property_def.index.clone(),
                 modifiers: struct_def.modifiers.clone(),
-                namespace: module.namespace.clone(),
-                rank: 0,
             };
 
             vec![
@@ -364,28 +343,23 @@ pub trait FunctionsCreator {
     ) -> ASTFunctionDef {
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
         ASTFunctionDef {
-            original_name: name.clone(),
             name,
             parameters: vec![ASTParameterDef {
                 name: "v".into(),
                 ast_type: ASTType::Custom {
-                    namespace: struct_def.namespace.clone(),
                     name: struct_def.name.clone(),
                     param_types,
                     // TODO for now here's no source for generated functions
-                    index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 },
-                ast_index: ASTIndex::none(),
+                index: ASTPosition::none(),
             }],
             return_type: property_def.ast_type.clone(),
             body: ASTFunctionBody::NativeBody(native_body),
             generic_types: struct_def.type_parameters.clone(),
             inline,
-            resolved_generic_types: ResolvedGenericTypes::new(),
             index: property_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
-            namespace: module.namespace.clone(),
-            rank: 0,
         }
     }
 
@@ -399,42 +373,37 @@ pub trait FunctionsCreator {
         let param_types = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
             .collect();
 
         let name = &property_def.name;
         let ast_type = ASTType::Custom {
-            namespace: struct_def.namespace.clone(),
             name: struct_def.name.clone(),
             param_types,
             // TODO for now here's no source fo generated functions
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
         };
 
         ASTFunctionDef {
-            original_name: name.clone(),
             name: name.clone(),
             parameters: vec![
                 ASTParameterDef {
                     name: "receiver".into(),
                     ast_type: ast_type.clone(),
-                    ast_index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 },
                 ASTParameterDef {
                     name: "v".into(),
                     ast_type: property_def.ast_type.clone(),
-                    ast_index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 },
             ],
             return_type: ast_type,
             body: ASTFunctionBody::NativeBody(self.struct_setter_body(i, name)),
             generic_types: struct_def.type_parameters.clone(),
             inline: false,
-            resolved_generic_types: ResolvedGenericTypes::new(),
             index: property_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
-            namespace: module.namespace.clone(),
-            rank: 0,
         }
     }
 
@@ -448,16 +417,15 @@ pub trait FunctionsCreator {
         let param_types = struct_def
             .type_parameters
             .iter()
-            .map(|it| ASTType::Generic(ASTIndex::none(), it.into()))
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
             .collect();
 
         let name = &property_def.name;
         let ast_type = ASTType::Custom {
-            namespace: struct_def.namespace.clone(),
             name: struct_def.name.clone(),
             param_types,
             // TODO for now here's no source fo generated functions
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
         };
 
         let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -466,35 +434,30 @@ pub trait FunctionsCreator {
         });
 
         ASTFunctionDef {
-            original_name: name.clone(),
             name: name.clone(),
             parameters: vec![
                 ASTParameterDef {
                     name: "receiver".into(),
                     ast_type: ast_type.clone(),
-                    ast_index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 },
                 ASTParameterDef {
                     name: "f".into(),
                     ast_type: lambda,
-                    ast_index: ASTIndex::none(),
+                    index: ASTPosition::none(),
                 },
             ],
             return_type: ast_type,
             body: ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, name)),
             generic_types: struct_def.type_parameters.clone(),
             inline: false,
-            resolved_generic_types: ResolvedGenericTypes::new(),
             index: property_def.index.clone(),
             modifiers: struct_def.modifiers.clone(),
-            namespace: module.namespace.clone(),
-            rank: 0,
         }
     }
 
     fn struct_lambda_property_rasm_body(
         &self,
-        namespace: &ASTNameSpace,
         name: &str,
         parameters: &[ASTType],
     ) -> Vec<ASTStatement> {
@@ -502,28 +465,24 @@ pub trait FunctionsCreator {
             ASTStatement::LetStatement(
                 "_f".to_owned(),
                 ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
-                    namespace: namespace.clone(),
-                    original_function_name: format!("{name}"),
                     function_name: format!("{name}"),
-                    parameters: vec![ASTExpression::ValueRef("v".to_owned(), ASTIndex::none())],
-                    index: ASTIndex::none(),
+                    parameters: vec![ASTExpression::ValueRef("v".to_owned(), ASTPosition::none())],
+                    index: ASTPosition::none(),
                     generics: Vec::new(),
                 }),
                 false,
-                ASTIndex::none(),
+                ASTPosition::none(),
             ),
             ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
-                namespace: namespace.clone(),
-                original_function_name: "_f".to_owned(),
                 function_name: "_f".to_owned(),
                 parameters: parameters
                     .iter()
                     .enumerate()
                     .map(|(index, _it)| {
-                        ASTExpression::ValueRef(format!("p{index}"), ASTIndex::none())
+                        ASTExpression::ValueRef(format!("p{index}"), ASTPosition::none())
                     })
                     .collect(),
-                index: ASTIndex::none(),
+                index: ASTPosition::none(),
                 generics: Vec::new(),
             })),
         ]
@@ -542,11 +501,10 @@ pub trait FunctionsCreator {
     ) {
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             let ast_type = ASTType::Custom {
-                namespace: enum_def.namespace.clone(),
                 name: enum_def.name.clone(),
                 param_types: param_types.to_vec(),
                 // TODO for now here's no source fo generated functions
-                index: ASTIndex::none(),
+                index: ASTPosition::none(),
             };
             let return_type = ast_type;
             let descr = if self.debug() {
@@ -567,7 +525,6 @@ pub trait FunctionsCreator {
 
             let name = enum_def.name.clone() + "_" + &variant.name.clone();
             let function_def = ASTFunctionDef {
-                original_name: enum_def.name.clone() + "::" + &variant.name.clone(),
                 name,
                 parameters: variant.parameters.clone(),
                 body,
@@ -575,12 +532,8 @@ pub trait FunctionsCreator {
                 inline: inline && variant.parameters.is_empty(),
                 return_type,
                 generic_types: enum_def.type_parameters.clone(),
-                // TODO calculate, even if I don't know if it is useful
-                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: variant.index.clone(),
                 modifiers: enum_def.modifiers.clone(),
-                namespace: module.namespace.clone(),
-                rank: 0,
             };
             debug!("created function {function_def}");
 
@@ -621,7 +574,7 @@ fn variant_lambda_parameter(return_type: &ASTType, variant: &ASTEnumVariantDef) 
     ASTParameterDef {
         name: variant.name.clone(),
         ast_type,
-        ast_index: ASTIndex::none(),
+        index: ASTPosition::none(),
     }
 }
 
@@ -732,25 +685,24 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         let body = ASTFunctionBody::NativeBody(body_src);
         let name: String = "str_deref".into();
         let function_def = ASTFunctionDef {
-            original_name: name.clone(),
             name: name.clone(),
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                ast_index: ASTIndex::none(),
+                index: ASTPosition::none(),
             }],
             body,
             inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
-            namespace: ASTNameSpace::global(),
-            rank: 0,
         };
 
-        module.add_function(name, function_def);
+        module.add_function(
+            name,
+            eh_ast::ASTFunctionDef::from_ast(None, eh_ast::ASTNameSpace::global(), function_def),
+        );
 
         let body_src = self.str_add_ref_body(&message_key);
 
@@ -758,25 +710,24 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         let name: String = "str_addRef".into();
 
         let function_def = ASTFunctionDef {
-            original_name: name.clone(),
             name: name.clone(),
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                ast_index: ASTIndex::none(),
+                index: ASTPosition::none(),
             }],
             body,
             inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
-            namespace: ASTNameSpace::global(),
-            rank: 0,
         };
 
-        module.add_function(name, function_def);
+        module.add_function(
+            name,
+            eh_ast::ASTFunctionDef::from_ast(None, eh_ast::ASTNameSpace::global(), function_def),
+        );
     }
 
     fn enum_match_body(&self, name: &str, enum_def: &ASTEnumDef) -> String {

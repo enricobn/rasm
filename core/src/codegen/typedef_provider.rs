@@ -18,7 +18,7 @@
 use itertools::Itertools;
 use std::iter::zip;
 
-use crate::parser::ast::{ASTModifiers, ASTNameSpace, ASTType, BuiltinTypeKind};
+use crate::codegen::eh_ast::{ASTModifiers, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
     CustomTypedTypeDef,

@@ -32,6 +32,7 @@ use crate::codegen::c::any::CInclude;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
+use crate::codegen::eh_ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
@@ -40,7 +41,6 @@ use crate::codegen::val_context::ValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::project::RasmProject;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
@@ -295,7 +295,7 @@ impl CompileTarget {
             panic!()
         }
 
-        let (enhanced_ast_module, errors) = EnhancedASTModule::new(
+        let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(
             modules,
             &project,
             &mut statics,

@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::parser::ast::ASTIndex;
+use crate::codegen::eh_ast::ASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedStatement,
@@ -76,5 +76,10 @@ pub trait TraverseTypedAST {
 
     fn found_function_def(&mut self, function: &ASTTypedFunctionDef);
 
-    fn found_asm(&mut self, module: &ASTTypedModule, function: &ASTTypedFunctionDef, native_code: &str);
+    fn found_asm(
+        &mut self,
+        module: &ASTTypedModule,
+        function: &ASTTypedFunctionDef,
+        native_code: &str,
+    );
 }

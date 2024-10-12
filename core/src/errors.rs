@@ -18,7 +18,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::parser::ast::ASTIndex;
+use crate::codegen::eh_ast::ASTIndex;
 use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Clone, Debug)]

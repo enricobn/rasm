@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+use crate::codegen::eh_ast::{ASTExpression, ASTIndex, ASTStatement};
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::parser::ast::{ASTExpression, ASTIndex, ASTStatement};
 
 pub fn add_folder(
     module: &mut EnhancedASTModule,

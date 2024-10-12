@@ -2,7 +2,7 @@ use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{Close, Open};
 use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Generic};
-use crate::parser::ast::{ASTNameSpace, ASTType, BuiltinTypeKind};
+use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::parser::ParserTrait;
 
 pub struct TypeParser<'a> {
@@ -16,23 +16,19 @@ impl<'a> TypeParser<'a> {
 
     pub fn try_parse_ast_type(
         &self,
-        namespace: &ASTNameSpace,
         n: usize,
         context_generic_types: &[String],
     ) -> Result<Option<(ASTType, usize)>, String> {
-        self.try_parse_ast_type_rec(namespace, n, context_generic_types, 0)
+        self.try_parse_ast_type_rec(n, context_generic_types, 0)
     }
 
     fn try_parse_ast_type_rec(
         &self,
-        namespace: &ASTNameSpace,
         n: usize,
         context_generic_types: &[String],
         rec: usize,
     ) -> Result<Option<(ASTType, usize)>, String> {
-        if let Some((ast_type, next_i)) =
-            self.try_parse(namespace, n, context_generic_types, rec)?
-        {
+        if let Some((ast_type, next_i)) = self.try_parse(n, context_generic_types, rec)? {
             return Ok(Some((ast_type, next_i)));
         }
         Ok(None)
@@ -40,7 +36,6 @@ impl<'a> TypeParser<'a> {
 
     fn try_parse(
         &self,
-        namespace: &ASTNameSpace,
         n: usize,
         context_generic_types: &[String],
         rec: usize,
@@ -67,10 +62,10 @@ impl<'a> TypeParser<'a> {
                 }
             } else if let TokenKind::AlphaNumeric(type_name) = kind {
                 if context_generic_types.contains(type_name) {
-                    Some((Generic(self.parser.get_index(n), type_name.into()), next_i))
+                    Some((Generic(self.parser.get_position(n), type_name.into()), next_i))
                 } else {
-                    let (param_types, next_i) = if let Some((param_types, next_i)) = self
-                        .try_parse_parameter_types(namespace, n + 1, context_generic_types, rec)?
+                    let (param_types, next_i) = if let Some((param_types, next_i)) =
+                        self.try_parse_parameter_types(n + 1, context_generic_types, rec)?
                     {
                         (param_types, next_i)
                     } else {
@@ -79,16 +74,15 @@ impl<'a> TypeParser<'a> {
 
                     Some((
                         Custom {
-                            namespace: namespace.clone(),
                             name: type_name.into(),
                             param_types,
-                            index: self.parser.get_index(n),
+                            index: self.parser.get_position(n),
                         },
                         next_i,
                     ))
                 }
             } else if let TokenKind::KeyWord(KeywordKind::Fn) = kind {
-                Some(self.parse_fn(namespace, n + 1, context_generic_types, rec)?)
+                Some(self.parse_fn(n + 1, context_generic_types, rec)?)
             } else if matches!(kind, TokenKind::Bracket(Round, Open))
                 && matches!(
                     self.parser.get_token_kind_n(n + 1),
@@ -108,7 +102,6 @@ impl<'a> TypeParser<'a> {
 
     fn try_parse_parameter_types(
         &self,
-        namspace: &ASTNameSpace,
         n: usize,
         context_param_types: &[String],
         rec: usize,
@@ -119,7 +112,7 @@ impl<'a> TypeParser<'a> {
         if rec > 10 {
             return Err(format!(
                 "Probable recursion parsing parameter type: {}",
-                self.parser.get_index(n)
+                self.parser.get_position(n)
             ));
         }
 
@@ -134,7 +127,7 @@ impl<'a> TypeParser<'a> {
                 } else if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) = kind {
                     inner_n += 1;
                 } else if let Some((ast_type, inner_next_i)) =
-                    self.try_parse_ast_type(namspace, inner_n, context_param_types)?
+                    self.try_parse_ast_type(inner_n, context_param_types)?
                 {
                     types.push(ast_type);
                     next_i = inner_next_i;
@@ -142,7 +135,7 @@ impl<'a> TypeParser<'a> {
                 } else {
                     return Err(format!(
                         "Error parsing type: {}",
-                        self.parser.get_index(inner_n)
+                        self.parser.get_position(inner_n)
                     ));
                 }
             }
@@ -154,7 +147,6 @@ impl<'a> TypeParser<'a> {
 
     fn parse_fn(
         &self,
-        namespace: &ASTNameSpace,
         out_n: usize,
         context_param_types: &[String],
         rec: usize,
@@ -165,7 +157,7 @@ impl<'a> TypeParser<'a> {
         if rec > 10 {
             return Err(format!(
                 "Probable recursion parsing function : {}",
-                self.parser.get_index(n)
+                self.parser.get_position(n)
             ));
         }
 
@@ -183,7 +175,7 @@ impl<'a> TypeParser<'a> {
                 }
 
                 if let Some((t, next_i)) =
-                    self.try_parse_ast_type_rec(namespace, n, context_param_types, rec + 1)?
+                    self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
                 {
                     parameters.push(t);
                     n = next_i - self.parser.get_i();
@@ -191,7 +183,7 @@ impl<'a> TypeParser<'a> {
                 } else {
                     return Err(format!(
                         "Error parsing fn type parameter: {}",
-                        self.parser.get_index(n)
+                        self.parser.get_position(n)
                     ));
                 }
             }
@@ -203,7 +195,7 @@ impl<'a> TypeParser<'a> {
             } else {
                 return Err(format!(
                     "Error parsing fn type, expected '->': {}",
-                    self.parser.get_index(n)
+                    self.parser.get_position(n)
                 ));
             }
 
@@ -217,14 +209,14 @@ impl<'a> TypeParser<'a> {
                 n += 2;
                 ASTType::Unit
             } else if let Some((t, next_i)) =
-                self.try_parse_ast_type_rec(namespace, n, context_param_types, rec + 1)?
+                self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
             {
                 n = next_i - self.parser.get_i();
                 t
             } else {
                 return Err(format!(
                     "Error parsing fn type parameter: {}",
-                    self.parser.get_index(n)
+                    self.parser.get_position(n)
                 ));
             };
 
@@ -238,7 +230,7 @@ impl<'a> TypeParser<'a> {
         } else {
             Err(format!(
                 "Error parsing fn type parameter, expected '(': {}",
-                self.parser.get_index(n)
+                self.parser.get_position(n)
             ))
         }
     }
@@ -246,11 +238,46 @@ impl<'a> TypeParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::{lambda_unit, ASTIndex};
+    use std::path::PathBuf;
+
+    use crate::lexer::tokens::Token;
+    use crate::lexer::Lexer;
+    use crate::parser::ast::{lambda_unit, ASTPosition};
     use crate::parser::test_utils::get_parser;
     use crate::utils::tests::test_namespace;
 
     use super::*;
+
+    struct TypeParserHelper {
+        type_tokens: Vec<Token>,
+        file_name: Option<PathBuf>,
+    }
+
+    impl TypeParserHelper {
+        fn new(file_name: Option<PathBuf>, type_str: &str) -> Self {
+            let lexer = Lexer::new(type_str.into());
+            // TODO errors
+            let (tokens, _errors) = lexer.process();
+            Self {
+                type_tokens: tokens,
+                file_name,
+            }
+        }
+    }
+
+    impl ParserTrait for TypeParserHelper {
+        fn get_i(&self) -> usize {
+            0
+        }
+
+        fn get_token_n(&self, n: usize) -> Option<&Token> {
+            self.type_tokens.get(n)
+        }
+
+        fn file_name(&self) -> Option<PathBuf> {
+            self.file_name.clone()
+        }
+    }
 
     #[test]
     fn test_i32() {
@@ -288,13 +315,12 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: test_namespace(),
                     name: "Dummy".into(),
                     param_types: vec![
-                        Generic(ASTIndex::new(None, 1, 8), "T".into()),
-                        Generic(ASTIndex::new(None, 1, 11), "T1".into()),
+                        Generic(ASTPosition::new(1, 8), "T".into()),
+                        Generic(ASTPosition::new(1, 11), "T1".into()),
                     ],
-                    index: ASTIndex::new(None, 1, 6)
+                    index: ASTPosition::new(1, 6)
                 },
                 6
             )),
@@ -306,7 +332,7 @@ mod tests {
     fn test_param_type() {
         let parse_result = try_parse_with_context("T", &["T".into()]);
         assert_eq!(
-            Some((Generic(ASTIndex::new(None, 1, 2), "T".into()), 1)),
+            Some((Generic(ASTPosition::new(1, 2), "T".into()), 1)),
             parse_result
         );
     }
@@ -317,10 +343,9 @@ mod tests {
         assert_eq!(
             Some((
                 Custom {
-                    namespace: test_namespace(),
                     name: "T".into(),
                     param_types: vec![],
-                    index: ASTIndex::new(None, 1, 2)
+                    index: ASTPosition::new(1, 2)
                 },
                 1
             )),
@@ -332,23 +357,39 @@ mod tests {
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
         let option_t = Custom {
-            namespace: test_namespace(),
             name: "Option".into(),
-            param_types: vec![Generic(ASTIndex::new(None, 1, 14), "T".into())],
-            index: ASTIndex::new(None, 1, 12),
+            param_types: vec![Generic(ASTPosition::new(1, 14), "T".into())],
+            index: ASTPosition::new(1, 12),
         };
         assert_eq!(
             Some((
                 Custom {
-                    namespace: test_namespace(),
                     name: "List".into(),
                     param_types: vec![option_t],
-                    index: ASTIndex::new(None, 1, 5)
+                    index: ASTPosition::new(1, 5)
                 },
                 7
             )),
             parse_result
         );
+    }
+
+    #[test]
+    fn parse_list_str() {
+        let parser = TypeParserHelper::new(None, "List<str>");
+        let type_parser = TypeParser::new(&parser);
+
+        match type_parser.try_parse_ast_type(0, &[]).unwrap() {
+            None => panic!("Unsupported type"),
+            Some((ast_type, _)) => assert_eq!(
+                ast_type,
+                ASTType::Custom {
+                    name: "List".into(),
+                    param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
+                    index: ASTPosition::none()
+                }
+            ),
+        }
     }
 
     fn try_parse(source: &str) -> Option<(ASTType, usize)> {
@@ -360,6 +401,6 @@ mod tests {
 
         let sut = TypeParser::new(&parser);
 
-        sut.try_parse(&test_namespace(), 0, context, 0).unwrap()
+        sut.try_parse(0, context, 0).unwrap()
     }
 }

@@ -16,13 +16,13 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::codegen::eh_ast::ASTIndex;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::TypedValKind;
 use crate::errors::CompilationError;
 use crate::errors::CompilationErrorKind::Verify;
-use crate::parser::ast::ASTIndex;
 use crate::type_check::typed_ast;
 use crate::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,

@@ -3,9 +3,14 @@ use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
-use log::{debug, info};
+use log::info;
 
 use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::eh_ast::{
+    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTIndex, ASTLambdaDef, ASTModifiers, ASTNameSpace, ASTParameterDef, ASTStatement,
+    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, BuiltinTypeKind, ValueType,
+};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -13,12 +18,6 @@ use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
-use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
-use crate::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTIndex, ASTLambdaDef, ASTModifiers, ASTNameSpace, ASTParameterDef, ASTStatement,
-    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, BuiltinTypeKind, ValueType,
-};
 use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
@@ -1584,10 +1583,10 @@ fn lambda_def(conv_context: &mut ConvContext, lambda_def: &ASTLambdaDef) -> ASTT
 
 fn body(conv_context: &mut ConvContext, body: &ASTFunctionBody) -> ASTTypedFunctionBody {
     match body {
-        RASMBody(body) => ASTTypedFunctionBody::RASMBody(
+        ASTFunctionBody::RASMBody(body) => ASTTypedFunctionBody::RASMBody(
             body.iter().map(|it| statement(conv_context, it)).collect(),
         ),
-        NativeBody(body) => ASTTypedFunctionBody::NativeBody(body.clone()),
+        ASTFunctionBody::NativeBody(body) => ASTTypedFunctionBody::NativeBody(body.clone()),
     }
 }
 
@@ -1973,10 +1972,10 @@ impl DefaultFunction {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::enhanced_module::EnhancedASTModule;
-    use crate::parser::ast::{
+    use crate::codegen::eh_ast::{
         ASTEnumDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTStructDef, ASTType,
     };
+    use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::typed_ast::{typed_type, ASTTypedType, ConvContext};
     use linked_hash_map::LinkedHashMap;

@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::parser::ast::ASTIndex;
+use crate::codegen::eh_ast::ASTIndex;
 use crate::type_check::traverse_typed_ast::TraverseTypedAST;
 use crate::type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
 use lazy_static::lazy_static;

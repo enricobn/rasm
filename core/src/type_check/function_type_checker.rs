@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
-    parser::ast::{
+    codegen::eh_ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
         ASTIndex, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
     },
+    codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
     type_check::type_check_error::TypeCheckError,
     utils::{OptionDisplay, SliceDisplay},
 };
@@ -568,11 +568,14 @@ mod tests {
 
     use crate::{
         codegen::{
-            c::options::COptions, compile_target::CompileTarget,
-            enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext,
+            c::options::COptions,
+            compile_target::CompileTarget,
+            eh_ast::{ASTFunctionDef, ASTIndex, ASTModule, ASTNameSpace},
+            enhanced_module::EnhancedASTModule,
+            statics::Statics,
+            val_context::ValContext,
         },
         commandline::CommandLineOptions,
-        parser::ast::{ASTIndex, ASTModule},
         project::RasmProject,
         type_check::function_type_checker::FunctionTypeChecker,
         utils::OptionDisplay,
@@ -598,22 +601,25 @@ mod tests {
         );
 
         let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
         let mut statics = Statics::new();
 
+        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
         for function in project
-            .get_module(
-                Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
-                &target,
-            )
+            .get_module(path, &target)
             .unwrap()
             .0
             .functions
-            .iter()
+            .into_iter()
         {
-            function_type_checker.get_type_map(function, &mut statics);
+            let eh_function_def = ASTFunctionDef::from_ast(
+                Some(path.to_path_buf()),
+                ASTNameSpace::new("breakout".to_owned(), "breakout".to_owned()),
+                function,
+            );
+            function_type_checker.get_type_map(&eh_function_def, &mut statics);
         }
     }
 
@@ -635,23 +641,28 @@ mod tests {
         );
 
         let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
         let mut statics = Statics::new();
 
+        let path = Path::new("/home/enrico/development/rasm/svglib/src/main/rasm/svg.rasm");
         for function in project
-            .get_module(
-                Path::new("/home/enrico/development/rasm/svglib/src/main/rasm/svg.rasm"),
-                &target,
-            )
+            .get_module(path, &target)
             .unwrap()
             .0
             .functions
             .into_iter()
         {
-            function_type_checker
-                .get_type_map(&function.fix_namespaces(&enhanced_ast_module), &mut statics);
+            let eh_function_def = ASTFunctionDef::from_ast(
+                Some(path.to_path_buf()),
+                ASTNameSpace::new("svglib".to_owned(), "svg".to_owned()),
+                function,
+            );
+            function_type_checker.get_type_map(
+                &&eh_function_def.fix_namespaces(&enhanced_ast_module),
+                &mut statics,
+            );
         }
     }
 
@@ -844,13 +855,13 @@ mod tests {
             project_and_enhanced_module(&target, &mut statics, &project_path);
         let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
 
-        let (module, _) = project.get_module(Path::new(file), &target).unwrap();
+        let (module, _, info) = project.get_module(Path::new(file), &target).unwrap();
 
         f(
             &enhanced_ast_module,
             &mut statics,
             function_type_checker,
-            module,
+            ASTModule::from_ast(module, info),
         )
     }
 
@@ -871,7 +882,7 @@ mod tests {
         );
 
         let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &project, statics, target, false);
+            EnhancedASTModule::from_ast(modules, &project, statics, target, false);
 
         (project, enhanced_ast_module.fix_generics())
     }

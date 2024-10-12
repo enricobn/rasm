@@ -87,7 +87,7 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use crate::parser::ast::ASTNameSpace;
+    use crate::codegen::eh_ast::ASTNameSpace;
 
     pub fn test_namespace() -> ASTNameSpace {
         ASTNameSpace::new("test".to_string(), "test".to_string())

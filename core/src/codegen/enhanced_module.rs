@@ -4,15 +4,18 @@ use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
 use crate::errors::{self, CompilationError};
 
-use crate::debug_i;
-use crate::parser::ast::{
+use crate::codegen::eh_ast::{
     ASTEnumDef, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
     ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
 };
+use crate::debug_i;
+use crate::parser::ast;
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
+
+use super::eh_ast::EhModuleInfo;
 
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {
@@ -25,6 +28,24 @@ pub struct EnhancedASTModule {
 }
 
 impl EnhancedASTModule {
+    pub fn from_ast(
+        modules: Vec<(ast::ASTModule, EhModuleInfo)>,
+        project: &RasmProject,
+        statics: &mut Statics,
+        target: &CompileTarget,
+        debug: bool,
+    ) -> (Self, Vec<CompilationError>) {
+        Self::new(
+            modules
+                .into_iter()
+                .map(|(module, info)| ASTModule::from_ast(module, info))
+                .collect(),
+            project,
+            statics,
+            target,
+            debug,
+        )
+    }
     pub fn new(
         modules: Vec<ASTModule>,
         project: &RasmProject,

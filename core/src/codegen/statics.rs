@@ -1,8 +1,8 @@
 use anymap::AnyMap;
 use linked_hash_map::LinkedHashMap;
 
+use crate::codegen::eh_ast::ASTType;
 use crate::codegen::statics::MemoryValue::Mem;
-use crate::parser::ast::ASTType;
 use crate::type_check::typed_ast::ASTTypedType;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

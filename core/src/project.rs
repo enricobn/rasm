@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::eh_ast::{ASTIndex, ASTNameSpace, EhModuleInfo};
 use crate::commandline::CommandLineOptions;
 use linked_hash_map::LinkedHashMap;
 use log::info;
@@ -40,7 +41,7 @@ use crate::codegen::statics::Statics;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::Lexer;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
-use crate::parser::ast::{ASTIndex, ASTModule, ASTNameSpace, ASTStatement, ASTType};
+use crate::parser::ast::{ASTModule, ASTStatement, ASTType};
 use crate::parser::Parser;
 use crate::transformations::enrich_module;
 
@@ -275,7 +276,7 @@ impl RasmProject {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-    ) -> (Vec<ASTModule>, Vec<CompilationError>) {
+    ) -> (Vec<(ASTModule, EhModuleInfo)>, Vec<CompilationError>) {
         info!("Reading tests");
 
         let mut modules = Vec::new();
@@ -283,9 +284,9 @@ impl RasmProject {
 
         self.get_modules(self.test_rasm_folder(), target)
             .into_iter()
-            .for_each(|(mut project_module, module_errors)| {
+            .for_each(|(mut project_module, module_errors, info)| {
                 enrich_module(&target, statics, &mut project_module, debug);
-                modules.push(project_module);
+                modules.push((project_module, info));
                 errors.extend(module_errors);
             });
 
@@ -299,7 +300,7 @@ impl RasmProject {
         debug: bool,
         for_tests: bool,
         out: &PathBuf,
-    ) -> (Vec<ASTModule>, Vec<CompilationError>) {
+    ) -> (Vec<(ASTModule, EhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
         let mut pairs = vec![self.core_modules(target)];
@@ -367,16 +368,19 @@ impl RasmProject {
         pairs
             .into_iter()
             .flatten()
-            .for_each(|(mut project_module, module_errors)| {
+            .for_each(|(mut project_module, module_errors, info)| {
                 enrich_module(target, statics, &mut project_module, debug);
-                modules.push(project_module);
+                modules.push((project_module, info));
                 errors.extend(module_errors);
             });
 
         (modules, errors)
     }
 
-    fn core_modules(&self, target: &CompileTarget) -> Vec<(ASTModule, Vec<CompilationError>)> {
+    fn core_modules(
+        &self,
+        target: &CompileTarget,
+    ) -> Vec<(ASTModule, Vec<CompilationError>, EhModuleInfo)> {
         let mut result = RasmCoreLibAssets::iter()
             .filter(|it| it.ends_with(".rasm"))
             .map(|it| {
@@ -407,11 +411,11 @@ impl RasmProject {
         debug: bool,
         out: &PathBuf,
         options: &CommandLineOptions,
-    ) -> (Vec<ASTModule>, Vec<CompilationError>) {
+    ) -> (Vec<(ASTModule, EhModuleInfo)>, Vec<CompilationError>) {
         let (mut modules, mut errors) = self.all_modules(statics, target, debug, for_tests, out);
 
         if for_tests {
-            modules.iter_mut().for_each(|it| {
+            modules.iter_mut().for_each(|(it, info)| {
                 let new_body = it
                     .body
                     .iter()
@@ -441,9 +445,9 @@ impl RasmProject {
     fn main_test_module(
         &self,
         errors: &mut Vec<CompilationError>,
-        test_modules: &[ASTModule],
+        test_modules: &[(ASTModule, EhModuleInfo)],
         options: &CommandLineOptions,
-    ) -> ASTModule {
+    ) -> (ASTModule, EhModuleInfo) {
         let mut module_src = String::new();
 
         module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");");
@@ -454,29 +458,30 @@ impl RasmProject {
 
         test_modules
             .iter()
-            .flat_map(|it| it.functions.iter())
-            .filter(|it| {
-                it.modifiers.public
-                    && it.name.starts_with("test")
+            .flat_map(|(module, info)| module.functions.iter().map(move |it| (it, info)))
+            .filter(|(function, info)| {
+                function.modifiers.public
+                    && function.name.starts_with("test")
                     && (options.include_tests.is_empty()
-                        || options.include_tests.contains(&it.name))
+                        || options.include_tests.contains(&function.name))
             })
-            .for_each(|it| {
+            .for_each(|(function, info)| {
                 let valid = if let ASTType::Custom {
-                    namespace: _,
                     name,
                     param_types: _,
                     index: _,
-                } = &it.return_type
+                } = &function.return_type
                 {
                     name == "Assertions"
                 } else {
                     false
                 };
 
+                let index = ASTIndex::from_position(info.path.clone(), function.index.clone());
+
                 if !valid {
                     errors.push(CompilationError {
-                        index: it.index.clone(),
+                        index,
                         error_kind: CompilationErrorKind::Generic(
                             "Test function must return Assertions".to_string(),
                         ),
@@ -484,7 +489,7 @@ impl RasmProject {
                 } else {
                     module_src.push_str(&format!(
                         ".push(RunTest(\"{}\", \"{}\",{{{}();}}))\n",
-                        it.name, it.index, it.name
+                        function.name, index, function.name
                     ));
                     count += 1;
                 }
@@ -499,10 +504,10 @@ impl RasmProject {
 
         // let mut test_main_module_body = Vec::new();
         // let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
-        let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
+        // let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
 
         let (module, errors) =
-            Parser::new(Lexer::new(module_src.clone()), None).parse(&Path::new(""), &namespace);
+            Parser::new(Lexer::new(module_src.clone()), None).parse(&Path::new(""));
 
         if !errors.is_empty() {
             println!("generated test code:\n{module_src}");
@@ -513,14 +518,14 @@ impl RasmProject {
             panic!();
         }
 
-        return module;
+        return (module, EhModuleInfo::new(None, ASTNameSpace::global()));
     }
 
     fn get_modules(
         &self,
         source_folder: PathBuf,
         target: &CompileTarget,
-    ) -> Vec<(ASTModule, Vec<CompilationError>)> {
+    ) -> Vec<(ASTModule, Vec<CompilationError>, EhModuleInfo)> {
         if self.from_file {
             let main_src_file = self.main_src_file().unwrap();
 
@@ -531,10 +536,11 @@ impl RasmProject {
                 .to_string_lossy()
                 .to_string();
 
-            vec![self.module_from_file(
-                &PathBuf::from(&main_src_file).canonicalize().unwrap(),
-                ASTNameSpace::new(name.clone(), name),
-            )]
+            let path = PathBuf::from(&main_src_file).canonicalize().unwrap();
+            let namespace = ASTNameSpace::new(name.clone(), name);
+            let (module, errors) = self.module_from_file(&path);
+
+            vec![(module, errors, EhModuleInfo::new(Some(path), namespace))]
         } else {
             WalkDir::new(source_folder)
                 .into_iter()
@@ -573,7 +579,7 @@ impl RasmProject {
         &self,
         path: &Path,
         target: &CompileTarget,
-    ) -> Option<(ASTModule, Vec<CompilationError>)> {
+    ) -> Option<(ASTModule, Vec<CompilationError>, EhModuleInfo)> {
         let (source_folder, body) = if path
             .canonicalize()
             .unwrap()
@@ -622,7 +628,7 @@ impl RasmProject {
         );
 
         let (entry_module, mut module_errors) =
-            self.module_from_file(&path.canonicalize().unwrap(), namespace);
+            self.module_from_file(&path.canonicalize().unwrap());
         // const statements are allowed
         let first_body_statement = entry_module.body.iter().find(|it| match it {
             ASTStatement::Expression(ASTFunctionCallExpression(_)) => true,
@@ -663,7 +669,11 @@ impl RasmProject {
                 &format!("Only main file should have a body {}", fbs.get_index()),
             );
         }
-        Some((entry_module, module_errors))
+        Some((
+            entry_module,
+            module_errors,
+            EhModuleInfo::new(Some(path.to_path_buf()), namespace),
+        ))
     }
 
     fn add_generic_error(path: &Path, module_errors: &mut Vec<CompilationError>, message: &str) {
@@ -777,21 +787,21 @@ impl RasmProject {
     fn module_from_file(
         &self,
         file: &PathBuf,
-        namespace: ASTNameSpace,
+        //namespace: ASTNameSpace,
     ) -> (ASTModule, Vec<CompilationError>) {
         let main_path = Path::new(file);
 
         if let Some(content) = self.in_memory_files.get(file) {
             let lexer = Lexer::new(content.clone());
             let mut parser = Parser::new(lexer, Some(file.clone()));
-            let (module, errors) = parser.parse(main_path, &namespace);
+            let (module, errors) = parser.parse(main_path);
             return (module, errors);
         }
 
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
                 let mut parser = Parser::new(lexer, Some(file.clone()));
-                let (module, errors) = parser.parse(main_path, &namespace);
+                let (module, errors) = parser.parse(main_path);
                 (module, errors)
             }
             Err(err) => {
@@ -800,21 +810,28 @@ impl RasmProject {
         }
     }
 
-    fn core_module(&self, main_file: &str, data: &[u8]) -> (ASTModule, Vec<CompilationError>) {
+    fn core_module(
+        &self,
+        main_file: &str,
+        data: &[u8],
+    ) -> (ASTModule, Vec<CompilationError>, EhModuleInfo) {
         let main_path = Path::new(&main_file);
+
+        let namespace = ASTNameSpace::new(
+            "::core".to_string(),
+            main_path.with_extension("").to_string_lossy().to_string(),
+        );
         // for now, we don't set the file name in the Lexer and the Parser, because it is not readable as a standard file,
         // and we can get errors trying to open it for example in an IDE
         let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap());
 
         let mut parser = Parser::new(lexer, None);
-        let (module, errors) = parser.parse(
-            main_path,
-            &ASTNameSpace::new(
-                "::core".to_string(),
-                main_path.with_extension("").to_string_lossy().to_string(),
-            ),
-        );
-        (module, errors)
+        let (module, errors) = parser.parse(main_path);
+        (
+            module,
+            errors,
+            EhModuleInfo::new(Some(main_path.to_path_buf()), namespace),
+        )
     }
 }
 

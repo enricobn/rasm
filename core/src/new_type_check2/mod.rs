@@ -26,16 +26,16 @@ use std::ops::Deref;
 use crate::codegen::compile_target::CompileTarget;
 use log::info;
 
+use crate::codegen::eh_ast::{
+    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
+    ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
 use crate::codegen::val_context::ValContext;
 use crate::codegen::ValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
-    ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
-};
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
@@ -1716,15 +1716,15 @@ mod tests {
     use env_logger::Builder;
 
     use crate::codegen::compile_target::CompileTarget;
+    use crate::codegen::eh_ast::{
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
+    };
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
     use crate::commandline::CommandLineOptions;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
-    };
     use crate::project::RasmProject;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
@@ -2061,7 +2061,8 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
-        let (module, _) = EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+        let (module, _) =
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         let mandatory_functions = target.get_mandatory_functions(&module);
 

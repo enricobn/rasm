@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::parser::ast::ASTNameSpace;
 use linked_hash_map::LinkedHashMap;
 
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
@@ -97,12 +96,7 @@ impl TokensGroup {
 }
 
 impl TokensMatcherTrait for TokensGroup {
-    fn match_tokens(
-        &self,
-        namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-        n: usize,
-    ) -> Option<TokensMatcherResult> {
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if !self.current_group.is_empty() {
             panic!("not ended group {:?}", self.current_group);
         }
@@ -121,7 +115,7 @@ impl TokensMatcherTrait for TokensGroup {
             let mut matches = true;
 
             for matcher in self.tokens_matchers.iter() {
-                if let Some(result) = matcher.match_tokens(namespace, parser, i) {
+                if let Some(result) = matcher.match_tokens(parser, i) {
                     tokens.append(&mut result.tokens().clone());
 
                     //println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);

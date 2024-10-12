@@ -3,13 +3,13 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::BackendAsm;
+use crate::codegen::eh_ast::{ASTIndex, ValueType};
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm, TypedValKind};
-use crate::parser::ast::{ASTIndex, ValueType};
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,

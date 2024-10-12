@@ -9,13 +9,14 @@ use log::debug;
 use regex::Regex;
 
 use crate::codegen::code_manipulator::CodeManipulator;
+use crate::codegen::eh_ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
 use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
-use crate::parser::ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
+use crate::parser::ast;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -297,6 +298,7 @@ impl TextMacroEvaluator {
                             type_def_provider,
                             &context_generic_types,
                             &f.resolved_generic_types,
+                            f.index.file_name.clone(),
                         )?;
 
                         if let Some(t) = par_type {
@@ -330,6 +332,7 @@ impl TextMacroEvaluator {
                         type_def_provider,
                         &context_generic_types,
                         &ResolvedGenericTypes::new(),
+                        f.index.file_name.clone(),
                     )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         match &f.body {
@@ -366,6 +369,7 @@ impl TextMacroEvaluator {
                     type_def_provider,
                     &context_generic_types,
                     &f.resolved_generic_types,
+                    f.index.file_name.clone(),
                 )?
             } else {
                 self.parse_typed_argument(
@@ -375,6 +379,7 @@ impl TextMacroEvaluator {
                     type_def_provider,
                     &context_generic_types,
                     &ResolvedGenericTypes::new(),
+                    None, // TODO is it correct?
                 )?
             };
 
@@ -478,6 +483,7 @@ impl TextMacroEvaluator {
         type_def_provider: &dyn TypeDefProvider,
         context_generic_types: &[String],
         resolved_generic_types: &ResolvedGenericTypes,
+        path: Option<PathBuf>,
     ) -> Result<(String, Option<ASTType>, Option<ASTTypedType>), String> {
         //println!("parse_typed_argument namespace {namespace}, p {p}");
         // TODO the check of :: is a trick since function names could have ::, try to do it better
@@ -512,20 +518,22 @@ impl TextMacroEvaluator {
 
                 let type_parser = TypeParser::new(&parser);
 
-                match type_parser.try_parse_ast_type(namespace, 0, context_generic_types)? {
+                match type_parser.try_parse_ast_type(0, context_generic_types)? {
                     None => {
                         panic!("Unsupported type {par_type_name}")
                     }
-                    Some((ast_type, _)) => {
+                    Some((ref ast_type, _)) => {
                         //println!("parse_typed_argument {ast_type}");
-                        let t = if let ASTType::Generic(_, _name) = &ast_type {
-                            if let Some(t) = substitute(&ast_type, resolved_generic_types) {
+                        let eh_ast_type =
+                            ASTType::from_ast(path, namespace.clone(), ast_type.clone());
+                        let t = if let ast::ASTType::Generic(position, _name) = ast_type {
+                            if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
                                 t
                             } else {
-                                ast_type
+                                eh_ast_type
                             }
                         } else {
-                            ast_type
+                            eh_ast_type
                         };
                         (
                             par_name,
@@ -1500,13 +1508,13 @@ mod tests {
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::statics::{MemoryValue, Statics};
-    use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
-    use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::parser::ast::{
+    use crate::codegen::eh_ast::{
         ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
         ASTType, BuiltinTypeKind,
     };
+    use crate::codegen::statics::{MemoryValue, Statics};
+    use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
+    use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::parser::type_parser::TypeParser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::typed_ast::{
@@ -1784,28 +1792,6 @@ mod tests {
 
     fn code_gen() -> CodeGenAsm {
         CodeGenAsm::new(AsmOptions::default(), false)
-    }
-
-    #[test]
-    fn parse_list_str() {
-        let parser = TypeParserHelper::new(None, "List<str>");
-        let type_parser = TypeParser::new(&parser);
-
-        match type_parser
-            .try_parse_ast_type(&test_namespace(), 0, &[])
-            .unwrap()
-        {
-            None => panic!("Unsupported type"),
-            Some((ast_type, _)) => assert_eq!(
-                ast_type,
-                ASTType::Custom {
-                    namespace: test_namespace(),
-                    name: "List".into(),
-                    param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
-                    index: ASTIndex::none()
-                }
-            ),
-        }
     }
 
     #[test]

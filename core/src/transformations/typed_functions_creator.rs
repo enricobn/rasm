@@ -3,11 +3,11 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
+use crate::codegen::eh_ast::{ASTIndex, ASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
-use crate::parser::ast::{ASTIndex, ASTNameSpace};
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
     ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,

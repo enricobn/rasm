@@ -28,13 +28,13 @@ impl<'a> TypeParamsParser<'a> {
                         return Err(format!(
                             "expected a generic type or a comma, found {:?}: {}",
                             kind,
-                            self.parser.get_index(0)
+                            self.parser.get_position(0)
                         ));
                     }
                 } else {
                     return Err(format!(
                         "error getting generic types: {}",
-                        self.parser.get_index(0)
+                        self.parser.get_position(0)
                     ));
                 }
                 j += 1;
@@ -42,7 +42,7 @@ impl<'a> TypeParamsParser<'a> {
             if types.is_empty() {
                 return Err(format!(
                     "cannot find generic types: {}",
-                    self.parser.get_index(0)
+                    self.parser.get_position(0)
                 ));
             }
             return Ok(Some((types, self.parser.get_i() + j + 1)));

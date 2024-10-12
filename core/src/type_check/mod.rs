@@ -1,9 +1,8 @@
 use type_check_error::TypeCheckError;
 
-use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::eh_ast::{ASTIndex, MyToString};
+use crate::codegen::eh_ast::{ASTType, BuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
-use crate::parser::ast::{ASTIndex, MyToString};
-use crate::parser::ast::{ASTType, BuiltinTypeKind};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::{debug_i, dedent, indent};
 
@@ -319,8 +318,7 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::enhanced_module::EnhancedASTModule;
-    use crate::parser::ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::codegen::eh_ast::{ASTIndex, ASTType, BuiltinTypeKind};
     use crate::type_check::resolve_generic_types_from_effective_type;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;

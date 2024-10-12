@@ -1,12 +1,12 @@
 use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{ASTEnumVariantDef, ASTModifiers, ASTNameSpace, ASTParameterDef};
+use crate::parser::ast::{ASTEnumVariantDef, ASTModifiers, ASTParameterDef};
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
@@ -14,7 +14,7 @@ use crate::parser::tokens_matcher::{
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
-use super::ast::ASTIndex;
+use super::ast::ASTPosition;
 
 pub struct EnumParser {
     matcher: TokensMatcher,
@@ -34,34 +34,30 @@ impl EnumParser {
 
     pub fn try_parse(
         &self,
-        namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
     ) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
-        self.matcher
-            .match_tokens(namespace, parser, 0)
-            .map(|result| {
-                let param_types = result.group_alphas("type");
-                let mut name_index = 1;
-                let modifiers = if result.group_tokens("modifiers").is_empty() {
-                    ASTModifiers::private()
-                } else {
-                    name_index += 1;
-                    ASTModifiers::public()
-                };
-                let token = result.tokens().get(name_index).unwrap().clone();
+        self.matcher.match_tokens(parser, 0).map(|result| {
+            let param_types = result.group_alphas("type");
+            let mut name_index = 1;
+            let modifiers = if result.group_tokens("modifiers").is_empty() {
+                ASTModifiers::private()
+            } else {
+                name_index += 1;
+                ASTModifiers::public()
+            };
+            let token = result.tokens().get(name_index).unwrap().clone();
 
-                (
-                    token,
-                    param_types,
-                    modifiers,
-                    parser.get_i() + result.next_n(),
-                )
-            })
+            (
+                token,
+                param_types,
+                modifiers,
+                parser.get_i() + result.next_n(),
+            )
+        })
     }
 
     pub fn parse_variants(
         &self,
-        namespace: &ASTNameSpace,
         parser: &dyn ParserTrait,
         type_parameters: &[String],
         n: usize,
@@ -85,7 +81,7 @@ impl EnumParser {
         enum_variants_matcher
             .add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
 
-        if let Some(variants_result) = enum_variants_matcher.match_tokens(namespace, parser, n) {
+        if let Some(variants_result) = enum_variants_matcher.match_tokens(parser, n) {
             let variant_results: Vec<&TokensMatcherResult> =
                 variants_result.group_results("variant");
 
@@ -107,13 +103,13 @@ impl EnumParser {
                             let parser = *type_result.get(i).unwrap();
                             let type_parser = TypeParser::new(parser);
                             if let Some((ast_type, _)) =
-                                type_parser.try_parse_ast_type(namespace,0, type_parameters)?
+                                type_parser.try_parse_ast_type(0, type_parameters)?
                             {
                                 if let Some(token) = parameters_tokens.get(i) {
                                     parameters.push(ASTParameterDef {
                                         name: token.alpha().unwrap(),
                                         ast_type,
-                                        ast_index: ASTIndex::new(path.clone(), token.row, token.column),
+                                        index: ASTPosition::new(token.row, token.column),
                                     });
                                 } else {
                                     return Err(parser.wrap_error(&format!(
@@ -134,7 +130,7 @@ impl EnumParser {
                     Ok(ASTEnumVariantDef {
                         name: name_token.alpha().unwrap(),
                         parameters: parameters?,
-                        index: ASTIndex::new(path.clone(), name_token.row, name_token.column),
+                        index: ASTPosition::new(name_token.row, name_token.column),
                     })
                 })
                 .collect::<Result<Vec<ASTEnumVariantDef>, String>>();
@@ -187,12 +183,7 @@ impl Display for ParameterMatcher {
 }
 
 impl TokensMatcherTrait for ParameterMatcher {
-    fn match_tokens(
-        &self,
-        namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-        n: usize,
-    ) -> Option<TokensMatcherResult> {
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(TokenKind::AlphaNumeric(_name)) = parser.get_token_kind_n(n) {
             if let Some(TokenKind::Punctuation(PunctuationKind::Colon)) =
                 parser.get_token_kind_n(n + 1)
@@ -200,7 +191,7 @@ impl TokensMatcherTrait for ParameterMatcher {
                 let type_parser = TypeParser::new(parser);
                 // I don't care of type since who evaluates this resul gets only the tokens
                 if let Some((_ast_type, next_i)) = type_parser
-                    .try_parse_ast_type(namespace, n + 2, &self.context_generic_types)
+                    .try_parse_ast_type(n + 2, &self.context_generic_types)
                     .unwrap_or(None)
                 // TODO error handling
                 {
@@ -251,7 +242,7 @@ impl TokensMatcherTrait for ParameterMatcher {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::ASTType::Generic;
-    use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTIndex, ASTParameterDef, ASTType};
+    use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTType};
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
     use crate::utils::tests::test_namespace;
@@ -261,24 +252,16 @@ mod tests {
     impl EnumParser {
         pub fn try_parse_enum(
             &self,
-            namespace: &ASTNameSpace,
             parser: &dyn ParserTrait,
         ) -> Result<Option<(ASTEnumDef, usize)>, String> {
-            if let Some((token, type_parameters, modifiers, next_i)) =
-                self.try_parse(namespace, parser)
-            {
-                if let Some((variants, next_i)) = self.parse_variants(
-                    namespace,
-                    parser,
-                    &type_parameters,
-                    next_i - parser.get_i(),
-                    None,
-                )? {
+            if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
+                if let Some((variants, next_i)) =
+                    self.parse_variants(parser, &type_parameters, next_i - parser.get_i(), None)?
+                {
                     let index =
-                        ASTIndex::new(None, token.row, token.column - token.alpha().unwrap().len());
+                        ASTPosition::new(token.row, token.column - token.alpha().unwrap().len());
                     return Ok(Some((
                         ASTEnumDef {
-                            namespace: namespace.clone(),
                             name: token.alpha().unwrap(),
                             type_parameters,
                             variants,
@@ -314,7 +297,6 @@ mod tests {
     #[test]
     fn test() {
         let parse_result = try_parse_enum(
-            &test_namespace(),
             "enum Option<T> {
             Empty,
             Some(value: T)
@@ -325,27 +307,26 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
-                ast_index: ASTIndex::new(None, 3, 23),
+                ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
+                index: ASTPosition::new(3, 23),
             }],
-            index: ASTIndex::new(None, 3, 17),
+            index: ASTPosition::new(3, 17),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            index: ASTIndex::new(None, 2, 18),
+            index: ASTPosition::new(2, 18),
         };
 
         assert_eq!(
             parse_result,
             Some((
                 ASTEnumDef {
-                    namespace: test_namespace(),
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
-                    index: ASTIndex::new(None, 1, 6),
+                    index: ASTPosition::new(1, 6),
                     modifiers: ASTModifiers::private()
                 },
                 15
@@ -388,10 +369,10 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef::new(
                         "value",
-                        Generic(ASTIndex::new(None, 1, 14), "T".into()),
-                        ASTIndex::new(None, 1, 11)
+                        Generic(ASTPosition::new(1, 14), "T".into()),
+                        ASTPosition::new(1, 11)
                     )],
-                    index: ASTIndex::new(None, 1, 5)
+                    index: ASTPosition::new(1, 5)
                 }]
             );
             assert_eq!(next_i, 7);
@@ -413,16 +394,16 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "v",
-                            Generic(ASTIndex::new(None, 1, 15), "T".into()),
-                            ASTIndex::new(None, 1, 12)
+                            Generic(ASTPosition::new(1, 15), "T".into()),
+                            ASTPosition::new(1, 12)
                         ),
                         ASTParameterDef::new(
                             "v1",
-                            Generic(ASTIndex::new(None, 1, 23), "T1".into()),
-                            ASTIndex::new(None, 1, 19)
+                            Generic(ASTPosition::new(1, 23), "T1".into()),
+                            ASTPosition::new(1, 19)
                         ),
                     ],
-                    index: ASTIndex::new(None, 1, 10)
+                    index: ASTPosition::new(1, 10)
                 }]
             );
             assert_eq!(next_i, 11);
@@ -443,21 +424,20 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "head",
-                            Generic(ASTIndex::new(None, 1, 13), "T".into()),
-                            ASTIndex::new(None, 1, 10)
+                            Generic(ASTPosition::new(1, 13), "T".into()),
+                            ASTPosition::new(1, 10)
                         ),
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
-                                namespace: test_namespace(),
                                 name: "List".into(),
-                                param_types: vec![Generic(ASTIndex::new(None, 1, 27), "T".into())],
-                                index: ASTIndex::none()
+                                param_types: vec![Generic(ASTPosition::new(1, 27), "T".into())],
+                                index: ASTPosition::none()
                             },
-                            ASTIndex::new(None, 1, 19)
+                            ASTPosition::new(1, 19)
                         ),
                     ],
-                    index: ASTIndex::new(None, 1, 5)
+                    index: ASTPosition::new(1, 5)
                 }]
             );
             assert_eq!(next_i, 14);
@@ -481,16 +461,16 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
-                ast_index: ASTIndex::new(None, 3, 23),
+                ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
+                index: ASTPosition::new(3, 23),
             }],
-            index: ASTIndex::new(None, 3, 17),
+            index: ASTPosition::new(3, 17),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            index: ASTIndex::new(None, 2, 18),
+            index: ASTPosition::new(2, 18),
         };
 
         assert_eq!(parse_result, Some((vec![empty, some], 9)));
@@ -504,7 +484,7 @@ mod tests {
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            index: ASTIndex::new(None, 1, 6),
+            index: ASTPosition::new(1, 6),
         };
 
         assert_eq!(parse_result, Some((vec![empty], 2)));
@@ -526,16 +506,16 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
-                        ast_index: ASTIndex::new(None, 3, 23),
+                        ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
+                        index: ASTPosition::new(3, 23),
                     }],
-                    index: ASTIndex::new(None, 3, 17),
+                    index: ASTPosition::new(3, 17),
                 };
 
                 let empty = ASTEnumVariantDef {
                     name: "Empty".into(),
                     parameters: vec![],
-                    index: ASTIndex::new(None, 2, 18),
+                    index: ASTPosition::new(2, 18),
                 };
 
                 assert_eq!(vec![empty, some], variants);
@@ -566,27 +546,26 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: Generic(ASTIndex::new(None, 2, 27), "T".into()),
-                            ast_index: ASTIndex::new(None, 2, 24),
+                            ast_type: Generic(ASTPosition::new(2, 27), "T".into()),
+                            index: ASTPosition::new(2, 24),
                         },
                         ASTParameterDef {
                             name: "tail".into(),
                             ast_type: ASTType::Custom {
-                                namespace: test_namespace(),
                                 name: "List".into(),
-                                param_types: vec![Generic(ASTIndex::new(None, 2, 41), "T".into())],
-                                index: ASTIndex::new(None, 2, 39),
+                                param_types: vec![Generic(ASTPosition::new(2, 41), "T".into())],
+                                index: ASTPosition::new(2, 39),
                             },
-                            ast_index: ASTIndex::new(None, 2, 33),
+                            index: ASTPosition::new(2, 33),
                         },
                     ],
-                    index: ASTIndex::new(None, 2, 19),
+                    index: ASTPosition::new(2, 19),
                 };
 
                 let empty = ASTEnumVariantDef {
                     name: "Empty".into(),
                     parameters: vec![],
-                    index: ASTIndex::new(None, 3, 20),
+                    index: ASTPosition::new(3, 20),
                 };
 
                 assert_eq!(variants, vec![full, empty]);
@@ -616,20 +595,20 @@ mod tests {
                     name: "Left".into(),
                     parameters: vec![ASTParameterDef::new(
                         "l",
-                        Generic(ASTIndex::new(None, 2, 22), "L".into()),
-                        ASTIndex::new(None, 2, 19),
+                        Generic(ASTPosition::new(2, 22), "L".into()),
+                        ASTPosition::new(2, 19),
                     )],
-                    index: ASTIndex::new(None, 2, 17),
+                    index: ASTPosition::new(2, 17),
                 };
 
                 let right = ASTEnumVariantDef {
                     name: "Right".into(),
                     parameters: vec![ASTParameterDef::new(
                         "r",
-                        Generic(ASTIndex::new(None, 3, 23), "R".into()),
-                        ASTIndex::new(None, 3, 20),
+                        Generic(ASTPosition::new(3, 23), "R".into()),
+                        ASTPosition::new(3, 20),
                     )],
-                    index: ASTIndex::new(None, 3, 18),
+                    index: ASTPosition::new(3, 18),
                 };
 
                 assert_eq!(variants, vec![left, right]);
@@ -647,7 +626,6 @@ mod tests {
     #[test]
     fn test_pub() {
         let parse_result = try_parse_enum(
-            &test_namespace(),
             "pub enum Option<T> {
             Empty,
             Some(value: T)
@@ -658,27 +636,26 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTIndex::new(None, 3, 26), "T".into()),
-                ast_index: ASTIndex::new(None, 3, 23),
+                ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
+                index: ASTPosition::new(3, 23),
             }],
-            index: ASTIndex::new(None, 3, 17),
+            index: ASTPosition::new(3, 17),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            index: ASTIndex::new(None, 2, 18),
+            index: ASTPosition::new(2, 18),
         };
 
         assert_eq!(
             parse_result,
             Some((
                 ASTEnumDef {
-                    namespace: test_namespace(),
                     name: "Option".to_string(),
                     type_parameters: vec!["T".to_string()],
                     variants: vec![empty, some],
-                    index: ASTIndex::new(None, 1, 10),
+                    index: ASTPosition::new(1, 10),
                     modifiers: ASTModifiers::public()
                 },
                 16
@@ -691,15 +668,15 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.try_parse(&test_namespace(), &parser)
+        sut.try_parse(&parser)
     }
 
-    fn try_parse_enum(namespace: &ASTNameSpace, source: &str) -> Option<(ASTEnumDef, usize)> {
+    fn try_parse_enum(source: &str) -> Option<(ASTEnumDef, usize)> {
         let parser = get_parser(source);
 
         let sut = EnumParser::new();
 
-        sut.try_parse_enum(namespace, &parser).unwrap()
+        sut.try_parse_enum(&parser).unwrap()
     }
 
     fn parse_variants(
@@ -711,7 +688,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.parse_variants(&test_namespace(), &parser, type_parameters, n, None)
+        sut.parse_variants(&parser, type_parameters, n, None)
             .unwrap()
     }
 
@@ -719,6 +696,6 @@ mod tests {
         let parser = get_parser(source);
 
         let matcher = EnumParser::variant_matcher("", Quantifier::One, type_parameters);
-        matcher.match_tokens(&test_namespace(), &parser, 0)
+        matcher.match_tokens(&parser, 0)
     }
 }

@@ -4,10 +4,10 @@ use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::parser::ast::{
+use crate::codegen::eh_ast::{
     ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind,
 };
+use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::utils::{OptionDisplay, SliceDisplay};
 use crate::{debug_i, dedent, indent};
@@ -807,14 +807,13 @@ mod tests {
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::compile_target::CompileTarget;
-    use crate::codegen::enhanced_module::EnhancedASTModule;
-    use crate::codegen::statics::Statics;
-    use crate::codegen::AsmOptions;
-    use crate::parser::ast::ASTFunctionBody::NativeBody;
-    use crate::parser::ast::{
+    use crate::codegen::eh_ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
         ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
     };
+    use crate::codegen::enhanced_module::EnhancedASTModule;
+    use crate::codegen::statics::Statics;
+    use crate::codegen::AsmOptions;
     use crate::project::{RasmConfig, RasmPackage, RasmProject};
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
@@ -991,7 +990,7 @@ mod tests {
     ) -> ASTFunctionDef {
         ASTFunctionDef {
             name: name.into(),
-            body: NativeBody("".into()),
+            body: ASTFunctionBody::NativeBody("".into()),
             generic_types: vec![],
             parameters: vec![ASTParameterDef {
                 name: param_name.into(),
@@ -1012,7 +1011,7 @@ mod tests {
     fn create_add_function(param_name: &str, param_kind: BuiltinTypeKind) -> ASTFunctionDef {
         ASTFunctionDef {
             name: "add".into(),
-            body: NativeBody("".into()),
+            body: ASTFunctionBody::NativeBody("".into()),
             generic_types: vec![],
             parameters: vec![
                 ASTParameterDef {

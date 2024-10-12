@@ -17,11 +17,11 @@
  */
 
 use crate::codegen::c::any::CInclude;
+use crate::codegen::eh_ast::ASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::parser::ast::ASTType;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
 };

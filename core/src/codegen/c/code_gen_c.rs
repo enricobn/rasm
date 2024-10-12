@@ -24,6 +24,7 @@ use crate::codegen::c::text_macro::{
     CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
+use crate::codegen::eh_ast::{ASTIndex, ASTNameSpace, ASTType, ValueType};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
@@ -31,7 +32,6 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
-use crate::parser::ast::{ASTIndex, ASTNameSpace, ASTType, ValueType};
 use crate::transformations::typed_functions_creator::struct_has_references;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,

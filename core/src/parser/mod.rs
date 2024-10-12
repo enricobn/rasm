@@ -1,10 +1,13 @@
+use ast::ASTPosition;
 use lazy_static::lazy_static;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use log::debug;
 
+use crate::codegen::eh_ast::ASTIndex;
 use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
@@ -14,9 +17,8 @@ use crate::parser::asm_def_parser::AsmDefParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
-    ASTModifiers, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
-    ASTTypeDef, ValueType,
+    ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModifiers,
+    ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
@@ -27,7 +29,6 @@ use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::utils::{OptionDisplay, SliceDisplay};
-use crate::{debug_i, errors};
 
 mod asm_def_parser;
 pub mod ast;
@@ -76,7 +77,7 @@ enum ParserData {
     FunctionDef(ASTFunctionDef),
     FunctionDefParameter(ASTParameterDef),
     LambdaDef(ASTLambdaDef),
-    Let(String, bool, ASTIndex),
+    Let(String, bool, ASTPosition),
     StructDef(ASTStructDef),
     Expression(ASTExpression),
     Statement(ASTStatement),
@@ -95,7 +96,7 @@ impl Display for ParserData {
                 write!(f, "FunctionDef({}): {}", def, def.index)
             }
             ParserData::FunctionDefParameter(def) => {
-                write!(f, "FunctionDefParameter({}): {}", def, def.ast_index)
+                write!(f, "FunctionDefParameter({}): {}", def, def.index)
             }
             ParserData::LambdaDef(def) => {
                 write!(f, "LambdaDef({}): {}", def, def.index)
@@ -178,11 +179,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(
-        &mut self,
-        path: &Path,
-        namespace: &ASTNameSpace,
-    ) -> (ASTModule, Vec<CompilationError>) {
+    pub fn parse(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
         if self.i > 0 {
             panic!("Cannot parse twice");
         }
@@ -197,7 +194,7 @@ impl Parser {
                     "undefined parse error in {}",
                     path.to_string_lossy()
                 ));
-                return self.get_return(namespace, path);
+                return self.get_return(path);
             }
             let mut token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -212,15 +209,13 @@ impl Parser {
                 if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
                     self.i += 1;
                     if let Some((function_name, generics, next_i, function_name_i)) =
-                        self.try_parse_function_call(namespace)
+                        self.try_parse_function_call()
                     {
                         self.parser_data.pop();
                         let call = ASTFunctionCall {
-                            namespace: namespace.clone(),
-                            original_function_name: function_name.clone(),
                             function_name,
                             parameters: vec![expr],
-                            index: self.get_index(function_name_i),
+                            index: self.get_position(function_name_i),
                             generics,
                         };
                         self.parser_data.push(ParserData::FunctionCall(call));
@@ -232,11 +227,9 @@ impl Parser {
                     {
                         self.parser_data.pop();
                         let call = ASTFunctionCall {
-                            namespace: namespace.clone(),
-                            original_function_name: name.clone(),
                             function_name: name.clone(),
                             parameters: vec![expr],
-                            index: self.get_index(0),
+                            index: self.get_position(0),
                             generics: Vec::new(),
                         };
                         self.parser_data
@@ -252,7 +245,7 @@ impl Parser {
             }
 
             match self.get_state() {
-                None => match self.process_none(&namespace, &token) {
+                None => match self.process_none(&token) {
                     Ok(is_continue) => {
                         if is_continue {
                             continue;
@@ -277,7 +270,7 @@ impl Parser {
                     Err(message) => self.add_error(message),
                 },
                 Some(ParserState::FunctionDefParameter) => {
-                    match self.process_function_def_parameter(namespace, &token) {
+                    match self.process_function_def_parameter(&token) {
                         Ok(_) => {
                             continue;
                         }
@@ -292,11 +285,7 @@ impl Parser {
                 },
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                        match TypeParser::new(self).try_parse_ast_type(
-                            &namespace,
-                            0,
-                            &def.generic_types,
-                        ) {
+                        match TypeParser::new(self).try_parse_ast_type(0, &def.generic_types) {
                             Ok(result) => {
                                 if let Some((ast_type, next_i)) = result {
                                     self.i = next_i;
@@ -317,7 +306,6 @@ impl Parser {
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
                         match ENUM_PARSER.parse_variants(
-                            &namespace,
                             self,
                             &def.type_parameters,
                             0,
@@ -344,7 +332,6 @@ impl Parser {
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
                         match STRUCT_PARSER.parse_properties(
-                            namespace,
                             self,
                             &def.type_parameters,
                             &def.name,
@@ -415,7 +402,7 @@ impl Parser {
                     }
                     self.add_error("Error parsing lambda".to_string());
                 }
-                Some(ParserState::Expression) => match self.process_expression(namespace) {
+                Some(ParserState::Expression) => match self.process_expression() {
                     Ok(_) => {
                         continue;
                     }
@@ -432,14 +419,10 @@ impl Parser {
             self.i += 1;
         }
 
-        self.get_return(namespace, path)
+        self.get_return(path)
     }
 
-    fn get_return(
-        &mut self,
-        namespace: &ASTNameSpace,
-        path: &Path,
-    ) -> (ASTModule, Vec<CompilationError>) {
+    fn get_return(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
         let module = ASTModule {
             path: path.to_path_buf(),
             body: self.body.clone(),
@@ -447,7 +430,6 @@ impl Parser {
             enums: self.enums.clone(),
             structs: self.structs.clone(),
             types: self.types.clone(),
-            namespace: namespace.clone(),
         };
 
         (module, self.errors.clone())
@@ -460,47 +442,43 @@ impl Parser {
             .get_token_n(0)
             .or_else(|| self.tokens.last())
             .map(|it| self.token_index(it))
-            .unwrap_or_else(|| ASTIndex::new(self.file_name.clone(), 0, 0));
+            .unwrap_or_else(|| ASTPosition::new(0, 0));
 
         self.errors.push(CompilationError {
-            index,
+            index: ASTIndex::from_position(self.file_name.clone(), index),
             error_kind: CompilationErrorKind::Parser(message),
         });
     }
 
-    fn token_index(&self, token: &Token) -> ASTIndex {
-        ASTIndex::new(self.file_name.clone(), token.row, token.column)
+    fn token_index(&self, token: &Token) -> ASTPosition {
+        ASTPosition::new(token.row, token.column)
     }
 
     ///
     /// returns true if the parser must continue
     ///
-    fn process_none(&mut self, namespace: &ASTNameSpace, token: &Token) -> Result<bool, String> {
+    fn process_none(&mut self, token: &Token) -> Result<bool, String> {
         if let Some(ParserData::Statement(stmt)) = self.last_parser_data() {
             self.body.push(stmt);
             self.parser_data.pop();
         } else if let TokenKind::EndOfLine = token.kind {
             return Ok(false);
         } else if !self.parser_data.is_empty() {
-            return Err(format!("Error: {}", self.get_index(0)));
+            return Err(format!("Error: {}", self.get_position(0)));
         } else if let Some((name_token, generic_types, modifiers, next_i)) =
-            self.try_parse_function_def(namespace)?
+            self.try_parse_function_def()?
         {
             let name = name_token.alpha().unwrap().clone();
             let name_len = name.len();
             let function_def = ASTFunctionDef {
-                original_name: name.clone(),
                 name,
                 parameters: Vec::new(),
                 body: RASMBody(Vec::new()),
                 return_type: ASTType::Unit,
                 inline: false,
                 generic_types,
-                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: self.token_index(&name_token).mv_left(name_len),
                 modifiers,
-                namespace: namespace.clone(),
-                rank: 0,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
@@ -512,28 +490,21 @@ impl Parser {
             let name = name_token.alpha().unwrap();
             let name_len = name.len();
             let function_def = ASTFunctionDef {
-                original_name: name.clone(),
                 name,
                 parameters: Vec::new(),
                 body: NativeBody("".into()),
                 return_type: ASTType::Unit,
                 inline,
                 generic_types: param_types,
-                resolved_generic_types: ResolvedGenericTypes::new(),
                 index: self.token_index(&name_token).mv_left(name_len),
                 modifiers,
-                namespace: namespace.clone(),
-                rank: 0,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
-        } else if let Some((name, type_params, modifiers, next_i)) =
-            ENUM_PARSER.try_parse(namespace, self)
-        {
+        } else if let Some((name, type_params, modifiers, next_i)) = ENUM_PARSER.try_parse(self) {
             self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
-                namespace: namespace.clone(),
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
@@ -543,10 +514,9 @@ impl Parser {
             self.state.push(ParserState::EnumDef);
             self.i = next_i;
         } else if let Some((name_token, type_params, modifiers, next_i)) =
-            STRUCT_PARSER.try_parse(namespace, self)
+            STRUCT_PARSER.try_parse(self)
         {
             self.parser_data.push(ParserData::StructDef(ASTStructDef {
-                namespace: namespace.clone(),
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
@@ -557,7 +527,7 @@ impl Parser {
             }));
             self.state.push(StructDef);
             self.i = next_i;
-        } else if let Some((type_def, next_i)) = self.parse_type_def(namespace)? {
+        } else if let Some((type_def, next_i)) = self.parse_type_def()? {
             let token = self.get_token_kind_n(next_i - self.i);
             if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
                 self.types.push(type_def);
@@ -566,7 +536,7 @@ impl Parser {
                 return Err(format!(
                     "Missing semicolon, got {:?} : {}",
                     token,
-                    self.get_index(0)
+                    self.get_position(0)
                 ));
             }
         } else {
@@ -588,7 +558,7 @@ impl Parser {
             } else {
                 self.add_error(format!(
                     "Found semicolon without an expression: {}",
-                    self.get_index(0)
+                    self.get_position(0)
                 ));
                 self.state.pop();
                 self.parser_data.pop();
@@ -611,13 +581,13 @@ impl Parser {
             }
         } else if let Some((name, next_i)) = self.try_parse_let(false)? {
             self.parser_data
-                .push(ParserData::Let(name, false, self.get_index(1)));
+                .push(ParserData::Let(name, false, self.get_position(1)));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
         } else if let Some((name, next_i)) = self.try_parse_let(true)? {
             self.parser_data
-                .push(ParserData::Let(name, true, self.get_index(1)));
+                .push(ParserData::Let(name, true, self.get_position(1)));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
@@ -642,7 +612,7 @@ impl Parser {
         }
     }
 
-    fn process_expression(&mut self, namespace: &ASTNameSpace) -> Result<(), String> {
+    fn process_expression(&mut self) -> Result<(), String> {
         if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
             self.state.pop();
         } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
@@ -651,14 +621,12 @@ impl Parser {
             self.state.pop();
             self.i += 1;
         } else if let Some((function_name, generics, next_i, function_name_index)) =
-            self.try_parse_function_call(namespace)
+            self.try_parse_function_call()
         {
             let call = ASTFunctionCall {
-                namespace: namespace.clone(),
-                original_function_name: function_name.clone(),
                 function_name,
                 parameters: Vec::new(),
-                index: self.get_index(function_name_index),
+                index: self.get_position(function_name_index),
                 generics,
             };
             self.parser_data.push(ParserData::FunctionCall(call));
@@ -677,7 +645,7 @@ impl Parser {
                 if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
                     self.get_token_kind_n(next_i - self.i)
                 {
-                    self.add_lambda_value(namespace, parameter_names);
+                    self.add_lambda_value(parameter_names);
                     self.i = next_i + 1;
                 } else {
                     return Err(format!(
@@ -694,7 +662,7 @@ impl Parser {
         } else if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
             self.get_token_kind()
         {
-            self.add_lambda_value(namespace, Vec::new());
+            self.add_lambda_value(Vec::new());
             self.i += 1;
         } else if Some(&TokenKind::Bracket(
             BracketKind::Brace,
@@ -711,29 +679,21 @@ impl Parser {
         Ok(())
     }
 
-    fn add_lambda_value(
-        &mut self,
-        namespace: &ASTNameSpace,
-        parameter_names: Vec<(String, ASTIndex)>,
-    ) {
+    fn add_lambda_value(&mut self, parameter_names: Vec<(String, ASTPosition)>) {
         self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
             parameter_names,
             body: Vec::new(),
-            index: self.get_index(0),
+            index: self.get_position(0),
         }));
         let fake_function_def = ASTFunctionDef {
-            original_name: String::new(),
             name: String::new(),
             parameters: Vec::new(),
             body: RASMBody(Vec::new()),
             return_type: ASTType::Unit,
             inline: false,
             generic_types: Vec::new(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
+            index: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
-            namespace: namespace.clone(),
-            rank: 0, // TODO must be calculated?
         };
         self.parser_data
             .push(ParserData::FunctionDef(fake_function_def));
@@ -752,7 +712,7 @@ impl Parser {
                     NativeBody(_) => {
                         return Err(format!(
                             "Expected function got native:  {}",
-                            self.get_index(0)
+                            self.get_position(0)
                         ));
                     }
                 };
@@ -766,7 +726,7 @@ impl Parser {
                 self.parser_data.pop();
                 self.set_parser_data(ParserData::LambdaDef(def), 0);
             } else {
-                return Err(format!("Expected body: {}", self.get_index(0)));
+                return Err(format!("Expected body: {}", self.get_position(0)));
             }
         } else if let TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close) = token.kind {
             self.state.pop();
@@ -810,24 +770,20 @@ impl Parser {
         Ok(())
     }
 
-    fn process_function_def_parameter(
-        &mut self,
-        namespace: &ASTNameSpace,
-        token: &Token,
-    ) -> Result<(), String> {
+    fn process_function_def_parameter(&mut self, token: &Token) -> Result<(), String> {
         if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
             if let Some((name, next_i)) = self.try_parse_parameter_def_name() {
                 let _n = next_i - self.i;
                 self.i = next_i;
                 if let Some((ast_type, next_i)) =
-                    TypeParser::new(self).try_parse_ast_type(namespace, 0, &def.generic_types)?
+                    TypeParser::new(self).try_parse_ast_type(0, &def.generic_types)?
                 {
                     self.i = next_i;
                     self.parser_data
                         .push(ParserData::FunctionDefParameter(ASTParameterDef {
                             name,
                             ast_type,
-                            ast_index: self.token_index(token),
+                            index: self.token_index(token),
                         }));
                     self.state.pop();
                     Ok(())
@@ -839,7 +795,7 @@ impl Parser {
                 Ok(())
             }
         } else {
-            Err(format!("Illegal state: {}", self.get_index(0)))
+            Err(format!("Illegal state: {}", self.get_position(0)))
         }
     }
 
@@ -872,7 +828,7 @@ impl Parser {
                     self.add_parameter_to_call_and_update_parser_data(call, expr);
                     self.i += 1;
                 } else {
-                    return Err(format!("expected function call: {}", self.get_index(0)));
+                    return Err(format!("expected function call: {}", self.get_position(0)));
                 }
             } else {
                 return Err("expected expression".to_string());
@@ -892,7 +848,7 @@ impl Parser {
                     self.parser_data.pop();
                     self.add_parameter_to_call_and_update_parser_data(call, expr);
                 } else {
-                    return Err(format!("expected function call: {}", self.get_index(0)));
+                    return Err(format!("expected function call: {}", self.get_position(0)));
                 }
             }
             if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
@@ -903,7 +859,7 @@ impl Parser {
                 ));
                 self.i += 1;
             } else {
-                return Err(format!("expected function call: {}", self.get_index(0)));
+                return Err(format!("expected function call: {}", self.get_position(0)));
             }
         } else {
             self.state.push(ParserState::Expression);
@@ -938,7 +894,7 @@ impl Parser {
             } else {
                 return Err(format!(
                     "Expected return type or block : {}",
-                    self.get_index(1)
+                    self.get_position(1)
                 ));
             }
         } else if let TokenKind::Punctuation(PunctuationKind::RightArrow) = token.kind {
@@ -995,6 +951,7 @@ impl Parser {
         module.functions.iter().for_each(Self::print_function_def)
     }
 
+    /*
     pub fn print_enhanced(module: &EnhancedASTModule) {
         module.body.iter().for_each(|call| {
             println!("{call}");
@@ -1005,6 +962,7 @@ impl Parser {
             .iter()
             .for_each(|it| Self::print_function_def(it))
     }
+    */
 
     pub fn print_function_def(f: &ASTFunctionDef) {
         print!("{}", f);
@@ -1028,11 +986,7 @@ impl Parser {
         let token_option = self.tokens.get(self.i);
 
         if let Some(token) = token_option {
-            let index = ASTIndex {
-                file_name: self.file_name.clone(),
-                row: token.row,
-                column: token.column,
-            };
+            let index = self.token_index(token);
             format!("{}: {}", message, index)
         } else {
             format!("{} {:?} : in end of file", message, self.file_name)
@@ -1045,17 +999,14 @@ impl Parser {
         debug!(
             "token {:?} : {}",
             self.get_token().map(|it| &it.kind),
-            self.get_index(0)
+            self.get_position(0)
         );
         debug!("state {:?}", self.state);
         debug!("data {}", SliceDisplay(&self.parser_data));
         debug!("");
     }
 
-    fn try_parse_function_call(
-        &mut self,
-        namespace: &ASTNameSpace,
-    ) -> Option<(String, Vec<ASTType>, usize, usize)> {
+    fn try_parse_function_call(&mut self) -> Option<(String, Vec<ASTType>, usize, usize)> {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
             let (function_name, next_n, function_name_n) =
                 if let Some((variant, next_n)) = self.try_parse_enum_constructor() {
@@ -1088,11 +1039,7 @@ impl Parser {
                         n += 1;
                         continue;
                     }
-                    match TypeParser::new(self).try_parse_ast_type(
-                        namespace,
-                        n,
-                        &context_generic_types,
-                    ) {
+                    match TypeParser::new(self).try_parse_ast_type(n, &context_generic_types) {
                         Ok(Some((ast_type, next_i))) => {
                             generic_types.push(ast_type);
                             n = next_i - self.i;
@@ -1163,9 +1110,8 @@ impl Parser {
 
     fn try_parse_function_def(
         &self,
-        namespace: &ASTNameSpace,
     ) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
-        if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(namespace, self, 0) {
+        if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 0) {
             let param_types = matcher_result.group_alphas("type");
             let mut name_index = 1;
             let modifiers = if matcher_result.group_tokens("modifiers").is_empty() {
@@ -1223,7 +1169,7 @@ impl Parser {
     fn parse_lambda_parameters(
         &self,
         out_n: usize,
-    ) -> Result<(Vec<(String, ASTIndex)>, usize), String> {
+    ) -> Result<(Vec<(String, ASTPosition)>, usize), String> {
         let mut n = out_n;
         let mut parameter_names = Vec::new();
         loop {
@@ -1232,7 +1178,7 @@ impl Parser {
                 None => {
                     return Err(format!(
                         "No token parsing lambda parameters: {}",
-                        self.get_index(n)
+                        self.get_position(n)
                     ));
                 }
                 Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) => {
@@ -1244,7 +1190,7 @@ impl Parser {
                     continue;
                 }
                 Some(TokenKind::AlphaNumeric(name)) => {
-                    parameter_names.push((name.to_string(), self.get_index(n)));
+                    parameter_names.push((name.to_string(), self.get_position(n)));
                     n += 1;
                     continue;
                 }
@@ -1252,7 +1198,7 @@ impl Parser {
                     return Err(format!(
                         "Unexpected token {:?}: {}",
                         kind_o.unwrap(),
-                        self.get_index(n),
+                        self.get_position(n),
                     ));
                 }
             }
@@ -1263,12 +1209,12 @@ impl Parser {
     fn try_parse_val(&self) -> Result<Option<(ASTExpression, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::True)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Boolean(true), self.get_index(0)),
+                ASTExpression::Value(ValueType::Boolean(true), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::KeyWord(KeywordKind::False)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Boolean(false), self.get_index(0)),
+                ASTExpression::Value(ValueType::Boolean(false), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
@@ -1280,7 +1226,7 @@ impl Parser {
                         ValueType::F32((n.to_owned() + "." + n1).parse().map_err(|err| {
                             format!(
                                 "Cannot parse '{n}.{n1}' as an f32, {err}: {}",
-                                self.get_index(0)
+                                self.get_position(0)
                             )
                         })?),
                         self.get_i() + 3,
@@ -1288,7 +1234,10 @@ impl Parser {
                 } else {
                     (
                         ValueType::I32(n.parse().map_err(|err| {
-                            format!("Cannot parse '{n}' as an i32, {err}: {}", self.get_index(0))
+                            format!(
+                                "Cannot parse '{n}' as an i32, {err}: {}",
+                                self.get_position(0)
+                            )
                         })?),
                         self.get_i() + 1,
                     )
@@ -1296,29 +1245,32 @@ impl Parser {
             } else {
                 (
                     ValueType::I32(n.parse().map_err(|err| {
-                        format!("Cannot parse '{n}' as an i32, {err}: {}", self.get_index(0))
+                        format!(
+                            "Cannot parse '{n}' as an i32, {err}: {}",
+                            self.get_position(0)
+                        )
                     })?),
                     self.get_i() + 1,
                 )
             };
 
             return Ok(Some((
-                ASTExpression::Value(value, self.get_index(0)),
+                ASTExpression::Value(value, self.get_position(0)),
                 next_i,
             )));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Char(c.clone()), self.get_index(0)),
+                ASTExpression::Value(ValueType::Char(c.clone()), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::ValueRef(name.clone(), self.get_index(0)),
+                ASTExpression::ValueRef(name.clone(), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::StringLiteral(s)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::StringLiteral(s.clone(), self.get_index(0)),
+                ASTExpression::StringLiteral(s.clone(), self.get_position(0)),
                 self.get_i() + 1,
             )));
         }
@@ -1341,24 +1293,21 @@ impl Parser {
                     return Err(format!(
                         "expected = got {:?}: {}",
                         self.get_token_kind_n(2),
-                        self.get_index(2)
+                        self.get_position(2)
                     ));
                 }
             } else {
                 return Err(format!(
                     "expected name, got {:?}: {}",
                     self.get_token_kind_n(1),
-                    self.get_index(1)
+                    self.get_position(1)
                 ));
             }
         }
         Ok(None)
     }
 
-    fn parse_type_def(
-        &self,
-        namespace: &ASTNameSpace,
-    ) -> Result<Option<(ASTTypeDef, usize)>, String> {
+    fn parse_type_def(&self) -> Result<Option<(ASTTypeDef, usize)>, String> {
         let mut base_n = 0;
         let modifiers = if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
             base_n += 1;
@@ -1382,14 +1331,17 @@ impl Parser {
                 {
                     let is_ref = match self.get_token_kind_n(n + 1) {
                         None => {
-                            return Err(format!("Unexpected end of stream: {}", self.get_index(0)))
+                            return Err(format!(
+                                "Unexpected end of stream: {}",
+                                self.get_position(0)
+                            ))
                         }
                         Some(TokenKind::KeyWord(KeywordKind::False)) => false,
                         Some(TokenKind::KeyWord(KeywordKind::True)) => true,
                         Some(k) => {
                             return Err(format!(
                                 "Expected a boolean value but got {k}: {}",
-                                self.get_index(0)
+                                self.get_position(0)
                             ))
                         }
                     };
@@ -1409,7 +1361,7 @@ impl Parser {
                                 return Err(format!(
                                 "Unexpected native type, it should be a string but it is {}: {}",
                                 OptionDisplay(&self.get_token_kind_n(n + 3)),
-                                self.get_index(n + 3)
+                                self.get_position(n + 3)
                             ));
                             }
                         }
@@ -1422,30 +1374,29 @@ impl Parser {
                     {
                         Ok(Some((
                             ASTTypeDef {
-                                namespace: namespace.clone(),
                                 type_parameters,
                                 name: name.clone(),
                                 is_ref,
-                                index: self.get_index(base_n + 1).mv_left(name.len()),
+                                index: self.get_position(base_n + 1).mv_left(name.len()),
                                 modifiers,
                                 native_type,
                             },
                             self.get_i() + n + 3,
                         )))
                     } else {
-                        Err(format!("Error parsing type: {}", self.get_index(0)))
+                        Err(format!("Error parsing type: {}", self.get_position(0)))
                     }
                 } else {
                     Err(format!(
                         "Expected '(' but got '{:?}': {}",
                         self.get_token_kind_n(n),
-                        self.get_index(n)
+                        self.get_position(n)
                     ))
                 }
             } else {
                 Err(format!(
                     "Error parsing Type, expected identifier: {}",
-                    self.get_index(0)
+                    self.get_position(0)
                 ))
             }
         } else {
@@ -1481,14 +1432,18 @@ pub trait ParserTrait {
         self.get_token_n(0)
     }
 
-    fn get_index(&self, n: usize) -> ASTIndex {
+    fn get_position(&self, n: usize) -> ASTPosition {
         self.get_token_n(n)
-            .map(|it| ASTIndex::new(self.file_name(), it.row, it.column))
-            .unwrap_or(ASTIndex::none())
+            .map(|it| ASTPosition::new(it.row, it.column))
+            .unwrap_or(ASTPosition::none())
+    }
+
+    fn get_index(&self, n: usize) -> ASTIndex {
+        ASTIndex::from_position(self.file_name().clone(), self.get_position(n))
     }
 
     fn wrap_error(&self, message: &str) -> String {
-        format!("{message}: {}", self.get_index(0))
+        format!("{message}: {}", self.get_position(0))
     }
 
     fn file_name(&self) -> Option<PathBuf>;
@@ -1501,13 +1456,12 @@ mod tests {
     use crate::errors::{CompilationError, CompilationErrorKind};
     use crate::lexer::Lexer;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
-        ASTModule, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModifiers, ASTModule,
+        ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
-    use crate::utils::SliceDisplay;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1585,7 +1539,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(Path::new(""), &test_namespace());
+        let (module, _) = parser.parse(Path::new(""));
 
         let function_def = ASTFunctionDef {
             name: "p".into(),
@@ -1594,12 +1548,8 @@ mod tests {
             return_type: ASTType::Unit,
             inline: false,
             generic_types: vec!["T".into(), "T1".into()],
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            original_name: "p".into(),
-            index: ASTIndex::new(None, 1, 4),
+            index: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::private(),
-            namespace: test_namespace(),
-            rank: 0,
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1622,7 +1572,7 @@ mod tests {
         let function_names = module
             .functions
             .iter()
-            .map(|it| it.original_name.as_str())
+            .map(|it| it.name.as_str())
             .collect::<Vec<_>>();
 
         assert_eq!(vec!["fun1", "fun2", "fun3"], function_names);
@@ -1634,18 +1584,16 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), &test_namespace());
+        let (module, errors) = parser.parse(Path::new("."));
 
         let function_call = ASTFunctionCall {
-            namespace: test_namespace(),
             function_name: "println".to_string(),
-            original_function_name: "println".to_string(),
             parameters: vec![ASTExpression::Value(
                 ValueType::I32(20),
-                ASTIndex::new(None, 1, 16),
+                ASTPosition::new(1, 16),
             )],
             generics: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
-            index: ASTIndex::new(None, 1, 8),
+            index: ASTPosition::new(1, 8),
         };
 
         assert_eq!(
@@ -1660,21 +1608,16 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, _) = parser.parse(Path::new("."), &test_namespace());
+        let (module, _) = parser.parse(Path::new("."));
 
         let function_call = ASTFunctionCall {
-            namespace: test_namespace(),
             function_name: "println".to_string(),
-            original_function_name: "println".to_string(),
             parameters: vec![ASTExpression::ValueRef(
                 "it".to_string(),
-                ASTIndex::new(None, 1, 38),
+                ASTPosition::new(1, 38),
             )],
-            generics: vec![ASTType::Generic(
-                ASTIndex::new(None, 1, 34),
-                "T".to_string(),
-            )],
-            index: ASTIndex::new(None, 1, 32),
+            generics: vec![ASTType::Generic(ASTPosition::new(1, 34), "T".to_string())],
+            index: ASTPosition::new(1, 32),
         };
 
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
@@ -1693,18 +1636,16 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."), &test_namespace());
+        let (module, errors) = parser.parse(Path::new("."));
 
         let function_call = ASTFunctionCall {
-            namespace: test_namespace(),
             function_name: "Option::Some".to_string(),
-            original_function_name: "Option::Some".to_string(),
             parameters: vec![ASTExpression::Value(
                 ValueType::I32(20),
-                ASTIndex::new(None, 1, 16),
+                ASTPosition::new(1, 16),
             )],
             generics: Vec::new(),
-            index: ASTIndex::new(None, 1, 13),
+            index: ASTPosition::new(1, 13),
         };
 
         assert_eq!(
@@ -1752,7 +1693,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (_, errors) = parser.parse(Path::new("."), &test_namespace());
+        let (_, errors) = parser.parse(Path::new("."));
 
         // println!("errors {}", SliceDisplay(&errors));
 
@@ -1770,7 +1711,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (_, errors) = parser.parse(Path::new("."), &test_namespace());
+        let (_, errors) = parser.parse(Path::new("."));
 
         // println!("errors {}", SliceDisplay(&errors));
 
@@ -1787,7 +1728,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (_, errors) = parser.parse(Path::new("."), &test_namespace());
+        let (_, errors) = parser.parse(Path::new("."));
 
         assert!(errors.is_empty());
     }
@@ -1797,7 +1738,7 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        let (module, errors) = parser.parse(path, &test_namespace());
+        let (module, errors) = parser.parse(path);
         if !errors.is_empty() {
             for error in errors {
                 println!("{error}");
@@ -1812,6 +1753,6 @@ mod tests {
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
         let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
-        parser.parse(path, &test_namespace())
+        parser.parse(path)
     }
 }

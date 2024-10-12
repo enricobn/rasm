@@ -5,17 +5,11 @@ use linked_hash_map::LinkedHashMap;
 
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::lexer::tokens::{Token, TokenKind};
-use crate::parser::ast::ASTNameSpace;
 use crate::parser::tokens_group::TokensGroup;
 use crate::parser::ParserTrait;
 
 pub trait TokensMatcherTrait: Debug + Sync + Display {
-    fn match_tokens(
-        &self,
-        namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-        n: usize,
-    ) -> Option<TokensMatcherResult>;
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
 
     fn name(&self) -> Vec<String>;
 }
@@ -78,13 +72,8 @@ impl Debug for TokensMatcher {
  */
 
 impl TokensMatcherTrait for TokensMatcher {
-    fn match_tokens(
-        &self,
-        namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-        n: usize,
-    ) -> Option<TokensMatcherResult> {
-        self.group.match_tokens(namespace, parser, n)
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
+        self.group.match_tokens(parser, n)
     }
 
     fn name(&self) -> Vec<String> {
@@ -239,12 +228,7 @@ impl<T> TokensMatcherTrait for T
 where
     T: TokenMatcher,
 {
-    fn match_tokens(
-        &self,
-        _namespace: &ASTNameSpace,
-        parser: &dyn ParserTrait,
-        n: usize,
-    ) -> Option<TokensMatcherResult> {
+    fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(token) = parser.get_token_n(n) {
             //println!("TokenMatcher match_tokens n {} token {:?}", n, token);
             if let Some(_kind) = self.match_token(&token.kind) {
@@ -355,7 +339,7 @@ mod tests {
         matcher.add_alphanumeric();
         matcher.add_alphanumeric();
 
-        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(vec!["n1", "n2"], match_result.alphas());
         } else {
             panic!()
@@ -372,7 +356,7 @@ mod tests {
         matcher.add_alphanumeric();
         matcher.end_group();
 
-        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(vec!["n1"], match_result.alphas());
             assert_eq!(vec!["n2"], match_result.group_alphas("g1"));
         } else {
@@ -392,7 +376,7 @@ mod tests {
         matcher.add_matcher(g1);
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(vec!["n1"], match_result.alphas());
             assert_eq!(vec!["n2", "n3"], match_result.group_alphas("g1"));
         } else {
@@ -412,7 +396,7 @@ mod tests {
         matcher.add_kind(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Close));
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open));
 
-        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(
                 vec![
                     TokenKind::KeyWord(KeywordKind::Enum),
@@ -437,7 +421,7 @@ mod tests {
         let mut matcher = TokensMatcher::default();
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Native));
 
-        let match_result = matcher.match_tokens(&test_namespace(), &parser, 0);
+        let match_result = matcher.match_tokens(&parser, 0);
 
         assert!(match_result.is_none());
     }
@@ -450,7 +434,7 @@ mod tests {
         matcher.add_kind(TokenKind::KeyWord(KeywordKind::Enum));
         matcher.add_alphanumeric();
 
-        let match_result = matcher.match_tokens(&test_namespace(), &parser, 0);
+        let match_result = matcher.match_tokens(&parser, 0);
 
         assert!(match_result.is_none());
     }
@@ -477,7 +461,7 @@ mod tests {
 
         let parser = get_parser("enum Option {");
 
-        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(
                 vec![
                     TokenKind::KeyWord(KeywordKind::Enum),
@@ -496,7 +480,7 @@ mod tests {
 
         let parser = get_parser("enum Option<T,Y> {");
 
-        if let Some(match_result) = matcher.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = matcher.match_tokens(&parser, 0) {
             assert_eq!(
                 vec![
                     TokenKind::KeyWord(KeywordKind::Enum),
@@ -531,7 +515,7 @@ mod tests {
 
         let parser = get_parser("");
 
-        if let Some(match_result) = param_types.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = param_types.match_tokens(&parser, 0) {
             assert_eq!(Vec::<String>::new(), match_result.alphas());
         } else {
             panic!()
@@ -539,7 +523,7 @@ mod tests {
 
         let parser = get_parser("<T>");
 
-        if let Some(match_result) = param_types.match_tokens(&test_namespace(), &parser, 0) {
+        if let Some(match_result) = param_types.match_tokens(&parser, 0) {
             assert_eq!(vec!["T"], match_result.alphas());
             assert_eq!(3, match_result.next_n());
         } else {

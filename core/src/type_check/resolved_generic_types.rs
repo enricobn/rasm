@@ -21,8 +21,8 @@ use std::fmt::{Display, Formatter};
 use linked_hash_map::{IntoIter, Iter, LinkedHashMap};
 
 use crate::{
+    codegen::eh_ast::{ASTType, MyToString},
     codegen::enhanced_module::{self, EnhancedASTModule},
-    parser::ast::{ASTType, MyToString},
 };
 
 #[derive(Debug, Clone, PartialEq)]

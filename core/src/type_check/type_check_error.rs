@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::parser::ast::ASTIndex;
+use crate::codegen::eh_ast::ASTIndex;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
