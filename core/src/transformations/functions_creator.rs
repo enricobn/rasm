@@ -12,10 +12,10 @@ use crate::parser::ast::{
     ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
-use crate::codegen::eh_ast;
+use crate::codegen::eh_ast::{self, EhModuleInfo};
 
 pub trait FunctionsCreator {
-    fn create(&self, module: &mut ASTModule, statics: &mut Statics) {
+    fn create(&self, module: &mut ASTModule, statics: &mut Statics, info: &EhModuleInfo) {
         for enum_def in module.enums.clone().iter() {
             let generic_types: Vec<ASTType> = enum_def
                 .type_parameters
@@ -23,7 +23,7 @@ pub trait FunctionsCreator {
                 .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
                 .collect();
 
-            self.enum_constructors(module, enum_def, &generic_types, statics);
+            self.enum_constructors(module, enum_def, &generic_types, statics, info);
 
             self.create_match_like_function(
                 module,
@@ -498,6 +498,7 @@ pub trait FunctionsCreator {
         enum_def: &ASTEnumDef,
         param_types: &[ASTType],
         statics: &mut Statics,
+        info: &EhModuleInfo,
     ) {
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             let ast_type = ASTType::Custom {
@@ -520,6 +521,7 @@ pub trait FunctionsCreator {
                 variant_num,
                 variant,
                 &descr,
+                info,
             );
             let body = ASTFunctionBody::NativeBody(body_str);
 
@@ -551,6 +553,7 @@ pub trait FunctionsCreator {
         variant_num: usize,
         variant: &ASTEnumVariantDef,
         descr: &String,
+        info: &EhModuleInfo,
     ) -> (String, bool);
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
@@ -1055,11 +1058,12 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         variant_num: usize,
         variant: &ASTEnumVariantDef,
         descr: &String,
+        info: &EhModuleInfo,
     ) -> (String, bool) {
         if variant.parameters.is_empty() {
             let label = format!(
                 "_enum_{}_{}_{}",
-                todo!(), //module.namespace.safe_name(),
+                info.namespace.safe_name(),
                 enum_def.name,
                 variant.name
             );

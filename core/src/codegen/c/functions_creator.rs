@@ -18,6 +18,7 @@
 
 use crate::codegen::c::code_gen_c::CCodeManipulator;
 use crate::codegen::code_manipulator::CodeManipulator;
+use crate::codegen::eh_ast::EhModuleInfo;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
@@ -190,16 +191,13 @@ impl FunctionsCreator for CFunctionsCreator {
         variant_num: usize,
         variant: &ASTEnumVariantDef,
         _descr: &String,
+        info: &EhModuleInfo,
     ) -> (String, bool) {
         if variant.parameters.is_empty() {
             return (
                 format!(
                     "return {};",
-                    CodeGenC::variant_const_name(
-                        todo!(), //&enum_def.namespace,
-                        &enum_def.name,
-                        &variant.name
-                    )
+                    CodeGenC::variant_const_name(&info.namespace, &enum_def.name, &variant.name)
                 ),
                 false,
             );

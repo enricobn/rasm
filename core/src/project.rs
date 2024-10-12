@@ -284,9 +284,9 @@ impl RasmProject {
 
         self.get_modules(self.test_rasm_folder(), target)
             .into_iter()
-            .for_each(|(mut project_module, module_errors, info)| {
-                enrich_module(&target, statics, &mut project_module, debug);
-                modules.push((project_module, info));
+            .for_each(|(mut module, module_errors, info)| {
+                enrich_module(&target, statics, &mut module, debug, &info);
+                modules.push((module, info));
                 errors.extend(module_errors);
             });
 
@@ -369,7 +369,7 @@ impl RasmProject {
             .into_iter()
             .flatten()
             .for_each(|(mut project_module, module_errors, info)| {
-                enrich_module(target, statics, &mut project_module, debug);
+                enrich_module(target, statics, &mut project_module, debug, &info);
                 modules.push((project_module, info));
                 errors.extend(module_errors);
             });

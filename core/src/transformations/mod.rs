@@ -1,4 +1,5 @@
 use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::eh_ast::EhModuleInfo;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::ASTModule;
 
@@ -11,6 +12,9 @@ pub fn enrich_module(
     statics: &mut Statics,
     module: &mut ASTModule,
     debug: bool,
+    info: &EhModuleInfo,
 ) {
-    target.functions_creator(debug).create(module, statics);
+    target
+        .functions_creator(debug)
+        .create(module, statics, info);
 }
