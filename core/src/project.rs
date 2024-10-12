@@ -537,7 +537,7 @@ impl RasmProject {
                 .to_string();
 
             let path = PathBuf::from(&main_src_file).canonicalize().unwrap();
-            let namespace = ASTNameSpace::new(name.clone(), name);
+            let namespace = ASTNameSpace::new(self.config.package.name.clone(), name);
             let (module, errors) = self.module_from_file(&path);
 
             vec![(module, errors, EhModuleInfo::new(Some(path), namespace))]
