@@ -6,16 +6,16 @@ use std::path::PathBuf;
 use log::{debug, warn};
 
 use rasm_core::codegen::compile_target::CompileTarget;
+use rasm_core::codegen::eh_ast::{
+    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
+    ASTLambdaDef, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
+    ASTTypeDef, BuiltinTypeKind,
+};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::ValContext;
 use rasm_core::codegen::ValKind;
 use rasm_core::new_type_check2::TypeCheck;
-use rasm_core::parser::ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
-    ASTLambdaDef, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
-    ASTTypeDef, BuiltinTypeKind,
-};
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::substitute;
@@ -78,7 +78,7 @@ impl ReferenceFinder {
             ));
         }
 
-        let (module, _errors) = if let Some(m) = index
+        let (module, _errors, info) = if let Some(m) = index
             .file_name
             .as_ref()
             .and_then(|it| project.get_module(it.as_path(), target))
@@ -88,7 +88,7 @@ impl ReferenceFinder {
             return Ok(CompletionResult::NotFound("".to_string()));
         };
 
-        let namespace = module.namespace;
+        let namespace = info.namespace;
 
         let module_content = project.content_from_file(&index.file_name.as_ref().unwrap())?;
 
@@ -1156,17 +1156,18 @@ mod tests {
 
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
+    use rasm_core::codegen::eh_ast::{ASTIndex, ASTModule, ASTType};
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::parser::ast::{ASTIndex, ASTModule, ASTType};
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionItem, CompletionTrigger};
     use crate::reference_finder::{CompletionResult, ReferenceFinder};
     use crate::selectable_item::{SelectableItem, SelectableItemTarget};
+    use rasm_core::parser::ast;
 
     #[test]
     fn simple() {
@@ -1728,19 +1729,19 @@ mod tests {
         );
 
         let (enhanced_ast_module, errors) =
-            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        let (module, errors) = project.get_module(Path::new(module_path), &target).unwrap();
+        let (module, errors, info) = project.get_module(Path::new(module_path), &target).unwrap();
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        (enhanced_ast_module, module)
+        (enhanced_ast_module, ASTModule::from_ast(module, info))
     }
 
     fn init_log() {

@@ -21,6 +21,8 @@ use rasm_core::{
     utils::SliceDisplay,
 };
 
+use rasm_core::codegen::eh_ast;
+
 mod module_view;
 mod project_tree;
 mod ui_tree;
@@ -71,7 +73,7 @@ impl UI {
         );
 
         let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         let main = if let Some(main) = &project.config.package.main {
             Some(
@@ -182,37 +184,44 @@ impl UI {
         path: &str,
     ) -> SelectedModule {
         let start = Instant::now();
-        let type_map = if let Some((module, _errors)) = project.get_module(&Path::new(path), target)
-        {
-            let em = enhanced_ast_module.clone().fix_generics();
+        let type_map =
+            if let Some((module, _errors, info)) = project.get_module(&Path::new(path), target) {
+                let em = enhanced_ast_module.clone().fix_generics();
 
-            let function_type_checker = FunctionTypeChecker::new(&em);
-            let mut val_context = ValContext::new(None);
-            let mut statics = Statics::new();
+                let function_type_checker = FunctionTypeChecker::new(&em);
+                let mut val_context = ValContext::new(None);
+                let mut statics = Statics::new();
 
-            // TODO errors
+                // TODO errors
 
-            let (mut type_map, _, mut errors) = function_type_checker.get_body_type_map(
-                &mut val_context,
-                &mut statics,
-                &enhanced_ast_module.body,
-                None,
-            );
+                let (mut type_map, _, mut errors) = function_type_checker.get_body_type_map(
+                    &mut val_context,
+                    &mut statics,
+                    &enhanced_ast_module.body,
+                    None,
+                );
 
-            for function in module.functions {
-                let (f_result, f_errors) = function_type_checker
-                    .get_type_map(&function.fix_namespaces(&em).fix_generics(), &mut statics);
-                type_map.extend(f_result);
-                errors.extend(f_errors);
-            }
+                for function in module.functions {
+                    let eh_function = eh_ast::ASTFunctionDef::from_ast(
+                        info.path.clone(),
+                        info.namespace.clone(),
+                        function,
+                    );
+                    let (f_result, f_errors) = function_type_checker.get_type_map(
+                        &&eh_function.fix_namespaces(&em).fix_generics(),
+                        &mut statics,
+                    );
+                    type_map.extend(f_result);
+                    errors.extend(f_errors);
+                }
 
-            // TODO errors
-            println!("selected_module errors: {}", SliceDisplay(&errors));
+                // TODO errors
+                println!("selected_module errors: {}", SliceDisplay(&errors));
 
-            type_map
-        } else {
-            FunctionTypeCheckerResult::new()
-        };
+                type_map
+            } else {
+                FunctionTypeCheckerResult::new()
+            };
 
         println!("selected_module takes {:?}", start.elapsed());
 

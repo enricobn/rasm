@@ -1059,7 +1059,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         if variant.parameters.is_empty() {
             let label = format!(
                 "_enum_{}_{}_{}",
-                module.namespace.safe_name(),
+                todo!(), //module.namespace.safe_name(),
                 enum_def.name,
                 variant.name
             );

@@ -27,9 +27,9 @@ use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{routing::get, Router};
 use log::info;
+use rasm_core::codegen::eh_ast::{ASTIndex, ASTModule};
 use rasm_core::codegen::AsmOptions;
 use rasm_core::commandline::CommandLineOptions;
-use rasm_core::parser::ast::ASTIndex;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -104,7 +104,7 @@ impl ServerState {
         );
 
         let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         // TODO errors
 
@@ -190,16 +190,17 @@ async fn file<'a>(
         .canonicalize()
         .unwrap();
 
+    let (module, errors, info) = &state
+        .project
+        .get_module(
+            file_path.as_path(),
+            &CompileTarget::Nasmi386(AsmOptions::default()),
+        )
+        .unwrap();
+
     let finder = ReferenceFinder::new(
         &state.enhanced_modules,
-        &state
-            .project
-            .get_module(
-                file_path.as_path(),
-                &CompileTarget::Nasmi386(AsmOptions::default()),
-            )
-            .unwrap()
-            .0,
+        &ASTModule::from_ast(module.clone(), info.clone()),
     )
     .unwrap();
 

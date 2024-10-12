@@ -15,6 +15,7 @@ use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
 use crate::parser::ast::{self, ASTPosition};
 
+#[derive(Debug, Clone)]
 pub struct EhModuleInfo {
     pub path: Option<PathBuf>,
     pub namespace: ASTNameSpace,

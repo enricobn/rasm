@@ -16,10 +16,11 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use rasm_core::parser::ast::ASTIndex;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::PathBuf;
+
+use rasm_core::codegen::eh_ast::ASTIndex;
 
 #[derive(Debug, Clone)]
 pub struct FileToken {

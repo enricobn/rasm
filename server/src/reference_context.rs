@@ -1,6 +1,5 @@
 use linked_hash_map::LinkedHashMap;
-use rasm_core::parser::ast::ASTIndex;
-use rasm_core::type_check::functions_container::TypeFilter;
+use rasm_core::{codegen::eh_ast::ASTIndex, type_check::functions_container::TypeFilter};
 
 pub struct ReferenceContext {
     pub value_to_address: LinkedHashMap<String, ReferenceKind>,

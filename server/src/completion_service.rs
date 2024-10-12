@@ -21,6 +21,7 @@ use std::io;
 use std::ops::Deref;
 
 use rasm_core::codegen::compile_target::CompileTarget;
+use rasm_core::codegen::eh_ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
@@ -28,7 +29,6 @@ use rasm_core::codegen::val_context::TypedValContext;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
-use rasm_core::parser::ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
 use rasm_core::type_check::functions_container::TypeFilter;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
@@ -529,14 +529,14 @@ mod tests {
     use env_logger::Builder;
 
     use rasm_core::codegen::compile_target::CompileTarget;
+    use rasm_core::codegen::eh_ast::{
+        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
+        ASTType, BuiltinTypeKind,
+    };
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
-    };
     use rasm_core::project::RasmProject;
     use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
 
@@ -634,7 +634,7 @@ mod tests {
         assert!(errors.is_empty());
 
         let (module, errors) =
-            EnhancedASTModule::new(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         assert!(errors.is_empty());
 

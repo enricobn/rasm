@@ -17,7 +17,7 @@
  */
 
 use crate::file_token::FileToken;
-use rasm_core::parser::ast::{ASTIndex, ASTNameSpace, ASTType};
+use rasm_core::codegen::eh_ast::{ASTIndex, ASTNameSpace, ASTType};
 use rasm_core::utils::OptionDisplay;
 use std::fmt::{Display, Formatter};
 use std::io;

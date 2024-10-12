@@ -196,7 +196,7 @@ impl FunctionsCreator for CFunctionsCreator {
                 format!(
                     "return {};",
                     CodeGenC::variant_const_name(
-                        &enum_def.namespace,
+                        todo!(), //&enum_def.namespace,
                         &enum_def.name,
                         &variant.name
                     )

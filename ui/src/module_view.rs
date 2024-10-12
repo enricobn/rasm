@@ -13,8 +13,8 @@ use iced::{
     Background, Color, Element, Length, Padding, Theme,
 };
 use rasm_core::{
+    codegen::eh_ast::{ASTIndex, ASTModule, ASTType, BuiltinTypeKind},
     lexer::{tokens::TokenKind, Lexer},
-    parser::ast::{ASTIndex, ASTModule, ASTType},
     type_check::functions_container::TypeFilter,
 };
 
@@ -45,11 +45,12 @@ impl UI {
                     .to_string_lossy()
                     .to_string(),
             ));
-        if let Some((module, _errors)) = self
+        if let Some((module, _errors, info)) = self
             .project
             .get_module(Path::new(&selected_module.path), &self.target)
         {
-            let module_syntax = Self::module_syntax(&module);
+            let eh_module = ASTModule::from_ast(module, info);
+            let module_syntax = Self::module_syntax(&eh_module);
             let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
@@ -239,7 +240,7 @@ impl UI {
 
         match ast_type {
             ASTType::Builtin(kind) => match kind {
-                rasm_core::parser::ast::BuiltinTypeKind::Lambda {
+                BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 } => {
