@@ -293,14 +293,21 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         // probably there is not a valid body from functions
         for (_name, (_defs, bd)) in functions_generated_code.iter() {
+            // TODO if I add the body before, here I can add directly to generated_code
             body.push_str(bd);
         }
+
+        /*
+        // TODO it seems that now all the functions are already translated
 
         let new_body = self
             .translate_body(&body, &mut statics, typed_module)
             .unwrap();
 
         generated_code.push_str(&new_body);
+        */
+        generated_code.push_str(&body);
+
         generated_code.push('\n');
 
         self.restore(&stack, &mut generated_code);

@@ -580,7 +580,7 @@ impl TypeCheck {
         let first_type = Self::get_first_type(call, val_context);
 
         let original_functions = module
-            .find_functions_by_original_name(&call.original_function_name)
+            .find_functions_by_original_name(&call.original_function_name.replace("::", "_"))
             .iter()
             //.chain(same_in_new_functions.iter())
             .filter(|it| {
