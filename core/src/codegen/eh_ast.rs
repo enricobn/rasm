@@ -105,51 +105,6 @@ pub struct EnhASTFunctionDef {
     pub rank: usize,
 }
 
-impl EnhASTFunctionDef {
-    pub fn from_ast(
-        path: Option<PathBuf>,
-        namespace: EnhASTNameSpace,
-        function: ast::ASTFunctionDef,
-    ) -> Self {
-        Self {
-            original_name: function.name.clone(),
-            name: function.name,
-            parameters: EnhASTParameterDef::from_asts(
-                path.clone(),
-                namespace.clone(),
-                function.parameters,
-            ),
-            return_type: EnhASTType::from_ast(
-                path.clone(),
-                namespace.clone(),
-                function.return_type,
-            ),
-            body: {
-                match function.body {
-                    ast::ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
-                        statements
-                            .into_iter()
-                            .map(|it| {
-                                EnhASTStatement::from_ast(path.clone(), namespace.clone(), it)
-                            })
-                            .collect(),
-                    ),
-                    ast::ASTFunctionBody::NativeBody(value) => {
-                        EnhASTFunctionBody::NativeBody(value)
-                    }
-                }
-            },
-            inline: function.inline,
-            generic_types: function.generic_types,
-            resolved_generic_types: ResolvedGenericTypes::new(),
-            index: EnhASTIndex::from_position(path.clone(), function.index),
-            modifiers: function.modifiers,
-            namespace,
-            rank: 0,
-        }
-    }
-}
-
 pub struct EnhASTFunctionSignature {
     pub name: String,
     //pub generics: Vec<String>,
@@ -249,6 +204,49 @@ impl EnhASTFunctionDef {
                 .map(|it| it.ast_type.clone())
                 .collect(),
             return_type: self.return_type.clone(),
+        }
+    }
+
+    pub fn from_ast(
+        path: Option<PathBuf>,
+        namespace: EnhASTNameSpace,
+        function: ast::ASTFunctionDef,
+    ) -> Self {
+        Self {
+            original_name: function.name.clone(),
+            name: function.name,
+            parameters: EnhASTParameterDef::from_asts(
+                path.clone(),
+                namespace.clone(),
+                function.parameters,
+            ),
+            return_type: EnhASTType::from_ast(
+                path.clone(),
+                namespace.clone(),
+                function.return_type,
+            ),
+            body: {
+                match function.body {
+                    ast::ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
+                        statements
+                            .into_iter()
+                            .map(|it| {
+                                EnhASTStatement::from_ast(path.clone(), namespace.clone(), it)
+                            })
+                            .collect(),
+                    ),
+                    ast::ASTFunctionBody::NativeBody(value) => {
+                        EnhASTFunctionBody::NativeBody(value)
+                    }
+                }
+            },
+            inline: function.inline,
+            generic_types: function.generic_types,
+            resolved_generic_types: ResolvedGenericTypes::new(),
+            index: EnhASTIndex::from_position(path.clone(), function.index),
+            modifiers: function.modifiers,
+            namespace,
+            rank: 0,
         }
     }
 }
