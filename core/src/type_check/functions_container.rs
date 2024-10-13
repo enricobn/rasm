@@ -95,7 +95,7 @@ impl FunctionsContainer {
         let functions = self.functions();
         let found = functions
             .into_iter()
-            .filter(|it| it.name == name || it.name == name.replace("::", "_"))
+            .filter(|it| it.name == name)
             .collect::<Vec<_>>();
 
         if found.len() > 1 {
@@ -112,7 +112,7 @@ impl FunctionsContainer {
         self.functions_by_name
             .iter_mut()
             .flat_map(|it| it.1.iter_mut())
-            .find(|it| it.name == name || it.name == name.replace("::", "_"))
+            .find(|it| it.name == name)
             .unwrap()
     }
 

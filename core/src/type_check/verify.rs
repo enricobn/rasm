@@ -160,50 +160,49 @@ pub fn verify_statement(
         ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
             verify_expression(module, context, e, statics, None)?;
             if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                let ast_typed_type =
-                    if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
-                        function_def.return_type.clone()
-                    } else if let Some(function_def) = module
-                        .functions_by_name
-                        .get(&call.function_name.replace("::", "_"))
+                let ast_typed_type = if let Some(function_def) =
+                    module.functions_by_name.get(&call.function_name)
+                {
+                    function_def.return_type.clone()
+                } else if let Some(function_def) = module.functions_by_name.get(&call.function_name)
+                {
+                    function_def.return_type.clone()
+                } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
+                    context.get(&call.function_name)
+                {
+                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                        parameters: _,
+                        return_type,
+                    }) = &parameter_ref.ast_type
                     {
-                        function_def.return_type.clone()
-                    } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
-                        context.get(&call.function_name)
-                    {
-                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                            parameters: _,
-                            return_type,
-                        }) = &parameter_ref.ast_type
-                        {
-                            return_type.deref().clone()
-                        } else {
-                            return Err(verify_error(
-                                call.index.clone(),
-                                format!("{} is not a lambda", call.function_name),
-                            ));
-                        }
-                    } else if let Some(TypedValKind::LetRef(_, ast_type)) =
-                        context.get(&call.function_name)
-                    {
-                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                            parameters: _,
-                            return_type,
-                        }) = &ast_type
-                        {
-                            return_type.deref().clone()
-                        } else {
-                            return Err(verify_error(
-                                call.index.clone(),
-                                format!("{} is not a lambda", call.function_name),
-                            ));
-                        }
+                        return_type.deref().clone()
                     } else {
                         return Err(verify_error(
                             call.index.clone(),
-                            format!("Cannot find call to {}", call.original_function_name),
+                            format!("{} is not a lambda", call.function_name),
                         ));
-                    };
+                    }
+                } else if let Some(TypedValKind::LetRef(_, ast_type)) =
+                    context.get(&call.function_name)
+                {
+                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                        parameters: _,
+                        return_type,
+                    }) = &ast_type
+                    {
+                        return_type.deref().clone()
+                    } else {
+                        return Err(verify_error(
+                            call.index.clone(),
+                            format!("{} is not a lambda", call.function_name),
+                        ));
+                    }
+                } else {
+                    return Err(verify_error(
+                        call.index.clone(),
+                        format!("Cannot find call to {}", call.original_function_name),
+                    ));
+                };
 
                 if *is_const {
                     statics.add_typed_const(name.to_owned(), ast_typed_type);
@@ -349,10 +348,7 @@ fn verify_function_call(
                 .iter()
                 .map(|it| it.ast_type.clone())
                 .collect::<Vec<ASTTypedType>>()
-        } else if let Some(function_def) = module
-            .functions_by_name
-            .get(&call.function_name.replace("::", "_"))
-        {
+        } else if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
             function_def
                 .parameters
                 .iter()

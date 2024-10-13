@@ -1519,13 +1519,13 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             )
         } else if let Some(function_def) = typed_module
             .functions_by_name
-            .get(&function_call.function_name.replace("::", "_"))
+            .get(&function_call.function_name)
         {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
             let real_function_name = typed_module
                 .functions_by_name
-                .get(&function_call.function_name.replace("::", "_"))
+                .get(&function_call.function_name)
                 .unwrap()
                 .clone()
                 .name;

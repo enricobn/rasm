@@ -525,7 +525,7 @@ pub trait FunctionsCreator {
             );
             let body = ASTFunctionBody::NativeBody(body_str);
 
-            let name = enum_def.name.clone() + "_" + &variant.name.clone();
+            let name = enum_def.name.clone() + "::" + &variant.name.clone();
             let function_def = ASTFunctionDef {
                 name,
                 parameters: variant.parameters.clone(),

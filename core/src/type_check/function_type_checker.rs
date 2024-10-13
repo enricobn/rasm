@@ -351,10 +351,6 @@ impl<'a> FunctionTypeChecker<'a> {
         let mut errors = Vec::new();
         let mut result = FunctionTypeCheckerResult::new();
 
-        // TODO I don't like it
-        let mut call = call.clone();
-        call.original_function_name = call.original_function_name.replace("::", "_");
-
         if let Ok(mut functions) = self.enhanced_ast_module.find_call_vec(
             &call,
             &parameter_types_filters,

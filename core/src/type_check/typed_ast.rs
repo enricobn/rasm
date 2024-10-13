@@ -339,7 +339,7 @@ impl ASTTypedFunctionCall {
         } else {
             typed_module
                 .functions_by_name
-                .get(&self.function_name.replace("::", "_"))
+                .get(&self.function_name)
                 .expect(&self.function_name)
                 .return_type
                 .clone()
@@ -1162,10 +1162,7 @@ pub fn get_type_of_typed_expression(
             if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
                 debug_i!("found function in module");
                 function_def.return_type.clone()
-            } else if let Some(function_def) = module
-                .functions_by_name
-                .get(&call.function_name.replace("::", "_"))
-            {
+            } else if let Some(function_def) = module.functions_by_name.get(&call.function_name) {
                 debug_i!("found function in module");
                 function_def.return_type.clone()
             } else if let Some(TypedValKind::ParameterRef(_, par)) =
