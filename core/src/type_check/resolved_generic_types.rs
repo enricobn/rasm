@@ -20,10 +20,7 @@ use std::fmt::{Display, Formatter};
 
 use linked_hash_map::{IntoIter, Iter, LinkedHashMap};
 
-use crate::{
-    codegen::eh_ast::{ASTType, MyToString},
-    codegen::enhanced_module::{self, EnhancedASTModule},
-};
+use crate::{codegen::eh_ast::ASTType, codegen::enhanced_module::EnhancedASTModule};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGenericTypes {
@@ -122,15 +119,5 @@ impl Display for ResolvedGenericTypes {
             .collect::<Vec<_>>()
             .join(",");
         f.write_str(&s)
-    }
-}
-
-impl MyToString for ResolvedGenericTypes {
-    fn my_to_string(&self) -> String {
-        let pars: Vec<String> = self
-            .iter()
-            .map(|(name, it)| format!("{name}={it}"))
-            .collect();
-        pars.join(",")
     }
 }

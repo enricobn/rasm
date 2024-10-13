@@ -1,9 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::ops::Deref;
-use std::path::PathBuf;
-
-use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTPosition {
@@ -426,38 +423,6 @@ impl ASTModifiers {
 
     pub fn private() -> Self {
         Self { public: false }
-    }
-}
-
-pub trait MyToString {
-    fn my_to_string(&self) -> String;
-}
-
-/*
-impl MyToString for HashMap<String, ASTType> {
-    fn my_to_string(&self) -> String {
-        let pars: Vec<String> = self
-            .iter()
-            .map(|(name, it)| format!("{name}={it}"))
-            .collect();
-        pars.join(",")
-    }
-}
-*/
-
-impl MyToString for LinkedHashMap<String, ASTType> {
-    fn my_to_string(&self) -> String {
-        let pars: Vec<String> = self
-            .iter()
-            .map(|(name, it)| format!("{name}={it}"))
-            .collect();
-        pars.join(",")
-    }
-}
-
-impl Display for dyn MyToString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.my_to_string())
     }
 }
 

@@ -1,6 +1,6 @@
 use type_check_error::TypeCheckError;
 
-use crate::codegen::eh_ast::{ASTIndex, MyToString};
+use crate::codegen::eh_ast::ASTIndex;
 use crate::codegen::eh_ast::{ASTType, BuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -196,7 +196,7 @@ pub fn resolve_generic_types_from_effective_type(
         ASTType::Unit => {}
     }
 
-    debug_i!("result {}", result.my_to_string());
+    debug_i!("result {result}");
     dedent!();
     Ok(result)
 }

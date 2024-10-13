@@ -1,10 +1,44 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::fmt::Display;
+use std::fmt::{self, Formatter};
+use std::hash::Hash;
 use std::slice::Iter;
+
+use linked_hash_map::LinkedHashMap;
 
 #[macro_use]
 pub mod debug_indent;
+
+// TODO is it useful?
+pub trait MyToString {
+    fn my_to_string(&self) -> String;
+}
+
+impl Display for dyn MyToString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.my_to_string())
+    }
+}
+
+impl<KEY: Display + Hash + Eq, VALUE: Display> MyToString for HashMap<KEY, VALUE> {
+    fn my_to_string(&self) -> String {
+        let pars: Vec<String> = self
+            .iter()
+            .map(|(name, it)| format!("{name}={it}"))
+            .collect();
+        pars.join(",")
+    }
+}
+
+impl<KEY: Display + Hash + Eq, VALUE: Display> MyToString for LinkedHashMap<KEY, VALUE> {
+    fn my_to_string(&self) -> String {
+        let pars: Vec<String> = self
+            .iter()
+            .map(|(name, it)| format!("{name}={it}"))
+            .collect();
+        pars.join(",")
+    }
+}
 
 pub fn format_option<T: Display>(o: &Option<T>) -> String {
     match o {
@@ -87,9 +121,19 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use crate::codegen::eh_ast::ASTNameSpace;
+    use std::collections::HashMap;
+
+    use crate::{codegen::eh_ast::ASTNameSpace, utils::MyToString};
 
     pub fn test_namespace() -> ASTNameSpace {
         ASTNameSpace::new("test".to_string(), "test".to_string())
+    }
+
+    #[test]
+    pub fn test_hashmap_mytostring() {
+        let mut map = HashMap::new();
+        map.insert("key", 1);
+
+        assert_eq!("key=1", format!("{}", map.my_to_string()));
     }
 }

@@ -8,7 +8,6 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
-use linked_hash_map::LinkedHashMap;
 
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
@@ -1131,38 +1130,6 @@ impl ASTModifiers {
 
     pub fn private() -> Self {
         Self { public: false }
-    }
-}
-
-pub trait MyToString {
-    fn my_to_string(&self) -> String;
-}
-
-/*
-impl MyToString for HashMap<String, ASTType> {
-    fn my_to_string(&self) -> String {
-        let pars: Vec<String> = self
-            .iter()
-            .map(|(name, it)| format!("{name}={it}"))
-            .collect();
-        pars.join(",")
-    }
-}
-*/
-
-impl MyToString for LinkedHashMap<String, ASTType> {
-    fn my_to_string(&self) -> String {
-        let pars: Vec<String> = self
-            .iter()
-            .map(|(name, it)| format!("{name}={it}"))
-            .collect();
-        pars.join(",")
-    }
-}
-
-impl Display for dyn MyToString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.my_to_string())
     }
 }
 
