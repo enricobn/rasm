@@ -518,7 +518,10 @@ impl RasmProject {
             panic!();
         }
 
-        return (module, EhModuleInfo::new(None, ASTNameSpace::global()));
+        return (
+            module,
+            EhModuleInfo::new(Some(PathBuf::new()), ASTNameSpace::global()),
+        );
     }
 
     fn get_modules(
