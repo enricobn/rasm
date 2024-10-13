@@ -1563,7 +1563,10 @@ mod tests {
         let item = items.remove(0);
 
         if let Some(SelectableItemTarget::Function(index, _, descr)) = item.target {
-            assert_eq!(ASTIndex::none(), index);
+            assert_eq!(
+                ASTIndex::new(Some(file_name.canonicalize().unwrap()), 0, 0),
+                index
+            );
             assert!(descr.starts_with("native match"));
         } else {
             panic!("Found {:?}", item.target);

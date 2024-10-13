@@ -672,7 +672,7 @@ impl RasmProject {
         Some((
             entry_module,
             module_errors,
-            EhModuleInfo::new(Some(path.to_path_buf()), namespace),
+            EhModuleInfo::new(Some(path.to_path_buf().canonicalize().unwrap()), namespace),
         ))
     }
 
