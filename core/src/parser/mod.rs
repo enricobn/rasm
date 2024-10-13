@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use log::debug;
 
 use crate::codegen::eh_ast::ASTIndex;
-use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
@@ -27,7 +26,6 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::utils::{OptionDisplay, SliceDisplay};
 
 mod asm_def_parser;
@@ -424,7 +422,6 @@ impl Parser {
 
     fn get_return(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
         let module = ASTModule {
-            path: path.to_path_buf(),
             body: self.body.clone(),
             functions: self.functions.clone(),
             enums: self.enums.clone(),

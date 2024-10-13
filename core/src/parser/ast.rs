@@ -463,7 +463,6 @@ impl Display for dyn MyToString {
 
 #[derive(Debug, Clone)]
 pub struct ASTModule {
-    pub path: PathBuf,
     pub body: Vec<ASTStatement>,
     pub functions: Vec<ASTFunctionDef>,
     pub enums: Vec<ASTEnumDef>,
@@ -474,7 +473,6 @@ pub struct ASTModule {
 impl ASTModule {
     pub fn empty() -> Self {
         ASTModule {
-            path: Default::default(),
             body: vec![],
             functions: vec![],
             enums: vec![],
