@@ -156,10 +156,6 @@ impl<'a> FunctionTypeChecker<'a> {
                     errors.extend(e_errors);
 
                     if let Some(filter) = result.get(&e.get_index()) {
-                        if key == "newModel" {
-                            println!("newModel {filter}");
-                        }
-
                         if let TypeFilter::Exact(ast_type) = filter {
                             if *is_const {
                                 statics.add_const(key.clone(), ast_type.clone());
@@ -355,12 +351,12 @@ impl<'a> FunctionTypeChecker<'a> {
         let mut errors = Vec::new();
         let mut result = FunctionTypeCheckerResult::new();
 
-        if call.function_name == "model" && call.parameters.len() == 2 {
-            println!("found newModel");
-        }
+        // TODO I don't like it
+        let mut call = call.clone();
+        call.original_function_name = call.original_function_name.replace("::", "_");
 
         if let Ok(mut functions) = self.enhanced_ast_module.find_call_vec(
-            call,
+            &call,
             &parameter_types_filters,
             expected_expression_type,
         ) {
@@ -417,7 +413,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     let (function_result, function_errors) = self.process_function_signature(
                         &function_signature,
                         &parameter_types_filters,
-                        call,
+                        &call,
                         val_context,
                         statics,
                         expected_expression_type,
@@ -682,11 +678,6 @@ mod tests {
             "Some(Exact(Option<i32>))",
             format!("{}", OptionDisplay(&r_value),)
         );
-        /*
-        for (index, type_filter) in result {
-            println!("{index} {type_filter}");
-        }
-        */
     }
 
     #[test]
