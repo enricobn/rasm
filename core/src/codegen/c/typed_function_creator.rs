@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::eh_ast::{EnhASTFunctionBody, EnhASTNameSpace};
+use crate::codegen::enh_ast::{EnhASTFunctionBody, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;

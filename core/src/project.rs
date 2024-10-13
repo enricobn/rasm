@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace, EhModuleInfo};
+use crate::codegen::enh_ast::{EhModuleInfo, EnhASTIndex, EnhASTNameSpace};
 use crate::commandline::CommandLineOptions;
 use linked_hash_map::LinkedHashMap;
 use log::info;

@@ -1,7 +1,7 @@
 use anymap::AnyMap;
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::eh_ast::EnhASTType;
+use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::type_check::typed_ast::ASTTypedType;
 

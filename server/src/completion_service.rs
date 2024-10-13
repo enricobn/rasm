@@ -21,7 +21,7 @@ use std::io;
 use std::ops::Deref;
 
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::eh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
@@ -529,7 +529,7 @@ mod tests {
     use env_logger::Builder;
 
     use rasm_core::codegen::compile_target::CompileTarget;
-    use rasm_core::codegen::eh_ast::{
+    use rasm_core::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };

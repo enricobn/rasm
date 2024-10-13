@@ -13,7 +13,7 @@ use iced::{
     Background, Color, Element, Length, Padding, Theme,
 };
 use rasm_core::{
-    codegen::eh_ast::{EnhASTIndex, EnhASTModule, EnhASTType, EnhBuiltinTypeKind},
+    codegen::enh_ast::{EnhASTIndex, EnhASTModule, EnhASTType, EnhBuiltinTypeKind},
     lexer::{tokens::TokenKind, Lexer},
     type_check::functions_container::TypeFilter,
 };

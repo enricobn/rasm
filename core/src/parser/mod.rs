@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use log::debug;
 
-use crate::codegen::eh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::EnhASTIndex;
 use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{

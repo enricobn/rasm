@@ -32,7 +32,9 @@ use crate::codegen::c::any::CInclude;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
-use crate::codegen::eh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
+use crate::codegen::enh_ast::{
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
+};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
@@ -501,14 +503,22 @@ impl CompileTarget {
                         EnhBuiltinTypeKind::String,
                     ),
                     DefaultFunction::new_1("exitMain", EnhBuiltinTypeKind::I32),
-                    DefaultFunction::new_2("addRef", EnhBuiltinTypeKind::I32, EnhBuiltinTypeKind::String),
+                    DefaultFunction::new_2(
+                        "addRef",
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::String,
+                    ),
                     DefaultFunction::new_3(
                         "memcopy",
                         EnhBuiltinTypeKind::I32,
                         EnhBuiltinTypeKind::I32,
                         EnhBuiltinTypeKind::I32,
                     ),
-                    DefaultFunction::new_2("deref", EnhBuiltinTypeKind::I32, EnhBuiltinTypeKind::String),
+                    DefaultFunction::new_2(
+                        "deref",
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::String,
+                    ),
                     DefaultFunction::new_1("addStaticStringToHeap", EnhBuiltinTypeKind::I32),
                     DefaultFunction::new_2(
                         "createCmdLineArguments",

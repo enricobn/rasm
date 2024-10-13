@@ -12,7 +12,7 @@ use crate::parser::ast::{
     ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
-use crate::codegen::eh_ast::{self, EhModuleInfo};
+use crate::codegen::enh_ast::{self, EhModuleInfo};
 
 pub trait FunctionsCreator {
     fn create(&self, module: &mut ASTModule, statics: &mut Statics, info: &EhModuleInfo) {
@@ -704,7 +704,11 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         module.add_function(
             name,
-            eh_ast::EnhASTFunctionDef::from_ast(None, eh_ast::EnhASTNameSpace::global(), function_def),
+            enh_ast::EnhASTFunctionDef::from_ast(
+                None,
+                enh_ast::EnhASTNameSpace::global(),
+                function_def,
+            ),
         );
 
         let body_src = self.str_add_ref_body(&message_key);
@@ -729,7 +733,11 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         module.add_function(
             name,
-            eh_ast::EnhASTFunctionDef::from_ast(None, eh_ast::EnhASTNameSpace::global(), function_def),
+            enh_ast::EnhASTFunctionDef::from_ast(
+                None,
+                enh_ast::EnhASTNameSpace::global(),
+                function_def,
+            ),
         );
     }
 

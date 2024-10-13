@@ -3,7 +3,7 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::BackendAsm;
-use crate::codegen::eh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};

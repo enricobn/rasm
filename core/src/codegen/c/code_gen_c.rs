@@ -24,7 +24,7 @@ use crate::codegen::c::text_macro::{
     CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;

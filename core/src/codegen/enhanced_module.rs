@@ -4,9 +4,10 @@ use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
 use crate::errors::{self, CompilationError};
 
-use crate::codegen::eh_ast::{
-    EnhASTEnumDef, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex, EnhASTModule,
-    EnhASTNameSpace, EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, CustomTypeDef,
+use crate::codegen::enh_ast::{
+    CustomTypeDef, EnhASTEnumDef, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
+    EnhASTIndex, EnhASTModule, EnhASTNameSpace, EnhASTStatement, EnhASTStructDef, EnhASTType,
+    EnhASTTypeDef,
 };
 use crate::debug_i;
 use crate::parser::ast;
@@ -15,7 +16,7 @@ use crate::transformations::globals_creator::add_folder;
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 
-use super::eh_ast::EhModuleInfo;
+use super::enh_ast::EhModuleInfo;
 
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {

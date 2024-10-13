@@ -3,7 +3,7 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
-use crate::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;

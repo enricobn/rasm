@@ -6,7 +6,7 @@ use linked_hash_set::LinkedHashSet;
 use log::info;
 
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::eh_ast::{
+use crate::codegen::enh_ast::{
     EnhASTEnumDef, EnhASTEnumVariantDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall,
     EnhASTFunctionDef, EnhASTIndex, EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef,
     EnhASTStatement, EnhASTStructDef, EnhASTStructPropertyDef, EnhASTType, EnhASTTypeDef,
@@ -1981,7 +1981,7 @@ impl DefaultFunction {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::eh_ast::{
+    use crate::codegen::enh_ast::{
         EnhASTEnumDef, EnhASTIndex, EnhASTNameSpace, EnhASTStructDef, EnhASTType,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;

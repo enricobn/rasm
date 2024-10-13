@@ -1,7 +1,7 @@
 use type_check_error::TypeCheckError;
 
-use crate::codegen::eh_ast::EnhASTIndex;
-use crate::codegen::eh_ast::{EnhASTType, EnhBuiltinTypeKind};
+use crate::codegen::enh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::{debug_i, dedent, indent};
@@ -318,7 +318,7 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::eh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
     use crate::type_check::resolve_generic_types_from_effective_type;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;

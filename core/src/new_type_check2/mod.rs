@@ -27,7 +27,7 @@ use crate::codegen::compile_target::CompileTarget;
 use crate::parser::ast::ASTValueType;
 use log::info;
 
-use crate::codegen::eh_ast::{
+use crate::codegen::enh_ast::{
     EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
     EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement, EnhASTType,
     EnhBuiltinTypeKind,
@@ -1743,7 +1743,7 @@ mod tests {
     use env_logger::Builder;
 
     use crate::codegen::compile_target::CompileTarget;
-    use crate::codegen::eh_ast::{
+    use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };

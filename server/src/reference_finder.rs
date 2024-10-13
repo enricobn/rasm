@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use log::{debug, warn};
 
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::eh_ast::{
+use rasm_core::codegen::enh_ast::{
     EnhASTEnumDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
     EnhASTIndex, EnhASTLambdaDef, EnhASTModule, EnhASTNameSpace, EnhASTParameterDef,
     EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, EnhBuiltinTypeKind,
@@ -1162,7 +1162,7 @@ mod tests {
 
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
-    use rasm_core::codegen::eh_ast::{EnhASTIndex, EnhASTModule, EnhASTType};
+    use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTModule, EnhASTType};
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;

@@ -20,7 +20,7 @@ use std::fmt::{Display, Formatter};
 
 use linked_hash_map::{IntoIter, Iter, LinkedHashMap};
 
-use crate::{codegen::eh_ast::EnhASTType, codegen::enhanced_module::EnhancedASTModule};
+use crate::{codegen::enh_ast::EnhASTType, codegen::enhanced_module::EnhancedASTModule};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGenericTypes {

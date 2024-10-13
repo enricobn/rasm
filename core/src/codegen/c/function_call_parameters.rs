@@ -20,7 +20,7 @@ use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
 use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
 use crate::codegen::c::options::COptions;
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;

@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::eh_ast::{
+use crate::codegen::enh_ast::{
     EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex, EnhASTType,
     EnhBuiltinTypeKind,
 };
@@ -808,7 +808,7 @@ mod tests {
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::compile_target::CompileTarget;
-    use crate::codegen::eh_ast::{
+    use crate::codegen::enh_ast::{
         EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
         EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind,
     };

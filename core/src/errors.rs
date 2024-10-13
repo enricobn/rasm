@@ -18,7 +18,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::codegen::eh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::EnhASTIndex;
 use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Clone, Debug)]

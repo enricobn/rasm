@@ -18,7 +18,7 @@
 
 use crate::codegen::c::code_gen_c::CCodeManipulator;
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::EhModuleInfo;
+use crate::codegen::enh_ast::EhModuleInfo;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};

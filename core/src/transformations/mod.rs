@@ -1,5 +1,5 @@
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::eh_ast::EhModuleInfo;
+use crate::codegen::enh_ast::EhModuleInfo;
 use crate::codegen::statics::Statics;
 use crate::parser::ast::ASTModule;
 

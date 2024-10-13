@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    codegen::eh_ast::{
+    codegen::enh_ast::{
         EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
         EnhASTFunctionSignature, EnhASTIndex, EnhASTParameterDef, EnhASTStatement, EnhASTType,
         EnhBuiltinTypeKind,
@@ -563,7 +563,7 @@ mod tests {
         codegen::{
             c::options::COptions,
             compile_target::CompileTarget,
-            eh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTModule, EnhASTNameSpace},
+            enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTModule, EnhASTNameSpace},
             enhanced_module::EnhancedASTModule,
             statics::Statics,
             val_context::ValContext,

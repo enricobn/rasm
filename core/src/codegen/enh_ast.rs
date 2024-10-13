@@ -1504,7 +1504,7 @@ pub fn lambda_unit() -> EnhASTType {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::eh_ast::{
+    use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };

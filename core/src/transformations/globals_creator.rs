@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::codegen::eh_ast::{EnhASTExpression, EnhASTIndex, EnhASTStatement};
+use crate::codegen::enh_ast::{EnhASTExpression, EnhASTIndex, EnhASTStatement};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 
 pub fn add_folder(

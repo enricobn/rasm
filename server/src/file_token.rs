@@ -20,7 +20,7 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::PathBuf;
 
-use rasm_core::codegen::eh_ast::EnhASTIndex;
+use rasm_core::codegen::enh_ast::EnhASTIndex;
 
 #[derive(Debug, Clone)]
 pub struct FileToken {

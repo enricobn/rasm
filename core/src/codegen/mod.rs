@@ -15,7 +15,7 @@ use snailquote::unescape;
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::eh_ast::{
+use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
     EnhBuiltinTypeKind,
 };
@@ -52,7 +52,7 @@ pub mod backend;
 pub mod c;
 mod code_manipulator;
 pub mod compile_target;
-pub mod eh_ast;
+pub mod enh_ast;
 pub mod enhanced_module;
 pub mod function_call_parameters;
 pub mod lambda;

@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::eh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::EnhASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedStatement,

@@ -1,6 +1,6 @@
 use linked_hash_map::{Iter, LinkedHashMap};
 
-use crate::codegen::eh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::{TypedValKind, ValKind};
 use crate::debug_i;
 use crate::type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};

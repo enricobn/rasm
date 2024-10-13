@@ -9,7 +9,7 @@ use log::debug;
 use regex::Regex;
 
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::{
+use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
 };
 use crate::codegen::statics::Statics;
@@ -1523,7 +1523,7 @@ mod tests {
     use crate::parser::ast::ASTModifiers;
     use linked_hash_map::LinkedHashMap;
 
-    use crate::codegen::eh_ast::{
+    use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };

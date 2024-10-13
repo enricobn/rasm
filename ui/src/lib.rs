@@ -21,7 +21,7 @@ use rasm_core::{
     utils::SliceDisplay,
 };
 
-use rasm_core::codegen::eh_ast;
+use rasm_core::codegen::enh_ast;
 
 mod module_view;
 mod project_tree;
@@ -202,7 +202,7 @@ impl UI {
                 );
 
                 for function in module.functions {
-                    let eh_function = eh_ast::EnhASTFunctionDef::from_ast(
+                    let eh_function = enh_ast::EnhASTFunctionDef::from_ast(
                         info.path.clone(),
                         info.namespace.clone(),
                         function,
