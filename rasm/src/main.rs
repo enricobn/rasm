@@ -7,7 +7,6 @@ use std::time::Instant;
 
 use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
-use log::debug;
 use log::info;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
 use rasm_core::debug_i;

@@ -491,7 +491,7 @@ impl<'a> FunctionTypeChecker<'a> {
             }
         }
 
-        let mut return_type =
+        let return_type =
             if function_signature.return_type.is_generic() && resolved_generic_types.len() > 0 {
                 if let Some(return_type) =
                     substitute(&function_signature.return_type, &resolved_generic_types)

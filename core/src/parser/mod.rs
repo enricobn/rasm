@@ -1444,8 +1444,6 @@ mod tests {
         ASTPosition, ASTStatement, ASTType, ASTValueType, BuiltinTypeKind,
     };
     use crate::parser::Parser;
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::tests::test_namespace;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();

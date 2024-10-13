@@ -1173,7 +1173,6 @@ mod tests {
     use crate::completion_service::{CompletionItem, CompletionTrigger};
     use crate::reference_finder::{CompletionResult, ReferenceFinder};
     use crate::selectable_item::{SelectableItem, SelectableItemTarget};
-    use rasm_core::parser::ast;
 
     #[test]
     fn simple() {

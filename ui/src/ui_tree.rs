@@ -1,6 +1,5 @@
 use iced::{
-    widget::{button, container, horizontal_space, row, text, Column, Row},
-    Background, Color, Element, Length,
+    widget::{button, horizontal_space, row, text, Column, Row}, Element,
 };
 
 pub struct UITree<'a, Message> {

@@ -120,7 +120,6 @@ mod tests {
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
     use crate::parser::ParserTrait;
-    use crate::utils::tests::test_namespace;
 
     impl StructParser {
         pub fn try_parse_struct(

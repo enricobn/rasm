@@ -245,7 +245,6 @@ mod tests {
     use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTType};
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
-    use crate::utils::tests::test_namespace;
 
     use super::*;
 

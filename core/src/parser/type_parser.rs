@@ -62,7 +62,10 @@ impl<'a> TypeParser<'a> {
                 }
             } else if let TokenKind::AlphaNumeric(type_name) = kind {
                 if context_generic_types.contains(type_name) {
-                    Some((Generic(self.parser.get_position(n), type_name.into()), next_i))
+                    Some((
+                        Generic(self.parser.get_position(n), type_name.into()),
+                        next_i,
+                    ))
                 } else {
                     let (param_types, next_i) = if let Some((param_types, next_i)) =
                         self.try_parse_parameter_types(n + 1, context_generic_types, rec)?
@@ -244,7 +247,6 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{lambda_unit, ASTPosition};
     use crate::parser::test_utils::get_parser;
-    use crate::utils::tests::test_namespace;
 
     use super::*;
 

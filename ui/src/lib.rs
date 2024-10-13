@@ -240,7 +240,7 @@ impl UI {
     }
 
     fn show_function<'a>(&'a self, function: &'a ASTFunctionDef) -> Element<Message> {
-        let mut column = Column::new()
+        let column = Column::new()
             .spacing(10)
             .push(button("Back").on_press(Message::BackToModule))
             .push(text(format!("{}", function)));
