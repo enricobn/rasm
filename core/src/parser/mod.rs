@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use log::debug;
 
-use crate::codegen::eh_ast::ASTIndex;
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
@@ -17,7 +17,7 @@ use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModifiers,
-    ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ValueType,
+    ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ASTValueType,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
@@ -157,7 +157,7 @@ impl Parser {
         let errors = lexer_errors
             .into_iter()
             .map(|it| CompilationError {
-                index: ASTIndex::new(file_name.clone(), it.row, it.column),
+                index: EnhASTIndex::new(file_name.clone(), it.row, it.column),
                 error_kind: CompilationErrorKind::Lexer(it.message),
             })
             .collect();
@@ -442,7 +442,7 @@ impl Parser {
             .unwrap_or_else(|| ASTPosition::new(0, 0));
 
         self.errors.push(CompilationError {
-            index: ASTIndex::from_position(self.file_name.clone(), index),
+            index: EnhASTIndex::from_position(self.file_name.clone(), index),
             error_kind: CompilationErrorKind::Parser(message),
         });
     }
@@ -1193,12 +1193,12 @@ impl Parser {
     fn try_parse_val(&self) -> Result<Option<(ASTExpression, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::True)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Boolean(true), self.get_position(0)),
+                ASTExpression::Value(ASTValueType::Boolean(true), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::KeyWord(KeywordKind::False)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Boolean(false), self.get_position(0)),
+                ASTExpression::Value(ASTValueType::Boolean(false), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
@@ -1207,7 +1207,7 @@ impl Parser {
             {
                 if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
                     (
-                        ValueType::F32((n.to_owned() + "." + n1).parse().map_err(|err| {
+                        ASTValueType::F32((n.to_owned() + "." + n1).parse().map_err(|err| {
                             format!(
                                 "Cannot parse '{n}.{n1}' as an f32, {err}: {}",
                                 self.get_position(0)
@@ -1217,7 +1217,7 @@ impl Parser {
                     )
                 } else {
                     (
-                        ValueType::I32(n.parse().map_err(|err| {
+                        ASTValueType::I32(n.parse().map_err(|err| {
                             format!(
                                 "Cannot parse '{n}' as an i32, {err}: {}",
                                 self.get_position(0)
@@ -1228,7 +1228,7 @@ impl Parser {
                 }
             } else {
                 (
-                    ValueType::I32(n.parse().map_err(|err| {
+                    ASTValueType::I32(n.parse().map_err(|err| {
                         format!(
                             "Cannot parse '{n}' as an i32, {err}: {}",
                             self.get_position(0)
@@ -1244,7 +1244,7 @@ impl Parser {
             )));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ValueType::Char(c.clone()), self.get_position(0)),
+                ASTExpression::Value(ASTValueType::Char(c.clone()), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
@@ -1422,8 +1422,8 @@ pub trait ParserTrait {
             .unwrap_or(ASTPosition::none())
     }
 
-    fn get_index(&self, n: usize) -> ASTIndex {
-        ASTIndex::from_position(self.file_name().clone(), self.get_position(n))
+    fn get_index(&self, n: usize) -> EnhASTIndex {
+        EnhASTIndex::from_position(self.file_name().clone(), self.get_position(n))
     }
 
     fn wrap_error(&self, message: &str) -> String {
@@ -1441,7 +1441,7 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModifiers, ASTModule,
-        ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+        ASTPosition, ASTStatement, ASTType, ASTValueType, BuiltinTypeKind,
     };
     use crate::parser::Parser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -1492,12 +1492,12 @@ mod tests {
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
             assert_eq!("add", call.function_name);
             assert_eq!(2, call.parameters.len());
-            if let Some(ASTExpression::Value(ValueType::I32(n), _)) = call.parameters.get(0) {
+            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters.get(0) {
                 assert_eq!(10, *n);
             } else {
                 panic!();
             }
-            if let Some(ASTExpression::Value(ValueType::I32(n), _)) = call.parameters.get(1) {
+            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters.get(1) {
                 assert_eq!(20, *n);
             } else {
                 panic!();
@@ -1573,7 +1573,7 @@ mod tests {
         let function_call = ASTFunctionCall {
             function_name: "println".to_string(),
             parameters: vec![ASTExpression::Value(
-                ValueType::I32(20),
+                ASTValueType::I32(20),
                 ASTPosition::new(1, 16),
             )],
             generics: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
@@ -1625,7 +1625,7 @@ mod tests {
         let function_call = ASTFunctionCall {
             function_name: "Option::Some".to_string(),
             parameters: vec![ASTExpression::Value(
-                ValueType::I32(20),
+                ASTValueType::I32(20),
                 ASTPosition::new(1, 16),
             )],
             generics: Vec::new(),

@@ -704,7 +704,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         module.add_function(
             name,
-            eh_ast::ASTFunctionDef::from_ast(None, eh_ast::ASTNameSpace::global(), function_def),
+            eh_ast::EnhASTFunctionDef::from_ast(None, eh_ast::EnhASTNameSpace::global(), function_def),
         );
 
         let body_src = self.str_add_ref_body(&message_key);
@@ -729,7 +729,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         module.add_function(
             name,
-            eh_ast::ASTFunctionDef::from_ast(None, eh_ast::ASTNameSpace::global(), function_def),
+            eh_ast::EnhASTFunctionDef::from_ast(None, eh_ast::EnhASTNameSpace::global(), function_def),
         );
     }
 

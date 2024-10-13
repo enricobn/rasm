@@ -16,7 +16,8 @@ use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::code_manipulator::{CodeManipulator, CodeManipulatorNasm};
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::eh_ast::{
-    ASTFunctionDef, ASTIndex, ASTNameSpace, ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
+    EnhBuiltinTypeKind,
 };
 use crate::codegen::function_call_parameters::{
     FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsmImpl,
@@ -33,6 +34,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
+use crate::parser::ast::ASTValueType;
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references,
 };
@@ -104,12 +106,12 @@ pub struct CodeGenAsm {
 
 #[derive(Clone, Debug)]
 pub enum ValKind {
-    ParameterRef(usize, ASTParameterDef),
-    LetRef(usize, ASTType, ASTIndex),
+    ParameterRef(usize, EnhASTParameterDef),
+    LetRef(usize, EnhASTType, EnhASTIndex),
 }
 
 impl ValKind {
-    pub fn ast_type(&self) -> ASTType {
+    pub fn ast_type(&self) -> EnhASTType {
         match self {
             ValKind::ParameterRef(_, par) => par.ast_type.clone(),
             ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
@@ -366,7 +368,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn call_function_(
         &'a self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         function_call: &&ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: &Option<&ASTTypedFunctionDef>,
@@ -751,7 +753,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn add_let(
         &'a self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         context: &mut TypedValContext,
         stack: &StackVals,
         after: &mut String,
@@ -873,7 +875,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 (
                     typed_type,
                     (String::new(), String::new(), vec![], vec![]),
-                    ASTIndex::none(),
+                    EnhASTIndex::none(),
                 )
             }
             ASTTypedExpression::ValueRef(val_name, index) => {
@@ -996,7 +998,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         type_name: &String,
     );
 
@@ -1013,7 +1015,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn call_add_ref_for_let_val(
         &self,
         name: &str,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -1064,7 +1066,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         statics: &mut Statics,
         body: &mut String,
         address_relative_to_bp: usize,
-        value_type: &ValueType,
+        value_type: &ASTValueType,
         typed_type: &ASTTypedType,
     );
 
@@ -1078,7 +1080,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         val_name: &str,
         error_msg: &str,
         stack_vals: &StackVals,
-        ast_index: &ASTIndex,
+        ast_index: &EnhASTIndex,
         statics: &Statics,
         typed_module: &ASTTypedModule,
     ) {
@@ -1443,7 +1445,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         def: &ASTTypedFunctionDef,
     );
 
-    fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics);
+    fn value_as_return(&self, before: &mut String, value_type: &ASTValueType, statics: &Statics);
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
 
@@ -1455,7 +1457,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn generate_call_function(
         &'a self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
         parent_def: Option<&ASTTypedFunctionDef>,
@@ -1575,7 +1577,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         ASTTypedParameterDef {
                             name,
                             ast_type: it.clone(),
-                            ast_index: ASTIndex::none(), // TODO I don't know...
+                            ast_index: EnhASTIndex::none(), // TODO I don't know...
                         }
                     })
                     .collect();
@@ -1904,7 +1906,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn create_lambda_add_ref_like_function(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -1922,7 +1924,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn called_functions(
         &self,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
@@ -1940,17 +1942,19 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             &|name, _parameter| name == "call",
         )? {
             debug_i!("found call macro {m}");
-            let types: Vec<ASTType> = m
+            let types: Vec<EnhASTType> = m
                 .parameters
                 .iter()
                 .skip(1)
                 .map(|it| {
                     let ast_type = match it {
                         MacroParam::Plain(_, opt_type, _) => match opt_type {
-                            None => ASTType::Builtin(BuiltinTypeKind::I32),
+                            None => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
                             Some(ast_type) => ast_type.clone(),
                         },
-                        MacroParam::StringLiteral(_) => ASTType::Builtin(BuiltinTypeKind::String),
+                        MacroParam::StringLiteral(_) => {
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::String)
+                        }
                         MacroParam::Ref(name, None, _) => {
                             debug_i!("found ref {name}");
                             match context.get(name.strip_prefix('$').unwrap()).unwrap() {
@@ -1965,7 +1969,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                     };
 
                     match &ast_type {
-                        ASTType::Generic(_, name) => {
+                        EnhASTType::Generic(_, name) => {
                             if let Some(f) = typed_function_def {
                                 let t = type_def_provider
                                     .get_type_from_custom_typed_type(
@@ -1979,7 +1983,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                 Ok(ast_type.clone())
                             }
                         }
-                        ASTType::Custom {
+                        EnhASTType::Custom {
                             namespace: _,
                             name,
                             param_types: _,
@@ -2006,7 +2010,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         _ => Ok(ast_type),
                     }
                 })
-                .collect::<Result<Vec<ASTType>, String>>()?;
+                .collect::<Result<Vec<EnhASTType>, String>>()?;
 
             let function_name =
                 if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
@@ -2043,7 +2047,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn add_statics(&self, statics: &mut Statics);
 
-    fn value_to_string(&self, value_type: &ValueType) -> String;
+    fn value_to_string(&self, value_type: &ASTValueType) -> String;
 }
 
 pub fn get_reference_type_name(
@@ -2371,7 +2375,7 @@ impl CodeGenAsm {
 
     fn create_lambda_addref(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -2389,7 +2393,7 @@ impl CodeGenAsm {
 
     fn create_lambda_deref(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -2925,7 +2929,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         type_name: &String,
     ) {
         let entry = statics.get_typed_const(name).unwrap();
@@ -2964,7 +2968,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     fn call_add_ref_for_let_val(
         &self,
         name: &str,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -3106,7 +3110,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         statics: &mut Statics,
         body: &mut String,
         address_relative_to_bp: usize,
-        value_type: &ValueType,
+        value_type: &ASTValueType,
         typed_type: &ASTTypedType,
     ) {
         let bp = self.backend.stack_base_pointer();
@@ -3184,7 +3188,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics) {
+    fn value_as_return(&self, before: &mut String, value_type: &ASTValueType, statics: &Statics) {
         let ws = self.backend.word_size();
         let rr = self.return_register();
         let v = self.value_to_string(value_type);
@@ -3339,7 +3343,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
     fn create_lambda_add_ref_like_function(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -3401,12 +3405,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             ASTTypedParameterDef {
                 name: "address".to_owned(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             },
             ASTTypedParameterDef {
                 name: "descr".to_owned(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             },
         ];
 
@@ -3419,7 +3423,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             return_type: ASTTypedType::Unit,
             generic_types: LinkedHashMap::new(),
             inline: false,
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         })
     }
 
@@ -3647,14 +3651,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         statics.insert("_for_nprint".into(), Mem(20, Bytes));
     }
 
-    fn value_to_string(&self, value_type: &ValueType) -> String {
+    fn value_to_string(&self, value_type: &ASTValueType) -> String {
         match value_type {
-            ValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
-            ValueType::I32(n) => n.to_string(),
-            ValueType::F32(n) => {
+            ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
+            ASTValueType::I32(n) => n.to_string(),
+            ASTValueType::F32(n) => {
                 format!("0x{:x}", n.to_bits())
             }
-            ValueType::Char(c) => {
+            ASTValueType::Char(c) => {
                 let mut b = [0; 4];
                 let unescaped = unescape(&format!("\"{}\"", c.replace("\"", "\\\""))).unwrap();
                 unescaped.chars().next().unwrap().encode_utf8(&mut b);

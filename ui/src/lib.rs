@@ -202,7 +202,7 @@ impl UI {
                 );
 
                 for function in module.functions {
-                    let eh_function = eh_ast::ASTFunctionDef::from_ast(
+                    let eh_function = eh_ast::EnhASTFunctionDef::from_ast(
                         info.path.clone(),
                         info.namespace.clone(),
                         function,

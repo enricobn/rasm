@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::eh_ast::{ASTIndex, ASTNameSpace, EhModuleInfo};
+use crate::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace, EhModuleInfo};
 use crate::commandline::CommandLineOptions;
 use linked_hash_map::LinkedHashMap;
 use log::info;
@@ -477,7 +477,7 @@ impl RasmProject {
                     false
                 };
 
-                let index = ASTIndex::from_position(info.path.clone(), function.index.clone());
+                let index = EnhASTIndex::from_position(info.path.clone(), function.index.clone());
 
                 if !valid {
                     errors.push(CompilationError {
@@ -520,7 +520,7 @@ impl RasmProject {
 
         return (
             module,
-            EhModuleInfo::new(Some(PathBuf::new()), ASTNameSpace::global()),
+            EhModuleInfo::new(Some(PathBuf::new()), EnhASTNameSpace::global()),
         );
     }
 
@@ -540,7 +540,7 @@ impl RasmProject {
                 .to_string();
 
             let path = PathBuf::from(&main_src_file).canonicalize().unwrap();
-            let namespace = ASTNameSpace::new(self.config.package.name.clone(), name);
+            let namespace = EnhASTNameSpace::new(self.config.package.name.clone(), name);
             let (module, errors) = self.module_from_file(&path);
 
             vec![(module, errors, EhModuleInfo::new(Some(path), namespace))]
@@ -611,7 +611,7 @@ impl RasmProject {
             }
         };
 
-        let namespace = ASTNameSpace::new(
+        let namespace = EnhASTNameSpace::new(
             self.config.package.name.clone(),
             diff_paths(
                 path.canonicalize().unwrap(),
@@ -685,7 +685,7 @@ impl RasmProject {
 
     fn generic_error(path: &Path, message: &str) -> CompilationError {
         CompilationError {
-            index: ASTIndex::new(Some(path.to_path_buf()), 0, 0),
+            index: EnhASTIndex::new(Some(path.to_path_buf()), 0, 0),
             error_kind: CompilationErrorKind::Generic(message.to_owned()),
         }
     }
@@ -820,7 +820,7 @@ impl RasmProject {
     ) -> (ASTModule, Vec<CompilationError>, EhModuleInfo) {
         let main_path = Path::new(&main_file);
 
-        let namespace = ASTNameSpace::new(
+        let namespace = EnhASTNameSpace::new(
             "::core".to_string(),
             main_path.with_extension("").to_string_lossy().to_string(),
         );

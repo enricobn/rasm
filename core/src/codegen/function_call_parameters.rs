@@ -3,13 +3,14 @@ use linked_hash_map::LinkedHashMap;
 use log::debug;
 
 use crate::codegen::backend::BackendAsm;
-use crate::codegen::eh_ast::{ASTIndex, ValueType};
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm, TypedValKind};
+use crate::parser::ast::ASTValueType;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
@@ -84,13 +85,13 @@ pub trait FunctionCallParameters {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &StackVals,
-        ast_index: &ASTIndex,
+        ast_index: &EnhASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
     );
 
-    fn add_value_type(&mut self, name: &str, value_type: &ValueType);
+    fn add_value_type(&mut self, name: &str, value_type: &ASTValueType);
 
     fn push(&mut self, s: &str);
 
@@ -669,7 +670,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &StackVals,
-        ast_index: &ASTIndex,
+        ast_index: &EnhASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
@@ -698,7 +699,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         }
     }
 
-    fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
+    fn add_value_type(&mut self, name: &str, value_type: &ASTValueType) {
         let v = self.code_gen.value_to_string(value_type);
         self.add_number(name, v, None);
     }

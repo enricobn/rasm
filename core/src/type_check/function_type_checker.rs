@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     codegen::eh_ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
-        ASTIndex, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
+        EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
+        EnhASTFunctionSignature, EnhASTIndex, EnhASTParameterDef, EnhASTStatement, EnhASTType,
+        EnhBuiltinTypeKind,
     },
     codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
     type_check::type_check_error::TypeCheckError,
@@ -16,7 +17,7 @@ use super::{
 };
 
 pub struct FunctionTypeCheckerResult {
-    map: HashMap<ASTIndex, TypeFilter>,
+    map: HashMap<EnhASTIndex, TypeFilter>,
 }
 
 impl FunctionTypeCheckerResult {
@@ -26,10 +27,10 @@ impl FunctionTypeCheckerResult {
         }
     }
 
-    pub fn insert(&mut self, index: ASTIndex, filter: TypeFilter) {
+    pub fn insert(&mut self, index: EnhASTIndex, filter: TypeFilter) {
         if index.row == 95 && index.column == 49 {
             if let TypeFilter::Exact(ast_type) = &filter {
-                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters: _,
                     return_type: _,
                 }) = ast_type
@@ -41,7 +42,7 @@ impl FunctionTypeCheckerResult {
         self.map.insert(index, filter);
     }
 
-    pub fn get(&self, index: &ASTIndex) -> Option<&TypeFilter> {
+    pub fn get(&self, index: &EnhASTIndex) -> Option<&TypeFilter> {
         self.map.get(index)
     }
 
@@ -63,7 +64,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
     pub fn get_type_map(
         &self,
-        function: &ASTFunctionDef,
+        function: &EnhASTFunctionDef,
         statics: &mut Statics,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
         let mut result = FunctionTypeCheckerResult::new();
@@ -85,7 +86,7 @@ impl<'a> FunctionTypeChecker<'a> {
         }
 
         match &function.body {
-            ASTFunctionBody::RASMBody(body) => {
+            EnhASTFunctionBody::RASMBody(body) => {
                 // TODO return_type
                 (result, _, errors) = self.get_body_type_map(
                     &mut val_context,
@@ -94,7 +95,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     Some(&function.return_type),
                 );
             }
-            ASTFunctionBody::NativeBody(_body) => {}
+            EnhASTFunctionBody::NativeBody(_body) => {}
         }
 
         (result, errors)
@@ -104,8 +105,8 @@ impl<'a> FunctionTypeChecker<'a> {
         &self,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        body: &Vec<ASTStatement>,
-        expected_last_statement_type: Option<&ASTType>,
+        body: &Vec<EnhASTStatement>,
+        expected_last_statement_type: Option<&EnhASTType>,
     ) -> (
         FunctionTypeCheckerResult,
         Option<TypeFilter>,
@@ -123,7 +124,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
-                ASTStatement::Expression(e) => {
+                EnhASTStatement::Expression(e) => {
                     if i == body.len() - 1 {
                         if let Some(ref elst) = expected_last_statement_type {
                             let (e_result, e_errors) = if !elst.is_unit() {
@@ -149,7 +150,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         errors.extend(e_errors);
                     }
                 }
-                ASTStatement::LetStatement(key, e, is_const, index) => {
+                EnhASTStatement::LetStatement(key, e, is_const, index) => {
                     let (e_result, e_errors) =
                         self.get_expr_type_map(e, val_context, statics, None);
                     result.extend(e_result);
@@ -176,39 +177,39 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn get_expr_type_map(
         &self,
-        expr: &ASTExpression,
+        expr: &EnhASTExpression,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_expression_type: Option<&ASTType>,
+        expected_expression_type: Option<&EnhASTType>,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
         let mut errors = Vec::new();
         let mut result = FunctionTypeCheckerResult::new();
 
         match expr {
-            ASTExpression::StringLiteral(_, index) => {
+            EnhASTExpression::StringLiteral(_, index) => {
                 result.insert(
                     index.clone(),
-                    TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::String)),
+                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
                 );
             }
-            ASTExpression::ASTFunctionCallExpression(call) => {
+            EnhASTExpression::ASTFunctionCallExpression(call) => {
                 let (call_result, call_errors) =
                     self.get_call_type_map(call, val_context, statics, expected_expression_type);
                 result.extend(call_result);
                 errors.extend(call_errors);
             }
-            ASTExpression::ValueRef(name, index) => {
+            EnhASTExpression::ValueRef(name, index) => {
                 if let Some(kind) = val_context.get(name) {
                     result.insert(index.clone(), TypeFilter::Exact(kind.ast_type()));
                 } else if let Some(entry) = statics.get_const(name) {
                     result.insert(index.clone(), TypeFilter::Exact(entry.ast_type.clone()));
                 }
             }
-            ASTExpression::Value(value_type, index) => {
-                result.insert(index.clone(), TypeFilter::Exact(value_type.to_type()));
+            EnhASTExpression::Value(value_type, index) => {
+                result.insert(index.clone(), TypeFilter::Exact(value_type.to_enh_type()));
             }
-            ASTExpression::Lambda(lambda) => {
-                if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+            EnhASTExpression::Lambda(lambda) => {
+                if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 })) = expected_expression_type
@@ -221,7 +222,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         // TODO check error
                         if let Err(e) = val_context.insert_par(
                             name.clone(),
-                            ASTParameterDef {
+                            EnhASTParameterDef {
                                 name: name.clone(),
                                 ast_type: ast_type.clone(),
                                 ast_index: index.clone(),
@@ -246,7 +247,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     if let Some(TypeFilter::Exact(brt)) = body_return_type {
                         result.insert(
                             lambda.index.clone(),
-                            TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(brt),
                             })),
@@ -254,7 +255,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     } else {
                         result.insert(
                             lambda.index.clone(),
-                            TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: parameters.clone(),
                                 return_type: return_type.clone(),
                             })),
@@ -267,7 +268,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     );
                 }
             }
-            ASTExpression::Any(_) => todo!(),
+            EnhASTExpression::Any(_) => todo!(),
         }
 
         // the resolved type could be generic on a different generic type, we want to resolve it
@@ -296,10 +297,10 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn get_call_type_map(
         &self,
-        call: &ASTFunctionCall,
+        call: &EnhASTFunctionCall,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_expression_type: Option<&ASTType>,
+        expected_expression_type: Option<&EnhASTType>,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
         /*
         println!(
@@ -330,7 +331,7 @@ impl<'a> FunctionTypeChecker<'a> {
             let return_type = lambda_return_type.as_ref().clone();
             let parameters_types = parameters_types.clone();
 
-            let lambda_signature = ASTFunctionSignature {
+            let lambda_signature = EnhASTFunctionSignature {
                 name: String::new(),
                 parameters_types,
                 return_type,
@@ -425,12 +426,12 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn process_function_signature(
         &self,
-        function_signature: &ASTFunctionSignature,
+        function_signature: &EnhASTFunctionSignature,
         parameter_types_filters: &Vec<TypeFilter>,
-        call: &ASTFunctionCall,
+        call: &EnhASTFunctionCall,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_expression_type: Option<&ASTType>,
+        expected_expression_type: Option<&EnhASTType>,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
         let mut result = FunctionTypeCheckerResult::new();
         let mut errors = Vec::new();
@@ -527,8 +528,8 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn resolve_type_filter(
         &self,
-        index: ASTIndex,
-        generic_type: &ASTType,
+        index: EnhASTIndex,
+        generic_type: &EnhASTType,
         effective_filter: &TypeFilter,
         resolved_generic_types: &mut ResolvedGenericTypes,
     ) -> Vec<TypeCheckError> {
@@ -562,7 +563,7 @@ mod tests {
         codegen::{
             c::options::COptions,
             compile_target::CompileTarget,
-            eh_ast::{ASTFunctionDef, ASTIndex, ASTModule, ASTNameSpace},
+            eh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTModule, EnhASTNameSpace},
             enhanced_module::EnhancedASTModule,
             statics::Statics,
             val_context::ValContext,
@@ -606,9 +607,9 @@ mod tests {
             .functions
             .into_iter()
         {
-            let eh_function_def = ASTFunctionDef::from_ast(
+            let eh_function_def = EnhASTFunctionDef::from_ast(
                 Some(path.to_path_buf()),
-                ASTNameSpace::new("breakout".to_owned(), "breakout".to_owned()),
+                EnhASTNameSpace::new("breakout".to_owned(), "breakout".to_owned()),
                 function,
             );
             function_type_checker.get_type_map(&eh_function_def, &mut statics);
@@ -646,9 +647,9 @@ mod tests {
             .functions
             .into_iter()
         {
-            let eh_function_def = ASTFunctionDef::from_ast(
+            let eh_function_def = EnhASTFunctionDef::from_ast(
                 Some(path.to_path_buf()),
-                ASTNameSpace::new("svglib".to_owned(), "svg".to_owned()),
+                EnhASTNameSpace::new("svglib".to_owned(), "svg".to_owned()),
                 function,
             );
             function_type_checker.get_type_map(
@@ -664,7 +665,7 @@ mod tests {
 
         let types_map = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
             6,
@@ -682,7 +683,7 @@ mod tests {
 
         let types_map = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
             6,
@@ -706,7 +707,7 @@ mod tests {
 
         let types_map = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
             6,
@@ -730,7 +731,7 @@ mod tests {
 
         let types_map = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
             6,
@@ -754,7 +755,7 @@ mod tests {
 
         let types_map = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
             6,
@@ -772,7 +773,7 @@ mod tests {
 
         let types_map = check_function(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             3,
             10,
@@ -790,7 +791,7 @@ mod tests {
 
         let types_map = check_function(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             4,
             23,
@@ -831,7 +832,7 @@ mod tests {
             &EnhancedASTModule,
             &mut Statics,
             FunctionTypeChecker,
-            ASTModule,
+            EnhASTModule,
         ) -> FunctionTypeCheckerResult,
     {
         env::set_var("RASM_STDLIB", "/home/enrico/development/rust/rasm/stdlib");
@@ -848,7 +849,7 @@ mod tests {
             &enhanced_ast_module,
             &mut statics,
             function_type_checker,
-            ASTModule::from_ast(module, info),
+            EnhASTModule::from_ast(module, info),
         )
     }
 

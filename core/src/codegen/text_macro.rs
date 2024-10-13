@@ -9,7 +9,9 @@ use log::debug;
 use regex::Regex;
 
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
+use crate::codegen::eh_ast::{
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
+};
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
@@ -33,9 +35,9 @@ thread_local! {
 
 #[derive(Debug, Clone)]
 pub enum MacroParam {
-    Plain(String, Option<ASTType>, Option<ASTTypedType>),
+    Plain(String, Option<EnhASTType>, Option<ASTTypedType>),
     StringLiteral(String),
-    Ref(String, Option<ASTType>, Option<ASTTypedType>),
+    Ref(String, Option<EnhASTType>, Option<ASTTypedType>),
 }
 
 impl Display for MacroParam {
@@ -72,7 +74,7 @@ impl MacroParam {
 pub struct TextMacro {
     pub name: String,
     pub parameters: Vec<MacroParam>,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
 }
 
 impl Display for TextMacro {
@@ -124,7 +126,7 @@ impl TextMacroEvaluator {
         &self,
         statics: &mut Statics,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         body: &str,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
@@ -132,7 +134,7 @@ impl TextMacroEvaluator {
         let index = typed_function_def
             .map(|tfd| tfd.index.clone())
             .or_else(|| function_def.map(|fd| fd.index.clone()))
-            .unwrap_or(ASTIndex::none());
+            .unwrap_or(EnhASTIndex::none());
 
         let mut result = Vec::new();
 
@@ -189,7 +191,7 @@ impl TextMacroEvaluator {
         &self,
         s: &str,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<Vec<MacroParam>, String> {
         let mut result = Vec::new();
@@ -267,7 +269,7 @@ impl TextMacroEvaluator {
         &self,
         actual_param: &str,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<MacroParam, String> {
         let p = actual_param.trim();
@@ -373,7 +375,7 @@ impl TextMacroEvaluator {
                 )?
             } else {
                 self.parse_typed_argument(
-                    &ASTNameSpace::global(), // TODO is it correct?
+                    &EnhASTNameSpace::global(), // TODO is it correct?
                     p,
                     None,
                     type_def_provider,
@@ -403,11 +405,11 @@ impl TextMacroEvaluator {
     }
 
     fn resolve_type(
-        ast_type: &ASTType,
+        ast_type: &EnhASTType,
         function_def: &ASTTypedFunctionDef,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Option<ASTTypedType> {
-        if let ASTType::Custom {
+        if let EnhASTType::Custom {
             namespace: _,
             name,
             param_types,
@@ -428,19 +430,19 @@ impl TextMacroEvaluator {
                             match typed_type {
                                 ASTTypedType::Builtin(kind) => match kind {
                                     BuiltinTypedTypeKind::String => {
-                                        ASTType::Builtin(BuiltinTypeKind::String)
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::String)
                                     }
                                     BuiltinTypedTypeKind::I32 => {
-                                        ASTType::Builtin(BuiltinTypeKind::I32)
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::I32)
                                     }
                                     BuiltinTypedTypeKind::Bool => {
-                                        ASTType::Builtin(BuiltinTypeKind::Bool)
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Bool)
                                     }
                                     BuiltinTypedTypeKind::Char => {
-                                        ASTType::Builtin(BuiltinTypeKind::Char)
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Char)
                                     }
                                     BuiltinTypedTypeKind::F32 => {
-                                        ASTType::Builtin(BuiltinTypeKind::F32)
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::F32)
                                     }
                                     BuiltinTypedTypeKind::Lambda { .. } => {
                                         panic!()
@@ -457,11 +459,11 @@ impl TextMacroEvaluator {
                     .collect::<Vec<_>>();
 
                 if let Some(namespace) = type_def_provider.get_real_namespace(ast_type) {
-                    let ast_type_to_resolve = ASTType::Custom {
+                    let ast_type_to_resolve = EnhASTType::Custom {
                         namespace,
                         name: name.clone(),
                         param_types: resolved_types,
-                        index: ASTIndex::none(),
+                        index: EnhASTIndex::none(),
                     };
                     type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
                 } else {
@@ -477,14 +479,14 @@ impl TextMacroEvaluator {
 
     fn parse_typed_argument(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         p: &str,
         typed_type: Option<ASTTypedType>,
         type_def_provider: &dyn TypeDefProvider,
         context_generic_types: &[String],
         resolved_generic_types: &ResolvedGenericTypes,
         path: Option<PathBuf>,
-    ) -> Result<(String, Option<ASTType>, Option<ASTTypedType>), String> {
+    ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
         //println!("parse_typed_argument namespace {namespace}, p {p}");
         // TODO the check of :: is a trick since function names could have ::, try to do it better
         let (par_name, par_type, par_typed_type) = if p.contains(':') && !p.contains("::") {
@@ -497,19 +499,19 @@ impl TextMacroEvaluator {
             if par_type_name == "i32" {
                 (
                     par_name,
-                    Some(ASTType::Builtin(BuiltinTypeKind::I32)),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
                 )
             } else if par_type_name == "str" {
                 (
                     par_name,
-                    Some(ASTType::Builtin(BuiltinTypeKind::String)),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
                 )
             } else if par_type_name == "f32" {
                 (
                     par_name,
-                    Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::F32)),
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
                 )
             } else {
@@ -525,7 +527,7 @@ impl TextMacroEvaluator {
                     Some((ref ast_type, _)) => {
                         //println!("parse_typed_argument {ast_type}");
                         let eh_ast_type =
-                            ASTType::from_ast(path, namespace.clone(), ast_type.clone());
+                            EnhASTType::from_ast(path, namespace.clone(), ast_type.clone());
                         let t = if let ast::ASTType::Generic(position, _name) = ast_type {
                             if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
                                 t
@@ -555,18 +557,18 @@ impl TextMacroEvaluator {
     fn typed_type_to_type(
         typed_type: &ASTTypedType,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> ASTType {
+    ) -> EnhASTType {
         match typed_type {
             ASTTypedType::Builtin(kind) => match kind {
-                BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
-                BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
-                BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
-                BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
-                BuiltinTypedTypeKind::F32 => ASTType::Builtin(BuiltinTypeKind::F32),
+                BuiltinTypedTypeKind::String => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+                BuiltinTypedTypeKind::I32 => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
+                BuiltinTypedTypeKind::Bool => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
+                BuiltinTypedTypeKind::Char => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
+                BuiltinTypedTypeKind::F32 => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
-                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters: parameters
                         .iter()
                         .map(|it| Self::typed_type_to_type(it, type_def_provider))
@@ -591,7 +593,7 @@ impl TextMacroEvaluator {
             } => type_def_provider
                 .get_type_from_typed_type_name(name)
                 .unwrap(),
-            ASTTypedType::Unit => ASTType::Unit,
+            ASTTypedType::Unit => EnhASTType::Unit,
         }
     }
 
@@ -618,7 +620,7 @@ impl TextMacroEvaluator {
     pub fn get_macros(
         &self,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
@@ -634,7 +636,7 @@ impl TextMacroEvaluator {
     pub fn get_macros_filter(
         &self,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
         filter: &dyn Fn(&str, &str) -> bool,
@@ -642,7 +644,7 @@ impl TextMacroEvaluator {
         let index = typed_function_def
             .map(|tfd| tfd.index.clone())
             .or_else(|| function_def.map(|fd| fd.index.clone()))
-            .unwrap_or(ASTIndex::none());
+            .unwrap_or(EnhASTIndex::none());
 
         let mut result = Vec::new();
 
@@ -910,7 +912,7 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
 }
 
 fn get_type(
-    namespace: &ASTNameSpace,
+    namespace: &EnhASTNameSpace,
     orig_name: &str,
     type_def_provider: &dyn TypeDefProvider,
     function_def_opt: Option<&ASTTypedFunctionDef>,
@@ -1097,12 +1099,24 @@ impl TextMacroEval for PrintRefMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         vec![
-            DefaultFunctionCall::new("print", vec![ASTType::Builtin(BuiltinTypeKind::I32)], 0),
-            DefaultFunctionCall::new("println", vec![ASTType::Builtin(BuiltinTypeKind::I32)], 0),
-            DefaultFunctionCall::new("print", vec![ASTType::Builtin(BuiltinTypeKind::String)], 0),
+            DefaultFunctionCall::new(
+                "print",
+                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
+                0,
+            ),
             DefaultFunctionCall::new(
                 "println",
-                vec![ASTType::Builtin(BuiltinTypeKind::String)],
+                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
+                0,
+            ),
+            DefaultFunctionCall::new(
+                "print",
+                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::String)],
+                0,
+            ),
+            DefaultFunctionCall::new(
+                "println",
+                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::String)],
                 0,
             ),
             DefaultFunctionCall::new("println", Vec::new(), 0),
@@ -1118,7 +1132,7 @@ impl PrintRefMacro {
     fn print_ref(
         &self,
         src: &str,
-        ast_type_o: &Option<ASTType>,
+        ast_type_o: &Option<EnhASTType>,
         ast_typed_type_o: &Option<ASTTypedType>,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
@@ -1142,10 +1156,10 @@ impl PrintRefMacro {
                         panic!("printRef macro: cannot find the type of the parameter {src}, please specify it")
                     }
                     Some(ast_type) => match ast_type {
-                        ASTType::Builtin(BuiltinTypeKind::String) => {
+                        EnhASTType::Builtin(EnhBuiltinTypeKind::String) => {
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                         }
-                        ASTType::Generic(_, generic_type_name) => match function_def {
+                        EnhASTType::Generic(_, generic_type_name) => match function_def {
                             None => panic!(),
                             Some(f) => match f.generic_types.get(generic_type_name) {
                                 None => {
@@ -1154,7 +1168,7 @@ impl PrintRefMacro {
                                 Some(ast_typed_type) => ast_typed_type.clone(),
                             },
                         },
-                        ASTType::Custom {
+                        EnhASTType::Custom {
                             namespace,
                             name: custom_type_name,
                             param_types: _,
@@ -1280,7 +1294,7 @@ impl PrintRefMacro {
                     p.ast_type,
                     ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                 ) {
-                    Some(ASTType::Builtin(BuiltinTypeKind::String))
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
                 } else {
                     type_def_provider.get_type_from_custom_typed_type(&p.ast_type)
                 };
@@ -1343,7 +1357,7 @@ impl PrintRefMacro {
                             &par.ast_type,
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                         ) {
-                            Some(ASTType::Builtin(BuiltinTypeKind::String))
+                            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
                         } else {
                             type_def_provider.get_type_from_custom_typed_type(&par.ast_type)
                         };
@@ -1506,16 +1520,16 @@ mod tests {
     use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
+    use crate::parser::ast::ASTModifiers;
     use linked_hash_map::LinkedHashMap;
 
     use crate::codegen::eh_ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
+        EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
+        EnhASTType, EnhBuiltinTypeKind,
     };
     use crate::codegen::statics::{MemoryValue, Statics};
-    use crate::codegen::text_macro::{MacroParam, TextMacro, TypeParserHelper};
+    use crate::codegen::text_macro::{MacroParam, TextMacro};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::parser::type_parser::TypeParser;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
@@ -1526,7 +1540,7 @@ mod tests {
     #[test]
     fn call() {
         let text_macro = TextMacro {
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             name: "call".into(),
             parameters: vec![
                 MacroParam::Plain("println".into(), None, None),
@@ -1610,13 +1624,13 @@ mod tests {
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::NativeBody("".into()),
             generic_types: LinkedHashMap::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
 
         let result = code_gen()
@@ -1648,13 +1662,13 @@ mod tests {
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::NativeBody("".into()),
             generic_types: LinkedHashMap::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
 
         let result = code_gen()
@@ -1703,13 +1717,13 @@ mod tests {
             parameters: vec![ASTTypedParameterDef {
                 name: "s".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::NativeBody("".into()),
             generic_types: LinkedHashMap::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
 
         let macros = code_gen()
@@ -1758,19 +1772,19 @@ mod tests {
     fn translate_ref_to_par_overridden() {
         let code_gen = code_gen();
 
-        let function_def = ASTFunctionDef {
+        let function_def = EnhASTFunctionDef {
             name: "aFun".into(),
             original_name: "aFun".into(),
-            parameters: vec![ASTParameterDef {
+            parameters: vec![EnhASTParameterDef {
                 name: "s".into(),
-                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_type: EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+                ast_index: EnhASTIndex::none(),
             }],
-            body: ASTFunctionBody::NativeBody("".into()),
+            body: EnhASTFunctionBody::NativeBody("".into()),
             generic_types: Vec::new(),
-            return_type: ASTType::Unit,
+            return_type: EnhASTType::Unit,
             inline: false,
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             resolved_generic_types: ResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
@@ -1785,7 +1799,7 @@ mod tests {
         );
 
         assert_eq!(
-            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: ASTIndex { file_name: None, row: 0, column: 0 } }, 0)])",
+            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: EnhASTIndex { file_name: None, row: 0, column: 0 } }, 0)])",
             &format!("{:?}", result),
         );
     }
@@ -1799,19 +1813,19 @@ mod tests {
         let statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
-            namespace: ASTNameSpace::global(),
+            namespace: EnhASTNameSpace::global(),
             name: "f".to_string(),
             original_name: String::new(),
             parameters: vec![ASTTypedParameterDef {
                 name: "par".to_string(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             }],
             return_type: ASTTypedType::Unit,
             body: ASTTypedFunctionBody::RASMBody(Vec::new()),
             inline: false,
             generic_types: LinkedHashMap::new(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
 
         let result = CodeGenC::new(COptions::default(), false)

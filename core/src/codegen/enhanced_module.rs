@@ -5,8 +5,8 @@ use crate::codegen::statics::Statics;
 use crate::errors::{self, CompilationError};
 
 use crate::codegen::eh_ast::{
-    ASTEnumDef, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModule,
-    ASTNameSpace, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
+    EnhASTEnumDef, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex, EnhASTModule,
+    EnhASTNameSpace, EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, CustomTypeDef,
 };
 use crate::debug_i;
 use crate::parser::ast;
@@ -19,12 +19,12 @@ use super::eh_ast::EhModuleInfo;
 
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {
-    pub body: Vec<ASTStatement>,
+    pub body: Vec<EnhASTStatement>,
     pub functions_by_name: FunctionsContainer,
-    pub enums: Vec<ASTEnumDef>,
-    pub structs: Vec<ASTStructDef>,
-    pub types: Vec<ASTTypeDef>,
-    pub body_namespace: ASTNameSpace,
+    pub enums: Vec<EnhASTEnumDef>,
+    pub structs: Vec<EnhASTStructDef>,
+    pub types: Vec<EnhASTTypeDef>,
+    pub body_namespace: EnhASTNameSpace,
 }
 
 impl EnhancedASTModule {
@@ -38,7 +38,7 @@ impl EnhancedASTModule {
         Self::new(
             modules
                 .into_iter()
-                .map(|(module, info)| ASTModule::from_ast(module, info))
+                .map(|(module, info)| EnhASTModule::from_ast(module, info))
                 .collect(),
             project,
             statics,
@@ -47,7 +47,7 @@ impl EnhancedASTModule {
         )
     }
     pub fn new(
-        modules: Vec<ASTModule>,
+        modules: Vec<EnhASTModule>,
         project: &RasmProject,
         statics: &mut Statics,
         target: &CompileTarget,
@@ -71,7 +71,7 @@ impl EnhancedASTModule {
             types.extend(module.types);
         }
 
-        let body_namespace = ASTNameSpace::root_namespace(project);
+        let body_namespace = EnhASTNameSpace::root_namespace(project);
 
         let mut enhanced_module = Self {
             body,
@@ -104,19 +104,19 @@ impl EnhancedASTModule {
         (enhanced_module, errors)
     }
 
-    pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {
+    pub fn add_function(&mut self, original_name: String, function_def: EnhASTFunctionDef) {
         self.functions_by_name
             .add_function(original_name, function_def);
     }
 
-    pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
+    pub fn find_function(&self, name: &str) -> Option<&EnhASTFunctionDef> {
         self.functions_by_name.find_function(name)
     }
-    pub fn find_function_by_original_name(&self, name: &str) -> Option<&ASTFunctionDef> {
+    pub fn find_function_by_original_name(&self, name: &str) -> Option<&EnhASTFunctionDef> {
         self.functions_by_name.find_function_by_original_name(name)
     }
 
-    pub fn find_functions_by_original_name(&self, name: &str) -> &[ASTFunctionDef] {
+    pub fn find_functions_by_original_name(&self, name: &str) -> &[EnhASTFunctionDef] {
         self.functions_by_name.find_functions_by_original_name(name)
     }
 
@@ -124,7 +124,7 @@ impl EnhancedASTModule {
         &self,
         original_name: &str,
         name: &str,
-    ) -> Option<&ASTFunctionDef> {
+    ) -> Option<&EnhASTFunctionDef> {
         let found = self
             .functions_by_name
             .find_functions_by_original_name(original_name)
@@ -143,7 +143,7 @@ impl EnhancedASTModule {
         &self,
         original_name: &str,
         name: &str,
-    ) -> Option<&ASTFunctionDef> {
+    ) -> Option<&EnhASTFunctionDef> {
         let found = self
             .functions_by_name
             .find_functions_by_original_name(original_name)
@@ -163,9 +163,9 @@ impl EnhancedASTModule {
         function_name: &str,
         original_function_name: &str,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<&ASTType>,
-        index: &ASTIndex,
-    ) -> Result<Option<&ASTFunctionDef>, TypeCheckError> {
+        return_type_filter: Option<&EnhASTType>,
+        index: &EnhASTIndex,
+    ) -> Result<Option<&EnhASTFunctionDef>, TypeCheckError> {
         self.functions_by_name.find_call(
             function_name,
             original_function_name,
@@ -179,10 +179,10 @@ impl EnhancedASTModule {
 
     pub fn find_call_vec(
         &self,
-        call: &ASTFunctionCall,
+        call: &EnhASTFunctionCall,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<&ASTType>,
-    ) -> Result<Vec<&ASTFunctionDef>, TypeCheckError> {
+        return_type_filter: Option<&EnhASTType>,
+    ) -> Result<Vec<&EnhASTFunctionDef>, TypeCheckError> {
         debug_i!("find call vec for module");
         self.functions_by_name.find_call_vec(
             call,
@@ -196,17 +196,17 @@ impl EnhancedASTModule {
     pub fn find_default_call(
         &self,
         name: String,
-        parameter_types_filter: Vec<ASTType>,
-    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
+        parameter_types_filter: Vec<EnhASTType>,
+    ) -> Result<Option<EnhASTFunctionDef>, TypeCheckError> {
         self.functions_by_name
             .find_default_call(name, parameter_types_filter, self)
     }
 
-    pub fn functions(&self) -> Vec<&ASTFunctionDef> {
+    pub fn functions(&self) -> Vec<&EnhASTFunctionDef> {
         self.functions_by_name.functions()
     }
 
-    pub fn functions_mut(&mut self) -> Vec<&mut ASTFunctionDef> {
+    pub fn functions_mut(&mut self) -> Vec<&mut EnhASTFunctionDef> {
         self.functions_by_name.functions_mut()
     }
 
@@ -214,7 +214,7 @@ impl EnhancedASTModule {
         self.functions_by_name.functions_desc()
     }
 
-    pub fn functions_owned(self) -> Vec<ASTFunctionDef> {
+    pub fn functions_owned(self) -> Vec<EnhASTFunctionDef> {
         self.functions_by_name.functions_owned()
     }
 
@@ -242,21 +242,21 @@ impl EnhancedASTModule {
         for function_def in self.functions_by_name.functions() {
             println!("{function_def}");
             match &function_def.body {
-                ASTFunctionBody::RASMBody(b) => {
+                EnhASTFunctionBody::RASMBody(b) => {
                     for s in b.iter() {
                         println!("  {s}");
                     }
                 }
-                ASTFunctionBody::NativeBody(_) => {
+                EnhASTFunctionBody::NativeBody(_) => {
                     println!();
                 }
             }
         }
     }
 
-    pub fn get_type_def(&self, ast_type: &ASTType) -> Option<&dyn CustomTypeDef> {
+    pub fn get_type_def(&self, ast_type: &EnhASTType) -> Option<&dyn CustomTypeDef> {
         //println!("get_type_def {ast_type}");
-        if let ASTType::Custom {
+        if let EnhASTType::Custom {
             namespace,
             name,
             param_types,
@@ -264,7 +264,7 @@ impl EnhancedASTModule {
         } = ast_type
         {
             if !param_types.iter().all(|param_type| {
-                if let ASTType::Custom { .. } = param_type {
+                if let EnhASTType::Custom { .. } = param_type {
                     if let Some(p_type_def) = self.get_type_def(param_type) {
                         p_type_def.modifiers().public
                             || p_type_def.namespace() == param_type.namespace()

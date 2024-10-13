@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::eh_ast::ASTIndex;
+use crate::codegen::eh_ast::EnhASTIndex;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,14 +29,14 @@ pub enum TypeCheckErrorKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeCheckError {
     pub kind: TypeCheckErrorKind,
-    pub main: (ASTIndex, String, Vec<ASTIndex>),
-    pub messages: Vec<(ASTIndex, String, Vec<ASTIndex>)>,
+    pub main: (EnhASTIndex, String, Vec<EnhASTIndex>),
+    pub messages: Vec<(EnhASTIndex, String, Vec<EnhASTIndex>)>,
     children: Vec<TypeCheckError>,
     dummy: bool,
 }
 
 impl TypeCheckError {
-    pub fn new(index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
+    pub fn new(index: EnhASTIndex, message: String, stack: Vec<EnhASTIndex>) -> Self {
         TypeCheckError {
             kind: TypeCheckErrorKind::Standard,
             main: (index, message, stack),
@@ -47,9 +47,9 @@ impl TypeCheckError {
     }
 
     pub fn new_with_kind(
-        index: ASTIndex,
+        index: EnhASTIndex,
         message: String,
-        stack: Vec<ASTIndex>,
+        stack: Vec<EnhASTIndex>,
         kind: TypeCheckErrorKind,
     ) -> Self {
         TypeCheckError {
@@ -64,14 +64,14 @@ impl TypeCheckError {
     pub fn dummy() -> Self {
         TypeCheckError {
             kind: TypeCheckErrorKind::Ignorable,
-            main: (ASTIndex::none(), "Dummy".to_string(), Vec::new()),
+            main: (EnhASTIndex::none(), "Dummy".to_string(), Vec::new()),
             messages: Vec::new(),
             children: Vec::new(),
             dummy: true,
         }
     }
 
-    pub fn add(self, index: ASTIndex, message: String, stack: Vec<ASTIndex>) -> Self {
+    pub fn add(self, index: EnhASTIndex, message: String, stack: Vec<EnhASTIndex>) -> Self {
         let mut result = self.clone();
 
         result.messages.push((index, message, stack));

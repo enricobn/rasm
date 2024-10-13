@@ -24,7 +24,7 @@ use crate::codegen::c::text_macro::{
     CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::{ASTIndex, ASTNameSpace, ASTType, ValueType};
+use crate::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
@@ -32,6 +32,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
+use crate::parser::ast::ASTValueType;
 use crate::transformations::typed_functions_creator::struct_has_references;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
@@ -337,7 +338,7 @@ impl CodeGenC {
         );
     }
 
-    pub fn variant_const_name(namespace: &ASTNameSpace, e: &str, v: &str) -> String {
+    pub fn variant_const_name(namespace: &EnhASTNameSpace, e: &str, v: &str) -> String {
         format!("{}_{}_{}_value_", namespace.safe_name(), e, v)
     }
 }
@@ -523,7 +524,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         type_name: &String,
     ) {
         self.call_add_ref(body, name, type_name, &type_name, typed_module, &statics);
@@ -560,7 +561,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn call_add_ref_for_let_val(
         &self,
         name: &str,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
         address_relative_to_bp: &usize,
@@ -659,7 +660,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         statics: &mut Statics,
         body: &mut String,
         address_relative_to_bp: usize,
-        value_type: &ValueType,
+        value_type: &ASTValueType,
         typed_type: &ASTTypedType,
     ) {
         let value = self.value_to_string(value_type);
@@ -781,7 +782,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         }
     }
 
-    fn value_as_return(&self, before: &mut String, value_type: &ValueType, statics: &Statics) {
+    fn value_as_return(&self, before: &mut String, value_type: &ASTValueType, statics: &Statics) {
         let v = self.value_to_string(value_type);
         let t = value_type.to_typed_type();
         self.code_manipulator.add(
@@ -951,7 +952,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn create_lambda_add_ref_like_function(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -992,7 +993,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         for s in typed_module.enums.iter() {
             for variant in s.variants.iter() {
                 if variant.parameters.is_empty() {
-                    if let ASTType::Custom {
+                    if let EnhASTType::Custom {
                         namespace,
                         name,
                         param_types,
@@ -1158,7 +1159,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         for s in typed_module.enums.iter() {
             for (i, variant) in s.variants.iter().enumerate() {
                 if variant.parameters.is_empty() {
-                    if let ASTType::Custom {
+                    if let EnhASTType::Custom {
                         namespace,
                         name,
                         param_types,
@@ -1231,12 +1232,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         */
     }
 
-    fn value_to_string(&self, value_type: &ValueType) -> String {
+    fn value_to_string(&self, value_type: &ASTValueType) -> String {
         match value_type {
-            ValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
-            ValueType::I32(v) => format!("{v}"),
-            ValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
-            ValueType::F32(v) => format!("{v}"),
+            ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
+            ASTValueType::I32(v) => format!("{v}"),
+            ASTValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
+            ASTValueType::F32(v) => format!("{v}"),
         }
     }
 }

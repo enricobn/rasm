@@ -18,12 +18,12 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::codegen::eh_ast::ASTIndex;
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Clone, Debug)]
 pub struct CompilationError {
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
     pub error_kind: CompilationErrorKind,
 }
 

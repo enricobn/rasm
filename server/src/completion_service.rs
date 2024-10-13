@@ -21,7 +21,7 @@ use std::io;
 use std::ops::Deref;
 
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::eh_ast::{ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind};
+use rasm_core::codegen::eh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
@@ -58,7 +58,7 @@ impl Display for CompletionItem {
 }
 
 impl CompletionItem {
-    pub fn for_function(function: &ASTFunctionDef) -> Option<Self> {
+    pub fn for_function(function: &EnhASTFunctionDef) -> Option<Self> {
         if function.parameters.is_empty() {
             return None;
         }
@@ -74,14 +74,14 @@ impl CompletionItem {
         })
     }
 
-    fn function_descr(function: &ASTFunctionDef) -> String {
+    fn function_descr(function: &EnhASTFunctionDef) -> String {
         let generic_types = if function.generic_types.is_empty() {
             "".into()
         } else {
             format!("<{}>", function.generic_types.join(","))
         };
 
-        let rt = if function.return_type != ASTType::Unit {
+        let rt = if function.return_type != EnhASTType::Unit {
             format!("{}", function.return_type)
         } else {
             "()".into()
@@ -96,13 +96,13 @@ impl CompletionItem {
         format!("{}{generic_types}({args}) -> {rt}", function.original_name)
     }
 
-    fn function_insert(function: &ASTFunctionDef) -> String {
+    fn function_insert(function: &EnhASTFunctionDef) -> String {
         let args = function
             .parameters
             .iter()
             .skip(1)
             .map(|it| match &it.ast_type {
-                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type: _,
                 }) => {
@@ -151,14 +151,14 @@ pub struct CompletableItem {
 }
 
 impl CompletableItem {
-    fn new(start: ASTIndex, len: usize, ast_typed_type: ASTTypedType) -> Self {
+    fn new(start: EnhASTIndex, len: usize, ast_typed_type: ASTTypedType) -> Self {
         Self {
             file_token: FileToken::new(start, len),
             ast_typed_type,
         }
     }
 
-    fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
+    fn contains(&self, index: &EnhASTIndex) -> io::Result<bool> {
         self.file_token.contains(index)
     }
 }
@@ -202,7 +202,7 @@ impl CompletionService {
 
     pub fn get_completions(
         &self,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         enhanced_module: &EnhancedASTModule,
     ) -> io::Result<CompletionResult> {
         match self.get_completable_item(index)? {
@@ -243,8 +243,8 @@ impl CompletionService {
 
     pub fn get_type(
         &self,
-        index: &ASTIndex,
-    ) -> io::Result<Option<(ASTTypedType, Option<ASTType>, Option<ASTIndex>)>> {
+        index: &EnhASTIndex,
+    ) -> io::Result<Option<(ASTTypedType, Option<EnhASTType>, Option<EnhASTIndex>)>> {
         match self.get_completable_item(index)? {
             CompletableItemResult::Found(item) => {
                 let index = match &item.ast_typed_type {
@@ -291,7 +291,7 @@ impl CompletionService {
         }
     }
 
-    fn get_completable_item(&self, index: &ASTIndex) -> io::Result<CompletableItemResult> {
+    fn get_completable_item(&self, index: &EnhASTIndex) -> io::Result<CompletableItemResult> {
         let items = self
             .items
             .iter()
@@ -530,13 +530,14 @@ mod tests {
 
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::eh_ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
+        EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
+        EnhASTType, EnhBuiltinTypeKind,
     };
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
+    use rasm_core::parser::ast::ASTModifiers;
     use rasm_core::project::RasmProject;
     use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
 
@@ -549,7 +550,7 @@ mod tests {
 
         let result = service
             .get_completions(
-                &ASTIndex::new(Some(file.to_path_buf()), 6, 15),
+                &EnhASTIndex::new(Some(file.to_path_buf()), 6, 15),
                 &enhanced_module,
             )
             .unwrap();
@@ -568,7 +569,7 @@ mod tests {
 
         let result = service
             .get_completions(
-                &ASTIndex::new(Some(file.to_path_buf()), 11, 16),
+                &EnhASTIndex::new(Some(file.to_path_buf()), 11, 16),
                 &enhanced_module,
             )
             .unwrap();
@@ -582,30 +583,30 @@ mod tests {
 
     #[test]
     fn test_completion_item_for_function() {
-        let function1 = ASTFunctionDef {
+        let function1 = EnhASTFunctionDef {
             original_name: "add".to_string(),
             name: "add_0".to_string(),
-            parameters: vec![ASTParameterDef {
+            parameters: vec![EnhASTParameterDef {
                 name: "par".to_string(),
-                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_type: EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+                ast_index: EnhASTIndex::none(),
             }],
-            return_type: ASTType::Unit,
-            body: ASTFunctionBody::RASMBody(vec![]),
+            return_type: EnhASTType::Unit,
+            body: EnhASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec![],
             resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(), // HENRY
             rank: 0,
         };
 
         let mut function2 = function1.clone();
-        function2.parameters = vec![ASTParameterDef {
+        function2.parameters = vec![EnhASTParameterDef {
             name: "par".to_string(),
-            ast_type: ASTType::Generic(ASTIndex::none(), "T".to_string()),
-            ast_index: ASTIndex::none(),
+            ast_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string()),
+            ast_index: EnhASTIndex::none(),
         }];
 
         CompletionItem::for_function(&function1).unwrap();
@@ -659,7 +660,7 @@ mod tests {
             .unwrap_or(());
     }
 
-    pub fn test_namespace() -> ASTNameSpace {
-        ASTNameSpace::new("test".to_string(), "test".to_string())
+    pub fn test_namespace() -> EnhASTNameSpace {
+        EnhASTNameSpace::new("test".to_string(), "test".to_string())
     }
 }

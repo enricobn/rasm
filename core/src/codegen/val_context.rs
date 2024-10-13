@@ -1,6 +1,6 @@
 use linked_hash_map::{Iter, LinkedHashMap};
 
-use crate::codegen::eh_ast::{ASTIndex, ASTParameterDef, ASTType, BuiltinTypeKind};
+use crate::codegen::eh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::{TypedValKind, ValKind};
 use crate::debug_i;
 use crate::type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};
@@ -31,7 +31,7 @@ impl ValContext {
     pub fn insert_par(
         &mut self,
         key: String,
-        par: ASTParameterDef,
+        par: EnhASTParameterDef,
     ) -> Result<Option<ValKind>, String> {
         let result = self.value_to_address.insert(
             key.clone(),
@@ -49,8 +49,8 @@ impl ValContext {
     pub fn insert_let(
         &mut self,
         key: String,
-        ast_type: ASTType,
-        ast_index: &ASTIndex,
+        ast_type: EnhASTType,
+        ast_index: &EnhASTIndex,
     ) -> Result<Option<ValKind>, String> {
         debug_i!("adding let val {key} of type {ast_type} to context");
 
@@ -76,7 +76,7 @@ impl ValContext {
 
     pub fn is_lambda(&self, key: &str) -> bool {
         if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type: _,
                 parameters: _,
             }) = &par.ast_type
@@ -86,7 +86,7 @@ impl ValContext {
         }
 
         if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type: _,
                 parameters: _,
             }) = ast_type
@@ -97,9 +97,9 @@ impl ValContext {
         false
     }
 
-    pub fn get_lambda(&self, key: &str) -> Option<(&Box<ASTType>, &Vec<ASTType>)> {
+    pub fn get_lambda(&self, key: &str) -> Option<(&Box<EnhASTType>, &Vec<EnhASTType>)> {
         if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
             }) = &par.ast_type
@@ -109,7 +109,7 @@ impl ValContext {
         }
 
         if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
             }) = ast_type

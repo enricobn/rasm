@@ -20,7 +20,7 @@ use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
 use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
 use crate::codegen::c::options::COptions;
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::eh_ast::{ASTIndex, ValueType};
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
@@ -28,6 +28,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
 use crate::codegen::{get_reference_type_name, CodeGen};
+use crate::parser::ast::ASTValueType;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
 };
@@ -284,7 +285,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         def.parameters.push(ASTTypedParameterDef::new(
             "_lambda",
             param_type.clone(),
-            ASTIndex::none(),
+            EnhASTIndex::none(),
         ));
 
         // debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
@@ -630,7 +631,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &StackVals,
-        ast_index: &ASTIndex,
+        ast_index: &EnhASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
@@ -667,7 +668,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         }
     }
 
-    fn add_value_type(&mut self, name: &str, value_type: &ValueType) {
+    fn add_value_type(&mut self, name: &str, value_type: &ASTValueType) {
         let value = self.code_gen_c.value_to_string(value_type);
 
         self.parameters_values.insert(name.to_string(), value);

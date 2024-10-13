@@ -17,7 +17,7 @@
  */
 
 use crate::codegen::c::any::CInclude;
-use crate::codegen::eh_ast::ASTType;
+use crate::codegen::eh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
@@ -538,7 +538,7 @@ impl TextMacroEval for CEnumSimpleMacro {
                             .enumerate()
                             .find(|(i, v)| &v.name == variant_name)
                         {
-                            if let ASTType::Custom {
+                            if let EnhASTType::Custom {
                                 namespace,
                                 name,
                                 param_types,

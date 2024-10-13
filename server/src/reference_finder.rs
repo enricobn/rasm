@@ -7,9 +7,9 @@ use log::{debug, warn};
 
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::eh_ast::{
-    ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex,
-    ASTLambdaDef, ASTModule, ASTNameSpace, ASTParameterDef, ASTStatement, ASTStructDef, ASTType,
-    ASTTypeDef, BuiltinTypeKind,
+    EnhASTEnumDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
+    EnhASTIndex, EnhASTLambdaDef, EnhASTModule, EnhASTNameSpace, EnhASTParameterDef,
+    EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, EnhBuiltinTypeKind,
 };
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
@@ -26,7 +26,7 @@ use crate::reference_context::ReferenceContext;
 use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
 pub struct RasmTextEdit {
-    pub from: ASTIndex,
+    pub from: EnhASTIndex,
     pub len: usize,
     pub text: String,
 }
@@ -37,12 +37,15 @@ pub struct ReferenceFinder {
 }
 
 enum CompletionType {
-    SelectableItem(ASTIndex, Option<String>),
+    SelectableItem(EnhASTIndex, Option<String>),
     Identifier(String),
 }
 
 impl ReferenceFinder {
-    pub fn new(module: &EnhancedASTModule, ast_module: &ASTModule) -> Result<Self, TypeCheckError> {
+    pub fn new(
+        module: &EnhancedASTModule,
+        ast_module: &EnhASTModule,
+    ) -> Result<Self, TypeCheckError> {
         let path = ast_module.path.clone();
         let selectable_items = Self::process_module(module, ast_module)?;
 
@@ -52,7 +55,7 @@ impl ReferenceFinder {
         })
     }
 
-    pub fn find(&self, index: &ASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
+    pub fn find(&self, index: &EnhASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
         let mut result = Vec::new();
 
         for selectable_item in self.selectable_items.iter() {
@@ -67,7 +70,7 @@ impl ReferenceFinder {
     pub fn get_completions(
         &self,
         project: &RasmProject,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         enhanched_module: &EnhancedASTModule,
         trigger: &CompletionTrigger,
         target: &CompileTarget,
@@ -187,7 +190,7 @@ impl ReferenceFinder {
 
     fn dot_completion(
         lines: &Vec<&str>,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         prefix: Option<String>,
     ) -> Option<CompletionType> {
         let index = if let Some(i) = Self::move_left(lines, index) {
@@ -211,9 +214,9 @@ impl ReferenceFinder {
     }
 
     fn completion_for_type(
-        ast_type: &ASTType,
+        ast_type: &EnhASTType,
         enhanched_module: &EnhancedASTModule,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         prefix: &Option<String>,
     ) -> Result<CompletionResult, io::Error> {
         let filter = TypeFilter::Exact(ast_type.clone());
@@ -244,7 +247,7 @@ impl ReferenceFinder {
     fn completion_for_identifier(
         prefix: &str,
         enhanched_module: &EnhancedASTModule,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
     ) -> Result<CompletionResult, io::Error> {
         let mut items = Vec::new();
         for function in enhanched_module.functions() {
@@ -262,9 +265,9 @@ impl ReferenceFinder {
 
     fn find_last_char_excluding(
         lines: &Vec<&str>,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         find: &dyn Fn(char) -> bool,
-    ) -> Option<ASTIndex> {
+    ) -> Option<EnhASTIndex> {
         let mut result = index.clone();
         loop {
             let c = Self::char_at_index(&lines, &result)?;
@@ -278,7 +281,7 @@ impl ReferenceFinder {
         }
     }
 
-    fn ignore_whitespaces(lines: &Vec<&str>, index: &ASTIndex) -> Option<ASTIndex> {
+    fn ignore_whitespaces(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<EnhASTIndex> {
         let mut result = index.clone();
         while Self::char_at_index(&lines, &result)?.is_whitespace() {
             result = Self::move_left(&lines, &result)?;
@@ -286,7 +289,7 @@ impl ReferenceFinder {
         Some(result)
     }
 
-    fn ignore_until(lines: &Vec<&str>, index: &ASTIndex, c: char) -> Option<ASTIndex> {
+    fn ignore_until(lines: &Vec<&str>, index: &EnhASTIndex, c: char) -> Option<EnhASTIndex> {
         let mut result = index.clone();
         while Self::char_at_index(&lines, &result)? != c {
             result = Self::move_left(&lines, &result)?;
@@ -294,14 +297,14 @@ impl ReferenceFinder {
         Some(result)
     }
 
-    fn char_at_index(lines: &Vec<&str>, index: &ASTIndex) -> Option<char> {
+    fn char_at_index(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<char> {
         lines.get(index.row - 1).and_then(|line| {
             line.get((index.column - 1)..index.column)
                 .and_then(|chars| chars.chars().next())
         })
     }
 
-    fn move_left(lines: &Vec<&str>, index: &ASTIndex) -> Option<ASTIndex> {
+    fn move_left(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<EnhASTIndex> {
         let mut row = index.row as i32;
         let mut column = index.column as i32 - 1;
 
@@ -312,14 +315,14 @@ impl ReferenceFinder {
             }
             column = (lines.get((row - 1) as usize).unwrap().len()) as i32;
         }
-        Some(ASTIndex::new(
+        Some(EnhASTIndex::new(
             index.file_name.clone(),
             row as usize,
             column as usize,
         ))
     }
 
-    fn find_open_bracket(lines: &Vec<&str>, index: &ASTIndex) -> Option<ASTIndex> {
+    fn find_open_bracket(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<EnhASTIndex> {
         let mut result = index.clone();
         let mut count = 0;
         loop {
@@ -344,7 +347,7 @@ impl ReferenceFinder {
         &self.path == path
     }
 
-    pub fn references(&self, index: &ASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
+    pub fn references(&self, index: &EnhASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
         let mut items = self.find(index)?;
 
         if items.len() == 1 {
@@ -367,7 +370,7 @@ impl ReferenceFinder {
         Ok(Vec::new())
     }
 
-    pub fn rename(&self, index: &ASTIndex, new_name: String) -> Vec<RasmTextEdit> {
+    pub fn rename(&self, index: &EnhASTIndex, new_name: String) -> Vec<RasmTextEdit> {
         let mut result = Vec::new();
 
         if let Ok(items) = self.find(&index) {
@@ -407,7 +410,7 @@ impl ReferenceFinder {
 
     fn process_module(
         enhanced_module: &EnhancedASTModule,
-        module: &ASTModule,
+        module: &EnhASTModule,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
@@ -430,7 +433,7 @@ impl ReferenceFinder {
             &module.namespace,
             &mut val_context,
             &mut statics,
-            Some(&ASTType::Unit),
+            Some(&EnhASTType::Unit),
             None,
             &mut type_check,
             &mut new_functions,
@@ -489,13 +492,13 @@ impl ReferenceFinder {
     }
 
     fn process_function(
-        function: &ASTFunctionDef,
+        function: &EnhASTFunctionDef,
         module: &EnhancedASTModule,
         reference_static_context: &ReferenceContext,
         val_context: &mut ValContext,
         statics: &mut Statics,
         type_check: &mut TypeCheck,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
 
@@ -522,7 +525,7 @@ impl ReferenceFinder {
             &mut result,
         );
 
-        if let ASTFunctionBody::RASMBody(statements) = &function.body {
+        if let EnhASTFunctionBody::RASMBody(statements) = &function.body {
             let _ = Self::process_statements(
                 module,
                 statements,
@@ -543,12 +546,12 @@ impl ReferenceFinder {
     }
 
     fn process_type(
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         module: &EnhancedASTModule,
-        ast_type: &ASTType,
+        ast_type: &EnhASTType,
         result: &mut Vec<SelectableItem>,
     ) {
-        if let ASTType::Custom {
+        if let EnhASTType::Custom {
             namespace: _,
             name,
             param_types,
@@ -566,13 +569,13 @@ impl ReferenceFinder {
         module: &EnhancedASTModule,
         result: &mut Vec<SelectableItem>,
         name: &String,
-        index: &ASTIndex,
-        ast_type: &ASTType,
-        namespace: &ASTNameSpace,
+        index: &EnhASTIndex,
+        ast_type: &EnhASTType,
+        namespace: &EnhASTNameSpace,
     ) {
         let min = index.mv_left(name.len());
 
-        if let ASTType::Custom { .. } = ast_type {
+        if let EnhASTType::Custom { .. } = ast_type {
             let item = SelectableItem::new(
                 min,
                 name.len(),
@@ -587,7 +590,7 @@ impl ReferenceFinder {
         }
     }
 
-    fn get_custom_type_index(module: &EnhancedASTModule, name: &str) -> Option<ASTIndex> {
+    fn get_custom_type_index(module: &EnhancedASTModule, name: &str) -> Option<EnhASTIndex> {
         if let Some(def) = Self::get_enum(module, name) {
             Some(def.index)
         } else if let Some(def) = Self::get_struct(module, name) {
@@ -601,17 +604,17 @@ impl ReferenceFinder {
 
     fn process_statements(
         module: &EnhancedASTModule,
-        statements: &Vec<ASTStatement>,
+        statements: &Vec<EnhASTStatement>,
         result: &mut Vec<SelectableItem>,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_return_type: Option<&ASTType>,
-        inside_function: Option<&ASTFunctionDef>,
+        expected_return_type: Option<&EnhASTType>,
+        inside_function: Option<&EnhASTFunctionDef>,
         type_check: &mut TypeCheck,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         for (i, stmt) in statements.iter().enumerate() {
             let expected_type = if i == statements.len() - 1 {
@@ -644,12 +647,12 @@ impl ReferenceFinder {
     }
 
     fn get_filter_of_expression(
-        expr: &ASTExpression,
+        expr: &EnhASTExpression,
         enhanced_ast_module: &EnhancedASTModule,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
+        expected_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
         type_check: &mut TypeCheck,
     ) -> Result<TypeFilter, TypeCheckError> {
         let mut new_functions = Vec::new();
@@ -666,20 +669,20 @@ impl ReferenceFinder {
     }
 
     fn process_statement(
-        stmt: &ASTStatement,
+        stmt: &EnhASTStatement,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
-        inside_function: Option<&ASTFunctionDef>,
+        expected_type: Option<&EnhASTType>,
+        inside_function: Option<&EnhASTFunctionDef>,
         type_check: &mut TypeCheck,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         match stmt {
-            ASTStatement::Expression(expr) => Self::process_expression(
+            EnhASTStatement::Expression(expr) => Self::process_expression(
                 expr,
                 reference_context,
                 reference_static_context,
@@ -692,7 +695,7 @@ impl ReferenceFinder {
                 type_check,
                 new_functions,
             ),
-            ASTStatement::LetStatement(name, expr, is_const, index) => {
+            EnhASTStatement::LetStatement(name, expr, is_const, index) => {
                 let filter = Self::get_filter_of_expression(
                     expr,
                     module,
@@ -719,7 +722,7 @@ impl ReferenceFinder {
                     } else {
                         statics.add_const(
                             name.clone(),
-                            ASTType::Generic(ASTIndex::none(), "UNKNOWN".to_string()),
+                            EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
                         );
                     }
                     reference_static_context.add(name.clone(), index.clone(), filter);
@@ -733,7 +736,7 @@ impl ReferenceFinder {
                     val_context
                         .insert_let(
                             name.clone(),
-                            ASTType::Generic(ASTIndex::none(), "UNKNOWN".to_string()),
+                            EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
                             index,
                         )
                         .map_err(|err| {
@@ -760,30 +763,30 @@ impl ReferenceFinder {
     }
 
     fn process_expression(
-        expr: &ASTExpression,
+        expr: &EnhASTExpression,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
-        inside_function: Option<&ASTFunctionDef>,
+        expected_type: Option<&EnhASTType>,
+        inside_function: Option<&EnhASTFunctionDef>,
         type_check: &mut TypeCheck,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
-            ASTExpression::StringLiteral(s, index) => result.push(SelectableItem::new(
+            EnhASTExpression::StringLiteral(s, index) => result.push(SelectableItem::new(
                 index.mv_left(s.len()),
                 s.len(),
                 namespace.clone(),
                 Some(SelectableItemTarget::Type(
                     None,
-                    ASTType::Builtin(BuiltinTypeKind::String),
+                    EnhASTType::Builtin(EnhBuiltinTypeKind::String),
                 )),
             )),
-            ASTExpression::ASTFunctionCallExpression(call) => {
+            EnhASTExpression::ASTFunctionCallExpression(call) => {
                 let _ = Self::process_function_call(
                     expr,
                     reference_context,
@@ -800,7 +803,7 @@ impl ReferenceFinder {
                     new_functions,
                 );
             }
-            ASTExpression::ValueRef(name, index) => {
+            EnhASTExpression::ValueRef(name, index) => {
                 Self::process_value_ref(
                     reference_context,
                     reference_static_context,
@@ -810,8 +813,8 @@ impl ReferenceFinder {
                     index,
                 );
             }
-            ASTExpression::Value(_value_type, _index) => {}
-            ASTExpression::Lambda(def) => {
+            EnhASTExpression::Value(_value_type, _index) => {}
+            EnhASTExpression::Lambda(def) => {
                 let _ = Self::process_lambda(
                     reference_context,
                     module,
@@ -825,7 +828,7 @@ impl ReferenceFinder {
                     new_functions,
                 );
             }
-            ASTExpression::Any(_) => {}
+            EnhASTExpression::Any(_) => {}
         }
         Ok(result)
     }
@@ -833,10 +836,10 @@ impl ReferenceFinder {
     fn process_value_ref(
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         result: &mut Vec<SelectableItem>,
         name: &String,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
     ) {
         if let Some(v) = reference_context
             .get(name)
@@ -862,21 +865,21 @@ impl ReferenceFinder {
     fn process_lambda(
         reference_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
+        expected_type: Option<&EnhASTType>,
         result: &mut Vec<SelectableItem>,
-        def: &ASTLambdaDef,
+        def: &EnhASTLambdaDef,
         type_check: &mut TypeCheck,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
         let mut lambda_val_context = ValContext::new(Some(val_context));
         let mut lambda_result = Vec::new();
 
         let expected_lambda_return_type = if let Some(et) = expected_type {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 parameters,
                 return_type,
             }) = et
@@ -884,7 +887,7 @@ impl ReferenceFinder {
                 for ((par_name, par_index), par_type) in
                     zip(def.parameter_names.iter(), parameters.iter())
                 {
-                    let par = ASTParameterDef {
+                    let par = EnhASTParameterDef {
                         name: par_name.clone(),
                         ast_type: par_type.clone(),
                         ast_index: par_index.clone(),
@@ -916,10 +919,13 @@ impl ReferenceFinder {
                 lambda_val_context
                     .insert_par(
                         name.clone(),
-                        ASTParameterDef {
+                        EnhASTParameterDef {
                             name: name.to_string(),
                             ast_index: index.clone(),
-                            ast_type: ASTType::Generic(ASTIndex::none(), "UNKNOWN".to_string()),
+                            ast_type: EnhASTType::Generic(
+                                EnhASTIndex::none(),
+                                "UNKNOWN".to_string(),
+                            ),
                         },
                     )
                     .map_err(|err| TypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
@@ -947,19 +953,19 @@ impl ReferenceFinder {
     }
 
     fn process_function_call(
-        expr: &ASTExpression,
+        expr: &EnhASTExpression,
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         val_context: &mut ValContext,
         statics: &mut Statics,
         result: &mut Vec<SelectableItem>,
-        call: &ASTFunctionCall,
-        expected_return_type: Option<&ASTType>,
-        inside_function: Option<&ASTFunctionDef>,
+        call: &EnhASTFunctionCall,
+        expected_return_type: Option<&EnhASTType>,
+        inside_function: Option<&EnhASTFunctionDef>,
         type_check: &mut TypeCheck,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         if let Some(val_kind) = val_context.get(&call.function_name) {
             let (index, ast_type) = match val_kind {
@@ -975,7 +981,7 @@ impl ReferenceFinder {
 
             let cloned_type = ast_type.clone();
 
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 parameters,
                 return_type: _,
             }) = ast_type
@@ -1118,9 +1124,9 @@ impl ReferenceFinder {
 
     fn get_if_custom_type_index(
         module: &EnhancedASTModule,
-        ast_type: &ASTType,
-    ) -> Option<ASTIndex> {
-        if let ASTType::Custom {
+        ast_type: &EnhASTType,
+    ) -> Option<EnhASTIndex> {
+        if let EnhASTType::Custom {
             namespace: _,
             name,
             param_types: _,
@@ -1133,15 +1139,15 @@ impl ReferenceFinder {
         }
     }
 
-    fn get_enum(module: &EnhancedASTModule, name: &str) -> Option<ASTEnumDef> {
+    fn get_enum(module: &EnhancedASTModule, name: &str) -> Option<EnhASTEnumDef> {
         module.enums.iter().find(|it| &it.name == name).cloned()
     }
 
-    fn get_struct(module: &EnhancedASTModule, name: &str) -> Option<ASTStructDef> {
+    fn get_struct(module: &EnhancedASTModule, name: &str) -> Option<EnhASTStructDef> {
         module.structs.iter().find(|it| &it.name == name).cloned()
     }
 
-    fn get_type(module: &EnhancedASTModule, name: &str) -> Option<ASTTypeDef> {
+    fn get_type(module: &EnhancedASTModule, name: &str) -> Option<EnhASTTypeDef> {
         module.types.iter().find(|it| &it.name == name).cloned()
     }
 }
@@ -1156,7 +1162,7 @@ mod tests {
 
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
-    use rasm_core::codegen::eh_ast::{ASTIndex, ASTModule, ASTType};
+    use rasm_core::codegen::eh_ast::{EnhASTIndex, EnhASTModule, EnhASTType};
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
@@ -1186,7 +1192,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
+                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
                     .unwrap()
             ),
             vec![get_index(&project, "simple.rasm", 1, 5)]
@@ -1195,7 +1201,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 13,))
+                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 13,))
                     .unwrap()
             ),
             vec![get_index(&project, "simple.rasm", 5, 16)]
@@ -1204,7 +1210,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 3, 2,))
+                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 3, 2,))
                     .unwrap()
             ),
             vec![get_index(&project, "simple.rasm", 5, 4)]
@@ -1213,10 +1219,10 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 9,))
+                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 9,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(
+            vec![EnhASTIndex::new(
                 Some(stdlib_path.join("src/main/rasm/print.rasm")),
                 12,
                 8
@@ -1226,10 +1232,10 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(file_name.to_path_buf()), 10, 15,))
+                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 10, 15,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(
+            vec![EnhASTIndex::new(
                 Some(stdlib_path.join("src/main/rasm/option.rasm")),
                 2,
                 7
@@ -1250,10 +1256,10 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 15, 23))
+                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 15, 23))
                     .unwrap()
             ),
-            vec![ASTIndex::new(
+            vec![EnhASTIndex::new(
                 Some(stdlib_path.join("src/main/rasm/option.rasm")),
                 1,
                 10
@@ -1263,7 +1269,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 19, 23,))
+                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 19, 23,))
                     .unwrap()
             ),
             vec![get_index(&project, "types.rasm", 1, 8)],
@@ -1272,10 +1278,10 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 23, 23,))
+                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 23, 23,))
                     .unwrap()
             ),
-            vec![ASTIndex::new(
+            vec![EnhASTIndex::new(
                 Some(stdlib_path.join("src/main/nasmi386/vec.rasm")),
                 1,
                 10
@@ -1322,7 +1328,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_index(
                 finder
-                    .find(&ASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
+                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
                     .unwrap()
             ),
             vec![get_index(&project, "types.rasm", 1, 8)],
@@ -1336,7 +1342,7 @@ mod tests {
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
-            .find(&ASTIndex::new(Some(file_name.clone()), 27, 31))
+            .find(&EnhASTIndex::new(Some(file_name.clone()), 27, 31))
             .unwrap();
 
         assert_eq!(
@@ -1352,7 +1358,7 @@ mod tests {
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
-            .find(&ASTIndex::new(Some(file_name.clone()), 9, 1))
+            .find(&EnhASTIndex::new(Some(file_name.clone()), 9, 1))
             .unwrap();
 
         assert_eq!(
@@ -1368,7 +1374,7 @@ mod tests {
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
-            .find(&ASTIndex::new(Some(file_name.clone()), 9, 13))
+            .find(&EnhASTIndex::new(Some(file_name.clone()), 9, 13))
             .unwrap();
 
         assert_eq!(
@@ -1483,12 +1489,12 @@ mod tests {
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.find(&ASTIndex::new(file_name.clone(), 32, 28)) {
+        match finder.find(&EnhASTIndex::new(file_name.clone(), 32, 28)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
                     if let Some(ref target) = selectable_item.target {
-                        if let Some(ASTType::Custom {
+                        if let Some(EnhASTType::Custom {
                             namespace: _,
                             name,
                             param_types: _,
@@ -1525,11 +1531,11 @@ mod tests {
         );
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
-        match finder.find(&ASTIndex::new(Some(result_rasm.clone()), 11, 9)) {
+        match finder.find(&EnhASTIndex::new(Some(result_rasm.clone()), 11, 9)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
-                    let expected_index = ASTIndex::new(Some(result_rasm), 14, 8);
+                    let expected_index = EnhASTIndex::new(Some(result_rasm), 14, 8);
                     if let Some(SelectableItemTarget::Function(index, _, _)) =
                         selectable_item.target
                     {
@@ -1555,7 +1561,7 @@ mod tests {
         let file_name = Path::new("resources/test/enums.rasm");
 
         let mut items = finder
-            .find(&ASTIndex::new(Some(file_name.to_path_buf()), 17, 13))
+            .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 17, 13))
             .unwrap();
 
         assert_eq!(1, items.len());
@@ -1564,7 +1570,7 @@ mod tests {
 
         if let Some(SelectableItemTarget::Function(index, _, descr)) = item.target {
             assert_eq!(
-                ASTIndex::new(Some(file_name.canonicalize().unwrap()), 0, 0),
+                EnhASTIndex::new(Some(file_name.canonicalize().unwrap()), 0, 0),
                 index
             );
             assert!(descr.starts_with("native match"));
@@ -1581,7 +1587,7 @@ mod tests {
         let file_name = Path::new("resources/test/enums.rasm");
 
         let mut items = finder
-            .find(&ASTIndex::new(Some(file_name.to_path_buf()), 17, 40))
+            .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 17, 40))
             .unwrap();
 
         assert_eq!(1, items.len());
@@ -1590,7 +1596,7 @@ mod tests {
 
         if let Some(SelectableItemTarget::Ref(index, _)) = item.target {
             assert_eq!(
-                ASTIndex::new(
+                EnhASTIndex::new(
                     Some(file_name.canonicalize().unwrap().to_path_buf()),
                     17,
                     21
@@ -1610,7 +1616,7 @@ mod tests {
         let file_name = Path::new("resources/test/types.rasm");
 
         let mut items = finder
-            .references(&ASTIndex::new(Some(file_name.to_path_buf()), 6, 7))
+            .references(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 7))
             .unwrap();
 
         assert_eq!(3, items.len());
@@ -1620,12 +1626,12 @@ mod tests {
         let item3 = items.remove(0);
 
         assert_eq!(
-            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 6, 5),
+            EnhASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 6, 5),
             item1.file_token.start
         );
 
         assert_eq!(
-            ASTIndex::new(
+            EnhASTIndex::new(
                 Some(file_name.canonicalize().unwrap().to_path_buf()),
                 10,
                 13
@@ -1634,7 +1640,7 @@ mod tests {
         );
 
         assert_eq!(
-            ASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 12, 9),
+            EnhASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 12, 9),
             item3.file_token.start
         );
     }
@@ -1667,7 +1673,7 @@ mod tests {
         let file_name = Path::new("resources/test/references.rasm");
 
         let references = finder
-            .references(&ASTIndex::new(Some(file_name.to_path_buf()), 2, 14))
+            .references(&EnhASTIndex::new(Some(file_name.to_path_buf()), 2, 14))
             .unwrap();
 
         assert_eq!(1, references.len());
@@ -1677,8 +1683,8 @@ mod tests {
         PathBuf::from("../stdlib").canonicalize().unwrap()
     }
 
-    fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> ASTIndex {
-        ASTIndex::new(
+    fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> EnhASTIndex {
+        EnhASTIndex::new(
             Some(
                 project
                     .from_relative_to_root(Path::new(file_n))
@@ -1695,7 +1701,7 @@ mod tests {
         items.iter().map(|it| it.descr.clone()).collect::<Vec<_>>()
     }
 
-    fn vec_selectable_item_to_vec_index(vec: Vec<SelectableItem>) -> Vec<ASTIndex> {
+    fn vec_selectable_item_to_vec_index(vec: Vec<SelectableItem>) -> Vec<EnhASTIndex> {
         vec.iter()
             .flat_map(|it| it.target.clone().and_then(|item| item.index()))
             .collect::<Vec<_>>()
@@ -1704,7 +1710,7 @@ mod tests {
     fn get_reference_finder(
         source: &str,
         module_path: Option<&str>,
-    ) -> (RasmProject, EnhancedASTModule, ASTModule) {
+    ) -> (RasmProject, EnhancedASTModule, EnhASTModule) {
         env::set_var("RASM_STDLIB", "../../../stdlib");
 
         let file_name = Path::new(source);
@@ -1717,7 +1723,7 @@ mod tests {
     fn get_reference_finder_for_project(
         project: &RasmProject,
         module_path: &str,
-    ) -> (EnhancedASTModule, ASTModule) {
+    ) -> (EnhancedASTModule, EnhASTModule) {
         init_log();
 
         let mut statics = Statics::new();
@@ -1744,7 +1750,7 @@ mod tests {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        (enhanced_ast_module, ASTModule::from_ast(module, info))
+        (enhanced_ast_module, EnhASTModule::from_ast(module, info))
     }
 
     fn init_log() {
@@ -1779,7 +1785,7 @@ mod tests {
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
-        let index = ASTIndex::new(file_name.clone(), row, col);
+        let index = EnhASTIndex::new(file_name.clone(), row, col);
         let target = CompileTarget::C(COptions::default());
 
         match finder.get_completions(&project, &index, &eh_module, &trigger, &target) {
@@ -1801,7 +1807,7 @@ mod tests {
         file_name: &str,
         row: usize,
         col: usize,
-    ) -> Vec<ASTIndex> {
+    ) -> Vec<EnhASTIndex> {
         env::set_var("RASM_STDLIB", "../../../stdlib");
         let project = if let Some(project) = project {
             project
@@ -1812,7 +1818,7 @@ mod tests {
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
-        let index = ASTIndex::new(file_name.clone(), row, col);
+        let index = EnhASTIndex::new(file_name.clone(), row, col);
 
         vec_selectable_item_to_vec_index(finder.find(&index).unwrap())
     }

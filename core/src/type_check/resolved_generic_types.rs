@@ -20,11 +20,11 @@ use std::fmt::{Display, Formatter};
 
 use linked_hash_map::{IntoIter, Iter, LinkedHashMap};
 
-use crate::{codegen::eh_ast::ASTType, codegen::enhanced_module::EnhancedASTModule};
+use crate::{codegen::eh_ast::EnhASTType, codegen::enhanced_module::EnhancedASTModule};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGenericTypes {
-    map: LinkedHashMap<String, ASTType>,
+    map: LinkedHashMap<String, EnhASTType>,
 }
 
 impl ResolvedGenericTypes {
@@ -34,7 +34,7 @@ impl ResolvedGenericTypes {
         }
     }
 
-    pub fn get(&self, key: &String) -> Option<&ASTType> {
+    pub fn get(&self, key: &String) -> Option<&EnhASTType> {
         self.map.get(key)
     }
 
@@ -63,18 +63,18 @@ impl ResolvedGenericTypes {
         None
     }
 
-    pub fn insert(&mut self, key: String, value: ASTType) -> Option<ASTType> {
+    pub fn insert(&mut self, key: String, value: EnhASTType) -> Option<EnhASTType> {
         if let Some(t) = self.map.get(&key) {
             assert_eq!(t, &value);
         }
         self.map.insert(key, value)
     }
 
-    pub fn iter(&self) -> Iter<String, ASTType> {
+    pub fn iter(&self) -> Iter<String, EnhASTType> {
         self.map.iter()
     }
 
-    pub fn into_iter(self) -> IntoIter<String, ASTType> {
+    pub fn into_iter(self) -> IntoIter<String, EnhASTType> {
         self.map.into_iter()
     }
 

@@ -24,11 +24,13 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use crate::codegen::compile_target::CompileTarget;
+use crate::parser::ast::ASTValueType;
 use log::info;
 
 use crate::codegen::eh_ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTLambdaDef,
-    ASTNameSpace, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind, ValueType,
+    EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
+    EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement, EnhASTType,
+    EnhBuiltinTypeKind,
 };
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
@@ -47,9 +49,9 @@ type InputModule = EnhancedASTModule;
 type OutputModule = EnhancedASTModule;
 
 pub struct TypeCheck {
-    stack: Vec<ASTIndex>,
-    functions_stack: LinkedHashMap<String, Vec<ASTIndex>>,
-    new_functions: HashMap<String, ASTFunctionDef>,
+    stack: Vec<EnhASTIndex>,
+    functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
+    new_functions: HashMap<String, EnhASTFunctionDef>,
 }
 
 impl TypeCheck {
@@ -77,7 +79,7 @@ impl TypeCheck {
         default_functions.extend(mandatory_functions);
 
         for default_function in default_functions {
-            let call = default_function.to_call(&ASTNameSpace::global());
+            let call = default_function.to_call(&EnhASTNameSpace::global());
 
             if let Some(f) =
                 module.find_precise_function(&call.original_function_name, &call.function_name)
@@ -109,7 +111,7 @@ impl TypeCheck {
                 true,
             )
             .map_err(|it| CompilationError {
-                index: ASTIndex::none(),
+                index: EnhASTIndex::none(),
                 error_kind: CompilationErrorKind::TypeCheck(
                     format!(
                         "Error transforming statements for module body, body namespace {}",
@@ -207,7 +209,7 @@ impl TypeCheck {
 
     fn compilation_error(message: String) -> CompilationError {
         CompilationError {
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             error_kind: CompilationErrorKind::TypeCheck(message, Vec::new()),
         }
     }
@@ -215,17 +217,17 @@ impl TypeCheck {
     fn transform_statement(
         &mut self,
         module: &InputModule,
-        statement: &ASTStatement,
+        statement: &EnhASTStatement,
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_return_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_return_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<ASTStatement, TypeCheckError> {
+    ) -> Result<EnhASTStatement, TypeCheckError> {
         match statement {
-            ASTStatement::Expression(e) => self
+            EnhASTStatement::Expression(e) => self
                 .transform_expression(
                     module,
                     e,
@@ -237,9 +239,9 @@ impl TypeCheck {
                     new_functions,
                     strict,
                 )
-                .map(ASTStatement::Expression),
-            ASTStatement::LetStatement(name, e, is_const, index) => self
-                .transform_expression(
+                .map(EnhASTStatement::Expression),
+            EnhASTStatement::LetStatement(name, e, is_const, index) => {
+                self.transform_expression(
                     module,
                     e,
                     val_context,
@@ -250,24 +252,25 @@ impl TypeCheck {
                     new_functions,
                     strict,
                 )
-                .map(|it| ASTStatement::LetStatement(name.clone(), it, *is_const, index.clone())),
+                .map(|it| EnhASTStatement::LetStatement(name.clone(), it, *is_const, index.clone()))
+            }
         }
     }
 
     fn transform_expression(
         &mut self,
         module: &InputModule,
-        expression: &ASTExpression,
+        expression: &EnhASTExpression,
         val_context: &ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<ASTExpression, TypeCheckError> {
+    ) -> Result<EnhASTExpression, TypeCheckError> {
         match expression {
-            ASTExpression::ASTFunctionCallExpression(call) => self
+            EnhASTExpression::ASTFunctionCallExpression(call) => self
                 .transform_call(
                     module,
                     call,
@@ -279,8 +282,8 @@ impl TypeCheck {
                     new_functions,
                     strict,
                 )
-                .map(ASTExpression::ASTFunctionCallExpression),
-            ASTExpression::Lambda(lambda_def) => self
+                .map(EnhASTExpression::ASTFunctionCallExpression),
+            EnhASTExpression::Lambda(lambda_def) => self
                 .transform_lambda_def(
                     module,
                     lambda_def,
@@ -292,7 +295,7 @@ impl TypeCheck {
                     new_functions,
                     strict,
                 )
-                .map(ASTExpression::Lambda),
+                .map(EnhASTExpression::Lambda),
             _ => Ok(expression.clone()),
         } /*
           .map_err(|it| {
@@ -310,15 +313,15 @@ impl TypeCheck {
     fn transform_call(
         &mut self,
         module: &InputModule,
-        call: &ASTFunctionCall,
+        call: &EnhASTFunctionCall,
         val_context: &ValContext,
         statics: &mut Statics,
-        expected_return_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_return_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<ASTFunctionCall, TypeCheckError> {
+    ) -> Result<EnhASTFunctionCall, TypeCheckError> {
         debug_i!(
             "transform_call {call} expected_return_type {}",
             OptionDisplay(&expected_return_type)
@@ -333,7 +336,7 @@ impl TypeCheck {
 
         if let Some((_return_type, parameters_types)) = val_context.get_lambda(&call.function_name)
         {
-            let new_expressions: Vec<ASTExpression> =
+            let new_expressions: Vec<EnhASTExpression> =
                 zip(call.parameters.iter(), parameters_types.clone().iter())
                     .map(|(it, ast_type)| {
                         self.transform_expression(
@@ -476,7 +479,7 @@ impl TypeCheck {
     }
 
     fn unique_function_name(
-        new_function_def: &ASTFunctionDef,
+        new_function_def: &EnhASTFunctionDef,
         module: &EnhancedASTModule,
     ) -> String {
         let namespace = new_function_def.namespace.safe_name();
@@ -494,10 +497,10 @@ impl TypeCheck {
         )
     }
 
-    fn unique_type_name(ast_type: &ASTType, module: &EnhancedASTModule) -> String {
+    fn unique_type_name(ast_type: &EnhASTType, module: &EnhancedASTModule) -> String {
         match ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Lambda {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 } => {
@@ -513,8 +516,8 @@ impl TypeCheck {
                 }
                 _ => format!("{ast_type}"),
             },
-            ASTType::Generic(_, name) => name.clone(), // TODO it should not happen when strict = true
-            ASTType::Custom {
+            EnhASTType::Generic(_, name) => name.clone(), // TODO it should not happen when strict = true
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
@@ -534,22 +537,29 @@ impl TypeCheck {
                     panic!("Cannot find type {ast_type} definition");
                 }
             }
-            ASTType::Unit => "Unit".to_string(),
+            EnhASTType::Unit => "Unit".to_string(),
         }
     }
 
     pub fn get_valid_function(
         &mut self,
         module: &InputModule,
-        call: &ASTFunctionCall,
+        call: &EnhASTFunctionCall,
         val_context: &ValContext,
         statics: &mut Statics,
-        expected_return_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_return_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<(ASTFunctionDef, ResolvedGenericTypes, Vec<ASTExpression>), TypeCheckError> {
+    ) -> Result<
+        (
+            EnhASTFunctionDef,
+            ResolvedGenericTypes,
+            Vec<EnhASTExpression>,
+        ),
+        TypeCheckError,
+    > {
         debug_i!(
             "get_valid_function call {call} expected_return_type {}: {}",
             OptionDisplay(&expected_return_type),
@@ -558,10 +568,10 @@ impl TypeCheck {
         indent!();
 
         let mut valid_functions: Vec<(
-            ASTFunctionDef,
+            EnhASTFunctionDef,
             usize,
             ResolvedGenericTypes,
-            Vec<ASTExpression>,
+            Vec<EnhASTExpression>,
         )> = Vec::new();
         let mut errors = Vec::new();
 
@@ -992,14 +1002,14 @@ impl TypeCheck {
         }
     }
 
-    fn get_first_type(call: &ASTFunctionCall, val_context: &ValContext) -> Option<ASTType> {
+    fn get_first_type(call: &EnhASTFunctionCall, val_context: &ValContext) -> Option<EnhASTType> {
         if call.parameters.len() > 0 {
             if let Some(p) = call.parameters.get(0) {
                 match p {
-                    ASTExpression::StringLiteral(_, _) => {
-                        Some(ASTType::Builtin(BuiltinTypeKind::String))
+                    EnhASTExpression::StringLiteral(_, _) => {
+                        Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
                     }
-                    ASTExpression::ValueRef(name, _) => {
+                    EnhASTExpression::ValueRef(name, _) => {
                         if let Some(t) = val_context.get(name) {
                             match t {
                                 ValKind::ParameterRef(_, par) => Some(par.ast_type.clone()),
@@ -1009,13 +1019,17 @@ impl TypeCheck {
                             None
                         }
                     }
-                    ASTExpression::Value(vt_, _) => match vt_ {
-                        ValueType::Boolean(_) => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
-                        ValueType::I32(_) => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
-                        ValueType::Char(_) => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
-                        ValueType::F32(_) => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                    EnhASTExpression::Value(vt_, _) => match vt_ {
+                        ASTValueType::Boolean(_) => {
+                            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool))
+                        }
+                        ASTValueType::I32(_) => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
+                        ASTValueType::Char(_) => {
+                            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Char))
+                        }
+                        ASTValueType::F32(_) => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::F32)),
                     },
-                    ASTExpression::Any(t) => Some(t.clone()),
+                    EnhASTExpression::Any(t) => Some(t.clone()),
                     _ => None,
                 }
             } else {
@@ -1029,7 +1043,7 @@ impl TypeCheck {
     ///
     /// lower means a better precedence
     ///
-    pub fn function_precedence_coeff(function: &ASTFunctionDef) -> usize {
+    pub fn function_precedence_coeff(function: &EnhASTFunctionDef) -> usize {
         let generic_coeff: usize = function
             .parameters
             .iter()
@@ -1037,7 +1051,7 @@ impl TypeCheck {
             .sum();
 
         generic_coeff
-            + if matches!(function.body, ASTFunctionBody::NativeBody(_)) {
+            + if matches!(function.body, EnhASTFunctionBody::NativeBody(_)) {
                 0usize
             } else {
                 1usize
@@ -1050,13 +1064,13 @@ impl TypeCheck {
         val_context: &ValContext,
         statics: &mut Statics,
         resolved_generic_types: &mut ResolvedGenericTypes,
-        expr: &ASTExpression,
-        param_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expr: &EnhASTExpression,
+        param_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<(TypeFilter, ASTExpression), TypeCheckError> {
+    ) -> Result<(TypeFilter, EnhASTExpression), TypeCheckError> {
         let e = self.transform_expression(
             module,
             expr,
@@ -1096,7 +1110,7 @@ impl TypeCheck {
         } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
             if let TypeFilter::Exact(et) = lrt.deref() {
                 if !et.is_generic() {
-                    if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                         parameters: _,
                         return_type,
                     })) = param_type
@@ -1123,16 +1137,16 @@ impl TypeCheck {
     ///
     /// return a coefficient that is higher for how the type is generic
     ///
-    pub fn generic_type_coeff(ast_type: &ASTType) -> usize {
+    pub fn generic_type_coeff(ast_type: &EnhASTType) -> usize {
         Self::generic_type_coeff_internal(ast_type, usize::MAX / 100)
     }
 
-    fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
+    fn generic_type_coeff_internal(ast_type: &EnhASTType, coeff: usize) -> usize {
         if ast_type.is_generic() {
             match ast_type {
-                ASTType::Builtin(_) => 0,
-                ASTType::Generic(_, _) => coeff,
-                ASTType::Custom {
+                EnhASTType::Builtin(_) => 0,
+                EnhASTType::Generic(_, _) => coeff,
+                EnhASTType::Custom {
                     namespace: _,
                     name: _,
                     param_types,
@@ -1141,7 +1155,7 @@ impl TypeCheck {
                     .iter()
                     .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
                     .sum(),
-                ASTType::Unit => 0,
+                EnhASTType::Unit => 0,
             }
         } else {
             0
@@ -1152,11 +1166,11 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         statics: &mut Statics,
-        new_function_def: &ASTFunctionDef,
+        new_function_def: &EnhASTFunctionDef,
         target: &CompileTarget,
         debug: bool,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
-    ) -> Result<Option<ASTFunctionBody>, TypeCheckError> {
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+    ) -> Result<Option<EnhASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
             "generic_types {}",
@@ -1178,7 +1192,7 @@ impl TypeCheck {
         }
 
         let new_body = match &new_function_def.body {
-            ASTFunctionBody::RASMBody(statements) => {
+            EnhASTFunctionBody::RASMBody(statements) => {
                 let new_statements = self.transform_statements(
                     module,
                     statements,
@@ -1190,9 +1204,9 @@ impl TypeCheck {
                     new_functions,
                     true,
                 )?;
-                Some(ASTFunctionBody::RASMBody(new_statements))
+                Some(EnhASTFunctionBody::RASMBody(new_statements))
             }
-            ASTFunctionBody::NativeBody(asm_body) => {
+            EnhASTFunctionBody::NativeBody(asm_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
 
                 let evaluator = target.get_evaluator(debug);
@@ -1295,7 +1309,7 @@ impl TypeCheck {
                         lines[f.i] = new_line;
                     }
 
-                    Some(ASTFunctionBody::NativeBody(lines.join("\n")))
+                    Some(EnhASTFunctionBody::NativeBody(lines.join("\n")))
                 }
             }
         };
@@ -1306,15 +1320,15 @@ impl TypeCheck {
     fn transform_statements(
         &mut self,
         module: &InputModule,
-        statements: &[ASTStatement],
+        statements: &[EnhASTStatement],
         val_context: &mut ValContext,
         statics: &mut Statics,
-        expected_return_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_return_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<Vec<ASTStatement>, TypeCheckError> {
+    ) -> Result<Vec<EnhASTStatement>, TypeCheckError> {
         debug_i!(
             "transform_statements expected_return_type {}",
             OptionDisplay(&expected_return_type)
@@ -1341,7 +1355,9 @@ impl TypeCheck {
                     strict,
                 );
 
-                if let Ok(ASTStatement::LetStatement(name, expr, is_cons, index)) = &new_statement {
+                if let Ok(EnhASTStatement::LetStatement(name, expr, is_cons, index)) =
+                    &new_statement
+                {
                     let type_of_expr = self.type_of_expression(
                         module,
                         expr,
@@ -1378,7 +1394,7 @@ impl TypeCheck {
         dedent!();
         result.map_err(|it| {
             it.add(
-                ASTIndex::none(),
+                EnhASTIndex::none(),
                 format!(
                     "transforming expressions, expected_return_type {}",
                     OptionDisplay(&expected_return_type)
@@ -1391,12 +1407,12 @@ impl TypeCheck {
     pub fn type_of_expression(
         &mut self,
         module: &InputModule,
-        typed_expression: &ASTExpression,
+        typed_expression: &EnhASTExpression,
         val_context: &ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
     ) -> Result<TypeFilter, TypeCheckError> {
         debug_i!(
@@ -1405,10 +1421,10 @@ impl TypeCheck {
         );
         indent!();
         let result = match typed_expression {
-            ASTExpression::StringLiteral(_, _) => {
-                TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::String))
+            EnhASTExpression::StringLiteral(_, _) => {
+                TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
             }
-            ASTExpression::ASTFunctionCallExpression(call) => {
+            EnhASTExpression::ASTFunctionCallExpression(call) => {
                 if val_context.is_lambda(&call.function_name) {
                     if let Some(v) = val_context.get(&call.function_name) {
                         let lambda = match v {
@@ -1416,7 +1432,7 @@ impl TypeCheck {
                             ValKind::LetRef(_, t, _index) => t.clone(),
                         };
 
-                        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                             parameters: _,
                             return_type,
                         }) = lambda
@@ -1479,7 +1495,7 @@ impl TypeCheck {
                     }
                 }
             }
-            ASTExpression::ValueRef(name, index) => match val_context.get(name) {
+            EnhASTExpression::ValueRef(name, index) => match val_context.get(name) {
                 None => {
                     if let Some(c) = statics.get_const(name) {
                         TypeFilter::Exact(c.ast_type.clone())
@@ -1499,18 +1515,26 @@ impl TypeCheck {
                     TypeFilter::Exact(par.ast_type.clone())
                 }
             },
-            ASTExpression::Value(value_type, _) => match value_type {
-                ValueType::Boolean(_) => TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Bool)),
-                ValueType::I32(_) => TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::I32)),
-                ValueType::Char(_) => TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Char)),
-                ValueType::F32(_) => TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::F32)),
+            EnhASTExpression::Value(value_type, _) => match value_type {
+                ASTValueType::Boolean(_) => {
+                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool))
+                }
+                ASTValueType::I32(_) => {
+                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
+                }
+                ASTValueType::Char(_) => {
+                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Char))
+                }
+                ASTValueType::F32(_) => {
+                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::F32))
+                }
             },
-            ASTExpression::Lambda(def) => {
+            EnhASTExpression::Lambda(def) => {
                 if def.body.is_empty() {
                     dedent!();
                     return Ok(TypeFilter::Lambda(
                         def.parameter_names.len(),
-                        Some(Box::new(TypeFilter::Exact(ASTType::Unit))),
+                        Some(Box::new(TypeFilter::Exact(EnhASTType::Unit))),
                     ));
                 }
                 // I cannot go deep in determining the type
@@ -1519,7 +1543,7 @@ impl TypeCheck {
                     return Ok(TypeFilter::Lambda(def.parameter_names.len(), None));
                 }
 
-                let mut return_type = Some(Box::new(TypeFilter::Exact(ASTType::Unit)));
+                let mut return_type = Some(Box::new(TypeFilter::Exact(EnhASTType::Unit)));
                 let mut lambda_val_context = ValContext::new(Some(val_context));
 
                 self.add_lambda_parameters_to_val_context(
@@ -1529,7 +1553,7 @@ impl TypeCheck {
                 )?;
 
                 for (i, statement) in def.body.iter().enumerate() {
-                    if let ASTStatement::LetStatement(name, expr, is_cons, index) = statement {
+                    if let EnhASTStatement::LetStatement(name, expr, is_cons, index) = statement {
                         let type_of_expr = self.type_of_expression(
                             module,
                             expr,
@@ -1563,7 +1587,7 @@ impl TypeCheck {
                     }
 
                     if i == def.body.len() - 1 {
-                        if let ASTStatement::Expression(last) = statement {
+                        if let EnhASTStatement::Expression(last) = statement {
                             return_type = Some(Box::new(self.type_of_expression(
                                 module,
                                 last,
@@ -1580,7 +1604,7 @@ impl TypeCheck {
                 debug_i!("lambda return type {}", OptionDisplay(&return_type));
                 if def.parameter_names.is_empty() {
                     if let Some(TypeFilter::Exact(exact_return_type)) = return_type.as_deref() {
-                        TypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                             parameters: Vec::new(),
                             return_type: Box::new(exact_return_type.clone()),
                         }))
@@ -1591,7 +1615,7 @@ impl TypeCheck {
                     TypeFilter::Lambda(def.parameter_names.len(), return_type)
                 }
             }
-            ASTExpression::Any(t) => TypeFilter::Exact(t.clone()),
+            EnhASTExpression::Any(t) => TypeFilter::Exact(t.clone()),
         };
 
         debug_i!("found type {result}");
@@ -1602,15 +1626,15 @@ impl TypeCheck {
     fn transform_lambda_def(
         &mut self,
         module: &InputModule,
-        lambda_def: &ASTLambdaDef,
+        lambda_def: &EnhASTLambdaDef,
         val_context: &ValContext,
         statics: &mut Statics,
-        expected_type: Option<&ASTType>,
-        namespace: &ASTNameSpace,
-        inside_function: Option<&ASTFunctionDef>,
-        new_functions: &mut Vec<(ASTFunctionDef, Vec<ASTIndex>)>,
+        expected_type: Option<&EnhASTType>,
+        namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<ASTLambdaDef, TypeCheckError> {
+    ) -> Result<EnhASTLambdaDef, TypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
         let mut val_context = ValContext::new(Some(val_context));
@@ -1618,13 +1642,13 @@ impl TypeCheck {
         self.add_lambda_parameters_to_val_context(lambda_def, &expected_type, &mut val_context)?;
 
         let ert = if let Some(et) = expected_type {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 parameters: _,
                 return_type,
             }) = et
             {
                 Ok(Some(return_type.deref()))
-            } else if let ASTType::Generic(_, _name) = et {
+            } else if let EnhASTType::Generic(_, _name) = et {
                 Ok(None)
             } else {
                 Err(TypeCheckError::new(
@@ -1654,12 +1678,12 @@ impl TypeCheck {
 
     fn add_lambda_parameters_to_val_context(
         &self,
-        lambda_def: &ASTLambdaDef,
-        expected_type: &Option<&ASTType>,
+        lambda_def: &EnhASTLambdaDef,
+        expected_type: &Option<&EnhASTType>,
         val_context: &mut ValContext,
     ) -> Result<(), TypeCheckError> {
         if !lambda_def.parameter_names.is_empty() {
-            if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 parameters,
                 return_type: _,
             })) = expected_type
@@ -1669,7 +1693,7 @@ impl TypeCheck {
                     val_context
                         .insert_par(
                             name.to_owned(),
-                            ASTParameterDef {
+                            EnhASTParameterDef {
                                 name: name.to_owned(),
                                 ast_type: t.clone(),
                                 ast_index: index.clone(),
@@ -1684,9 +1708,12 @@ impl TypeCheck {
                     val_context
                         .insert_par(
                             name.to_owned(),
-                            ASTParameterDef {
+                            EnhASTParameterDef {
                                 name: name.to_owned(),
-                                ast_type: ASTType::Generic(ASTIndex::none(), format!("L_{i}")),
+                                ast_type: EnhASTType::Generic(
+                                    EnhASTIndex::none(),
+                                    format!("L_{i}"),
+                                ),
                                 ast_index: index.clone(),
                             },
                         )
@@ -1717,14 +1744,15 @@ mod tests {
 
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::eh_ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
+        EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
+        EnhASTType, EnhBuiltinTypeKind,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
     use crate::commandline::CommandLineOptions;
     use crate::new_type_check2::TypeCheck;
+    use crate::parser::ast::ASTModifiers;
     use crate::project::RasmProject;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
@@ -1747,7 +1775,7 @@ mod tests {
     pub fn test_generic_type_coeff() {
         assert_eq!(
             usize::MAX / 100,
-            TypeCheck::generic_type_coeff(&ASTType::Generic(ASTIndex::none(), "".to_owned()))
+            TypeCheck::generic_type_coeff(&EnhASTType::Generic(EnhASTIndex::none(), "".to_owned()))
         );
     }
 
@@ -1755,7 +1783,7 @@ mod tests {
     pub fn test_generic_type_coeff_1() {
         assert_eq!(
             0,
-            TypeCheck::generic_type_coeff(&ASTType::Builtin(BuiltinTypeKind::I32))
+            TypeCheck::generic_type_coeff(&EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
         );
     }
 
@@ -1763,11 +1791,11 @@ mod tests {
     pub fn test_generic_type_coeff_2() {
         assert_eq!(
             0,
-            TypeCheck::generic_type_coeff(&ASTType::Custom {
+            TypeCheck::generic_type_coeff(&EnhASTType::Custom {
                 namespace: test_namespace(),
-                param_types: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
+                param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
                 name: "".to_owned(),
-                index: ASTIndex::none()
+                index: EnhASTIndex::none()
             },)
         );
     }
@@ -1776,11 +1804,11 @@ mod tests {
     pub fn test_generic_type_coeff_3() {
         assert_eq!(
             usize::MAX / 100 / 100,
-            TypeCheck::generic_type_coeff(&ASTType::Custom {
+            TypeCheck::generic_type_coeff(&EnhASTType::Custom {
                 namespace: test_namespace(),
-                param_types: vec![ASTType::Generic(ASTIndex::none(), "".to_owned())],
+                param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "".to_owned())],
                 name: "".to_owned(),
-                index: ASTIndex::none()
+                index: EnhASTIndex::none()
             },)
         );
     }
@@ -1789,16 +1817,16 @@ mod tests {
     fn test_generic_function_coeff() {
         // this is "more" generic
         let function1 = simple_function(
-            vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
+            vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
             false,
         );
 
         let function2 = simple_function(
-            vec![ASTType::Custom {
-                namespace: ASTNameSpace::global(),
+            vec![EnhASTType::Custom {
+                namespace: EnhASTNameSpace::global(),
                 name: "".to_string(),
-                param_types: vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
-                index: ASTIndex::none(),
+                param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+                index: EnhASTIndex::none(),
             }],
             false,
         );
@@ -1813,11 +1841,11 @@ mod tests {
     fn test_generic_native_function_coeff() {
         // not native function have lower priority (higher coeff)
         let function1 = simple_function(
-            vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
+            vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
             false,
         );
         let function2 = simple_function(
-            vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
+            vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
             true,
         );
 
@@ -1826,26 +1854,26 @@ mod tests {
 
         assert!(coeff1 > coeff2)
     }
-    fn simple_function(parameters: Vec<ASTType>, native: bool) -> ASTFunctionDef {
-        ASTFunctionDef {
+    fn simple_function(parameters: Vec<EnhASTType>, native: bool) -> EnhASTFunctionDef {
+        EnhASTFunctionDef {
             original_name: "".to_string(),
             name: "".to_string(),
             parameters: parameters
                 .iter()
-                .map(|it| ASTParameterDef::new("", it.clone(), ASTIndex::none()))
+                .map(|it| EnhASTParameterDef::new("", it.clone(), EnhASTIndex::none()))
                 .collect(),
-            return_type: ASTType::Unit,
+            return_type: EnhASTType::Unit,
             body: if native {
-                ASTFunctionBody::NativeBody(String::new())
+                EnhASTFunctionBody::NativeBody(String::new())
             } else {
-                ASTFunctionBody::RASMBody(Vec::new())
+                EnhASTFunctionBody::RASMBody(Vec::new())
             },
             inline: false,
             generic_types: vec![],
             resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
-            modifiers: ASTModifiers { public: false },
-            namespace: ASTNameSpace::global(),
+            index: EnhASTIndex::none(),
+            modifiers: ASTModifiers::private(),
+            namespace: EnhASTNameSpace::global(),
             rank: 0,
         }
     }

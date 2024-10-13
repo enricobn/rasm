@@ -20,20 +20,20 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::PathBuf;
 
-use rasm_core::codegen::eh_ast::ASTIndex;
+use rasm_core::codegen::eh_ast::EnhASTIndex;
 
 #[derive(Debug, Clone)]
 pub struct FileToken {
-    pub start: ASTIndex,
+    pub start: EnhASTIndex,
     pub len: usize,
 }
 
 impl FileToken {
-    pub fn new(start: ASTIndex, len: usize) -> Self {
+    pub fn new(start: EnhASTIndex, len: usize) -> Self {
         Self { start, len }
     }
 
-    pub fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
+    pub fn contains(&self, index: &EnhASTIndex) -> io::Result<bool> {
         Ok(index.row == self.start.row
             && index.column >= self.start.column
             && index.column <= (self.start.column + self.len - 1)

@@ -7,9 +7,10 @@ use log::info;
 
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::eh_ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTIndex, ASTLambdaDef, ASTModifiers, ASTNameSpace, ASTParameterDef, ASTStatement,
-    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, BuiltinTypeKind, ValueType,
+    EnhASTEnumDef, EnhASTEnumVariantDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall,
+    EnhASTFunctionDef, EnhASTIndex, EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef,
+    EnhASTStatement, EnhASTStructDef, EnhASTStructPropertyDef, EnhASTType, EnhASTTypeDef,
+    EnhBuiltinTypeKind,
 };
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
@@ -18,6 +19,7 @@ use crate::codegen::val_context::{TypedValContext, ValContext};
 use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
+use crate::parser::ast::{ASTModifiers, ASTValueType};
 use crate::type_check::functions_container::TypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
@@ -27,7 +29,7 @@ use crate::{debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     pub name: String,
     pub original_name: String,
     pub parameters: Vec<ASTTypedParameterDef>,
@@ -35,7 +37,7 @@ pub struct ASTTypedFunctionDef {
     pub body: ASTTypedFunctionBody,
     pub inline: bool,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
 }
 
 impl ASTTypedFunctionDef {
@@ -62,9 +64,9 @@ impl Display for ASTTypedFunctionDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedLambdaDef {
-    pub parameter_names: Vec<(String, ASTIndex)>,
+    pub parameter_names: Vec<(String, EnhASTIndex)>,
     pub body: Vec<ASTTypedStatement>,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
 }
 
 impl Display for ASTTypedLambdaDef {
@@ -109,15 +111,15 @@ pub enum BuiltinTypedTypeKind {
 pub enum ASTTypedType {
     Builtin(BuiltinTypedTypeKind),
     Enum {
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         name: String,
     },
     Struct {
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         name: String,
     },
     Type {
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         name: String,
         is_ref: bool,
         native_type: Option<String>,
@@ -217,7 +219,7 @@ impl ASTTypedType {
         }
     }
 
-    pub fn namespace(&self) -> Option<ASTNameSpace> {
+    pub fn namespace(&self) -> Option<EnhASTNameSpace> {
         match self {
             ASTTypedType::Builtin(_) => None,
             ASTTypedType::Enum { namespace, name: _ } => Some(namespace.clone()),
@@ -278,7 +280,7 @@ impl Display for ASTTypedType {
 pub struct ASTTypedParameterDef {
     pub name: String,
     pub ast_type: ASTTypedType,
-    pub ast_index: ASTIndex,
+    pub ast_index: EnhASTIndex,
 }
 
 impl Display for ASTTypedParameterDef {
@@ -300,7 +302,7 @@ impl Display for ASTTypedStructPropertyDef {
 }
 
 impl ASTTypedParameterDef {
-    pub fn new(name: &str, ast_type: ASTTypedType, ast_index: ASTIndex) -> ASTTypedParameterDef {
+    pub fn new(name: &str, ast_type: ASTTypedType, ast_index: EnhASTIndex) -> ASTTypedParameterDef {
         Self {
             name: name.into(),
             ast_type,
@@ -311,11 +313,11 @@ impl ASTTypedParameterDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionCall {
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     pub function_name: String,
     pub original_function_name: String,
     pub parameters: Vec<ASTTypedExpression>,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
 }
 
 impl ASTTypedFunctionCall {
@@ -359,13 +361,13 @@ impl Display for ASTTypedFunctionCall {
 pub enum ASTTypedExpression {
     StringLiteral(String),
     ASTFunctionCallExpression(ASTTypedFunctionCall),
-    ValueRef(String, ASTIndex),
-    Value(ValueType, ASTIndex),
+    ValueRef(String, EnhASTIndex),
+    Value(ASTValueType, EnhASTIndex),
     Lambda(ASTTypedLambdaDef),
 }
 
 impl ASTTypedExpression {
-    pub fn get_index(&self) -> Option<ASTIndex> {
+    pub fn get_index(&self) -> Option<EnhASTIndex> {
         match self {
             ASTTypedExpression::StringLiteral(_) => None,
             ASTTypedExpression::ASTFunctionCallExpression(call) => Some(call.index.clone()),
@@ -375,10 +377,10 @@ impl ASTTypedExpression {
         }
     }
 
-    pub fn namespace(&self) -> ASTNameSpace {
+    pub fn namespace(&self) -> EnhASTNameSpace {
         match self {
             ASTTypedExpression::ASTFunctionCallExpression(call) => call.namespace.clone(),
-            _ => ASTNameSpace::global(), // TODO the others (example lambda)?
+            _ => EnhASTNameSpace::global(), // TODO the others (example lambda)?
         }
     }
 }
@@ -394,10 +396,10 @@ impl Display for ASTTypedExpression {
             }
             ASTTypedExpression::ValueRef(name, _index) => f.write_str(name),
             ASTTypedExpression::Value(val_type, _) => match val_type {
-                ValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ValueType::I32(n) => f.write_str(&format!("{n}")),
-                ValueType::F32(n) => f.write_str(&format!("{n}")),
-                ValueType::Char(c) => f.write_str(&format!("'{c}'")),
+                ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
+                ASTValueType::I32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::F32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
         }
@@ -407,11 +409,11 @@ impl Display for ASTTypedExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedStatement {
     Expression(ASTTypedExpression),
-    LetStatement(String, ASTTypedExpression, bool, ASTIndex),
+    LetStatement(String, ASTTypedExpression, bool, EnhASTIndex),
 }
 
 impl ASTTypedStatement {
-    pub fn get_index(&self) -> Option<ASTIndex> {
+    pub fn get_index(&self) -> Option<EnhASTIndex> {
         match self {
             ASTTypedStatement::Expression(e) => e.get_index(),
             ASTTypedStatement::LetStatement(_, _, _, index) => Some(index.clone()),
@@ -462,13 +464,13 @@ impl ASTTypedModule {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedEnumDef {
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     pub modifiers: ASTModifiers,
     pub name: String,
     pub variants: Vec<ASTTypedEnumVariantDef>,
-    pub ast_type: ASTType,
+    pub ast_type: EnhASTType,
     pub ast_typed_type: ASTTypedType,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
 }
 
 impl Display for ASTTypedEnumDef {
@@ -498,7 +500,7 @@ impl CustomTypedTypeDef for ASTTypedEnumDef {
         &self.modifiers
     }
 
-    fn namespace(&self) -> &ASTNameSpace {
+    fn namespace(&self) -> &EnhASTNameSpace {
         &self.namespace
     }
 
@@ -506,7 +508,7 @@ impl CustomTypedTypeDef for ASTTypedEnumDef {
         &self.ast_typed_type
     }
 
-    fn ast_type(&self) -> &ASTType {
+    fn ast_type(&self) -> &EnhASTType {
         &self.ast_type
     }
 }
@@ -531,13 +533,13 @@ impl Display for ASTTypedEnumVariantDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedStructDef {
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     pub modifiers: ASTModifiers,
     pub name: String,
     pub properties: Vec<ASTTypedStructPropertyDef>,
-    pub ast_type: ASTType,
+    pub ast_type: EnhASTType,
     pub ast_typed_type: ASTTypedType,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
 }
 
 impl CustomTypedTypeDef for ASTTypedStructDef {
@@ -545,7 +547,7 @@ impl CustomTypedTypeDef for ASTTypedStructDef {
         &self.modifiers
     }
 
-    fn namespace(&self) -> &ASTNameSpace {
+    fn namespace(&self) -> &EnhASTNameSpace {
         &self.namespace
     }
 
@@ -553,7 +555,7 @@ impl CustomTypedTypeDef for ASTTypedStructDef {
         &self.ast_typed_type
     }
 
-    fn ast_type(&self) -> &ASTType {
+    fn ast_type(&self) -> &EnhASTType {
         &self.ast_type
     }
 }
@@ -572,29 +574,29 @@ impl Display for ASTTypedStructDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedTypeDef {
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     pub modifiers: ASTModifiers,
     pub original_name: String,
     pub name: String,
     pub generic_types: LinkedHashMap<String, ASTTypedType>,
     pub is_ref: bool,
-    pub ast_type: ASTType,
+    pub ast_type: EnhASTType,
     pub ast_typed_type: ASTTypedType,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
     pub native_type: Option<String>,
 }
 
 pub trait CustomTypedTypeDef: Display + Debug {
     fn modifiers(&self) -> &ASTModifiers;
 
-    fn namespace(&self) -> &ASTNameSpace;
+    fn namespace(&self) -> &EnhASTNameSpace;
 
     fn ast_typed_type(&self) -> &ASTTypedType;
 
-    fn ast_type(&self) -> &ASTType;
+    fn ast_type(&self) -> &EnhASTType;
 
     fn custom_ast_type_name(&self) -> Option<String> {
-        if let ASTType::Custom {
+        if let EnhASTType::Custom {
             namespace,
             name,
             param_types,
@@ -613,7 +615,7 @@ impl CustomTypedTypeDef for ASTTypedTypeDef {
         &self.modifiers
     }
 
-    fn namespace(&self) -> &ASTNameSpace {
+    fn namespace(&self) -> &EnhASTNameSpace {
         &self.namespace
     }
 
@@ -621,7 +623,7 @@ impl CustomTypedTypeDef for ASTTypedTypeDef {
         &self.ast_typed_type
     }
 
-    fn ast_type(&self) -> &ASTType {
+    fn ast_type(&self) -> &EnhASTType {
         &self.ast_type
     }
 }
@@ -640,9 +642,9 @@ impl Display for ASTTypedTypeDef {
 
 pub struct ConvContext<'a> {
     module: &'a EnhancedASTModule,
-    enums: LinkedHashMap<ASTType, ASTTypedType>,
-    structs: LinkedHashMap<ASTType, ASTTypedType>,
-    types: LinkedHashMap<ASTType, ASTTypedType>,
+    enums: LinkedHashMap<EnhASTType, ASTTypedType>,
+    structs: LinkedHashMap<EnhASTType, ASTTypedType>,
+    types: LinkedHashMap<EnhASTType, ASTTypedType>,
     enum_defs: Vec<ASTTypedEnumDef>,
     struct_defs: Vec<ASTTypedStructDef>,
     type_defs: Vec<ASTTypedTypeDef>,
@@ -683,15 +685,15 @@ impl<'a> ConvContext<'a> {
 
     pub fn add_enum(
         &mut self,
-        namespace: &ASTNameSpace,
-        enum_type: &ASTType,
-        enum_def: &ASTEnumDef,
+        namespace: &EnhASTNameSpace,
+        enum_type: &EnhASTType,
+        enum_def: &EnhASTEnumDef,
     ) -> ASTTypedType {
         debug_i!("add_enum {enum_type}");
         indent!();
 
         let result = match enum_type {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
@@ -769,15 +771,19 @@ impl<'a> ConvContext<'a> {
         result
     }
 
-    pub fn get_enum(&self, enum_type: &ASTType) -> Option<ASTTypedType> {
+    pub fn get_enum(&self, enum_type: &EnhASTType) -> Option<ASTTypedType> {
         self.get_def_typed_type(enum_type, &self.enums)
     }
 
-    pub fn add_struct(&mut self, struct_type: &ASTType, struct_def: &ASTStructDef) -> ASTTypedType {
+    pub fn add_struct(
+        &mut self,
+        struct_type: &EnhASTType,
+        struct_def: &EnhASTStructDef,
+    ) -> ASTTypedType {
         debug_i!("add_struct {struct_type}");
         indent!();
         let result = match struct_type {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
@@ -837,15 +843,15 @@ impl<'a> ConvContext<'a> {
         result
     }
 
-    pub fn get_struct(&self, struct_type: &ASTType) -> Option<ASTTypedType> {
+    pub fn get_struct(&self, struct_type: &EnhASTType) -> Option<ASTTypedType> {
         self.get_def_typed_type(struct_type, &self.structs)
     }
 
-    pub fn add_type(&mut self, ast_type: &ASTType, type_def: &ASTTypeDef) -> ASTTypedType {
+    pub fn add_type(&mut self, ast_type: &EnhASTType, type_def: &EnhASTTypeDef) -> ASTTypedType {
         debug_i!("add_type {ast_type}");
         indent!();
         let result = match ast_type {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
@@ -903,17 +909,17 @@ impl<'a> ConvContext<'a> {
         result
     }
 
-    pub fn get_type(&self, type_def_type: &ASTType) -> Option<ASTTypedType> {
+    pub fn get_type(&self, type_def_type: &EnhASTType) -> Option<ASTTypedType> {
         self.get_def_typed_type(type_def_type, &self.types)
     }
 
     fn get_def_typed_type(
         &self,
-        ast_type: &ASTType,
-        ast_type_to_ast_typed_type_map: &LinkedHashMap<ASTType, ASTTypedType>,
+        ast_type: &EnhASTType,
+        ast_type_to_ast_typed_type_map: &LinkedHashMap<EnhASTType, ASTTypedType>,
     ) -> Option<ASTTypedType> {
         match ast_type {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace: _,
                 name: _,
                 param_types: _,
@@ -1023,7 +1029,7 @@ pub fn convert_to_typed_module(
                     val_context
                         .insert_par(
                             par.name.clone(),
-                            ASTParameterDef::new(
+                            EnhASTParameterDef::new(
                                 &par.name,
                                 conv_context
                                     .get_type_from_typed_type(&par.ast_type)
@@ -1135,7 +1141,7 @@ pub fn convert_to_typed_module(
 }
 
 fn compilation_error(
-    index: ASTIndex,
+    index: EnhASTIndex,
     message: String,
     errors: Vec<TypeCheckError>,
 ) -> CompilationError {
@@ -1319,9 +1325,9 @@ pub fn get_type_of_typed_expression(
 }
 
 fn struct_property(
-    namespace: &ASTNameSpace,
+    namespace: &EnhASTNameSpace,
     conv_context: &mut ConvContext,
-    property: &ASTStructPropertyDef,
+    property: &EnhASTStructPropertyDef,
     generic_to_type: &ResolvedGenericTypes,
 ) -> ASTTypedStructPropertyDef {
     if let Some(new_type) = substitute(&property.ast_type, generic_to_type) {
@@ -1339,7 +1345,7 @@ fn struct_property(
 
 pub fn function_def(
     conv_context: &mut ConvContext,
-    def: &ASTFunctionDef,
+    def: &EnhASTFunctionDef,
     _module: &EnhancedASTModule,
     _statics: &mut Statics,
 ) -> Result<ASTTypedFunctionDef, TypeCheckError> {
@@ -1502,71 +1508,73 @@ pub fn function_def(
     Ok(typed_function_def)
 }
 
-pub fn type_to_untyped_type(t: &ASTTypedType) -> ASTType {
+pub fn type_to_untyped_type(t: &ASTTypedType) -> EnhASTType {
     match t {
         ASTTypedType::Builtin(kind) => match kind {
-            BuiltinTypedTypeKind::String => ASTType::Builtin(BuiltinTypeKind::String),
-            BuiltinTypedTypeKind::I32 => ASTType::Builtin(BuiltinTypeKind::I32),
-            BuiltinTypedTypeKind::Bool => ASTType::Builtin(BuiltinTypeKind::Bool),
-            BuiltinTypedTypeKind::Char => ASTType::Builtin(BuiltinTypeKind::Char),
-            BuiltinTypedTypeKind::F32 => ASTType::Builtin(BuiltinTypeKind::F32),
+            BuiltinTypedTypeKind::String => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+            BuiltinTypedTypeKind::I32 => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
+            BuiltinTypedTypeKind::Bool => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
+            BuiltinTypedTypeKind::Char => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
+            BuiltinTypedTypeKind::F32 => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
             BuiltinTypedTypeKind::Lambda {
                 parameters,
                 return_type,
-            } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+            } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 parameters: parameters.iter().map(type_to_untyped_type).collect(),
                 return_type: if return_type.deref().is_unit() {
-                    Box::new(ASTType::Unit)
+                    Box::new(EnhASTType::Unit)
                 } else {
                     Box::new(type_to_untyped_type(return_type.deref()))
                 },
             }),
         },
-        ASTTypedType::Enum { namespace, name } => ASTType::Custom {
+        ASTTypedType::Enum { namespace, name } => EnhASTType::Custom {
             namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         },
-        ASTTypedType::Struct { namespace, name } => ASTType::Custom {
+        ASTTypedType::Struct { namespace, name } => EnhASTType::Custom {
             namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         },
         ASTTypedType::Type {
             namespace,
             name,
             native_type: _,
             is_ref: _,
-        } => ASTType::Custom {
+        } => EnhASTType::Custom {
             namespace: namespace.clone(),
             name: name.into(),
             param_types: Vec::new(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         },
-        ASTTypedType::Unit => ASTType::Unit,
+        ASTTypedType::Unit => EnhASTType::Unit,
     }
 }
 
-fn expression(conv_context: &mut ConvContext, expression: &ASTExpression) -> ASTTypedExpression {
+fn expression(conv_context: &mut ConvContext, expression: &EnhASTExpression) -> ASTTypedExpression {
     match expression {
-        ASTExpression::StringLiteral(s, _) => ASTTypedExpression::StringLiteral(s.to_string()),
-        ASTExpression::ASTFunctionCallExpression(fc) => {
+        EnhASTExpression::StringLiteral(s, _) => ASTTypedExpression::StringLiteral(s.to_string()),
+        EnhASTExpression::ASTFunctionCallExpression(fc) => {
             ASTTypedExpression::ASTFunctionCallExpression(function_call(conv_context, fc))
         }
-        ASTExpression::ValueRef(v, index) => ASTTypedExpression::ValueRef(v.clone(), index.clone()),
-        ASTExpression::Value(val_type, index) => {
+        EnhASTExpression::ValueRef(v, index) => {
+            ASTTypedExpression::ValueRef(v.clone(), index.clone())
+        }
+        EnhASTExpression::Value(val_type, index) => {
             ASTTypedExpression::Value(val_type.clone(), index.clone())
         }
-        ASTExpression::Lambda(l) => ASTTypedExpression::Lambda(lambda_def(conv_context, l)),
-        ASTExpression::Any(_ast_type) => {
+        EnhASTExpression::Lambda(l) => ASTTypedExpression::Lambda(lambda_def(conv_context, l)),
+        EnhASTExpression::Any(_ast_type) => {
             panic!("cannot handle Any type");
         }
     }
 }
 
-fn lambda_def(conv_context: &mut ConvContext, lambda_def: &ASTLambdaDef) -> ASTTypedLambdaDef {
+fn lambda_def(conv_context: &mut ConvContext, lambda_def: &EnhASTLambdaDef) -> ASTTypedLambdaDef {
     ASTTypedLambdaDef {
         parameter_names: lambda_def.parameter_names.clone(),
         body: lambda_def
@@ -1578,19 +1586,21 @@ fn lambda_def(conv_context: &mut ConvContext, lambda_def: &ASTLambdaDef) -> ASTT
     }
 }
 
-fn body(conv_context: &mut ConvContext, body: &ASTFunctionBody) -> ASTTypedFunctionBody {
+fn body(conv_context: &mut ConvContext, body: &EnhASTFunctionBody) -> ASTTypedFunctionBody {
     match body {
-        ASTFunctionBody::RASMBody(body) => ASTTypedFunctionBody::RASMBody(
+        EnhASTFunctionBody::RASMBody(body) => ASTTypedFunctionBody::RASMBody(
             body.iter().map(|it| statement(conv_context, it)).collect(),
         ),
-        ASTFunctionBody::NativeBody(body) => ASTTypedFunctionBody::NativeBody(body.clone()),
+        EnhASTFunctionBody::NativeBody(body) => ASTTypedFunctionBody::NativeBody(body.clone()),
     }
 }
 
-fn statement(conv_context: &mut ConvContext, it: &ASTStatement) -> ASTTypedStatement {
+fn statement(conv_context: &mut ConvContext, it: &EnhASTStatement) -> ASTTypedStatement {
     match it {
-        ASTStatement::Expression(e) => ASTTypedStatement::Expression(expression(conv_context, e)),
-        ASTStatement::LetStatement(name, e, is_const, let_index) => {
+        EnhASTStatement::Expression(e) => {
+            ASTTypedStatement::Expression(expression(conv_context, e))
+        }
+        EnhASTStatement::LetStatement(name, e, is_const, let_index) => {
             ASTTypedStatement::LetStatement(
                 name.clone(),
                 expression(conv_context, e),
@@ -1602,11 +1612,11 @@ fn statement(conv_context: &mut ConvContext, it: &ASTStatement) -> ASTTypedState
 }
 
 fn enum_variant(
-    namespace: &ASTNameSpace,
+    namespace: &EnhASTNameSpace,
     conv_context: &mut ConvContext,
-    variant: &ASTEnumVariantDef,
+    variant: &EnhASTEnumVariantDef,
     generic_to_type: &ResolvedGenericTypes,
-    enum_type: &ASTType,
+    enum_type: &EnhASTType,
     enum_typed_type: &ASTTypedType,
     message: &str,
 ) -> ASTTypedEnumVariantDef {
@@ -1663,7 +1673,7 @@ fn enum_variant(
 
 fn function_call(
     conv_context: &mut ConvContext,
-    function_call: &ASTFunctionCall,
+    function_call: &EnhASTFunctionCall,
 ) -> ASTTypedFunctionCall {
     ASTTypedFunctionCall {
         namespace: function_call.namespace.clone(),
@@ -1679,9 +1689,9 @@ fn function_call(
 }
 
 fn parameter_def(
-    namespace: &ASTNameSpace,
+    namespace: &EnhASTNameSpace,
     conv_context: &mut ConvContext,
-    parameter_def: &ASTParameterDef,
+    parameter_def: &EnhASTParameterDef,
     message: &str,
 ) -> ASTTypedParameterDef {
     ASTTypedParameterDef {
@@ -1697,19 +1707,19 @@ fn parameter_def(
 }
 
 fn typed_type(
-    namespace: &ASTNameSpace,
+    namespace: &EnhASTNameSpace,
     conv_context: &mut ConvContext,
-    ast_type: &ASTType,
+    ast_type: &EnhASTType,
     message: &str,
 ) -> ASTTypedType {
     let result = match ast_type {
-        ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-            BuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-            BuiltinTypeKind::Bool => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
-            BuiltinTypeKind::Char => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
-            BuiltinTypeKind::F32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
-            BuiltinTypeKind::Lambda {
+        EnhASTType::Builtin(kind) => match kind {
+            EnhBuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+            EnhBuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+            EnhBuiltinTypeKind::Bool => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
+            EnhBuiltinTypeKind::Char => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            EnhBuiltinTypeKind::F32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
+            EnhBuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
             } => ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -1732,10 +1742,10 @@ fn typed_type(
                 )),
             }),
         },
-        ASTType::Generic(index, p) => {
+        EnhASTType::Generic(index, p) => {
             panic!("Unresolved generic type '{p}' {message} : {index}");
         }
-        ASTType::Custom {
+        EnhASTType::Custom {
             namespace: _,
             name,
             param_types: _,
@@ -1778,7 +1788,7 @@ fn typed_type(
                 panic!("Cannot find custom type {name} from namespace '{namespace}' {message}");
             }
         }
-        ASTType::Unit => ASTTypedType::Unit,
+        EnhASTType::Unit => ASTTypedType::Unit,
     };
 
     /*
@@ -1834,7 +1844,7 @@ pub fn print_function_def(f: &ASTTypedFunctionDef) {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DefaultFunctionCall {
     pub name: String,
-    pub param_types: Vec<ASTType>,
+    pub param_types: Vec<EnhASTType>,
     pub i: usize,
 }
 
@@ -1849,7 +1859,7 @@ impl Display for DefaultFunctionCall {
 }
 
 impl DefaultFunctionCall {
-    pub fn new(name: &str, param_types: Vec<ASTType>, i: usize) -> Self {
+    pub fn new(name: &str, param_types: Vec<EnhASTType>, i: usize) -> Self {
         Self {
             name: name.into(),
             param_types,
@@ -1857,14 +1867,14 @@ impl DefaultFunctionCall {
         }
     }
 
-    pub fn index(&self, function_def_index: &ASTIndex) -> ASTIndex {
+    pub fn index(&self, function_def_index: &EnhASTIndex) -> EnhASTIndex {
         let mut index = function_def_index.clone();
         index.row += self.i;
         index.column = 0;
         index
     }
 
-    pub fn to_call(&self, function_def: &ASTFunctionDef) -> ASTFunctionCall {
+    pub fn to_call(&self, function_def: &EnhASTFunctionDef) -> EnhASTFunctionCall {
         let mut call = DefaultFunction {
             name: self.name.clone(),
             param_types: self.param_types.clone(),
@@ -1878,7 +1888,7 @@ impl DefaultFunctionCall {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DefaultFunction {
     pub name: String,
-    pub param_types: Vec<ASTType>,
+    pub param_types: Vec<EnhASTType>,
 }
 
 impl DefaultFunction {
@@ -1889,38 +1899,38 @@ impl DefaultFunction {
         }
     }
 
-    pub fn new_1(name: &str, kind: BuiltinTypeKind) -> Self {
+    pub fn new_1(name: &str, kind: EnhBuiltinTypeKind) -> Self {
         Self {
             name: name.into(),
-            param_types: vec![ASTType::Builtin(kind)],
+            param_types: vec![EnhASTType::Builtin(kind)],
         }
     }
 
-    pub fn new_2(name: &str, kind1: BuiltinTypeKind, kind2: BuiltinTypeKind) -> Self {
+    pub fn new_2(name: &str, kind1: EnhBuiltinTypeKind, kind2: EnhBuiltinTypeKind) -> Self {
         Self {
             name: name.into(),
-            param_types: vec![ASTType::Builtin(kind1), ASTType::Builtin(kind2)],
+            param_types: vec![EnhASTType::Builtin(kind1), EnhASTType::Builtin(kind2)],
         }
     }
 
     pub fn new_3(
         name: &str,
-        kind1: BuiltinTypeKind,
-        kind2: BuiltinTypeKind,
-        kind3: BuiltinTypeKind,
+        kind1: EnhBuiltinTypeKind,
+        kind2: EnhBuiltinTypeKind,
+        kind3: EnhBuiltinTypeKind,
     ) -> Self {
         Self {
             name: name.into(),
             param_types: vec![
-                ASTType::Builtin(kind1),
-                ASTType::Builtin(kind2),
-                ASTType::Builtin(kind3),
+                EnhASTType::Builtin(kind1),
+                EnhASTType::Builtin(kind2),
+                EnhASTType::Builtin(kind3),
             ],
         }
     }
 
-    pub fn to_call(&self, namespace: &ASTNameSpace) -> ASTFunctionCall {
-        ASTFunctionCall {
+    pub fn to_call(&self, namespace: &EnhASTNameSpace) -> EnhASTFunctionCall {
+        EnhASTFunctionCall {
             namespace: namespace.clone(),
             function_name: self.name.clone(),
             original_function_name: self.name.clone(),
@@ -1928,40 +1938,42 @@ impl DefaultFunction {
                 .param_types
                 .iter()
                 .map(|it| match it {
-                    ASTType::Builtin(kind) => match kind {
-                        BuiltinTypeKind::String => {
-                            ASTExpression::StringLiteral("".into(), ASTIndex::none())
+                    EnhASTType::Builtin(kind) => match kind {
+                        EnhBuiltinTypeKind::String => {
+                            EnhASTExpression::StringLiteral("".into(), EnhASTIndex::none())
                         }
-                        BuiltinTypeKind::I32 => {
-                            ASTExpression::Value(ValueType::I32(0), ASTIndex::none())
+                        EnhBuiltinTypeKind::I32 => {
+                            EnhASTExpression::Value(ASTValueType::I32(0), EnhASTIndex::none())
                         }
-                        BuiltinTypeKind::Bool => {
-                            ASTExpression::Value(ValueType::Boolean(true), ASTIndex::none())
+                        EnhBuiltinTypeKind::Bool => EnhASTExpression::Value(
+                            ASTValueType::Boolean(true),
+                            EnhASTIndex::none(),
+                        ),
+                        EnhBuiltinTypeKind::Char => EnhASTExpression::Value(
+                            ASTValueType::Char("a".to_string()),
+                            EnhASTIndex::none(),
+                        ),
+                        EnhBuiltinTypeKind::F32 => {
+                            EnhASTExpression::Value(ASTValueType::F32(1.0), EnhASTIndex::none())
                         }
-                        BuiltinTypeKind::Char => {
-                            ASTExpression::Value(ValueType::Char("a".to_string()), ASTIndex::none())
-                        }
-                        BuiltinTypeKind::F32 => {
-                            ASTExpression::Value(ValueType::F32(1.0), ASTIndex::none())
-                        }
-                        BuiltinTypeKind::Lambda {
+                        EnhBuiltinTypeKind::Lambda {
                             parameters: _,
                             return_type: _,
-                        } => ASTExpression::Any(it.clone()),
+                        } => EnhASTExpression::Any(it.clone()),
                     },
-                    ASTType::Generic(_, _) => panic!(),
-                    ASTType::Custom {
+                    EnhASTType::Generic(_, _) => panic!(),
+                    EnhASTType::Custom {
                         namespace: _,
                         name: _,
                         param_types: _,
                         index: _,
-                    } => ASTExpression::Any(it.clone()),
-                    ASTType::Unit => {
+                    } => EnhASTExpression::Any(it.clone()),
+                    EnhASTType::Unit => {
                         panic!("Parameters cannot have unit type");
                     }
                 })
                 .collect(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             generics: Vec::new(),
         }
     }
@@ -1970,18 +1982,19 @@ impl DefaultFunction {
 #[cfg(test)]
 mod tests {
     use crate::codegen::eh_ast::{
-        ASTEnumDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTStructDef, ASTType,
+        EnhASTEnumDef, EnhASTIndex, EnhASTNameSpace, EnhASTStructDef, EnhASTType,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
+    use crate::parser::ast::ASTModifiers;
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::typed_ast::{typed_type, ASTTypedType, ConvContext};
     use linked_hash_map::LinkedHashMap;
 
     #[test]
     pub fn get_def_typed_type() {
-        let first_namespace = ASTNameSpace::new("test".to_string(), "first".to_string());
+        let first_namespace = EnhASTNameSpace::new("test".to_string(), "first".to_string());
 
-        let second_namespace = ASTNameSpace::new("test".to_string(), "second".to_string());
+        let second_namespace = EnhASTNameSpace::new("test".to_string(), "second".to_string());
 
         let module = enhanced_module();
         let sut = ConvContext::new(&module);
@@ -2023,9 +2036,9 @@ mod tests {
 
     #[test]
     fn test_typed_type() {
-        let first_namespace = ASTNameSpace::new("test".to_string(), "first".to_string());
+        let first_namespace = EnhASTNameSpace::new("test".to_string(), "first".to_string());
 
-        let second_namespace = ASTNameSpace::new("test".to_string(), "second".to_string());
+        let second_namespace = EnhASTNameSpace::new("test".to_string(), "second".to_string());
 
         let module = enhanced_module();
         let mut sut = ConvContext::new(&module);
@@ -2065,20 +2078,20 @@ mod tests {
         );
     }
 
-    fn result_ast_type(namespace: &ASTNameSpace, ast_type: &ASTType) -> ASTType {
-        ASTType::Custom {
+    fn result_ast_type(namespace: &EnhASTNameSpace, ast_type: &EnhASTType) -> EnhASTType {
+        EnhASTType::Custom {
             namespace: namespace.clone(),
             name: "Result".to_string(),
             param_types: vec![ast_type.clone()],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         }
     }
 
     fn enhanced_module() -> EnhancedASTModule {
         let result_type_def = result_type_def();
-        let first_namespace = ASTNameSpace::new("test".to_string(), "first".to_string());
+        let first_namespace = EnhASTNameSpace::new("test".to_string(), "first".to_string());
 
-        let second_namespace = ASTNameSpace::new("test".to_string(), "second".to_string());
+        let second_namespace = EnhASTNameSpace::new("test".to_string(), "second".to_string());
 
         EnhancedASTModule {
             body: vec![],
@@ -2089,37 +2102,37 @@ mod tests {
                 simple_struct_def("TestModel", &second_namespace),
             ],
             types: vec![],
-            body_namespace: ASTNameSpace::global(),
+            body_namespace: EnhASTNameSpace::global(),
         }
     }
 
-    fn result_type_def() -> ASTEnumDef {
-        ASTEnumDef {
-            namespace: ASTNameSpace::new("std".to_string(), "result".to_string()),
+    fn result_type_def() -> EnhASTEnumDef {
+        EnhASTEnumDef {
+            namespace: EnhASTNameSpace::new("std".to_string(), "result".to_string()),
             name: "Result".to_string(),
             modifiers: ASTModifiers::public(),
             variants: vec![],
             type_parameters: vec!["T".to_string()],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         }
     }
 
-    fn simple_custom_ast_type(name: &str, namespace: &ASTNameSpace) -> ASTType {
-        ASTType::Custom {
+    fn simple_custom_ast_type(name: &str, namespace: &EnhASTNameSpace) -> EnhASTType {
+        EnhASTType::Custom {
             namespace: namespace.clone(),
             name: name.to_string(),
             param_types: vec![],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         }
     }
 
-    fn simple_struct_def(name: &str, namespace: &ASTNameSpace) -> ASTStructDef {
-        ASTStructDef {
+    fn simple_struct_def(name: &str, namespace: &EnhASTNameSpace) -> EnhASTStructDef {
+        EnhASTStructDef {
             namespace: namespace.clone(),
             name: name.to_string(),
             type_parameters: vec![],
             properties: vec![],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
         }
     }

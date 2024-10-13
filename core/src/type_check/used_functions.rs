@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::eh_ast::ASTIndex;
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::type_check::traverse_typed_ast::TraverseTypedAST;
 use crate::type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
 use lazy_static::lazy_static;
@@ -52,7 +52,7 @@ impl TraverseTypedAST for UsedFunctions {
         self.functions.insert(call.function_name.clone());
     }
 
-    fn found_let(&mut self, _name: &str, _is_const: bool, _index: &ASTIndex) {}
+    fn found_let(&mut self, _name: &str, _is_const: bool, _index: &EnhASTIndex) {}
 
     fn found_function_def(&mut self, _function: &ASTTypedFunctionDef) {}
 

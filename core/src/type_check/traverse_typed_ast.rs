@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::eh_ast::ASTIndex;
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedStatement,
@@ -72,7 +72,7 @@ pub trait TraverseTypedAST {
 
     fn found_call(&mut self, call: &ASTTypedFunctionCall);
 
-    fn found_let(&mut self, name: &str, is_const: bool, index: &ASTIndex);
+    fn found_let(&mut self, name: &str, is_const: bool, index: &EnhASTIndex);
 
     fn found_function_def(&mut self, function: &ASTTypedFunctionDef);
 

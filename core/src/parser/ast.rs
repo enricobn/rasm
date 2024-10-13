@@ -315,20 +315,20 @@ impl Display for ASTFunctionCall {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ValueType {
+pub enum ASTValueType {
     Boolean(bool),
     I32(i32),
     Char(String),
     F32(f32),
 }
 
-impl ValueType {
+impl ASTValueType {
     pub fn to_type(&self) -> ASTType {
         match self {
-            ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
-            ValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
-            ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
-            ValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
+            ASTValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
+            ASTValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
+            ASTValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
+            ASTValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
         }
     }
 }
@@ -339,7 +339,7 @@ pub enum ASTExpression {
     StringLiteral(String, ASTPosition),
     ASTFunctionCallExpression(ASTFunctionCall),
     ValueRef(String, ASTPosition),
-    Value(ValueType, ASTPosition),
+    Value(ASTValueType, ASTPosition),
     Lambda(ASTLambdaDef),
     Any(ASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
@@ -373,10 +373,10 @@ impl Display for ASTExpression {
             }
             ASTExpression::ValueRef(name, _index) => f.write_str(name),
             ASTExpression::Value(val_type, _) => match val_type {
-                ValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ValueType::I32(n) => f.write_str(&format!("{n}")),
-                ValueType::F32(n) => f.write_str(&format!("{n}")),
-                ValueType::Char(c) => f.write_str(&format!("'{c}'")),
+                ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
+                ASTValueType::I32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::F32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
             ASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
@@ -641,7 +641,7 @@ mod tests {
             inline: false,
             generic_types: vec!["T".to_string()],
             index: ASTPosition::none(),
-            modifiers: ASTModifiers { public: false },
+            modifiers: ASTModifiers::private(),
         };
 
         assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");

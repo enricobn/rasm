@@ -5,7 +5,8 @@ use std::ops::Deref;
 use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::eh_ast::{
-    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTType, BuiltinTypeKind,
+    EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex, EnhASTType,
+    EnhBuiltinTypeKind,
 };
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::type_check::type_check_error::TypeCheckError;
@@ -14,12 +15,12 @@ use crate::{debug_i, dedent, indent};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionsContainer {
-    functions_by_name: LinkedHashMap<String, Vec<ASTFunctionDef>>,
+    functions_by_name: LinkedHashMap<String, Vec<EnhASTFunctionDef>>,
 }
 
 #[derive(Clone, Debug)]
 pub enum TypeFilter {
-    Exact(ASTType),
+    Exact(EnhASTType),
     Any,
     Lambda(usize, Option<Box<TypeFilter>>),
     NotALambda,
@@ -28,14 +29,14 @@ pub enum TypeFilter {
 impl TypeFilter {
     pub fn almost_equal(
         &self,
-        ast_type: &ASTType,
+        ast_type: &EnhASTType,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         FunctionsContainer::almost_same_type(
             ast_type,
             self,
             &mut LinkedHashMap::new(),
-            &ASTIndex::none(),
+            &EnhASTIndex::none(),
             enhanced_astmodule,
         )
     }
@@ -61,7 +62,7 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn add_function(&mut self, original_name: String, function_def: ASTFunctionDef) {
+    pub fn add_function(&mut self, original_name: String, function_def: EnhASTFunctionDef) {
         // let original_name = function_def.original_name.clone();
         if let Some(functions) = self.functions_by_name.get_mut(&original_name) {
             functions.push(function_def);
@@ -71,12 +72,12 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn replace_body(&mut self, function_def: &ASTFunctionDef, body: ASTFunctionBody) {
+    pub fn replace_body(&mut self, function_def: &EnhASTFunctionDef, body: EnhASTFunctionBody) {
         let function = self.get_function(&function_def.name);
         function.body = body;
     }
 
-    pub fn remove(&mut self, function_def: &ASTFunctionDef) {
+    pub fn remove(&mut self, function_def: &EnhASTFunctionDef) {
         let function = self
             .functions_by_name
             .get_mut(&function_def.original_name)
@@ -91,7 +92,7 @@ impl FunctionsContainer {
         );
     }
 
-    pub fn find_function(&self, name: &str) -> Option<&ASTFunctionDef> {
+    pub fn find_function(&self, name: &str) -> Option<&EnhASTFunctionDef> {
         let functions = self.functions();
         let found = functions
             .into_iter()
@@ -108,7 +109,7 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn get_function(&mut self, name: &str) -> &mut ASTFunctionDef {
+    pub fn get_function(&mut self, name: &str) -> &mut EnhASTFunctionDef {
         self.functions_by_name
             .iter_mut()
             .flat_map(|it| it.1.iter_mut())
@@ -123,7 +124,7 @@ impl FunctionsContainer {
             .unwrap_or(false)
     }
 
-    pub fn find_function_by_original_name(&self, name: &str) -> Option<&ASTFunctionDef> {
+    pub fn find_function_by_original_name(&self, name: &str) -> Option<&EnhASTFunctionDef> {
         let found = self.functions_by_name.get(name);
 
         if let Some(f) = found {
@@ -147,7 +148,7 @@ impl FunctionsContainer {
         }
     }
 
-    pub fn find_functions_by_original_name(&self, name: &str) -> &[ASTFunctionDef] {
+    pub fn find_functions_by_original_name(&self, name: &str) -> &[EnhASTFunctionDef] {
         if let Some(functions) = self.functions_by_name.get(name) {
             functions
         } else {
@@ -160,11 +161,11 @@ impl FunctionsContainer {
         function_name: &str,
         original_function_name: &str,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<&ASTType>,
+        return_type_filter: Option<&EnhASTType>,
         filter_on_name: bool,
-        index: &ASTIndex,
+        index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Option<&ASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<&EnhASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -207,13 +208,13 @@ impl FunctionsContainer {
     fn find_call_vec_1<'a>(
         function_name: &str,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<&ASTType>,
+        return_type_filter: Option<&EnhASTType>,
         filter_on_name: bool,
-        index: &ASTIndex,
-        functions: &'a [ASTFunctionDef],
+        index: &EnhASTIndex,
+        functions: &'a [EnhASTFunctionDef],
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Vec<&'a ASTFunctionDef>, TypeCheckError> {
-        let lambda = |it: &&ASTFunctionDef| {
+    ) -> Result<Vec<&'a EnhASTFunctionDef>, TypeCheckError> {
+        let lambda = |it: &&EnhASTFunctionDef| {
             debug_i!(
                 "testing function {it}, filters {}, return type {}",
                 SliceDisplay(parameter_types_filter),
@@ -244,7 +245,7 @@ impl FunctionsContainer {
                     match return_type_filter {
                         None => Ok(true),
                         Some(ref rt) => {
-                            if matches!(rt, ASTType::Generic(_, _)) {
+                            if matches!(rt, EnhASTType::Generic(_, _)) {
                                 Ok(true)
                             } else {
                                 Self::almost_same_return_type(
@@ -269,12 +270,12 @@ impl FunctionsContainer {
 
     pub fn find_call_vec(
         &self,
-        call: &ASTFunctionCall,
+        call: &EnhASTFunctionCall,
         parameter_types_filter: &Vec<TypeFilter>,
-        return_type_filter: Option<&ASTType>,
+        return_type_filter: Option<&EnhASTType>,
         filter_only_on_name: bool,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Vec<&ASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Vec<&EnhASTFunctionDef>, TypeCheckError> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
             OptionDisplay(&return_type_filter),
@@ -293,7 +294,7 @@ impl FunctionsContainer {
                         parameter_types_filter,
                         return_type_filter,
                         filter_only_on_name,
-                        &ASTIndex::none(),
+                        &EnhASTIndex::none(),
                         functions,
                         enhanced_astmodule,
                     )
@@ -354,9 +355,9 @@ impl FunctionsContainer {
     pub fn find_default_call(
         &self,
         name: String,
-        parameter_types_filter: Vec<ASTType>,
+        parameter_types_filter: Vec<EnhASTType>,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Option<ASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<EnhASTFunctionDef>, TypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(&name) {
             if functions.is_empty() {
                 panic!(
@@ -366,7 +367,7 @@ impl FunctionsContainer {
             } else {
                 let mut resolved_generic_types = LinkedHashMap::new();
 
-                let lambda = |it: &ASTFunctionDef| {
+                let lambda = |it: &EnhASTFunctionDef| {
                     if it.name != name {
                         Ok((it.clone(), false))
                     } else {
@@ -414,10 +415,10 @@ impl FunctionsContainer {
     }
 
     fn almost_same_parameters_types(
-        parameter_types: Vec<&ASTType>,
+        parameter_types: Vec<&EnhASTType>,
         parameter_types_filter: &Vec<TypeFilter>,
-        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-        index: &ASTIndex,
+        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         let result = if parameter_types.len() != parameter_types_filter.len() {
@@ -436,10 +437,10 @@ impl FunctionsContainer {
     }
 
     fn match_parameters(
-        parameter_types: Vec<&ASTType>,
+        parameter_types: Vec<&EnhASTType>,
         parameter_types_filter: &[TypeFilter],
-        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-        index: &ASTIndex,
+        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         let result = zip(parameter_types.iter(), parameter_types_filter.iter())
@@ -460,10 +461,10 @@ impl FunctionsContainer {
     }
 
     pub fn almost_same_return_type(
-        actual_return_type: &ASTType,
-        expected_return_type: &ASTType,
-        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-        index: &ASTIndex,
+        actual_return_type: &EnhASTType,
+        expected_return_type: &EnhASTType,
+        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         Self::almost_same_type_internal(
@@ -477,10 +478,10 @@ impl FunctionsContainer {
     }
 
     pub fn almost_same_type(
-        parameter_type: &ASTType,
+        parameter_type: &EnhASTType,
         parameter_type_filter: &TypeFilter,
-        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-        index: &ASTIndex,
+        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
         Self::almost_same_type_internal(
@@ -493,10 +494,10 @@ impl FunctionsContainer {
         )
     }
     fn almost_same_type_internal(
-        parameter_type: &ASTType,
+        parameter_type: &EnhASTType,
         parameter_type_filter: &TypeFilter,
-        resolved_generic_types: &mut LinkedHashMap<String, ASTType>,
-        index: &ASTIndex,
+        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        index: &EnhASTIndex,
         return_type: bool,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, TypeCheckError> {
@@ -510,12 +511,12 @@ impl FunctionsContainer {
                     return Ok(true);
                 }
                 match filter_type {
-                    ASTType::Builtin(filter_kind) => match filter_kind {
-                        BuiltinTypeKind::Lambda {
+                    EnhASTType::Builtin(filter_kind) => match filter_kind {
+                        EnhBuiltinTypeKind::Lambda {
                             parameters: filter_ps,
                             return_type: filter_rt,
                         } => match parameter_type {
-                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: a_p,
                                 return_type: a_rt,
                             }) => {
@@ -548,7 +549,7 @@ impl FunctionsContainer {
 
                                 Ok(parameter_same && return_type_same)
                             }
-                            ASTType::Generic(_, name) => {
+                            EnhASTType::Generic(_, name) => {
                                 resolved_generic_types
                                     .insert(name.to_string(), filter_type.clone());
                                 Ok(true)
@@ -558,10 +559,10 @@ impl FunctionsContainer {
                         _ => {
                             debug_i!("parameter type {parameter_type}");
                             let r = match parameter_type {
-                                ASTType::Builtin(_) => filter_type == parameter_type,
-                                ASTType::Generic(_, _) => true,
-                                ASTType::Custom { .. } => false,
-                                ASTType::Unit => {
+                                EnhASTType::Builtin(_) => filter_type == parameter_type,
+                                EnhASTType::Generic(_, _) => true,
+                                EnhASTType::Custom { .. } => false,
+                                EnhASTType::Unit => {
                                     if return_type {
                                         false
                                     } else {
@@ -572,11 +573,11 @@ impl FunctionsContainer {
                             Ok(r)
                         }
                     },
-                    ASTType::Generic(_, filter_generic_type) => {
+                    EnhASTType::Generic(_, filter_generic_type) => {
                         let already_resolved_o = resolved_generic_types.get(filter_generic_type);
                         debug_i!("already_resolved {}", OptionDisplay(&already_resolved_o));
                         match parameter_type {
-                            ASTType::Generic(_, _) => {
+                            EnhASTType::Generic(_, _) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Generic : the context
                                 Ok(true)
@@ -595,16 +596,16 @@ impl FunctionsContainer {
                             }
                         }
                     }
-                    ASTType::Custom {
+                    EnhASTType::Custom {
                         namespace: expected_namespace,
                         param_types: expected_param_types,
                         name: expected_type_name,
                         index: _,
                     } => {
                         match parameter_type {
-                            ASTType::Builtin(_) => Ok(false),
-                            ASTType::Generic(_, _) => Ok(true), // TODO
-                            ASTType::Custom {
+                            EnhASTType::Builtin(_) => Ok(false),
+                            EnhASTType::Generic(_, _) => Ok(true), // TODO
+                            EnhASTType::Custom {
                                 namespace: _,
                                 param_types,
                                 name: type_name,
@@ -648,7 +649,7 @@ impl FunctionsContainer {
                                     )) // TODO stack?
                                 }
                             }
-                            ASTType::Unit => {
+                            EnhASTType::Unit => {
                                 if !return_type {
                                     return Self::unit_type_is_not_allowed_here(index);
                                 } else {
@@ -657,18 +658,18 @@ impl FunctionsContainer {
                             }
                         }
                     }
-                    ASTType::Unit => match parameter_type {
-                        ASTType::Builtin(_) => Ok(false),
-                        ASTType::Generic(_, name) => {
+                    EnhASTType::Unit => match parameter_type {
+                        EnhASTType::Builtin(_) => Ok(false),
+                        EnhASTType::Generic(_, name) => {
                             if let Some(gt) = resolved_generic_types.get(name) {
                                 Ok(gt.is_unit())
                             } else {
-                                resolved_generic_types.insert(name.to_owned(), ASTType::Unit);
+                                resolved_generic_types.insert(name.to_owned(), EnhASTType::Unit);
                                 Ok(true)
                             }
                         }
-                        ASTType::Custom { .. } => Ok(false),
-                        ASTType::Unit => {
+                        EnhASTType::Custom { .. } => Ok(false),
+                        EnhASTType::Unit => {
                             if return_type {
                                 Ok(false)
                             } else {
@@ -680,16 +681,16 @@ impl FunctionsContainer {
             }
             TypeFilter::Lambda(len, lambda_return_type_filter) => {
                 // TODO return type
-                if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type: _,
                 }) = parameter_type
                 {
                     Ok(len == &parameters.len())
-                } else if let ASTType::Generic(_, name) = parameter_type {
+                } else if let EnhASTType::Generic(_, name) = parameter_type {
                     if let Some(TypeFilter::Exact(lrt)) = lambda_return_type_filter.as_deref() {
                         if *len == 0 {
-                            let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            let lambda = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: Vec::new(),
                                 return_type: Box::new(lrt.clone()),
                             });
@@ -708,7 +709,7 @@ impl FunctionsContainer {
             }
             TypeFilter::NotALambda => Ok(!matches!(
                 parameter_type,
-                ASTType::Builtin(BuiltinTypeKind::Lambda { .. })
+                EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })
             )),
         }?;
         debug_i!("almost same: {result}");
@@ -716,26 +717,26 @@ impl FunctionsContainer {
         Ok(result)
     }
 
-    fn unit_type_is_not_allowed_here(_index: &ASTIndex) -> Result<bool, TypeCheckError> {
+    fn unit_type_is_not_allowed_here(_index: &EnhASTIndex) -> Result<bool, TypeCheckError> {
         //Err(format!("Unit type is not allowed here: {index}").into())
         Ok(false)
     }
 
-    pub fn functions(&self) -> Vec<&ASTFunctionDef> {
+    pub fn functions(&self) -> Vec<&EnhASTFunctionDef> {
         self.functions_by_name
             .values()
             .flat_map(|it| it.iter())
             .collect()
     }
 
-    pub fn functions_mut(&mut self) -> Vec<&mut ASTFunctionDef> {
+    pub fn functions_mut(&mut self) -> Vec<&mut EnhASTFunctionDef> {
         self.functions_by_name
             .iter_mut()
             .flat_map(|it| it.1.iter_mut())
             .collect()
     }
 
-    pub fn functions_owned(self) -> Vec<ASTFunctionDef> {
+    pub fn functions_owned(self) -> Vec<EnhASTFunctionDef> {
         self.functions_by_name
             .into_iter()
             .flat_map(|it| it.1.into_iter())
@@ -808,12 +809,13 @@ mod tests {
 
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::eh_ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTIndex, ASTModifiers,
-        ASTParameterDef, ASTType, BuiltinTypeKind, ValueType,
+        EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
+        EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
+    use crate::parser::ast::{ASTModifiers, ASTValueType};
     use crate::project::{RasmConfig, RasmPackage, RasmProject};
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::functions_container::TypeFilter::Exact;
@@ -825,11 +827,11 @@ mod tests {
     fn test_2() {
         let mut sut = FunctionsContainer::new();
 
-        let function_def = create_function("AModule::toString_0", "n", BuiltinTypeKind::I32);
+        let function_def = create_function("AModule::toString_0", "n", EnhBuiltinTypeKind::I32);
 
         sut.add_function("toString".to_string(), function_def);
 
-        let function_def = create_function("AModule::toString_1", "b", BuiltinTypeKind::Bool);
+        let function_def = create_function("AModule::toString_1", "b", EnhBuiltinTypeKind::Bool);
 
         sut.add_function("toString".to_string(), function_def);
 
@@ -841,13 +843,13 @@ mod tests {
     fn test_3() {
         let mut sut = FunctionsContainer::new();
 
-        let function_def = create_function("toString_0", "n", BuiltinTypeKind::I32);
+        let function_def = create_function("toString_0", "n", EnhBuiltinTypeKind::I32);
 
         sut.add_function("toString".to_string(), function_def);
 
         assert!(sut.find_function("toString_0").is_some());
 
-        let mut function_def = create_function("toString_1", "n", BuiltinTypeKind::I32);
+        let mut function_def = create_function("toString_1", "n", EnhBuiltinTypeKind::I32);
         function_def.parameters = vec![];
 
         sut.add_function("toString".to_string(), function_def);
@@ -860,37 +862,37 @@ mod tests {
     fn test_4() {
         let mut sut = FunctionsContainer::new();
 
-        let function_def = create_add_function("n", BuiltinTypeKind::I32);
+        let function_def = create_add_function("n", EnhBuiltinTypeKind::I32);
 
         sut.add_function("add".to_string(), function_def);
 
-        let function_def = create_add_function("s", BuiltinTypeKind::String);
+        let function_def = create_add_function("s", EnhBuiltinTypeKind::String);
 
         sut.add_function("add".to_string(), function_def);
 
-        let call = ASTFunctionCall {
+        let call = EnhASTFunctionCall {
             namespace: test_namespace(),
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![
-                ASTExpression::Value(
-                    ValueType::I32(10),
-                    ASTIndex {
+                EnhASTExpression::Value(
+                    ASTValueType::I32(10),
+                    EnhASTIndex {
                         file_name: None,
                         row: 0,
                         column: 0,
                     },
                 ),
-                ASTExpression::Value(
-                    ValueType::I32(20),
-                    ASTIndex {
+                EnhASTExpression::Value(
+                    ASTValueType::I32(20),
+                    EnhASTIndex {
                         file_name: None,
                         row: 0,
                         column: 0,
                     },
                 ),
             ],
-            index: ASTIndex {
+            index: EnhASTIndex {
                 file_name: None,
                 row: 0,
                 column: 0,
@@ -923,12 +925,12 @@ mod tests {
             &call.function_name,
             &call.original_function_name,
             &vec![
-                Exact(ASTType::Builtin(BuiltinTypeKind::I32)),
-                Exact(ASTType::Generic(ASTIndex::none(), "T".into())),
+                Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
+                Exact(EnhASTType::Generic(EnhASTIndex::none(), "T".into())),
             ],
             None,
             false,
-            &ASTIndex::none(),
+            &EnhASTIndex::none(),
             &module,
         );
 
@@ -966,17 +968,17 @@ mod tests {
         CompileTarget::Nasmi386(AsmOptions::default())
     }
 
-    fn simple_function_def(name: &str) -> ASTFunctionDef {
-        ASTFunctionDef {
+    fn simple_function_def(name: &str) -> EnhASTFunctionDef {
+        EnhASTFunctionDef {
             name: name.into(),
-            body: ASTFunctionBody::NativeBody("".into()),
+            body: EnhASTFunctionBody::NativeBody("".into()),
             parameters: Vec::new(),
-            return_type: ASTType::Unit,
+            return_type: EnhASTType::Unit,
             inline: false,
             generic_types: Vec::new(),
             resolved_generic_types: ResolvedGenericTypes::new(),
             original_name: name.into(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
             rank: 0,
@@ -986,50 +988,50 @@ mod tests {
     fn create_function(
         name: &str,
         param_name: &str,
-        param_kind: BuiltinTypeKind,
-    ) -> ASTFunctionDef {
-        ASTFunctionDef {
+        param_kind: EnhBuiltinTypeKind,
+    ) -> EnhASTFunctionDef {
+        EnhASTFunctionDef {
             name: name.into(),
-            body: ASTFunctionBody::NativeBody("".into()),
+            body: EnhASTFunctionBody::NativeBody("".into()),
             generic_types: vec![],
-            parameters: vec![ASTParameterDef {
+            parameters: vec![EnhASTParameterDef {
                 name: param_name.into(),
-                ast_type: ASTType::Builtin(param_kind),
-                ast_index: ASTIndex::none(),
+                ast_type: EnhASTType::Builtin(param_kind),
+                ast_index: EnhASTIndex::none(),
             }],
             inline: false,
             resolved_generic_types: ResolvedGenericTypes::new(),
-            return_type: ASTType::Builtin(BuiltinTypeKind::String),
+            return_type: EnhASTType::Builtin(EnhBuiltinTypeKind::String),
             original_name: name.into(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
             rank: 0,
         }
     }
 
-    fn create_add_function(param_name: &str, param_kind: BuiltinTypeKind) -> ASTFunctionDef {
-        ASTFunctionDef {
+    fn create_add_function(param_name: &str, param_kind: EnhBuiltinTypeKind) -> EnhASTFunctionDef {
+        EnhASTFunctionDef {
             name: "add".into(),
-            body: ASTFunctionBody::NativeBody("".into()),
+            body: EnhASTFunctionBody::NativeBody("".into()),
             generic_types: vec![],
             parameters: vec![
-                ASTParameterDef {
+                EnhASTParameterDef {
                     name: param_name.into(),
-                    ast_type: ASTType::Builtin(param_kind.clone()),
-                    ast_index: ASTIndex::none(),
+                    ast_type: EnhASTType::Builtin(param_kind.clone()),
+                    ast_index: EnhASTIndex::none(),
                 },
-                ASTParameterDef {
+                EnhASTParameterDef {
                     name: format!("{}_1", param_name),
-                    ast_type: ASTType::Builtin(param_kind.clone()),
-                    ast_index: ASTIndex::none(),
+                    ast_type: EnhASTType::Builtin(param_kind.clone()),
+                    ast_index: EnhASTIndex::none(),
                 },
             ],
             inline: false,
             resolved_generic_types: ResolvedGenericTypes::new(),
-            return_type: ASTType::Builtin(param_kind),
+            return_type: EnhASTType::Builtin(param_kind),
             original_name: "add".into(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(),
             rank: 0,

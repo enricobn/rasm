@@ -18,7 +18,8 @@
 use itertools::Itertools;
 use std::iter::zip;
 
-use crate::codegen::eh_ast::{ASTModifiers, ASTNameSpace, ASTType, BuiltinTypeKind};
+use crate::codegen::eh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
+use crate::parser::ast::ASTModifiers;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
     CustomTypedTypeDef,
@@ -32,8 +33,8 @@ pub trait TypeDefProvider {
 
     fn types(&self) -> &[ASTTypedTypeDef];
 
-    fn get_real_namespace(&self, ast_type: &ASTType) -> Option<ASTNameSpace> {
-        if let ASTType::Custom {
+    fn get_real_namespace(&self, ast_type: &EnhASTType) -> Option<EnhASTNameSpace> {
+        if let EnhASTType::Custom {
             namespace: _,
             name,
             param_types: _,
@@ -127,7 +128,7 @@ pub trait TypeDefProvider {
 
     fn get_enum_def_like_name(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         name: &str,
     ) -> Option<&ASTTypedEnumDef> {
         find_one(self.enums().iter(), |it| {
@@ -137,7 +138,7 @@ pub trait TypeDefProvider {
 
     fn get_struct_def_like_name(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         name: &str,
     ) -> Option<&ASTTypedStructDef> {
         find_one(self.structs().iter(), |it| {
@@ -147,7 +148,7 @@ pub trait TypeDefProvider {
 
     fn get_type_def_like_name(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         name: &str,
     ) -> Option<&ASTTypedTypeDef> {
         find_one(self.types().iter(), |it| {
@@ -158,7 +159,7 @@ pub trait TypeDefProvider {
     fn get_type_from_custom_typed_type(
         &self,
         typed_type_to_find: &ASTTypedType,
-    ) -> Option<ASTType> {
+    ) -> Option<EnhASTType> {
         if let Some(e) = find_one(self.enums().iter(), |it| {
             &it.ast_typed_type == typed_type_to_find
         }) {
@@ -179,7 +180,7 @@ pub trait TypeDefProvider {
 
     fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
         if let Some(e) = find_one(self.enums().iter(), |it| {
-            if let ASTType::Custom {
+            if let EnhASTType::Custom {
                 namespace,
                 name: ast_type_name,
                 param_types: _,
@@ -193,7 +194,7 @@ pub trait TypeDefProvider {
         }) {
             Some(e.clone().ast_typed_type)
         } else if let Some(s) = find_one(self.structs().iter(), |it| {
-            if let ASTType::Custom {
+            if let EnhASTType::Custom {
                 namespace,
                 name: ast_type_name,
                 param_types: _,
@@ -208,7 +209,7 @@ pub trait TypeDefProvider {
             Some(s.clone().ast_typed_type)
         } else {
             find_one(self.types().iter(), |it| {
-                if let ASTType::Custom {
+                if let EnhASTType::Custom {
                     namespace: _,
                     name: ast_type_name,
                     param_types: _,
@@ -224,17 +225,17 @@ pub trait TypeDefProvider {
         }
     }
 
-    fn get_ast_typed_type_from_ast_type(&self, ast_type: &ASTType) -> Option<ASTTypedType> {
+    fn get_ast_typed_type_from_ast_type(&self, ast_type: &EnhASTType) -> Option<ASTTypedType> {
         let result = match ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Bool => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
-                BuiltinTypeKind::Char => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
-                BuiltinTypeKind::I32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
-                BuiltinTypeKind::F32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
-                BuiltinTypeKind::String => {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::Bool => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
+                EnhBuiltinTypeKind::Char => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
+                EnhBuiltinTypeKind::I32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+                EnhBuiltinTypeKind::F32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
+                EnhBuiltinTypeKind::String => {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
                 }
-                BuiltinTypeKind::Lambda {
+                EnhBuiltinTypeKind::Lambda {
                     parameters: _,
                     return_type: _,
                 } => {
@@ -254,8 +255,8 @@ pub trait TypeDefProvider {
                     */
                 }
             },
-            ASTType::Generic(_, _) => None,
-            ASTType::Custom {
+            EnhASTType::Generic(_, _) => None,
+            EnhASTType::Custom {
                 namespace: _,
                 name: _,
                 param_types,
@@ -276,7 +277,7 @@ pub trait TypeDefProvider {
                     .map(|it| it.ast_typed_type().clone())
                 }
             }
-            ASTType::Unit => Some(ASTTypedType::Unit),
+            EnhASTType::Unit => Some(ASTTypedType::Unit),
         };
 
         result
@@ -288,9 +289,9 @@ pub trait TypeDefProvider {
         find_one(self.types().iter(), |it| {
             //println!("inside find_one {it}");
             match &it.ast_type {
-                ASTType::Builtin(_) => false,
-                ASTType::Generic(_, _) => false,
-                ASTType::Custom {
+                EnhASTType::Builtin(_) => false,
+                EnhASTType::Generic(_, _) => false,
+                EnhASTType::Custom {
                     namespace: ast_type_namespace,
                     name: _,
                     param_types: _,
@@ -299,20 +300,22 @@ pub trait TypeDefProvider {
                     it.original_name == type_to_find
                         && (it.modifiers.public || &it.namespace == ast_type_namespace)
                 }
-                ASTType::Unit => false,
+                EnhASTType::Unit => false,
             }
         })
         .cloned()
     }
 
-    fn get_type_from_typed_type(&self, ast_typed_type: &ASTTypedType) -> Option<ASTType> {
+    fn get_type_from_typed_type(&self, ast_typed_type: &ASTTypedType) -> Option<EnhASTType> {
         match ast_typed_type {
             ASTTypedType::Builtin(kind) => match kind {
-                BuiltinTypedTypeKind::String => Some(ASTType::Builtin(BuiltinTypeKind::String)),
-                BuiltinTypedTypeKind::I32 => Some(ASTType::Builtin(BuiltinTypeKind::I32)),
-                BuiltinTypedTypeKind::Bool => Some(ASTType::Builtin(BuiltinTypeKind::Bool)),
-                BuiltinTypedTypeKind::Char => Some(ASTType::Builtin(BuiltinTypeKind::Char)),
-                BuiltinTypedTypeKind::F32 => Some(ASTType::Builtin(BuiltinTypeKind::F32)),
+                BuiltinTypedTypeKind::String => {
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
+                }
+                BuiltinTypedTypeKind::I32 => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
+                BuiltinTypedTypeKind::Bool => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool)),
+                BuiltinTypedTypeKind::Char => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Char)),
+                BuiltinTypedTypeKind::F32 => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::F32)),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -323,7 +326,7 @@ pub trait TypeDefProvider {
                         .collect::<Option<Vec<_>>>();
                     let o_return_type = self.get_type_from_typed_type(return_type);
                     if let (Some(v), Some(rt)) = (vec, o_return_type) {
-                        Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                             parameters: v,
                             return_type: Box::new(rt),
                         }))
@@ -332,7 +335,7 @@ pub trait TypeDefProvider {
                     }
                 }
             },
-            ASTTypedType::Unit => Some(ASTType::Unit),
+            ASTTypedType::Unit => Some(EnhASTType::Unit),
             _ => self.get_type_from_custom_typed_type(ast_typed_type),
         }
     }
@@ -340,10 +343,10 @@ pub trait TypeDefProvider {
     fn get_ast_typed_type_from_ast_type_filter(
         &self,
         custom_typed_type_def: &dyn CustomTypedTypeDef,
-        ast_type: &ASTType,
-        param_types: &Vec<ASTType>,
+        ast_type: &EnhASTType,
+        param_types: &Vec<EnhASTType>,
     ) -> bool {
-        if let ASTType::Custom {
+        if let EnhASTType::Custom {
             namespace: _,
             name: _,
             param_types: it_pt,
@@ -360,7 +363,7 @@ pub trait TypeDefProvider {
         }
     }
 
-    fn get_type_from_typed_type_name(&self, typed_type_to_find: &str) -> Option<ASTType> {
+    fn get_type_from_typed_type_name(&self, typed_type_to_find: &str) -> Option<EnhASTType> {
         if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
             Some(t.ast_type.clone())
         } else if let Some(t) = self.get_struct_def_by_name(typed_type_to_find) {

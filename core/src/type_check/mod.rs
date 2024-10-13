@@ -1,7 +1,7 @@
 use type_check_error::TypeCheckError;
 
-use crate::codegen::eh_ast::ASTIndex;
-use crate::codegen::eh_ast::{ASTType, BuiltinTypeKind};
+use crate::codegen::eh_ast::EnhASTIndex;
+use crate::codegen::eh_ast::{EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::{debug_i, dedent, indent};
@@ -28,7 +28,7 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
                 None => value.to_string(),
                 // TODO duplicated code
                 Some(t) => {
-                    if matches!(t, ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) {
+                    if matches!(t, EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })) {
                         value.to_string()
                     } else {
                         it.render()
@@ -40,7 +40,7 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
                 None => value.to_string(),
                 // TODO duplicated code
                 Some(t) => {
-                    if matches!(t, ASTType::Builtin(BuiltinTypeKind::Lambda { .. })) {
+                    if matches!(t, EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })) {
                         value.to_string()
                     } else {
                         it.render()
@@ -59,8 +59,8 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
 }
 
 pub fn resolve_generic_types_from_effective_type(
-    generic_type: &ASTType,
-    effective_type: &ASTType,
+    generic_type: &EnhASTType,
+    effective_type: &EnhASTType,
 ) -> Result<ResolvedGenericTypes, TypeCheckError> {
     let mut result = ResolvedGenericTypes::new();
     if generic_type == effective_type || !generic_type.is_generic() {
@@ -72,18 +72,18 @@ pub fn resolve_generic_types_from_effective_type(
     indent!();
 
     match generic_type {
-        ASTType::Builtin(kind) => {
+        EnhASTType::Builtin(kind) => {
             match kind {
-                BuiltinTypeKind::String => {}
-                BuiltinTypeKind::I32 => {}
-                BuiltinTypeKind::Bool => {}
-                BuiltinTypeKind::Char => {}
-                BuiltinTypeKind::F32 => {}
-                BuiltinTypeKind::Lambda {
+                EnhBuiltinTypeKind::String => {}
+                EnhBuiltinTypeKind::I32 => {}
+                EnhBuiltinTypeKind::Bool => {}
+                EnhBuiltinTypeKind::Char => {}
+                EnhBuiltinTypeKind::F32 => {}
+                EnhBuiltinTypeKind::Lambda {
                     parameters: p_parameters,
                     return_type: p_return_type,
                 } => match effective_type {
-                    ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                         parameters: e_parameters,
                         return_type: e_return_type,
                     }) => {
@@ -94,7 +94,7 @@ pub fn resolve_generic_types_from_effective_type(
                             let e_p = e_parameters.get(i).unwrap();
 
                             let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
-                            .map_err(|e| e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}, eff. type {effective_type}"), Vec::new()))?;
+                            .map_err(|e| e.add(EnhASTIndex::none(), format!("lambda param gen type {generic_type}, eff. type {effective_type}"), Vec::new()))?;
 
                             result
                                 .extend(inner_result)
@@ -119,7 +119,7 @@ pub fn resolve_generic_types_from_effective_type(
 
                          */
                         let inner_result = resolve_generic_types_from_effective_type(p_return_type, e_return_type)
-                        .map_err(|e| e.add(ASTIndex::none(), format!("in return type gen type {generic_type}, eff. type {effective_type}"), Vec::new()))?;
+                        .map_err(|e| e.add(EnhASTIndex::none(), format!("in return type gen type {generic_type}, eff. type {effective_type}"), Vec::new()))?;
 
                         result
                             .extend(inner_result)
@@ -132,8 +132,8 @@ pub fn resolve_generic_types_from_effective_type(
                 },
             }
         }
-        ASTType::Generic(_, p) => {
-            let ignore = if let ASTType::Generic(_, p1) = effective_type {
+        EnhASTType::Generic(_, p) => {
+            let ignore = if let EnhASTType::Generic(_, p1) = effective_type {
                 p == p1
             } else {
                 false
@@ -143,13 +143,13 @@ pub fn resolve_generic_types_from_effective_type(
                 result.insert(p.clone(), effective_type.clone());
             }
         }
-        ASTType::Custom {
+        EnhASTType::Custom {
             namespace: _,
             name: g_name,
             param_types: g_param_types,
             index: _,
         } => match effective_type {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace: _,
                 name: e_name,
                 param_types: e_param_types,
@@ -167,17 +167,17 @@ pub fn resolve_generic_types_from_effective_type(
                         p
                     } else {
                         return Err(TypeCheckError::new(
-                            ASTIndex::none(),
+                            EnhASTIndex::none(),
                             format!("Cannot find parameter {i}"),
                             Vec::new(),
                         ));
                     };
                     let inner_result = resolve_generic_types_from_effective_type(p_p, e_p)
-                        .map_err(|e| e.add(ASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"), Vec::new()))?;
+                        .map_err(|e| e.add(EnhASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"), Vec::new()))?;
 
                     result.extend(inner_result).map_err(|it| {
                         TypeCheckError::new(
-                            ASTIndex::none(),
+                            EnhASTIndex::none(),
                             format!(
                                 "{it}: in custom type gen type {generic_type} eff type {effective_type}"
                             ),
@@ -186,14 +186,14 @@ pub fn resolve_generic_types_from_effective_type(
                     })?;
                 }
             }
-            ASTType::Generic(_, _) => {}
+            EnhASTType::Generic(_, _) => {}
             _ => {
                 dedent!();
                 return Err(type_check_error(format!(
                     "unmatched types, generic type is {generic_type}, real type is {effective_type}")));
             }
         },
-        ASTType::Unit => {}
+        EnhASTType::Unit => {}
     }
 
     debug_i!("result {result}");
@@ -202,20 +202,20 @@ pub fn resolve_generic_types_from_effective_type(
 }
 
 fn type_check_error(message: String) -> TypeCheckError {
-    TypeCheckError::new(ASTIndex::none(), message, Vec::new())
+    TypeCheckError::new(EnhASTIndex::none(), message, Vec::new())
 }
 
 pub fn substitute(
-    ast_type: &ASTType,
+    ast_type: &EnhASTType,
     resolved_param_types: &ResolvedGenericTypes,
-) -> Option<ASTType> {
+) -> Option<EnhASTType> {
     if !ast_type.is_generic() {
         return None;
     }
 
     let result = match &ast_type {
-        ASTType::Builtin(kind) => match kind {
-            BuiltinTypeKind::Lambda {
+        EnhASTType::Builtin(kind) => match kind {
+            EnhBuiltinTypeKind::Lambda {
                 parameters,
                 return_type,
             } => {
@@ -237,7 +237,7 @@ pub fn substitute(
                     };
 
                 if something_substituted {
-                    Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                         parameters: new_parameters,
                         return_type: new_return_type,
                     }))
@@ -247,14 +247,14 @@ pub fn substitute(
             }
             _ => None,
         },
-        ASTType::Generic(_, p) => {
+        EnhASTType::Generic(_, p) => {
             if resolved_param_types.contains_key(p) {
                 resolved_param_types.get(p).cloned()
             } else {
                 None
             }
         }
-        ASTType::Custom {
+        EnhASTType::Custom {
             namespace,
             name,
             param_types,
@@ -264,7 +264,7 @@ pub fn substitute(
                 // TODO it's a bit heuristic
                 let new_index = if new_param_types.is_empty() {
                     index.clone()
-                } else if let Some(ASTType::Custom {
+                } else if let Some(EnhASTType::Custom {
                     namespace: _,
                     name: _,
                     param_types: _,
@@ -275,7 +275,7 @@ pub fn substitute(
                 } else {
                     index.clone()
                 };
-                ASTType::Custom {
+                EnhASTType::Custom {
                     namespace: namespace.clone(),
                     name: name.clone(),
                     param_types: new_param_types,
@@ -283,7 +283,7 @@ pub fn substitute(
                 }
             })
         }
-        ASTType::Unit => None,
+        EnhASTType::Unit => None,
     };
 
     if let Some(r) = &result {
@@ -293,9 +293,9 @@ pub fn substitute(
 }
 
 fn substitute_types(
-    types: &[ASTType],
+    types: &[EnhASTType],
     resolved_param_types: &ResolvedGenericTypes,
-) -> Option<Vec<ASTType>> {
+) -> Option<Vec<EnhASTType>> {
     let mut something_substituted = false;
     let new_types = types
         .iter()
@@ -318,7 +318,7 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::eh_ast::{ASTIndex, ASTType, BuiltinTypeKind};
+    use crate::codegen::eh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
     use crate::type_check::resolve_generic_types_from_effective_type;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
@@ -344,17 +344,17 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
-        let generic_type = ASTType::Custom {
+        let generic_type = EnhASTType::Custom {
             namespace: test_namespace(),
             name: "List".into(),
             param_types: vec![generic("T")],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
-        let effective_type = ASTType::Custom {
+        let effective_type = EnhASTType::Custom {
             namespace: test_namespace(),
             name: "List".into(),
             param_types: vec![i32()],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
@@ -369,12 +369,12 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), TypeCheckError> {
-        let generic_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let generic_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Box::new(generic("T")),
         });
 
-        let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let effective_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Box::new(i32()),
         });
@@ -391,12 +391,12 @@ mod tests {
 
     #[test]
     fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), TypeCheckError> {
-        let generic_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let generic_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Box::new(generic("T")),
         });
 
-        let effective_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let effective_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters: vec![i32()],
             return_type: Box::new(generic("T")),
         });
@@ -410,12 +410,12 @@ mod tests {
         Ok(())
     }
 
-    fn generic(name: &str) -> ASTType {
-        ASTType::Generic(ASTIndex::none(), name.into())
+    fn generic(name: &str) -> EnhASTType {
+        EnhASTType::Generic(EnhASTIndex::none(), name.into())
     }
 
-    fn i32() -> ASTType {
-        ASTType::Builtin(BuiltinTypeKind::I32)
+    fn i32() -> EnhASTType {
+        EnhASTType::Builtin(EnhBuiltinTypeKind::I32)
     }
 
     /*

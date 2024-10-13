@@ -1,7 +1,7 @@
 use anymap::AnyMap;
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::eh_ast::ASTType;
+use crate::codegen::eh_ast::EnhASTType;
 use crate::codegen::statics::MemoryValue::Mem;
 use crate::type_check::typed_ast::ASTTypedType;
 
@@ -21,7 +21,7 @@ pub enum MemoryUnit {
 #[derive(Clone, Debug)]
 pub struct ConstEntry {
     pub key: String,
-    pub ast_type: ASTType,
+    pub ast_type: EnhASTType,
 }
 
 #[derive(Clone, Debug)]
@@ -71,7 +71,7 @@ impl Statics {
         }
     }
 
-    pub fn add_const(&mut self, name: String, ast_type: ASTType) {
+    pub fn add_const(&mut self, name: String, ast_type: EnhASTType) {
         // TODO it's a trick: during type check passes consts are added again
         if !self.const_map.contains_key(&name) {
             let key = self.insert_prefix("const", MemoryValue::Mem(1, MemoryUnit::Words));

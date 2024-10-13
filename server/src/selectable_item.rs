@@ -17,7 +17,7 @@
  */
 
 use crate::file_token::FileToken;
-use rasm_core::codegen::eh_ast::{ASTIndex, ASTNameSpace, ASTType};
+use rasm_core::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
 use rasm_core::utils::OptionDisplay;
 use std::fmt::{Display, Formatter};
 use std::io;
@@ -25,7 +25,7 @@ use std::io;
 #[derive(Debug, Clone)]
 pub struct SelectableItem {
     pub file_token: FileToken,
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     pub target: Option<SelectableItemTarget>,
 }
 
@@ -41,9 +41,9 @@ impl Display for SelectableItem {
 
 impl SelectableItem {
     pub fn new(
-        start: ASTIndex,
+        start: EnhASTIndex,
         len: usize,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         target: Option<SelectableItemTarget>,
     ) -> Self {
         SelectableItem {
@@ -53,16 +53,16 @@ impl SelectableItem {
         }
     }
 
-    pub fn contains(&self, index: &ASTIndex) -> io::Result<bool> {
+    pub fn contains(&self, index: &EnhASTIndex) -> io::Result<bool> {
         self.file_token.contains(index)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SelectableItemTarget {
-    Ref(ASTIndex, Option<ASTType>),
-    Function(ASTIndex, ASTType, String),
-    Type(Option<ASTIndex>, ASTType),
+    Ref(EnhASTIndex, Option<EnhASTType>),
+    Function(EnhASTIndex, EnhASTType, String),
+    Type(Option<EnhASTIndex>, EnhASTType),
 }
 
 impl Display for SelectableItemTarget {
@@ -80,7 +80,7 @@ impl Display for SelectableItemTarget {
 }
 
 impl SelectableItemTarget {
-    pub fn index(&self) -> Option<ASTIndex> {
+    pub fn index(&self) -> Option<EnhASTIndex> {
         match self {
             SelectableItemTarget::Ref(index, _) => Some(index.clone()),
             SelectableItemTarget::Function(index, _, _) => Some(index.clone()),
@@ -88,7 +88,7 @@ impl SelectableItemTarget {
         }
     }
 
-    pub fn completion_type(&self) -> Option<ASTType> {
+    pub fn completion_type(&self) -> Option<EnhASTType> {
         match self {
             SelectableItemTarget::Ref(_, t) => t.clone(),
             SelectableItemTarget::Function(_, t, _) => Some(t.clone()),

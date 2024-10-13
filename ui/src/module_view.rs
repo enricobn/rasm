@@ -13,7 +13,7 @@ use iced::{
     Background, Color, Element, Length, Padding, Theme,
 };
 use rasm_core::{
-    codegen::eh_ast::{ASTIndex, ASTModule, ASTType, BuiltinTypeKind},
+    codegen::eh_ast::{EnhASTIndex, EnhASTModule, EnhASTType, EnhBuiltinTypeKind},
     lexer::{tokens::TokenKind, Lexer},
     type_check::functions_container::TypeFilter,
 };
@@ -49,7 +49,7 @@ impl UI {
             .project
             .get_module(Path::new(&selected_module.path), &self.target)
         {
-            let eh_module = ASTModule::from_ast(module, info);
+            let eh_module = EnhASTModule::from_ast(module, info);
             let module_syntax = Self::module_syntax(&eh_module);
             let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
@@ -73,7 +73,7 @@ impl UI {
                         just_added_new_line = true;
                     } else {
                         let token_index =
-                            ASTIndex::new(Some(path.clone()), token.row, token.column);
+                            EnhASTIndex::new(Some(path.clone()), token.row, token.column);
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
                                 if module_syntax
@@ -198,7 +198,7 @@ impl UI {
             .into()
     }
 
-    fn module_syntax(module: &ASTModule) -> HashMap<ASTIndex, SyntaxKind> {
+    fn module_syntax(module: &EnhASTModule) -> HashMap<EnhASTIndex, SyntaxKind> {
         let mut result = HashMap::new();
 
         for s in module.structs.iter() {
@@ -235,12 +235,12 @@ impl UI {
         result
     }
 
-    fn set_untyped(ast_type: &ASTType) -> HashMap<ASTIndex, SyntaxKind> {
+    fn set_untyped(ast_type: &EnhASTType) -> HashMap<EnhASTIndex, SyntaxKind> {
         let mut result = HashMap::new();
 
         match ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Lambda {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 } => {
@@ -251,10 +251,10 @@ impl UI {
                 }
                 _ => {}
             },
-            ASTType::Generic(index, _) => {
+            EnhASTType::Generic(index, _) => {
                 result.insert(index.clone(), SyntaxKind::UnTyped);
             }
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace,
                 name,
                 param_types,
@@ -265,7 +265,7 @@ impl UI {
                     result.extend(Self::set_untyped(p));
                 }
             }
-            ASTType::Unit => {}
+            EnhASTType::Unit => {}
         }
 
         result

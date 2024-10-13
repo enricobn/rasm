@@ -12,34 +12,34 @@ use crate::project::RasmProject;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
-use crate::parser::ast::{self, ASTPosition};
+use crate::parser::ast::{self, ASTModifiers, ASTPosition, ASTValueType};
 
 #[derive(Debug, Clone)]
 pub struct EhModuleInfo {
     pub path: Option<PathBuf>,
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
 }
 
 impl EhModuleInfo {
-    pub fn new(path: Option<PathBuf>, namespace: ASTNameSpace) -> Self {
+    pub fn new(path: Option<PathBuf>, namespace: EnhASTNameSpace) -> Self {
         Self { path, namespace }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ASTNameSpace {
+pub struct EnhASTNameSpace {
     lib: String,
     path: String,
 }
 
-const GLOBAL_NAMESPACE: ASTNameSpace = ASTNameSpace {
+const GLOBAL_NAMESPACE: EnhASTNameSpace = EnhASTNameSpace {
     lib: String::new(),
     path: String::new(),
 };
 
-const GLOBAL_NAMESPACE_REF: &'static ASTNameSpace = &GLOBAL_NAMESPACE;
+const GLOBAL_NAMESPACE_REF: &'static EnhASTNameSpace = &GLOBAL_NAMESPACE;
 
-impl ASTNameSpace {
+impl EnhASTNameSpace {
     pub fn new(lib: String, path: String) -> Self {
         if lib.is_empty() {
             panic!("lib cannot be empty");
@@ -79,25 +79,25 @@ impl ASTNameSpace {
     }
 }
 
-impl Display for ASTNameSpace {
+impl Display for EnhASTNameSpace {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("{}:{}", self.lib, self.path))
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ASTFunctionDef {
+pub struct EnhASTFunctionDef {
     pub original_name: String,
     pub name: String,
-    pub parameters: Vec<ASTParameterDef>,
-    pub return_type: ASTType,
-    pub body: ASTFunctionBody,
+    pub parameters: Vec<EnhASTParameterDef>,
+    pub return_type: EnhASTType,
+    pub body: EnhASTFunctionBody,
     pub inline: bool,
     pub generic_types: Vec<String>,
     pub resolved_generic_types: ResolvedGenericTypes,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
     pub modifiers: ASTModifiers,
-    pub namespace: ASTNameSpace,
+    pub namespace: EnhASTNameSpace,
     ///
     /// The rank is the sum of the parameter's type generic coefficient, the coefficient
     /// of <T> is higher than Option<T> that is higher than Option<List<T>>
@@ -105,53 +105,59 @@ pub struct ASTFunctionDef {
     pub rank: usize,
 }
 
-impl ASTFunctionDef {
+impl EnhASTFunctionDef {
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         function: ast::ASTFunctionDef,
     ) -> Self {
         Self {
             original_name: function.name.clone(),
             name: function.name,
-            parameters: ASTParameterDef::from_asts(
+            parameters: EnhASTParameterDef::from_asts(
                 path.clone(),
                 namespace.clone(),
                 function.parameters,
             ),
-            return_type: ASTType::from_ast(path.clone(), namespace.clone(), function.return_type),
+            return_type: EnhASTType::from_ast(
+                path.clone(),
+                namespace.clone(),
+                function.return_type,
+            ),
             body: {
                 match function.body {
-                    ast::ASTFunctionBody::RASMBody(statements) => ASTFunctionBody::RASMBody(
+                    ast::ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
                         statements
                             .into_iter()
-                            .map(|it| ASTStatement::from_ast(path.clone(), namespace.clone(), it))
+                            .map(|it| {
+                                EnhASTStatement::from_ast(path.clone(), namespace.clone(), it)
+                            })
                             .collect(),
                     ),
-                    ast::ASTFunctionBody::NativeBody(value) => ASTFunctionBody::NativeBody(value),
+                    ast::ASTFunctionBody::NativeBody(value) => {
+                        EnhASTFunctionBody::NativeBody(value)
+                    }
                 }
             },
             inline: function.inline,
             generic_types: function.generic_types,
             resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::from_position(path.clone(), function.index),
-            modifiers: ASTModifiers {
-                public: function.modifiers.public,
-            },
+            index: EnhASTIndex::from_position(path.clone(), function.index),
+            modifiers: function.modifiers,
             namespace,
             rank: 0,
         }
     }
 }
 
-pub struct ASTFunctionSignature {
+pub struct EnhASTFunctionSignature {
     pub name: String,
     //pub generics: Vec<String>,
-    pub parameters_types: Vec<ASTType>,
-    pub return_type: ASTType,
+    pub parameters_types: Vec<EnhASTType>,
+    pub return_type: EnhASTType,
 }
 
-impl Display for ASTFunctionDef {
+impl Display for EnhASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let generic_types = if self.generic_types.is_empty() {
             "".into()
@@ -159,7 +165,7 @@ impl Display for ASTFunctionDef {
             format!("<{}>", self.generic_types.join(","))
         };
 
-        let rt = if self.return_type != ASTType::Unit {
+        let rt = if self.return_type != EnhASTType::Unit {
             format!("{}", self.return_type)
         } else {
             "()".into()
@@ -167,7 +173,7 @@ impl Display for ASTFunctionDef {
 
         let modifiers = if self.modifiers.public { "pub " } else { "" };
 
-        let fun_or_asm = if let ASTFunctionBody::RASMBody(_) = self.body {
+        let fun_or_asm = if let EnhASTFunctionBody::RASMBody(_) = self.body {
             "fn"
         } else {
             "native"
@@ -186,15 +192,15 @@ impl Display for ASTFunctionDef {
     }
 }
 
-impl ASTFunctionDef {
+impl EnhASTFunctionDef {
     pub fn update_calculated_properties(&mut self) {
         self.rank = TypeCheck::function_precedence_coeff(self);
     }
 
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self;
-        if let ASTFunctionBody::RASMBody(statements) = result.body {
-            result.body = ASTFunctionBody::RASMBody(
+        if let EnhASTFunctionBody::RASMBody(statements) = result.body {
+            result.body = EnhASTFunctionBody::RASMBody(
                 statements
                     .into_iter()
                     .map(|it| it.fix_namespaces(enhanced_module))
@@ -234,8 +240,8 @@ impl ASTFunctionDef {
         result
     }
 
-    pub fn signature(&self) -> ASTFunctionSignature {
-        ASTFunctionSignature {
+    pub fn signature(&self) -> EnhASTFunctionSignature {
+        EnhASTFunctionSignature {
             name: self.name.clone(),
             parameters_types: self
                 .parameters
@@ -248,13 +254,13 @@ impl ASTFunctionDef {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ASTLambdaDef {
-    pub parameter_names: Vec<(String, ASTIndex)>,
-    pub body: Vec<ASTStatement>,
-    pub index: ASTIndex,
+pub struct EnhASTLambdaDef {
+    pub parameter_names: Vec<(String, EnhASTIndex)>,
+    pub body: Vec<EnhASTStatement>,
+    pub index: EnhASTIndex,
 }
 
-impl ASTLambdaDef {
+impl EnhASTLambdaDef {
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self;
         result.body = result
@@ -267,26 +273,26 @@ impl ASTLambdaDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         lambda: ast::ASTLambdaDef,
     ) -> Self {
         Self {
             parameter_names: lambda
                 .parameter_names
                 .into_iter()
-                .map(|(name, position)| (name, ASTIndex::from_position(path.clone(), position)))
+                .map(|(name, position)| (name, EnhASTIndex::from_position(path.clone(), position)))
                 .collect(),
             body: lambda
                 .body
                 .into_iter()
-                .map(|it| ASTStatement::from_ast(path.clone(), namespace.clone(), it))
+                .map(|it| EnhASTStatement::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: ASTIndex::from_position(path.clone(), lambda.index),
+            index: EnhASTIndex::from_position(path.clone(), lambda.index),
         }
     }
 }
 
-impl Display for ASTLambdaDef {
+impl Display for EnhASTLambdaDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self
             .parameter_names
@@ -310,55 +316,55 @@ impl Display for ASTLambdaDef {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ASTFunctionBody {
-    RASMBody(Vec<ASTStatement>),
+pub enum EnhASTFunctionBody {
+    RASMBody(Vec<EnhASTStatement>),
     NativeBody(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum BuiltinTypeKind {
+pub enum EnhBuiltinTypeKind {
     Bool,
     Char,
     I32,
     F32,
     String,
     Lambda {
-        parameters: Vec<ASTType>,
-        return_type: Box<ASTType>,
+        parameters: Vec<EnhASTType>,
+        return_type: Box<EnhASTType>,
     },
 }
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
 #[derive(Debug, Clone, Eq)]
-pub enum ASTType {
-    Builtin(BuiltinTypeKind),
-    Generic(ASTIndex, String),
+pub enum EnhASTType {
+    Builtin(EnhBuiltinTypeKind),
+    Generic(EnhASTIndex, String),
     Custom {
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         name: String,
-        param_types: Vec<ASTType>,
+        param_types: Vec<EnhASTType>,
         #[derivative(PartialEq = "ignore")]
         #[derivative(Hash = "ignore")]
-        index: ASTIndex,
+        index: EnhASTIndex,
     },
     Unit,
 }
 
-impl ASTType {
+impl EnhASTType {
     pub fn is_unit(&self) -> bool {
-        self == &ASTType::Unit
+        self == &EnhASTType::Unit
     }
 
-    pub fn namespace(&self) -> &ASTNameSpace {
+    pub fn namespace(&self) -> &EnhASTNameSpace {
         match self {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace,
                 name: _,
                 param_types: _,
                 index: _,
             } => namespace,
-            _ => ASTNameSpace::global_ref(),
+            _ => EnhASTNameSpace::global_ref(),
         }
     }
 
@@ -367,13 +373,13 @@ impl ASTType {
     )]
     pub fn equals_excluding_namespace(&self, other: &Self) -> bool {
         match self {
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
                 index: _,
             } => match other {
-                ASTType::Custom {
+                EnhASTType::Custom {
                     namespace: _,
                     name: other_name,
                     param_types: other_param_types,
@@ -386,19 +392,25 @@ impl ASTType {
                 }
                 _ => false,
             },
-            ASTType::Builtin(builtin_type_kind) => {
-                if let ASTType::Builtin(other_builtin) = other {
+            EnhASTType::Builtin(builtin_type_kind) => {
+                if let EnhASTType::Builtin(other_builtin) = other {
                     match builtin_type_kind {
-                        BuiltinTypeKind::Bool => matches!(other_builtin, BuiltinTypeKind::Bool),
-                        BuiltinTypeKind::Char => matches!(other_builtin, BuiltinTypeKind::Char),
-                        BuiltinTypeKind::I32 => matches!(other_builtin, BuiltinTypeKind::I32),
-                        BuiltinTypeKind::F32 => matches!(other_builtin, BuiltinTypeKind::F32),
-                        BuiltinTypeKind::String => matches!(other_builtin, BuiltinTypeKind::String),
-                        BuiltinTypeKind::Lambda {
+                        EnhBuiltinTypeKind::Bool => {
+                            matches!(other_builtin, EnhBuiltinTypeKind::Bool)
+                        }
+                        EnhBuiltinTypeKind::Char => {
+                            matches!(other_builtin, EnhBuiltinTypeKind::Char)
+                        }
+                        EnhBuiltinTypeKind::I32 => matches!(other_builtin, EnhBuiltinTypeKind::I32),
+                        EnhBuiltinTypeKind::F32 => matches!(other_builtin, EnhBuiltinTypeKind::F32),
+                        EnhBuiltinTypeKind::String => {
+                            matches!(other_builtin, EnhBuiltinTypeKind::String)
+                        }
+                        EnhBuiltinTypeKind::Lambda {
                             parameters,
                             return_type,
                         } => {
-                            if let BuiltinTypeKind::Lambda {
+                            if let EnhBuiltinTypeKind::Lambda {
                                 parameters: o_parameters,
                                 return_type: o_return_type,
                             } = other_builtin
@@ -416,26 +428,26 @@ impl ASTType {
                     false
                 }
             }
-            ASTType::Generic(_, g) => {
-                if let ASTType::Generic(_, og) = other {
+            EnhASTType::Generic(_, g) => {
+                if let EnhASTType::Generic(_, og) = other {
                     g == og
                 } else {
                     false
                 }
             }
-            ASTType::Unit => other.is_unit(),
+            EnhASTType::Unit => other.is_unit(),
         }
     }
 
     pub fn is_generic(&self) -> bool {
         return match self {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::String => false,
-                BuiltinTypeKind::I32 => false,
-                BuiltinTypeKind::Bool => false,
-                BuiltinTypeKind::Char => false,
-                BuiltinTypeKind::F32 => false,
-                BuiltinTypeKind::Lambda {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::String => false,
+                EnhBuiltinTypeKind::I32 => false,
+                EnhBuiltinTypeKind::Bool => false,
+                EnhBuiltinTypeKind::Char => false,
+                EnhBuiltinTypeKind::F32 => false,
+                EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 } => {
@@ -446,24 +458,24 @@ impl ASTType {
                     par_types
                 }
             },
-            ASTType::Generic(_, _) => true,
-            ASTType::Custom {
+            EnhASTType::Generic(_, _) => true,
+            EnhASTType::Custom {
                 namespace: _,
                 name: _,
                 param_types: pt,
                 index: _,
             } => pt.iter().any(|it| match it {
-                ASTType::Generic(_, _) => true,
+                EnhASTType::Generic(_, _) => true,
                 _ => Self::is_generic(it),
             }),
-            ASTType::Unit => false,
+            EnhASTType::Unit => false,
         };
     }
 
     pub fn is_reference(&self, type_def_provider: &dyn TypeDefProvider) -> bool {
-        if let ASTType::Builtin(BuiltinTypeKind::String) = self {
+        if let EnhASTType::Builtin(EnhBuiltinTypeKind::String) = self {
             true
-        } else if let ASTType::Custom {
+        } else if let EnhASTType::Custom {
             namespace: _,
             name,
             param_types: _,
@@ -480,10 +492,10 @@ impl ASTType {
         }
     }
 
-    pub fn is_reference_by_module(&self, module: &ASTModule) -> bool {
-        if let ASTType::Builtin(BuiltinTypeKind::String) = self {
+    pub fn is_reference_by_module(&self, module: &EnhASTModule) -> bool {
+        if let EnhASTType::Builtin(EnhBuiltinTypeKind::String) = self {
             true
-        } else if let ASTType::Custom {
+        } else if let EnhASTType::Custom {
             namespace: _,
             name,
             param_types: _,
@@ -502,16 +514,16 @@ impl ASTType {
 
     pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Self {
         match self {
-            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                BuiltinTypeKind::Bool => self.clone(),
-                BuiltinTypeKind::Char => self.clone(),
-                BuiltinTypeKind::I32 => self.clone(),
-                BuiltinTypeKind::F32 => self.clone(),
-                BuiltinTypeKind::String => self.clone(),
-                BuiltinTypeKind::Lambda {
+            EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
+                EnhBuiltinTypeKind::Bool => self.clone(),
+                EnhBuiltinTypeKind::Char => self.clone(),
+                EnhBuiltinTypeKind::I32 => self.clone(),
+                EnhBuiltinTypeKind::F32 => self.clone(),
+                EnhBuiltinTypeKind::String => self.clone(),
+                EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
-                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters: parameters
                         .iter()
                         .map(|it| it.fix_namespaces(enhanced_module))
@@ -519,15 +531,15 @@ impl ASTType {
                     return_type: Box::new(return_type.fix_namespaces(enhanced_module)),
                 }),
             },
-            ASTType::Generic(_, _) => self.clone(),
-            ASTType::Custom {
+            EnhASTType::Generic(_, _) => self.clone(),
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
                 index,
             } => {
                 if let Some(type_def) = enhanced_module.get_type_def(self) {
-                    ASTType::Custom {
+                    EnhASTType::Custom {
                         namespace: type_def.namespace().clone(),
                         name: name.clone(),
                         param_types: param_types
@@ -540,22 +552,22 @@ impl ASTType {
                     panic!("Cannot find custom type declaration for {self}");
                 }
             }
-            ASTType::Unit => self.clone(),
+            EnhASTType::Unit => self.clone(),
         }
     }
 
     pub fn fix_generics(&self, prefix: &dyn Display) -> Self {
         match self {
-            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                BuiltinTypeKind::Bool => self.clone(),
-                BuiltinTypeKind::Char => self.clone(),
-                BuiltinTypeKind::I32 => self.clone(),
-                BuiltinTypeKind::F32 => self.clone(),
-                BuiltinTypeKind::String => self.clone(),
-                BuiltinTypeKind::Lambda {
+            EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
+                EnhBuiltinTypeKind::Bool => self.clone(),
+                EnhBuiltinTypeKind::Char => self.clone(),
+                EnhBuiltinTypeKind::I32 => self.clone(),
+                EnhBuiltinTypeKind::F32 => self.clone(),
+                EnhBuiltinTypeKind::String => self.clone(),
+                EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
-                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters: parameters
                         .iter()
                         .map(|it| it.fix_generics(prefix))
@@ -563,15 +575,15 @@ impl ASTType {
                     return_type: Box::new(return_type.fix_generics(prefix)),
                 }),
             },
-            ASTType::Generic(index, name) => {
-                ASTType::Generic(index.clone(), format!("{prefix}:{name}"))
+            EnhASTType::Generic(index, name) => {
+                EnhASTType::Generic(index.clone(), format!("{prefix}:{name}"))
             }
-            ASTType::Custom {
+            EnhASTType::Custom {
                 namespace,
                 name,
                 param_types,
                 index,
-            } => ASTType::Custom {
+            } => EnhASTType::Custom {
                 namespace: namespace.clone(),
                 name: name.clone(),
                 param_types: param_types
@@ -580,75 +592,79 @@ impl ASTType {
                     .collect(),
                 index: index.clone(),
             },
-            ASTType::Unit => self.clone(),
+            EnhASTType::Unit => self.clone(),
         }
     }
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         ast_type: ast::ASTType,
     ) -> Self {
         match ast_type {
             ast::ASTType::Builtin(kind) => {
                 let builtin = match kind {
-                    ast::BuiltinTypeKind::Bool => BuiltinTypeKind::Bool,
-                    ast::BuiltinTypeKind::Char => BuiltinTypeKind::Char,
-                    ast::BuiltinTypeKind::I32 => BuiltinTypeKind::I32,
-                    ast::BuiltinTypeKind::F32 => BuiltinTypeKind::F32,
-                    ast::BuiltinTypeKind::String => BuiltinTypeKind::String,
+                    ast::BuiltinTypeKind::Bool => EnhBuiltinTypeKind::Bool,
+                    ast::BuiltinTypeKind::Char => EnhBuiltinTypeKind::Char,
+                    ast::BuiltinTypeKind::I32 => EnhBuiltinTypeKind::I32,
+                    ast::BuiltinTypeKind::F32 => EnhBuiltinTypeKind::F32,
+                    ast::BuiltinTypeKind::String => EnhBuiltinTypeKind::String,
                     ast::BuiltinTypeKind::Lambda {
                         parameters,
                         return_type,
-                    } => BuiltinTypeKind::Lambda {
-                        parameters: ASTType::from_asts(path.clone(), namespace.clone(), parameters),
-                        return_type: Box::new(ASTType::from_ast(
+                    } => EnhBuiltinTypeKind::Lambda {
+                        parameters: EnhASTType::from_asts(
+                            path.clone(),
+                            namespace.clone(),
+                            parameters,
+                        ),
+                        return_type: Box::new(EnhASTType::from_ast(
                             path.clone(),
                             namespace.clone(),
                             return_type.as_ref().clone(),
                         )),
                     },
                 };
-                ASTType::Builtin(builtin)
+                EnhASTType::Builtin(builtin)
             }
             ast::ASTType::Generic(astposition, name) => {
-                ASTType::Generic(ASTIndex::from_position(path.clone(), astposition), name)
+                EnhASTType::Generic(EnhASTIndex::from_position(path.clone(), astposition), name)
             }
             ast::ASTType::Custom {
                 name,
                 param_types,
                 index,
-            } => ASTType::Custom {
+            } => EnhASTType::Custom {
                 namespace: namespace.clone(),
                 name,
-                param_types: ASTType::from_asts(path.clone(), namespace.clone(), param_types),
-                index: ASTIndex::from_position(path, index),
+                param_types: EnhASTType::from_asts(path.clone(), namespace.clone(), param_types),
+                index: EnhASTIndex::from_position(path, index),
             },
-            ast::ASTType::Unit => ASTType::Unit,
+            ast::ASTType::Unit => EnhASTType::Unit,
         }
     }
 
     pub fn from_asts(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         asts: Vec<ast::ASTType>,
-    ) -> Vec<ASTType> {
+    ) -> Vec<EnhASTType> {
         asts.into_iter()
-            .map(|it| ASTType::from_ast(path.clone(), namespace.clone(), it))
+            .map(|it| EnhASTType::from_ast(path.clone(), namespace.clone(), it))
             .collect()
     }
 }
 
-impl Display for ASTType {
+impl Display for EnhASTType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::String => f.write_str("str"),
-                BuiltinTypeKind::I32 => f.write_str("i32"),
-                BuiltinTypeKind::Bool => f.write_str("bool"),
-                BuiltinTypeKind::Char => f.write_str("char"),
-                BuiltinTypeKind::F32 => f.write_str("f32"),
-                BuiltinTypeKind::Lambda {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::String => f.write_str("str"),
+                EnhBuiltinTypeKind::I32 => f.write_str("i32"),
+                EnhBuiltinTypeKind::Bool => f.write_str("bool"),
+                EnhBuiltinTypeKind::Char => f.write_str("char"),
+                EnhBuiltinTypeKind::F32 => f.write_str("f32"),
+                EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 } => {
@@ -661,8 +677,8 @@ impl Display for ASTType {
                     ))
                 }
             },
-            ASTType::Generic(_, name) => f.write_str(name),
-            ASTType::Custom {
+            EnhASTType::Generic(_, name) => f.write_str(name),
+            EnhASTType::Custom {
                 namespace: _,
                 name,
                 param_types,
@@ -676,27 +692,27 @@ impl Display for ASTType {
                     f.write_str(&format!("{name}<{}>", pars.join(",")))
                 }
             }
-            ASTType::Unit => f.write_str("()"),
+            EnhASTType::Unit => f.write_str("()"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTParameterDef {
+pub struct EnhASTParameterDef {
     pub name: String,
-    pub ast_type: ASTType,
-    pub ast_index: ASTIndex,
+    pub ast_type: EnhASTType,
+    pub ast_index: EnhASTIndex,
 }
 
-impl Display for ASTParameterDef {
+impl Display for EnhASTParameterDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("{}: {}", self.name, self.ast_type))
     }
 }
 
-impl ASTParameterDef {
-    pub fn new(name: &str, ast_type: ASTType, ast_index: ASTIndex) -> ASTParameterDef {
-        ASTParameterDef {
+impl EnhASTParameterDef {
+    pub fn new(name: &str, ast_type: EnhASTType, ast_index: EnhASTIndex) -> EnhASTParameterDef {
+        EnhASTParameterDef {
             name: name.into(),
             ast_type,
             ast_index,
@@ -717,36 +733,36 @@ impl ASTParameterDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         parameter: ast::ASTParameterDef,
     ) -> Self {
         Self {
             name: parameter.name,
-            ast_type: ASTType::from_ast(path.clone(), namespace, parameter.ast_type),
-            ast_index: ASTIndex::from_position(path.clone(), parameter.index),
+            ast_type: EnhASTType::from_ast(path.clone(), namespace, parameter.ast_type),
+            ast_index: EnhASTIndex::from_position(path.clone(), parameter.index),
         }
     }
 
     pub fn from_asts(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         parameters: Vec<ast::ASTParameterDef>,
-    ) -> Vec<ASTParameterDef> {
+    ) -> Vec<EnhASTParameterDef> {
         parameters
             .into_iter()
-            .map(|it| ASTParameterDef::from_ast(path.clone(), namespace.clone(), it))
+            .map(|it| EnhASTParameterDef::from_ast(path.clone(), namespace.clone(), it))
             .collect()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTStructPropertyDef {
+pub struct EnhASTStructPropertyDef {
     pub name: String,
-    pub ast_type: ASTType,
-    pub index: ASTIndex,
+    pub ast_type: EnhASTType,
+    pub index: EnhASTIndex,
 }
 
-impl ASTStructPropertyDef {
+impl EnhASTStructPropertyDef {
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self;
         result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
@@ -761,34 +777,34 @@ impl ASTStructPropertyDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         property: ast::ASTStructPropertyDef,
     ) -> Self {
         Self {
             name: property.name,
-            ast_type: ASTType::from_ast(path.clone(), namespace.clone(), property.ast_type),
-            index: ASTIndex::from_position(path.clone(), property.index),
+            ast_type: EnhASTType::from_ast(path.clone(), namespace.clone(), property.ast_type),
+            index: EnhASTIndex::from_position(path.clone(), property.index),
         }
     }
 }
 
-impl Display for ASTStructPropertyDef {
+impl Display for EnhASTStructPropertyDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("{}: {}", self.name, self.ast_type))
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ASTFunctionCall {
-    pub namespace: ASTNameSpace,
+pub struct EnhASTFunctionCall {
+    pub namespace: EnhASTNameSpace,
     pub original_function_name: String,
     pub function_name: String,
-    pub parameters: Vec<ASTExpression>,
-    pub index: ASTIndex,
-    pub generics: Vec<ASTType>,
+    pub parameters: Vec<EnhASTExpression>,
+    pub index: EnhASTIndex,
+    pub generics: Vec<EnhASTType>,
 }
 
-impl ASTFunctionCall {
+impl EnhASTFunctionCall {
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self;
         result.parameters = result
@@ -806,7 +822,7 @@ impl ASTFunctionCall {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         call: ast::ASTFunctionCall,
     ) -> Self {
         Self {
@@ -816,15 +832,15 @@ impl ASTFunctionCall {
             parameters: call
                 .parameters
                 .into_iter()
-                .map(|it| ASTExpression::from_ast(path.clone(), namespace.clone(), it))
+                .map(|it| EnhASTExpression::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: ASTIndex::from_position(path.clone(), call.index),
-            generics: ASTType::from_asts(path.clone(), namespace.clone(), call.generics),
+            index: EnhASTIndex::from_position(path.clone(), call.index),
+            generics: EnhASTType::from_asts(path.clone(), namespace.clone(), call.generics),
         }
     }
 }
 
-impl Display for ASTFunctionCall {
+impl Display for EnhASTFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
 
@@ -838,13 +854,13 @@ impl Display for ASTFunctionCall {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ASTIndex {
+pub struct EnhASTIndex {
     pub file_name: Option<PathBuf>,
     pub row: usize,
     pub column: usize,
 }
 
-impl ASTIndex {
+impl EnhASTIndex {
     pub fn none() -> Self {
         Self {
             file_name: None,
@@ -894,7 +910,7 @@ impl ASTIndex {
     }
 }
 
-impl Display for ASTIndex {
+impl Display for EnhASTIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!(
             "{}:{}:{}",
@@ -915,78 +931,60 @@ impl Display for ASTIndex {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValueType {
-    Boolean(bool),
-    I32(i32),
-    Char(String),
-    F32(f32),
-}
-
-impl ValueType {
-    pub fn to_type(&self) -> ASTType {
+impl ASTValueType {
+    pub fn to_enh_type(&self) -> EnhASTType {
         match self {
-            ValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
-            ValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
-            ValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
-            ValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
+            ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
+            ASTValueType::I32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
+            ASTValueType::Char(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
+            ASTValueType::F32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
         }
     }
-
     pub fn to_typed_type(&self) -> ASTTypedType {
         match self {
-            ValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
-            ValueType::I32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-            ValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
-            ValueType::F32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
-        }
-    }
-
-    pub fn from_ast(path: Option<PathBuf>, namespace: ASTNameSpace, value: ast::ValueType) -> Self {
-        match value {
-            ast::ValueType::Boolean(value) => ValueType::Boolean(value),
-            ast::ValueType::I32(value) => ValueType::I32(value),
-            ast::ValueType::Char(value) => ValueType::Char(value),
-            ast::ValueType::F32(value) => ValueType::F32(value),
+            ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
+            ASTValueType::I32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+            ASTValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+            ASTValueType::F32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
         }
     }
 }
 
 // TODO can we do partialeq? It depends on ASTIndex
 #[derive(Debug, Clone, PartialEq)]
-pub enum ASTExpression {
-    StringLiteral(String, ASTIndex),
-    ASTFunctionCallExpression(ASTFunctionCall),
-    ValueRef(String, ASTIndex),
-    Value(ValueType, ASTIndex),
-    Lambda(ASTLambdaDef),
-    Any(ASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
+pub enum EnhASTExpression {
+    StringLiteral(String, EnhASTIndex),
+    ASTFunctionCallExpression(EnhASTFunctionCall),
+    ValueRef(String, EnhASTIndex),
+    Value(ASTValueType, EnhASTIndex),
+    Lambda(EnhASTLambdaDef),
+    Any(EnhASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 
-impl ASTExpression {
-    pub fn get_index(&self) -> ASTIndex {
+impl EnhASTExpression {
+    pub fn get_index(&self) -> EnhASTIndex {
         match self {
-            ASTExpression::StringLiteral(_, index) => index.clone(),
-            ASTExpression::ASTFunctionCallExpression(call) => call.index.clone(),
-            ASTExpression::ValueRef(_, index) => index.clone(),
-            ASTExpression::Value(_, index) => index.clone(),
-            ASTExpression::Lambda(def) => def.index.clone(),
-            ASTExpression::Any(_) => ASTIndex::none(),
+            EnhASTExpression::StringLiteral(_, index) => index.clone(),
+            EnhASTExpression::ASTFunctionCallExpression(call) => call.index.clone(),
+            EnhASTExpression::ValueRef(_, index) => index.clone(),
+            EnhASTExpression::Value(_, index) => index.clone(),
+            EnhASTExpression::Lambda(def) => def.index.clone(),
+            EnhASTExpression::Any(_) => EnhASTIndex::none(),
         }
     }
 
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         match self {
-            ASTExpression::ASTFunctionCallExpression(astfunction_call) => {
-                ASTExpression::ASTFunctionCallExpression(
+            EnhASTExpression::ASTFunctionCallExpression(astfunction_call) => {
+                EnhASTExpression::ASTFunctionCallExpression(
                     astfunction_call.fix_namespaces(enhanced_module),
                 )
             }
-            ASTExpression::Lambda(astlambda_def) => {
-                ASTExpression::Lambda(astlambda_def.fix_namespaces(enhanced_module))
+            EnhASTExpression::Lambda(astlambda_def) => {
+                EnhASTExpression::Lambda(astlambda_def.fix_namespaces(enhanced_module))
             }
-            ASTExpression::Any(asttype) => {
-                ASTExpression::Any(asttype.fix_namespaces(enhanced_module))
+            EnhASTExpression::Any(asttype) => {
+                EnhASTExpression::Any(asttype.fix_namespaces(enhanced_module))
             }
             _ => self.clone(),
         }
@@ -994,44 +992,45 @@ impl ASTExpression {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         expr: ast::ASTExpression,
     ) -> Self {
         match expr {
-            ast::ASTExpression::StringLiteral(value, position) => {
-                ASTExpression::StringLiteral(value, ASTIndex::from_position(path.clone(), position))
-            }
+            ast::ASTExpression::StringLiteral(value, position) => EnhASTExpression::StringLiteral(
+                value,
+                EnhASTIndex::from_position(path.clone(), position),
+            ),
             ast::ASTExpression::ASTFunctionCallExpression(call) => {
-                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::from_ast(
+                EnhASTExpression::ASTFunctionCallExpression(EnhASTFunctionCall::from_ast(
                     path.clone(),
                     namespace.clone(),
                     call,
                 ))
             }
             ast::ASTExpression::ValueRef(name, position) => {
-                ASTExpression::ValueRef(name, ASTIndex::from_position(path.clone(), position))
+                EnhASTExpression::ValueRef(name, EnhASTIndex::from_position(path.clone(), position))
             }
-            ast::ASTExpression::Value(value_type, position) => ASTExpression::Value(
-                ValueType::from_ast(path.clone(), namespace.clone(), value_type),
-                ASTIndex::from_position(path.clone(), position),
+            ast::ASTExpression::Value(value_type, position) => EnhASTExpression::Value(
+                value_type,
+                EnhASTIndex::from_position(path.clone(), position),
             ),
-            ast::ASTExpression::Lambda(lambda) => ASTExpression::Lambda(ASTLambdaDef::from_ast(
+            ast::ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(
+                EnhASTLambdaDef::from_ast(path.clone(), namespace.clone(), lambda),
+            ),
+            ast::ASTExpression::Any(ast_type) => EnhASTExpression::Any(EnhASTType::from_ast(
                 path.clone(),
                 namespace.clone(),
-                lambda,
+                ast_type,
             )),
-            ast::ASTExpression::Any(ast_type) => {
-                ASTExpression::Any(ASTType::from_ast(path.clone(), namespace.clone(), ast_type))
-            }
         }
     }
 }
 
-impl Display for ASTExpression {
+impl Display for EnhASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTExpression::StringLiteral(s, _) => f.write_str(&format!("\"{s}\"")),
-            ASTExpression::ASTFunctionCallExpression(call) => {
+            EnhASTExpression::StringLiteral(s, _) => f.write_str(&format!("\"{s}\"")),
+            EnhASTExpression::ASTFunctionCallExpression(call) => {
                 /*let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
 
@@ -1041,40 +1040,40 @@ impl Display for ASTExpression {
                  */
                 f.write_str(&format!("{call}"))
             }
-            ASTExpression::ValueRef(name, _index) => f.write_str(name),
-            ASTExpression::Value(val_type, _) => match val_type {
-                ValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ValueType::I32(n) => f.write_str(&format!("{n}")),
-                ValueType::F32(n) => f.write_str(&format!("{n}")),
-                ValueType::Char(c) => f.write_str(&format!("'{c}'")),
+            EnhASTExpression::ValueRef(name, _index) => f.write_str(name),
+            EnhASTExpression::Value(val_type, _) => match val_type {
+                ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
+                ASTValueType::I32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::F32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
-            ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
-            ASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
+            EnhASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
+            EnhASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ASTStatement {
-    Expression(ASTExpression),
-    LetStatement(String, ASTExpression, bool, ASTIndex),
+pub enum EnhASTStatement {
+    Expression(EnhASTExpression),
+    LetStatement(String, EnhASTExpression, bool, EnhASTIndex),
 }
 
-impl ASTStatement {
-    pub fn get_index(&self) -> ASTIndex {
+impl EnhASTStatement {
+    pub fn get_index(&self) -> EnhASTIndex {
         match self {
-            ASTStatement::Expression(expr) => expr.get_index(),
-            ASTStatement::LetStatement(_, _, _, index) => index.clone(),
+            EnhASTStatement::Expression(expr) => expr.get_index(),
+            EnhASTStatement::LetStatement(_, _, _, index) => index.clone(),
         }
     }
 
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         match self {
-            ASTStatement::Expression(exp) => {
-                ASTStatement::Expression(exp.fix_namespaces(enhanced_module))
+            EnhASTStatement::Expression(exp) => {
+                EnhASTStatement::Expression(exp.fix_namespaces(enhanced_module))
             }
-            ASTStatement::LetStatement(name, exp, is_const, astindex) => {
-                ASTStatement::LetStatement(
+            EnhASTStatement::LetStatement(name, exp, is_const, astindex) => {
+                EnhASTStatement::LetStatement(
                     name,
                     exp.fix_namespaces(enhanced_module),
                     is_const,
@@ -1086,31 +1085,32 @@ impl ASTStatement {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         statement: ast::ASTStatement,
     ) -> Self {
         match statement {
-            ast::ASTStatement::Expression(expr) => ASTStatement::Expression(
-                ASTExpression::from_ast(path.clone(), namespace.clone(), expr),
+            ast::ASTStatement::Expression(expr) => EnhASTStatement::Expression(
+                EnhASTExpression::from_ast(path.clone(), namespace.clone(), expr),
             ),
             ast::ASTStatement::LetStatement(name, astexpression, is_const, position) => {
-                let expr = ASTExpression::from_ast(path.clone(), namespace.clone(), astexpression);
-                ASTStatement::LetStatement(
+                let expr =
+                    EnhASTExpression::from_ast(path.clone(), namespace.clone(), astexpression);
+                EnhASTStatement::LetStatement(
                     name,
                     expr,
                     is_const,
-                    ASTIndex::from_position(path.clone(), position),
+                    EnhASTIndex::from_position(path.clone(), position),
                 )
             }
         }
     }
 }
 
-impl Display for ASTStatement {
+impl Display for EnhASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTStatement::LetStatement(name, e, is_const, _index) => {
+            EnhASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
+            EnhASTStatement::LetStatement(name, e, is_const, _index) => {
                 let keyword = if *is_const { "const" } else { "let" };
                 f.write_str(&format!("{keyword} {name} = {e};\n"))
             }
@@ -1118,35 +1118,20 @@ impl Display for ASTStatement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTModifiers {
-    pub public: bool,
-}
-
-impl ASTModifiers {
-    pub fn public() -> Self {
-        Self { public: true }
-    }
-
-    pub fn private() -> Self {
-        Self { public: false }
-    }
-}
-
 #[derive(Debug, Clone)]
-pub struct ASTModule {
+pub struct EnhASTModule {
     pub path: PathBuf,
-    pub body: Vec<ASTStatement>,
-    pub functions: Vec<ASTFunctionDef>,
-    pub enums: Vec<ASTEnumDef>,
-    pub structs: Vec<ASTStructDef>,
-    pub types: Vec<ASTTypeDef>,
-    pub namespace: ASTNameSpace,
+    pub body: Vec<EnhASTStatement>,
+    pub functions: Vec<EnhASTFunctionDef>,
+    pub enums: Vec<EnhASTEnumDef>,
+    pub structs: Vec<EnhASTStructDef>,
+    pub types: Vec<EnhASTTypeDef>,
+    pub namespace: EnhASTNameSpace,
 }
 
-impl ASTModule {
-    pub fn empty(namespace: ASTNameSpace) -> Self {
-        ASTModule {
+impl EnhASTModule {
+    pub fn empty(namespace: EnhASTNameSpace) -> Self {
+        EnhASTModule {
             path: Default::default(),
             body: vec![],
             functions: vec![],
@@ -1157,11 +1142,11 @@ impl ASTModule {
         }
     }
 
-    pub fn add_function(&mut self, function_def: ASTFunctionDef) {
+    pub fn add_function(&mut self, function_def: EnhASTFunctionDef) {
         self.functions.push(function_def);
     }
 
-    pub fn add(&mut self, mut module: ASTModule) {
+    pub fn add(&mut self, mut module: EnhASTModule) {
         self.body.append(&mut module.body);
         self.functions.append(&mut module.functions);
         self.enums.append(&mut module.enums);
@@ -1175,27 +1160,29 @@ impl ASTModule {
             body: module
                 .body
                 .into_iter()
-                .map(|it| ASTStatement::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTStatement::from_ast(info.path.clone(), info.namespace.clone(), it))
                 .collect(),
             functions: module
                 .functions
                 .into_iter()
-                .map(|it| ASTFunctionDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| {
+                    EnhASTFunctionDef::from_ast(info.path.clone(), info.namespace.clone(), it)
+                })
                 .collect(),
             enums: module
                 .enums
                 .into_iter()
-                .map(|it| ASTEnumDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTEnumDef::from_ast(info.path.clone(), info.namespace.clone(), it))
                 .collect(),
             structs: module
                 .structs
                 .into_iter()
-                .map(|it| ASTStructDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTStructDef::from_ast(info.path.clone(), info.namespace.clone(), it))
                 .collect(),
             types: module
                 .types
                 .into_iter()
-                .map(|it| ASTTypeDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTTypeDef::from_ast(info.path.clone(), info.namespace.clone(), it))
                 .collect(),
             namespace: info.namespace.clone(),
         }
@@ -1205,20 +1192,20 @@ impl ASTModule {
 pub trait CustomTypeDef: Display {
     fn name(&self) -> &str;
     fn modifiers(&self) -> &ASTModifiers;
-    fn namespace(&self) -> &ASTNameSpace;
+    fn namespace(&self) -> &EnhASTNameSpace;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTEnumDef {
-    pub namespace: ASTNameSpace,
+pub struct EnhASTEnumDef {
+    pub namespace: EnhASTNameSpace,
     pub name: String,
     pub type_parameters: Vec<String>,
-    pub variants: Vec<ASTEnumVariantDef>,
-    pub index: ASTIndex,
+    pub variants: Vec<EnhASTEnumVariantDef>,
+    pub index: EnhASTIndex,
     pub modifiers: ASTModifiers,
 }
 
-impl CustomTypeDef for ASTEnumDef {
+impl CustomTypeDef for EnhASTEnumDef {
     fn name(&self) -> &str {
         &self.name
     }
@@ -1227,12 +1214,12 @@ impl CustomTypeDef for ASTEnumDef {
         &self.modifiers
     }
 
-    fn namespace(&self) -> &ASTNameSpace {
+    fn namespace(&self) -> &EnhASTNameSpace {
         &self.namespace
     }
 }
 
-impl Display for ASTEnumDef {
+impl Display for EnhASTEnumDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let variants = self
             .variants
@@ -1244,8 +1231,8 @@ impl Display for ASTEnumDef {
     }
 }
 
-impl ASTEnumDef {
-    pub fn variant_function_name(&self, variant: &ASTEnumVariantDef) -> String {
+impl EnhASTEnumDef {
+    pub fn variant_function_name(&self, variant: &EnhASTEnumVariantDef) -> String {
         let mut result = String::new();
         result.push_str(&self.name);
         result.push_str("::");
@@ -1283,7 +1270,7 @@ impl ASTEnumDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         enum_def: ast::ASTEnumDef,
     ) -> Self {
         Self {
@@ -1293,24 +1280,22 @@ impl ASTEnumDef {
             variants: enum_def
                 .variants
                 .into_iter()
-                .map(|it| ASTEnumVariantDef::from_ast(path.clone(), namespace.clone(), it))
+                .map(|it| EnhASTEnumVariantDef::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: ASTIndex::from_position(path, enum_def.index),
-            modifiers: ASTModifiers {
-                public: enum_def.modifiers.public,
-            },
+            index: EnhASTIndex::from_position(path, enum_def.index),
+            modifiers: enum_def.modifiers,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTEnumVariantDef {
+pub struct EnhASTEnumVariantDef {
     pub name: String,
-    pub parameters: Vec<ASTParameterDef>,
-    pub index: ASTIndex,
+    pub parameters: Vec<EnhASTParameterDef>,
+    pub index: EnhASTIndex,
 }
 
-impl ASTEnumVariantDef {
+impl EnhASTEnumVariantDef {
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         Self {
             name: self.name.clone(),
@@ -1337,22 +1322,22 @@ impl ASTEnumVariantDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         variant_def: ast::ASTEnumVariantDef,
     ) -> Self {
         Self {
             name: variant_def.name,
-            parameters: ASTParameterDef::from_asts(
+            parameters: EnhASTParameterDef::from_asts(
                 path.clone(),
                 namespace.clone(),
                 variant_def.parameters,
             ),
-            index: ASTIndex::from_position(path.clone(), variant_def.index),
+            index: EnhASTIndex::from_position(path.clone(), variant_def.index),
         }
     }
 }
 
-impl Display for ASTEnumVariantDef {
+impl Display for EnhASTEnumVariantDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self
             .parameters
@@ -1365,16 +1350,16 @@ impl Display for ASTEnumVariantDef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTStructDef {
-    pub namespace: ASTNameSpace,
+pub struct EnhASTStructDef {
+    pub namespace: EnhASTNameSpace,
     pub name: String,
     pub type_parameters: Vec<String>,
-    pub properties: Vec<ASTStructPropertyDef>,
-    pub index: ASTIndex,
+    pub properties: Vec<EnhASTStructPropertyDef>,
+    pub index: EnhASTIndex,
     pub modifiers: ASTModifiers,
 }
 
-impl ASTStructDef {
+impl EnhASTStructDef {
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self;
         result.properties = result
@@ -1403,7 +1388,7 @@ impl ASTStructDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         struct_def: ast::ASTStructDef,
     ) -> Self {
         Self {
@@ -1413,17 +1398,15 @@ impl ASTStructDef {
             properties: struct_def
                 .properties
                 .into_iter()
-                .map(|it| ASTStructPropertyDef::from_ast(path.clone(), namespace.clone(), it))
+                .map(|it| EnhASTStructPropertyDef::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: ASTIndex::from_position(path.clone(), struct_def.index),
-            modifiers: ASTModifiers {
-                public: struct_def.modifiers.public,
-            },
+            index: EnhASTIndex::from_position(path.clone(), struct_def.index),
+            modifiers: struct_def.modifiers,
         }
     }
 }
 
-impl CustomTypeDef for ASTStructDef {
+impl CustomTypeDef for EnhASTStructDef {
     fn name(&self) -> &str {
         &self.name
     }
@@ -1432,12 +1415,12 @@ impl CustomTypeDef for ASTStructDef {
         &self.modifiers
     }
 
-    fn namespace(&self) -> &ASTNameSpace {
+    fn namespace(&self) -> &EnhASTNameSpace {
         &self.namespace
     }
 }
 
-impl Display for ASTStructDef {
+impl Display for EnhASTStructDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars = self
             .properties
@@ -1450,16 +1433,16 @@ impl Display for ASTStructDef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTTypeDef {
-    pub namespace: ASTNameSpace,
+pub struct EnhASTTypeDef {
+    pub namespace: EnhASTNameSpace,
     pub name: String,
     pub type_parameters: Vec<String>,
     pub is_ref: bool,
-    pub index: ASTIndex,
+    pub index: EnhASTIndex,
     pub modifiers: ASTModifiers,
     pub native_type: Option<String>,
 }
-impl ASTTypeDef {
+impl EnhASTTypeDef {
     pub fn fix_generics(self) -> Self {
         let generics_prefix = format!("{}_{}", self.namespace, self.name);
 
@@ -1475,7 +1458,7 @@ impl ASTTypeDef {
 
     pub fn from_ast(
         path: Option<PathBuf>,
-        namespace: ASTNameSpace,
+        namespace: EnhASTNameSpace,
         type_def: ast::ASTTypeDef,
     ) -> Self {
         Self {
@@ -1483,16 +1466,14 @@ impl ASTTypeDef {
             name: type_def.name,
             type_parameters: type_def.type_parameters,
             is_ref: type_def.is_ref,
-            index: ASTIndex::from_position(path.clone(), type_def.index),
-            modifiers: ASTModifiers {
-                public: type_def.modifiers.public,
-            },
+            index: EnhASTIndex::from_position(path.clone(), type_def.index),
+            modifiers: type_def.modifiers,
             native_type: type_def.native_type,
         }
     }
 }
 
-impl CustomTypeDef for ASTTypeDef {
+impl CustomTypeDef for EnhASTTypeDef {
     fn name(&self) -> &str {
         &self.name
     }
@@ -1501,87 +1482,88 @@ impl CustomTypeDef for ASTTypeDef {
         &self.modifiers
     }
 
-    fn namespace(&self) -> &ASTNameSpace {
+    fn namespace(&self) -> &EnhASTNameSpace {
         &self.namespace
     }
 }
 
-impl Display for ASTTypeDef {
+impl Display for EnhASTTypeDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("type {}", self.name))
     }
 }
 
-pub fn lambda(return_type: ASTType) -> ASTType {
-    ASTType::Builtin(BuiltinTypeKind::Lambda {
+pub fn lambda(return_type: EnhASTType) -> EnhASTType {
+    EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
         parameters: Vec::new(),
         return_type: Box::new(return_type),
     })
 }
 
-pub fn lambda_unit() -> ASTType {
-    lambda(ASTType::Unit)
+pub fn lambda_unit() -> EnhASTType {
+    lambda(EnhASTType::Unit)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::codegen::eh_ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTIndex, ASTModifiers, ASTNameSpace, ASTParameterDef,
-        ASTType, BuiltinTypeKind,
+        EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
+        EnhASTType, EnhBuiltinTypeKind,
     };
+    use crate::parser::ast::ASTModifiers;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
 
     #[test]
     fn display_custom_type() {
-        let inner_type = ASTType::Custom {
+        let inner_type = EnhASTType::Custom {
             namespace: test_namespace(),
             name: "Option".to_owned(),
-            param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
-            index: ASTIndex::none(),
+            param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::String)],
+            index: EnhASTIndex::none(),
         };
 
-        let ast_type = ASTType::Custom {
+        let ast_type = EnhASTType::Custom {
             namespace: test_namespace(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
         assert_eq!(format!("{ast_type}"), "List<Option<str>>");
     }
 
     #[test]
     fn display_function_def() {
-        let inner_type = ASTType::Custom {
+        let inner_type = EnhASTType::Custom {
             namespace: test_namespace(),
             name: "Option".to_owned(),
-            param_types: vec![ASTType::Generic(ASTIndex::none(), "T".to_string())],
-            index: ASTIndex::none(),
+            param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+            index: EnhASTIndex::none(),
         };
 
-        let ast_type = ASTType::Custom {
+        let ast_type = EnhASTType::Custom {
             namespace: test_namespace(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         };
 
-        let def = ASTFunctionDef {
+        let def = EnhASTFunctionDef {
             original_name: "aFun".to_string(),
             name: "aFun".to_string(),
-            parameters: vec![ASTParameterDef {
+            parameters: vec![EnhASTParameterDef {
                 name: "aPar".to_string(),
                 ast_type,
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             }],
-            return_type: ASTType::Generic(ASTIndex::none(), "T".to_string()),
-            body: ASTFunctionBody::RASMBody(vec![]),
+            return_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string()),
+            body: EnhASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec!["T".to_string()],
             resolved_generic_types: ResolvedGenericTypes::new(),
-            index: ASTIndex::none(),
-            modifiers: ASTModifiers { public: false },
-            namespace: ASTNameSpace {
+            index: EnhASTIndex::none(),
+            modifiers: ASTModifiers::private(),
+            namespace: EnhASTNameSpace {
                 lib: "".to_string(),
                 path: "".to_string(),
             },

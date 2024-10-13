@@ -3,7 +3,7 @@ use log::debug;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
-use crate::codegen::eh_ast::{ASTIndex, ASTNameSpace};
+use crate::codegen::eh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -110,7 +110,7 @@ pub trait TypedFunctionsCreator {
 
     fn create_function(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         fun_name: &str,
         ast_type: ASTTypedType,
         body: ASTTypedFunctionBody,
@@ -119,14 +119,14 @@ pub trait TypedFunctionsCreator {
         let mut parameters = vec![ASTTypedParameterDef {
             name: "address".into(),
             ast_type,
-            ast_index: ASTIndex::none(),
+            ast_index: EnhASTIndex::none(),
         }];
 
         if with_descr {
             parameters.push(ASTTypedParameterDef {
                 name: "descr".into(),
                 ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: ASTIndex::none(),
+                ast_index: EnhASTIndex::none(),
             })
         }
 
@@ -139,13 +139,13 @@ pub trait TypedFunctionsCreator {
             inline: false,
             return_type: ASTTypedType::Unit,
             generic_types: LinkedHashMap::new(),
-            index: ASTIndex::none(),
+            index: EnhASTIndex::none(),
         }
     }
 
     fn add_function(
         &self,
-        namespace: &ASTNameSpace,
+        namespace: &EnhASTNameSpace,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         ast_type: ASTTypedType,
         body: ASTTypedFunctionBody,

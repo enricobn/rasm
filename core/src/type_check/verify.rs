@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::eh_ast::ASTIndex;
+use crate::codegen::eh_ast::EnhASTIndex;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::val_context::TypedValContext;
@@ -45,7 +45,7 @@ pub fn verify(module: &ASTTypedModule, statics: &mut Statics) -> Result<(), Comp
         &mut context,
         &module.body,
         &ASTTypedType::Unit,
-        ASTIndex::none(),
+        EnhASTIndex::none(),
     )?;
 
     for function_def in module.functions_by_name.values() {
@@ -75,7 +75,7 @@ fn verify_statements(
     context: &mut TypedValContext,
     expressions: &Vec<ASTTypedStatement>,
     expected_return_type: &ASTTypedType,
-    initial_index: ASTIndex,
+    initial_index: EnhASTIndex,
 ) -> Result<(), CompilationError> {
     let mut last_index = initial_index;
     for (i, statement) in expressions.iter().enumerate() {
@@ -139,7 +139,7 @@ fn verify_statements(
     Ok(())
 }
 
-pub fn verify_error(index: ASTIndex, message: String) -> CompilationError {
+pub fn verify_error(index: EnhASTIndex, message: String) -> CompilationError {
     CompilationError {
         index,
         error_kind: Verify(message),
@@ -313,7 +313,7 @@ fn verify_expression(
 
                 if &real_type != et {
                     Err(verify_error(
-                        expr.get_index().unwrap_or(ASTIndex::none()),
+                        expr.get_index().unwrap_or(EnhASTIndex::none()),
                         format!(
                             "Expected {} ({}) but got {} ({})",
                             et,

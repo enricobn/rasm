@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::codegen::eh_ast::{ASTFunctionBody, ASTNameSpace};
+use crate::codegen::eh_ast::{EnhASTFunctionBody, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
@@ -265,10 +265,10 @@ impl TypedFunctionsCreatorC {
         );
 
         self.create_function(
-            &ASTNameSpace::global(),
+            &EnhASTNameSpace::global(),
             &fun_name,
             crate::type_check::typed_ast::ASTTypedType::Type {
-                namespace: ASTNameSpace::global(),
+                namespace: EnhASTNameSpace::global(),
                 name: "CTargetLambda".to_string(),
                 native_type: Some("void **".to_string()),
                 is_ref: true,
@@ -610,7 +610,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             ));
 
         // the function should have a native body
-        if let ASTFunctionBody::NativeBody(body) = &original_function.body {
+        if let EnhASTFunctionBody::NativeBody(body) = &original_function.body {
             let evaluator = self.code_gen.get_text_macro_evaluator();
 
             let mut function = original_function.clone();

@@ -32,7 +32,7 @@ use crate::codegen::c::any::CInclude;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
-use crate::codegen::eh_ast::{ASTFunctionDef, ASTIndex, ASTNameSpace, ASTType, BuiltinTypeKind};
+use crate::codegen::eh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
@@ -214,7 +214,7 @@ impl CompileTarget {
     pub fn called_functions(
         &self,
         typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&ASTFunctionDef>,
+        function_def: Option<&EnhASTFunctionDef>,
         body: &str,
         context: &ValContext,
         type_def_provider: &dyn TypeDefProvider,
@@ -465,8 +465,8 @@ impl CompileTarget {
                         let name = format!("{}References", def.name);
                         result.push(DefaultFunction::new_2(
                             &name,
-                            BuiltinTypeKind::I32,
-                            BuiltinTypeKind::I32,
+                            EnhBuiltinTypeKind::I32,
+                            EnhBuiltinTypeKind::I32,
                         ));
                     }
                 }
@@ -497,57 +497,57 @@ impl CompileTarget {
                 vec![
                     DefaultFunction::new_2(
                         "rasmalloc",
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::String,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::String,
                     ),
-                    DefaultFunction::new_1("exitMain", BuiltinTypeKind::I32),
-                    DefaultFunction::new_2("addRef", BuiltinTypeKind::I32, BuiltinTypeKind::String),
+                    DefaultFunction::new_1("exitMain", EnhBuiltinTypeKind::I32),
+                    DefaultFunction::new_2("addRef", EnhBuiltinTypeKind::I32, EnhBuiltinTypeKind::String),
                     DefaultFunction::new_3(
                         "memcopy",
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
                     ),
-                    DefaultFunction::new_2("deref", BuiltinTypeKind::I32, BuiltinTypeKind::String),
-                    DefaultFunction::new_1("addStaticStringToHeap", BuiltinTypeKind::I32),
+                    DefaultFunction::new_2("deref", EnhBuiltinTypeKind::I32, EnhBuiltinTypeKind::String),
+                    DefaultFunction::new_1("addStaticStringToHeap", EnhBuiltinTypeKind::I32),
                     DefaultFunction::new_2(
                         "createCmdLineArguments",
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
                     ),
-                    DefaultFunction::new_1("str_addRef", BuiltinTypeKind::String),
-                    DefaultFunction::new_1("str_deref", BuiltinTypeKind::String),
+                    DefaultFunction::new_1("str_addRef", EnhBuiltinTypeKind::String),
+                    DefaultFunction::new_1("str_deref", EnhBuiltinTypeKind::String),
                     DefaultFunction::new_3(
                         "addStaticAllocation",
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
                     ),
                     DefaultFunction::new_3(
                         "addHeap",
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
-                        BuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::I32,
                     ),
                 ]
             }
             CompileTarget::C(_) => vec![
                 DefaultFunction {
                     name: "addRef".to_string(),
-                    param_types: vec![ASTType::Custom {
-                        namespace: ASTNameSpace::global(),
+                    param_types: vec![EnhASTType::Custom {
+                        namespace: EnhASTNameSpace::global(),
                         name: "RasmPointer".to_string(),
                         param_types: vec![],
-                        index: ASTIndex::none(),
+                        index: EnhASTIndex::none(),
                     }],
                 },
                 DefaultFunction {
                     name: "deref".to_string(),
-                    param_types: vec![ASTType::Custom {
-                        namespace: ASTNameSpace::global(),
+                    param_types: vec![EnhASTType::Custom {
+                        namespace: EnhASTNameSpace::global(),
                         name: "RasmPointer".to_string(),
                         param_types: vec![],
-                        index: ASTIndex::none(),
+                        index: EnhASTIndex::none(),
                     }],
                 },
                 /*
