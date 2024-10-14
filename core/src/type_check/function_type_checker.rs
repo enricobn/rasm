@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 
 use crate::{
-    codegen::enh_ast::{
-        EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
-        EnhASTFunctionSignature, EnhASTIndex, EnhASTParameterDef, EnhASTStatement, EnhASTType,
-        EnhBuiltinTypeKind,
+    codegen::{
+        enh_ast::{
+            EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
+            EnhASTFunctionSignature, EnhASTIndex, EnhASTParameterDef, EnhASTStatement, EnhASTType,
+            EnhBuiltinTypeKind,
+        },
+        enhanced_module::EnhancedASTModule,
+        statics::Statics,
+        val_context::ValContext,
     },
-    codegen::{enhanced_module::EnhancedASTModule, statics::Statics, val_context::ValContext},
     type_check::type_check_error::TypeCheckError,
     utils::{OptionDisplay, SliceDisplay},
 };
