@@ -181,10 +181,9 @@ mod tests {
 
     fn sut_from_project(project_path: &str) -> ASTModulesContainer {
         let project = RasmProject::new(PathBuf::from(project_path));
-        let mut container = ASTModulesContainer::new();
         let target = CompileTarget::C(COptions::default());
         let mut statics = Statics::new();
-        let (modules, errors) = project.get_all_modules(
+        let (modules, _) = project.get_all_modules(
             &mut statics,
             false,
             &target,
@@ -193,6 +192,7 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
+        let mut container = ASTModulesContainer::new();
         for (module, info) in modules {
             match container.add(
                 module,
