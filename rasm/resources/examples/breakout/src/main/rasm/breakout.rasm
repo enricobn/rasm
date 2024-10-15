@@ -144,6 +144,16 @@ type check ended in 87.39312
     type check ended in 70.941997ms
 */
 
+/*
+    some optimizations
+
+    parse ended in 17.60938ms
+    type check ended in 67.907228ms
+    code generation ended in 26.740332ms
+    compiler ended in 710.826573ms
+    finished in 824.784089ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
