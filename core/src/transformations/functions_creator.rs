@@ -167,7 +167,6 @@ pub trait FunctionsCreator {
                     property_def,
                     i,
                     param_types,
-                    format!("{name}"),
                 ),
                 function_def,
             ]
@@ -177,7 +176,6 @@ pub trait FunctionsCreator {
                 property_def,
                 i,
                 param_types,
-                name.to_owned(),
             )]
         }
     }
@@ -188,10 +186,9 @@ pub trait FunctionsCreator {
         property_def: &ASTStructPropertyDef,
         i: usize,
         param_types: Vec<ASTType>,
-        name: String,
     ) -> ASTFunctionDef {
         let (parameters_names, parameters_positions, signature) =
-            self.struct_get_property_signature(struct_def, param_types, name, property_def);
+            self.struct_get_property_signature(struct_def, param_types, property_def);
 
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
 
@@ -640,7 +637,6 @@ pub trait FunctionsCreator {
         &self,
         struct_def: &ASTStructDef,
         param_types: Vec<ASTType>,
-        name: String,
         property_def: &ASTStructPropertyDef,
     ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
         let parameters = vec![ASTParameterDef {
@@ -658,7 +654,7 @@ pub trait FunctionsCreator {
             split_parameters(&parameters);
 
         let signature = ASTFunctionSignature {
-            name,
+            name: property_def.name.clone(),
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: property_def.ast_type.clone(),
