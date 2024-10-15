@@ -129,6 +129,11 @@ pub trait FunctionsCreator {
     ) -> Vec<ASTFunctionDef> {
         let name = &property_def.name;
 
+        let (parameters_names, parameters_positions, signature) =
+            self.struct_get_property_signature(struct_def, property_def);
+
+        let mut result = Vec::new();
+
         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters,
             ref return_type,
@@ -136,26 +141,29 @@ pub trait FunctionsCreator {
         {
             let body = self.struct_lambda_property_rasm_body(name, parameters);
 
-            let (parameters_names, parameters_positions, signature) =
+            let (lambda_parameters_names, lambda_parameters_positions, lambda_signature) =
                 self.lambda_struct_property_signature(struct_def, parameters, return_type, name);
 
-            let function_def = ASTFunctionDef::from_signature(
-                signature,
+            result.push(ASTFunctionDef::from_signature(
+                lambda_signature,
                 false,
                 struct_def.modifiers.public,
                 property_def.index.clone(),
-                parameters_names,
-                parameters_positions,
+                lambda_parameters_names,
+                lambda_parameters_positions,
                 ASTFunctionBody::RASMBody(body),
-            );
-
-            vec![
-                self.create_function_for_struct_get_property(struct_def, property_def, i),
-                function_def,
-            ]
-        } else {
-            vec![self.create_function_for_struct_get_property(struct_def, property_def, i)]
+            ));
         }
+
+        result.push(self.create_function_for_struct_get_property(
+            struct_def,
+            property_def,
+            i,
+            parameters_names,
+            parameters_positions,
+            signature,
+        ));
+        result
     }
 
     fn create_function_for_struct_get_property(
@@ -163,10 +171,10 @@ pub trait FunctionsCreator {
         struct_def: &ASTStructDef,
         property_def: &ASTStructPropertyDef,
         i: usize,
+        parameters_names: Vec<String>,
+        parameters_positions: Vec<ASTPosition>,
+        signature: ASTFunctionSignature,
     ) -> ASTFunctionDef {
-        let (parameters_names, parameters_positions, signature) =
-            self.struct_get_property_signature(struct_def, property_def);
-
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
 
         ASTFunctionDef::from_signature(
