@@ -30,6 +30,7 @@ use crate::utils::{OptionDisplay, SliceDisplay};
 
 mod asm_def_parser;
 pub mod ast;
+pub mod builtin_functions;
 mod enum_parser;
 mod matchers;
 mod struct_parser;
