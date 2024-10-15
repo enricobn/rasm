@@ -129,20 +129,21 @@ pub trait FunctionsCreator {
     ) -> Vec<ASTFunctionDef> {
         let name = &property_def.name;
 
-        let (parameters_names, parameters_positions, signature) =
-            self.struct_get_property_signature(struct_def, property_def);
+        let mut signatures = self.struct_get_property_signatures(struct_def, property_def);
+
+        let (parameters_names, parameters_positions, signature) = signatures.remove(0);
 
         let mut result = Vec::new();
 
         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters,
-            ref return_type,
+            return_type: _,
         }) = &property_def.ast_type
         {
             let body = self.struct_lambda_property_rasm_body(name, parameters);
 
             let (lambda_parameters_names, lambda_parameters_positions, lambda_signature) =
-                self.lambda_struct_property_signature(struct_def, parameters, return_type, name);
+                signatures.remove(0);
 
             result.push(ASTFunctionDef::from_signature(
                 lambda_signature,
@@ -653,6 +654,30 @@ pub trait FunctionsCreator {
             return_type: property_def.ast_type.clone(),
         };
         (parameters_names, parameters_positions, signature)
+    }
+
+    fn struct_get_property_signatures(
+        &self,
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+    ) -> Vec<(Vec<String>, Vec<ASTPosition>, ASTFunctionSignature)> {
+        let mut result = Vec::new();
+
+        result.push(self.struct_get_property_signature(struct_def, property_def));
+
+        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters,
+            ref return_type,
+        }) = &property_def.ast_type
+        {
+            result.push(self.lambda_struct_property_signature(
+                struct_def,
+                parameters,
+                return_type,
+                &property_def.name,
+            ));
+        }
+        result
     }
 }
 
