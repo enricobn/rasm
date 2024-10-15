@@ -147,7 +147,7 @@ pub trait FunctionsCreator {
             index: ASTPosition::none(),
         }];
         for variant in enum_def.variants.iter() {
-            let ast_parameter_def = variant_lambda_parameter(&return_type, variant);
+            let ast_parameter_def = self.variant_lambda_parameter(&return_type, variant);
             parameters.push(ast_parameter_def);
         }
         let mut param_types = enum_def.type_parameters.clone();
@@ -202,7 +202,7 @@ pub trait FunctionsCreator {
             },
             index: ASTPosition::none(),
         }];
-        let ast_parameter_def = variant_lambda_parameter(&return_type, variant);
+        let ast_parameter_def = self.variant_lambda_parameter(&return_type, variant);
         parameters.push(ast_parameter_def);
 
         let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -563,21 +563,25 @@ pub trait FunctionsCreator {
     fn struct_setter_body(&self, i: usize, name: &str) -> String;
 
     fn struct_setter_lambda_body(&self, i: usize, name: &str) -> String;
-}
 
-fn variant_lambda_parameter(return_type: &ASTType, variant: &ASTEnumVariantDef) -> ASTParameterDef {
-    let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
-        return_type: Box::new(return_type.clone()),
-        parameters: variant
-            .parameters
-            .iter()
-            .map(|it| it.ast_type.clone())
-            .collect(),
-    });
-    ASTParameterDef {
-        name: variant.name.clone(),
-        ast_type,
-        index: ASTPosition::none(),
+    fn variant_lambda_parameter(
+        &self,
+        return_type: &ASTType,
+        variant: &ASTEnumVariantDef,
+    ) -> ASTParameterDef {
+        let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            return_type: Box::new(return_type.clone()),
+            parameters: variant
+                .parameters
+                .iter()
+                .map(|it| it.ast_type.clone())
+                .collect(),
+        });
+        ASTParameterDef {
+            name: variant.name.clone(),
+            ast_type,
+            index: ASTPosition::none(),
+        }
     }
 }
 
