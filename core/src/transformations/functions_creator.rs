@@ -140,55 +140,26 @@ pub trait FunctionsCreator {
             ref return_type,
         }) = &property_def.ast_type
         {
-            let mut f_parameters = vec![ASTParameterDef {
-                name: "v".into(),
-                ast_type: ASTType::Custom {
-                    name: struct_def.name.clone(),
-                    param_types: param_types.clone(),
-                    index: ASTPosition::none(),
-                },
-                index: ASTPosition::none(),
-            }];
-
-            let mut lambda_parameters = parameters
-                .iter()
-                .enumerate()
-                .map(|(index, ast_type)| ASTParameterDef {
-                    name: format!("p{index}"),
-                    ast_type: ast_type.clone(),
-                    index: ASTPosition::none(),
-                })
-                .collect::<Vec<_>>();
-
-            f_parameters.append(&mut lambda_parameters);
-
-            let lambda_return_type = return_type.deref().clone();
-
             let body = self.struct_lambda_property_rasm_body(name, parameters);
 
-            /*
-            print!("lambda get property {name}(");
-            for param in f_parameters.iter() {
-                print!("{param},");
-            }
-            println!(") -> {:?}", lambda_return_type);
+            let (parameters_names, parameters_positions, signature) = self
+                .lambda_struct_property_signature(
+                    struct_def,
+                    &param_types,
+                    parameters,
+                    return_type,
+                    name,
+                );
 
-            for stmt in body.iter() {
-                println!("  {stmt}");
-            }
-
-             */
-
-            let function_def = ASTFunctionDef {
-                name: name.clone(),
-                parameters: f_parameters,
-                return_type: lambda_return_type.clone(),
-                body: ASTFunctionBody::RASMBody(body),
-                generic_types: struct_def.type_parameters.clone(),
-                inline: false,
-                index: property_def.index.clone(),
-                modifiers: struct_def.modifiers.clone(),
-            };
+            let function_def = ASTFunctionDef::from_signature(
+                signature,
+                false,
+                struct_def.modifiers.public,
+                property_def.index.clone(),
+                parameters_names,
+                parameters_positions,
+                ASTFunctionBody::RASMBody(body),
+            );
 
             vec![
                 self.create_function_for_struct_get_property(
@@ -219,26 +190,20 @@ pub trait FunctionsCreator {
         param_types: Vec<ASTType>,
         name: String,
     ) -> ASTFunctionDef {
+        let (parameters_names, parameters_positions, signature) =
+            self.struct_get_property_signature(struct_def, param_types, name, property_def);
+
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
-        ASTFunctionDef {
-            name,
-            parameters: vec![ASTParameterDef {
-                name: "v".into(),
-                ast_type: ASTType::Custom {
-                    name: struct_def.name.clone(),
-                    param_types,
-                    // TODO for now here's no source for generated functions
-                    index: ASTPosition::none(),
-                },
-                index: ASTPosition::none(),
-            }],
-            return_type: property_def.ast_type.clone(),
-            body: ASTFunctionBody::NativeBody(native_body),
-            generic_types: struct_def.type_parameters.clone(),
+
+        ASTFunctionDef::from_signature(
+            signature,
             inline,
-            index: property_def.index.clone(),
-            modifiers: struct_def.modifiers.clone(),
-        }
+            struct_def.modifiers.public,
+            property_def.index.clone(),
+            parameters_names,
+            parameters_positions,
+            ASTFunctionBody::NativeBody(native_body),
+        )
     }
 
     fn create_function_for_struct_set_property(
@@ -623,6 +588,80 @@ pub trait FunctionsCreator {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type,
+        };
+        (parameters_names, parameters_positions, signature)
+    }
+
+    fn lambda_struct_property_signature(
+        &self,
+        struct_def: &ASTStructDef,
+        param_types: &Vec<ASTType>,
+        parameters: &Vec<ASTType>,
+        return_type: &Box<ASTType>,
+        name: &String,
+    ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
+        let mut f_parameters = vec![ASTParameterDef {
+            name: "v".into(),
+            ast_type: ASTType::Custom {
+                name: struct_def.name.clone(),
+                param_types: param_types.clone(),
+                index: ASTPosition::none(),
+            },
+            index: ASTPosition::none(),
+        }];
+
+        let mut lambda_parameters = parameters
+            .iter()
+            .enumerate()
+            .map(|(index, ast_type)| ASTParameterDef {
+                name: format!("p{index}"),
+                ast_type: ast_type.clone(),
+                index: ASTPosition::none(),
+            })
+            .collect::<Vec<_>>();
+
+        f_parameters.append(&mut lambda_parameters);
+
+        let lambda_return_type = return_type.deref().clone();
+
+        let (parameters_types, parameters_names, parameters_positions) =
+            split_parameters(&f_parameters);
+
+        let signature = ASTFunctionSignature {
+            name: name.to_owned(),
+            generics: struct_def.type_parameters.clone(),
+            parameters_types,
+            return_type: lambda_return_type,
+        };
+        (parameters_names, parameters_positions, signature)
+    }
+
+    fn struct_get_property_signature(
+        &self,
+        struct_def: &ASTStructDef,
+        param_types: Vec<ASTType>,
+        name: String,
+        property_def: &ASTStructPropertyDef,
+    ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
+        let parameters = vec![ASTParameterDef {
+            name: "v".into(),
+            ast_type: ASTType::Custom {
+                name: struct_def.name.clone(),
+                param_types,
+                // TODO for now here's no source for generated functions
+                index: ASTPosition::none(),
+            },
+            index: ASTPosition::none(),
+        }];
+
+        let (parameters_types, parameters_names, parameters_positions) =
+            split_parameters(&parameters);
+
+        let signature = ASTFunctionSignature {
+            name,
+            generics: struct_def.type_parameters.clone(),
+            parameters_types,
+            return_type: property_def.ast_type.clone(),
         };
         (parameters_names, parameters_positions, signature)
     }
