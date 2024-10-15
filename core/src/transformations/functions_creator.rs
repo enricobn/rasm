@@ -29,24 +29,15 @@ pub trait FunctionsCreator {
 
         for struct_def in &module.structs.clone() {
             for (i, property_def) in struct_def.properties.iter().enumerate() {
-                let property_functions = self.create_functions_for_struct_get_property(
-                    struct_def,
-                    property_def,
-                    i,
-                    module,
-                    statics,
-                );
+                let property_functions =
+                    self.create_functions_for_struct_get_property(struct_def, property_def, i);
 
                 for f in property_functions {
                     module.add_function(f);
                 }
 
-                let property_setter_function = self.create_function_for_struct_set_property(
-                    struct_def,
-                    property_def,
-                    i,
-                    module,
-                );
+                let property_setter_function =
+                    self.create_function_for_struct_set_property(struct_def, property_def, i);
                 module.add_function(property_setter_function);
 
                 let property_setter_function = self.create_function_for_struct_set_lambda_property(
@@ -135,8 +126,6 @@ pub trait FunctionsCreator {
         struct_def: &ASTStructDef,
         property_def: &ASTStructPropertyDef,
         i: usize,
-        module: &ASTModule,
-        statics: &mut Statics,
     ) -> Vec<ASTFunctionDef> {
         let param_types: Vec<ASTType> = struct_def
             .type_parameters
@@ -208,7 +197,6 @@ pub trait FunctionsCreator {
                     i,
                     param_types,
                     format!("{name}"),
-                    module,
                 ),
                 function_def,
             ]
@@ -219,7 +207,6 @@ pub trait FunctionsCreator {
                 i,
                 param_types,
                 name.to_owned(),
-                module,
             )]
         }
     }
@@ -231,7 +218,6 @@ pub trait FunctionsCreator {
         i: usize,
         param_types: Vec<ASTType>,
         name: String,
-        module: &ASTModule,
     ) -> ASTFunctionDef {
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
         ASTFunctionDef {
@@ -260,7 +246,6 @@ pub trait FunctionsCreator {
         struct_def: &ASTStructDef,
         property_def: &ASTStructPropertyDef,
         i: usize,
-        module: &ASTModule,
     ) -> ASTFunctionDef {
         let param_types = struct_def
             .type_parameters
