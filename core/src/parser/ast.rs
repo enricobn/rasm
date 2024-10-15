@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::iter::zip;
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -45,7 +46,7 @@ pub struct ASTFunctionDef {
 
 pub struct ASTFunctionSignature {
     pub name: String,
-    //pub generics: Vec<String>,
+    pub generics: Vec<String>,
     pub parameters_types: Vec<ASTType>,
     pub return_type: ASTType,
 }
@@ -89,12 +90,46 @@ impl ASTFunctionDef {
     pub fn signature(&self) -> ASTFunctionSignature {
         ASTFunctionSignature {
             name: self.name.clone(),
+            generics: self.generic_types.clone(),
             parameters_types: self
                 .parameters
                 .iter()
                 .map(|it| it.ast_type.clone())
                 .collect(),
             return_type: self.return_type.clone(),
+        }
+    }
+
+    pub fn from_signature(
+        signature: ASTFunctionSignature,
+        is_inline: bool,
+        is_public: bool,
+        position: ASTPosition,
+        parameters_names: Vec<String>,
+        parameters_positions: Vec<ASTPosition>,
+        body: ASTFunctionBody,
+    ) -> Self {
+        assert_eq!(signature.parameters_types.len(), parameters_names.len());
+        assert_eq!(signature.parameters_types.len(), parameters_positions.len());
+        Self {
+            name: signature.name,
+            parameters: zip(
+                signature.parameters_types,
+                zip(parameters_names, parameters_positions),
+            )
+            .into_iter()
+            .map(|(ast_type, (name, position))| ASTParameterDef {
+                name,
+                ast_type,
+                index: position,
+            })
+            .collect(),
+            return_type: signature.return_type,
+            body,
+            inline: is_inline,
+            generic_types: signature.generics,
+            index: position,
+            modifiers: ASTModifiers { public: is_public },
         }
     }
 }
