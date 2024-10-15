@@ -174,7 +174,14 @@ mod tests {
         let container = sut_from_project("../rasm/resources/examples/breakout");
 
         let functions = container
-            .find_call_vec("add", &vec![I32(), I32()], None)
+            .find_call_vec(
+                "add",
+                &vec![
+                    exact_builtin(BuiltinTypeKind::I32),
+                    exact_builtin(BuiltinTypeKind::I32),
+                ],
+                None,
+            )
             .unwrap();
         assert_eq!(2, functions.len());
     }
@@ -215,7 +222,7 @@ mod tests {
         container
     }
 
-    fn I32() -> FunctionTypeFilter {
-        FunctionTypeFilter::Exact(ASTType::Builtin(BuiltinTypeKind::I32), String::new())
+    fn exact_builtin(kind: BuiltinTypeKind) -> FunctionTypeFilter {
+        FunctionTypeFilter::Exact(ASTType::Builtin(kind), String::new())
     }
 }
