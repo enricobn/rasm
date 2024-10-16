@@ -1,35 +1,78 @@
 use std::{collections::HashMap, iter::zip};
 
-use crate::parser::ast::{ASTFunctionDef, ASTModule, ASTType};
+use crate::parser::{
+    ast::{ASTFunctionDef, ASTFunctionSignature, ASTModule, ASTType},
+    builtin_functions::BuiltinFunctions,
+};
 
 pub type ModuleId = String;
+pub type ModuleSource = String;
 
 struct ASTModuleEntry {
     module: ASTModule,
-    source: String,
+    source: ModuleSource,
+}
+
+struct ASTFunctionSignatureEntry {
+    signature: ASTFunctionSignature,
+    id: ModuleId,
+    source: ModuleSource,
+}
+
+impl ASTFunctionSignatureEntry {
+    pub fn new(signature: ASTFunctionSignature, id: ModuleId, source: ModuleSource) -> Self {
+        Self {
+            signature,
+            id,
+            source,
+        }
+    }
 }
 
 impl ASTModuleEntry {
-    fn new(module: ASTModule, source: String) -> Self {
+    fn new(module: ASTModule, source: ModuleSource) -> Self {
         Self { module, source }
     }
 }
 
 pub struct ASTModulesContainer {
     modules: HashMap<ModuleId, Vec<ASTModuleEntry>>,
+    signatures: HashMap<ModuleId, Vec<ASTFunctionSignatureEntry>>,
 }
 
 impl ASTModulesContainer {
     fn new() -> Self {
         Self {
             modules: HashMap::new(),
+            signatures: HashMap::new(),
         }
     }
 
-    fn add(&mut self, module: ASTModule, id: ModuleId, source: String) -> Result<(), String> {
+    fn add(&mut self, module: ASTModule, id: ModuleId, source: ModuleSource) {
+        if !module.enums.is_empty() {
+            for enum_def in module.enums.iter() {
+                let signature = self.signatures.entry(id.clone()).or_insert(Vec::new());
+                signature.extend(
+                    BuiltinFunctions::enum_signatures(enum_def)
+                        .into_iter()
+                        .map(|it| ASTFunctionSignatureEntry::new(it, id.clone(), source.clone())),
+                );
+            }
+        }
+
+        if !module.structs.is_empty() {
+            for struct_def in module.structs.iter() {
+                let signature = self.signatures.entry(id.clone()).or_insert(Vec::new());
+                signature.extend(
+                    BuiltinFunctions::struct_signatures(struct_def)
+                        .into_iter()
+                        .map(|it| ASTFunctionSignatureEntry::new(it, id.clone(), source.clone())),
+                );
+            }
+        }
+
         let modules = self.modules.entry(id).or_insert(Vec::new());
         modules.push(ASTModuleEntry::new(module, source));
-        Ok(())
     }
 
     fn get_all<'a, T>(
@@ -201,7 +244,7 @@ mod tests {
 
         let mut container = ASTModulesContainer::new();
         for (module, info) in modules {
-            match container.add(
+            container.add(
                 module,
                 info.namespace.safe_name(),
                 info.path
@@ -209,14 +252,7 @@ mod tests {
                     .map(|it| it.to_string_lossy().to_string())
                     .unwrap_or(String::new())
                     .to_string(),
-            ) {
-                Ok(_) => {}
-                Err(msg) => panic!(
-                    "Error '{msg}' adding module {} : {}",
-                    info.namespace,
-                    OptionDisplay(&info.path.map(|it| it.to_string_lossy().to_string()))
-                ),
-            }
+            );
         }
 
         container
