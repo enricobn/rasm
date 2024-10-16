@@ -145,6 +145,31 @@ impl BuiltinFunctions {
         (parameters_names, parameters_positions, signature)
     }
 
+    pub fn enum_signatures(enum_def: &ASTEnumDef) -> Vec<ASTFunctionSignature> {
+        let mut result = Vec::new();
+        result.push(Self::match_signature(enum_def).2);
+        for variant in enum_def.variants.iter() {
+            result.push(Self::enum_variant_constructor_signature(enum_def, variant).2);
+            result.push(Self::match_one_signature(enum_def, variant).2);
+        }
+        result
+    }
+
+    pub fn struct_signatures(struct_def: &ASTStructDef) -> Vec<ASTFunctionSignature> {
+        let mut result = Vec::new();
+        result.push(Self::struct_constructor_signature(struct_def).2);
+        for property in struct_def.properties.iter() {
+            result.extend(
+                Self::struct_get_property_signatures(struct_def, property)
+                    .into_iter()
+                    .map(|it| it.2),
+            );
+            result.push(Self::struct_set_property_signature(struct_def, property).2);
+            result.push(Self::struct_set_property_lambda_signature(struct_def, property).2);
+        }
+        result
+    }
+
     pub fn struct_constructor_signature(
         struct_def: &ASTStructDef,
     ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
@@ -288,7 +313,96 @@ impl BuiltinFunctions {
         (parameters_names, parameters_positions, signature)
     }
 
-    fn split_parameters(
+    pub fn struct_set_property_signature(
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+    ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
+        let param_types = struct_def
+            .type_parameters
+            .iter()
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
+            .collect();
+
+        let ast_type = ASTType::Custom {
+            name: struct_def.name.clone(),
+            param_types,
+            // TODO for now here's no source fo generated functions
+            index: ASTPosition::none(),
+        };
+
+        let parameters = vec![
+            ASTParameterDef {
+                name: "receiver".into(),
+                ast_type: ast_type.clone(),
+                index: ASTPosition::none(),
+            },
+            ASTParameterDef {
+                name: "v".into(),
+                ast_type: property_def.ast_type.clone(),
+                index: ASTPosition::none(),
+            },
+        ];
+
+        let (parameters_types, parameters_names, parameters_positions) =
+            BuiltinFunctions::split_parameters(&parameters);
+
+        let signature = ASTFunctionSignature {
+            name: property_def.name.clone(),
+            generics: struct_def.type_parameters.clone(),
+            parameters_types,
+            return_type: ast_type,
+        };
+        (parameters_names, parameters_positions, signature)
+    }
+
+    pub fn struct_set_property_lambda_signature(
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+    ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
+        let param_types = struct_def
+            .type_parameters
+            .iter()
+            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
+            .collect();
+
+        let ast_type = ASTType::Custom {
+            name: struct_def.name.clone(),
+            param_types,
+            // TODO for now here's no source fo generated functions
+            index: ASTPosition::none(),
+        };
+
+        let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters: vec![property_def.ast_type.clone()],
+            return_type: Box::new(property_def.ast_type.clone()),
+        });
+
+        let parameters = vec![
+            ASTParameterDef {
+                name: "receiver".into(),
+                ast_type: ast_type.clone(),
+                index: ASTPosition::none(),
+            },
+            ASTParameterDef {
+                name: "f".into(),
+                ast_type: lambda,
+                index: ASTPosition::none(),
+            },
+        ];
+
+        let (parameters_types, parameters_names, parameters_positions) =
+            BuiltinFunctions::split_parameters(&parameters);
+
+        let signature = ASTFunctionSignature {
+            name: property_def.name.clone(),
+            generics: struct_def.type_parameters.clone(),
+            parameters_types,
+            return_type: ast_type,
+        };
+        (parameters_names, parameters_positions, signature)
+    }
+
+    pub fn split_parameters(
         parameters: &Vec<ASTParameterDef>,
     ) -> (Vec<ASTType>, Vec<String>, Vec<ASTPosition>) {
         parameters

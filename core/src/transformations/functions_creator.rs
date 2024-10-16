@@ -1,6 +1,3 @@
-use std::ops::Deref;
-
-use itertools::MultiUnzip;
 use log::debug;
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
@@ -45,7 +42,6 @@ pub trait FunctionsCreator {
                     struct_def,
                     property_def,
                     i,
-                    module,
                 );
                 module.add_function(property_setter_function);
             }
@@ -198,41 +194,18 @@ pub trait FunctionsCreator {
         property_def: &ASTStructPropertyDef,
         i: usize,
     ) -> ASTFunctionDef {
-        let param_types = struct_def
-            .type_parameters
-            .iter()
-            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
-            .collect();
+        let (parameters_names, parameters_positions, signature) =
+            BuiltinFunctions::struct_set_property_signature(struct_def, property_def);
 
-        let name = &property_def.name;
-        let ast_type = ASTType::Custom {
-            name: struct_def.name.clone(),
-            param_types,
-            // TODO for now here's no source fo generated functions
-            index: ASTPosition::none(),
-        };
-
-        ASTFunctionDef {
-            name: name.clone(),
-            parameters: vec![
-                ASTParameterDef {
-                    name: "receiver".into(),
-                    ast_type: ast_type.clone(),
-                    index: ASTPosition::none(),
-                },
-                ASTParameterDef {
-                    name: "v".into(),
-                    ast_type: property_def.ast_type.clone(),
-                    index: ASTPosition::none(),
-                },
-            ],
-            return_type: ast_type,
-            body: ASTFunctionBody::NativeBody(self.struct_setter_body(i, name)),
-            generic_types: struct_def.type_parameters.clone(),
-            inline: false,
-            index: property_def.index.clone(),
-            modifiers: struct_def.modifiers.clone(),
-        }
+        ASTFunctionDef::from_signature(
+            signature,
+            false,
+            struct_def.modifiers.public,
+            property_def.index.clone(),
+            parameters_names,
+            parameters_positions,
+            ASTFunctionBody::NativeBody(self.struct_setter_body(i, &property_def.name)),
+        )
     }
 
     fn create_function_for_struct_set_lambda_property(
@@ -240,48 +213,21 @@ pub trait FunctionsCreator {
         struct_def: &ASTStructDef,
         property_def: &ASTStructPropertyDef,
         i: usize,
-        module: &ASTModule,
     ) -> ASTFunctionDef {
-        let param_types = struct_def
-            .type_parameters
-            .iter()
-            .map(|it| ASTType::Generic(ASTPosition::none(), it.into()))
-            .collect();
-
         let name = &property_def.name;
-        let ast_type = ASTType::Custom {
-            name: struct_def.name.clone(),
-            param_types,
-            // TODO for now here's no source fo generated functions
-            index: ASTPosition::none(),
-        };
 
-        let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
-            parameters: vec![property_def.ast_type.clone()],
-            return_type: Box::new(property_def.ast_type.clone()),
-        });
+        let (parameters_names, parameters_positions, signature) =
+            BuiltinFunctions::struct_set_property_lambda_signature(struct_def, property_def);
 
-        ASTFunctionDef {
-            name: name.clone(),
-            parameters: vec![
-                ASTParameterDef {
-                    name: "receiver".into(),
-                    ast_type: ast_type.clone(),
-                    index: ASTPosition::none(),
-                },
-                ASTParameterDef {
-                    name: "f".into(),
-                    ast_type: lambda,
-                    index: ASTPosition::none(),
-                },
-            ],
-            return_type: ast_type,
-            body: ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, name)),
-            generic_types: struct_def.type_parameters.clone(),
-            inline: false,
-            index: property_def.index.clone(),
-            modifiers: struct_def.modifiers.clone(),
-        }
+        ASTFunctionDef::from_signature(
+            signature,
+            false,
+            struct_def.modifiers.public,
+            property_def.index.clone(),
+            parameters_names,
+            parameters_positions,
+            ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, name)),
+        )
     }
 
     fn struct_lambda_property_rasm_body(
