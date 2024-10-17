@@ -35,8 +35,8 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
-use crate::codegen::val_context::ValContext;
-use crate::codegen::ValKind;
+use crate::codegen::val_context::EnhValContext;
+use crate::codegen::EnhValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
@@ -72,7 +72,7 @@ impl TypeCheck {
         target: &CompileTarget,
         debug: bool,
     ) -> Result<OutputModule, CompilationError> {
-        let mut val_context = ValContext::new(None);
+        let mut val_context = EnhValContext::new(None);
 
         let mut default_functions = default_functions; // TODO print_allocation
 
@@ -218,7 +218,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         statement: &EnhASTStatement,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -261,7 +261,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         expression: &EnhASTExpression,
-        val_context: &ValContext,
+        val_context: &EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -314,7 +314,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         call: &EnhASTFunctionCall,
-        val_context: &ValContext,
+        val_context: &EnhValContext,
         statics: &mut Statics,
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -545,7 +545,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         call: &EnhASTFunctionCall,
-        val_context: &ValContext,
+        val_context: &EnhValContext,
         statics: &mut Statics,
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -1002,7 +1002,7 @@ impl TypeCheck {
         }
     }
 
-    fn get_first_type(call: &EnhASTFunctionCall, val_context: &ValContext) -> Option<EnhASTType> {
+    fn get_first_type(call: &EnhASTFunctionCall, val_context: &EnhValContext) -> Option<EnhASTType> {
         if call.parameters.len() > 0 {
             if let Some(p) = call.parameters.get(0) {
                 match p {
@@ -1012,8 +1012,8 @@ impl TypeCheck {
                     EnhASTExpression::ValueRef(name, _) => {
                         if let Some(t) = val_context.get(name) {
                             match t {
-                                ValKind::ParameterRef(_, par) => Some(par.ast_type.clone()),
-                                ValKind::LetRef(_, t, _) => Some(t.clone()),
+                                EnhValKind::ParameterRef(_, par) => Some(par.ast_type.clone()),
+                                EnhValKind::LetRef(_, t, _) => Some(t.clone()),
                             }
                         } else {
                             None
@@ -1061,7 +1061,7 @@ impl TypeCheck {
     fn get_filter(
         &mut self,
         module: &InputModule,
-        val_context: &ValContext,
+        val_context: &EnhValContext,
         statics: &mut Statics,
         resolved_generic_types: &mut ResolvedGenericTypes,
         expr: &EnhASTExpression,
@@ -1181,7 +1181,7 @@ impl TypeCheck {
             new_function_def.resolved_generic_types
         );
         indent!();
-        let mut val_context = ValContext::new(None);
+        let mut val_context = EnhValContext::new(None);
 
         for parameter in new_function_def.parameters.iter() {
             val_context
@@ -1321,7 +1321,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         statements: &[EnhASTStatement],
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -1408,7 +1408,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         typed_expression: &EnhASTExpression,
-        val_context: &ValContext,
+        val_context: &EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -1428,8 +1428,8 @@ impl TypeCheck {
                 if val_context.is_lambda(&call.function_name) {
                     if let Some(v) = val_context.get(&call.function_name) {
                         let lambda = match v {
-                            ValKind::ParameterRef(_, p) => p.ast_type.clone(),
-                            ValKind::LetRef(_, t, _index) => t.clone(),
+                            EnhValKind::ParameterRef(_, p) => p.ast_type.clone(),
+                            EnhValKind::LetRef(_, t, _index) => t.clone(),
                         };
 
                         if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
@@ -1509,8 +1509,8 @@ impl TypeCheck {
                         ));
                     }
                 }
-                Some(ValKind::LetRef(_, t, _index)) => TypeFilter::Exact(t.clone()),
-                Some(ValKind::ParameterRef(_, par)) => {
+                Some(EnhValKind::LetRef(_, t, _index)) => TypeFilter::Exact(t.clone()),
+                Some(EnhValKind::ParameterRef(_, par)) => {
                     // TODO I must convert the type
                     TypeFilter::Exact(par.ast_type.clone())
                 }
@@ -1544,7 +1544,7 @@ impl TypeCheck {
                 }
 
                 let mut return_type = Some(Box::new(TypeFilter::Exact(EnhASTType::Unit)));
-                let mut lambda_val_context = ValContext::new(Some(val_context));
+                let mut lambda_val_context = EnhValContext::new(Some(val_context));
 
                 self.add_lambda_parameters_to_val_context(
                     def,
@@ -1627,7 +1627,7 @@ impl TypeCheck {
         &mut self,
         module: &InputModule,
         lambda_def: &EnhASTLambdaDef,
-        val_context: &ValContext,
+        val_context: &EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -1637,7 +1637,7 @@ impl TypeCheck {
     ) -> Result<EnhASTLambdaDef, TypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
-        let mut val_context = ValContext::new(Some(val_context));
+        let mut val_context = EnhValContext::new(Some(val_context));
 
         self.add_lambda_parameters_to_val_context(lambda_def, &expected_type, &mut val_context)?;
 
@@ -1680,7 +1680,7 @@ impl TypeCheck {
         &self,
         lambda_def: &EnhASTLambdaDef,
         expected_type: &Option<&EnhASTType>,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
     ) -> Result<(), TypeCheckError> {
         if !lambda_def.parameter_names.is_empty() {
             if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {

@@ -1248,7 +1248,7 @@ mod tests {
     use crate::codegen::c::options::COptions;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::val_context::ValContext;
+    use crate::codegen::val_context::EnhValContext;
     use crate::codegen::CodeGen;
     use crate::utils::SliceDisplay;
 
@@ -1263,7 +1263,7 @@ mod tests {
                 None,
                 //"$call(Option::Some, value:T)",
                 "$call(Option::None<T>)",
-                &ValContext::new(None),
+                &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
             )

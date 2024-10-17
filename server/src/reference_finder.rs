@@ -13,8 +13,8 @@ use rasm_core::codegen::enh_ast::{
 };
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::val_context::ValContext;
-use rasm_core::codegen::ValKind;
+use rasm_core::codegen::val_context::EnhValContext;
+use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::TypeFilter;
@@ -414,7 +414,7 @@ impl ReferenceFinder {
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
-        let mut val_context = ValContext::new(None);
+        let mut val_context = EnhValContext::new(None);
         let mut statics = Statics::new();
 
         let mut type_check = TypeCheck::new();
@@ -444,7 +444,7 @@ impl ReferenceFinder {
                 .functions
                 .iter()
                 .flat_map(|it| {
-                    let mut function_val_context = ValContext::new(None);
+                    let mut function_val_context = EnhValContext::new(None);
                     Self::process_function(
                         it,
                         enhanced_module,
@@ -469,7 +469,7 @@ impl ReferenceFinder {
     ) -> Vec<SelectableItem> {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
-        let mut val_context = ValContext::new(None);
+        let mut val_context = EnhValContext::new(None);
         let mut type_check = TypeCheck::new();
 
         let mut new_functions = Vec::new();
@@ -495,7 +495,7 @@ impl ReferenceFinder {
         function: &EnhASTFunctionDef,
         module: &EnhancedASTModule,
         reference_static_context: &ReferenceContext,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         type_check: &mut TypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
@@ -609,7 +609,7 @@ impl ReferenceFinder {
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         namespace: &EnhASTNameSpace,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_return_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
@@ -649,7 +649,7 @@ impl ReferenceFinder {
     fn get_filter_of_expression(
         expr: &EnhASTExpression,
         enhanced_ast_module: &EnhancedASTModule,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
@@ -674,7 +674,7 @@ impl ReferenceFinder {
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &EnhASTNameSpace,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
@@ -768,7 +768,7 @@ impl ReferenceFinder {
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &EnhASTNameSpace,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
@@ -866,7 +866,7 @@ impl ReferenceFinder {
         reference_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &EnhASTNameSpace,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         result: &mut Vec<SelectableItem>,
@@ -875,7 +875,7 @@ impl ReferenceFinder {
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<(), TypeCheckError> {
         let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
-        let mut lambda_val_context = ValContext::new(Some(val_context));
+        let mut lambda_val_context = EnhValContext::new(Some(val_context));
         let mut lambda_result = Vec::new();
 
         let expected_lambda_return_type = if let Some(et) = expected_type {
@@ -958,7 +958,7 @@ impl ReferenceFinder {
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
         namespace: &EnhASTNameSpace,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         result: &mut Vec<SelectableItem>,
         call: &EnhASTFunctionCall,
@@ -969,11 +969,11 @@ impl ReferenceFinder {
     ) -> Result<(), TypeCheckError> {
         if let Some(val_kind) = val_context.get(&call.function_name) {
             let (index, ast_type) = match val_kind {
-                ValKind::ParameterRef(_, par) => {
+                EnhValKind::ParameterRef(_, par) => {
                     // TODO process parameters
                     (par.ast_index.clone(), par.ast_type.clone())
                 }
-                ValKind::LetRef(_, ast_type, index) => {
+                EnhValKind::LetRef(_, ast_type, index) => {
                     // TODO process parameters
                     (index.clone(), ast_type.clone())
                 }

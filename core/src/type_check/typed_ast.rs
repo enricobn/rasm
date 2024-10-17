@@ -15,7 +15,7 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::{TypedValContext, ValContext};
+use crate::codegen::val_context::{EnhValContext, TypedValContext};
 use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
@@ -1024,7 +1024,7 @@ pub fn convert_to_typed_module(
                 let mut lines: Vec<String> =
                     new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
-                let mut val_context = ValContext::new(None);
+                let mut val_context = EnhValContext::new(None);
                 for par in function.parameters.iter() {
                     val_context
                         .insert_par(

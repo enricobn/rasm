@@ -31,7 +31,7 @@ use crate::codegen::text_macro::{
     RefType, TextMacro, TextMacroEval, TextMacroEvaluator,
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::{TypedValContext, ValContext};
+use crate::codegen::val_context::{EnhValContext, TypedValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
 use crate::parser::ast::ASTValueType;
@@ -105,16 +105,16 @@ pub struct CodeGenAsm {
 }
 
 #[derive(Clone, Debug)]
-pub enum ValKind {
+pub enum EnhValKind {
     ParameterRef(usize, EnhASTParameterDef),
     LetRef(usize, EnhASTType, EnhASTIndex),
 }
 
-impl ValKind {
+impl EnhValKind {
     pub fn ast_type(&self) -> EnhASTType {
         match self {
-            ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-            ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
+            EnhValKind::ParameterRef(_, par) => par.ast_type.clone(),
+            EnhValKind::LetRef(_, ast_type, _) => ast_type.clone(),
         }
     }
 }
@@ -1758,7 +1758,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
     ) -> Result<String, String> {
-        let val_context = ValContext::new(None);
+        let val_context = EnhValContext::new(None);
 
         let evaluator = self.get_text_macro_evaluator();
 
@@ -1926,7 +1926,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&EnhASTFunctionDef>,
         body: &str,
-        context: &ValContext,
+        context: &EnhValContext,
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
@@ -1958,8 +1958,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                         MacroParam::Ref(name, None, _) => {
                             debug_i!("found ref {name}");
                             match context.get(name.strip_prefix('$').unwrap()).unwrap() {
-                                ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                                ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
+                                EnhValKind::ParameterRef(_, par) => par.ast_type.clone(),
+                                EnhValKind::LetRef(_, ast_type, _) => ast_type.clone(),
                             }
                         }
                         MacroParam::Ref(name, Some(ast_type), _) => {
@@ -3704,7 +3704,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::val_context::ValContext;
+    use crate::codegen::val_context::EnhValContext;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
 
     #[test]
@@ -3717,7 +3717,7 @@ mod tests {
                 None,
                 None,
                 "mov    eax, 1; $call(something)",
-                &ValContext::new(None),
+                &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
             )
@@ -3735,7 +3735,7 @@ mod tests {
                 None,
                 None,
                 "call something",
-                &ValContext::new(None),
+                &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
             )
@@ -3753,7 +3753,7 @@ mod tests {
                 None,
                 None,
                 "$call(something)",
-                &ValContext::new(None),
+                &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
             )

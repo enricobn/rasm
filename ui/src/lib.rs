@@ -12,7 +12,7 @@ use iced::{
 use rasm_core::{
     codegen::{
         compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
-        val_context::ValContext,
+        val_context::EnhValContext,
     },
     commandline::CommandLineOptions,
     parser::ast::ASTFunctionDef,
@@ -189,7 +189,7 @@ impl UI {
                 let em = enhanced_ast_module.clone().fix_generics();
 
                 let function_type_checker = FunctionTypeChecker::new(&em);
-                let mut val_context = ValContext::new(None);
+                let mut val_context = EnhValContext::new(None);
                 let mut statics = Statics::new();
 
                 // TODO errors

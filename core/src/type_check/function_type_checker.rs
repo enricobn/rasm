@@ -9,8 +9,9 @@ use crate::{
         },
         enhanced_module::EnhancedASTModule,
         statics::Statics,
-        val_context::ValContext,
+        val_context::EnhValContext,
     },
+    parser::ast::ASTFunctionDef,
     type_check::type_check_error::TypeCheckError,
     utils::{OptionDisplay, SliceDisplay},
 };
@@ -32,17 +33,6 @@ impl FunctionTypeCheckerResult {
     }
 
     pub fn insert(&mut self, index: EnhASTIndex, filter: TypeFilter) {
-        if index.row == 95 && index.column == 49 {
-            if let TypeFilter::Exact(ast_type) = &filter {
-                if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
-                    parameters: _,
-                    return_type: _,
-                }) = ast_type
-                {
-                    println!("inserting {filter}");
-                }
-            }
-        }
         self.map.insert(index, filter);
     }
 
@@ -73,7 +63,7 @@ impl<'a> FunctionTypeChecker<'a> {
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
         let mut result = FunctionTypeCheckerResult::new();
         let mut errors = Vec::new();
-        let mut val_context = ValContext::new(None);
+        let mut val_context = EnhValContext::new(None);
 
         /*
         let (mut result, mut return_type, mut errors) = self.get_body_type_map(
@@ -107,7 +97,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
     pub fn get_body_type_map(
         &self,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         body: &Vec<EnhASTStatement>,
         expected_last_statement_type: Option<&EnhASTType>,
@@ -182,7 +172,7 @@ impl<'a> FunctionTypeChecker<'a> {
     fn get_expr_type_map(
         &self,
         expr: &EnhASTExpression,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_expression_type: Option<&EnhASTType>,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
@@ -218,7 +208,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     return_type,
                 })) = expected_expression_type
                 {
-                    let mut val_context = ValContext::new(Some(&val_context));
+                    let mut val_context = EnhValContext::new(Some(&val_context));
 
                     for ((name, index), ast_type) in
                         lambda.parameter_names.iter().zip(parameters.iter())
@@ -302,7 +292,7 @@ impl<'a> FunctionTypeChecker<'a> {
     fn get_call_type_map(
         &self,
         call: &EnhASTFunctionCall,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_expression_type: Option<&EnhASTType>,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
@@ -433,7 +423,7 @@ impl<'a> FunctionTypeChecker<'a> {
         function_signature: &EnhASTFunctionSignature,
         parameter_types_filters: &Vec<TypeFilter>,
         call: &EnhASTFunctionCall,
-        val_context: &mut ValContext,
+        val_context: &mut EnhValContext,
         statics: &mut Statics,
         expected_expression_type: Option<&EnhASTType>,
     ) -> (FunctionTypeCheckerResult, Vec<TypeCheckError>) {
@@ -570,7 +560,7 @@ mod tests {
             enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTModule, EnhASTNameSpace},
             enhanced_module::EnhancedASTModule,
             statics::Statics,
-            val_context::ValContext,
+            val_context::EnhValContext,
         },
         commandline::CommandLineOptions,
         project::RasmProject,
@@ -809,7 +799,7 @@ mod tests {
 
     fn check_body(file: &str) -> FunctionTypeCheckerResult {
         apply_to_functions_checker(file, file, |_enhanced_module, statics, ftc, module| {
-            let mut val_context = ValContext::new(None);
+            let mut val_context = EnhValContext::new(None);
             ftc.get_body_type_map(&mut val_context, statics, &module.body, None)
                 .0
         })

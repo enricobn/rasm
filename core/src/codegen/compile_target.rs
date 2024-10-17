@@ -39,7 +39,7 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::ValContext;
+use crate::codegen::val_context::EnhValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::{CompilationError, CompilationErrorKind};
@@ -218,7 +218,7 @@ impl CompileTarget {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&EnhASTFunctionDef>,
         body: &str,
-        context: &ValContext,
+        context: &EnhValContext,
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
         debug: bool,

@@ -1,19 +1,19 @@
 use linked_hash_map::{Iter, LinkedHashMap};
 
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
-use crate::codegen::{TypedValKind, ValKind};
+use crate::codegen::{EnhValKind, TypedValKind};
 use crate::debug_i;
 use crate::type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};
 
 #[derive(Clone, Debug)]
-pub struct ValContext {
-    pub value_to_address: LinkedHashMap<String, ValKind>,
+pub struct EnhValContext {
+    pub value_to_address: LinkedHashMap<String, EnhValKind>,
     let_index: usize,
     par_index: usize,
 }
 
-impl ValContext {
-    pub fn new(parent_context: Option<&ValContext>) -> Self {
+impl EnhValContext {
+    pub fn new(parent_context: Option<&EnhValContext>) -> Self {
         let (value_to_address, par_index, let_index) = {
             if let Some(pc) = parent_context {
                 (pc.value_to_address.clone(), pc.par_index, pc.let_index)
@@ -32,10 +32,10 @@ impl ValContext {
         &mut self,
         key: String,
         par: EnhASTParameterDef,
-    ) -> Result<Option<ValKind>, String> {
+    ) -> Result<Option<EnhValKind>, String> {
         let result = self.value_to_address.insert(
             key.clone(),
-            ValKind::ParameterRef(self.par_index, par.clone()),
+            EnhValKind::ParameterRef(self.par_index, par.clone()),
         );
         self.par_index += 1;
         if result.is_some() {
@@ -51,12 +51,12 @@ impl ValContext {
         key: String,
         ast_type: EnhASTType,
         ast_index: &EnhASTIndex,
-    ) -> Result<Option<ValKind>, String> {
+    ) -> Result<Option<EnhValKind>, String> {
         debug_i!("adding let val {key} of type {ast_type} to context");
 
         let result = self.value_to_address.insert(
             key.clone(),
-            ValKind::LetRef(self.let_index, ast_type, ast_index.clone()),
+            EnhValKind::LetRef(self.let_index, ast_type, ast_index.clone()),
         );
         self.let_index += 1;
         if result.is_some() {
@@ -66,7 +66,7 @@ impl ValContext {
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<&ValKind> {
+    pub fn get(&self, key: &str) -> Option<&EnhValKind> {
         self.value_to_address.get(key)
     }
 
@@ -75,7 +75,7 @@ impl ValContext {
     }
 
     pub fn is_lambda(&self, key: &str) -> bool {
-        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
+        if let Some(EnhValKind::ParameterRef(_i, par)) = self.get(key) {
             if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type: _,
                 parameters: _,
@@ -85,7 +85,7 @@ impl ValContext {
             }
         }
 
-        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
+        if let Some(EnhValKind::LetRef(_i, ast_type, _)) = self.get(key) {
             if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type: _,
                 parameters: _,
@@ -98,7 +98,7 @@ impl ValContext {
     }
 
     pub fn get_lambda(&self, key: &str) -> Option<(&Box<EnhASTType>, &Vec<EnhASTType>)> {
-        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
+        if let Some(EnhValKind::ParameterRef(_i, par)) = self.get(key) {
             if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
@@ -108,7 +108,7 @@ impl ValContext {
             }
         }
 
-        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
+        if let Some(EnhValKind::LetRef(_i, ast_type, _)) = self.get(key) {
             if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 return_type,
                 parameters,
