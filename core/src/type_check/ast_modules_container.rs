@@ -1,7 +1,9 @@
-use std::{collections::HashMap, iter::zip};
+use std::{collections::HashMap, fmt::Display, iter::zip};
+
+use itertools::Itertools;
 
 use crate::parser::{
-    ast::{ASTFunctionDef, ASTFunctionSignature, ASTModule, ASTType},
+    ast::{ASTFunctionSignature, ASTModule, ASTType, BuiltinTypeKind},
     builtin_functions::BuiltinFunctions,
 };
 
@@ -29,6 +31,31 @@ impl ASTFunctionSignatureEntry {
     }
 }
 
+impl Display for ASTFunctionSignature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let generics = if self.generics.is_empty() {
+            ""
+        } else {
+            &format!("<{}>", self.generics.iter().join(", "))
+        };
+
+        write!(
+            f,
+            "{}{}({})",
+            self.name,
+            generics,
+            self.parameters_types
+                .iter()
+                .map(|it| format!("{it}"))
+                .join(", ")
+        )?;
+        if !self.return_type.is_unit() {
+            write!(f, " -> {}", self.return_type)?;
+        }
+        Ok(())
+    }
+}
+
 impl ASTModuleEntry {
     fn new(module: ASTModule, source: ModuleSource) -> Self {
         Self { module, source }
@@ -36,45 +63,65 @@ impl ASTModuleEntry {
 }
 
 pub struct ASTModulesContainer {
-    modules: HashMap<ModuleId, Vec<ASTModuleEntry>>,
-    signatures: HashMap<ModuleId, Vec<ASTFunctionSignatureEntry>>,
+    signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
 }
 
 impl ASTModulesContainer {
     fn new() -> Self {
         Self {
-            modules: HashMap::new(),
             signatures: HashMap::new(),
         }
     }
 
-    fn add(&mut self, module: ASTModule, id: ModuleId, source: ModuleSource) {
-        if !module.enums.is_empty() {
-            for enum_def in module.enums.iter() {
-                let signature = self.signatures.entry(id.clone()).or_insert(Vec::new());
-                signature.extend(
-                    BuiltinFunctions::enum_signatures(enum_def)
-                        .into_iter()
-                        .map(|it| ASTFunctionSignatureEntry::new(it, id.clone(), source.clone())),
-                );
+    fn add(&mut self, module: ASTModule, id: ModuleId, source: ModuleSource, add_builtin: bool) {
+        if add_builtin {
+            if !module.enums.is_empty() {
+                for enum_def in module.enums.iter() {
+                    for signature in BuiltinFunctions::enum_signatures(enum_def) {
+                        let signatures = self
+                            .signatures
+                            .entry(signature.name.clone())
+                            .or_insert(Vec::new());
+                        signatures.push(ASTFunctionSignatureEntry::new(
+                            signature,
+                            id.clone(),
+                            source.clone(),
+                        ));
+                    }
+                }
+            }
+
+            if !module.structs.is_empty() {
+                for struct_def in module.structs.iter() {
+                    for signature in BuiltinFunctions::struct_signatures(struct_def) {
+                        let signatures = self
+                            .signatures
+                            .entry(signature.name.clone())
+                            .or_insert(Vec::new());
+                        signatures.push(ASTFunctionSignatureEntry::new(
+                            signature,
+                            id.clone(),
+                            source.clone(),
+                        ));
+                    }
+                }
             }
         }
 
-        if !module.structs.is_empty() {
-            for struct_def in module.structs.iter() {
-                let signature = self.signatures.entry(id.clone()).or_insert(Vec::new());
-                signature.extend(
-                    BuiltinFunctions::struct_signatures(struct_def)
-                        .into_iter()
-                        .map(|it| ASTFunctionSignatureEntry::new(it, id.clone(), source.clone())),
-                );
-            }
+        for signature in module.functions.iter().map(|it| it.signature()) {
+            let signatures = self
+                .signatures
+                .entry(signature.name.clone())
+                .or_insert(Vec::new());
+            signatures.push(ASTFunctionSignatureEntry::new(
+                signature,
+                id.clone(),
+                source.clone(),
+            ));
         }
-
-        let modules = self.modules.entry(id).or_insert(Vec::new());
-        modules.push(ASTModuleEntry::new(module, source));
     }
 
+    /*
     fn get_all<'a, T>(
         &'a self,
         mapper: &'a dyn Fn(&'a ASTModule) -> &'a Vec<T>,
@@ -88,29 +135,29 @@ impl ASTModulesContainer {
                 .flat_map(|entry| mapper(&entry.module).iter().map(|it| (it, id.clone())))
         })
     }
+    */
 
     fn find_call_vec(
         &self,
         function_to_call: &str,
         parameter_types_filter: &Vec<FunctionTypeFilter>,
         return_type_filter: Option<&ASTType>,
-    ) -> Result<Vec<&ASTFunctionDef>, String> {
-        let mut result = Vec::new();
-        let possible_functions = self
-            .get_all(&|module| &module.functions)
-            .filter(|(function, id)| {
-                function.parameters.len() == parameter_types_filter.len()
-                    && function.name == function_to_call
-            })
-            .filter(|(function, id)| {
-                zip(parameter_types_filter, &function.parameters)
-                    .all(|(filter, parameter)| filter.is_compatible(&parameter.ast_type, id, self))
-            })
-            .collect::<Vec<_>>();
-
-        result.extend(possible_functions.iter().map(|(f, id)| f));
-
-        Ok(result)
+    ) -> Vec<&ASTFunctionSignatureEntry> {
+        if let Some(signatures) = self.signatures.get(function_to_call) {
+            signatures
+                .iter()
+                .filter(|entry| {
+                    entry.signature.parameters_types.len() == parameter_types_filter.len()
+                })
+                .filter(|entry| {
+                    zip(parameter_types_filter, &entry.signature.parameters_types).all(
+                        |(filter, parameter)| filter.is_compatible(&parameter, &entry.id, self),
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }
     }
 
     fn is_equals(
@@ -123,7 +170,24 @@ impl ASTModulesContainer {
         match a_type {
             ASTType::Builtin(a_kind) => {
                 if let ASTType::Builtin(with_kind) = with_type {
-                    a_kind == with_kind // TODO lambda
+                    if let BuiltinTypeKind::Lambda {
+                        parameters: a_p,
+                        return_type: a_rt,
+                    } = a_kind
+                    {
+                        if let BuiltinTypeKind::Lambda {
+                            parameters: w_p,
+                            return_type: wrt,
+                        } = with_kind
+                        {
+                            // TODO
+                            a_p.len() == w_p.len()
+                        } else {
+                            false
+                        }
+                    } else {
+                        a_kind == with_kind // TODO lambda
+                    }
                 } else if let ASTType::Generic(_, _) = with_type {
                     true
                 } else {
@@ -142,7 +206,10 @@ impl ASTModulesContainer {
                     index: _,
                 } = with_type
                 {
-                    todo!()
+                    a_name == with_name // TODO namespace
+                        && a_param_types.len() == with_param_types.len()
+                        && zip(a_param_types, with_param_types)
+                            .all(|(a_pt, w_pt)| self.is_equals(a_pt, an_id, w_pt, with_id))
                 } else if let ASTType::Generic(_, _) = with_type {
                     true
                 } else {
@@ -205,9 +272,8 @@ mod tests {
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
         commandline::CommandLineOptions,
-        parser::ast::{ASTType, BuiltinTypeKind},
+        parser::ast::{ASTPosition, ASTType, BuiltinTypeKind},
         project::RasmProject,
-        utils::OptionDisplay,
     };
 
     use super::{ASTModulesContainer, FunctionTypeFilter};
@@ -216,17 +282,37 @@ mod tests {
     pub fn test_add() {
         let container = sut_from_project("../rasm/resources/examples/breakout");
 
-        let functions = container
-            .find_call_vec(
-                "add",
-                &vec![
-                    exact_builtin(BuiltinTypeKind::I32),
-                    exact_builtin(BuiltinTypeKind::I32),
-                ],
-                None,
-            )
-            .unwrap();
+        let functions = container.find_call_vec(
+            "add",
+            &vec![
+                exact_builtin(BuiltinTypeKind::I32),
+                exact_builtin(BuiltinTypeKind::I32),
+            ],
+            None,
+        );
         assert_eq!(2, functions.len());
+    }
+
+    #[test]
+    pub fn test_match() {
+        let container = sut_from_project("../rasm/resources/examples/breakout");
+
+        let functions = container.find_call_vec(
+            "match",
+            &vec![
+                exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::I32)]),
+                exact_builtin(BuiltinTypeKind::Lambda {
+                    parameters: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
+                    return_type: Box::new(ASTType::Generic(ASTPosition::none(), "T".to_owned())),
+                }),
+                exact_builtin(BuiltinTypeKind::Lambda {
+                    parameters: vec![],
+                    return_type: Box::new(ASTType::Generic(ASTPosition::none(), "T".to_owned())),
+                }),
+            ],
+            None,
+        );
+        assert_eq!(1, functions.len());
     }
 
     fn sut_from_project(project_path: &str) -> ASTModulesContainer {
@@ -244,6 +330,12 @@ mod tests {
 
         let mut container = ASTModulesContainer::new();
         for (module, info) in modules {
+            /*
+            println!(
+                "adding module {}",
+                OptionDisplay(&info.path.clone().map(|it| it.to_string_lossy().to_string()))
+            );
+            */
             container.add(
                 module,
                 info.namespace.safe_name(),
@@ -252,6 +344,7 @@ mod tests {
                     .map(|it| it.to_string_lossy().to_string())
                     .unwrap_or(String::new())
                     .to_string(),
+                false, // modules fromRasmProject contains already builtin functions
             );
         }
 
@@ -260,5 +353,16 @@ mod tests {
 
     fn exact_builtin(kind: BuiltinTypeKind) -> FunctionTypeFilter {
         FunctionTypeFilter::Exact(ASTType::Builtin(kind), String::new())
+    }
+
+    fn exact_custom(name: &str, param_types: Vec<ASTType>) -> FunctionTypeFilter {
+        FunctionTypeFilter::Exact(
+            ASTType::Custom {
+                name: name.to_owned(),
+                param_types,
+                index: ASTPosition::none(),
+            },
+            String::new(),
+        )
     }
 }
