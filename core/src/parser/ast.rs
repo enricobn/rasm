@@ -459,7 +459,6 @@ pub enum ASTExpression {
     ValueRef(String, ASTPosition),
     Value(ASTValueType, ASTPosition),
     Lambda(ASTLambdaDef),
-    Any(ASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
 
 impl ASTExpression {
@@ -470,7 +469,6 @@ impl ASTExpression {
             ASTExpression::ValueRef(_, position) => position.clone(),
             ASTExpression::Value(_, position) => position.clone(),
             ASTExpression::Lambda(def) => def.position.clone(),
-            ASTExpression::Any(_) => ASTPosition::none(),
         }
     }
 }
@@ -497,7 +495,6 @@ impl Display for ASTExpression {
                 ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
-            ASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
         }
     }
 }

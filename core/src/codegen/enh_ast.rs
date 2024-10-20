@@ -1030,11 +1030,6 @@ impl EnhASTExpression {
             ast::ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(
                 EnhASTLambdaDef::from_ast(path.clone(), namespace.clone(), lambda),
             ),
-            ast::ASTExpression::Any(ast_type) => EnhASTExpression::Any(EnhASTType::from_ast(
-                path.clone(),
-                namespace.clone(),
-                ast_type,
-            )),
         }
     }
 }

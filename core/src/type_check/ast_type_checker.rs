@@ -425,7 +425,6 @@ impl<'a> ASTTypeChecker<'a> {
                     );
                 }
             }
-            ASTExpression::Any(_) => todo!(),
         }
 
         // the resolved type could be generic on a different generic type, we want to resolve it
