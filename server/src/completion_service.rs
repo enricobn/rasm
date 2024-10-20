@@ -25,7 +25,7 @@ use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, En
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
-use rasm_core::codegen::val_context::TypedValContext;
+use rasm_core::codegen::enh_val_context::TypedValContext;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;

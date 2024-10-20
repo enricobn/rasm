@@ -2,9 +2,12 @@ use std::{collections::HashMap, fmt::Display, iter::zip};
 
 use itertools::Itertools;
 
-use crate::parser::{
-    ast::{ASTFunctionSignature, ASTModule, ASTType, BuiltinTypeKind},
-    builtin_functions::BuiltinFunctions,
+use crate::{
+    parser::{
+        ast::{ASTFunctionSignature, ASTModule, ASTStatement, ASTType, BuiltinTypeKind},
+        builtin_functions::BuiltinFunctions,
+    },
+    utils::OptionDisplay,
 };
 
 pub type ModuleId = String;
@@ -15,10 +18,10 @@ struct ASTModuleEntry {
     source: ModuleSource,
 }
 
-struct ASTFunctionSignatureEntry {
-    signature: ASTFunctionSignature,
-    id: ModuleId,
-    source: ModuleSource,
+pub struct ASTFunctionSignatureEntry {
+    pub signature: ASTFunctionSignature,
+    pub id: ModuleId,
+    pub source: ModuleSource,
 }
 
 impl ASTFunctionSignatureEntry {
@@ -67,13 +70,19 @@ pub struct ASTModulesContainer {
 }
 
 impl ASTModulesContainer {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             signatures: HashMap::new(),
         }
     }
 
-    fn add(&mut self, module: ASTModule, id: ModuleId, source: ModuleSource, add_builtin: bool) {
+    pub fn add(
+        &mut self,
+        module: ASTModule,
+        id: ModuleId,
+        source: ModuleSource,
+        add_builtin: bool,
+    ) {
         if add_builtin {
             if !module.enums.is_empty() {
                 for enum_def in module.enums.iter() {
@@ -83,7 +92,7 @@ impl ASTModulesContainer {
                             .entry(signature.name.clone())
                             .or_insert(Vec::new());
                         signatures.push(ASTFunctionSignatureEntry::new(
-                            signature,
+                            signature.fix_generics(&id),
                             id.clone(),
                             source.clone(),
                         ));
@@ -99,7 +108,7 @@ impl ASTModulesContainer {
                             .entry(signature.name.clone())
                             .or_insert(Vec::new());
                         signatures.push(ASTFunctionSignatureEntry::new(
-                            signature,
+                            signature.fix_generics(&id),
                             id.clone(),
                             source.clone(),
                         ));
@@ -114,7 +123,7 @@ impl ASTModulesContainer {
                 .entry(signature.name.clone())
                 .or_insert(Vec::new());
             signatures.push(ASTFunctionSignatureEntry::new(
-                signature,
+                signature.fix_generics(&id),
                 id.clone(),
                 source.clone(),
             ));
@@ -137,24 +146,57 @@ impl ASTModulesContainer {
     }
     */
 
-    fn find_call_vec(
+    pub fn find_call_vec(
         &self,
         function_to_call: &str,
         parameter_types_filter: &Vec<FunctionTypeFilter>,
         return_type_filter: Option<&ASTType>,
+        function_call_module_id: &ModuleId,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         if let Some(signatures) = self.signatures.get(function_to_call) {
-            signatures
+            let result = signatures
                 .iter()
                 .filter(|entry| {
                     entry.signature.parameters_types.len() == parameter_types_filter.len()
+                })
+                .filter(|entry| {
+                    entry.signature.modifiers.public || &entry.id == function_call_module_id
                 })
                 .filter(|entry| {
                     zip(parameter_types_filter, &entry.signature.parameters_types).all(
                         |(filter, parameter)| filter.is_compatible(&parameter, &entry.id, self),
                     )
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+
+            if result.len() > 1 {
+                // TODO return type filter
+                let functions_with_all_non_generic = result
+                    .iter()
+                    .cloned()
+                    .filter(|it| {
+                        it.signature
+                            .parameters_types
+                            .iter()
+                            .all(|f| !f.is_strictly_generic())
+                    })
+                    .collect::<Vec<_>>();
+                let all_filters_are_not_generic =
+                    parameter_types_filter.iter().all(|it| match it {
+                        FunctionTypeFilter::Exact(ast_type, _) => {
+                            !matches!(ast_type, ASTType::Generic(..))
+                        }
+                        FunctionTypeFilter::Any => false,
+                        FunctionTypeFilter::Lambda(..) => true,
+                    });
+                if functions_with_all_non_generic.len() == 1 && all_filters_are_not_generic {
+                    functions_with_all_non_generic
+                } else {
+                    result
+                }
+            } else {
+                result
+            }
         } else {
             Vec::new()
         }
@@ -198,12 +240,12 @@ impl ASTModulesContainer {
             ASTType::Custom {
                 name: a_name,
                 param_types: a_param_types,
-                index: _,
+                position: _,
             } => {
                 if let ASTType::Custom {
                     name: with_name,
                     param_types: with_param_types,
-                    index: _,
+                    position: _,
                 } = with_type
                 {
                     a_name == with_name // TODO namespace
@@ -221,10 +263,23 @@ impl ASTModulesContainer {
     }
 }
 
-enum FunctionTypeFilter {
+#[derive(Clone)]
+pub enum FunctionTypeFilter {
     Exact(ASTType, ModuleId),
     Any,
     Lambda(usize, Option<Box<FunctionTypeFilter>>),
+}
+
+impl Display for FunctionTypeFilter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FunctionTypeFilter::Exact(asttype, _) => write!(f, "Exact({asttype})"),
+            FunctionTypeFilter::Any => f.write_str("Any"),
+            FunctionTypeFilter::Lambda(n, function_type_filter) => {
+                write!(f, "Lambda({n}, {})", OptionDisplay(&function_type_filter))
+            }
+        }
+    }
 }
 
 impl FunctionTypeFilter {
@@ -257,7 +312,7 @@ impl FunctionTypeFilter {
                 ASTType::Custom {
                     name: _,
                     param_types: _,
-                    index: _,
+                    position: _,
                 } => false,
                 ASTType::Unit => false,
             },
@@ -289,8 +344,9 @@ mod tests {
                 exact_builtin(BuiltinTypeKind::I32),
             ],
             None,
+            &String::new(),
         );
-        assert_eq!(2, functions.len());
+        assert_eq!(1, functions.len());
     }
 
     #[test]
@@ -311,6 +367,7 @@ mod tests {
                 }),
             ],
             None,
+            &String::new(),
         );
         assert_eq!(1, functions.len());
     }
@@ -360,7 +417,7 @@ mod tests {
             ASTType::Custom {
                 name: name.to_owned(),
                 param_types,
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
             String::new(),
         )

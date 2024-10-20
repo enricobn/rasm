@@ -19,7 +19,7 @@
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::TypedValContext;
+use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::TypedValKind;
 use crate::errors::CompilationError;
 use crate::errors::CompilationErrorKind::Verify;

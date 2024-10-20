@@ -90,7 +90,7 @@ impl StructParser {
                     parameters.push(ASTStructPropertyDef {
                         name: token.alpha().unwrap(),
                         ast_type,
-                        index: ASTPosition::new(token.row, token.column),
+                        position: ASTPosition::new(token.row, token.column),
                     });
                 } else {
                     return Err(format!(
@@ -139,7 +139,7 @@ mod tests {
                                 name,
                                 type_parameters,
                                 properties,
-                                index: parser.get_position(0),
+                                position: parser.get_position(0),
                                 modifiers,
                             },
                             next_i,
@@ -169,13 +169,13 @@ mod tests {
         let x = ASTStructPropertyDef {
             name: "x".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
-            index: ASTPosition::new(2, 14),
+            position: ASTPosition::new(2, 14),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
-            index: ASTPosition::new(3, 14),
+            position: ASTPosition::new(3, 14),
         };
 
         assert_eq!(
@@ -185,7 +185,7 @@ mod tests {
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
-                    index: ASTPosition::new(1, 7),
+                    position: ASTPosition::new(1, 7),
                     modifiers: ASTModifiers::private()
                 },
                 11
@@ -205,13 +205,13 @@ mod tests {
         let x = ASTStructPropertyDef {
             name: "index".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
-            index: ASTPosition::new(2, 18),
+            position: ASTPosition::new(2, 18),
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
             ast_type: Generic(ASTPosition::new(3, 21), "T".into()),
-            index: ASTPosition::new(3, 18),
+            position: ASTPosition::new(3, 18),
         };
 
         assert_eq!(
@@ -221,7 +221,7 @@ mod tests {
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],
-                    index: ASTPosition::new(1, 7),
+                    position: ASTPosition::new(1, 7),
                     modifiers: ASTModifiers::private()
                 },
                 14

@@ -1246,9 +1246,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 mod tests {
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
+    use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::val_context::EnhValContext;
     use crate::codegen::CodeGen;
     use crate::utils::SliceDisplay;
 

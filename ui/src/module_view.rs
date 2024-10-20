@@ -13,9 +13,13 @@ use iced::{
     Background, Color, Element, Length, Padding, Theme,
 };
 use rasm_core::{
-    codegen::enh_ast::{EnhASTIndex, EnhASTModule, EnhASTType, EnhBuiltinTypeKind},
+    codegen::{
+        enh_ast::{EhModuleInfo, EnhASTModule},
+        val_context::ASTIndex,
+    },
     lexer::{tokens::TokenKind, Lexer},
-    type_check::functions_container::TypeFilter,
+    parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind},
+    type_check::{ast_modules_container::FunctionTypeFilter, functions_container::TypeFilter},
 };
 
 use crate::{Message, SelectedModule, UI};
@@ -49,8 +53,7 @@ impl UI {
             .project
             .get_module(Path::new(&selected_module.path), &self.target)
         {
-            let eh_module = EnhASTModule::from_ast(module, info);
-            let module_syntax = Self::module_syntax(&eh_module);
+            let module_syntax = Self::module_syntax(&module, &info);
             let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
@@ -72,8 +75,8 @@ impl UI {
                         row = Row::new();
                         just_added_new_line = true;
                     } else {
-                        let token_index =
-                            EnhASTIndex::new(Some(path.clone()), token.row, token.column);
+                        let token_position = ASTPosition::new(token.row, token.column);
+                        let token_index = info.index(token_position);
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
                                 if module_syntax
@@ -85,10 +88,12 @@ impl UI {
                                     continue;
                                 }
                                 let content: Element<'a, Message> = if let Some(type_filter) =
-                                    selected_module.type_map.get(&token_index)
+                                    selected_module.type_checker_result.get(&token_index)
                                 {
                                     let exact_and_not_generic =
-                                        if let TypeFilter::Exact(ast_type) = type_filter {
+                                        if let FunctionTypeFilter::Exact(ast_type, _info) =
+                                            type_filter
+                                        {
                                             !ast_type.is_generic()
                                         } else {
                                             false
@@ -198,74 +203,82 @@ impl UI {
             .into()
     }
 
-    fn module_syntax(module: &EnhASTModule) -> HashMap<EnhASTIndex, SyntaxKind> {
+    fn module_syntax(module: &ASTModule, info: &EhModuleInfo) -> HashMap<ASTIndex, SyntaxKind> {
         let mut result = HashMap::new();
 
         for s in module.structs.iter() {
-            result.insert(s.index.mv_right(s.name.len()), SyntaxKind::UnTyped);
+            result.insert(
+                info.index(s.position.clone()).mv_right(s.name.len()),
+                SyntaxKind::UnTyped,
+            );
 
             for p in s.properties.iter() {
-                result.insert(p.index.clone(), SyntaxKind::UnTyped);
-                result.extend(Self::set_untyped(&p.ast_type));
+                result.insert(info.index(p.position.clone()), SyntaxKind::UnTyped);
+                result.extend(Self::set_untyped(&p.ast_type, info));
             }
         }
 
         for e in module.enums.iter() {
-            result.insert(e.index.mv_right(e.name.len()), SyntaxKind::UnTyped);
+            result.insert(
+                info.index(e.position.clone()).mv_right(e.name.len()),
+                SyntaxKind::UnTyped,
+            );
 
             for v in e.variants.iter() {
-                result.insert(v.index.clone(), SyntaxKind::UnTyped);
+                result.insert(info.index(v.position.clone()).clone(), SyntaxKind::UnTyped);
 
                 for p in v.parameters.iter() {
-                    result.insert(p.ast_index.clone(), SyntaxKind::UnTyped);
-                    result.extend(Self::set_untyped(&p.ast_type));
+                    result.insert(info.index(p.position.clone()).clone(), SyntaxKind::UnTyped);
+                    result.extend(Self::set_untyped(&p.ast_type, info));
                 }
             }
         }
 
         for f in module.functions.iter() {
-            result.insert(f.index.mv_right(f.name.len()), SyntaxKind::UnTyped);
+            result.insert(
+                info.index(f.position.clone()).mv_right(f.name.len()),
+                SyntaxKind::UnTyped,
+            );
             for p in f.parameters.iter() {
-                result.insert(p.ast_index.clone(), SyntaxKind::UnTyped);
-                result.extend(Self::set_untyped(&p.ast_type));
+                result.insert(info.index(p.position.clone()), SyntaxKind::UnTyped);
+                result.extend(Self::set_untyped(&p.ast_type, info));
             }
-            result.extend(Self::set_untyped(&f.return_type));
+            result.extend(Self::set_untyped(&f.return_type, info));
         }
 
         result
     }
 
-    fn set_untyped(ast_type: &EnhASTType) -> HashMap<EnhASTIndex, SyntaxKind> {
+    fn set_untyped(ast_type: &ASTType, info: &EhModuleInfo) -> HashMap<ASTIndex, SyntaxKind> {
         let mut result = HashMap::new();
 
         match ast_type {
-            EnhASTType::Builtin(kind) => match kind {
-                EnhBuiltinTypeKind::Lambda {
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
                 } => {
                     for p in parameters.iter() {
-                        result.extend(Self::set_untyped(p));
+                        result.extend(Self::set_untyped(p, info));
                     }
-                    result.extend(Self::set_untyped(&return_type));
+                    result.extend(Self::set_untyped(&return_type, info));
                 }
                 _ => {}
             },
-            EnhASTType::Generic(index, _) => {
-                result.insert(index.clone(), SyntaxKind::UnTyped);
+            ASTType::Generic(index, _) => {
+                result.insert(info.index(index.clone()), SyntaxKind::UnTyped);
             }
-            EnhASTType::Custom {
-                namespace,
+            ASTType::Custom {
                 name,
                 param_types,
-                index,
+                position: index,
             } => {
-                result.insert(index.clone(), SyntaxKind::UnTyped);
+                result.insert(info.index(index.clone()), SyntaxKind::UnTyped);
                 for p in param_types.iter() {
-                    result.extend(Self::set_untyped(p));
+                    result.extend(Self::set_untyped(p, info));
                 }
             }
-            EnhASTType::Unit => {}
+            ASTType::Unit => {}
         }
 
         result

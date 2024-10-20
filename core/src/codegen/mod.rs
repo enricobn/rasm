@@ -19,6 +19,7 @@ use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
     EnhBuiltinTypeKind,
 };
+use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::function_call_parameters::{
     FunctionCallParameters, FunctionCallParametersAsm, FunctionCallParametersAsmImpl,
 };
@@ -31,7 +32,6 @@ use crate::codegen::text_macro::{
     RefType, TextMacro, TextMacroEval, TextMacroEvaluator,
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::val_context::{EnhValContext, TypedValContext};
 use crate::debug_i;
 use crate::errors::CompilationError;
 use crate::parser::ast::ASTValueType;
@@ -53,6 +53,7 @@ pub mod c;
 mod code_manipulator;
 pub mod compile_target;
 pub mod enh_ast;
+pub mod enh_val_context;
 pub mod enhanced_module;
 pub mod function_call_parameters;
 pub mod lambda;
@@ -3702,9 +3703,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::val_context::EnhValContext;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
 
     #[test]

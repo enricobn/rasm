@@ -56,7 +56,7 @@ pub trait FunctionsCreator {
                 signature,
                 false,
                 struct_def.modifiers.public,
-                struct_def.index.clone(),
+                struct_def.position.clone(),
                 parameters_names,
                 parameters_positions,
                 body,
@@ -148,7 +148,7 @@ pub trait FunctionsCreator {
                 lambda_signature,
                 false,
                 struct_def.modifiers.public,
-                property_def.index.clone(),
+                property_def.position.clone(),
                 lambda_parameters_names,
                 lambda_parameters_positions,
                 ASTFunctionBody::RASMBody(body),
@@ -181,7 +181,7 @@ pub trait FunctionsCreator {
             signature,
             inline,
             struct_def.modifiers.public,
-            property_def.index.clone(),
+            property_def.position.clone(),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(native_body),
@@ -201,7 +201,7 @@ pub trait FunctionsCreator {
             signature,
             false,
             struct_def.modifiers.public,
-            property_def.index.clone(),
+            property_def.position.clone(),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_body(i, &property_def.name)),
@@ -223,7 +223,7 @@ pub trait FunctionsCreator {
             signature,
             false,
             struct_def.modifiers.public,
-            property_def.index.clone(),
+            property_def.position.clone(),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, name)),
@@ -241,7 +241,7 @@ pub trait FunctionsCreator {
                 ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
                     function_name: format!("{name}"),
                     parameters: vec![ASTExpression::ValueRef("v".to_owned(), ASTPosition::none())],
-                    index: ASTPosition::none(),
+                    position: ASTPosition::none(),
                     generics: Vec::new(),
                 }),
                 false,
@@ -256,7 +256,7 @@ pub trait FunctionsCreator {
                         ASTExpression::ValueRef(format!("p{index}"), ASTPosition::none())
                     })
                     .collect(),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
                 generics: Vec::new(),
             })),
         ]
@@ -299,7 +299,7 @@ pub trait FunctionsCreator {
                 // TODO we cannot inline parametric variant constructor, but I don't know why
                 inline && variant.parameters.is_empty(),
                 enum_def.modifiers.public,
-                variant.index.clone(),
+                variant.position.clone(),
                 parameters_names,
                 parameters_positions,
                 body,
@@ -443,13 +443,13 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             }],
             body,
             inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
         };
 
@@ -472,13 +472,13 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             }],
             body,
             inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
         };
 

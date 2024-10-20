@@ -86,31 +86,31 @@ impl Display for ParserData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ParserData::EnumDef(e) => {
-                write!(f, "EnumDef({}): {}", e.name, e.index)
+                write!(f, "EnumDef({}): {}", e.name, e.position)
             }
             ParserData::FunctionCall(call) => {
-                write!(f, "FunctionCall({}): {}", call, call.index)
+                write!(f, "FunctionCall({}): {}", call, call.position)
             }
             ParserData::FunctionDef(def) => {
-                write!(f, "FunctionDef({}): {}", def, def.index)
+                write!(f, "FunctionDef({}): {}", def, def.position)
             }
             ParserData::FunctionDefParameter(def) => {
-                write!(f, "FunctionDefParameter({}): {}", def, def.index)
+                write!(f, "FunctionDefParameter({}): {}", def, def.position)
             }
             ParserData::LambdaDef(def) => {
-                write!(f, "LambdaDef({}): {}", def, def.index)
+                write!(f, "LambdaDef({}): {}", def, def.position)
             }
             ParserData::Let(name, _, index) => {
                 write!(f, "Let({}): {index}", name)
             }
             ParserData::StructDef(s) => {
-                write!(f, "StructDef({}): {}", s.name, s.index)
+                write!(f, "StructDef({}): {}", s.name, s.position)
             }
             ParserData::Expression(e) => {
-                write!(f, "Expression({}): {}", e, e.get_index())
+                write!(f, "Expression({}): {}", e, e.position())
             }
             ParserData::Statement(s) => {
-                write!(f, "Statement({}): {}", s, s.get_index())
+                write!(f, "Statement({}): {}", s, s.position())
             }
         }
     }
@@ -214,7 +214,7 @@ impl Parser {
                         let call = ASTFunctionCall {
                             function_name,
                             parameters: vec![expr],
-                            index: self.get_position(function_name_i),
+                            position: self.get_position(function_name_i),
                             generics,
                         };
                         self.parser_data.push(ParserData::FunctionCall(call));
@@ -228,7 +228,7 @@ impl Parser {
                         let call = ASTFunctionCall {
                             function_name: name.clone(),
                             parameters: vec![expr],
-                            index: self.get_position(0),
+                            position: self.get_position(0),
                             generics: Vec::new(),
                         };
                         self.parser_data
@@ -475,7 +475,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline: false,
                 generic_types,
-                index: self.token_index(&name_token).mv_left(name_len),
+                position: self.token_index(&name_token).mv_left(name_len),
                 modifiers,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
@@ -494,7 +494,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline,
                 generic_types: param_types,
-                index: self.token_index(&name_token).mv_left(name_len),
+                position: self.token_index(&name_token).mv_left(name_len),
                 modifiers,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
@@ -506,7 +506,7 @@ impl Parser {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
-                index: self.token_index(&name).mv_left(name.alpha().unwrap().len()),
+                position: self.token_index(&name).mv_left(name.alpha().unwrap().len()),
                 modifiers,
             }));
             self.state.push(ParserState::EnumDef);
@@ -518,7 +518,7 @@ impl Parser {
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
-                index: self
+                position: self
                     .token_index(&name_token)
                     .mv_left(name_token.alpha().unwrap().len()),
                 modifiers,
@@ -624,7 +624,7 @@ impl Parser {
             let call = ASTFunctionCall {
                 function_name,
                 parameters: Vec::new(),
-                index: self.get_position(function_name_index),
+                position: self.get_position(function_name_index),
                 generics,
             };
             self.parser_data.push(ParserData::FunctionCall(call));
@@ -681,7 +681,7 @@ impl Parser {
         self.parser_data.push(ParserData::LambdaDef(ASTLambdaDef {
             parameter_names,
             body: Vec::new(),
-            index: self.get_position(0),
+            position: self.get_position(0),
         }));
         let fake_function_def = ASTFunctionDef {
             name: String::new(),
@@ -690,7 +690,7 @@ impl Parser {
             return_type: ASTType::Unit,
             inline: false,
             generic_types: Vec::new(),
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
         };
         self.parser_data
@@ -781,7 +781,7 @@ impl Parser {
                         .push(ParserData::FunctionDefParameter(ASTParameterDef {
                             name,
                             ast_type,
-                            index: self.token_index(token),
+                            position: self.token_index(token),
                         }));
                     self.state.pop();
                     Ok(())
@@ -1362,7 +1362,7 @@ impl Parser {
                                 type_parameters,
                                 name: name.clone(),
                                 is_ref,
-                                index: self.get_position(base_n + 1).mv_left(name.len()),
+                                position: self.get_position(base_n + 1).mv_left(name.len()),
                                 modifiers,
                                 native_type,
                             },
@@ -1531,7 +1531,7 @@ mod tests {
             return_type: ASTType::Unit,
             inline: false,
             generic_types: vec!["T".into(), "T1".into()],
-            index: ASTPosition::new(1, 4),
+            position: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::private(),
         };
 
@@ -1576,7 +1576,7 @@ mod tests {
                 ASTPosition::new(1, 16),
             )],
             generics: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
-            index: ASTPosition::new(1, 8),
+            position: ASTPosition::new(1, 8),
         };
 
         assert_eq!(
@@ -1600,7 +1600,7 @@ mod tests {
                 ASTPosition::new(1, 38),
             )],
             generics: vec![ASTType::Generic(ASTPosition::new(1, 34), "T".to_string())],
-            index: ASTPosition::new(1, 32),
+            position: ASTPosition::new(1, 32),
         };
 
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
@@ -1628,7 +1628,7 @@ mod tests {
                 ASTPosition::new(1, 16),
             )],
             generics: Vec::new(),
-            index: ASTPosition::new(1, 13),
+            position: ASTPosition::new(1, 13),
         };
 
         assert_eq!(

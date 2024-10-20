@@ -13,6 +13,7 @@ pub mod type_check_error;
 pub mod typed_ast;
 
 pub mod ast_modules_container;
+pub mod ast_type_checker;
 pub mod function_type_checker;
 pub mod traverse_typed_ast;
 pub mod used_functions;

@@ -13,7 +13,7 @@ use rasm_core::codegen::enh_ast::{
 };
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::val_context::EnhValContext;
+use rasm_core::codegen::enh_val_context::EnhValContext;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::project::RasmProject;

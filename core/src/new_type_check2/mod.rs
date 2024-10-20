@@ -35,7 +35,7 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
-use crate::codegen::val_context::EnhValContext;
+use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::EnhValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};

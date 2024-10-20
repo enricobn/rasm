@@ -79,7 +79,7 @@ impl<'a> TypeParser<'a> {
                         Custom {
                             name: type_name.into(),
                             param_types,
-                            index: self.parser.get_position(n),
+                            position: self.parser.get_position(n),
                         },
                         next_i,
                     ))
@@ -322,7 +322,7 @@ mod tests {
                         Generic(ASTPosition::new(1, 8), "T".into()),
                         Generic(ASTPosition::new(1, 11), "T1".into()),
                     ],
-                    index: ASTPosition::new(1, 6)
+                    position: ASTPosition::new(1, 6)
                 },
                 6
             )),
@@ -347,7 +347,7 @@ mod tests {
                 Custom {
                     name: "T".into(),
                     param_types: vec![],
-                    index: ASTPosition::new(1, 2)
+                    position: ASTPosition::new(1, 2)
                 },
                 1
             )),
@@ -361,14 +361,14 @@ mod tests {
         let option_t = Custom {
             name: "Option".into(),
             param_types: vec![Generic(ASTPosition::new(1, 14), "T".into())],
-            index: ASTPosition::new(1, 12),
+            position: ASTPosition::new(1, 12),
         };
         assert_eq!(
             Some((
                 Custom {
                     name: "List".into(),
                     param_types: vec![option_t],
-                    index: ASTPosition::new(1, 5)
+                    position: ASTPosition::new(1, 5)
                 },
                 7
             )),
@@ -388,7 +388,7 @@ mod tests {
                 ASTType::Custom {
                     name: "List".into(),
                     param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
-                    index: ASTPosition::none()
+                    position: ASTPosition::none()
                 }
             ),
         }

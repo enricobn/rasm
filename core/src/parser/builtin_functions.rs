@@ -3,8 +3,8 @@ use std::ops::Deref;
 use itertools::Itertools;
 
 use super::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTFunctionSignature, ASTParameterDef, ASTPosition,
-    ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
+    ASTEnumDef, ASTEnumVariantDef, ASTFunctionSignature, ASTModifiers, ASTParameterDef,
+    ASTPosition, ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
 pub struct BuiltinFunctions;
@@ -32,7 +32,7 @@ impl BuiltinFunctions {
             name: enum_def.name.clone(),
             param_types,
             // TODO for now here's no source fo generated functions
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         };
 
         let signature = ASTFunctionSignature {
@@ -40,6 +40,7 @@ impl BuiltinFunctions {
             generics: enum_def.type_parameters.clone(),
             parameters_types,
             return_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -63,9 +64,9 @@ impl BuiltinFunctions {
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 // TODO for now there's not a source for generated functions
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         }];
         for variant in enum_def.variants.iter() {
             let ast_parameter_def = Self::variant_lambda_parameter(&return_type, variant);
@@ -86,6 +87,7 @@ impl BuiltinFunctions {
             generics,
             parameters_types,
             return_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -110,9 +112,9 @@ impl BuiltinFunctions {
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 // TODO for now there's not a source for generated functions
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         }];
         let ast_parameter_def = Self::variant_lambda_parameter(&return_type, variant);
         parameters.push(ast_parameter_def);
@@ -125,7 +127,7 @@ impl BuiltinFunctions {
         parameters.push(ASTParameterDef {
             name: "elseLambda".to_string(),
             ast_type,
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         });
         let mut param_types = enum_def.type_parameters.clone();
 
@@ -141,6 +143,7 @@ impl BuiltinFunctions {
             generics: param_types,
             parameters_types,
             return_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -179,7 +182,7 @@ impl BuiltinFunctions {
             .map(|it| ASTParameterDef {
                 name: it.name.clone(),
                 ast_type: it.ast_type.clone(),
-                index: it.index.clone(),
+                position: it.position.clone(),
             })
             .collect();
 
@@ -196,7 +199,7 @@ impl BuiltinFunctions {
             name: struct_def.name.clone(),
             param_types: param_types.clone(),
             // TODO for now here's no source fo generated functions
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         };
 
         let signature = ASTFunctionSignature {
@@ -204,6 +207,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -250,9 +254,9 @@ impl BuiltinFunctions {
             ast_type: ASTType::Custom {
                 name: struct_def.name.clone(),
                 param_types: param_types.clone(),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         }];
 
         let mut lambda_parameters = parameters
@@ -261,7 +265,7 @@ impl BuiltinFunctions {
             .map(|(index, ast_type)| ASTParameterDef {
                 name: format!("p{index}"),
                 ast_type: ast_type.clone(),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             })
             .collect::<Vec<_>>();
 
@@ -277,6 +281,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: lambda_return_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -296,9 +301,9 @@ impl BuiltinFunctions {
                 name: struct_def.name.clone(),
                 param_types,
                 // TODO for now here's no source for generated functions
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         }];
 
         let (parameters_types, parameters_names, parameters_positions) =
@@ -309,6 +314,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: property_def.ast_type.clone(),
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -327,19 +333,19 @@ impl BuiltinFunctions {
             name: struct_def.name.clone(),
             param_types,
             // TODO for now here's no source fo generated functions
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         };
 
         let parameters = vec![
             ASTParameterDef {
                 name: "receiver".into(),
                 ast_type: ast_type.clone(),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
             ASTParameterDef {
                 name: "v".into(),
                 ast_type: property_def.ast_type.clone(),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
         ];
 
@@ -351,6 +357,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: ast_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -369,7 +376,7 @@ impl BuiltinFunctions {
             name: struct_def.name.clone(),
             param_types,
             // TODO for now here's no source fo generated functions
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         };
 
         let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -381,12 +388,12 @@ impl BuiltinFunctions {
             ASTParameterDef {
                 name: "receiver".into(),
                 ast_type: ast_type.clone(),
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
             ASTParameterDef {
                 name: "f".into(),
                 ast_type: lambda,
-                index: ASTPosition::none(),
+                position: ASTPosition::none(),
             },
         ];
 
@@ -398,6 +405,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: ast_type,
+            modifiers: ASTModifiers::public(),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -407,7 +415,7 @@ impl BuiltinFunctions {
     ) -> (Vec<ASTType>, Vec<String>, Vec<ASTPosition>) {
         parameters
             .iter()
-            .map(|it| (it.ast_type.clone(), it.name.clone(), it.index.clone()))
+            .map(|it| (it.ast_type.clone(), it.name.clone(), it.position.clone()))
             .multiunzip()
     }
 
@@ -426,7 +434,7 @@ impl BuiltinFunctions {
         ASTParameterDef {
             name: variant.name.clone(),
             ast_type,
-            index: ASTPosition::none(),
+            position: ASTPosition::none(),
         }
     }
 }

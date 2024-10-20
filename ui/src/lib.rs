@@ -10,18 +10,16 @@ use iced::{
 };
 
 use rasm_core::{
-    codegen::{
-        compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
-        val_context::EnhValContext,
-    },
+    codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
     commandline::CommandLineOptions,
     parser::ast::ASTFunctionDef,
     project::RasmProject,
-    type_check::function_type_checker::{FunctionTypeChecker, FunctionTypeCheckerResult},
+    type_check::{
+        ast_modules_container::ASTModulesContainer,
+        ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
+    },
     utils::SliceDisplay,
 };
-
-use rasm_core::codegen::enh_ast;
 
 mod module_view;
 mod project_tree;
@@ -33,13 +31,13 @@ pub struct UI {
     target: CompileTarget,
     current_function: Option<ASTFunctionDef>,
     pane_state: pane_grid::State<UIPane>,
-    enhanced_ast_module: EnhancedASTModule,
+    enhanced_ast_module: ASTModulesContainer,
     info: Option<String>,
 }
 
 pub struct SelectedModule {
     path: String,
-    type_map: FunctionTypeCheckerResult,
+    type_checker_result: ASTTypeCheckerResult,
 }
 
 #[derive(Debug, Clone)]
@@ -72,8 +70,11 @@ impl UI {
             &CommandLineOptions::default(),
         );
 
-        let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
+        let mut modules_container = ASTModulesContainer::new();
+
+        for (module, info) in modules {
+            modules_container.add(module, info.module_id(), info.module_source(), false);
+        }
 
         let main = if let Some(main) = &project.config.package.main {
             Some(
@@ -101,7 +102,7 @@ impl UI {
         }
 
         let current_module =
-            main.map(|it| Self::selected_module(&target, &project, &enhanced_ast_module, &it));
+            main.map(|it| Self::selected_module(&target, &project, &modules_container, &it));
 
         iced::application("Rasm project UI", UI::update, UI::view)
             .theme(|_ui| Theme::Dark)
@@ -117,7 +118,7 @@ impl UI {
                         current_module,
                         current_function: None,
                         pane_state,
-                        enhanced_ast_module,
+                        enhanced_ast_module: modules_container,
                         info: None,
                     },
                     Task::none(),
@@ -180,47 +181,47 @@ impl UI {
     pub(crate) fn selected_module(
         target: &CompileTarget,
         project: &RasmProject,
-        enhanced_ast_module: &EnhancedASTModule,
+        modules_container: &ASTModulesContainer,
         path: &str,
     ) -> SelectedModule {
         let start = Instant::now();
         let type_map =
             if let Some((module, _errors, info)) = project.get_module(&Path::new(path), target) {
-                let em = enhanced_ast_module.clone().fix_generics();
-
-                let function_type_checker = FunctionTypeChecker::new(&em);
-                let mut val_context = EnhValContext::new(None);
-                let mut statics = Statics::new();
+                let function_type_checker = ASTTypeChecker::new(&modules_container);
+                let mut val_context = ValContext::new(None);
+                let mut statics = ValContext::new(None);
 
                 // TODO errors
 
                 let (mut type_map, _, mut errors) = function_type_checker.get_body_type_map(
                     &mut val_context,
                     &mut statics,
-                    &enhanced_ast_module.body,
+                    &module.body,
                     None,
+                    &info.module_id(),
+                    &info.module_source(),
                 );
 
                 for function in module.functions {
-                    let eh_function = enh_ast::EnhASTFunctionDef::from_ast(
-                        info.path.clone(),
-                        info.namespace.clone(),
-                        function,
-                    );
                     let (f_result, f_errors) = function_type_checker.get_type_map(
-                        &&eh_function.fix_namespaces(&em).fix_generics(),
+                        &function, //.fix_namespaces(&em).fix_generics(),
                         &mut statics,
+                        &info.module_id(),
+                        &info.module_source(),
                     );
                     type_map.extend(f_result);
                     errors.extend(f_errors);
                 }
 
                 // TODO errors
-                println!("selected_module errors: {}", SliceDisplay(&errors));
+                if !errors.is_empty() {
+                    println!("selected_module errors");
+                    errors.iter().for_each(|it| println!("{it}"));
+                }
 
                 type_map
             } else {
-                FunctionTypeCheckerResult::new()
+                ASTTypeCheckerResult::new()
             };
 
         println!("selected_module takes {:?}", start.elapsed());
@@ -229,7 +230,7 @@ impl UI {
 
         SelectedModule {
             path: path.to_string(),
-            type_map,
+            type_checker_result: type_map,
         }
     }
 

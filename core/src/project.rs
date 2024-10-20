@@ -469,7 +469,7 @@ impl RasmProject {
                 let valid = if let ASTType::Custom {
                     name,
                     param_types: _,
-                    index: _,
+                    position: _,
                 } = &function.return_type
                 {
                     name == "Assertions"
@@ -477,7 +477,8 @@ impl RasmProject {
                     false
                 };
 
-                let index = EnhASTIndex::from_position(info.path.clone(), function.index.clone());
+                let index =
+                    EnhASTIndex::from_position(info.path.clone(), function.position.clone());
 
                 if !valid {
                     errors.push(CompilationError {
@@ -662,14 +663,14 @@ impl RasmProject {
                 Self::add_generic_error(
                     path,
                     &mut module_errors,
-                    &format!("Only main file should have a body {}", fbs.get_index()),
+                    &format!("Only main file should have a body {}", fbs.position()),
                 );
             }
         } else if let Some(fbs) = first_body_statement {
             Self::add_generic_error(
                 path,
                 &mut module_errors,
-                &format!("Only main file should have a body {}", fbs.get_index()),
+                &format!("Only main file should have a body {}", fbs.position()),
             );
         }
         Some((
