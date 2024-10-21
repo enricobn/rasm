@@ -19,14 +19,14 @@ pub struct FunctionsContainer {
 }
 
 #[derive(Clone, Debug)]
-pub enum TypeFilter {
+pub enum EnhTypeFilter {
     Exact(EnhASTType),
     Any,
-    Lambda(usize, Option<Box<TypeFilter>>),
+    Lambda(usize, Option<Box<EnhTypeFilter>>),
     NotALambda,
 }
 
-impl TypeFilter {
+impl EnhTypeFilter {
     pub fn almost_equal(
         &self,
         ast_type: &EnhASTType,
@@ -42,15 +42,15 @@ impl TypeFilter {
     }
 }
 
-impl Display for TypeFilter {
+impl Display for EnhTypeFilter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            TypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
-            TypeFilter::Any => write!(f, "Any"),
-            TypeFilter::Lambda(size, type_filter) => {
+            EnhTypeFilter::Exact(ast_type) => write!(f, "Exact({ast_type})",),
+            EnhTypeFilter::Any => write!(f, "Any"),
+            EnhTypeFilter::Lambda(size, type_filter) => {
                 write!(f, "Lambda({size}, {})", OptionDisplay(type_filter))
             }
-            TypeFilter::NotALambda => write!(f, "Not a lambda"),
+            EnhTypeFilter::NotALambda => write!(f, "Not a lambda"),
         }
     }
 }
@@ -160,7 +160,7 @@ impl FunctionsContainer {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
         filter_on_name: bool,
         index: &EnhASTIndex,
@@ -207,7 +207,7 @@ impl FunctionsContainer {
 
     fn find_call_vec_1<'a>(
         function_name: &str,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
         filter_on_name: bool,
         index: &EnhASTIndex,
@@ -271,7 +271,7 @@ impl FunctionsContainer {
     pub fn find_call_vec(
         &self,
         call: &EnhASTFunctionCall,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
         filter_only_on_name: bool,
         enhanced_astmodule: &EnhancedASTModule,
@@ -378,7 +378,7 @@ impl FunctionsContainer {
                                 .collect::<Vec<_>>(),
                             &parameter_types_filter
                                 .iter()
-                                .map(|it| TypeFilter::Exact(it.clone()))
+                                .map(|it| EnhTypeFilter::Exact(it.clone()))
                                 .collect(),
                             &mut resolved_generic_types,
                             &it.index,
@@ -416,7 +416,7 @@ impl FunctionsContainer {
 
     fn almost_same_parameters_types(
         parameter_types: Vec<&EnhASTType>,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &Vec<EnhTypeFilter>,
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
@@ -438,7 +438,7 @@ impl FunctionsContainer {
 
     fn match_parameters(
         parameter_types: Vec<&EnhASTType>,
-        parameter_types_filter: &[TypeFilter],
+        parameter_types_filter: &[EnhTypeFilter],
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
@@ -469,7 +469,7 @@ impl FunctionsContainer {
     ) -> Result<bool, TypeCheckError> {
         Self::almost_same_type_internal(
             actual_return_type,
-            &TypeFilter::Exact(expected_return_type.clone()),
+            &EnhTypeFilter::Exact(expected_return_type.clone()),
             resolved_generic_types,
             index,
             true,
@@ -479,7 +479,7 @@ impl FunctionsContainer {
 
     pub fn almost_same_type(
         parameter_type: &EnhASTType,
-        parameter_type_filter: &TypeFilter,
+        parameter_type_filter: &EnhTypeFilter,
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
@@ -495,7 +495,7 @@ impl FunctionsContainer {
     }
     fn almost_same_type_internal(
         parameter_type: &EnhASTType,
-        parameter_type_filter: &TypeFilter,
+        parameter_type_filter: &EnhTypeFilter,
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         return_type: bool,
@@ -504,8 +504,8 @@ impl FunctionsContainer {
         debug_i!("almost_same_type {parameter_type} filter {parameter_type_filter} return_type: {return_type}");
         indent!();
         let result: bool = match parameter_type_filter {
-            TypeFilter::Any => Ok::<bool, TypeCheckError>(true),
-            TypeFilter::Exact(filter_type) => {
+            EnhTypeFilter::Any => Ok::<bool, TypeCheckError>(true),
+            EnhTypeFilter::Exact(filter_type) => {
                 if filter_type == parameter_type {
                     dedent!();
                     return Ok(true);
@@ -528,7 +528,7 @@ impl FunctionsContainer {
                                         .map(|(filter_type, a)| {
                                             Self::almost_same_type_internal(
                                                 a,
-                                                &TypeFilter::Exact(filter_type.clone()),
+                                                &EnhTypeFilter::Exact(filter_type.clone()),
                                                 resolved_generic_types,
                                                 index,
                                                 return_type,
@@ -624,7 +624,7 @@ impl FunctionsContainer {
                                             .map(|(i, pt)| {
                                                 Self::almost_same_type_internal(
                                                     pt,
-                                                    &TypeFilter::Exact(
+                                                    &EnhTypeFilter::Exact(
                                                         expected_param_types
                                                             .get(i)
                                                             .unwrap()
@@ -679,7 +679,7 @@ impl FunctionsContainer {
                     },
                 }
             }
-            TypeFilter::Lambda(len, lambda_return_type_filter) => {
+            EnhTypeFilter::Lambda(len, lambda_return_type_filter) => {
                 // TODO return type
                 if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters,
@@ -688,7 +688,7 @@ impl FunctionsContainer {
                 {
                     Ok(len == &parameters.len())
                 } else if let EnhASTType::Generic(_, name) = parameter_type {
-                    if let Some(TypeFilter::Exact(lrt)) = lambda_return_type_filter.as_deref() {
+                    if let Some(EnhTypeFilter::Exact(lrt)) = lambda_return_type_filter.as_deref() {
                         if *len == 0 {
                             let lambda = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: Vec::new(),
@@ -707,7 +707,7 @@ impl FunctionsContainer {
                     Ok(false)
                 }
             }
-            TypeFilter::NotALambda => Ok(!matches!(
+            EnhTypeFilter::NotALambda => Ok(!matches!(
                 parameter_type,
                 EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })
             )),
@@ -817,8 +817,8 @@ mod tests {
     use crate::codegen::AsmOptions;
     use crate::parser::ast::{ASTModifiers, ASTValueType};
     use crate::project::{RasmConfig, RasmPackage, RasmProject};
+    use crate::type_check::functions_container::EnhTypeFilter::Exact;
     use crate::type_check::functions_container::FunctionsContainer;
-    use crate::type_check::functions_container::TypeFilter::Exact;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::utils::tests::test_namespace;
     use std::path::PathBuf;

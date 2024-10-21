@@ -13,7 +13,7 @@ use crate::debug_i;
 use crate::parser::ast;
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
-use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use crate::type_check::functions_container::{FunctionsContainer, EnhTypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 
 use super::enh_ast::EhModuleInfo;
@@ -163,7 +163,7 @@ impl EnhancedASTModule {
         &self,
         function_name: &str,
         original_function_name: &str,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
         index: &EnhASTIndex,
     ) -> Result<Option<&EnhASTFunctionDef>, TypeCheckError> {
@@ -181,7 +181,7 @@ impl EnhancedASTModule {
     pub fn find_call_vec(
         &self,
         call: &EnhASTFunctionCall,
-        parameter_types_filter: &Vec<TypeFilter>,
+        parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
     ) -> Result<Vec<&EnhASTFunctionDef>, TypeCheckError> {
         debug_i!("find call vec for module");
@@ -317,7 +317,7 @@ impl EnhancedASTModule {
                     it.index != function.index
                         && it.parameters.len() == function.parameters.len()
                         && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
-                            TypeFilter::Exact(p1.ast_type.clone())
+                            EnhTypeFilter::Exact(p1.ast_type.clone())
                                 .almost_equal(&p2.ast_type, self)
                                 .unwrap()
                         })

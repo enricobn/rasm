@@ -32,13 +32,13 @@ use crate::codegen::enh_ast::{
     EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement, EnhASTType,
     EnhBuiltinTypeKind,
 };
+use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::DummyTypeDefProvider;
-use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::EnhValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::type_check::functions_container::{FunctionsContainer, TypeFilter};
+use crate::type_check::functions_container::{EnhTypeFilter, FunctionsContainer};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
 use crate::type_check::typed_ast::DefaultFunction;
@@ -599,7 +599,7 @@ impl TypeCheck {
             })
             .filter(|it| {
                 if let Some(ref ft) = first_type {
-                    match TypeFilter::Exact(ft.clone())
+                    match EnhTypeFilter::Exact(ft.clone())
                         .almost_equal(&it.parameters.get(0).unwrap().ast_type, module)
                     {
                         Ok(b) => b,
@@ -719,7 +719,7 @@ impl TypeCheck {
             }
 
             if let Some(rt) = expected_return_type {
-                if !TypeFilter::Exact(function.return_type.clone())
+                if !EnhTypeFilter::Exact(function.return_type.clone())
                     .almost_equal(rt, module)
                     .map_err(|it| {
                         dedent!();
@@ -900,7 +900,7 @@ impl TypeCheck {
                 if let Some(rt) = expected_return_type {
                     //let rt = substitute(rt, &resolved_generic_types).unwrap_or(rt.clone());
                     valid = valid
-                        && TypeFilter::Exact(rt.clone())
+                        && EnhTypeFilter::Exact(rt.clone())
                             .almost_equal(&function.return_type, module)
                             .unwrap_or(false);
                 }
@@ -1002,7 +1002,10 @@ impl TypeCheck {
         }
     }
 
-    fn get_first_type(call: &EnhASTFunctionCall, val_context: &EnhValContext) -> Option<EnhASTType> {
+    fn get_first_type(
+        call: &EnhASTFunctionCall,
+        val_context: &EnhValContext,
+    ) -> Option<EnhASTType> {
         if call.parameters.len() > 0 {
             if let Some(p) = call.parameters.get(0) {
                 match p {
@@ -1070,7 +1073,7 @@ impl TypeCheck {
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<(TypeFilter, EnhASTExpression), TypeCheckError> {
+    ) -> Result<(EnhTypeFilter, EnhASTExpression), TypeCheckError> {
         let e = self.transform_expression(
             module,
             expr,
@@ -1093,7 +1096,7 @@ impl TypeCheck {
             new_functions,
             strict,
         )?;
-        if let TypeFilter::Exact(et) = &t {
+        if let EnhTypeFilter::Exact(et) = &t {
             if !et.is_generic() {
                 if let Some(pt) = param_type {
                     resolved_generic_types
@@ -1107,8 +1110,8 @@ impl TypeCheck {
                         })?;
                 }
             }
-        } else if let TypeFilter::Lambda(_, Some(lrt)) = &t {
-            if let TypeFilter::Exact(et) = lrt.deref() {
+        } else if let EnhTypeFilter::Lambda(_, Some(lrt)) = &t {
+            if let EnhTypeFilter::Exact(et) = lrt.deref() {
                 if !et.is_generic() {
                     if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                         parameters: _,
@@ -1369,7 +1372,7 @@ impl TypeCheck {
                         strict,
                     )?;
 
-                    if let TypeFilter::Exact(ast_type) = type_of_expr {
+                    if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
                         if *is_cons {
                             statics.add_const(name.clone(), ast_type);
                         } else {
@@ -1414,7 +1417,7 @@ impl TypeCheck {
         namespace: &EnhASTNameSpace,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<TypeFilter, TypeCheckError> {
+    ) -> Result<EnhTypeFilter, TypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
             OptionDisplay(&expected_type)
@@ -1422,7 +1425,7 @@ impl TypeCheck {
         indent!();
         let result = match typed_expression {
             EnhASTExpression::StringLiteral(_, _) => {
-                TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
+                EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
             }
             EnhASTExpression::ASTFunctionCallExpression(call) => {
                 if val_context.is_lambda(&call.function_name) {
@@ -1438,7 +1441,7 @@ impl TypeCheck {
                         }) = lambda
                         {
                             dedent!();
-                            return Ok(TypeFilter::Exact(return_type.deref().clone()));
+                            return Ok(EnhTypeFilter::Exact(return_type.deref().clone()));
                         } else {
                             dedent!();
                             return Err(TypeCheckError::new(
@@ -1456,14 +1459,14 @@ impl TypeCheck {
                     .or(self.new_functions.get(&call.original_function_name))
                 {
                     dedent!();
-                    return Ok(TypeFilter::Exact(f.return_type.clone()));
+                    return Ok(EnhTypeFilter::Exact(f.return_type.clone()));
                 } else {
                     if let Some((f, _)) = new_functions
                         .iter()
                         .find(|(f, _)| f.name == call.function_name)
                     {
                         dedent!();
-                        return Ok(TypeFilter::Exact(f.return_type.clone()));
+                        return Ok(EnhTypeFilter::Exact(f.return_type.clone()));
                     }
                 }
 
@@ -1487,18 +1490,18 @@ impl TypeCheck {
                             found_function.return_type
                         };
 
-                        TypeFilter::Exact(return_ast_type)
+                        EnhTypeFilter::Exact(return_ast_type)
                     }
                     Err(e) => {
                         debug_i!("{e}");
-                        TypeFilter::Any
+                        EnhTypeFilter::Any
                     }
                 }
             }
             EnhASTExpression::ValueRef(name, index) => match val_context.get(name) {
                 None => {
                     if let Some(c) = statics.get_const(name) {
-                        TypeFilter::Exact(c.ast_type.clone())
+                        EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
                         dedent!();
                         return Err(TypeCheckError::new_with_kind(
@@ -1509,41 +1512,41 @@ impl TypeCheck {
                         ));
                     }
                 }
-                Some(EnhValKind::LetRef(_, t, _index)) => TypeFilter::Exact(t.clone()),
+                Some(EnhValKind::LetRef(_, t, _index)) => EnhTypeFilter::Exact(t.clone()),
                 Some(EnhValKind::ParameterRef(_, par)) => {
                     // TODO I must convert the type
-                    TypeFilter::Exact(par.ast_type.clone())
+                    EnhTypeFilter::Exact(par.ast_type.clone())
                 }
             },
             EnhASTExpression::Value(value_type, _) => match value_type {
                 ASTValueType::Boolean(_) => {
-                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool))
+                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool))
                 }
                 ASTValueType::I32(_) => {
-                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
+                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
                 }
                 ASTValueType::Char(_) => {
-                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Char))
+                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Char))
                 }
                 ASTValueType::F32(_) => {
-                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::F32))
+                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::F32))
                 }
             },
             EnhASTExpression::Lambda(def) => {
                 if def.body.is_empty() {
                     dedent!();
-                    return Ok(TypeFilter::Lambda(
+                    return Ok(EnhTypeFilter::Lambda(
                         def.parameter_names.len(),
-                        Some(Box::new(TypeFilter::Exact(EnhASTType::Unit))),
+                        Some(Box::new(EnhTypeFilter::Exact(EnhASTType::Unit))),
                     ));
                 }
                 // I cannot go deep in determining the type
                 if expected_type.is_none() {
                     dedent!();
-                    return Ok(TypeFilter::Lambda(def.parameter_names.len(), None));
+                    return Ok(EnhTypeFilter::Lambda(def.parameter_names.len(), None));
                 }
 
-                let mut return_type = Some(Box::new(TypeFilter::Exact(EnhASTType::Unit)));
+                let mut return_type = Some(Box::new(EnhTypeFilter::Exact(EnhASTType::Unit)));
                 let mut lambda_val_context = EnhValContext::new(Some(val_context));
 
                 self.add_lambda_parameters_to_val_context(
@@ -1565,7 +1568,7 @@ impl TypeCheck {
                             strict,
                         )?;
 
-                        if let TypeFilter::Exact(ast_type) = type_of_expr {
+                        if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
                             if *is_cons {
                                 dedent!();
                                 return Err(TypeCheckError::new(
@@ -1582,7 +1585,7 @@ impl TypeCheck {
                             }
                         } else {
                             dedent!();
-                            return Ok(TypeFilter::Lambda(def.parameter_names.len(), None));
+                            return Ok(EnhTypeFilter::Lambda(def.parameter_names.len(), None));
                         }
                     }
 
@@ -1603,19 +1606,19 @@ impl TypeCheck {
                 }
                 debug_i!("lambda return type {}", OptionDisplay(&return_type));
                 if def.parameter_names.is_empty() {
-                    if let Some(TypeFilter::Exact(exact_return_type)) = return_type.as_deref() {
-                        TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                    if let Some(EnhTypeFilter::Exact(exact_return_type)) = return_type.as_deref() {
+                        EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                             parameters: Vec::new(),
                             return_type: Box::new(exact_return_type.clone()),
                         }))
                     } else {
-                        TypeFilter::Lambda(def.parameter_names.len(), return_type)
+                        EnhTypeFilter::Lambda(def.parameter_names.len(), return_type)
                     }
                 } else {
-                    TypeFilter::Lambda(def.parameter_names.len(), return_type)
+                    EnhTypeFilter::Lambda(def.parameter_names.len(), return_type)
                 }
             }
-            EnhASTExpression::Any(t) => TypeFilter::Exact(t.clone()),
+            EnhASTExpression::Any(t) => EnhTypeFilter::Exact(t.clone()),
         };
 
         debug_i!("found type {result}");

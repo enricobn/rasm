@@ -20,7 +20,7 @@ use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
 use crate::parser::ast::{ASTModifiers, ASTValueType};
-use crate::type_check::functions_container::TypeFilter;
+use crate::type_check::functions_container::EnhTypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{get_new_native_call, substitute, verify};
@@ -927,7 +927,7 @@ impl<'a> ConvContext<'a> {
             } => ast_type_to_ast_typed_type_map
                 .iter()
                 .find(|(type_def_ast_type, _ast_typed_type)| {
-                    TypeFilter::Exact(type_def_ast_type.clone().clone())
+                    EnhTypeFilter::Exact(type_def_ast_type.clone().clone())
                         .almost_equal(ast_type, self.module)
                         .unwrap_or(false)
                 })
@@ -1070,7 +1070,7 @@ pub fn convert_to_typed_module(
                         let filters = it
                             .param_types
                             .iter()
-                            .map(|it| TypeFilter::Exact(it.clone()))
+                            .map(|it| EnhTypeFilter::Exact(it.clone()))
                             .collect::<Vec<_>>();
                         if let Some(new_function_def) = module
                             .functions_by_name

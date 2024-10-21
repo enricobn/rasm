@@ -1,5 +1,5 @@
 use linked_hash_map::LinkedHashMap;
-use rasm_core::{codegen::enh_ast::EnhASTIndex, type_check::functions_container::TypeFilter};
+use rasm_core::{codegen::enh_ast::EnhASTIndex, type_check::functions_container::EnhTypeFilter};
 
 pub struct ReferenceContext {
     pub value_to_address: LinkedHashMap<String, ReferenceKind>,
@@ -23,12 +23,12 @@ impl ReferenceContext {
 
 #[derive(Clone)]
 pub struct ReferenceKind {
-    pub filter: TypeFilter,
+    pub filter: EnhTypeFilter,
     pub index: EnhASTIndex,
 }
 
 impl ReferenceContext {
-    pub fn add(&mut self, key: String, index: EnhASTIndex, filter: TypeFilter) {
+    pub fn add(&mut self, key: String, index: EnhASTIndex, filter: EnhTypeFilter) {
         self.value_to_address
             .insert(key, ReferenceKind { index, filter });
     }

@@ -12,9 +12,7 @@ use crate::{
     utils::{OptionDisplay, SliceDisplay},
 };
 
-use super::ast_modules_container::{
-    ASTModulesContainer, FunctionTypeFilter, ModuleId, ModuleSource,
-};
+use super::ast_modules_container::{ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleSource};
 
 #[derive(Debug, Clone, PartialEq)]
 struct ResolvedGenericTypes {
@@ -96,7 +94,7 @@ impl Display for ASTTypeCheckError {
 }
 
 pub struct ASTTypeCheckerResult {
-    map: HashMap<ASTIndex, FunctionTypeFilter>,
+    map: HashMap<ASTIndex, ASTTypeFilter>,
 }
 
 impl ASTTypeCheckerResult {
@@ -106,11 +104,11 @@ impl ASTTypeCheckerResult {
         }
     }
 
-    pub fn insert(&mut self, index: ASTIndex, filter: FunctionTypeFilter) {
+    pub fn insert(&mut self, index: ASTIndex, filter: ASTTypeFilter) {
         self.map.insert(index, filter);
     }
 
-    pub fn get(&self, index: &ASTIndex) -> Option<&FunctionTypeFilter> {
+    pub fn get(&self, index: &ASTIndex) -> Option<&ASTTypeFilter> {
         self.map.get(index)
     }
 
@@ -186,7 +184,7 @@ impl<'a> ASTTypeChecker<'a> {
         module_source: &ModuleSource,
     ) -> (
         ASTTypeCheckerResult,
-        Option<FunctionTypeFilter>,
+        Option<ASTTypeFilter>,
         Vec<ASTTypeCheckError>,
     ) {
         let mut errors = Vec::new();
@@ -276,7 +274,7 @@ impl<'a> ASTTypeChecker<'a> {
                     let index =
                         ASTIndex::new(module_id.clone(), module_source.clone(), index.clone());
                     if let Some(filter) = result.get(&e_index) {
-                        if let FunctionTypeFilter::Exact(ast_type, module_id) = filter {
+                        if let ASTTypeFilter::Exact(ast_type, module_id) = filter {
                             if *is_const {
                                 statics.insert_let(key.clone(), ast_type.clone(), &index);
                             } else {
@@ -310,7 +308,7 @@ impl<'a> ASTTypeChecker<'a> {
             ASTExpression::StringLiteral(_, _) => {
                 result.insert(
                     index.clone(),
-                    FunctionTypeFilter::Exact(
+                    ASTTypeFilter::Exact(
                         ASTType::Builtin(BuiltinTypeKind::String),
                         module_id.clone(),
                     ),
@@ -332,19 +330,19 @@ impl<'a> ASTTypeChecker<'a> {
                 if let Some(kind) = val_context.get(name) {
                     result.insert(
                         index.clone(),
-                        FunctionTypeFilter::Exact(kind.ast_type(), module_id.clone()),
+                        ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
                     );
                 } else if let Some(entry) = statics.get(name) {
                     result.insert(
                         index.clone(),
-                        FunctionTypeFilter::Exact(entry.ast_type(), module_id.clone()),
+                        ASTTypeFilter::Exact(entry.ast_type(), module_id.clone()),
                     );
                 }
             }
             ASTExpression::Value(value_type, _) => {
                 result.insert(
                     index.clone(),
-                    FunctionTypeFilter::Exact(value_type.to_type(), module_id.clone()),
+                    ASTTypeFilter::Exact(value_type.to_type(), module_id.clone()),
                 );
             }
             ASTExpression::Lambda(lambda) => {
@@ -378,7 +376,7 @@ impl<'a> ASTTypeChecker<'a> {
                         } else {
                             result.insert(
                                 par_index.clone(),
-                                FunctionTypeFilter::Exact(ast_type.clone(), module_id.clone()),
+                                ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
                             );
                         }
                     }
@@ -395,10 +393,10 @@ impl<'a> ASTTypeChecker<'a> {
                     result.extend(body_result);
                     errors.extend(body_errors);
 
-                    if let Some(FunctionTypeFilter::Exact(brt, position)) = body_return_type {
+                    if let Some(ASTTypeFilter::Exact(brt, position)) = body_return_type {
                         result.insert(
                             index.clone(),
-                            FunctionTypeFilter::Exact(
+                            ASTTypeFilter::Exact(
                                 ASTType::Builtin(BuiltinTypeKind::Lambda {
                                     parameters: parameters.clone(),
                                     return_type: Box::new(brt),
@@ -409,7 +407,7 @@ impl<'a> ASTTypeChecker<'a> {
                     } else {
                         result.insert(
                             index.clone(),
-                            FunctionTypeFilter::Exact(
+                            ASTTypeFilter::Exact(
                                 ASTType::Builtin(BuiltinTypeKind::Lambda {
                                     parameters: parameters.clone(),
                                     return_type: return_type.clone(),
@@ -421,7 +419,7 @@ impl<'a> ASTTypeChecker<'a> {
                 } else {
                     result.insert(
                         index.clone(),
-                        FunctionTypeFilter::Lambda(lambda.parameter_names.len(), None),
+                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None),
                     );
                 }
             }
@@ -432,7 +430,7 @@ impl<'a> ASTTypeChecker<'a> {
 
         if let Some(eet) = expected_expression_type {
             if eet.is_generic() {
-                if let Some(FunctionTypeFilter::Exact(et, e_module_id)) = result.get(&index) {
+                if let Some(ASTTypeFilter::Exact(et, e_module_id)) = result.get(&index) {
                     if et.is_generic() {
                         if let Ok(rgt) = Self::resolve_generic_types_from_effective_type(et, eet) {
                             if let Some(rt) = Self::substitute(et, &rgt) {
@@ -440,10 +438,7 @@ impl<'a> ASTTypeChecker<'a> {
                                     "resolved generic type from expected: expected {eet}, real {et}, result {rt}\n: {}",
                                     expr.position()
                                 );
-                                result.insert(
-                                    index,
-                                    FunctionTypeFilter::Exact(rt, module_id.clone()),
-                                );
+                                result.insert(index, ASTTypeFilter::Exact(rt, module_id.clone()));
                             }
                         }
                     }
@@ -489,7 +484,7 @@ impl<'a> ASTTypeChecker<'a> {
             if let Some(ast_type) = first_try_of_map.get(&e_index) {
                 parameter_types_filters.push(ast_type.clone());
             } else {
-                parameter_types_filters.push(FunctionTypeFilter::Any);
+                parameter_types_filters.push(ASTTypeFilter::Any);
             }
         }
 
@@ -608,7 +603,7 @@ impl<'a> ASTTypeChecker<'a> {
     fn process_function_signature(
         &self,
         function_signature: &ASTFunctionSignature,
-        parameter_types_filters: &Vec<FunctionTypeFilter>,
+        parameter_types_filters: &Vec<ASTTypeFilter>,
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
         statics: &mut ValContext,
@@ -719,7 +714,7 @@ impl<'a> ASTTypeChecker<'a> {
 
         result.insert(
             index.clone(),
-            FunctionTypeFilter::Exact(return_type, call_module_id.clone()),
+            ASTTypeFilter::Exact(return_type, call_module_id.clone()),
         );
 
         (result, errors)
@@ -729,11 +724,11 @@ impl<'a> ASTTypeChecker<'a> {
         &self,
         index: &ASTIndex,
         generic_type: &ASTType,
-        effective_filter: &FunctionTypeFilter,
+        effective_filter: &ASTTypeFilter,
         resolved_generic_types: &mut ResolvedGenericTypes,
     ) -> Vec<ASTTypeCheckError> {
         let mut errors = Vec::new();
-        if let FunctionTypeFilter::Exact(effective_type, t_module_id) = effective_filter {
+        if let ASTTypeFilter::Exact(effective_type, t_module_id) = effective_filter {
             //if !effective_type.is_generic() {
             match Self::resolve_generic_types_from_effective_type(generic_type, effective_type) {
                 Ok(rgt) => {

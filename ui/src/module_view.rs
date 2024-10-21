@@ -13,13 +13,10 @@ use iced::{
     Background, Color, Element, Length, Padding, Theme,
 };
 use rasm_core::{
-    codegen::{
-        enh_ast::{EhModuleInfo, EnhASTModule},
-        val_context::ASTIndex,
-    },
+    codegen::{enh_ast::EhModuleInfo, val_context::ASTIndex},
     lexer::{tokens::TokenKind, Lexer},
     parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind},
-    type_check::{ast_modules_container::FunctionTypeFilter, functions_container::TypeFilter},
+    type_check::ast_modules_container::ASTTypeFilter,
 };
 
 use crate::{Message, SelectedModule, UI};
@@ -90,14 +87,15 @@ impl UI {
                                 let content: Element<'a, Message> = if let Some(type_filter) =
                                     selected_module.type_checker_result.get(&token_index)
                                 {
-                                    let exact_and_not_generic =
-                                        if let FunctionTypeFilter::Exact(ast_type, _info) =
-                                            type_filter
-                                        {
-                                            !ast_type.is_generic()
-                                        } else {
-                                            false
-                                        };
+                                    let exact_and_not_generic = if let ASTTypeFilter::Exact(
+                                        ast_type,
+                                        _info,
+                                    ) = type_filter
+                                    {
+                                        !ast_type.is_generic()
+                                    } else {
+                                        false
+                                    };
 
                                     Self::text_button(s)
                                         .style(move |theme, _status| {

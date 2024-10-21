@@ -17,7 +17,7 @@ use rasm_core::codegen::enh_val_context::EnhValContext;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::project::RasmProject;
-use rasm_core::type_check::functions_container::TypeFilter;
+use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 
@@ -219,7 +219,7 @@ impl ReferenceFinder {
         namespace: &EnhASTNameSpace,
         prefix: &Option<String>,
     ) -> Result<CompletionResult, io::Error> {
-        let filter = TypeFilter::Exact(ast_type.clone());
+        let filter = EnhTypeFilter::Exact(ast_type.clone());
         let mut items = Vec::new();
         for function in enhanched_module.functions() {
             if !function.modifiers.public && &function.namespace != namespace {
@@ -508,7 +508,7 @@ impl ReferenceFinder {
             reference_context.add(
                 par.name.clone(),
                 par.ast_index.clone(),
-                TypeFilter::Exact(par.ast_type.clone()),
+                EnhTypeFilter::Exact(par.ast_type.clone()),
             );
             val_context
                 .insert_par(par.name.clone(), par.clone())
@@ -654,7 +654,7 @@ impl ReferenceFinder {
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         type_check: &mut TypeCheck,
-    ) -> Result<TypeFilter, TypeCheckError> {
+    ) -> Result<EnhTypeFilter, TypeCheckError> {
         let mut new_functions = Vec::new();
         type_check.type_of_expression(
             enhanced_ast_module,
@@ -717,7 +717,7 @@ impl ReferenceFinder {
                 )];
 
                 if *is_const {
-                    if let TypeFilter::Exact(ref ast_type) = filter {
+                    if let EnhTypeFilter::Exact(ref ast_type) = filter {
                         statics.add_const(name.clone(), ast_type.clone());
                     } else {
                         statics.add_const(
@@ -726,7 +726,7 @@ impl ReferenceFinder {
                         );
                     }
                     reference_static_context.add(name.clone(), index.clone(), filter);
-                } else if let TypeFilter::Exact(ref ast_type) = filter {
+                } else if let EnhTypeFilter::Exact(ref ast_type) = filter {
                     val_context
                         .insert_let(name.clone(), ast_type.clone(), index)
                         .map_err(|err| {
@@ -846,7 +846,7 @@ impl ReferenceFinder {
             .or_else(|| reference_static_context.get(name))
         {
             let ast_type = match &v.filter {
-                TypeFilter::Exact(ast_type) => Some(ast_type.clone()),
+                EnhTypeFilter::Exact(ast_type) => Some(ast_type.clone()),
                 _ => None,
             };
 
@@ -901,7 +901,7 @@ impl ReferenceFinder {
                     lambda_reference_context.add(
                         par_name.clone(),
                         par_index.clone(),
-                        TypeFilter::Exact(par_type.clone()),
+                        EnhTypeFilter::Exact(par_type.clone()),
                     );
                     lambda_result.push(SelectableItem::new(
                         par_index.mv_left(par_name.len()),
@@ -929,7 +929,7 @@ impl ReferenceFinder {
                         },
                     )
                     .map_err(|err| TypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
-                lambda_reference_context.add(name.clone(), index.clone(), TypeFilter::Any);
+                lambda_reference_context.add(name.clone(), index.clone(), EnhTypeFilter::Any);
             }
             None
         };

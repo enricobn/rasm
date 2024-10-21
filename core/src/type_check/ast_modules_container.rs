@@ -149,7 +149,7 @@ impl ASTModulesContainer {
     pub fn find_call_vec(
         &self,
         function_to_call: &str,
-        parameter_types_filter: &Vec<FunctionTypeFilter>,
+        parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
         function_call_module_id: &ModuleId,
     ) -> Vec<&ASTFunctionSignatureEntry> {
@@ -183,11 +183,11 @@ impl ASTModulesContainer {
                     .collect::<Vec<_>>();
                 let all_filters_are_not_generic =
                     parameter_types_filter.iter().all(|it| match it {
-                        FunctionTypeFilter::Exact(ast_type, _) => {
+                        ASTTypeFilter::Exact(ast_type, _) => {
                             !matches!(ast_type, ASTType::Generic(..))
                         }
-                        FunctionTypeFilter::Any => false,
-                        FunctionTypeFilter::Lambda(..) => true,
+                        ASTTypeFilter::Any => false,
+                        ASTTypeFilter::Lambda(..) => true,
                     });
                 if functions_with_all_non_generic.len() == 1 && all_filters_are_not_generic {
                     functions_with_all_non_generic
@@ -264,25 +264,25 @@ impl ASTModulesContainer {
 }
 
 #[derive(Clone)]
-pub enum FunctionTypeFilter {
+pub enum ASTTypeFilter {
     Exact(ASTType, ModuleId),
     Any,
-    Lambda(usize, Option<Box<FunctionTypeFilter>>),
+    Lambda(usize, Option<Box<ASTTypeFilter>>),
 }
 
-impl Display for FunctionTypeFilter {
+impl Display for ASTTypeFilter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FunctionTypeFilter::Exact(asttype, _) => write!(f, "Exact({asttype})"),
-            FunctionTypeFilter::Any => f.write_str("Any"),
-            FunctionTypeFilter::Lambda(n, function_type_filter) => {
+            ASTTypeFilter::Exact(asttype, _) => write!(f, "Exact({asttype})"),
+            ASTTypeFilter::Any => f.write_str("Any"),
+            ASTTypeFilter::Lambda(n, function_type_filter) => {
                 write!(f, "Lambda({n}, {})", OptionDisplay(&function_type_filter))
             }
         }
     }
 }
 
-impl FunctionTypeFilter {
+impl ASTTypeFilter {
     pub fn is_compatible(
         &self,
         ast_type: &ASTType,
@@ -290,11 +290,11 @@ impl FunctionTypeFilter {
         container: &ASTModulesContainer,
     ) -> bool {
         match self {
-            FunctionTypeFilter::Exact(f_ast_type, f_module_id) => {
+            ASTTypeFilter::Exact(f_ast_type, f_module_id) => {
                 container.is_equals(ast_type, module_id, f_ast_type, f_module_id)
             }
-            FunctionTypeFilter::Any => true,
-            FunctionTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
+            ASTTypeFilter::Any => true,
+            ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
                 ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
                     crate::parser::ast::BuiltinTypeKind::Lambda {
                         parameters,
@@ -331,7 +331,7 @@ mod tests {
         project::RasmProject,
     };
 
-    use super::{ASTModulesContainer, FunctionTypeFilter};
+    use super::{ASTModulesContainer, ASTTypeFilter};
 
     #[test]
     pub fn test_add() {
@@ -408,12 +408,12 @@ mod tests {
         container
     }
 
-    fn exact_builtin(kind: BuiltinTypeKind) -> FunctionTypeFilter {
-        FunctionTypeFilter::Exact(ASTType::Builtin(kind), String::new())
+    fn exact_builtin(kind: BuiltinTypeKind) -> ASTTypeFilter {
+        ASTTypeFilter::Exact(ASTType::Builtin(kind), String::new())
     }
 
-    fn exact_custom(name: &str, param_types: Vec<ASTType>) -> FunctionTypeFilter {
-        FunctionTypeFilter::Exact(
+    fn exact_custom(name: &str, param_types: Vec<ASTType>) -> ASTTypeFilter {
+        ASTTypeFilter::Exact(
             ASTType::Custom {
                 name: name.to_owned(),
                 param_types,

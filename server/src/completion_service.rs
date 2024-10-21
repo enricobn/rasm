@@ -29,7 +29,7 @@ use rasm_core::codegen::enh_val_context::TypedValContext;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
-use rasm_core::type_check::functions_container::TypeFilter;
+use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
@@ -212,7 +212,7 @@ impl CompletionService {
                     .iter()
                     .filter(|it| {
                         !it.parameters.is_empty()
-                            && TypeFilter::Exact(it.parameters.get(0).unwrap().ast_type.clone())
+                            && EnhTypeFilter::Exact(it.parameters.get(0).unwrap().ast_type.clone())
                                 .almost_equal(
                                     &self
                                         .typed_module

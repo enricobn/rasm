@@ -16,12 +16,12 @@ use crate::{
 };
 
 use super::{
-    functions_container::TypeFilter, resolve_generic_types_from_effective_type,
+    functions_container::EnhTypeFilter, resolve_generic_types_from_effective_type,
     resolved_generic_types::ResolvedGenericTypes, substitute,
 };
 
 pub struct FunctionTypeCheckerResult {
-    map: HashMap<EnhASTIndex, TypeFilter>,
+    map: HashMap<EnhASTIndex, EnhTypeFilter>,
 }
 
 impl FunctionTypeCheckerResult {
@@ -31,11 +31,11 @@ impl FunctionTypeCheckerResult {
         }
     }
 
-    pub fn insert(&mut self, index: EnhASTIndex, filter: TypeFilter) {
+    pub fn insert(&mut self, index: EnhASTIndex, filter: EnhTypeFilter) {
         self.map.insert(index, filter);
     }
 
-    pub fn get(&self, index: &EnhASTIndex) -> Option<&TypeFilter> {
+    pub fn get(&self, index: &EnhASTIndex) -> Option<&EnhTypeFilter> {
         self.map.get(index)
     }
 
@@ -102,7 +102,7 @@ impl<'a> FunctionTypeChecker<'a> {
         expected_last_statement_type: Option<&EnhASTType>,
     ) -> (
         FunctionTypeCheckerResult,
-        Option<TypeFilter>,
+        Option<EnhTypeFilter>,
         Vec<TypeCheckError>,
     ) {
         let mut errors = Vec::new();
@@ -150,7 +150,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     errors.extend(e_errors);
 
                     if let Some(filter) = result.get(&e.get_index()) {
-                        if let TypeFilter::Exact(ast_type) = filter {
+                        if let EnhTypeFilter::Exact(ast_type) = filter {
                             if *is_const {
                                 statics.add_const(key.clone(), ast_type.clone());
                             } else {
@@ -182,7 +182,7 @@ impl<'a> FunctionTypeChecker<'a> {
             EnhASTExpression::StringLiteral(_, index) => {
                 result.insert(
                     index.clone(),
-                    TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
+                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
                 );
             }
             EnhASTExpression::ASTFunctionCallExpression(call) => {
@@ -193,13 +193,13 @@ impl<'a> FunctionTypeChecker<'a> {
             }
             EnhASTExpression::ValueRef(name, index) => {
                 if let Some(kind) = val_context.get(name) {
-                    result.insert(index.clone(), TypeFilter::Exact(kind.ast_type()));
+                    result.insert(index.clone(), EnhTypeFilter::Exact(kind.ast_type()));
                 } else if let Some(entry) = statics.get_const(name) {
-                    result.insert(index.clone(), TypeFilter::Exact(entry.ast_type.clone()));
+                    result.insert(index.clone(), EnhTypeFilter::Exact(entry.ast_type.clone()));
                 }
             }
             EnhASTExpression::Value(value_type, index) => {
-                result.insert(index.clone(), TypeFilter::Exact(value_type.to_enh_type()));
+                result.insert(index.clone(), EnhTypeFilter::Exact(value_type.to_enh_type()));
             }
             EnhASTExpression::Lambda(lambda) => {
                 if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
@@ -223,7 +223,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         ) {
                             errors.push(TypeCheckError::new(lambda.index.clone(), e, Vec::new()));
                         } else {
-                            result.insert(index.clone(), TypeFilter::Exact(ast_type.clone()));
+                            result.insert(index.clone(), EnhTypeFilter::Exact(ast_type.clone()));
                         }
                     }
 
@@ -237,10 +237,10 @@ impl<'a> FunctionTypeChecker<'a> {
                     result.extend(body_result);
                     errors.extend(body_errors);
 
-                    if let Some(TypeFilter::Exact(brt)) = body_return_type {
+                    if let Some(EnhTypeFilter::Exact(brt)) = body_return_type {
                         result.insert(
                             lambda.index.clone(),
-                            TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                            EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(brt),
                             })),
@@ -248,7 +248,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     } else {
                         result.insert(
                             lambda.index.clone(),
-                            TypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                            EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                                 parameters: parameters.clone(),
                                 return_type: return_type.clone(),
                             })),
@@ -257,7 +257,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 } else {
                     result.insert(
                         lambda.index.clone(),
-                        TypeFilter::Lambda(lambda.parameter_names.len(), None),
+                        EnhTypeFilter::Lambda(lambda.parameter_names.len(), None),
                     );
                 }
             }
@@ -269,7 +269,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
         if let Some(eet) = expected_expression_type {
             if eet.is_generic() {
-                if let Some(TypeFilter::Exact(et)) = result.get(&expr.get_index()) {
+                if let Some(EnhTypeFilter::Exact(et)) = result.get(&expr.get_index()) {
                     if et.is_generic() {
                         if let Ok(rgt) = resolve_generic_types_from_effective_type(et, eet) {
                             if let Some(rt) = substitute(et, &rgt) {
@@ -277,7 +277,7 @@ impl<'a> FunctionTypeChecker<'a> {
                                     "resolved generic type from expected: expected {eet}, real {et}, result {rt}\n: {}",
                                     expr.get_index()
                                 );
-                                result.insert(expr.get_index(), TypeFilter::Exact(rt));
+                                result.insert(expr.get_index(), EnhTypeFilter::Exact(rt));
                             }
                         }
                     }
@@ -314,7 +314,7 @@ impl<'a> FunctionTypeChecker<'a> {
             if let Some(ast_type) = first_try_of_map.get(&e.get_index()) {
                 parameter_types_filters.push(ast_type.clone());
             } else {
-                parameter_types_filters.push(TypeFilter::Any);
+                parameter_types_filters.push(EnhTypeFilter::Any);
             }
         }
 
@@ -420,7 +420,7 @@ impl<'a> FunctionTypeChecker<'a> {
     fn process_function_signature(
         &self,
         function_signature: &EnhASTFunctionSignature,
-        parameter_types_filters: &Vec<TypeFilter>,
+        parameter_types_filters: &Vec<EnhTypeFilter>,
         call: &EnhASTFunctionCall,
         val_context: &mut EnhValContext,
         statics: &mut Statics,
@@ -514,7 +514,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 }
         */
 
-        result.insert(call.index.clone(), TypeFilter::Exact(return_type));
+        result.insert(call.index.clone(), EnhTypeFilter::Exact(return_type));
 
         (result, errors)
     }
@@ -523,11 +523,11 @@ impl<'a> FunctionTypeChecker<'a> {
         &self,
         index: EnhASTIndex,
         generic_type: &EnhASTType,
-        effective_filter: &TypeFilter,
+        effective_filter: &EnhTypeFilter,
         resolved_generic_types: &mut ResolvedGenericTypes,
     ) -> Vec<TypeCheckError> {
         let mut errors = Vec::new();
-        if let TypeFilter::Exact(effective_type) = effective_filter {
+        if let EnhTypeFilter::Exact(effective_type) = effective_filter {
             //if !effective_type.is_generic() {
             match resolve_generic_types_from_effective_type(generic_type, effective_type) {
                 Ok(rgt) => {
