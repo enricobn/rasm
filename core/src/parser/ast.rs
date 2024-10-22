@@ -222,7 +222,12 @@ pub enum BuiltinTypeKind {
 #[derive(Debug, Clone, Eq)]
 pub enum ASTType {
     Builtin(BuiltinTypeKind),
-    Generic(ASTPosition, String),
+    Generic(
+        #[derivative(PartialEq = "ignore")]
+        #[derivative(Hash = "ignore")]
+        ASTPosition,
+        String,
+    ),
     Custom {
         name: String,
         param_types: Vec<ASTType>,

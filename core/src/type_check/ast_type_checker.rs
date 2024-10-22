@@ -41,7 +41,7 @@ impl ResolvedGenericTypes {
     pub fn extend(&mut self, other: Self) -> Result<(), String> {
         for (key, new_type) in other.map.into_iter() {
             if let Some(prev_type) = self.get(&key) {
-                if &new_type != prev_type && new_type.is_generic() {
+                if &new_type != prev_type && new_type.is_generic() && !prev_type.is_generic() {
                     return Err(format!(
                         "Already resolved generic {key}, prev {prev_type}, new {new_type}"
                     ));
@@ -346,81 +346,88 @@ impl<'a> ASTTypeChecker<'a> {
                 );
             }
             ASTExpression::Lambda(lambda) => {
-                if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                })) = expected_expression_type
-                {
-                    let mut val_context = ValContext::new(Some(&val_context));
+                let mut val_context = ValContext::new(Some(&val_context));
 
-                    for ((name, par_position), ast_type) in
-                        lambda.parameter_names.iter().zip(parameters.iter())
+                let expected_last_statement_type_and_paramters =
+                    if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters,
+                        return_type,
+                    })) = expected_expression_type
                     {
-                        let par_index = ASTIndex::new(
-                            module_id.clone(),
-                            module_source.clone(),
-                            par_position.clone(),
-                        );
-                        // TODO check error
-                        if let Err(e) = val_context.insert_par(
-                            name.clone(),
-                            ASTParameterDef {
-                                name: name.clone(),
-                                ast_type: ast_type.clone(),
-                                position: par_position.clone(),
-                            },
-                            module_id,
-                            module_source,
-                        ) {
-                            errors.push(ASTTypeCheckError::new(par_index, e));
-                        } else {
-                            result.insert(
-                                par_index.clone(),
-                                ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
+                        for ((name, par_position), ast_type) in
+                            lambda.parameter_names.iter().zip(parameters.iter())
+                        {
+                            let par_index = ASTIndex::new(
+                                module_id.clone(),
+                                module_source.clone(),
+                                par_position.clone(),
                             );
+                            if let Err(e) = val_context.insert_par(
+                                name.clone(),
+                                ASTParameterDef {
+                                    name: name.clone(),
+                                    ast_type: ast_type.clone(),
+                                    position: par_position.clone(),
+                                },
+                                module_id,
+                                module_source,
+                            ) {
+                                errors.push(ASTTypeCheckError::new(par_index, e));
+                            } else {
+                                result.insert(
+                                    par_index.clone(),
+                                    ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
+                                );
+                            }
                         }
-                    }
 
-                    let (body_result, body_return_type, body_errors) = self.get_body_type_map(
-                        &mut val_context,
-                        statics,
-                        &lambda.body,
-                        Some(return_type.as_ref()),
-                        module_id,
-                        module_source,
-                    );
-
-                    result.extend(body_result);
-                    errors.extend(body_errors);
-
-                    if let Some(ASTTypeFilter::Exact(brt, position)) = body_return_type {
-                        result.insert(
-                            index.clone(),
-                            ASTTypeFilter::Exact(
-                                ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                    parameters: parameters.clone(),
-                                    return_type: Box::new(brt),
-                                }),
-                                module_id.clone(),
-                            ),
-                        );
+                        Some((return_type.as_ref(), parameters))
                     } else {
-                        result.insert(
-                            index.clone(),
-                            ASTTypeFilter::Exact(
-                                ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                    parameters: parameters.clone(),
-                                    return_type: return_type.clone(),
-                                }),
-                                module_id.clone(),
-                            ),
-                        );
-                    }
+                        None
+                    };
+
+                let (body_result, body_return_type, body_errors) = self.get_body_type_map(
+                    &mut val_context,
+                    statics,
+                    &lambda.body,
+                    expected_last_statement_type_and_paramters.map(|it| it.0),
+                    module_id,
+                    module_source,
+                );
+
+                result.extend(body_result);
+                errors.extend(body_errors);
+
+                if let Some(ASTTypeFilter::Exact(brt, position)) = body_return_type {
+                    let type_filter = if let Some((return_type, parameters)) =
+                        expected_last_statement_type_and_paramters
+                    {
+                        ASTTypeFilter::Exact(
+                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters: parameters.clone(),
+                                return_type: Box::new(brt),
+                            }),
+                            module_id.clone(),
+                        )
+                    } else {
+                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                    };
+                    result.insert(index.clone(), type_filter);
                 } else {
-                    result.insert(
-                        index.clone(),
-                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None),
-                    );
+                    let type_filter = if let Some((return_type, parameters)) =
+                        expected_last_statement_type_and_paramters
+                    {
+                        ASTTypeFilter::Exact(
+                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                parameters: parameters.clone(),
+                                return_type: Box::new(return_type.clone()),
+                            }),
+                            module_id.clone(),
+                        )
+                    } else {
+                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                    };
+                    result.insert(index.clone(), type_filter);
                 }
             }
         }
@@ -434,10 +441,12 @@ impl<'a> ASTTypeChecker<'a> {
                     if et.is_generic() {
                         if let Ok(rgt) = Self::resolve_generic_types_from_effective_type(et, eet) {
                             if let Some(rt) = Self::substitute(et, &rgt) {
+                                /*
                                 println!(
                                     "resolved generic type from expected: expected {eet}, real {et}, result {rt}\n: {}",
-                                    expr.position()
+                                    index
                                 );
+                                */
                                 result.insert(index, ASTTypeFilter::Exact(rt, module_id.clone()));
                             }
                         }
@@ -463,12 +472,14 @@ impl<'a> ASTTypeChecker<'a> {
             module_source.clone(),
             call.position.clone(),
         );
+
         /*
         println!(
-            "get_call_type_map {call} expected_expression_type {}",
+            "get_call_type_map {call} expected_expression_type {} : {index}",
             OptionDisplay(&expected_expression_type)
         );
         */
+
         let mut first_try_of_map = ASTTypeCheckerResult::new();
 
         for e in &call.parameters {
@@ -564,6 +575,7 @@ impl<'a> ASTTypeChecker<'a> {
             */
 
             if functions.len() > 1 {
+                /*
                 print!(
                     "found more than one function for {} : {} -> ",
                     call.function_name, index
@@ -572,6 +584,7 @@ impl<'a> ASTTypeChecker<'a> {
                 for fun in functions.iter() {
                     println!("  function {}", fun.signature);
                 }
+                */
 
                 errors.push(ASTTypeCheckError::new(
                     index.clone(),
@@ -745,7 +758,7 @@ impl<'a> ASTTypeChecker<'a> {
         errors
     }
 
-    pub fn resolve_generic_types_from_effective_type(
+    fn resolve_generic_types_from_effective_type(
         generic_type: &ASTType,
         effective_type: &ASTType,
     ) -> Result<ResolvedGenericTypes, ASTTypeCheckError> {
@@ -943,12 +956,12 @@ impl<'a> ASTTypeChecker<'a> {
             ASTType::Custom {
                 name,
                 param_types,
-                position: index,
+                position,
             } => {
                 Self::substitute_types(param_types, resolved_param_types).map(|new_param_types| {
-                    // TODO it's a bit heuristic
-                    let new_index = if new_param_types.is_empty() {
-                        index.clone()
+                    // TODO calculating the new position it's a bit heuristic, and probably it's not needed
+                    /*let new_index = if new_param_types.is_empty() {
+                        position.clone()
                     } else if let Some(ASTType::Custom {
                         name: _,
                         param_types: _,
@@ -957,12 +970,13 @@ impl<'a> ASTTypeChecker<'a> {
                     {
                         ast_index.mv_right(1)
                     } else {
-                        index.clone()
+                        position.clone()
                     };
+                    */
                     ASTType::Custom {
                         name: name.clone(),
                         param_types: new_param_types,
-                        position: new_index,
+                        position: position.clone(),
                     }
                 })
             }
