@@ -79,19 +79,19 @@ you can define an environment variable called RASM_STDLIB with a path to a libra
 
 an executable `<name>` will be created in the current directory.
 
-### Examples
+## Examples
 
 In the examples the -- is really not needed when running manually from the command line,
 it's needed if you are running it with an IDE that parses markdown and lets
 you run it from the IDE itself.
 
-# breakout
+### breakout
 
 `cargo run --release -- build rasm/resources/examples/breakout/ -o breakout`
 
 a "breakout" executable file will be created in the current folder
 
-# fibonacci
+### fibonacci
 
 `cargo run --release -- build rasm/resources/test/fibonacci.rasm -o fibonacci`  
 `./fibonacci 40`  
