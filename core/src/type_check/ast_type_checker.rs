@@ -1091,6 +1091,32 @@ mod tests {
     }
 
     #[test]
+    fn test_xmllib_check_functions() {
+        let project = RasmProject::new(PathBuf::from("/home/enrico/development/rasm/xmllib"));
+
+        let target = CompileTarget::C(COptions::default());
+
+        let container = container_from_project(&project, &target);
+
+        let function_type_checker = ASTTypeChecker::new(&container);
+
+        let mut statics = ValContext::new(None);
+
+        let path = Path::new("/home/enrico/development/rasm/xmllib/src/main/rasm/parser.rasm");
+
+        let (module, _errors, info) = project.get_module(path, &target).unwrap();
+
+        for function in module.functions.into_iter() {
+            function_type_checker.get_type_map(
+                &function,
+                &mut statics,
+                &info.module_id(),
+                &info.module_source(),
+            );
+        }
+    }
+
+    #[test]
     fn test_functions_checker1() {
         let file = "resources/test/functions_checker1.rasm";
 
