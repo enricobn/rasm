@@ -62,6 +62,17 @@ impl ValKind {
             ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
         }
     }
+
+    pub fn index(&self, module_id: &ModuleId, module_source: &ModuleSource) -> ASTIndex {
+        match self {
+            ValKind::ParameterRef(_, astparameter_def) => ASTIndex::new(
+                module_id.clone(),
+                module_source.clone(),
+                astparameter_def.position.clone(),
+            ),
+            ValKind::LetRef(_, _, astindex) => astindex.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

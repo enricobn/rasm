@@ -4,7 +4,9 @@ use itertools::Itertools;
 
 use crate::{
     parser::{
-        ast::{ASTFunctionSignature, ASTModule, ASTStatement, ASTType, BuiltinTypeKind},
+        ast::{
+            ASTFunctionSignature, ASTModule, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind,
+        },
         builtin_functions::BuiltinFunctions,
     },
     utils::OptionDisplay,
@@ -22,14 +24,21 @@ pub struct ASTFunctionSignatureEntry {
     pub signature: ASTFunctionSignature,
     pub id: ModuleId,
     pub source: ModuleSource,
+    pub position: ASTPosition,
 }
 
 impl ASTFunctionSignatureEntry {
-    pub fn new(signature: ASTFunctionSignature, id: ModuleId, source: ModuleSource) -> Self {
+    pub fn new(
+        signature: ASTFunctionSignature,
+        id: ModuleId,
+        source: ModuleSource,
+        position: ASTPosition,
+    ) -> Self {
         Self {
             signature,
             id,
             source,
+            position,
         }
     }
 }
@@ -95,6 +104,7 @@ impl ASTModulesContainer {
                             signature.fix_generics(&id),
                             id.clone(),
                             source.clone(),
+                            ASTPosition::none(), // TODO I don't have the position of the signature
                         ));
                     }
                 }
@@ -111,13 +121,15 @@ impl ASTModulesContainer {
                             signature.fix_generics(&id),
                             id.clone(),
                             source.clone(),
+                            ASTPosition::none(), // TODO I don't have the position of the signature
                         ));
                     }
                 }
             }
         }
 
-        for signature in module.functions.iter().map(|it| it.signature()) {
+        for function in module.functions {
+            let signature = function.signature();
             let signatures = self
                 .signatures
                 .entry(signature.name.clone())
@@ -126,6 +138,7 @@ impl ASTModulesContainer {
                 signature.fix_generics(&id),
                 id.clone(),
                 source.clone(),
+                function.position,
             ));
         }
     }
@@ -261,7 +274,7 @@ impl ASTModulesContainer {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ASTTypeFilter {
     Exact(ASTType, ModuleId),
     Any,

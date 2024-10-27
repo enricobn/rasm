@@ -87,19 +87,18 @@ impl UI {
                                 let content: Element<'a, Message> = if let Some(type_filter) =
                                     selected_module.type_checker_result.get(&token_index)
                                 {
-                                    let exact_and_not_generic = if let ASTTypeFilter::Exact(
-                                        ast_type,
-                                        _info,
-                                    ) = type_filter
-                                    {
-                                        !ast_type.is_generic()
-                                    } else {
-                                        false
-                                    };
+                                    let exact_and_not_generic =
+                                        if let Some(ASTTypeFilter::Exact(ast_type, _info)) =
+                                            type_filter.filter()
+                                        {
+                                            !ast_type.is_generic()
+                                        } else {
+                                            false
+                                        };
 
                                     Self::text_color_button(
                                         s,
-                                        format!("{token_index}\n{}", type_filter),
+                                        format!("{token_index}\n{type_filter}"),
                                         move |theme| {
                                             if exact_and_not_generic {
                                                 theme.palette().success

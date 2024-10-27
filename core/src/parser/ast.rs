@@ -53,6 +53,7 @@ pub struct ASTFunctionDef {
     pub modifiers: ASTModifiers,
 }
 
+#[derive(Debug, Clone)]
 pub struct ASTFunctionSignature {
     pub name: String,
     pub generics: Vec<String>,

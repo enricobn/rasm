@@ -12,7 +12,9 @@ use crate::{
     utils::{OptionDisplay, SliceDisplay},
 };
 
-use super::ast_modules_container::{ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleSource};
+use super::ast_modules_container::{
+    ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleSource,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 struct ResolvedGenericTypes {
@@ -93,8 +95,84 @@ impl Display for ASTTypeCheckError {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ASTTypeCheckInfo {
+    Call(ASTFunctionSignature, ASTIndex),
+    Calls(Vec<(ASTFunctionSignature, ASTIndex)>),
+    LambdaCall(ASTFunctionSignature, ASTIndex),
+    Ref(ASTIndex),
+    Primitive,
+}
+
+impl Display for ASTTypeCheckInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTTypeCheckInfo::Call(function_signature, astindex) => {
+                write!(f, "call to {function_signature}")
+            }
+            ASTTypeCheckInfo::Calls(vec) => {
+                write!(f, "calls to\n")?;
+                for function_signature in vec {
+                    write!(f, "{}\n", function_signature.0)?;
+                }
+                Result::Ok(())
+            }
+            ASTTypeCheckInfo::LambdaCall(function_signature, index) => {
+                write!(f, "lambda call to {function_signature}")
+            }
+            ASTTypeCheckInfo::Ref(astindex) => f.write_str("ref"),
+            ASTTypeCheckInfo::Primitive => f.write_str("primitive"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ASTTypeCheckEntry {
+    filter: Option<ASTTypeFilter>,
+    info: ASTTypeCheckInfo,
+}
+
+impl ASTTypeCheckEntry {
+    fn new(filter: Option<ASTTypeFilter>, info: ASTTypeCheckInfo) -> Self {
+        Self { filter, info }
+    }
+
+    pub fn filter(&self) -> &Option<ASTTypeFilter> {
+        &self.filter
+    }
+
+    pub fn info(&self) -> &ASTTypeCheckInfo {
+        &self.info
+    }
+
+    fn primitive(filter: ASTTypeFilter) -> Self {
+        Self::new(Some(filter), ASTTypeCheckInfo::Primitive)
+    }
+
+    fn reference(filter: ASTTypeFilter, index: ASTIndex) -> Self {
+        Self::new(Some(filter), ASTTypeCheckInfo::Ref(index))
+    }
+
+    /*
+    fn any() -> Self {
+        Self::new(Some(ASTTypeFilter::Any), ASTTypeCheckInfo::Any)
+    }
+    */
+}
+
+impl Display for ASTTypeCheckEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(ref filter) = self.filter {
+            write!(f, "{filter}\n")?;
+        } else {
+            f.write_str("no type determined\n")?;
+        }
+        write!(f, "{}", self.info)
+    }
+}
+
 pub struct ASTTypeCheckerResult {
-    map: HashMap<ASTIndex, ASTTypeFilter>,
+    map: HashMap<ASTIndex, ASTTypeCheckEntry>,
 }
 
 impl ASTTypeCheckerResult {
@@ -104,11 +182,11 @@ impl ASTTypeCheckerResult {
         }
     }
 
-    pub fn insert(&mut self, index: ASTIndex, filter: ASTTypeFilter) {
-        self.map.insert(index, filter);
+    pub fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
+        self.map.insert(index, entry);
     }
 
-    pub fn get(&self, index: &ASTIndex) -> Option<&ASTTypeFilter> {
+    pub fn get(&self, index: &ASTIndex) -> Option<&ASTTypeCheckEntry> {
         self.map.get(index)
     }
 
@@ -116,7 +194,7 @@ impl ASTTypeCheckerResult {
         self.map.extend(other.map);
     }
 
-    pub fn remove(&mut self, index: &ASTIndex) -> Option<ASTTypeFilter> {
+    pub fn remove(&mut self, index: &ASTIndex) -> Option<ASTTypeCheckEntry> {
         self.map.remove(index)
     }
 }
@@ -194,7 +272,7 @@ impl<'a> ASTTypeChecker<'a> {
         expected_last_statement_type: Option<&ASTType>,
         module_id: &ModuleId,
         module_source: &ModuleSource,
-    ) -> Option<ASTTypeFilter> {
+    ) -> Option<ASTTypeCheckEntry> {
         let mut return_type = None;
         /*
         println!(
@@ -263,16 +341,18 @@ impl<'a> ASTTypeChecker<'a> {
 
                     let index =
                         ASTIndex::new(module_id.clone(), module_source.clone(), index.clone());
-                    if let Some(filter) = self.result.get(&e_index) {
-                        if let ASTTypeFilter::Exact(ast_type, module_id) = filter {
-                            if *is_const {
-                                statics.insert_let(key.clone(), ast_type.clone(), &index);
-                            } else {
-                                // TODO error
-                                val_context.insert_let(key.clone(), ast_type.clone(), &index);
+                    if let Some(entry) = self.result.get(&e_index) {
+                        if let Some(filter) = &entry.filter {
+                            if let ASTTypeFilter::Exact(ast_type, module_id) = filter {
+                                if *is_const {
+                                    statics.insert_let(key.clone(), ast_type.clone(), &index);
+                                } else {
+                                    // TODO error
+                                    val_context.insert_let(key.clone(), ast_type.clone(), &index);
+                                }
                             }
+                            self.result.insert(index, entry.clone());
                         }
-                        self.result.insert(index, filter.clone());
                     }
                 }
             }
@@ -299,13 +379,12 @@ impl<'a> ASTTypeChecker<'a> {
 
         match expr {
             ASTExpression::StringLiteral(_, _) => {
-                self.result.insert(
-                    index.clone(),
-                    ASTTypeFilter::Exact(
-                        ASTType::Builtin(BuiltinTypeKind::String),
-                        module_id.clone(),
-                    ),
+                let filter = ASTTypeFilter::Exact(
+                    ASTType::Builtin(BuiltinTypeKind::String),
+                    module_id.clone(),
                 );
+                self.result
+                    .insert(index.clone(), ASTTypeCheckEntry::primitive(filter));
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
                 self.get_call_type_map(
@@ -321,12 +400,18 @@ impl<'a> ASTTypeChecker<'a> {
                 if let Some(kind) = val_context.get(name) {
                     self.result.insert(
                         index.clone(),
-                        ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
+                        ASTTypeCheckEntry::reference(
+                            ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
+                            kind.index(module_id, module_source),
+                        ),
                     );
-                } else if let Some(entry) = statics.get(name) {
+                } else if let Some(kind) = statics.get(name) {
                     self.result.insert(
                         index.clone(),
-                        ASTTypeFilter::Exact(entry.ast_type(), module_id.clone()),
+                        ASTTypeCheckEntry::reference(
+                            ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
+                            kind.index(module_id, module_source),
+                        ),
                     );
                 } else {
                     self.errors.push(ASTTypeCheckError::new(
@@ -338,7 +423,10 @@ impl<'a> ASTTypeChecker<'a> {
             ASTExpression::Value(value_type, _) => {
                 self.result.insert(
                     index.clone(),
-                    ASTTypeFilter::Exact(value_type.to_type(), module_id.clone()),
+                    ASTTypeCheckEntry::primitive(ASTTypeFilter::Exact(
+                        value_type.to_type(),
+                        module_id.clone(),
+                    )),
                 );
             }
             ASTExpression::Lambda(lambda) => {
@@ -372,7 +460,10 @@ impl<'a> ASTTypeChecker<'a> {
                             } else {
                                 self.result.insert(
                                     par_index.clone(),
-                                    ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
+                                    ASTTypeCheckEntry::reference(
+                                        ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
+                                        par_index,
+                                    ),
                                 );
                             }
                         }
@@ -391,7 +482,9 @@ impl<'a> ASTTypeChecker<'a> {
                     module_source,
                 );
 
-                if let Some(ASTTypeFilter::Exact(brt, position)) = body_return_type {
+                if let Some(ASTTypeFilter::Exact(brt, position)) =
+                    body_return_type.and_then(|it| it.filter)
+                {
                     let type_filter = if let Some((return_type, parameters)) =
                         expected_last_statement_type_and_paramters
                     {
@@ -405,7 +498,8 @@ impl<'a> ASTTypeChecker<'a> {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    self.result.insert(index.clone(), type_filter);
+                    self.result
+                        .insert(index.clone(), ASTTypeCheckEntry::primitive(type_filter));
                 } else {
                     let type_filter = if let Some((return_type, parameters)) =
                         expected_last_statement_type_and_paramters
@@ -420,7 +514,8 @@ impl<'a> ASTTypeChecker<'a> {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    self.result.insert(index.clone(), type_filter);
+                    self.result
+                        .insert(index.clone(), ASTTypeCheckEntry::primitive(type_filter));
                 }
             }
         }
@@ -430,18 +525,27 @@ impl<'a> ASTTypeChecker<'a> {
 
         if let Some(eet) = expected_expression_type {
             if eet.is_generic() {
-                if let Some(ASTTypeFilter::Exact(et, e_module_id)) = self.result.get(&index) {
-                    if et.is_generic() {
-                        if let Ok(rgt) = Self::resolve_generic_types_from_effective_type(et, eet) {
-                            if let Some(rt) = Self::substitute(et, &rgt) {
-                                /*
-                                println!(
-                                    "resolved generic type from expected: expected {eet}, real {et}, result {rt}\n: {}",
-                                    index
-                                );
-                                */
-                                self.result
-                                    .insert(index, ASTTypeFilter::Exact(rt, module_id.clone()));
+                if let Some(entry) = self.result.get(&index) {
+                    if let Some(ASTTypeFilter::Exact(et, e_module_id)) = &entry.filter {
+                        if et.is_generic() {
+                            if let Ok(rgt) =
+                                Self::resolve_generic_types_from_effective_type(et, eet)
+                            {
+                                if let Some(rt) = Self::substitute(et, &rgt) {
+                                    /*
+                                    println!(
+                                        "resolved generic type from expected: expected {eet}, real {et}, result {rt}\n: {}",
+                                        index
+                                    );
+                                    */
+                                    self.result.insert(
+                                        index,
+                                        ASTTypeCheckEntry::new(
+                                            Some(ASTTypeFilter::Exact(rt, e_module_id.clone())),
+                                            entry.info.clone(),
+                                        ),
+                                    );
+                                }
                             }
                         }
                     }
@@ -489,7 +593,10 @@ impl<'a> ASTTypeChecker<'a> {
             if let ASTExpression::Lambda(def) = e {
                 inner.result.insert(
                     e_index,
-                    ASTTypeFilter::Lambda(def.parameter_names.len(), None),
+                    ASTTypeCheckEntry::primitive(ASTTypeFilter::Lambda(
+                        def.parameter_names.len(),
+                        None,
+                    )),
                 );
             } else {
                 self.get_expr_type_map(e, val_context, statics, None, module_id, module_source);
@@ -508,11 +615,14 @@ impl<'a> ASTTypeChecker<'a> {
 
         for e in &call.parameters {
             let e_index = ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
-            if let Some(ast_type) = self.result.get(&e_index) {
+            if let Some(ast_type) = self.result.get(&e_index).and_then(|it| it.filter.clone()) {
                 parameter_types_filters.push(ast_type.clone());
             } else {
-                if let Some(ast_type) = first_try_of_map.get(&e_index) {
-                    parameter_types_filters.push(ast_type.clone());
+                if let Some(entry) = first_try_of_map
+                    .get(&e_index)
+                    .and_then(|it| it.filter.clone())
+                {
+                    parameter_types_filters.push(entry.clone());
                 } else {
                     parameter_types_filters.push(ASTTypeFilter::Any);
                 }
@@ -543,8 +653,15 @@ impl<'a> ASTTypeChecker<'a> {
                 modifiers: ASTModifiers { public: true },
             };
 
+            let entry = ASTFunctionSignatureEntry::new(
+                lambda_signature,
+                module_id.clone(),
+                module_source.clone(),
+                call.position.clone(),
+            );
+
             self.process_function_signature(
-                &lambda_signature,
+                &entry,
                 &parameter_types_filters,
                 call,
                 val_context,
@@ -552,6 +669,7 @@ impl<'a> ASTTypeChecker<'a> {
                 expected_expression_type,
                 module_id,
                 module_source,
+                true,
             );
 
             return;
@@ -608,6 +726,28 @@ impl<'a> ASTTypeChecker<'a> {
                     format!("found more than one function for {}", call.function_name),
                 ));
 
+                self.result.insert(
+                    index,
+                    ASTTypeCheckEntry::new(
+                        None,
+                        ASTTypeCheckInfo::Calls(
+                            functions
+                                .into_iter()
+                                .map(|it| {
+                                    (
+                                        it.signature.clone(),
+                                        ASTIndex::new(
+                                            it.id.clone(),
+                                            it.source.clone(),
+                                            it.position.clone(),
+                                        ),
+                                    )
+                                })
+                                .collect(),
+                        ),
+                    ),
+                );
+
                 // self.result.extend(first_try_of_map);
             } else {
                 let found_function = functions.remove(0);
@@ -631,7 +771,7 @@ impl<'a> ASTTypeChecker<'a> {
                 */
 
                 self.process_function_signature(
-                    &found_function.signature,
+                    &found_function,
                     &parameter_types_filters,
                     &call,
                     val_context,
@@ -639,6 +779,7 @@ impl<'a> ASTTypeChecker<'a> {
                     expected_expression_type,
                     module_id,
                     module_source,
+                    false,
                 );
             }
         }
@@ -646,7 +787,7 @@ impl<'a> ASTTypeChecker<'a> {
 
     fn process_function_signature(
         &mut self,
-        function_signature: &ASTFunctionSignature,
+        function_signature_entry: &ASTFunctionSignatureEntry,
         parameter_types_filters: &Vec<ASTTypeFilter>,
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
@@ -654,7 +795,9 @@ impl<'a> ASTTypeChecker<'a> {
         expected_expression_type: Option<&ASTType>,
         call_module_id: &ModuleId,
         call_source: &ModuleSource,
+        is_lambda: bool,
     ) {
+        let function_signature = &function_signature_entry.signature;
         let index = ASTIndex::new(
             call_module_id.clone(),
             call_source.clone(),
@@ -699,7 +842,9 @@ impl<'a> ASTTypeChecker<'a> {
                     call_source,
                 );
 
-                if let Some(calculated_type_filter) = self.result.get(&e_index) {
+                if let Some(ref calculated_type_filter) =
+                    self.result.get(&e_index).and_then(|it| it.filter.clone())
+                {
                     let p_errors = self.resolve_type_filter(
                         &index,
                         &parameter_type,
@@ -753,10 +898,37 @@ impl<'a> ASTTypeChecker<'a> {
                 }
         */
 
-        self.result.insert(
-            index.clone(),
-            ASTTypeFilter::Exact(return_type, call_module_id.clone()),
-        );
+        if is_lambda {
+            self.result.insert(
+                index.clone(),
+                ASTTypeCheckEntry::new(
+                    Some(ASTTypeFilter::Exact(return_type, call_module_id.clone())),
+                    ASTTypeCheckInfo::LambdaCall(
+                        function_signature.clone(),
+                        ASTIndex::new(
+                            function_signature_entry.id.clone(),
+                            function_signature_entry.source.clone(),
+                            function_signature_entry.position.clone(),
+                        ),
+                    ),
+                ),
+            );
+        } else {
+            self.result.insert(
+                index.clone(),
+                ASTTypeCheckEntry::new(
+                    Some(ASTTypeFilter::Exact(return_type, call_module_id.clone())),
+                    ASTTypeCheckInfo::Call(
+                        function_signature.clone(),
+                        ASTIndex::new(
+                            function_signature_entry.id.clone(),
+                            function_signature_entry.source.clone(),
+                            function_signature_entry.position.clone(),
+                        ),
+                    ),
+                ),
+            );
+        }
     }
 
     fn resolve_type_filter(
@@ -1097,7 +1269,7 @@ mod tests {
         let (types_map, info) = check_body(file);
 
         for (key, value) in types_map.map.iter() {
-            println!("types_map {key} = {value}");
+            println!("types_map {key} = {value:?}");
         }
 
         let r_value = types_map.get(&ASTIndex::new(
@@ -1108,7 +1280,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
     }
 
@@ -1126,7 +1301,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
 
         /*
@@ -1150,7 +1328,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
 
         /*
@@ -1174,7 +1355,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
 
         /*
@@ -1198,7 +1382,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(List<Option<i32>>))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
     }
 
@@ -1216,7 +1403,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(Option<functions_checker6_functions_checker6_endsWith:T>))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
     }
 
@@ -1234,7 +1424,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(functions_checker7_functions_checker7_endsWith:T))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
 
         let r_value = types_map.get(&ASTIndex::new(
@@ -1245,7 +1438,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(functions_checker7_functions_checker7_endsWith:T))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
     }
 
@@ -1263,7 +1459,10 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(functions_checker8_functions_checker8_generic:T))",
-            format!("{}", OptionDisplay(&r_value),)
+            format!(
+                "{}",
+                OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
+            )
         );
     }
 
