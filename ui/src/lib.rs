@@ -12,7 +12,7 @@ use iced::{
 use rasm_core::{
     codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
     commandline::CommandLineOptions,
-    parser::ast::ASTFunctionDef,
+    parser::ast::{ASTFunctionDef, ASTPosition},
     project::RasmProject,
     type_check::{
         ast_modules_container::ASTModulesContainer,
@@ -32,6 +32,7 @@ pub struct UI {
     pane_state: pane_grid::State<UIPane>,
     modules_container: ASTModulesContainer,
     info: Option<String>,
+    selected_token: Option<ASTPosition>,
 }
 
 pub struct SelectedModule {
@@ -46,7 +47,7 @@ pub enum Message {
     BackToModule,
     Home,
     ResizeSplit(ResizeEvent),
-    Info(Option<String>),
+    Info(Option<String>, ASTPosition),
 }
 
 #[derive(Clone, Copy)]
@@ -119,6 +120,7 @@ impl UI {
                         pane_state,
                         modules_container,
                         info: None,
+                        selected_token: None,
                     },
                     Task::none(),
                 )
@@ -173,7 +175,10 @@ impl UI {
             Message::ResizeSplit(event) => {
                 self.pane_state.resize(event.split, event.ratio);
             }
-            Message::Info(info) => self.info = info,
+            Message::Info(info, position) => {
+                self.info = info;
+                self.selected_token = Some(position)
+            }
         }
     }
 
@@ -255,18 +260,31 @@ impl UI {
     }
 
     fn text_color_button<'a>(
+        &self,
         t: impl text::IntoFragment<'a>,
         message: String,
         style: impl Fn(&Theme) -> Color + 'a,
+        position: &ASTPosition,
     ) -> Button<'a, Message> {
+        let selected = self
+            .selected_token
+            .as_ref()
+            .filter(|it| it == &position)
+            .is_some();
         Self::text_button(t)
             .style(move |theme, _status| {
                 let color = style(theme);
                 let mut style = Style::default();
                 style.text_color = color;
+                if selected {
+                    style.border = style
+                        .border
+                        .color(Color::from_rgb(0.4, 0.5, 0.5))
+                        .width(2.0);
+                }
                 style
             })
-            .on_press(Message::Info(Some(message)))
+            .on_press(Message::Info(Some(message), position.clone()))
             .padding(Padding::ZERO)
     }
 

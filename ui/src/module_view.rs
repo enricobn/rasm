@@ -10,7 +10,7 @@ use iced::{
         scrollable::{self, Scrollbar},
         text, Column, Row, Scrollable,
     },
-    Background, Color, Element, Length, Padding, Theme,
+    Background, Color, Element, Length, Padding,
 };
 use rasm_core::{
     codegen::{enh_ast::EhModuleInfo, val_context::ASTIndex},
@@ -73,7 +73,7 @@ impl UI {
                         just_added_new_line = true;
                     } else {
                         let token_position = ASTPosition::new(token.row, token.column);
-                        let token_index = info.index(token_position);
+                        let token_index = info.index(token_position.clone());
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
                                 if module_syntax
@@ -96,7 +96,7 @@ impl UI {
                                             false
                                         };
 
-                                    Self::text_color_button(
+                                    self.text_color_button(
                                         s,
                                         format!("{token_index}\n{type_filter}"),
                                         move |theme| {
@@ -106,13 +106,15 @@ impl UI {
                                                 Color::from_rgb(1.0, 1.0, 0.0)
                                             }
                                         },
+                                        &token_position,
                                     )
                                     .into()
                                 } else {
-                                    Self::text_color_button(
+                                    self.text_color_button(
                                         s,
                                         format!("{token_index}"),
                                         move |theme| theme.palette().danger,
+                                        &token_position,
                                     )
                                     .into()
                                 };
