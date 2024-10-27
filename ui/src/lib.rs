@@ -2,11 +2,11 @@ use std::{env, path::Path, time::Instant};
 
 use iced::{
     widget::{
-        button,
+        button::Style,
         pane_grid::{self, ResizeEvent},
         text, Button, Column,
     },
-    Element, Font, Task, Theme,
+    Color, Element, Font, Padding, Task, Theme,
 };
 
 use rasm_core::{
@@ -18,7 +18,6 @@ use rasm_core::{
         ast_modules_container::ASTModulesContainer,
         ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
     },
-    utils::SliceDisplay,
 };
 
 mod module_view;
@@ -31,7 +30,7 @@ pub struct UI {
     target: CompileTarget,
     current_function: Option<ASTFunctionDef>,
     pane_state: pane_grid::State<UIPane>,
-    enhanced_ast_module: ASTModulesContainer,
+    modules_container: ASTModulesContainer,
     info: Option<String>,
 }
 
@@ -118,7 +117,7 @@ impl UI {
                         current_module,
                         current_function: None,
                         pane_state,
-                        enhanced_ast_module: modules_container,
+                        modules_container,
                         info: None,
                     },
                     Task::none(),
@@ -165,7 +164,7 @@ impl UI {
                 self.current_module = Some(Self::selected_module(
                     &self.target,
                     &self.project,
-                    &self.enhanced_ast_module,
+                    &self.modules_container,
                     &s,
                 ));
             }
@@ -184,16 +183,23 @@ impl UI {
         modules_container: &ASTModulesContainer,
         path: &str,
     ) -> SelectedModule {
-        let start = Instant::now();
-        let type_map =
-            if let Some((module, _errors, info)) = project.get_module(&Path::new(path), target) {
-                let function_type_checker = ASTTypeChecker::new(&modules_container);
+        let mut start = Instant::now();
+        let type_checker_result =
+            if let Some((module, errors, info)) = project.get_module(&Path::new(path), target) {
+                let mut ast_type_checker = ASTTypeChecker::new(&modules_container);
                 let mut val_context = ValContext::new(None);
                 let mut statics = ValContext::new(None);
 
-                // TODO errors
+                start = Instant::now();
 
-                let (mut type_map, _, mut errors) = function_type_checker.get_body_type_map(
+                if !errors.is_empty() {
+                    println!("compilation errors");
+                    for error in errors {
+                        println!("{error}");
+                    }
+                }
+
+                ast_type_checker.get_body_type_map(
                     &mut val_context,
                     &mut statics,
                     &module.body,
@@ -203,47 +209,71 @@ impl UI {
                 );
 
                 for function in module.functions {
-                    let (f_result, f_errors) = function_type_checker.get_type_map(
+                    let start_function = Instant::now();
+                    ast_type_checker.get_type_map(
                         &function, //.fix_namespaces(&em).fix_generics(),
                         &mut statics,
                         &info.module_id(),
                         &info.module_source(),
                     );
-                    type_map.extend(f_result);
-                    errors.extend(f_errors);
+                    println!(
+                        "function {} takes {:?}",
+                        function.name,
+                        start_function.elapsed()
+                    );
                 }
 
                 // TODO errors
-                if !errors.is_empty() {
+
+                if !ast_type_checker.errors.is_empty() {
                     println!("selected_module errors");
-                    errors.iter().for_each(|it| println!("{it}"));
+                    ast_type_checker
+                        .errors
+                        .iter()
+                        .for_each(|it| println!("{it}"));
                 }
 
-                type_map
+                println!("selected_module takes {:?}", start.elapsed());
+
+                ast_type_checker.result
             } else {
                 ASTTypeCheckerResult::new()
             };
-
-        println!("selected_module takes {:?}", start.elapsed());
 
         // enhanced_ast_module.print();
 
         SelectedModule {
             path: path.to_string(),
-            type_checker_result: type_map,
+            type_checker_result,
         }
     }
 
     fn text_button<'a>(t: impl text::IntoFragment<'a>) -> Button<'a, Message> {
-        button(text(t))
+        iced::widget::button(text(t))
             .style(|theme, status| iced::widget::button::text(theme, status))
             .into()
+    }
+
+    fn text_color_button<'a>(
+        t: impl text::IntoFragment<'a>,
+        message: String,
+        style: impl Fn(&Theme) -> Color + 'a,
+    ) -> Button<'a, Message> {
+        Self::text_button(t)
+            .style(move |theme, _status| {
+                let color = style(theme);
+                let mut style = Style::default();
+                style.text_color = color;
+                style
+            })
+            .on_press(Message::Info(Some(message)))
+            .padding(Padding::ZERO)
     }
 
     fn show_function<'a>(&'a self, function: &'a ASTFunctionDef) -> Element<Message> {
         let column = Column::new()
             .spacing(10)
-            .push(button("Back").on_press(Message::BackToModule))
+            .push(iced::widget::button("Back").on_press(Message::BackToModule))
             .push(text(format!("{}", function)));
 
         column.into()

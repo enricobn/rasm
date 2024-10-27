@@ -1,0 +1,14 @@
+fn main<T1>(value: T1) {
+    let g1 = generic(value);
+    let g2 = generic(10);
+    let ng1 = nonGeneric(value);
+    let ng2 = nonGeneric(10);
+}
+
+fn generic<T>(value: T) -> str {
+    " ".add(value);
+}
+
+fn nonGeneric(value: i32) -> i32 {
+    value;
+}

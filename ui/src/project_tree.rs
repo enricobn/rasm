@@ -50,44 +50,42 @@ impl UI {
         let mut children = Vec::new();
 
         if let Ok(dir) = fs::read_dir(path) {
-            for r_entry in dir {
-                if let Ok(entry) = r_entry {
-                    if let Ok(file_type) = entry.file_type() {
-                        let entry_name = entry.file_name().to_string_lossy().to_string();
-                        if file_type.is_dir() {
-                            if let Some(child) = self.get_node(
-                                indent + 1,
-                                entry_name.trim().to_string(),
-                                &entry.path(),
-                            ) {
-                                children.push(child);
-                            }
-                        } else if file_type.is_file() {
-                            if let Some(ext) = entry.path().extension() {
-                                if ext == "rasm" {
-                                    let module = entry
-                                        .path()
-                                        .canonicalize()
-                                        .unwrap()
-                                        .to_string_lossy()
-                                        .to_string();
-                                    let button = if self
-                                        .current_module
-                                        .as_ref()
-                                        .filter(|it| it.path == module)
-                                        .is_some()
-                                    {
-                                        Self::text_button(entry_name).style(|theme, _status| {
-                                            button::Style::default().with_background(
-                                                Background::from(theme.palette().primary),
-                                            )
-                                        })
-                                    } else {
-                                        Self::text_button(entry_name)
-                                    };
-                                    children
-                                        .push(ui_leaf(button.on_press(Message::Module(module))));
-                                }
+            let mut paths: Vec<_> = dir.map(|r| r.unwrap()).collect();
+            paths.sort_by_key(|dir| dir.path());
+
+            for entry in paths {
+                if let Ok(file_type) = entry.file_type() {
+                    let entry_name = entry.file_name().to_string_lossy().to_string();
+                    if file_type.is_dir() {
+                        if let Some(child) =
+                            self.get_node(indent + 1, entry_name.trim().to_string(), &entry.path())
+                        {
+                            children.push(child);
+                        }
+                    } else if file_type.is_file() {
+                        if let Some(ext) = entry.path().extension() {
+                            if ext == "rasm" {
+                                let module = entry
+                                    .path()
+                                    .canonicalize()
+                                    .unwrap()
+                                    .to_string_lossy()
+                                    .to_string();
+                                let button = if self
+                                    .current_module
+                                    .as_ref()
+                                    .filter(|it| it.path == module)
+                                    .is_some()
+                                {
+                                    Self::text_button(entry_name).style(|theme, _status| {
+                                        button::Style::default().with_background(Background::from(
+                                            theme.palette().primary,
+                                        ))
+                                    })
+                                } else {
+                                    Self::text_button(entry_name)
+                                };
+                                children.push(ui_leaf(button.on_press(Message::Module(module))));
                             }
                         }
                     }

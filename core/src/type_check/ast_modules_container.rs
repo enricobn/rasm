@@ -183,9 +183,7 @@ impl ASTModulesContainer {
                     .collect::<Vec<_>>();
                 let all_filters_are_not_generic =
                     parameter_types_filter.iter().all(|it| match it {
-                        ASTTypeFilter::Exact(ast_type, _) => {
-                            !matches!(ast_type, ASTType::Generic(..))
-                        }
+                        ASTTypeFilter::Exact(ast_type, _) => !ast_type.is_strictly_generic(),
                         ASTTypeFilter::Any => false,
                         ASTTypeFilter::Lambda(..) => true,
                     });

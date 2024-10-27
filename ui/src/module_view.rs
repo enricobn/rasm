@@ -97,29 +97,25 @@ impl UI {
                                         false
                                     };
 
-                                    Self::text_button(s)
-                                        .style(move |theme, _status| {
-                                            let color = if exact_and_not_generic {
+                                    Self::text_color_button(
+                                        s,
+                                        format!("{token_index}\n{}", type_filter),
+                                        move |theme| {
+                                            if exact_and_not_generic {
                                                 theme.palette().success
                                             } else {
                                                 Color::from_rgb(1.0, 1.0, 0.0)
-                                            };
-
-                                            let mut style = button::Style::default();
-                                            style.text_color = color;
-                                            style
-                                        })
-                                        .on_press(Message::Info(Some(format!("{}", type_filter))))
-                                        .padding(Padding::ZERO)
-                                        .into()
+                                            }
+                                        },
+                                    )
+                                    .into()
                                 } else {
-                                    text(s)
-                                        .style(|theme: &Theme| {
-                                            let mut style = text::Style::default();
-                                            style.color = Some(theme.palette().danger);
-                                            style
-                                        })
-                                        .into()
+                                    Self::text_color_button(
+                                        s,
+                                        format!("{token_index}"),
+                                        move |theme| theme.palette().danger,
+                                    )
+                                    .into()
                                 };
                                 row = row.push(content);
                             }

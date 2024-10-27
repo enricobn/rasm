@@ -115,28 +115,42 @@ impl ASTTypeCheckerResult {
     pub fn extend(&mut self, other: ASTTypeCheckerResult) {
         self.map.extend(other.map);
     }
+
+    pub fn remove(&mut self, index: &ASTIndex) -> Option<ASTTypeFilter> {
+        self.map.remove(index)
+    }
 }
 
 pub struct ASTTypeChecker<'a> {
     modules_container: &'a ASTModulesContainer,
+    pub result: ASTTypeCheckerResult,
+    pub errors: Vec<ASTTypeCheckError>,
 }
 
 impl<'a> ASTTypeChecker<'a> {
     pub fn new(enhanced_ast_module: &'a ASTModulesContainer) -> Self {
         Self {
             modules_container: enhanced_ast_module,
+            result: ASTTypeCheckerResult::new(),
+            errors: Vec::new(),
+        }
+    }
+
+    pub fn new_inner(enhanced_ast_module: &'a ASTModulesContainer) -> Self {
+        Self {
+            modules_container: enhanced_ast_module,
+            result: ASTTypeCheckerResult::new(),
+            errors: Vec::new(),
         }
     }
 
     pub fn get_type_map(
-        &self,
+        &mut self,
         function: &ASTFunctionDef,
         statics: &mut ValContext,
         module_id: &ModuleId,
         module_source: &ModuleSource,
-    ) -> (ASTTypeCheckerResult, Vec<ASTTypeCheckError>) {
-        let mut result = ASTTypeCheckerResult::new();
-        let mut errors = Vec::new();
+    ) {
         let mut val_context = ValContext::new(None);
 
         /*
@@ -159,7 +173,7 @@ impl<'a> ASTTypeChecker<'a> {
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
                 // TODO return_type
-                (result, _, errors) = self.get_body_type_map(
+                self.get_body_type_map(
                     &mut val_context,
                     statics,
                     body,
@@ -170,25 +184,17 @@ impl<'a> ASTTypeChecker<'a> {
             }
             ASTFunctionBody::NativeBody(_body) => {}
         }
-
-        (result, errors)
     }
 
     pub fn get_body_type_map(
-        &self,
+        &mut self,
         val_context: &mut ValContext,
         statics: &mut ValContext,
         body: &Vec<ASTStatement>,
         expected_last_statement_type: Option<&ASTType>,
         module_id: &ModuleId,
         module_source: &ModuleSource,
-    ) -> (
-        ASTTypeCheckerResult,
-        Option<ASTTypeFilter>,
-        Vec<ASTTypeCheckError>,
-    ) {
-        let mut errors = Vec::new();
-        let mut result = ASTTypeCheckerResult::new();
+    ) -> Option<ASTTypeFilter> {
         let mut return_type = None;
         /*
         println!(
@@ -202,7 +208,7 @@ impl<'a> ASTTypeChecker<'a> {
                 ASTStatement::Expression(e) => {
                     if i == body.len() - 1 {
                         if let Some(ref elst) = expected_last_statement_type {
-                            let (e_result, e_errors) = if !elst.is_unit() {
+                            if !elst.is_unit() {
                                 self.get_expr_type_map(
                                     e,
                                     val_context,
@@ -222,17 +228,14 @@ impl<'a> ASTTypeChecker<'a> {
                                 )
                             };
 
-                            result.extend(e_result);
-                            errors.extend(e_errors);
-
                             let index = ASTIndex::new(
                                 module_id.clone(),
                                 module_source.clone(),
                                 e.position(),
                             );
-                            return_type = result.get(&index).cloned();
+                            return_type = self.result.get(&index).cloned();
                         } else {
-                            let (e_result, e_errors) = self.get_expr_type_map(
+                            self.get_expr_type_map(
                                 e,
                                 val_context,
                                 statics,
@@ -240,11 +243,9 @@ impl<'a> ASTTypeChecker<'a> {
                                 module_id,
                                 module_source,
                             );
-                            result.extend(e_result);
-                            errors.extend(e_errors);
                         }
                     } else {
-                        let (e_result, e_errors) = self.get_expr_type_map(
+                        self.get_expr_type_map(
                             e,
                             val_context,
                             statics,
@@ -252,28 +253,17 @@ impl<'a> ASTTypeChecker<'a> {
                             module_id,
                             module_source,
                         );
-                        result.extend(e_result);
-                        errors.extend(e_errors);
                     }
                 }
                 ASTStatement::LetStatement(key, e, is_const, index) => {
-                    let (e_result, e_errors) = self.get_expr_type_map(
-                        e,
-                        val_context,
-                        statics,
-                        None,
-                        module_id,
-                        module_source,
-                    );
-                    result.extend(e_result);
-                    errors.extend(e_errors);
+                    self.get_expr_type_map(e, val_context, statics, None, module_id, module_source);
 
                     let e_index =
                         ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
 
                     let index =
                         ASTIndex::new(module_id.clone(), module_source.clone(), index.clone());
-                    if let Some(filter) = result.get(&e_index) {
+                    if let Some(filter) = self.result.get(&e_index) {
                         if let ASTTypeFilter::Exact(ast_type, module_id) = filter {
                             if *is_const {
                                 statics.insert_let(key.clone(), ast_type.clone(), &index);
@@ -282,31 +272,34 @@ impl<'a> ASTTypeChecker<'a> {
                                 val_context.insert_let(key.clone(), ast_type.clone(), &index);
                             }
                         }
-                        result.insert(index, filter.clone());
+                        self.result.insert(index, filter.clone());
                     }
                 }
             }
         }
 
-        (result, return_type, errors)
+        return_type
     }
 
     fn get_expr_type_map(
-        &self,
+        &mut self,
         expr: &ASTExpression,
         val_context: &mut ValContext,
         statics: &mut ValContext,
         expected_expression_type: Option<&ASTType>,
         module_id: &ModuleId,
         module_source: &ModuleSource,
-    ) -> (ASTTypeCheckerResult, Vec<ASTTypeCheckError>) {
-        let mut errors = Vec::new();
-        let mut result = ASTTypeCheckerResult::new();
-
+    ) {
         let index = ASTIndex::new(module_id.clone(), module_source.clone(), expr.position());
+
+        if self.result.get(&index).is_some() {
+            // println!("OPTIMIZED get_expr_type_map");
+            return;
+        }
+
         match expr {
             ASTExpression::StringLiteral(_, _) => {
-                result.insert(
+                self.result.insert(
                     index.clone(),
                     ASTTypeFilter::Exact(
                         ASTType::Builtin(BuiltinTypeKind::String),
@@ -315,7 +308,7 @@ impl<'a> ASTTypeChecker<'a> {
                 );
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
-                let (call_result, call_errors) = self.get_call_type_map(
+                self.get_call_type_map(
                     call,
                     val_context,
                     statics,
@@ -323,30 +316,33 @@ impl<'a> ASTTypeChecker<'a> {
                     module_id,
                     module_source,
                 );
-                result.extend(call_result);
-                errors.extend(call_errors);
             }
             ASTExpression::ValueRef(name, _) => {
                 if let Some(kind) = val_context.get(name) {
-                    result.insert(
+                    self.result.insert(
                         index.clone(),
                         ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
                     );
                 } else if let Some(entry) = statics.get(name) {
-                    result.insert(
+                    self.result.insert(
                         index.clone(),
                         ASTTypeFilter::Exact(entry.ast_type(), module_id.clone()),
                     );
+                } else {
+                    self.errors.push(ASTTypeCheckError::new(
+                        index.clone(),
+                        format!("Cannot find value referencing {name}"),
+                    ));
                 }
             }
             ASTExpression::Value(value_type, _) => {
-                result.insert(
+                self.result.insert(
                     index.clone(),
                     ASTTypeFilter::Exact(value_type.to_type(), module_id.clone()),
                 );
             }
             ASTExpression::Lambda(lambda) => {
-                let mut val_context = ValContext::new(Some(&val_context));
+                let mut lambda_val_context = ValContext::new(Some(&val_context));
 
                 let expected_last_statement_type_and_paramters =
                     if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -362,7 +358,7 @@ impl<'a> ASTTypeChecker<'a> {
                                 module_source.clone(),
                                 par_position.clone(),
                             );
-                            if let Err(e) = val_context.insert_par(
+                            if let Err(e) = lambda_val_context.insert_par(
                                 name.clone(),
                                 ASTParameterDef {
                                     name: name.clone(),
@@ -372,9 +368,9 @@ impl<'a> ASTTypeChecker<'a> {
                                 module_id,
                                 module_source,
                             ) {
-                                errors.push(ASTTypeCheckError::new(par_index, e));
+                                self.errors.push(ASTTypeCheckError::new(par_index, e));
                             } else {
-                                result.insert(
+                                self.result.insert(
                                     par_index.clone(),
                                     ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
                                 );
@@ -386,17 +382,14 @@ impl<'a> ASTTypeChecker<'a> {
                         None
                     };
 
-                let (body_result, body_return_type, body_errors) = self.get_body_type_map(
-                    &mut val_context,
+                let body_return_type = self.get_body_type_map(
+                    &mut lambda_val_context,
                     statics,
                     &lambda.body,
                     expected_last_statement_type_and_paramters.map(|it| it.0),
                     module_id,
                     module_source,
                 );
-
-                result.extend(body_result);
-                errors.extend(body_errors);
 
                 if let Some(ASTTypeFilter::Exact(brt, position)) = body_return_type {
                     let type_filter = if let Some((return_type, parameters)) =
@@ -412,7 +405,7 @@ impl<'a> ASTTypeChecker<'a> {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    result.insert(index.clone(), type_filter);
+                    self.result.insert(index.clone(), type_filter);
                 } else {
                     let type_filter = if let Some((return_type, parameters)) =
                         expected_last_statement_type_and_paramters
@@ -427,7 +420,7 @@ impl<'a> ASTTypeChecker<'a> {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    result.insert(index.clone(), type_filter);
+                    self.result.insert(index.clone(), type_filter);
                 }
             }
         }
@@ -437,7 +430,7 @@ impl<'a> ASTTypeChecker<'a> {
 
         if let Some(eet) = expected_expression_type {
             if eet.is_generic() {
-                if let Some(ASTTypeFilter::Exact(et, e_module_id)) = result.get(&index) {
+                if let Some(ASTTypeFilter::Exact(et, e_module_id)) = self.result.get(&index) {
                     if et.is_generic() {
                         if let Ok(rgt) = Self::resolve_generic_types_from_effective_type(et, eet) {
                             if let Some(rt) = Self::substitute(et, &rgt) {
@@ -447,31 +440,35 @@ impl<'a> ASTTypeChecker<'a> {
                                     index
                                 );
                                 */
-                                result.insert(index, ASTTypeFilter::Exact(rt, module_id.clone()));
+                                self.result
+                                    .insert(index, ASTTypeFilter::Exact(rt, module_id.clone()));
                             }
                         }
                     }
                 }
             }
         }
-
-        (result, errors)
     }
 
     fn get_call_type_map(
-        &self,
+        &mut self,
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
         statics: &mut ValContext,
         expected_expression_type: Option<&ASTType>,
         module_id: &ModuleId,
         module_source: &ModuleSource,
-    ) -> (ASTTypeCheckerResult, Vec<ASTTypeCheckError>) {
+    ) {
         let index = ASTIndex::new(
             module_id.clone(),
             module_source.clone(),
             call.position.clone(),
         );
+
+        if let Some(t) = self.result.get(&index) {
+            println!("OPTIMIZED get_call_type_map");
+            return;
+        }
 
         /*
         println!(
@@ -480,22 +477,45 @@ impl<'a> ASTTypeChecker<'a> {
         );
         */
 
-        let mut first_try_of_map = ASTTypeCheckerResult::new();
+        let mut inner = ASTTypeChecker::new(&self.modules_container);
 
         for e in &call.parameters {
-            let (e_result, e_errors) =
+            let e_index = ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
+
+            // it's almost impossible to determine the right type of lambda without knowing the expected type, since the parameters
+            // types cannot be determind, here we are calculating only the types for filtering ther functions,
+            // we hope that knowing only that it's a lambda and the number of parameters is sufficient
+
+            if let ASTExpression::Lambda(def) = e {
+                inner.result.insert(
+                    e_index,
+                    ASTTypeFilter::Lambda(def.parameter_names.len(), None),
+                );
+            } else {
                 self.get_expr_type_map(e, val_context, statics, None, module_id, module_source);
-            first_try_of_map.extend(e_result);
+            }
         }
+
+        let first_try_of_map = inner.result;
+
+        /*
+        for error in inner.errors {
+            println!("inner error {error}");
+        }
+        */
 
         let mut parameter_types_filters = Vec::new();
 
         for e in &call.parameters {
             let e_index = ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
-            if let Some(ast_type) = first_try_of_map.get(&e_index) {
+            if let Some(ast_type) = self.result.get(&e_index) {
                 parameter_types_filters.push(ast_type.clone());
             } else {
-                parameter_types_filters.push(ASTTypeFilter::Any);
+                if let Some(ast_type) = first_try_of_map.get(&e_index) {
+                    parameter_types_filters.push(ast_type.clone());
+                } else {
+                    parameter_types_filters.push(ASTTypeFilter::Any);
+                }
             }
         }
 
@@ -523,7 +543,7 @@ impl<'a> ASTTypeChecker<'a> {
                 modifiers: ASTModifiers { public: true },
             };
 
-            let (result, errors) = self.process_function_signature(
+            self.process_function_signature(
                 &lambda_signature,
                 &parameter_types_filters,
                 call,
@@ -534,11 +554,8 @@ impl<'a> ASTTypeChecker<'a> {
                 module_source,
             );
 
-            return (result, errors);
+            return;
         }
-
-        let mut errors = Vec::new();
-        let mut result = ASTTypeCheckerResult::new();
 
         let mut functions = self.modules_container.find_call_vec(
             &call.function_name,
@@ -554,7 +571,7 @@ impl<'a> ASTTypeChecker<'a> {
                 "expected_expression_type {}",
                 OptionDisplay(&expected_expression_type)
             );
-            errors.push(ASTTypeCheckError::new(
+            self.errors.push(ASTTypeCheckError::new(
                 index.clone(),
                 format!("no functions for {}", call.function_name),
             ));
@@ -586,16 +603,34 @@ impl<'a> ASTTypeChecker<'a> {
                 }
                 */
 
-                errors.push(ASTTypeCheckError::new(
+                self.errors.push(ASTTypeCheckError::new(
                     index.clone(),
                     format!("found more than one function for {}", call.function_name),
                 ));
 
-                result.extend(first_try_of_map);
+                // self.result.extend(first_try_of_map);
             } else {
                 let found_function = functions.remove(0);
 
-                let (function_result, function_errors) = self.process_function_signature(
+                /*
+                for (e, t) in zip(&call.parameters, &found_function.signature.parameters_types) {
+                    let e_index =
+                        ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
+
+                    self.result.remove(&e_index);
+
+                    self.get_expr_type_map(
+                        e,
+                        val_context,
+                        statics,
+                        Some(t),
+                        module_id,
+                        module_source,
+                    );
+                }
+                */
+
+                self.process_function_signature(
                     &found_function.signature,
                     &parameter_types_filters,
                     &call,
@@ -605,16 +640,12 @@ impl<'a> ASTTypeChecker<'a> {
                     module_id,
                     module_source,
                 );
-
-                result.extend(function_result);
-                errors.extend(function_errors);
             }
         }
-        (result, errors)
     }
 
     fn process_function_signature(
-        &self,
+        &mut self,
         function_signature: &ASTFunctionSignature,
         parameter_types_filters: &Vec<ASTTypeFilter>,
         call: &ASTFunctionCall,
@@ -623,14 +654,12 @@ impl<'a> ASTTypeChecker<'a> {
         expected_expression_type: Option<&ASTType>,
         call_module_id: &ModuleId,
         call_source: &ModuleSource,
-    ) -> (ASTTypeCheckerResult, Vec<ASTTypeCheckError>) {
+    ) {
         let index = ASTIndex::new(
             call_module_id.clone(),
             call_source.clone(),
             call.position.clone(),
         );
-        let mut result = ASTTypeCheckerResult::new();
-        let mut errors = Vec::new();
 
         let mut resolved_generic_types = ResolvedGenericTypes::new();
 
@@ -645,7 +674,7 @@ impl<'a> ASTTypeChecker<'a> {
                     &mut resolved_generic_types,
                 );
 
-                errors.extend(p_errors);
+                self.errors.extend(p_errors);
             }
         }
 
@@ -659,7 +688,9 @@ impl<'a> ASTTypeChecker<'a> {
                 let ast_type = Self::substitute(&parameter_type, &resolved_generic_types)
                     .unwrap_or(parameter_type.clone());
 
-                let (e_result, e_errors) = self.get_expr_type_map(
+                //self.result.remove(&e_index);
+
+                self.get_expr_type_map(
                     e,
                     val_context,
                     statics,
@@ -668,10 +699,7 @@ impl<'a> ASTTypeChecker<'a> {
                     call_source,
                 );
 
-                result.extend(e_result);
-                errors.extend(e_errors);
-
-                if let Some(calculated_type_filter) = result.get(&e_index) {
+                if let Some(calculated_type_filter) = self.result.get(&e_index) {
                     let p_errors = self.resolve_type_filter(
                         &index,
                         &parameter_type,
@@ -686,7 +714,7 @@ impl<'a> ASTTypeChecker<'a> {
                         }
                     }
 
-                    errors.extend(p_errors);
+                    self.errors.extend(p_errors);
                 }
             }
 
@@ -725,12 +753,10 @@ impl<'a> ASTTypeChecker<'a> {
                 }
         */
 
-        result.insert(
+        self.result.insert(
             index.clone(),
             ASTTypeFilter::Exact(return_type, call_module_id.clone()),
         );
-
-        (result, errors)
     }
 
     fn resolve_type_filter(
@@ -1046,65 +1072,13 @@ mod tests {
 
         let container = container_from_project(&project, &target);
 
-        let function_type_checker = ASTTypeChecker::new(&container);
-
         let mut statics = ValContext::new(None);
 
         let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
 
         let (module, _errors, info) = project.get_module(path, &target).unwrap();
 
-        for function in module.functions.into_iter() {
-            function_type_checker.get_type_map(
-                &function,
-                &mut statics,
-                &info.module_id(),
-                &info.module_source(),
-            );
-        }
-    }
-
-    #[test]
-    fn test_svg_check_functions() {
-        let project = RasmProject::new(PathBuf::from("/home/enrico/development/rasm/svglib"));
-
-        let target = CompileTarget::C(COptions::default());
-
-        let container = container_from_project(&project, &target);
-
-        let function_type_checker = ASTTypeChecker::new(&container);
-
-        let mut statics = ValContext::new(None);
-
-        let path = Path::new("/home/enrico/development/rasm/svglib/src/main/rasm/svg.rasm");
-
-        let (module, _errors, info) = project.get_module(path, &target).unwrap();
-
-        for function in module.functions.into_iter() {
-            function_type_checker.get_type_map(
-                &function,
-                &mut statics,
-                &info.module_id(),
-                &info.module_source(),
-            );
-        }
-    }
-
-    #[test]
-    fn test_xmllib_check_functions() {
-        let project = RasmProject::new(PathBuf::from("/home/enrico/development/rasm/xmllib"));
-
-        let target = CompileTarget::C(COptions::default());
-
-        let container = container_from_project(&project, &target);
-
-        let function_type_checker = ASTTypeChecker::new(&container);
-
-        let mut statics = ValContext::new(None);
-
-        let path = Path::new("/home/enrico/development/rasm/xmllib/src/main/rasm/parser.rasm");
-
-        let (module, _errors, info) = project.get_module(path, &target).unwrap();
+        let mut function_type_checker = ASTTypeChecker::new(&container);
 
         for function in module.functions.into_iter() {
             function_type_checker.get_type_map(
@@ -1232,7 +1206,7 @@ mod tests {
     fn test_functions_checker6() {
         let file = "resources/test/functions_checker6.rasm";
 
-        let (types_map, info) = check_function(file);
+        let (types_map, info) = check_function(file, "endsWith");
 
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
@@ -1250,7 +1224,7 @@ mod tests {
     fn test_functions_checker7() {
         let file = "resources/test/functions_checker7.rasm";
 
-        let (types_map, info) = check_function(file);
+        let (types_map, info) = check_function(file, "endsWith");
 
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
@@ -1260,6 +1234,35 @@ mod tests {
 
         assert_eq!(
             "Some(Exact(functions_checker7_functions_checker7_endsWith:T))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+
+        let r_value = types_map.get(&ASTIndex::new(
+            info.module_id(),
+            info.module_source(),
+            ASTPosition::new(3, 24),
+        ));
+
+        assert_eq!(
+            "Some(Exact(functions_checker7_functions_checker7_endsWith:T))",
+            format!("{}", OptionDisplay(&r_value),)
+        );
+    }
+
+    #[test]
+    fn test_functions_checker8() {
+        let file = "resources/test/functions_checker8.rasm";
+
+        let (types_map, info) = check_function(file, "generic");
+
+        let r_value = types_map.get(&ASTIndex::new(
+            info.module_id(),
+            info.module_source(),
+            ASTPosition::new(9, 18),
+        ));
+
+        assert_eq!(
+            "Some(Exact(functions_checker8_functions_checker8_generic:T))",
             format!("{}", OptionDisplay(&r_value),)
         );
     }
@@ -1288,7 +1291,7 @@ mod tests {
     }
 
     fn check_body(file: &str) -> (ASTTypeCheckerResult, EhModuleInfo) {
-        apply_to_functions_checker(file, file, |module, statics, ftc, info| {
+        apply_to_functions_checker(file, file, |module, mut ftc, info| {
             let mut val_context = ValContext::new(None);
             let mut static_val_context = ValContext::new(None);
             ftc.get_body_type_map(
@@ -1298,55 +1301,54 @@ mod tests {
                 None,
                 &info.module_id(),
                 &info.module_source(),
-            )
-            .0
+            );
+            ftc.result
         })
     }
 
-    fn check_function(file: &str) -> (ASTTypeCheckerResult, EhModuleInfo) {
-        apply_to_functions_checker(file, file, |module, statics, ftc, info| {
-            let function = module.functions.first().unwrap().clone();
+    fn check_function(file: &str, function_name: &str) -> (ASTTypeCheckerResult, EhModuleInfo) {
+        apply_to_functions_checker(file, file, |module, mut ftc, info| {
+            let function = module
+                .functions
+                .iter()
+                .find(|it| &it.name == function_name)
+                .unwrap()
+                .clone();
             let mut static_val_context = ValContext::new(None);
             ftc.get_type_map(
                 &function,
                 &mut static_val_context,
                 &info.module_id(),
                 &info.module_source(),
-            )
-            .0
+            );
+            ftc.result
         })
     }
 
-    fn apply_to_functions_checker<F>(
+    fn apply_to_functions_checker<'a, F>(
         project_path: &str,
         file: &str,
         f: F,
     ) -> (ASTTypeCheckerResult, EhModuleInfo)
     where
-        F: Fn(&ASTModule, &mut Statics, ASTTypeChecker, EhModuleInfo) -> ASTTypeCheckerResult,
+        F: Fn(&ASTModule, ASTTypeChecker, EhModuleInfo) -> ASTTypeCheckerResult,
     {
         env::set_var("RASM_STDLIB", "/home/enrico/development/rust/rasm/stdlib");
 
         let target = CompileTarget::C(COptions::default());
-        let mut statics = Statics::new();
-        let (project, enhanced_ast_module) =
-            project_and_container(&target, &mut statics, &project_path);
-        let function_type_checker = ASTTypeChecker::new(&enhanced_ast_module);
+        let (project, modules_container) = project_and_container(&target, &project_path);
+        let function_type_checker = ASTTypeChecker::new(&modules_container);
 
         let (module, _, info) = project.get_module(Path::new(file), &target).unwrap();
 
         println!("module:");
         module.print();
 
-        (
-            f(&module, &mut statics, function_type_checker, info.clone()),
-            info,
-        )
+        (f(&module, function_type_checker, info.clone()), info)
     }
 
     fn project_and_container(
         target: &CompileTarget,
-        statics: &mut Statics,
         project_path: &str,
     ) -> (RasmProject, ASTModulesContainer) {
         let project = RasmProject::new(PathBuf::from(project_path));
