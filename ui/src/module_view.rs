@@ -7,7 +7,7 @@ use std::{
 use iced::{
     widget::{
         button, container,
-        scrollable::{self, Scrollbar},
+        scrollable::{self, scroll_to, AbsoluteOffset, Id, Scrollbar},
         text, Column, Row, Scrollable,
     },
     Background, Color, Element, Length, Padding,
@@ -27,6 +27,7 @@ const KEYWORD_COLOR: Color = Color::from_rgb(0.5, 0.5, 1.0);
 const STRING_COLOR: Color = Color::from_rgb(0.5, 0.8, 0.8);
 const NUMBER_COLOR: Color = Color::from_rgb(0.8, 0.5, 0.8);
 const RESERVED_COLOR: Color = KEYWORD_COLOR;
+pub const TEXT_SCROLLABLE_ID: &str = "TEXT_SCROLLABLE_ID";
 
 #[derive(PartialEq)]
 enum SyntaxKind {
@@ -174,16 +175,18 @@ impl UI {
                     column = column.push(row);
                 }
                 */
-                column = column.push(
-                    Scrollable::with_direction(
-                        code,
-                        scrollable::Direction::Both {
-                            vertical: Scrollbar::default(),
-                            horizontal: Scrollbar::default(),
-                        },
-                    )
-                    .width(Length::Fill),
-                );
+
+                let scrollable = Scrollable::with_direction(
+                    code,
+                    scrollable::Direction::Both {
+                        vertical: Scrollbar::default(),
+                        horizontal: Scrollbar::default(),
+                    },
+                )
+                .width(Length::Fill)
+                .id(Id::new(TEXT_SCROLLABLE_ID))
+                .on_scroll(|viewport| Message::ScrollText(viewport.absolute_offset()));
+                column = column.push(scrollable);
             }
         }
 

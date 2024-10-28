@@ -1,14 +1,16 @@
-use std::{env, path::Path, time::Instant};
+use std::{collections::HashMap, env, path::Path, time::Instant};
 
 use iced::{
     widget::{
         button::Style,
         pane_grid::{self, ResizeEvent},
+        scrollable::{scroll_to, AbsoluteOffset, Id},
         text, Button, Column,
     },
     Color, Element, Font, Padding, Task, Theme,
 };
 
+use module_view::TEXT_SCROLLABLE_ID;
 use rasm_core::{
     codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
     commandline::CommandLineOptions,
@@ -33,6 +35,7 @@ pub struct UI {
     modules_container: ASTModulesContainer,
     info: Option<String>,
     selected_token: Option<ASTPosition>,
+    text_scroll_positions: HashMap<String, AbsoluteOffset>,
 }
 
 pub struct SelectedModule {
@@ -48,6 +51,7 @@ pub enum Message {
     Home,
     ResizeSplit(ResizeEvent),
     Info(Option<String>, ASTPosition),
+    ScrollText(AbsoluteOffset),
 }
 
 #[derive(Clone, Copy)]
@@ -121,6 +125,7 @@ impl UI {
                         modules_container,
                         info: None,
                         selected_token: None,
+                        text_scroll_positions: HashMap::new(),
                     },
                     Task::none(),
                 )
@@ -156,11 +161,11 @@ impl UI {
         */
     }
 
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Home => {
                 self.current_module = None;
-                self.current_function = None
+                self.current_function = None;
             }
             Message::Module(s) => {
                 self.current_module = Some(Self::selected_module(
@@ -169,6 +174,13 @@ impl UI {
                     &self.modules_container,
                     &s,
                 ));
+
+                let scroll_position = if let Some(position) = self.text_scroll_positions.get(&s) {
+                    position.clone()
+                } else {
+                    AbsoluteOffset { x: 0.0, y: 0.0 }
+                };
+                return scroll_to(Id::new(TEXT_SCROLLABLE_ID), scroll_position);
             }
             Message::Function(function) => self.current_function = Some(function),
             Message::BackToModule => self.current_function = None,
@@ -179,7 +191,14 @@ impl UI {
                 self.info = info;
                 self.selected_token = Some(position)
             }
+            Message::ScrollText(absolute_offset) => {
+                if let Some(module) = &self.current_module {
+                    self.text_scroll_positions
+                        .insert(module.path.clone(), absolute_offset);
+                }
+            }
         }
+        Task::none()
     }
 
     pub(crate) fn selected_module(
