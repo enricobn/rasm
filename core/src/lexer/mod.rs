@@ -569,7 +569,7 @@ mod tests {
         //let lst: Vec<TokenKind> = tokens.into_iter().map(|it| it.kind).collect();
 
         assert_eq!(tokens.get(3).unwrap().kind, KeyWord(KeywordKind::Fn));
-        assert_eq!(tokens.get(3).unwrap().row, 2);
+        assert_eq!(tokens.get(3).unwrap().position.row, 2);
     }
 
     #[test]

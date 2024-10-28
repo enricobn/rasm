@@ -439,17 +439,13 @@ impl Parser {
         let index = self
             .get_token_n(0)
             .or_else(|| self.tokens.last())
-            .map(|it| self.token_index(it))
+            .map(|it| it.position.clone())
             .unwrap_or_else(|| ASTPosition::new(0, 0));
 
         self.errors.push(CompilationError {
             index: EnhASTIndex::from_position(self.file_name.clone(), index),
             error_kind: CompilationErrorKind::Parser(message),
         });
-    }
-
-    fn token_index(&self, token: &Token) -> ASTPosition {
-        ASTPosition::new(token.row, token.column)
     }
 
     ///
@@ -475,7 +471,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline: false,
                 generic_types,
-                position: self.token_index(&name_token).mv_left(name_len),
+                position: name_token.position.mv_left(name_len),
                 modifiers,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
@@ -494,7 +490,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline,
                 generic_types: param_types,
-                position: self.token_index(&name_token).mv_left(name_len),
+                position: name_token.position.mv_left(name_len),
                 modifiers,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
@@ -506,7 +502,7 @@ impl Parser {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
-                position: self.token_index(&name).mv_left(name.alpha().unwrap().len()),
+                position: name.position.mv_left(name.alpha().unwrap().len()),
                 modifiers,
             }));
             self.state.push(ParserState::EnumDef);
@@ -518,8 +514,8 @@ impl Parser {
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
-                position: self
-                    .token_index(&name_token)
+                position: name_token
+                    .position
                     .mv_left(name_token.alpha().unwrap().len()),
                 modifiers,
             }));
@@ -781,7 +777,7 @@ impl Parser {
                         .push(ParserData::FunctionDefParameter(ASTParameterDef {
                             name,
                             ast_type,
-                            position: self.token_index(token),
+                            position: token.position.clone(),
                         }));
                     self.state.pop();
                     Ok(())
@@ -971,8 +967,7 @@ impl Parser {
         let token_option = self.tokens.get(self.i);
 
         if let Some(token) = token_option {
-            let index = self.token_index(token);
-            format!("{}: {}", message, index)
+            format!("{}: {}", message, token.position)
         } else {
             format!("{} {:?} : in end of file", message, self.file_name)
         }
@@ -1419,7 +1414,7 @@ pub trait ParserTrait {
 
     fn get_position(&self, n: usize) -> ASTPosition {
         self.get_token_n(n)
-            .map(|it| ASTPosition::new(it.row, it.column))
+            .map(|it| it.position.clone())
             .unwrap_or(ASTPosition::none())
     }
 

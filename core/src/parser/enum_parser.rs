@@ -109,7 +109,7 @@ impl EnumParser {
                                     parameters.push(ASTParameterDef {
                                         name: token.alpha().unwrap(),
                                         ast_type,
-                                        position: ASTPosition::new(token.row, token.column),
+                                        position: token.position.clone(),
                                     });
                                 } else {
                                     return Err(parser.wrap_error(&format!(
@@ -130,7 +130,7 @@ impl EnumParser {
                     Ok(ASTEnumVariantDef {
                         name: name_token.alpha().unwrap(),
                         parameters: parameters?,
-                        position: ASTPosition::new(name_token.row, name_token.column),
+                        position: name_token.position.clone(),
                     })
                 })
                 .collect::<Result<Vec<ASTEnumVariantDef>, String>>();
@@ -257,8 +257,7 @@ mod tests {
                 if let Some((variants, next_i)) =
                     self.parse_variants(parser, &type_parameters, next_i - parser.get_i(), None)?
                 {
-                    let index =
-                        ASTPosition::new(token.row, token.column - token.alpha().unwrap().len());
+                    let index = token.position.mv_left(token.alpha().unwrap().len());
                     return Ok(Some((
                         ASTEnumDef {
                             name: token.alpha().unwrap(),

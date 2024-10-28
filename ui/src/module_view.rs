@@ -73,7 +73,7 @@ impl UI {
                         row = Row::new();
                         just_added_new_line = true;
                     } else {
-                        let token_position = ASTPosition::new(token.row, token.column);
+                        let token_position = token.position;
                         let token_index = info.index(token_position.clone());
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {

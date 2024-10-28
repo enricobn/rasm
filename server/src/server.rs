@@ -222,8 +222,12 @@ async fn file<'a>(
 
         tokens.into_iter().for_each(|it| {
             // mv_left because the index of the token is at the end of the token itself, hence outside the text of the token...
-            let index =
-                EnhASTIndex::new(Some(file_path.to_path_buf()), it.row, it.column).mv_left(1);
+            let index = EnhASTIndex::new(
+                Some(file_path.to_path_buf()),
+                it.position.row,
+                it.position.column,
+            )
+            .mv_left(1);
             if row != index.row {
                 row = index.row;
                 if !(is_multiline(&it)
@@ -233,7 +237,7 @@ async fn file<'a>(
                 }
             }
             let mut vec = finder.find(&index).unwrap();
-            let name = format!("_{}_{}", it.row, it.column);
+            let name = format!("_{}_{}", it.position.row, it.position.column);
             if !vec.is_empty() {
                 let item = vec.remove(0);
                 if let Some((file_name, row, column)) =
@@ -254,17 +258,26 @@ async fn file<'a>(
                         row,
                         column
                     );
-                    html.push_str(&format!("<!-- {} {},{} -->", it.kind, it.row, it.column));
+                    html.push_str(&format!(
+                        "<!-- {} {},{} -->",
+                        it.kind, it.position.row, it.position.column
+                    ));
                     html.push_str(&format!(
                         "<A HREF=\"{ref_name}\" NAME={name}>{}</A>",
                         token_to_string(&it, row)
                     ));
                 } else {
-                    html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
+                    html.push_str(&format!(
+                        "<!-- {},{} -->",
+                        it.position.row, it.position.column
+                    ));
                     html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it, row)));
                 }
             } else {
-                html.push_str(&format!("<!-- {},{} -->", it.row, it.column));
+                html.push_str(&format!(
+                    "<!-- {},{} -->",
+                    it.position.row, it.position.column
+                ));
                 html.push_str(&format!("<A NAME={name}>{}</A>", token_to_string(&it, row)));
             }
             last_is_multiline = is_multiline(&it);

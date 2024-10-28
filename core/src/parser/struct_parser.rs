@@ -8,8 +8,6 @@ use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrai
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
-use super::ast::ASTPosition;
-
 pub struct StructParser {
     matcher: TokensMatcher,
 }
@@ -90,7 +88,7 @@ impl StructParser {
                     parameters.push(ASTStructPropertyDef {
                         name: token.alpha().unwrap(),
                         ast_type,
-                        position: ASTPosition::new(token.row, token.column),
+                        position: token.position,
                     });
                 } else {
                     return Err(format!(

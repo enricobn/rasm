@@ -3,16 +3,20 @@ use std::fmt::{Display, Formatter};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::parser::ast::ASTPosition;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub row: usize,
-    pub column: usize,
+    pub position: ASTPosition,
 }
 
 impl Token {
     pub fn new(kind: TokenKind, row: usize, column: usize) -> Self {
-        Self { kind, row, column }
+        Self {
+            kind,
+            position: ASTPosition::new(row, column),
+        }
     }
 
     pub fn alpha(&self) -> Option<String> {
