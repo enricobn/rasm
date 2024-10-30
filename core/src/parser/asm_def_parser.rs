@@ -73,7 +73,7 @@ impl<'a> AsmDefParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{ast::ASTPosition, test_utils::get_parser};
+    use crate::parser::test_utils::get_parser;
 
     use super::*;
 
@@ -83,10 +83,7 @@ mod tests {
             "inline native aFun<T>(o: Option<T>) /{
         }/",
         );
-        let expected_token = Token {
-            kind: TokenKind::AlphaNumeric("aFun".to_string()),
-            position: ASTPosition::new(1, 19),
-        };
+        let expected_token = Token::new(TokenKind::AlphaNumeric("aFun".to_string()), 1, 19);
 
         assert_eq!(
             parse_result,

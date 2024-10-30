@@ -276,7 +276,7 @@ impl CodeGenC {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (struct_has_references(struct_def, type_def_provider), false)
-            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+            } else if let Some(_) = type_def_provider.get_enum_def_by_name(type_name) {
                 (true, false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_def.is_ref, true)

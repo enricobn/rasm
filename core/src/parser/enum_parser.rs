@@ -14,8 +14,6 @@ use crate::parser::tokens_matcher::{
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
-use super::ast::ASTPosition;
-
 pub struct EnumParser {
     matcher: TokensMatcher,
 }
@@ -242,7 +240,9 @@ impl TokensMatcherTrait for ParameterMatcher {
 #[cfg(test)]
 mod tests {
     use crate::parser::ast::ASTType::Generic;
-    use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTType};
+    use crate::parser::ast::{
+        ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTPosition, ASTType,
+    };
     use crate::parser::test_utils::get_parser;
     use crate::parser::tokens_matcher::TokensMatcherResult;
 

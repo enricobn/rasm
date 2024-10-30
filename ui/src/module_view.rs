@@ -7,7 +7,7 @@ use std::{
 use iced::{
     widget::{
         button, container,
-        scrollable::{self, scroll_to, AbsoluteOffset, Id, Scrollbar},
+        scrollable::{self, Id, Scrollbar},
         text, Column, Row, Scrollable,
     },
     Background, Color, Element, Length, Padding,
@@ -15,7 +15,7 @@ use iced::{
 use rasm_core::{
     codegen::{enh_ast::EhModuleInfo, val_context::ASTIndex},
     lexer::{tokens::TokenKind, Lexer},
-    parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind},
+    parser::ast::{ASTModule, ASTType, BuiltinTypeKind},
     type_check::ast_modules_container::ASTTypeFilter,
 };
 
