@@ -11,9 +11,9 @@ use rasm_core::codegen::enh_ast::{
     EnhASTIndex, EnhASTLambdaDef, EnhASTModule, EnhASTNameSpace, EnhASTParameterDef,
     EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, EnhBuiltinTypeKind,
 };
+use rasm_core::codegen::enh_val_context::EnhValContext;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::enh_val_context::EnhValContext;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::project::RasmProject;
@@ -573,11 +573,9 @@ impl ReferenceFinder {
         ast_type: &EnhASTType,
         namespace: &EnhASTNameSpace,
     ) {
-        let min = index.mv_left(name.len());
-
         if let EnhASTType::Custom { .. } = ast_type {
             let item = SelectableItem::new(
-                min,
+                index.clone(),
                 name.len(),
                 namespace.clone(),
                 Some(SelectableItemTarget::Type(
@@ -708,7 +706,7 @@ impl ReferenceFinder {
 
                 reference_context.add(name.clone(), index.clone(), filter.clone());
 
-                let index1 = index.mv_left(name.len());
+                let index1 = index.clone();
                 let mut result = vec![SelectableItem::new(
                     index1.clone(),
                     name.len(),
@@ -778,8 +776,8 @@ impl ReferenceFinder {
         let mut result = Vec::new();
         match expr {
             EnhASTExpression::StringLiteral(s, index) => result.push(SelectableItem::new(
-                index.mv_left(s.len()),
-                s.len(),
+                index.clone(),
+                s.len() + 2,
                 namespace.clone(),
                 Some(SelectableItemTarget::Type(
                     None,
@@ -851,13 +849,10 @@ impl ReferenceFinder {
             };
 
             result.push(SelectableItem::new(
-                index.mv_left(name.len()),
+                index.clone(),
                 name.len(),
                 namespace.clone(),
-                Some(SelectableItemTarget::Ref(
-                    v.index.mv_left(name.len()).clone(),
-                    ast_type,
-                )),
+                Some(SelectableItemTarget::Ref(v.index.clone(), ast_type)),
             ));
         }
     }
@@ -904,7 +899,7 @@ impl ReferenceFinder {
                         EnhTypeFilter::Exact(par_type.clone()),
                     );
                     lambda_result.push(SelectableItem::new(
-                        par_index.mv_left(par_name.len()),
+                        par_index,
                         par_name.len(),
                         namespace.clone(),
                         None,
@@ -987,7 +982,7 @@ impl ReferenceFinder {
             }) = ast_type
             {
                 result.push(SelectableItem::new(
-                    call.index.mv_left(call.original_function_name.len()),
+                    call.index.clone(),
                     call.original_function_name.len(),
                     namespace.clone(),
                     Some(SelectableItemTarget::Ref(index, Some(cloned_type))),
@@ -1042,7 +1037,7 @@ impl ReferenceFinder {
 
                 let descr = format!("{function_def}");
                 result.push(SelectableItem::new(
-                    call.index.mv_left(call.original_function_name.len()),
+                    call.index.clone(),
                     call.original_function_name.len(),
                     namespace.clone(),
                     Some(SelectableItemTarget::Function(
@@ -1189,7 +1184,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
                     .unwrap()
@@ -1198,7 +1193,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 13,))
                     .unwrap()
@@ -1207,7 +1202,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 3, 2,))
                     .unwrap()
@@ -1216,7 +1211,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 9,))
                     .unwrap()
@@ -1229,7 +1224,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 10, 15,))
                     .unwrap()
@@ -1237,7 +1232,7 @@ mod tests {
             vec![EnhASTIndex::new(
                 Some(stdlib_path.join("src/main/rasm/option.rasm")),
                 2,
-                7
+                3
             )]
         );
     }
@@ -1253,7 +1248,7 @@ mod tests {
         let stdlib_path = stdlib_path();
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 15, 23))
                     .unwrap()
@@ -1266,7 +1261,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 19, 23,))
                     .unwrap()
@@ -1275,7 +1270,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 23, 23,))
                     .unwrap()
@@ -1325,7 +1320,7 @@ mod tests {
         let source_file = Path::new(&file_name);
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(
+            vec_selectable_item_to_vec_target_index(
                 finder
                     .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
                     .unwrap()
@@ -1345,7 +1340,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(found),
+            vec_selectable_item_to_vec_target_index(found),
             vec!(get_index(&project, "types.rasm", 1, 8,)),
         );
     }
@@ -1361,7 +1356,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(found),
+            vec_selectable_item_to_vec_target_index(found),
             vec!(get_index(&project, "types.rasm", 15, 4,)),
         );
     }
@@ -1377,7 +1372,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            vec_selectable_item_to_vec_index(found),
+            vec_selectable_item_to_vec_target_index(found),
             vec!(get_index(&project, "types.rasm", 5, 5,)),
         );
     }
@@ -1700,7 +1695,7 @@ mod tests {
         items.iter().map(|it| it.descr.clone()).collect::<Vec<_>>()
     }
 
-    fn vec_selectable_item_to_vec_index(vec: Vec<SelectableItem>) -> Vec<EnhASTIndex> {
+    fn vec_selectable_item_to_vec_target_index(vec: Vec<SelectableItem>) -> Vec<EnhASTIndex> {
         vec.iter()
             .flat_map(|it| it.target.clone().and_then(|item| item.index()))
             .collect::<Vec<_>>()
@@ -1819,6 +1814,6 @@ mod tests {
         let file_name = Some(PathBuf::from(file_name));
         let index = EnhASTIndex::new(file_name.clone(), row, col);
 
-        vec_selectable_item_to_vec_index(finder.find(&index).unwrap())
+        vec_selectable_item_to_vec_target_index(finder.find(&index).unwrap())
     }
 }

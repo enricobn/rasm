@@ -463,7 +463,7 @@ impl Parser {
             self.try_parse_function_def()?
         {
             let name = name_token.alpha().unwrap().clone();
-            let name_len = name.len();
+
             let function_def = ASTFunctionDef {
                 name,
                 parameters: Vec::new(),
@@ -471,7 +471,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline: false,
                 generic_types,
-                position: name_token.position.mv_left(name_len),
+                position: name_token.position,
                 modifiers,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
@@ -482,7 +482,6 @@ impl Parser {
             AsmDefParser::new(self).try_parse()?
         {
             let name = name_token.alpha().unwrap();
-            let name_len = name.len();
             let function_def = ASTFunctionDef {
                 name,
                 parameters: Vec::new(),
@@ -490,7 +489,7 @@ impl Parser {
                 return_type: ASTType::Unit,
                 inline,
                 generic_types: param_types,
-                position: name_token.position.mv_left(name_len),
+                position: name_token.position.clone(),
                 modifiers,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
@@ -502,7 +501,7 @@ impl Parser {
                 name: name.alpha().unwrap(),
                 type_parameters: type_params,
                 variants: Vec::new(),
-                position: name.position.mv_left(name.alpha().unwrap().len()),
+                position: name.position.clone(),
                 modifiers,
             }));
             self.state.push(ParserState::EnumDef);
@@ -514,9 +513,7 @@ impl Parser {
                 name: name_token.alpha().unwrap(),
                 type_parameters: type_params,
                 properties: Vec::new(),
-                position: name_token
-                    .position
-                    .mv_left(name_token.alpha().unwrap().len()),
+                position: name_token.position.clone(),
                 modifiers,
             }));
             self.state.push(StructDef);
@@ -990,7 +987,7 @@ impl Parser {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
             let (function_name, next_n, function_name_n) =
                 if let Some((variant, next_n)) = self.try_parse_enum_constructor() {
-                    (f_name.clone() + "::" + &variant, next_n, next_n - 1)
+                    (f_name.clone() + "::" + &variant, next_n, next_n - 4)
                 } else {
                     (f_name.clone(), 1, 0)
                 };
@@ -1357,7 +1354,7 @@ impl Parser {
                                 type_parameters,
                                 name: name.clone(),
                                 is_ref,
-                                position: self.get_position(base_n + 1).mv_left(name.len()),
+                                position: self.get_position(base_n + 1).clone(),
                                 modifiers,
                                 native_type,
                             },
@@ -1568,10 +1565,10 @@ mod tests {
             function_name: "println".to_string(),
             parameters: vec![ASTExpression::Value(
                 ASTValueType::I32(20),
-                ASTPosition::new(1, 16),
+                ASTPosition::new(1, 14),
             )],
             generics: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
-            position: ASTPosition::new(1, 8),
+            position: ASTPosition::new(1, 1),
         };
 
         assert_eq!(
@@ -1592,10 +1589,10 @@ mod tests {
             function_name: "println".to_string(),
             parameters: vec![ASTExpression::ValueRef(
                 "it".to_string(),
-                ASTPosition::new(1, 38),
+                ASTPosition::new(1, 36),
             )],
             generics: vec![ASTType::Generic(ASTPosition::new(1, 34), "T".to_string())],
-            position: ASTPosition::new(1, 32),
+            position: ASTPosition::new(1, 25),
         };
 
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
@@ -1620,10 +1617,10 @@ mod tests {
             function_name: "Option::Some".to_string(),
             parameters: vec![ASTExpression::Value(
                 ASTValueType::I32(20),
-                ASTPosition::new(1, 16),
+                ASTPosition::new(1, 14),
             )],
             generics: Vec::new(),
-            position: ASTPosition::new(1, 13),
+            position: ASTPosition::new(1, 1),
         };
 
         assert_eq!(

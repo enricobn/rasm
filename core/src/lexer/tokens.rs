@@ -9,16 +9,16 @@ use crate::parser::ast::ASTPosition;
 pub struct Token {
     pub kind: TokenKind,
     pub position: ASTPosition,
-    pub length: usize,
+    pub len: usize,
 }
 
 impl Token {
     pub fn new(kind: TokenKind, row: usize, column: usize) -> Self {
-        let length = kind.length();
+        let len = kind.len();
         Self {
             kind,
             position: ASTPosition::new(row, column),
-            length,
+            len,
         }
     }
 
@@ -57,7 +57,7 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             TokenKind::AlphaNumeric(s) => s.len(),
             TokenKind::NativeBlock(block) => block.len(),
@@ -65,13 +65,13 @@ impl TokenKind {
             TokenKind::Comment(c) => c.len(),
             TokenKind::MultiLineComment(c) => c.len(),
             TokenKind::EndOfLine => 1,
-            TokenKind::KeyWord(keyword_kind) => keyword_kind.length(),
+            TokenKind::KeyWord(keyword_kind) => keyword_kind.len(),
             TokenKind::Number(s) => s.len(),
-            TokenKind::Punctuation(punctuation_kind) => punctuation_kind.length(),
+            TokenKind::Punctuation(punctuation_kind) => punctuation_kind.len(),
             TokenKind::StringLiteral(s) => s.len(),
             TokenKind::CharLiteral(_) => 1,
             TokenKind::WhiteSpaces(s) => s.len(),
-            TokenKind::Reserved(reserved_kind) => reserved_kind.length(),
+            TokenKind::Reserved(reserved_kind) => reserved_kind.len(),
         }
     }
 }
@@ -102,7 +102,7 @@ impl ReservedKind {
         }
     }
 
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.name().len()
     }
 }
@@ -210,7 +210,7 @@ pub enum PunctuationKind {
 }
 
 impl PunctuationKind {
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         if let PunctuationKind::RightArrow = self {
             2
         } else {
@@ -271,7 +271,7 @@ impl KeywordKind {
             .map(TokenKind::KeyWord)
     }
 
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.name().len()
     }
 }

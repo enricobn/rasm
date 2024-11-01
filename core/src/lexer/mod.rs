@@ -15,8 +15,8 @@ pub mod tokens;
 enum LexStatus {
     None,
     AlphaNumeric,
-    Comment,
-    NativeBlock,
+    Comment(usize, usize),
+    NativeBlock(usize, usize),
     Numeric,
     String,
     StringEscape,
@@ -77,10 +77,25 @@ impl Lexer {
     }
 
     fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<LexerError>)> {
+        let length = kind.len();
+
         let result = Some((
-            Some(Token::new(kind, self.row, self.column)),
+            Some(Token::new(kind, self.row, self.column - length)),
             self.errors.clone(),
         ));
+
+        self.errors.clear();
+
+        result
+    }
+
+    fn some_token_at(
+        &mut self,
+        kind: TokenKind,
+        row: usize,
+        column: usize,
+    ) -> Option<(Option<Token>, Vec<LexerError>)> {
+        let result = Some((Some(Token::new(kind, row, column)), self.errors.clone()));
 
         self.errors.clear();
 
@@ -170,14 +185,16 @@ impl Lexer {
             match status {
                 LexStatus::None => {
                     if actual == "//" || actual == "/*" {
+                        let row = self.row;
+                        let column = self.column - 2;
                         // TODO empty one line comment
                         if c == '\n' {
                             self.row += 1;
                             self.column = 0;
-                        } else {
-                            actual.push(c);
                         }
-                        status = LexStatus::Comment;
+                        actual.push(c);
+
+                        status = LexStatus::Comment(row, column);
                     } else if c == '\n' {
                         let token = self.some_token(TokenKind::EndOfLine);
                         self.index += 1;
@@ -188,7 +205,7 @@ impl Lexer {
                         actual.push(c);
                     } else if actual == "/" && c == '{' {
                         actual.clear();
-                        status = LexStatus::NativeBlock;
+                        status = LexStatus::NativeBlock(self.row, self.column - 1);
                     } else if let Some(punctuation) = self.get_punctuation(&actual, c) {
                         let token = self.some_token(punctuation);
                         self.column += 1;
@@ -305,10 +322,10 @@ impl Lexer {
                         return self.some_token(TokenKind::Number(actual));
                     }
                 }
-                LexStatus::Comment => {
+                LexStatus::Comment(row, column) => {
                     if actual.starts_with("//") {
                         if c == '\n' || c == END_OF_FILE {
-                            let token = self.some_token(TokenKind::Comment(actual));
+                            let token = self.some_token_at(TokenKind::Comment(actual), row, column);
                             self.index += 1; // I remove the end of line, is it right?
                             self.column = 1;
                             self.row += 1;
@@ -319,7 +336,11 @@ impl Lexer {
                     } else if actual.starts_with("/*") {
                         if actual.ends_with("*/") {
                             //self.chars.next_back();
-                            return self.some_token(TokenKind::MultiLineComment(actual));
+                            return self.some_token_at(
+                                TokenKind::MultiLineComment(actual),
+                                row,
+                                column,
+                            );
                         } else if c == '\n' {
                             self.row += 1;
                             self.column = 0;
@@ -329,11 +350,13 @@ impl Lexer {
                         }
                     }
                 }
-                LexStatus::NativeBlock => {
+                LexStatus::NativeBlock(row, column) => {
                     if actual.ends_with("}/") {
-                        let token = self.some_token(TokenKind::NativeBlock(
-                            actual.split_at(actual.len() - 2).0.into(),
-                        ));
+                        let token = self.some_token_at(
+                            TokenKind::NativeBlock(actual.split_at(actual.len() - 2).0.into()),
+                            row,
+                            column,
+                        );
                         //self.chars.next_back();
                         return token;
                     } else if c == '\n' {
@@ -522,7 +545,7 @@ mod tests {
         assert_eq!(
             vec![
                 Comment("// test6.rasm file".into()),
-                MultiLineComment("/*   A multi\n   line comment\n */".into()),
+                MultiLineComment("/*\n   A multi\n   line comment\n */".into()),
             ],
             lst
         );

@@ -137,7 +137,7 @@ mod tests {
                                 name,
                                 type_parameters,
                                 properties,
-                                position: parser.get_position(0),
+                                position: token.position,
                                 modifiers,
                             },
                             next_i,
@@ -167,13 +167,13 @@ mod tests {
         let x = ASTStructPropertyDef {
             name: "x".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
-            position: ASTPosition::new(2, 14),
+            position: ASTPosition::new(2, 13),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
-            position: ASTPosition::new(3, 14),
+            position: ASTPosition::new(3, 13),
         };
 
         assert_eq!(
@@ -183,7 +183,7 @@ mod tests {
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
-                    position: ASTPosition::new(1, 7),
+                    position: ASTPosition::new(1, 8),
                     modifiers: ASTModifiers::private()
                 },
                 11
@@ -203,13 +203,13 @@ mod tests {
         let x = ASTStructPropertyDef {
             name: "index".into(),
             ast_type: Builtin(BuiltinTypeKind::I32),
-            position: ASTPosition::new(2, 18),
+            position: ASTPosition::new(2, 13),
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
             ast_type: Generic(ASTPosition::new(3, 21), "T".into()),
-            position: ASTPosition::new(3, 18),
+            position: ASTPosition::new(3, 13),
         };
 
         assert_eq!(
@@ -219,7 +219,7 @@ mod tests {
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],
-                    position: ASTPosition::new(1, 7),
+                    position: ASTPosition::new(1, 8),
                     modifiers: ASTModifiers::private()
                 },
                 14

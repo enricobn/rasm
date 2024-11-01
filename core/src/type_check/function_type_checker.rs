@@ -7,9 +7,9 @@ use crate::{
             EnhASTFunctionSignature, EnhASTIndex, EnhASTParameterDef, EnhASTStatement, EnhASTType,
             EnhBuiltinTypeKind,
         },
+        enh_val_context::EnhValContext,
         enhanced_module::EnhancedASTModule,
         statics::Statics,
-        enh_val_context::EnhValContext,
     },
     type_check::type_check_error::TypeCheckError,
     utils::{OptionDisplay, SliceDisplay},
@@ -199,7 +199,10 @@ impl<'a> FunctionTypeChecker<'a> {
                 }
             }
             EnhASTExpression::Value(value_type, index) => {
-                result.insert(index.clone(), EnhTypeFilter::Exact(value_type.to_enh_type()));
+                result.insert(
+                    index.clone(),
+                    EnhTypeFilter::Exact(value_type.to_enh_type()),
+                );
             }
             EnhASTExpression::Lambda(lambda) => {
                 if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
@@ -557,9 +560,9 @@ mod tests {
             c::options::COptions,
             compile_target::CompileTarget,
             enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTModule, EnhASTNameSpace},
+            enh_val_context::EnhValContext,
             enhanced_module::EnhancedASTModule,
             statics::Statics,
-            enh_val_context::EnhValContext,
         },
         commandline::CommandLineOptions,
         project::RasmProject,
@@ -661,7 +664,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
-            6,
+            5,
         ));
 
         assert_eq!(
@@ -679,7 +682,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
-            6,
+            5,
         ));
 
         assert_eq!(
@@ -703,7 +706,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
-            6,
+            5,
         ));
 
         assert_eq!(
@@ -727,7 +730,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
-            6,
+            5,
         ));
 
         assert_eq!(
@@ -751,7 +754,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             1,
-            6,
+            5,
         ));
 
         assert_eq!(
@@ -769,7 +772,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             3,
-            10,
+            9,
         ));
 
         assert_eq!(
@@ -787,7 +790,7 @@ mod tests {
         let r_value = types_map.get(&EnhASTIndex::new(
             Some(PathBuf::from(file).canonicalize().unwrap()),
             4,
-            23,
+            22,
         ));
 
         assert_eq!(

@@ -1268,14 +1268,16 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
+        /*
         for (key, value) in types_map.map.iter() {
             println!("types_map {key} = {value:?}");
         }
+        */
 
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(1, 6),
+            ASTPosition::new(1, 5),
         ));
 
         assert_eq!(
@@ -1296,7 +1298,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(1, 6),
+            ASTPosition::new(1, 5),
         ));
 
         assert_eq!(
@@ -1323,7 +1325,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(1, 6),
+            ASTPosition::new(1, 5),
         ));
 
         assert_eq!(
@@ -1350,7 +1352,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(1, 6),
+            ASTPosition::new(1, 5),
         ));
 
         assert_eq!(
@@ -1377,7 +1379,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(1, 6),
+            ASTPosition::new(1, 5),
         ));
 
         assert_eq!(
@@ -1398,7 +1400,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(3, 10),
+            ASTPosition::new(3, 9),
         ));
 
         assert_eq!(
@@ -1419,7 +1421,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(4, 23),
+            ASTPosition::new(4, 22),
         ));
 
         assert_eq!(
@@ -1433,7 +1435,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(3, 24),
+            ASTPosition::new(3, 19),
         ));
 
         assert_eq!(
@@ -1454,7 +1456,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_id(),
             info.module_source(),
-            ASTPosition::new(9, 18),
+            ASTPosition::new(9, 13),
         ));
 
         assert_eq!(

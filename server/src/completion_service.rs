@@ -22,10 +22,10 @@ use std::ops::Deref;
 
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+use rasm_core::codegen::enh_val_context::TypedValContext;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::typedef_provider::TypeDefProvider;
-use rasm_core::codegen::enh_val_context::TypedValContext;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
@@ -419,7 +419,7 @@ impl CompletionService {
                     }
                 };
                 completable_items.push(CompletableItem::new(
-                    call.index.mv_left(call.original_function_name.len()),
+                    call.index.clone(),
                     call.original_function_name.len(),
                     ast_typed_type,
                 ));
@@ -438,14 +438,14 @@ impl CompletionService {
                 val_context.get(name).iter().for_each(|it| match it {
                     TypedValKind::ParameterRef(_, def) => {
                         completable_items.push(CompletableItem::new(
-                            index.mv_left(name.len()),
+                            index.clone(),
                             name.len(),
                             def.ast_type.clone(),
                         ));
                     }
                     TypedValKind::LetRef(_, ast_typed_type) => {
                         completable_items.push(CompletableItem::new(
-                            index.mv_left(name.len()),
+                            index.clone(),
                             name.len(),
                             ast_typed_type.clone(),
                         ));

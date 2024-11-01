@@ -257,7 +257,7 @@ mod tests {
                 if let Some((variants, next_i)) =
                     self.parse_variants(parser, &type_parameters, next_i - parser.get_i(), None)?
                 {
-                    let index = token.position.mv_left(token.alpha().unwrap().len());
+                    let index = token.position.clone();
                     return Ok(Some((
                         ASTEnumDef {
                             name: token.alpha().unwrap(),
@@ -284,7 +284,7 @@ mod tests {
         assert_eq!(
             parse_result,
             Some((
-                Token::new(TokenKind::AlphaNumeric("Option".to_owned()), 1, 12),
+                Token::new(TokenKind::AlphaNumeric("Option".to_owned()), 1, 6),
                 vec!["T".to_owned()],
                 ASTModifiers::private(),
                 6
@@ -305,16 +305,16 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
-                position: ASTPosition::new(3, 23),
+                ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                position: ASTPosition::new(3, 18),
             }],
-            position: ASTPosition::new(3, 17),
+            position: ASTPosition::new(3, 13),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            position: ASTPosition::new(2, 18),
+            position: ASTPosition::new(2, 13),
         };
 
         assert_eq!(
@@ -367,10 +367,10 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef::new(
                         "value",
-                        Generic(ASTPosition::new(1, 14), "T".into()),
-                        ASTPosition::new(1, 11)
+                        Generic(ASTPosition::new(1, 13), "T".into()),
+                        ASTPosition::new(1, 6)
                     )],
-                    position: ASTPosition::new(1, 5)
+                    position: ASTPosition::new(1, 1)
                 }]
             );
             assert_eq!(next_i, 7);
@@ -392,16 +392,16 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "v",
-                            Generic(ASTPosition::new(1, 15), "T".into()),
-                            ASTPosition::new(1, 12)
+                            Generic(ASTPosition::new(1, 14), "T".into()),
+                            ASTPosition::new(1, 11)
                         ),
                         ASTParameterDef::new(
                             "v1",
-                            Generic(ASTPosition::new(1, 23), "T1".into()),
-                            ASTPosition::new(1, 19)
+                            Generic(ASTPosition::new(1, 21), "T1".into()),
+                            ASTPosition::new(1, 17)
                         ),
                     ],
-                    position: ASTPosition::new(1, 10)
+                    position: ASTPosition::new(1, 1)
                 }]
             );
             assert_eq!(next_i, 11);
@@ -422,20 +422,20 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "head",
-                            Generic(ASTPosition::new(1, 13), "T".into()),
-                            ASTPosition::new(1, 10)
+                            Generic(ASTPosition::new(1, 12), "T".into()),
+                            ASTPosition::new(1, 6)
                         ),
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Generic(ASTPosition::new(1, 27), "T".into())],
+                                param_types: vec![Generic(ASTPosition::new(1, 26), "T".into())],
                                 position: ASTPosition::none()
                             },
-                            ASTPosition::new(1, 19)
+                            ASTPosition::new(1, 15)
                         ),
                     ],
-                    position: ASTPosition::new(1, 5)
+                    position: ASTPosition::new(1, 1)
                 }]
             );
             assert_eq!(next_i, 14);
@@ -459,16 +459,16 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
-                position: ASTPosition::new(3, 23),
+                ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                position: ASTPosition::new(3, 18),
             }],
-            position: ASTPosition::new(3, 17),
+            position: ASTPosition::new(3, 13),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            position: ASTPosition::new(2, 18),
+            position: ASTPosition::new(2, 13),
         };
 
         assert_eq!(parse_result, Some((vec![empty, some], 9)));
@@ -482,7 +482,7 @@ mod tests {
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            position: ASTPosition::new(1, 6),
+            position: ASTPosition::new(1, 1),
         };
 
         assert_eq!(parse_result, Some((vec![empty], 2)));
@@ -504,16 +504,16 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
-                        position: ASTPosition::new(3, 23),
+                        ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                        position: ASTPosition::new(3, 18),
                     }],
-                    position: ASTPosition::new(3, 17),
+                    position: ASTPosition::new(3, 13),
                 };
 
                 let empty = ASTEnumVariantDef {
                     name: "Empty".into(),
                     parameters: vec![],
-                    position: ASTPosition::new(2, 18),
+                    position: ASTPosition::new(2, 13),
                 };
 
                 assert_eq!(vec![empty, some], variants);
@@ -544,26 +544,26 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: Generic(ASTPosition::new(2, 27), "T".into()),
-                            position: ASTPosition::new(2, 24),
+                            ast_type: Generic(ASTPosition::new(2, 26), "T".into()),
+                            position: ASTPosition::new(2, 20),
                         },
                         ASTParameterDef {
                             name: "tail".into(),
                             ast_type: ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Generic(ASTPosition::new(2, 41), "T".into())],
-                                position: ASTPosition::new(2, 39),
+                                param_types: vec![Generic(ASTPosition::new(2, 40), "T".into())],
+                                position: ASTPosition::new(2, 35),
                             },
-                            position: ASTPosition::new(2, 33),
+                            position: ASTPosition::new(2, 29),
                         },
                     ],
-                    position: ASTPosition::new(2, 19),
+                    position: ASTPosition::new(2, 15),
                 };
 
                 let empty = ASTEnumVariantDef {
                     name: "Empty".into(),
                     parameters: vec![],
-                    position: ASTPosition::new(3, 20),
+                    position: ASTPosition::new(3, 15),
                 };
 
                 assert_eq!(variants, vec![full, empty]);
@@ -593,20 +593,20 @@ mod tests {
                     name: "Left".into(),
                     parameters: vec![ASTParameterDef::new(
                         "l",
-                        Generic(ASTPosition::new(2, 22), "L".into()),
-                        ASTPosition::new(2, 19),
+                        Generic(ASTPosition::new(2, 21), "L".into()),
+                        ASTPosition::new(2, 18),
                     )],
-                    position: ASTPosition::new(2, 17),
+                    position: ASTPosition::new(2, 13),
                 };
 
                 let right = ASTEnumVariantDef {
                     name: "Right".into(),
                     parameters: vec![ASTParameterDef::new(
                         "r",
-                        Generic(ASTPosition::new(3, 23), "R".into()),
-                        ASTPosition::new(3, 20),
+                        Generic(ASTPosition::new(3, 22), "R".into()),
+                        ASTPosition::new(3, 19),
                     )],
-                    position: ASTPosition::new(3, 18),
+                    position: ASTPosition::new(3, 13),
                 };
 
                 assert_eq!(variants, vec![left, right]);
@@ -634,16 +634,16 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 26), "T".into()),
-                position: ASTPosition::new(3, 23),
+                ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                position: ASTPosition::new(3, 18),
             }],
-            position: ASTPosition::new(3, 17),
+            position: ASTPosition::new(3, 13),
         };
 
         let empty = ASTEnumVariantDef {
             name: "Empty".into(),
             parameters: vec![],
-            position: ASTPosition::new(2, 18),
+            position: ASTPosition::new(2, 13),
         };
 
         assert_eq!(

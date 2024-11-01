@@ -83,7 +83,7 @@ mod tests {
             "inline native aFun<T>(o: Option<T>) /{
         }/",
         );
-        let expected_token = Token::new(TokenKind::AlphaNumeric("aFun".to_string()), 1, 19);
+        let expected_token = Token::new(TokenKind::AlphaNumeric("aFun".to_string()), 1, 15);
 
         assert_eq!(
             parse_result,

@@ -226,8 +226,8 @@ async fn file<'a>(
                 Some(file_path.to_path_buf()),
                 it.position.row,
                 it.position.column,
-            )
-            .mv_left(1);
+            );
+
             if row != index.row {
                 row = index.row;
                 if !(is_multiline(&it)
