@@ -36,6 +36,7 @@ pub struct UI {
     info: Option<String>,
     selected_token: Option<ASTPosition>,
     text_scroll_positions: HashMap<String, AbsoluteOffset>,
+    static_val_context: ValContext,
 }
 
 pub struct SelectedModule {
@@ -76,8 +77,27 @@ impl UI {
 
         let mut modules_container = ASTModulesContainer::new();
 
+        let mut static_val_context = ValContext::new(None);
+
+        let mut bodies = Vec::new();
+
         for (module, info) in modules {
+            bodies.push((module.body.clone(), info.clone()));
             modules_container.add(module, info.module_id(), info.module_source(), false);
+        }
+
+        let mut ast_type_checker = ASTTypeChecker::new(&modules_container);
+
+        for (body, info) in bodies {
+            let mut val_context = ValContext::new(None);
+            ast_type_checker.add_body(
+                &mut val_context,
+                &mut static_val_context,
+                &body,
+                None,
+                &info.module_id(),
+                &info.module_source(),
+            );
         }
 
         let main = if let Some(main) = &project.config.package.main {
@@ -105,8 +125,15 @@ impl UI {
             }
         }
 
-        let current_module =
-            main.map(|it| Self::selected_module(&target, &project, &modules_container, &it));
+        let current_module = main.map(|it| {
+            Self::selected_module(
+                &target,
+                &project,
+                &modules_container,
+                &it,
+                &static_val_context,
+            )
+        });
 
         iced::application("Rasm project UI", UI::update, UI::view)
             .theme(|_ui| Theme::Dark)
@@ -126,6 +153,7 @@ impl UI {
                         info: None,
                         selected_token: None,
                         text_scroll_positions: HashMap::new(),
+                        static_val_context,
                     },
                     Task::none(),
                 )
@@ -173,6 +201,7 @@ impl UI {
                     &self.project,
                     &self.modules_container,
                     &s,
+                    &self.static_val_context,
                 ));
 
                 let scroll_position = if let Some(position) = self.text_scroll_positions.get(&s) {
@@ -201,18 +230,18 @@ impl UI {
         Task::none()
     }
 
-    pub(crate) fn selected_module(
+    fn selected_module(
         target: &CompileTarget,
         project: &RasmProject,
         modules_container: &ASTModulesContainer,
         path: &str,
+        static_val_context: &ValContext,
     ) -> SelectedModule {
         let mut start = Instant::now();
         let type_checker_result =
             if let Some((module, errors, info)) = project.get_module(&Path::new(path), target) {
-                let mut ast_type_checker = ASTTypeChecker::new(&modules_container);
+                let mut ast_type_checker = ASTTypeChecker::new(modules_container);
                 let mut val_context = ValContext::new(None);
-                let mut statics = ValContext::new(None);
 
                 start = Instant::now();
 
@@ -223,9 +252,11 @@ impl UI {
                     }
                 }
 
-                ast_type_checker.get_body_type_map(
+                let mut tmp_static_val_context = ValContext::new(None);
+
+                ast_type_checker.add_body(
                     &mut val_context,
-                    &mut statics,
+                    &mut tmp_static_val_context,
                     &module.body,
                     None,
                     &info.module_id(),
@@ -234,9 +265,9 @@ impl UI {
 
                 for function in module.functions {
                     let start_function = Instant::now();
-                    ast_type_checker.get_type_map(
+                    ast_type_checker.add_function(
                         &function, //.fix_namespaces(&em).fix_generics(),
-                        &mut statics,
+                        static_val_context,
                         &info.module_id(),
                         &info.module_source(),
                     );

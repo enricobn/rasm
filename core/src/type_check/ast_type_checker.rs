@@ -206,26 +206,26 @@ pub struct ASTTypeChecker<'a> {
 }
 
 impl<'a> ASTTypeChecker<'a> {
-    pub fn new(enhanced_ast_module: &'a ASTModulesContainer) -> Self {
+    pub fn new(modules_container: &'a ASTModulesContainer) -> Self {
         Self {
-            modules_container: enhanced_ast_module,
+            modules_container,
             result: ASTTypeCheckerResult::new(),
             errors: Vec::new(),
         }
     }
 
-    pub fn new_inner(enhanced_ast_module: &'a ASTModulesContainer) -> Self {
+    pub fn new_inner(modules_container: &'a ASTModulesContainer) -> Self {
         Self {
-            modules_container: enhanced_ast_module,
+            modules_container,
             result: ASTTypeCheckerResult::new(),
             errors: Vec::new(),
         }
     }
 
-    pub fn get_type_map(
+    pub fn add_function(
         &mut self,
         function: &ASTFunctionDef,
-        statics: &mut ValContext,
+        static_val_context: &ValContext,
         module_id: &ModuleId,
         module_source: &ModuleSource,
     ) {
@@ -248,12 +248,15 @@ impl<'a> ASTTypeChecker<'a> {
             val_context.insert_par(par.name.clone(), par, module_id, module_source);
         }
 
+        // in function body cannot be consts, but we need already defined ones...
+        let mut tmp_static_val_context = ValContext::new(Some(static_val_context));
+
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
                 // TODO return_type
-                self.get_body_type_map(
+                self.add_body(
                     &mut val_context,
-                    statics,
+                    &mut tmp_static_val_context,
                     body,
                     Some(&function.return_type),
                     module_id,
@@ -264,7 +267,7 @@ impl<'a> ASTTypeChecker<'a> {
         }
     }
 
-    pub fn get_body_type_map(
+    pub fn add_body(
         &mut self,
         val_context: &mut ValContext,
         statics: &mut ValContext,
@@ -287,7 +290,7 @@ impl<'a> ASTTypeChecker<'a> {
                     if i == body.len() - 1 {
                         if let Some(ref elst) = expected_last_statement_type {
                             if !elst.is_unit() {
-                                self.get_expr_type_map(
+                                self.add_expr(
                                     e,
                                     val_context,
                                     statics,
@@ -296,7 +299,7 @@ impl<'a> ASTTypeChecker<'a> {
                                     module_source,
                                 )
                             } else {
-                                self.get_expr_type_map(
+                                self.add_expr(
                                     e,
                                     val_context,
                                     statics,
@@ -313,28 +316,14 @@ impl<'a> ASTTypeChecker<'a> {
                             );
                             return_type = self.result.get(&index).cloned();
                         } else {
-                            self.get_expr_type_map(
-                                e,
-                                val_context,
-                                statics,
-                                None,
-                                module_id,
-                                module_source,
-                            );
+                            self.add_expr(e, val_context, statics, None, module_id, module_source);
                         }
                     } else {
-                        self.get_expr_type_map(
-                            e,
-                            val_context,
-                            statics,
-                            None,
-                            module_id,
-                            module_source,
-                        );
+                        self.add_expr(e, val_context, statics, None, module_id, module_source);
                     }
                 }
                 ASTStatement::LetStatement(key, e, is_const, index) => {
-                    self.get_expr_type_map(e, val_context, statics, None, module_id, module_source);
+                    self.add_expr(e, val_context, statics, None, module_id, module_source);
 
                     let e_index =
                         ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
@@ -361,7 +350,7 @@ impl<'a> ASTTypeChecker<'a> {
         return_type
     }
 
-    fn get_expr_type_map(
+    fn add_expr(
         &mut self,
         expr: &ASTExpression,
         val_context: &mut ValContext,
@@ -387,7 +376,7 @@ impl<'a> ASTTypeChecker<'a> {
                     .insert(index.clone(), ASTTypeCheckEntry::primitive(filter));
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
-                self.get_call_type_map(
+                self.add_call(
                     call,
                     val_context,
                     statics,
@@ -473,7 +462,7 @@ impl<'a> ASTTypeChecker<'a> {
                         None
                     };
 
-                let body_return_type = self.get_body_type_map(
+                let body_return_type = self.add_body(
                     &mut lambda_val_context,
                     statics,
                     &lambda.body,
@@ -554,7 +543,7 @@ impl<'a> ASTTypeChecker<'a> {
         }
     }
 
-    fn get_call_type_map(
+    fn add_call(
         &mut self,
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
@@ -599,7 +588,7 @@ impl<'a> ASTTypeChecker<'a> {
                     )),
                 );
             } else {
-                self.get_expr_type_map(e, val_context, statics, None, module_id, module_source);
+                self.add_expr(e, val_context, statics, None, module_id, module_source);
             }
         }
 
@@ -833,7 +822,7 @@ impl<'a> ASTTypeChecker<'a> {
 
                 //self.result.remove(&e_index);
 
-                self.get_expr_type_map(
+                self.add_expr(
                     e,
                     val_context,
                     statics,
@@ -1253,7 +1242,7 @@ mod tests {
         let mut function_type_checker = ASTTypeChecker::new(&container);
 
         for function in module.functions.into_iter() {
-            function_type_checker.get_type_map(
+            function_type_checker.add_function(
                 &function,
                 &mut statics,
                 &info.module_id(),
@@ -1495,7 +1484,7 @@ mod tests {
         apply_to_functions_checker(file, file, |module, mut ftc, info| {
             let mut val_context = ValContext::new(None);
             let mut static_val_context = ValContext::new(None);
-            ftc.get_body_type_map(
+            ftc.add_body(
                 &mut val_context,
                 &mut static_val_context,
                 &module.body,
@@ -1516,7 +1505,7 @@ mod tests {
                 .unwrap()
                 .clone();
             let mut static_val_context = ValContext::new(None);
-            ftc.get_type_map(
+            ftc.add_function(
                 &function,
                 &mut static_val_context,
                 &info.module_id(),

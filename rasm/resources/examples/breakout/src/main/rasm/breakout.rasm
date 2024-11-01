@@ -154,6 +154,12 @@ type check ended in 87.39312
     finished in 824.784089ms
 */
 
+/*
+    what happened?
+
+    type check ended in 97.207711ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
