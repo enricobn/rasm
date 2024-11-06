@@ -22,7 +22,7 @@ use std::path::PathBuf;
 
 use rasm_core::codegen::enh_ast::EnhASTIndex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileToken {
     pub start: EnhASTIndex,
     pub len: usize,

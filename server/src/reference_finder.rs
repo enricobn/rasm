@@ -25,10 +25,17 @@ use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrig
 use crate::reference_context::ReferenceContext;
 use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RasmTextEdit {
     pub from: EnhASTIndex,
     pub len: usize,
     pub text: String,
+}
+
+impl RasmTextEdit {
+    pub fn new(from: EnhASTIndex, len: usize, text: String) -> Self {
+        Self { from, len, text }
+    }
 }
 
 pub struct ReferenceFinder {
@@ -370,29 +377,35 @@ impl ReferenceFinder {
         Ok(Vec::new())
     }
 
-    pub fn rename(&self, index: &EnhASTIndex, new_name: String) -> Vec<RasmTextEdit> {
+    pub fn rename(
+        &self,
+        index: &EnhASTIndex,
+        new_name: String,
+    ) -> Result<Vec<RasmTextEdit>, String> {
         let mut result = Vec::new();
 
         if let Ok(items) = self.find(&index) {
             if let Some(item) = items.first() {
                 let root_index_o = if let Some(ref target) = item.target {
+                    if let Some(index) = target.index() {
+                        result.push(RasmTextEdit::new(
+                            index,
+                            item.file_token.len,
+                            new_name.to_owned(),
+                        ));
+                    }
                     target.index()
                 } else {
+                    result.push(RasmTextEdit::new(
+                        item.file_token.start.clone(),
+                        item.file_token.len,
+                        new_name.to_owned(),
+                    ));
                     Some(item.file_token.start.clone())
                 };
 
                 if let Some(root_index) = root_index_o {
-                    result.push(RasmTextEdit {
-                        from: root_index.clone(),
-                        len: item.file_token.len,
-                        text: new_name.clone(),
-                    });
-
                     let references = self.references(&root_index).unwrap();
-
-                    if references.is_empty() {
-                        return Vec::new();
-                    }
 
                     for reference in references.iter() {
                         result.push(RasmTextEdit {
@@ -405,7 +418,15 @@ impl ReferenceFinder {
             }
         }
 
-        result
+        if result
+            .iter()
+            .filter_map(|it| it.from.clone().file_name)
+            .all(|it| it == self.path)
+        {
+            Ok(result)
+        } else {
+            Err("Rename of symbols outsite current module is not yet supported.".to_owned())
+        }
     }
 
     fn process_module(
@@ -501,6 +522,12 @@ impl ReferenceFinder {
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
+        result.push(SelectableItem::new(
+            function.index.clone(),
+            function.original_name.len(),
+            function.namespace.clone(),
+            None,
+        ));
 
         let mut reference_context = ReferenceContext::new(Some(reference_static_context));
 
@@ -711,7 +738,7 @@ impl ReferenceFinder {
                     index1.clone(),
                     name.len(),
                     namespace.clone(),
-                    Some(SelectableItemTarget::Ref(index1, None)),
+                    None,
                 )];
 
                 if *is_const {
@@ -1162,11 +1189,12 @@ mod tests {
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
+    use rasm_core::parser::ast::ASTPosition;
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionItem, CompletionTrigger};
-    use crate::reference_finder::{CompletionResult, ReferenceFinder};
+    use crate::reference_finder::{CompletionResult, RasmTextEdit, ReferenceFinder};
     use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
     #[test]
@@ -1603,43 +1631,6 @@ mod tests {
     }
 
     #[test]
-    fn references() {
-        let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
-
-        let file_name = Path::new("resources/test/types.rasm");
-
-        let mut items = finder
-            .references(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 7))
-            .unwrap();
-
-        assert_eq!(3, items.len());
-
-        let item1 = items.remove(0);
-        let item2 = items.remove(0);
-        let item3 = items.remove(0);
-
-        assert_eq!(
-            EnhASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 6, 5),
-            item1.file_token.start
-        );
-
-        assert_eq!(
-            EnhASTIndex::new(
-                Some(file_name.canonicalize().unwrap().to_path_buf()),
-                10,
-                13
-            ),
-            item2.file_token.start
-        );
-
-        assert_eq!(
-            EnhASTIndex::new(Some(file_name.canonicalize().unwrap().to_path_buf()), 12, 9),
-            item3.file_token.start
-        );
-    }
-
-    #[test]
     fn references_breakout() {
         let _ = env_logger::builder()
             .is_test(true)
@@ -1655,22 +1646,140 @@ mod tests {
     }
 
     #[test]
+    fn references_types() {
+        test_references("resources/test/types.rasm", 6, 7, vec![(10, 13), (12, 9)]);
+    }
+
+    #[test]
     fn reference1() {
-        let (_project, eh_module, module) =
-            get_reference_finder("resources/test/references.rasm", None);
+        test_references("resources/test/references.rasm", 2, 14, vec![(3, 13)]);
+    }
+
+    #[test]
+    fn rename() {
+        test_rename(
+            "resources/test/references.rasm",
+            "s",
+            2,
+            14,
+            Ok(vec![(2, 13, 2), (3, 13, 2)]),
+        );
+    }
+
+    #[test]
+    fn rename_fn() {
+        test_rename(
+            "resources/test/simple.rasm",
+            "aName",
+            5,
+            7,
+            Ok(vec![(3, 1, 11), (5, 4, 11)]),
+        );
+    }
+
+    #[test]
+    fn rename_fn1() {
+        test_rename(
+            "resources/test/simple.rasm",
+            "aName",
+            3,
+            6,
+            Ok(vec![(3, 1, 11), (5, 4, 11)]),
+        );
+    }
+
+    #[test]
+    fn rename_fn_of_ext_lib() {
+        test_rename(
+            "resources/test/types.rasm",
+            "aName",
+            7,
+            13,
+            Err("Rename of symbols outsite current module is not yet supported.".to_owned()),
+        );
+    }
+
+    fn test_references(file: &str, row: usize, column: usize, expected: Vec<(usize, usize)>) {
+        let (_project, eh_module, module) = get_reference_finder(file, None);
         let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
 
+        /*
         for item in finder.selectable_items.iter() {
-            println!("{item}");
+            match &item.target {
+                Some(target) => match target {
+                    SelectableItemTarget::Ref(index, enh_asttype) => {}
+                    SelectableItemTarget::Function(index, enh_asttype, _) => {
+                        println!("function {}", OptionDisplay(&target.index()))
+                    }
+                    SelectableItemTarget::Type(index, enh_asttype) => {}
+                },
+                None => {}
+            }
         }
+        */
 
-        let file_name = Path::new("resources/test/references.rasm");
+        let file_name = Path::new(file).canonicalize().unwrap();
 
-        let references = finder
-            .references(&EnhASTIndex::new(Some(file_name.to_path_buf()), 2, 14))
+        let items = finder
+            .references(&EnhASTIndex::new(
+                Some(file_name.to_path_buf()),
+                row,
+                column,
+            ))
             .unwrap();
 
-        assert_eq!(1, references.len());
+        let mut found = items
+            .into_iter()
+            .map(|it| (it.file_token.start.row, it.file_token.start.column))
+            .collect::<Vec<_>>();
+
+        found.sort_by(|a, b| a.0.cmp(&b.0));
+
+        assert_eq!(expected, found);
+    }
+
+    fn test_rename(
+        file: &str,
+        new_name: &str,
+        row: usize,
+        column: usize,
+        expected: Result<Vec<(usize, usize, usize)>, String>,
+    ) {
+        let (_project, eh_module, module) = get_reference_finder(file, None);
+        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+
+        /*
+        for item in finder.selectable_items.iter() {
+            match &item.target {
+                Some(target) => match target {
+                    SelectableItemTarget::Ref(index, enh_asttype) => {}
+                    SelectableItemTarget::Function(index, enh_asttype, _) => {
+                        println!("function {}", OptionDisplay(&target.index()))
+                    }
+                    SelectableItemTarget::Type(index, enh_asttype) => {}
+                },
+                None => {}
+            }
+        }
+        */
+
+        let file_name = Path::new(file).canonicalize().unwrap();
+
+        let edits = finder.rename(
+            &EnhASTIndex::new(Some(file_name.to_path_buf()), row, column),
+            new_name.to_owned(),
+        );
+
+        let found = edits.map(|it| {
+            let mut f = it
+                .into_iter()
+                .map(|it| (it.from.row, it.from.column, it.len))
+                .collect::<Vec<_>>();
+            f.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+            f
+        });
+
+        assert_eq!(expected, found);
     }
 
     fn stdlib_path() -> PathBuf {

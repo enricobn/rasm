@@ -1,6 +1,7 @@
 Doing
 ------
-- FunctionTypeChecker + UI
+- ReferenceFinder rename and references
+- ASTTypeChecker
 
 Major
 -----
