@@ -455,6 +455,28 @@ impl ASTValueType {
             ASTValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
         }
     }
+
+    pub fn token_len(&self) -> usize {
+        match self {
+            ASTValueType::Boolean(v) => {
+                if *v {
+                    4
+                } else {
+                    5
+                }
+            }
+            ASTValueType::I32(n) => {
+                // TODO it's not precise: 000100
+                let mut result = n.abs().checked_ilog10().unwrap_or(0) as usize + 1;
+                if *n < 0 {
+                    result += 1;
+                }
+                result
+            }
+            ASTValueType::Char(s) => s.len() + 2,
+            ASTValueType::F32(n) => format!("{n}").len(), // TODO it's slow and not precise: 000.100
+        }
+    }
 }
 
 // TODO can we do partialeq? It depends on ASTIndex

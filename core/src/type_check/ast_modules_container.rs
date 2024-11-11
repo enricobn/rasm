@@ -5,7 +5,8 @@ use itertools::Itertools;
 use crate::{
     parser::{
         ast::{
-            ASTFunctionSignature, ASTModule, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind,
+            ASTEnumDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef, ASTType,
+            ASTTypeDef, BuiltinTypeKind,
         },
         builtin_functions::BuiltinFunctions,
     },
@@ -15,9 +16,28 @@ use crate::{
 pub type ModuleId = String;
 pub type ModuleSource = String;
 
-struct ASTModuleEntry {
-    module: ASTModule,
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ModuleInfo {
+    id: ModuleId,
     source: ModuleSource,
+}
+
+impl ModuleInfo {
+    pub fn new(id: ModuleId, source: ModuleSource) -> Self {
+        Self { id, source }
+    }
+
+    pub fn global() -> Self {
+        Self::new(String::new(), String::new())
+    }
+
+    pub fn id(&self) -> &ModuleId {
+        &self.id
+    }
+
+    pub fn source(&self) -> &ModuleSource {
+        &self.source
+    }
 }
 
 pub struct ASTFunctionSignatureEntry {
@@ -68,67 +88,96 @@ impl Display for ASTFunctionSignature {
     }
 }
 
-impl ASTModuleEntry {
-    fn new(module: ASTModule, source: ModuleSource) -> Self {
-        Self { module, source }
-    }
-}
-
 pub struct ASTModulesContainer {
+    struct_defs: HashMap<String, Vec<(ModuleInfo, ASTStructDef)>>,
+    enum_defs: HashMap<String, Vec<(ModuleInfo, ASTEnumDef)>>,
+    type_defs: HashMap<String, Vec<(ModuleInfo, ASTTypeDef)>>,
     signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
 }
 
 impl ASTModulesContainer {
     pub fn new() -> Self {
         Self {
+            struct_defs: HashMap::new(),
+            enum_defs: HashMap::new(),
+            type_defs: HashMap::new(),
             signatures: HashMap::new(),
         }
     }
 
     pub fn add(
         &mut self,
-        module: ASTModule,
+        module: &ASTModule,
         id: ModuleId,
         source: ModuleSource,
         add_builtin: bool,
     ) {
         if add_builtin {
-            if !module.enums.is_empty() {
-                for enum_def in module.enums.iter() {
-                    for signature in BuiltinFunctions::enum_signatures(enum_def) {
-                        let signatures = self
-                            .signatures
-                            .entry(signature.name.clone())
-                            .or_insert(Vec::new());
-                        signatures.push(ASTFunctionSignatureEntry::new(
-                            signature.fix_generics(&id),
-                            id.clone(),
-                            source.clone(),
-                            ASTPosition::none(), // TODO I don't have the position of the signature
-                        ));
-                    }
+            for enum_def in module.enums.iter() {
+                for signature in BuiltinFunctions::enum_signatures(enum_def) {
+                    let signatures = self
+                        .signatures
+                        .entry(signature.name.clone())
+                        .or_insert(Vec::new());
+                    signatures.push(ASTFunctionSignatureEntry::new(
+                        signature.fix_generics(&id),
+                        id.clone(),
+                        source.clone(),
+                        ASTPosition::none(), // TODO I don't have the position of the signature
+                    ));
                 }
             }
 
-            if !module.structs.is_empty() {
-                for struct_def in module.structs.iter() {
-                    for signature in BuiltinFunctions::struct_signatures(struct_def) {
-                        let signatures = self
-                            .signatures
-                            .entry(signature.name.clone())
-                            .or_insert(Vec::new());
-                        signatures.push(ASTFunctionSignatureEntry::new(
-                            signature.fix_generics(&id),
-                            id.clone(),
-                            source.clone(),
-                            ASTPosition::none(), // TODO I don't have the position of the signature
-                        ));
-                    }
+            for struct_def in module.structs.iter() {
+                for signature in BuiltinFunctions::struct_signatures(struct_def) {
+                    let signatures = self
+                        .signatures
+                        .entry(signature.name.clone())
+                        .or_insert(Vec::new());
+                    signatures.push(ASTFunctionSignatureEntry::new(
+                        signature.fix_generics(&id),
+                        id.clone(),
+                        source.clone(),
+                        ASTPosition::none(), // TODO I don't have the position of the signature
+                    ));
                 }
             }
         }
 
-        for function in module.functions {
+        for enum_def in module.enums.iter() {
+            let enum_defs = self
+                .enum_defs
+                .entry(enum_def.name.clone())
+                .or_insert(Vec::new());
+            enum_defs.push((
+                ModuleInfo::new(id.clone(), source.clone()),
+                enum_def.clone(),
+            ));
+        }
+
+        for struct_def in module.structs.iter() {
+            let struct_defs = self
+                .struct_defs
+                .entry(struct_def.name.clone())
+                .or_insert(Vec::new());
+            struct_defs.push((
+                ModuleInfo::new(id.clone(), source.clone()),
+                struct_def.clone(),
+            ));
+        }
+
+        for type_def in module.types.iter() {
+            let type_defs = self
+                .type_defs
+                .entry(type_def.name.clone())
+                .or_insert(Vec::new());
+            type_defs.push((
+                ModuleInfo::new(id.clone(), source.clone()),
+                type_def.clone(),
+            ));
+        }
+
+        for function in module.functions.iter() {
             let signature = function.signature();
             let signatures = self
                 .signatures
@@ -138,7 +187,7 @@ impl ASTModulesContainer {
                 signature.fix_generics(&id),
                 id.clone(),
                 source.clone(),
-                function.position,
+                function.position.clone(),
             ));
         }
     }
@@ -213,6 +262,43 @@ impl ASTModulesContainer {
         }
     }
 
+    pub fn signatures(&self) -> Vec<&ASTFunctionSignatureEntry> {
+        self.signatures.values().flatten().collect::<Vec<_>>()
+    }
+
+    pub fn get_enum_def(
+        &self,
+        from_module_id: &ModuleId,
+        name: &str,
+    ) -> Option<&(ModuleInfo, ASTEnumDef)> {
+        self.enum_defs.get(name).and_then(|it| {
+            it.iter()
+                .find(|(info, e)| e.modifiers.public || &info.id == from_module_id)
+        })
+    }
+
+    pub fn get_struct_def(
+        &self,
+        from_module_id: &ModuleId,
+        name: &str,
+    ) -> Option<&(ModuleInfo, ASTStructDef)> {
+        self.struct_defs.get(name).and_then(|it| {
+            it.iter()
+                .find(|(info, e)| e.modifiers.public || &info.id == from_module_id)
+        })
+    }
+
+    pub fn get_type_def(
+        &self,
+        from_module_id: &ModuleId,
+        name: &str,
+    ) -> Option<&(ModuleInfo, ASTTypeDef)> {
+        self.type_defs.get(name).and_then(|it| {
+            it.iter()
+                .find(|(info, e)| e.modifiers.public || &info.id == from_module_id)
+        })
+    }
+
     fn is_equals(
         &self,
         a_type: &ASTType,
@@ -276,7 +362,7 @@ impl ASTModulesContainer {
 
 #[derive(Debug, Clone)]
 pub enum ASTTypeFilter {
-    Exact(ASTType, ModuleId),
+    Exact(ASTType, ModuleInfo),
     Any,
     Lambda(usize, Option<Box<ASTTypeFilter>>),
 }
@@ -301,8 +387,8 @@ impl ASTTypeFilter {
         container: &ASTModulesContainer,
     ) -> bool {
         match self {
-            ASTTypeFilter::Exact(f_ast_type, f_module_id) => {
-                container.is_equals(ast_type, module_id, f_ast_type, f_module_id)
+            ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
+                container.is_equals(ast_type, module_id, f_ast_type, &f_module_info.id)
             }
             ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
@@ -342,7 +428,7 @@ mod tests {
         project::RasmProject,
     };
 
-    use super::{ASTModulesContainer, ASTTypeFilter};
+    use super::{ASTModulesContainer, ASTTypeFilter, ModuleInfo};
 
     #[test]
     pub fn test_add() {
@@ -405,7 +491,7 @@ mod tests {
             );
             */
             container.add(
-                module,
+                &module,
                 info.namespace.safe_name(),
                 info.path
                     .as_ref()
@@ -420,7 +506,7 @@ mod tests {
     }
 
     fn exact_builtin(kind: BuiltinTypeKind) -> ASTTypeFilter {
-        ASTTypeFilter::Exact(ASTType::Builtin(kind), String::new())
+        ASTTypeFilter::Exact(ASTType::Builtin(kind), ModuleInfo::global())
     }
 
     fn exact_custom(name: &str, param_types: Vec<ASTType>) -> ASTTypeFilter {
@@ -430,7 +516,7 @@ mod tests {
                 param_types,
                 position: ASTPosition::none(),
             },
-            String::new(),
+            ModuleInfo::global(),
         )
     }
 }

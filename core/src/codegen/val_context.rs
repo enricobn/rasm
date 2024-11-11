@@ -4,7 +4,7 @@ use linked_hash_map::LinkedHashMap;
 
 use crate::debug_i;
 use crate::parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind};
-use crate::type_check::ast_modules_container::{ModuleId, ModuleSource};
+use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ASTIndex {
@@ -36,6 +36,22 @@ impl ASTIndex {
             module_source: self.module_source.clone(),
             position: self.position.clone().mv_right(offset),
         }
+    }
+
+    pub fn id(&self) -> &ModuleId {
+        &self.module_id
+    }
+
+    pub fn source(&self) -> &ModuleSource {
+        &self.module_source
+    }
+
+    pub fn position(&self) -> &ASTPosition {
+        &self.position
+    }
+
+    pub fn info(&self) -> ModuleInfo {
+        ModuleInfo::new(self.module_id.clone(), self.module_source.clone())
     }
 }
 

@@ -477,8 +477,7 @@ impl RasmProject {
                     false
                 };
 
-                let index =
-                    EnhASTIndex::from_position(info.path.clone(), function.position.clone());
+                let index = EnhASTIndex::from_position(info.path.clone(), &function.position);
 
                 if !valid {
                     errors.push(CompilationError {

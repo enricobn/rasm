@@ -39,3 +39,7 @@ fn property() -> i32 {
 fn string() -> i32 {
     "aString".length;
 }
+
+fn aChar() -> char {
+    '\t';
+}

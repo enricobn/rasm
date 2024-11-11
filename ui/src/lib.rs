@@ -83,7 +83,7 @@ impl UI {
 
         for (module, info) in modules {
             bodies.push((module.body.clone(), info.clone()));
-            modules_container.add(module, info.module_id(), info.module_source(), false);
+            modules_container.add(&module, info.module_id(), info.module_source(), false);
         }
 
         let mut ast_type_checker = ASTTypeChecker::new(&modules_container);

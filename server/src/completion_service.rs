@@ -29,6 +29,7 @@ use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
+use rasm_core::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
@@ -72,6 +73,71 @@ impl CompletionItem {
             sort: Some(sort_value),
             insert: Some(Self::function_insert(function)),
         })
+    }
+
+    pub fn for_function_signature(function: &ASTFunctionSignature) -> Option<Self> {
+        if function.parameters_types.is_empty() {
+            return None;
+        }
+        let parameter_type = &function.parameters_types.get(0).unwrap();
+        let coeff = Self::generic_type_coeff(parameter_type);
+        let sort_value = format!("{:0>20}{}", coeff, function.name);
+
+        Some(CompletionItem {
+            value: function.name.clone(),
+            descr: Self::signature_descr(function),
+            sort: Some(sort_value),
+            insert: Some(Self::signature_insert(function)),
+        })
+    }
+
+    ///
+    /// return a coefficient that is higher for how the type is generic
+    ///
+    fn generic_type_coeff(ast_type: &ASTType) -> usize {
+        Self::generic_type_coeff_internal(ast_type, usize::MAX / 100)
+    }
+
+    fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
+        if ast_type.is_generic() {
+            match ast_type {
+                ASTType::Builtin(_) => 0,
+                ASTType::Generic(_, _) => coeff,
+                ASTType::Custom {
+                    name: _,
+                    param_types,
+                    position: _,
+                } => param_types
+                    .iter()
+                    .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
+                    .sum(),
+                ASTType::Unit => 0,
+            }
+        } else {
+            0
+        }
+    }
+
+    fn signature_descr(function: &ASTFunctionSignature) -> String {
+        let generic_types = if function.generics.is_empty() {
+            "".into()
+        } else {
+            format!("<{}>", function.generics.join(","))
+        };
+
+        let rt = if function.return_type != ASTType::Unit {
+            format!("{}", function.return_type)
+        } else {
+            "()".into()
+        };
+
+        let args = function
+            .parameters_types
+            .iter()
+            .map(|it| format!("{}", it))
+            .collect::<Vec<String>>()
+            .join(",");
+        format!("{}{generic_types}({args}) -> {rt}", function.name)
     }
 
     fn function_descr(function: &EnhASTFunctionDef) -> String {
@@ -123,6 +189,35 @@ impl CompletionItem {
             .collect::<Vec<String>>()
             .join(", ");
         format!("{}({args});", function.original_name)
+    }
+
+    fn signature_insert(function: &ASTFunctionSignature) -> String {
+        let args = function
+            .parameters_types
+            .iter()
+            .skip(1)
+            .map(|it| match &it {
+                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type: _,
+                }) => {
+                    let par_names = parameters
+                        .iter()
+                        .enumerate()
+                        .map(|(_pos, ast_type)| format!("{ast_type}"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    if par_names.is_empty() {
+                        "\n    {  }".to_string()
+                    } else {
+                        format!("\n    fn({par_names}) {{  }}")
+                    }
+                }
+                _ => format!("{it}"),
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!("{}({args});", function.name)
     }
 }
 

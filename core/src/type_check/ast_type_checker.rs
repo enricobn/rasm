@@ -13,7 +13,8 @@ use crate::{
 };
 
 use super::ast_modules_container::{
-    ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleSource,
+    ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo,
+    ModuleSource,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,31 +98,37 @@ impl Display for ASTTypeCheckError {
 
 #[derive(Debug, Clone)]
 pub enum ASTTypeCheckInfo {
-    Call(ASTFunctionSignature, ASTIndex),
-    Calls(Vec<(ASTFunctionSignature, ASTIndex)>),
+    Call(String, Vec<(ASTFunctionSignature, ASTIndex)>),
     LambdaCall(ASTFunctionSignature, ASTIndex),
-    Ref(ASTIndex),
-    Primitive,
+    Ref(String, ASTIndex),
+    Let(String, bool),
+    Param(String),
+    Value(usize), // the length of the token of the Value, for example gfor a string "s" it's 3
+    Lambda,
 }
 
 impl Display for ASTTypeCheckInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTTypeCheckInfo::Call(function_signature, astindex) => {
-                write!(f, "call to {function_signature}")
-            }
-            ASTTypeCheckInfo::Calls(vec) => {
-                write!(f, "calls to\n")?;
-                for function_signature in vec {
-                    write!(f, "{}\n", function_signature.0)?;
+            ASTTypeCheckInfo::Call(name, vec) => {
+                if vec.len() == 1 {
+                    write!(f, "call to {}", vec.first().unwrap().0)?;
+                } else {
+                    write!(f, "call to {name} which can be one of \n")?;
+                    for function_signature in vec {
+                        write!(f, "{}\n", function_signature.0)?;
+                    }
                 }
                 Result::Ok(())
             }
-            ASTTypeCheckInfo::LambdaCall(function_signature, index) => {
+            ASTTypeCheckInfo::LambdaCall(function_signature, _) => {
                 write!(f, "lambda call to {function_signature}")
             }
-            ASTTypeCheckInfo::Ref(astindex) => f.write_str("ref"),
-            ASTTypeCheckInfo::Primitive => f.write_str("primitive"),
+            ASTTypeCheckInfo::Ref(_, _) => f.write_str("ref"),
+            ASTTypeCheckInfo::Value(_) => f.write_str("value"),
+            ASTTypeCheckInfo::Let(_, _) => f.write_str("let"),
+            ASTTypeCheckInfo::Param(_) => f.write_str("param"),
+            ASTTypeCheckInfo::Lambda => f.write_str("lambda"),
         }
     }
 }
@@ -145,12 +152,20 @@ impl ASTTypeCheckEntry {
         &self.info
     }
 
-    fn primitive(filter: ASTTypeFilter) -> Self {
-        Self::new(Some(filter), ASTTypeCheckInfo::Primitive)
+    fn primitive(filter: ASTTypeFilter, len: usize) -> Self {
+        Self::new(Some(filter), ASTTypeCheckInfo::Value(len))
     }
 
-    fn reference(filter: ASTTypeFilter, index: ASTIndex) -> Self {
-        Self::new(Some(filter), ASTTypeCheckInfo::Ref(index))
+    fn reference(filter: ASTTypeFilter, name: String, index: ASTIndex) -> Self {
+        Self::new(Some(filter), ASTTypeCheckInfo::Ref(name, index))
+    }
+
+    fn param(filter: ASTTypeFilter, name: String) -> Self {
+        Self::new(Some(filter), ASTTypeCheckInfo::Param(name))
+    }
+
+    fn lambda(filter: ASTTypeFilter) -> Self {
+        Self::new(Some(filter), ASTTypeCheckInfo::Lambda)
     }
 
     /*
@@ -172,7 +187,7 @@ impl Display for ASTTypeCheckEntry {
 }
 
 pub struct ASTTypeCheckerResult {
-    map: HashMap<ASTIndex, ASTTypeCheckEntry>,
+    pub map: HashMap<ASTIndex, ASTTypeCheckEntry>,
 }
 
 impl ASTTypeCheckerResult {
@@ -340,7 +355,13 @@ impl<'a> ASTTypeChecker<'a> {
                                     val_context.insert_let(key.clone(), ast_type.clone(), &index);
                                 }
                             }
-                            self.result.insert(index, entry.clone());
+                            self.result.insert(
+                                index,
+                                ASTTypeCheckEntry::new(
+                                    entry.filter.clone(),
+                                    ASTTypeCheckInfo::Let(key.clone(), *is_const),
+                                ),
+                            );
                         }
                     }
                 }
@@ -367,13 +388,15 @@ impl<'a> ASTTypeChecker<'a> {
         }
 
         match expr {
-            ASTExpression::StringLiteral(_, _) => {
+            ASTExpression::StringLiteral(s, _) => {
                 let filter = ASTTypeFilter::Exact(
                     ASTType::Builtin(BuiltinTypeKind::String),
-                    module_id.clone(),
+                    ModuleInfo::new(module_id.clone(), module_source.clone()),
                 );
-                self.result
-                    .insert(index.clone(), ASTTypeCheckEntry::primitive(filter));
+                self.result.insert(
+                    index.clone(),
+                    ASTTypeCheckEntry::primitive(filter, s.len() + 2),
+                );
             }
             ASTExpression::ASTFunctionCallExpression(call) => {
                 self.add_call(
@@ -390,7 +413,11 @@ impl<'a> ASTTypeChecker<'a> {
                     self.result.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
-                            ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
+                            ASTTypeFilter::Exact(
+                                kind.ast_type(),
+                                ModuleInfo::new(module_id.clone(), module_source.clone()),
+                            ),
+                            name.to_owned(),
                             kind.index(module_id, module_source),
                         ),
                     );
@@ -398,7 +425,11 @@ impl<'a> ASTTypeChecker<'a> {
                     self.result.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
-                            ASTTypeFilter::Exact(kind.ast_type(), module_id.clone()),
+                            ASTTypeFilter::Exact(
+                                kind.ast_type(),
+                                ModuleInfo::new(module_id.clone(), module_source.clone()),
+                            ),
+                            name.to_owned(),
                             kind.index(module_id, module_source),
                         ),
                     );
@@ -409,13 +440,16 @@ impl<'a> ASTTypeChecker<'a> {
                     ));
                 }
             }
-            ASTExpression::Value(value_type, _) => {
+            ASTExpression::Value(value_type, position) => {
                 self.result.insert(
                     index.clone(),
-                    ASTTypeCheckEntry::primitive(ASTTypeFilter::Exact(
-                        value_type.to_type(),
-                        module_id.clone(),
-                    )),
+                    ASTTypeCheckEntry::primitive(
+                        ASTTypeFilter::Exact(
+                            value_type.to_type(),
+                            ModuleInfo::new(module_id.clone(), module_source.clone()),
+                        ),
+                        value_type.token_len(),
+                    ),
                 );
             }
             ASTExpression::Lambda(lambda) => {
@@ -449,9 +483,15 @@ impl<'a> ASTTypeChecker<'a> {
                             } else {
                                 self.result.insert(
                                     par_index.clone(),
-                                    ASTTypeCheckEntry::reference(
-                                        ASTTypeFilter::Exact(ast_type.clone(), module_id.clone()),
-                                        par_index,
+                                    ASTTypeCheckEntry::param(
+                                        ASTTypeFilter::Exact(
+                                            ast_type.clone(),
+                                            ModuleInfo::new(
+                                                module_id.clone(),
+                                                module_source.clone(),
+                                            ),
+                                        ),
+                                        name.to_owned(),
                                     ),
                                 );
                             }
@@ -482,13 +522,13 @@ impl<'a> ASTTypeChecker<'a> {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(brt),
                             }),
-                            module_id.clone(),
+                            ModuleInfo::new(module_id.clone(), module_source.clone()),
                         )
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
                     self.result
-                        .insert(index.clone(), ASTTypeCheckEntry::primitive(type_filter));
+                        .insert(index.clone(), ASTTypeCheckEntry::lambda(type_filter));
                 } else {
                     let type_filter = if let Some((return_type, parameters)) =
                         expected_last_statement_type_and_paramters
@@ -498,13 +538,13 @@ impl<'a> ASTTypeChecker<'a> {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(return_type.clone()),
                             }),
-                            module_id.clone(),
+                            ModuleInfo::new(module_id.clone(), module_source.clone()),
                         )
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
                     self.result
-                        .insert(index.clone(), ASTTypeCheckEntry::primitive(type_filter));
+                        .insert(index.clone(), ASTTypeCheckEntry::lambda(type_filter));
                 }
             }
         }
@@ -582,7 +622,7 @@ impl<'a> ASTTypeChecker<'a> {
             if let ASTExpression::Lambda(def) = e {
                 inner.result.insert(
                     e_index,
-                    ASTTypeCheckEntry::primitive(ASTTypeFilter::Lambda(
+                    ASTTypeCheckEntry::lambda(ASTTypeFilter::Lambda(
                         def.parameter_names.len(),
                         None,
                     )),
@@ -719,7 +759,8 @@ impl<'a> ASTTypeChecker<'a> {
                     index,
                     ASTTypeCheckEntry::new(
                         None,
-                        ASTTypeCheckInfo::Calls(
+                        ASTTypeCheckInfo::Call(
+                            call.function_name.clone(),
                             functions
                                 .into_iter()
                                 .map(|it| {
@@ -783,13 +824,13 @@ impl<'a> ASTTypeChecker<'a> {
         statics: &mut ValContext,
         expected_expression_type: Option<&ASTType>,
         call_module_id: &ModuleId,
-        call_source: &ModuleSource,
+        call_module_source: &ModuleSource,
         is_lambda: bool,
     ) {
         let function_signature = &function_signature_entry.signature;
         let index = ASTIndex::new(
             call_module_id.clone(),
-            call_source.clone(),
+            call_module_source.clone(),
             call.position.clone(),
         );
 
@@ -814,8 +855,11 @@ impl<'a> ASTTypeChecker<'a> {
             let resolved_generic_types_len = resolved_generic_types.len();
 
             for (i, e) in call.parameters.iter().enumerate() {
-                let e_index =
-                    ASTIndex::new(call_module_id.clone(), call_source.clone(), e.position());
+                let e_index = ASTIndex::new(
+                    call_module_id.clone(),
+                    call_module_source.clone(),
+                    e.position(),
+                );
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
                 let ast_type = Self::substitute(&parameter_type, &resolved_generic_types)
                     .unwrap_or(parameter_type.clone());
@@ -828,7 +872,7 @@ impl<'a> ASTTypeChecker<'a> {
                     statics,
                     Some(&ast_type),
                     call_module_id,
-                    call_source,
+                    call_module_source,
                 );
 
                 if let Some(ref calculated_type_filter) =
@@ -891,7 +935,10 @@ impl<'a> ASTTypeChecker<'a> {
             self.result.insert(
                 index.clone(),
                 ASTTypeCheckEntry::new(
-                    Some(ASTTypeFilter::Exact(return_type, call_module_id.clone())),
+                    Some(ASTTypeFilter::Exact(
+                        return_type,
+                        ModuleInfo::new(call_module_id.clone(), call_module_source.clone()),
+                    )),
                     ASTTypeCheckInfo::LambdaCall(
                         function_signature.clone(),
                         ASTIndex::new(
@@ -906,14 +953,20 @@ impl<'a> ASTTypeChecker<'a> {
             self.result.insert(
                 index.clone(),
                 ASTTypeCheckEntry::new(
-                    Some(ASTTypeFilter::Exact(return_type, call_module_id.clone())),
+                    Some(ASTTypeFilter::Exact(
+                        return_type,
+                        ModuleInfo::new(call_module_id.clone(), call_module_source.clone()),
+                    )),
                     ASTTypeCheckInfo::Call(
-                        function_signature.clone(),
-                        ASTIndex::new(
-                            function_signature_entry.id.clone(),
-                            function_signature_entry.source.clone(),
-                            function_signature_entry.position.clone(),
-                        ),
+                        call.function_name.clone(),
+                        vec![(
+                            function_signature.clone(),
+                            ASTIndex::new(
+                                function_signature_entry.id.clone(),
+                                function_signature_entry.source.clone(),
+                                function_signature_entry.position.clone(),
+                            ),
+                        )],
                     ),
                 ),
             );
@@ -1206,6 +1259,7 @@ mod tests {
     use std::{
         env,
         path::{Path, PathBuf},
+        time::Instant,
     };
 
     use crate::{
@@ -1231,7 +1285,21 @@ mod tests {
 
         let target = CompileTarget::C(COptions::default());
 
-        let container = container_from_project(&project, &target);
+        let mut statics = Statics::new();
+        let (modules, _errors) = project.get_all_modules(
+            &mut statics,
+            false,
+            &target,
+            false,
+            &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
+        );
+
+        let mut container = ASTModulesContainer::new();
+
+        for (module, info) in modules.iter() {
+            container.add(module, info.module_id(), info.module_source(), false);
+        }
 
         let mut statics = ValContext::new(None);
 
@@ -1457,10 +1525,18 @@ mod tests {
         );
     }
 
-    fn container_from_project(
-        project: &RasmProject,
-        target: &CompileTarget,
-    ) -> ASTModulesContainer {
+    #[test]
+    fn test_breakout() {
+        check_project("../rasm/resources/examples/breakout");
+    }
+
+    fn check_project(path: &str) {
+        let start = Instant::now();
+
+        let project = RasmProject::new(PathBuf::from(path));
+
+        let target = CompileTarget::C(COptions::default());
+
         let mut statics = Statics::new();
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
@@ -1473,11 +1549,42 @@ mod tests {
 
         let mut container = ASTModulesContainer::new();
 
-        for (module, info) in modules {
+        for (module, info) in modules.iter() {
             container.add(module, info.module_id(), info.module_source(), false);
         }
 
-        container
+        println!(
+            "read project {path} and calculating container in {:?}",
+            start.elapsed()
+        );
+
+        let mut static_val_context = ValContext::new(None);
+
+        let mut function_type_checker = ASTTypeChecker::new(&container);
+
+        for (module, info) in modules {
+            let mut val_context = ValContext::new(None);
+
+            function_type_checker.add_body(
+                &mut val_context,
+                &mut static_val_context,
+                &module.body,
+                None,
+                &info.module_id(),
+                &info.module_source(),
+            );
+
+            for function in module.functions.into_iter() {
+                function_type_checker.add_function(
+                    &function,
+                    &static_val_context,
+                    &info.module_id(),
+                    &info.module_source(),
+                );
+            }
+        }
+
+        println!("checked project {path} in {:?}", start.elapsed());
     }
 
     fn check_body(file: &str) -> (ASTTypeCheckerResult, EhModuleInfo) {
@@ -1543,7 +1650,21 @@ mod tests {
     ) -> (RasmProject, ASTModulesContainer) {
         let project = RasmProject::new(PathBuf::from(project_path));
 
-        let container = container_from_project(&project, target);
+        let mut statics = Statics::new();
+        let (modules, _errors) = project.get_all_modules(
+            &mut statics,
+            false,
+            &target,
+            false,
+            &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
+        );
+
+        let mut container = ASTModulesContainer::new();
+
+        for (module, info) in modules.iter() {
+            container.add(module, info.module_id(), info.module_source(), false);
+        }
 
         (project, container)
     }

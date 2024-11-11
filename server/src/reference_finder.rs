@@ -24,28 +24,11 @@ use rasm_core::type_check::type_check_error::TypeCheckError;
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::reference_context::ReferenceContext;
 use crate::selectable_item::{SelectableItem, SelectableItemTarget};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RasmTextEdit {
-    pub from: EnhASTIndex,
-    pub len: usize,
-    pub text: String,
-}
-
-impl RasmTextEdit {
-    pub fn new(from: EnhASTIndex, len: usize, text: String) -> Self {
-        Self { from, len, text }
-    }
-}
+use crate::{CompletionType, RasmTextEdit};
 
 pub struct ReferenceFinder {
     selectable_items: Vec<SelectableItem>,
     path: PathBuf,
-}
-
-enum CompletionType {
-    SelectableItem(EnhASTIndex, Option<String>),
-    Identifier(String),
 }
 
 impl ReferenceFinder {
@@ -425,7 +408,7 @@ impl ReferenceFinder {
         {
             Ok(result)
         } else {
-            Err("Rename of symbols outsite current module is not yet supported.".to_owned())
+            Err("Rename of symbols outside current module is not yet supported.".to_owned())
         }
     }
 
@@ -1189,12 +1172,11 @@ mod tests {
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::parser::ast::ASTPosition;
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionItem, CompletionTrigger};
-    use crate::reference_finder::{CompletionResult, RasmTextEdit, ReferenceFinder};
+    use crate::reference_finder::{CompletionResult, ReferenceFinder};
     use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 
     #[test]
@@ -1695,7 +1677,7 @@ mod tests {
             "aName",
             7,
             13,
-            Err("Rename of symbols outsite current module is not yet supported.".to_owned()),
+            Err("Rename of symbols outside current module is not yet supported.".to_owned()),
         );
     }
 

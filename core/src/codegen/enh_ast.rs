@@ -9,15 +9,15 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
 
-use crate::type_check::ast_modules_container::{ModuleId, ModuleSource};
+use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
-use crate::parser::ast::{self, ASTModifiers, ASTPosition, ASTValueType};
+use crate::parser::ast::{self, ASTModifiers, ASTPosition, ASTType, ASTValueType, BuiltinTypeKind};
 
 use super::val_context::ASTIndex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EhModuleInfo {
     pub path: Option<PathBuf>,
     pub namespace: EnhASTNameSpace,
@@ -38,6 +38,10 @@ impl EhModuleInfo {
 
     pub fn index(&self, position: ASTPosition) -> ASTIndex {
         ASTIndex::new(self.module_id(), self.module_source(), position)
+    }
+
+    pub fn module_info(&self) -> ModuleInfo {
+        ModuleInfo::new(self.module_id(), self.module_source())
     }
 }
 
@@ -258,7 +262,7 @@ impl EnhASTFunctionDef {
             inline: function.inline,
             generic_types: function.generic_types,
             resolved_generic_types: ResolvedGenericTypes::new(),
-            index: EnhASTIndex::from_position(path.clone(), function.position),
+            index: EnhASTIndex::from_position(path.clone(), &function.position),
             modifiers: function.modifiers,
             namespace,
             rank: 0,
@@ -293,14 +297,14 @@ impl EnhASTLambdaDef {
             parameter_names: lambda
                 .parameter_names
                 .into_iter()
-                .map(|(name, position)| (name, EnhASTIndex::from_position(path.clone(), position)))
+                .map(|(name, position)| (name, EnhASTIndex::from_position(path.clone(), &position)))
                 .collect(),
             body: lambda
                 .body
                 .into_iter()
                 .map(|it| EnhASTStatement::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: EnhASTIndex::from_position(path.clone(), lambda.position),
+            index: EnhASTIndex::from_position(path.clone(), &lambda.position),
         }
     }
 }
@@ -345,6 +349,25 @@ pub enum EnhBuiltinTypeKind {
         parameters: Vec<EnhASTType>,
         return_type: Box<EnhASTType>,
     },
+}
+
+impl EnhBuiltinTypeKind {
+    pub fn to_ast(&self) -> BuiltinTypeKind {
+        match self {
+            EnhBuiltinTypeKind::Bool => BuiltinTypeKind::Bool,
+            EnhBuiltinTypeKind::Char => BuiltinTypeKind::Char,
+            EnhBuiltinTypeKind::I32 => BuiltinTypeKind::I32,
+            EnhBuiltinTypeKind::F32 => BuiltinTypeKind::F32,
+            EnhBuiltinTypeKind::String => BuiltinTypeKind::String,
+            EnhBuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            } => BuiltinTypeKind::Lambda {
+                parameters: parameters.iter().map(|it| it.to_ast()).collect(),
+                return_type: Box::new(return_type.to_ast()),
+            },
+        }
+    }
 }
 
 #[derive(Derivative)]
@@ -609,6 +632,28 @@ impl EnhASTType {
         }
     }
 
+    pub fn to_ast(&self) -> ASTType {
+        match self {
+            EnhASTType::Builtin(enh_builtin_type_kind) => {
+                ASTType::Builtin(enh_builtin_type_kind.to_ast())
+            }
+            EnhASTType::Generic(index, name) => {
+                ASTType::Generic(ASTPosition::new(index.row, index.column), name.clone())
+            }
+            EnhASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => ASTType::Custom {
+                name: name.clone(),
+                param_types: param_types.iter().map(|it| it.to_ast()).collect(),
+                position: ASTPosition::new(index.row, index.column),
+            },
+            EnhASTType::Unit => ASTType::Unit,
+        }
+    }
+
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
@@ -641,7 +686,7 @@ impl EnhASTType {
                 EnhASTType::Builtin(builtin)
             }
             ast::ASTType::Generic(astposition, name) => {
-                EnhASTType::Generic(EnhASTIndex::from_position(path.clone(), astposition), name)
+                EnhASTType::Generic(EnhASTIndex::from_position(path.clone(), &astposition), name)
             }
             ast::ASTType::Custom {
                 name,
@@ -651,7 +696,7 @@ impl EnhASTType {
                 namespace: namespace.clone(),
                 name,
                 param_types: EnhASTType::from_asts(path.clone(), namespace.clone(), param_types),
-                index: EnhASTIndex::from_position(path, index),
+                index: EnhASTIndex::from_position(path, &index),
             },
             ast::ASTType::Unit => EnhASTType::Unit,
         }
@@ -752,7 +797,7 @@ impl EnhASTParameterDef {
         Self {
             name: parameter.name,
             ast_type: EnhASTType::from_ast(path.clone(), namespace, parameter.ast_type),
-            ast_index: EnhASTIndex::from_position(path.clone(), parameter.position),
+            ast_index: EnhASTIndex::from_position(path.clone(), &parameter.position),
         }
     }
 
@@ -796,7 +841,7 @@ impl EnhASTStructPropertyDef {
         Self {
             name: property.name,
             ast_type: EnhASTType::from_ast(path.clone(), namespace.clone(), property.ast_type),
-            index: EnhASTIndex::from_position(path.clone(), property.position),
+            index: EnhASTIndex::from_position(path.clone(), &property.position),
         }
     }
 }
@@ -847,7 +892,7 @@ impl EnhASTFunctionCall {
                 .into_iter()
                 .map(|it| EnhASTExpression::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: EnhASTIndex::from_position(path.clone(), call.position),
+            index: EnhASTIndex::from_position(path.clone(), &call.position),
             generics: EnhASTType::from_asts(path.clone(), namespace.clone(), call.generics),
         }
     }
@@ -914,7 +959,7 @@ impl EnhASTIndex {
         }
     }
 
-    pub fn from_position(path: Option<PathBuf>, position: ASTPosition) -> Self {
+    pub fn from_position(path: Option<PathBuf>, position: &ASTPosition) -> Self {
         Self {
             file_name: path,
             row: position.row,
@@ -1011,7 +1056,7 @@ impl EnhASTExpression {
         match expr {
             ast::ASTExpression::StringLiteral(value, position) => EnhASTExpression::StringLiteral(
                 value,
-                EnhASTIndex::from_position(path.clone(), position),
+                EnhASTIndex::from_position(path.clone(), &position),
             ),
             ast::ASTExpression::ASTFunctionCallExpression(call) => {
                 EnhASTExpression::ASTFunctionCallExpression(EnhASTFunctionCall::from_ast(
@@ -1020,12 +1065,13 @@ impl EnhASTExpression {
                     call,
                 ))
             }
-            ast::ASTExpression::ValueRef(name, position) => {
-                EnhASTExpression::ValueRef(name, EnhASTIndex::from_position(path.clone(), position))
-            }
+            ast::ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
+                name,
+                EnhASTIndex::from_position(path.clone(), &position),
+            ),
             ast::ASTExpression::Value(value_type, position) => EnhASTExpression::Value(
                 value_type,
-                EnhASTIndex::from_position(path.clone(), position),
+                EnhASTIndex::from_position(path.clone(), &position),
             ),
             ast::ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(
                 EnhASTLambdaDef::from_ast(path.clone(), namespace.clone(), lambda),
@@ -1107,7 +1153,7 @@ impl EnhASTStatement {
                     name,
                     expr,
                     is_const,
-                    EnhASTIndex::from_position(path.clone(), position),
+                    EnhASTIndex::from_position(path.clone(), &position),
                 )
             }
         }
@@ -1290,7 +1336,7 @@ impl EnhASTEnumDef {
                 .into_iter()
                 .map(|it| EnhASTEnumVariantDef::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: EnhASTIndex::from_position(path, enum_def.position),
+            index: EnhASTIndex::from_position(path, &enum_def.position),
             modifiers: enum_def.modifiers,
         }
     }
@@ -1340,7 +1386,7 @@ impl EnhASTEnumVariantDef {
                 namespace.clone(),
                 variant_def.parameters,
             ),
-            index: EnhASTIndex::from_position(path.clone(), variant_def.position),
+            index: EnhASTIndex::from_position(path.clone(), &variant_def.position),
         }
     }
 }
@@ -1408,7 +1454,7 @@ impl EnhASTStructDef {
                 .into_iter()
                 .map(|it| EnhASTStructPropertyDef::from_ast(path.clone(), namespace.clone(), it))
                 .collect(),
-            index: EnhASTIndex::from_position(path.clone(), struct_def.position),
+            index: EnhASTIndex::from_position(path.clone(), &struct_def.position),
             modifiers: struct_def.modifiers,
         }
     }
@@ -1474,7 +1520,7 @@ impl EnhASTTypeDef {
             name: type_def.name,
             type_parameters: type_def.type_parameters,
             is_ref: type_def.is_ref,
-            index: EnhASTIndex::from_position(path.clone(), type_def.position),
+            index: EnhASTIndex::from_position(path.clone(), &type_def.position),
             modifiers: type_def.modifiers,
             native_type: type_def.native_type,
         }

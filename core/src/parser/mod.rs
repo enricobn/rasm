@@ -443,7 +443,7 @@ impl Parser {
             .unwrap_or_else(|| ASTPosition::new(0, 0));
 
         self.errors.push(CompilationError {
-            index: EnhASTIndex::from_position(self.file_name.clone(), index),
+            index: EnhASTIndex::from_position(self.file_name.clone(), &index),
             error_kind: CompilationErrorKind::Parser(message),
         });
     }
@@ -1416,7 +1416,7 @@ pub trait ParserTrait {
     }
 
     fn get_index(&self, n: usize) -> EnhASTIndex {
-        EnhASTIndex::from_position(self.file_name().clone(), self.get_position(n))
+        EnhASTIndex::from_position(self.file_name().clone(), &self.get_position(n))
     }
 
     fn wrap_error(&self, message: &str) -> String {
