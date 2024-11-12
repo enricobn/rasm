@@ -9,7 +9,6 @@ use crate::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
         ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
     },
-    utils::{OptionDisplay, SliceDisplay},
 };
 
 use super::ast_modules_container::{
@@ -595,7 +594,7 @@ impl<'a> ASTTypeChecker<'a> {
         );
 
         if let Some(_t) = self.result.get(&index) {
-            println!("OPTIMIZED get_call_type_map");
+            // println!("OPTIMIZED get_call_type_map");
             return;
         }
 
@@ -708,12 +707,12 @@ impl<'a> ASTTypeChecker<'a> {
         );
 
         if functions.is_empty() {
-            println!("no functions for {} : {}", call.function_name, index);
-            println!("filters {}", SliceDisplay(&parameter_types_filters));
-            println!(
+            // println!("no functions for {} : {}", call.function_name, index);
+            // println!("filters {}", SliceDisplay(&parameter_types_filters));
+            /*println!(
                 "expected_expression_type {}",
                 OptionDisplay(&expected_expression_type)
-            );
+            );*/
             self.errors.push(ASTTypeCheckError::new(
                 index.clone(),
                 format!("no functions for {}", call.function_name),
@@ -882,10 +881,10 @@ impl<'a> ASTTypeChecker<'a> {
                     );
 
                     if !p_errors.is_empty() {
-                        println!("found errors resoving {e} expected expression type {ast_type}:");
-                        for error in p_errors.iter() {
-                            println!("  {error}");
-                        }
+                        // println!("found errors resoving {e} expected expression type {ast_type}:");
+                        // for error in p_errors.iter() {
+                        //    println!("  {error}");
+                        //}
                     }
 
                     self.errors.extend(p_errors);
@@ -1262,7 +1261,7 @@ mod tests {
         codegen::{
             c::options::COptions,
             compile_target::CompileTarget,
-            enh_ast::EhModuleInfo,
+            enh_ast::EnhModuleInfo,
             statics::Statics,
             val_context::{ASTIndex, ValContext},
         },
@@ -1583,7 +1582,7 @@ mod tests {
         println!("checked project {path} in {:?}", start.elapsed());
     }
 
-    fn check_body(file: &str) -> (ASTTypeCheckerResult, EhModuleInfo) {
+    fn check_body(file: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
         apply_to_functions_checker(file, file, |module, mut ftc, info| {
             let mut val_context = ValContext::new(None);
             let mut static_val_context = ValContext::new(None);
@@ -1599,7 +1598,7 @@ mod tests {
         })
     }
 
-    fn check_function(file: &str, function_name: &str) -> (ASTTypeCheckerResult, EhModuleInfo) {
+    fn check_function(file: &str, function_name: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
         apply_to_functions_checker(file, file, |module, mut ftc, info| {
             let function = module
                 .functions
@@ -1622,9 +1621,9 @@ mod tests {
         project_path: &str,
         file: &str,
         f: F,
-    ) -> (ASTTypeCheckerResult, EhModuleInfo)
+    ) -> (ASTTypeCheckerResult, EnhModuleInfo)
     where
-        F: Fn(&ASTModule, ASTTypeChecker, EhModuleInfo) -> ASTTypeCheckerResult,
+        F: Fn(&ASTModule, ASTTypeChecker, EnhModuleInfo) -> ASTTypeCheckerResult,
     {
         env::set_var("RASM_STDLIB", "/home/enrico/development/rust/rasm/stdlib");
 

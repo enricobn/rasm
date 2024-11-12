@@ -13,7 +13,7 @@ use iced::{
     Background, Color, Element, Length, Padding,
 };
 use rasm_core::{
-    codegen::{enh_ast::EhModuleInfo, val_context::ASTIndex},
+    codegen::{enh_ast::EnhModuleInfo, val_context::ASTIndex},
     lexer::{tokens::TokenKind, Lexer},
     parser::ast::{ASTModule, ASTType, BuiltinTypeKind},
     type_check::ast_modules_container::ASTTypeFilter,
@@ -201,7 +201,7 @@ impl UI {
             .into()
     }
 
-    fn module_syntax(module: &ASTModule, info: &EhModuleInfo) -> HashMap<ASTIndex, SyntaxKind> {
+    fn module_syntax(module: &ASTModule, info: &EnhModuleInfo) -> HashMap<ASTIndex, SyntaxKind> {
         let mut result = HashMap::new();
 
         for s in module.structs.iter() {
@@ -247,7 +247,7 @@ impl UI {
         result
     }
 
-    fn set_untyped(ast_type: &ASTType, info: &EhModuleInfo) -> HashMap<ASTIndex, SyntaxKind> {
+    fn set_untyped(ast_type: &ASTType, info: &EnhModuleInfo) -> HashMap<ASTIndex, SyntaxKind> {
         let mut result = HashMap::new();
 
         match ast_type {

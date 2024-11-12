@@ -18,12 +18,12 @@ use crate::parser::ast::{self, ASTModifiers, ASTPosition, ASTType, ASTValueType,
 use super::val_context::ASTIndex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EhModuleInfo {
+pub struct EnhModuleInfo {
     pub path: Option<PathBuf>,
     pub namespace: EnhASTNameSpace,
 }
 
-impl EhModuleInfo {
+impl EnhModuleInfo {
     pub fn new(path: Option<PathBuf>, namespace: EnhASTNameSpace) -> Self {
         Self { path, namespace }
     }
@@ -1198,7 +1198,7 @@ impl EnhASTModule {
         self.types.extend(module.types);
     }
 
-    pub fn from_ast(module: ast::ASTModule, info: EhModuleInfo) -> Self {
+    pub fn from_ast(module: ast::ASTModule, info: EnhModuleInfo) -> Self {
         Self {
             path: info.path.clone().unwrap(),
             body: module

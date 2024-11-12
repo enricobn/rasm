@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::enh_ast::{EhModuleInfo, EnhASTIndex, EnhASTNameSpace};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
 use linked_hash_map::LinkedHashMap;
 use log::info;
@@ -276,7 +276,7 @@ impl RasmProject {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-    ) -> (Vec<(ASTModule, EhModuleInfo)>, Vec<CompilationError>) {
+    ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         info!("Reading tests");
 
         let mut modules = Vec::new();
@@ -300,7 +300,7 @@ impl RasmProject {
         debug: bool,
         for_tests: bool,
         out: &PathBuf,
-    ) -> (Vec<(ASTModule, EhModuleInfo)>, Vec<CompilationError>) {
+    ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
         let mut pairs = vec![self.core_modules(target)];
@@ -380,7 +380,7 @@ impl RasmProject {
     fn core_modules(
         &self,
         target: &CompileTarget,
-    ) -> Vec<(ASTModule, Vec<CompilationError>, EhModuleInfo)> {
+    ) -> Vec<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
         let mut result = RasmCoreLibAssets::iter()
             .filter(|it| it.ends_with(".rasm"))
             .map(|it| {
@@ -411,7 +411,7 @@ impl RasmProject {
         debug: bool,
         out: &PathBuf,
         options: &CommandLineOptions,
-    ) -> (Vec<(ASTModule, EhModuleInfo)>, Vec<CompilationError>) {
+    ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let (mut modules, mut errors) = self.all_modules(statics, target, debug, for_tests, out);
 
         if for_tests {
@@ -445,9 +445,9 @@ impl RasmProject {
     fn main_test_module(
         &self,
         errors: &mut Vec<CompilationError>,
-        test_modules: &[(ASTModule, EhModuleInfo)],
+        test_modules: &[(ASTModule, EnhModuleInfo)],
         options: &CommandLineOptions,
-    ) -> (ASTModule, EhModuleInfo) {
+    ) -> (ASTModule, EnhModuleInfo) {
         let mut module_src = String::new();
 
         module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");");
@@ -520,7 +520,7 @@ impl RasmProject {
 
         return (
             module,
-            EhModuleInfo::new(Some(PathBuf::new()), EnhASTNameSpace::global()),
+            EnhModuleInfo::new(Some(PathBuf::new()), EnhASTNameSpace::global()),
         );
     }
 
@@ -528,7 +528,7 @@ impl RasmProject {
         &self,
         source_folder: PathBuf,
         target: &CompileTarget,
-    ) -> Vec<(ASTModule, Vec<CompilationError>, EhModuleInfo)> {
+    ) -> Vec<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
         if self.from_file {
             let main_src_file = self.main_src_file().unwrap();
 
@@ -543,7 +543,7 @@ impl RasmProject {
             let namespace = EnhASTNameSpace::new(self.config.package.name.clone(), name);
             let (module, errors) = self.module_from_file(&path);
 
-            vec![(module, errors, EhModuleInfo::new(Some(path), namespace))]
+            vec![(module, errors, EnhModuleInfo::new(Some(path), namespace))]
         } else {
             WalkDir::new(source_folder)
                 .into_iter()
@@ -582,7 +582,7 @@ impl RasmProject {
         &self,
         path: &Path,
         target: &CompileTarget,
-    ) -> Option<(ASTModule, Vec<CompilationError>, EhModuleInfo)> {
+    ) -> Option<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
         let (source_folder, body) = if path
             .canonicalize()
             .unwrap()
@@ -675,7 +675,7 @@ impl RasmProject {
         Some((
             entry_module,
             module_errors,
-            EhModuleInfo::new(Some(path.to_path_buf().canonicalize().unwrap()), namespace),
+            EnhModuleInfo::new(Some(path.to_path_buf().canonicalize().unwrap()), namespace),
         ))
     }
 
@@ -817,7 +817,7 @@ impl RasmProject {
         &self,
         main_file: &str,
         data: &[u8],
-    ) -> (ASTModule, Vec<CompilationError>, EhModuleInfo) {
+    ) -> (ASTModule, Vec<CompilationError>, EnhModuleInfo) {
         let main_path = Path::new(&main_file);
 
         let namespace = EnhASTNameSpace::new(
@@ -833,7 +833,7 @@ impl RasmProject {
         (
             module,
             errors,
-            EhModuleInfo::new(Some(main_path.to_path_buf()), namespace),
+            EnhModuleInfo::new(Some(main_path.to_path_buf()), namespace),
         )
     }
 }

@@ -1,9 +1,13 @@
 use std::collections::HashMap;
-use std::io;
+use std::path::PathBuf;
+use std::{env, io};
 
+use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::enh_ast::{EhModuleInfo, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind, EnhModuleInfo};
+use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ASTIndex, ValContext};
+use rasm_core::commandline::CommandLineOptions;
 use rasm_core::parser::ast::{ASTModule, ASTPosition, ASTType};
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::ast_modules_container::{
@@ -16,7 +20,7 @@ use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 use crate::{CompletionType, RasmTextEdit};
 
 pub struct IDEHelperBuilder {
-    entries: HashMap<ModuleInfo, (ASTModule, EhModuleInfo, bool)>,
+    entries: HashMap<ModuleInfo, (ASTModule, EnhModuleInfo, bool)>,
 }
 
 impl IDEHelperBuilder {
@@ -26,7 +30,7 @@ impl IDEHelperBuilder {
         }
     }
 
-    pub fn add(mut self, module: ASTModule, info: EhModuleInfo, add_builtin: bool) -> Self {
+    pub fn add(mut self, module: ASTModule, info: EnhModuleInfo, add_builtin: bool) -> Self {
         self.entries
             .insert(info.module_info(), (module, info, add_builtin))
             .map(|it| panic!("Already added {it:?}"));
@@ -45,8 +49,10 @@ impl IDEHelperBuilder {
 
         let mut function_type_checker = ASTTypeChecker::new(&modules_container);
         let mut selectable_items = Vec::new();
+        let mut module_info_to_enh_info = HashMap::new();
 
         for (module, info, _) in self.entries.values() {
+            module_info_to_enh_info.insert(info.module_info(), info.clone());
             let mut val_context = ValContext::new(None);
 
             function_type_checker.add_body(
@@ -207,13 +213,13 @@ impl IDEHelperBuilder {
             }
         }
 
-        IDEHelper::new(modules_container, selectable_items)
+        IDEHelper::new(modules_container, selectable_items, module_info_to_enh_info)
     }
 
     fn add_par_selectable(
         &self,
         par_type: &ASTType,
-        info: &EhModuleInfo,
+        info: &EnhModuleInfo,
         modules_container: &ASTModulesContainer,
         selectable_items: &mut Vec<SelectableItem>,
     ) {
@@ -234,7 +240,7 @@ impl IDEHelperBuilder {
             {
                 let (_, ct_info, _) = self.entries.get(&ct_index.info()).unwrap();
 
-                let def_info = EhModuleInfo::new(ct_info.path.clone(), ct_info.namespace.clone());
+                let def_info = EnhModuleInfo::new(ct_info.path.clone(), ct_info.namespace.clone());
                 let def_index = enh_index_from_ast_position(&def_info, ct_index.position());
 
                 selectable_items.push(SelectableItem::new(
@@ -255,25 +261,64 @@ impl IDEHelperBuilder {
     }
 }
 
-fn enh_index_from_ast_index(info: &EhModuleInfo, index: &ASTIndex) -> EnhASTIndex {
+fn enh_index_from_ast_index(info: &EnhModuleInfo, index: &ASTIndex) -> EnhASTIndex {
     enh_index_from_ast_position(info, index.position())
 }
 
-fn enh_index_from_ast_position(info: &EhModuleInfo, position: &ASTPosition) -> EnhASTIndex {
+fn enh_index_from_ast_position(info: &EnhModuleInfo, position: &ASTPosition) -> EnhASTIndex {
     EnhASTIndex::from_position(info.path.clone(), position)
+}
+
+pub fn get_ide_helper_from_project(project: &RasmProject) -> IDEHelper {
+    let mut statics = Statics::new();
+
+    let mut builder = IDEHelperBuilder::new();
+
+    for (module, info) in project
+        .get_all_modules(
+            &mut statics,
+            false,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
+        )
+        .0
+    {
+        builder = builder.add(module, info, false);
+    }
+
+    builder.build()
 }
 
 pub struct IDEHelper {
     modules_container: ASTModulesContainer,
     selectable_items: Vec<SelectableItem>,
+    module_info_to_enh_info: HashMap<ModuleInfo, EnhModuleInfo>,
 }
 
 impl IDEHelper {
-    fn new(modules_container: ASTModulesContainer, selectable_items: Vec<SelectableItem>) -> Self {
+    fn new(
+        modules_container: ASTModulesContainer,
+        selectable_items: Vec<SelectableItem>,
+        module_info_to_enh_info: HashMap<ModuleInfo, EnhModuleInfo>,
+    ) -> Self {
         Self {
             modules_container,
             selectable_items,
+            module_info_to_enh_info,
         }
+    }
+
+    pub fn get_module_info_from_path(&self, path: &PathBuf) -> Option<ModuleInfo> {
+        for (info, v) in self.module_info_to_enh_info.iter() {
+            if let Some(ref p) = v.path {
+                if p == path {
+                    return Some(info.clone());
+                }
+            }
+        }
+        None
     }
 
     pub fn find(&self, index: &EnhASTIndex) -> Result<Vec<SelectableItem>, io::Error> {
@@ -290,29 +335,11 @@ impl IDEHelper {
 
     pub fn get_completions(
         &self,
-        project: &RasmProject,
-        index: &EnhASTIndex,
+        module_content: String,
+        index: &ASTPosition,
         trigger: &CompletionTrigger,
-        target: &CompileTarget,
+        module_info: &ModuleInfo,
     ) -> Result<CompletionResult, io::Error> {
-        if index.file_name.is_none() {
-            return Ok(CompletionResult::NotFound(
-                "Called completions with an unknown path.".to_string(),
-            ));
-        }
-
-        let (_module, _errors, info) = if let Some(m) = index
-            .file_name
-            .as_ref()
-            .and_then(|it| project.get_module(it.as_path(), target))
-        {
-            m
-        } else {
-            return Ok(CompletionResult::NotFound("".to_string()));
-        };
-
-        let module_content = project.content_from_file(&index.file_name.as_ref().unwrap())?;
-
         let lines = module_content.lines().collect::<Vec<_>>();
 
         let completion_type = match trigger {
@@ -324,7 +351,8 @@ impl IDEHelper {
                     if let Some(c) = Self::char_at_index(&lines, &index) {
                         if c == '.' {
                             // it could be a number
-                            completion_type = Self::dot_completion(&lines, &index, Some(prefix));
+                            completion_type =
+                                self.dot_completion(&lines, &index, Some(prefix), module_info);
                             break;
                         } else if c.is_whitespace() {
                         } else if c == '{' || c == ';' || c == '=' {
@@ -342,7 +370,7 @@ impl IDEHelper {
                         ));
                     }
                     if let Some(i) = Self::move_left(&lines, &index) {
-                        index = i;
+                        index = i.clone();
                     } else {
                         return Ok(CompletionResult::NotFound(
                             "Cannot find a completable expression.".to_string(),
@@ -359,7 +387,8 @@ impl IDEHelper {
                 }
             }
             CompletionTrigger::Character('.') => {
-                if let Some(completion_type) = Self::dot_completion(&lines, index, None) {
+                if let Some(completion_type) = self.dot_completion(&lines, index, None, module_info)
+                {
                     completion_type
                 } else {
                     return Ok(CompletionResult::NotFound(
@@ -387,7 +416,7 @@ impl IDEHelper {
                             if let Some(ast_type) = target.completion_type() {
                                 return Self::completion_for_type(
                                     &ast_type.to_ast(),
-                                    &info.module_info(),
+                                    module_info,
                                     &self.modules_container,
                                     &prefix,
                                 );
@@ -400,7 +429,7 @@ impl IDEHelper {
                 return Self::completion_for_identifier(
                     &prefix,
                     &self.modules_container,
-                    &info.module_info(),
+                    module_info,
                 );
             }
         }
@@ -417,9 +446,11 @@ impl IDEHelper {
     }
 
     fn dot_completion(
+        &self,
         lines: &Vec<&str>,
-        index: &EnhASTIndex,
+        index: &ASTPosition,
         prefix: Option<String>,
+        module_info: &ModuleInfo,
     ) -> Option<CompletionType> {
         let index = if let Some(i) = Self::move_left(lines, index) {
             i
@@ -435,7 +466,11 @@ impl IDEHelper {
                 }
             })
         {
-            Some(CompletionType::SelectableItem(index, prefix))
+            let enh_info = self.module_info_to_enh_info.get(module_info).unwrap();
+            Some(CompletionType::SelectableItem(
+                EnhASTIndex::from_position(enh_info.path.clone(), &index),
+                prefix,
+            ))
         } else {
             None
         }
@@ -492,9 +527,9 @@ impl IDEHelper {
 
     fn find_last_char_excluding(
         lines: &Vec<&str>,
-        index: &EnhASTIndex,
+        index: &ASTPosition,
         find: &dyn Fn(char) -> bool,
-    ) -> Option<EnhASTIndex> {
+    ) -> Option<ASTPosition> {
         let mut result = index.clone();
         loop {
             let c = Self::char_at_index(&lines, &result)?;
@@ -508,14 +543,14 @@ impl IDEHelper {
         }
     }
 
-    fn char_at_index(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<char> {
+    fn char_at_index(lines: &Vec<&str>, index: &ASTPosition) -> Option<char> {
         lines.get(index.row - 1).and_then(|line| {
             line.get((index.column - 1)..index.column)
                 .and_then(|chars| chars.chars().next())
         })
     }
 
-    fn move_left(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<EnhASTIndex> {
+    fn move_left(lines: &Vec<&str>, index: &ASTPosition) -> Option<ASTPosition> {
         let mut row = index.row as i32;
         let mut column = index.column as i32 - 1;
 
@@ -526,14 +561,10 @@ impl IDEHelper {
             }
             column = (lines.get((row - 1) as usize).unwrap().len()) as i32;
         }
-        Some(EnhASTIndex::new(
-            index.file_name.clone(),
-            row as usize,
-            column as usize,
-        ))
+        Some(ASTPosition::new(row as usize, column as usize))
     }
 
-    fn find_open_bracket(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<EnhASTIndex> {
+    fn find_open_bracket(lines: &Vec<&str>, index: &ASTPosition) -> Option<ASTPosition> {
         let mut result = index.clone();
         let mut count = 0;
         loop {
@@ -676,6 +707,7 @@ mod tests {
     use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTType};
     use rasm_core::codegen::statics::Statics;
     use rasm_core::commandline::CommandLineOptions;
+    use rasm_core::parser::ast::ASTPosition;
     use rasm_core::project::RasmProject;
     use rasm_core::utils::{OptionDisplay, SliceDisplay};
 
@@ -1371,11 +1403,16 @@ mod tests {
         };
         let helper = get_helper_for_project(&project);
 
-        let file_name = Some(PathBuf::from(file_name));
+        let path = PathBuf::from(file_name).canonicalize().unwrap();
+        let file_name = Some(path.clone());
         let index = EnhASTIndex::new(file_name.clone(), row, col);
-        let target = CompileTarget::C(COptions::default());
 
-        match helper.get_completions(&project, &index, &trigger, &target) {
+        match helper.get_completions(
+            project.content_from_file(&path).unwrap(),
+            &ASTPosition::new(index.row, index.column),
+            &trigger,
+            &helper.get_module_info_from_path(&path).unwrap(),
+        ) {
             Ok(CompletionResult::Found(items)) => {
                 let mut sorted = items.clone();
                 sorted.sort_by(|a, b| a.sort.cmp(&b.sort));

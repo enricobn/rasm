@@ -10,11 +10,11 @@ use crate::parser::ast::{
     ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
-use crate::codegen::enh_ast::{self, EhModuleInfo};
+use crate::codegen::enh_ast::{self, EnhModuleInfo};
 use crate::parser::builtin_functions::BuiltinFunctions;
 
 pub trait FunctionsCreator {
-    fn create(&self, module: &mut ASTModule, statics: &mut Statics, info: &EhModuleInfo) {
+    fn create(&self, module: &mut ASTModule, statics: &mut Statics, info: &EnhModuleInfo) {
         for enum_def in module.enums.clone().iter() {
             self.enum_constructors(module, enum_def, statics, info);
 
@@ -271,7 +271,7 @@ pub trait FunctionsCreator {
         module: &mut ASTModule,
         enum_def: &ASTEnumDef,
         statics: &mut Statics,
-        info: &EhModuleInfo,
+        info: &EnhModuleInfo,
     ) {
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             let descr = if self.debug() {
@@ -320,7 +320,7 @@ pub trait FunctionsCreator {
         variant_num: usize,
         variant: &ASTEnumVariantDef,
         descr: &String,
-        info: &EhModuleInfo,
+        info: &EnhModuleInfo,
     ) -> (String, bool);
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
@@ -817,7 +817,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         variant_num: usize,
         variant: &ASTEnumVariantDef,
         descr: &String,
-        info: &EhModuleInfo,
+        info: &EnhModuleInfo,
     ) -> (String, bool) {
         if variant.parameters.is_empty() {
             let label = format!(

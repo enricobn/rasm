@@ -16,7 +16,7 @@ use crate::transformations::globals_creator::add_folder;
 use crate::type_check::functions_container::{FunctionsContainer, EnhTypeFilter};
 use crate::type_check::type_check_error::TypeCheckError;
 
-use super::enh_ast::EhModuleInfo;
+use super::enh_ast::EnhModuleInfo;
 
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {
@@ -30,7 +30,7 @@ pub struct EnhancedASTModule {
 
 impl EnhancedASTModule {
     pub fn from_ast(
-        modules: Vec<(ast::ASTModule, EhModuleInfo)>,
+        modules: Vec<(ast::ASTModule, EnhModuleInfo)>,
         project: &RasmProject,
         statics: &mut Statics,
         target: &CompileTarget,
