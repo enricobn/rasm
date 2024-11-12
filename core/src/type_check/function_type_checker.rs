@@ -607,49 +607,6 @@ mod tests {
     }
 
     #[test]
-    fn test_svg_check_functions() {
-        let project = RasmProject::new(PathBuf::from("/home/enrico/development/rasm/svglib"));
-
-        let mut statics = Statics::new();
-
-        let target = CompileTarget::C(COptions::default());
-
-        let (modules, _errors) = project.get_all_modules(
-            &mut statics,
-            false,
-            &target,
-            false,
-            &env::temp_dir().join("tmp"),
-            &CommandLineOptions::default(),
-        );
-
-        let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
-
-        let function_type_checker = FunctionTypeChecker::new(&enhanced_ast_module);
-        let mut statics = Statics::new();
-
-        let path = Path::new("/home/enrico/development/rasm/svglib/src/main/rasm/svg.rasm");
-        for function in project
-            .get_module(path, &target)
-            .unwrap()
-            .0
-            .functions
-            .into_iter()
-        {
-            let eh_function_def = EnhASTFunctionDef::from_ast(
-                Some(path.to_path_buf()),
-                EnhASTNameSpace::new("svglib".to_owned(), "svg".to_owned()),
-                function,
-            );
-            function_type_checker.get_type_map(
-                &&eh_function_def.fix_namespaces(&enhanced_ast_module),
-                &mut statics,
-            );
-        }
-    }
-
-    #[test]
     fn test_functions_checker1() {
         let file = "resources/test/functions_checker1.rasm";
 
