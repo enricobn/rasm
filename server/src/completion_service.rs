@@ -473,9 +473,6 @@ impl CompletionService {
         statics: &mut Statics,
     ) -> Result<(), CompilationError> {
         match expr {
-            ASTTypedExpression::StringLiteral(_value) => {
-                // TODO we need an index
-            }
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let (parameters, ast_typed_type) = if let Some(v) =
                     val_context.get(&call.function_name)

@@ -16,6 +16,7 @@ use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
+use rasm_core::parser::ast::ASTValueType;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
@@ -785,15 +786,6 @@ impl ReferenceFinder {
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut result = Vec::new();
         match expr {
-            EnhASTExpression::StringLiteral(s, index) => result.push(SelectableItem::new(
-                index.clone(),
-                s.len() + 2,
-                namespace.clone(),
-                Some(SelectableItemTarget::Type(
-                    None,
-                    EnhASTType::Builtin(EnhBuiltinTypeKind::String),
-                )),
-            )),
             EnhASTExpression::ASTFunctionCallExpression(call) => {
                 let _ = Self::process_function_call(
                     expr,
@@ -821,7 +813,19 @@ impl ReferenceFinder {
                     index,
                 );
             }
-            EnhASTExpression::Value(_value_type, _index) => {}
+            EnhASTExpression::Value(value_type, index) => {
+                if let ASTValueType::String(s) = value_type {
+                    result.push(SelectableItem::new(
+                        index.clone(),
+                        s.len() + 2,
+                        namespace.clone(),
+                        Some(SelectableItemTarget::Type(
+                            None,
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+                        )),
+                    ))
+                }
+            }
             EnhASTExpression::Lambda(def) => {
                 let _ = Self::process_lambda(
                     reference_context,

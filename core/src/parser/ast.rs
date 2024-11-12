@@ -440,10 +440,23 @@ impl Display for ASTFunctionCall {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ASTValueType {
+    String(String),
     Boolean(bool),
     I32(i32),
     Char(String),
     F32(f32),
+}
+
+impl Display for ASTValueType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTValueType::String(s) => f.write_str(&format!("\"{s}\"")),
+            ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
+            ASTValueType::I32(n) => f.write_str(&format!("{n}")),
+            ASTValueType::F32(n) => f.write_str(&format!("{n}")),
+            ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
+        }
+    }
 }
 
 impl ASTValueType {
@@ -453,11 +466,13 @@ impl ASTValueType {
             ASTValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
             ASTValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
             ASTValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
+            ASTValueType::String(_) => ASTType::Builtin(BuiltinTypeKind::String),
         }
     }
 
     pub fn token_len(&self) -> usize {
         match self {
+            ASTValueType::String(s) => s.len() + 2,
             ASTValueType::Boolean(v) => {
                 if *v {
                     4
@@ -482,7 +497,6 @@ impl ASTValueType {
 // TODO can we do partialeq? It depends on ASTIndex
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTExpression {
-    StringLiteral(String, ASTPosition),
     ASTFunctionCallExpression(ASTFunctionCall),
     ValueRef(String, ASTPosition),
     Value(ASTValueType, ASTPosition),
@@ -492,7 +506,6 @@ pub enum ASTExpression {
 impl ASTExpression {
     pub fn position(&self) -> ASTPosition {
         match self {
-            ASTExpression::StringLiteral(_, position) => position.clone(),
             ASTExpression::ASTFunctionCallExpression(call) => call.position.clone(),
             ASTExpression::ValueRef(_, position) => position.clone(),
             ASTExpression::Value(_, position) => position.clone(),
@@ -504,7 +517,6 @@ impl ASTExpression {
 impl Display for ASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTExpression::StringLiteral(s, _) => f.write_str(&format!("\"{s}\"")),
             ASTExpression::ASTFunctionCallExpression(call) => {
                 /*let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
@@ -517,6 +529,7 @@ impl Display for ASTExpression {
             }
             ASTExpression::ValueRef(name, _) => f.write_str(name),
             ASTExpression::Value(val_type, _) => match val_type {
+                ASTValueType::String(s) => f.write_str(&format!("\"{s}\"")),
                 ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
                 ASTValueType::I32(n) => f.write_str(&format!("{n}")),
                 ASTValueType::F32(n) => f.write_str(&format!("{n}")),

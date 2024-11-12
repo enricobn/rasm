@@ -153,7 +153,6 @@ pub trait FunctionCallParameters {
         context: &TypedValContext,
     ) -> Vec<(String, TypedValKind)> {
         match expr {
-            ASTTypedExpression::StringLiteral(_) => Vec::new(),
             //ASTTypedExpression::CharLiteral(_) => false,
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let mut result = Vec::new();
@@ -227,7 +226,6 @@ pub trait FunctionCallParameters {
         context: &TypedValContext,
     ) -> bool {
         match expr {
-            ASTTypedExpression::StringLiteral(_) => false,
             //ASTTypedExpression::CharLiteral(_) => false,
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 if context.get(&call.function_name).is_some() {

@@ -55,7 +55,6 @@ pub trait TraverseTypedAST {
 
     fn traverse_expression(&mut self, expr: &ASTTypedExpression) {
         match expr {
-            ASTTypedExpression::StringLiteral(_) => {}
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 for par in call.parameters.iter() {
                     self.traverse_expression(par);

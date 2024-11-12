@@ -12,10 +12,10 @@ use crate::codegen::enh_ast::{
     EnhASTStatement, EnhASTStructDef, EnhASTStructPropertyDef, EnhASTType, EnhASTTypeDef,
     EnhBuiltinTypeKind,
 };
+use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
@@ -359,7 +359,6 @@ impl Display for ASTTypedFunctionCall {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedExpression {
-    StringLiteral(String),
     ASTFunctionCallExpression(ASTTypedFunctionCall),
     ValueRef(String, EnhASTIndex),
     Value(ASTValueType, EnhASTIndex),
@@ -369,7 +368,6 @@ pub enum ASTTypedExpression {
 impl ASTTypedExpression {
     pub fn get_index(&self) -> Option<EnhASTIndex> {
         match self {
-            ASTTypedExpression::StringLiteral(_) => None,
             ASTTypedExpression::ASTFunctionCallExpression(call) => Some(call.index.clone()),
             ASTTypedExpression::ValueRef(_, index) => Some(index.clone()),
             ASTTypedExpression::Value(_, index) => Some(index.clone()),
@@ -388,20 +386,14 @@ impl ASTTypedExpression {
 impl Display for ASTTypedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTTypedExpression::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
-                f.write_str(&format!("{}({})", call.function_name, pars.join(",")))
+                write!(f, "{}({})", call.function_name, pars.join(","))
             }
             ASTTypedExpression::ValueRef(name, _index) => f.write_str(name),
-            ASTTypedExpression::Value(val_type, _) => match val_type {
-                ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ASTValueType::I32(n) => f.write_str(&format!("{n}")),
-                ASTValueType::F32(n) => f.write_str(&format!("{n}")),
-                ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
-            },
-            ASTTypedExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
+            ASTTypedExpression::Value(val_type, _) => write!(f, "{val_type}"),
+            ASTTypedExpression::Lambda(lambda) => write!(f, "{lambda}"),
         }
     }
 }
@@ -1161,7 +1153,6 @@ pub fn get_type_of_typed_expression(
     debug_i!("get_type_of_typed_expression {expr} {:?}", ast_type);
     indent!();
     let result = match expr {
-        ASTTypedExpression::StringLiteral(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
         ASTTypedExpression::ASTFunctionCallExpression(call) => {
             debug_i!("function call expression");
 
@@ -1557,7 +1548,6 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> EnhASTType {
 
 fn expression(conv_context: &mut ConvContext, expression: &EnhASTExpression) -> ASTTypedExpression {
     match expression {
-        EnhASTExpression::StringLiteral(s, _) => ASTTypedExpression::StringLiteral(s.to_string()),
         EnhASTExpression::ASTFunctionCallExpression(fc) => {
             ASTTypedExpression::ASTFunctionCallExpression(function_call(conv_context, fc))
         }
@@ -1939,9 +1929,10 @@ impl DefaultFunction {
                 .iter()
                 .map(|it| match it {
                     EnhASTType::Builtin(kind) => match kind {
-                        EnhBuiltinTypeKind::String => {
-                            EnhASTExpression::StringLiteral("".into(), EnhASTIndex::none())
-                        }
+                        EnhBuiltinTypeKind::String => EnhASTExpression::Value(
+                            ASTValueType::String(String::new()),
+                            EnhASTIndex::none(),
+                        ),
                         EnhBuiltinTypeKind::I32 => {
                             EnhASTExpression::Value(ASTValueType::I32(0), EnhASTIndex::none())
                         }

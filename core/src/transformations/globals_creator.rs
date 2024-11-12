@@ -13,15 +13,17 @@ pub fn add_folder(
             0,
             EnhASTStatement::LetStatement(
                 source_folder_name.to_owned(),
-                EnhASTExpression::StringLiteral(
-                    resource_folder
-                        .canonicalize()
-                        .unwrap_or_else(|_| {
-                            panic!("Cannot find resource folder: {:?}", resource_folder)
-                        })
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
+                EnhASTExpression::Value(
+                    crate::parser::ast::ASTValueType::String(
+                        resource_folder
+                            .canonicalize()
+                            .unwrap_or_else(|_| {
+                                panic!("Cannot find resource folder: {:?}", resource_folder)
+                            })
+                            .to_str()
+                            .unwrap()
+                            .to_owned(),
+                    ),
                     EnhASTIndex::none(),
                 ),
                 true,

@@ -394,16 +394,6 @@ impl<'a> ASTTypeChecker<'a> {
         }
 
         match expr {
-            ASTExpression::StringLiteral(s, _) => {
-                let filter = ASTTypeFilter::Exact(
-                    ASTType::Builtin(BuiltinTypeKind::String),
-                    ModuleInfo::new(module_id.clone(), module_source.clone()),
-                );
-                self.result.insert(
-                    index.clone(),
-                    ASTTypeCheckEntry::primitive(filter, s.len() + 2),
-                );
-            }
             ASTExpression::ASTFunctionCallExpression(call) => {
                 self.add_call(
                     call,

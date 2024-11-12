@@ -179,12 +179,6 @@ impl<'a> FunctionTypeChecker<'a> {
         let mut result = FunctionTypeCheckerResult::new();
 
         match expr {
-            EnhASTExpression::StringLiteral(_, index) => {
-                result.insert(
-                    index.clone(),
-                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
-                );
-            }
             EnhASTExpression::ASTFunctionCallExpression(call) => {
                 let (call_result, call_errors) =
                     self.get_call_type_map(call, val_context, statics, expected_expression_type);

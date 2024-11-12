@@ -1009,9 +1009,6 @@ impl TypeCheck {
         if call.parameters.len() > 0 {
             if let Some(p) = call.parameters.get(0) {
                 match p {
-                    EnhASTExpression::StringLiteral(_, _) => {
-                        Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
-                    }
                     EnhASTExpression::ValueRef(name, _) => {
                         if let Some(t) = val_context.get(name) {
                             match t {
@@ -1022,16 +1019,7 @@ impl TypeCheck {
                             None
                         }
                     }
-                    EnhASTExpression::Value(vt_, _) => match vt_ {
-                        ASTValueType::Boolean(_) => {
-                            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool))
-                        }
-                        ASTValueType::I32(_) => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
-                        ASTValueType::Char(_) => {
-                            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Char))
-                        }
-                        ASTValueType::F32(_) => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::F32)),
-                    },
+                    EnhASTExpression::Value(vt, _) => Some(vt.to_enh_type()),
                     EnhASTExpression::Any(t) => Some(t.clone()),
                     _ => None,
                 }
@@ -1424,9 +1412,6 @@ impl TypeCheck {
         );
         indent!();
         let result = match typed_expression {
-            EnhASTExpression::StringLiteral(_, _) => {
-                EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
-            }
             EnhASTExpression::ASTFunctionCallExpression(call) => {
                 if val_context.is_lambda(&call.function_name) {
                     if let Some(v) = val_context.get(&call.function_name) {
@@ -1518,20 +1503,9 @@ impl TypeCheck {
                     EnhTypeFilter::Exact(par.ast_type.clone())
                 }
             },
-            EnhASTExpression::Value(value_type, _) => match value_type {
-                ASTValueType::Boolean(_) => {
-                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool))
-                }
-                ASTValueType::I32(_) => {
-                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
-                }
-                ASTValueType::Char(_) => {
-                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Char))
-                }
-                ASTValueType::F32(_) => {
-                    EnhTypeFilter::Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::F32))
-                }
-            },
+            EnhASTExpression::Value(value_type, _) => {
+                EnhTypeFilter::Exact(value_type.to_enh_type())
+            }
             EnhASTExpression::Lambda(def) => {
                 if def.body.is_empty() {
                     dedent!();

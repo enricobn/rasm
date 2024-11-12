@@ -782,18 +782,27 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         }
     }
 
-    fn value_as_return(&self, before: &mut String, value_type: &ASTValueType, statics: &Statics) {
-        let v = self.value_to_string(value_type);
-        let t = value_type.to_typed_type();
-        self.code_manipulator.add(
-            before,
-            &format!(
-                "{} return_value_ = {v};",
-                CodeGenC::real_type_to_string(&t, statics)
-            ),
-            None,
-            true,
-        );
+    fn value_as_return(
+        &self,
+        before: &mut String,
+        value_type: &ASTValueType,
+        statics: &mut Statics,
+    ) {
+        if let ASTValueType::String(s) = value_type {
+            self.string_literal_return(statics, before, s);
+        } else {
+            let v = self.value_to_string(value_type);
+            let t = value_type.to_typed_type();
+            self.code_manipulator.add(
+                before,
+                &format!(
+                    "{} return_value_ = {v};",
+                    CodeGenC::real_type_to_string(&t, statics)
+                ),
+                None,
+                true,
+            );
+        }
     }
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
@@ -1234,6 +1243,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn value_to_string(&self, value_type: &ASTValueType) -> String {
         match value_type {
+            ASTValueType::String(v) => format!("\"{}\"", CodeGenC::escape_string(&v)),
             ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
             ASTValueType::I32(v) => format!("{v}"),
             ASTValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),

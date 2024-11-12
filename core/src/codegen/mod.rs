@@ -453,15 +453,16 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 );
 
                 match expr {
-                    ASTTypedExpression::StringLiteral(value) => {
-                        call_parameters.add_string_constant(&param_name, value, None, statics);
-                    }
                     /*ASTTypedExpression::CharLiteral(c) => {
                         let label = self.statics.add_char(c);
                         call_parameters.add_string_literal(&param_name, label, None);
                     }*/
                     ASTTypedExpression::Value(value_type, _) => {
-                        call_parameters.add_value_type(&param_name, value_type)
+                        if let ASTValueType::String(s) = value_type {
+                            call_parameters.add_string_constant(&param_name, s, None, statics);
+                        } else {
+                            call_parameters.add_value_type(&param_name, value_type)
+                        }
                     }
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let added_to_stack = self
@@ -839,45 +840,46 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 }
             }
             ASTTypedExpression::Value(value_type, index) => {
-                let typed_type =
-                    get_type_of_typed_expression(typed_module, context, expr, None, statics)
-                        .unwrap();
+                if let ASTValueType::String(s) = value_type {
+                    let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
 
-                self.set_let_for_value(
-                    before,
-                    name,
-                    is_const,
-                    statics,
-                    body,
-                    address_relative_to_bp,
-                    value_type,
-                    &typed_type,
-                );
-                (
-                    typed_type,
-                    (String::new(), String::new(), vec![], vec![]),
-                    index.clone(),
-                )
-            }
-            ASTTypedExpression::StringLiteral(value) => {
-                let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
+                    self.set_let_for_string_literal(
+                        before,
+                        name,
+                        is_const,
+                        statics,
+                        body,
+                        address_relative_to_bp,
+                        s,
+                        &typed_type,
+                        stack,
+                    );
+                    (
+                        typed_type,
+                        (String::new(), String::new(), vec![], vec![]),
+                        EnhASTIndex::none(),
+                    )
+                } else {
+                    let typed_type =
+                        get_type_of_typed_expression(typed_module, context, expr, None, statics)
+                            .unwrap();
 
-                self.set_let_for_string_literal(
-                    before,
-                    name,
-                    is_const,
-                    statics,
-                    body,
-                    address_relative_to_bp,
-                    value,
-                    &typed_type,
-                    stack,
-                );
-                (
-                    typed_type,
-                    (String::new(), String::new(), vec![], vec![]),
-                    EnhASTIndex::none(),
-                )
+                    self.set_let_for_value(
+                        before,
+                        name,
+                        is_const,
+                        statics,
+                        body,
+                        address_relative_to_bp,
+                        value_type,
+                        &typed_type,
+                    );
+                    (
+                        typed_type,
+                        (String::new(), String::new(), vec![], vec![]),
+                        index.clone(),
+                    )
+                }
             }
             ASTTypedExpression::ValueRef(val_name, index) => {
                 if let Some(typed_val_kind) = context.get(val_name) {
@@ -1273,9 +1275,6 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
                                     Self::insert_on_top(&parameters.after().join("\n"), &mut after);
                                 }
-                                ASTTypedExpression::StringLiteral(value) => {
-                                    self.string_literal_return(statics, &mut before, value);
-                                }
                                 ASTTypedExpression::Lambda(lambda_def) => {
                                     if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                                         parameters,
@@ -1360,7 +1359,11 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                     }
                                 }
                                 ASTTypedExpression::Value(value_type, _) => {
-                                    self.value_as_return(&mut before, value_type, statics);
+                                    if let ASTValueType::String(s) = value_type {
+                                        self.string_literal_return(statics, &mut before, s);
+                                    } else {
+                                        self.value_as_return(&mut before, value_type, statics);
+                                    }
                                 }
                             }
                         }
@@ -1446,7 +1449,12 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         def: &ASTTypedFunctionDef,
     );
 
-    fn value_as_return(&self, before: &mut String, value_type: &ASTValueType, statics: &Statics);
+    fn value_as_return(
+        &self,
+        before: &mut String,
+        value_type: &ASTValueType,
+        statics: &mut Statics,
+    );
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
 
@@ -3189,11 +3197,20 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         );
     }
 
-    fn value_as_return(&self, before: &mut String, value_type: &ASTValueType, statics: &Statics) {
-        let ws = self.backend.word_size();
-        let rr = self.return_register();
-        let v = self.value_to_string(value_type);
-        self.add(before, &format!("mov     {ws} {rr}, {v}"), None, true);
+    fn value_as_return(
+        &self,
+        before: &mut String,
+        value_type: &ASTValueType,
+        statics: &mut Statics,
+    ) {
+        if let ASTValueType::String(s) = value_type {
+            self.string_literal_return(statics, before, s);
+        } else {
+            let ws = self.backend.word_size();
+            let rr = self.return_register();
+            let v = self.value_to_string(value_type);
+            self.add(before, &format!("mov     {ws} {rr}, {v}"), None, true);
+        }
     }
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
@@ -3668,6 +3685,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
                 format!("{}", result)
             }
+            ASTValueType::String(_) => panic!(" String value is not handled here"),
         }
     }
 

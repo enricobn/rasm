@@ -992,6 +992,7 @@ impl Display for EnhASTIndex {
 impl ASTValueType {
     pub fn to_enh_type(&self) -> EnhASTType {
         match self {
+            ASTValueType::String(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
             ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
             ASTValueType::I32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
             ASTValueType::Char(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
@@ -1000,6 +1001,7 @@ impl ASTValueType {
     }
     pub fn to_typed_type(&self) -> ASTTypedType {
         match self {
+            ASTValueType::String(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
             ASTValueType::I32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
             ASTValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
@@ -1011,7 +1013,6 @@ impl ASTValueType {
 // TODO can we do partialeq? It depends on ASTIndex
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnhASTExpression {
-    StringLiteral(String, EnhASTIndex),
     ASTFunctionCallExpression(EnhASTFunctionCall),
     ValueRef(String, EnhASTIndex),
     Value(ASTValueType, EnhASTIndex),
@@ -1022,7 +1023,6 @@ pub enum EnhASTExpression {
 impl EnhASTExpression {
     pub fn get_index(&self) -> EnhASTIndex {
         match self {
-            EnhASTExpression::StringLiteral(_, index) => index.clone(),
             EnhASTExpression::ASTFunctionCallExpression(call) => call.index.clone(),
             EnhASTExpression::ValueRef(_, index) => index.clone(),
             EnhASTExpression::Value(_, index) => index.clone(),
@@ -1054,10 +1054,6 @@ impl EnhASTExpression {
         expr: ast::ASTExpression,
     ) -> Self {
         match expr {
-            ast::ASTExpression::StringLiteral(value, position) => EnhASTExpression::StringLiteral(
-                value,
-                EnhASTIndex::from_position(path.clone(), &position),
-            ),
             ast::ASTExpression::ASTFunctionCallExpression(call) => {
                 EnhASTExpression::ASTFunctionCallExpression(EnhASTFunctionCall::from_ast(
                     path.clone(),
@@ -1083,7 +1079,6 @@ impl EnhASTExpression {
 impl Display for EnhASTExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            EnhASTExpression::StringLiteral(s, _) => f.write_str(&format!("\"{s}\"")),
             EnhASTExpression::ASTFunctionCallExpression(call) => {
                 /*let pars: Vec<String> =
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
@@ -1095,12 +1090,7 @@ impl Display for EnhASTExpression {
                 f.write_str(&format!("{call}"))
             }
             EnhASTExpression::ValueRef(name, _index) => f.write_str(name),
-            EnhASTExpression::Value(val_type, _) => match val_type {
-                ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ASTValueType::I32(n) => f.write_str(&format!("{n}")),
-                ASTValueType::F32(n) => f.write_str(&format!("{n}")),
-                ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
-            },
+            EnhASTExpression::Value(val_type, _) => write!(f, "{val_type}"),
             EnhASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
             EnhASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
         }
