@@ -1625,7 +1625,7 @@ mod tests {
     where
         F: Fn(&ASTModule, ASTTypeChecker, EnhModuleInfo) -> ASTTypeCheckerResult,
     {
-        env::set_var("RASM_STDLIB", "/home/enrico/development/rust/rasm/stdlib");
+        env::set_var("RASM_STDLIB", "../../../stdlib");
 
         let target = CompileTarget::C(COptions::default());
         let (project, modules_container) = project_and_container(&target, &project_path);

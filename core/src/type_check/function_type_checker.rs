@@ -782,7 +782,7 @@ mod tests {
             EnhASTModule,
         ) -> FunctionTypeCheckerResult,
     {
-        env::set_var("RASM_STDLIB", "/home/enrico/development/rust/rasm/stdlib");
+        env::set_var("RASM_STDLIB", "../../../stdlib");
 
         let target = CompileTarget::C(COptions::default());
         let mut statics = Statics::new();
