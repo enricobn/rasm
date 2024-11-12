@@ -193,7 +193,7 @@ impl Parser {
                     "undefined parse error in {}",
                     path.to_string_lossy()
                 ));
-                return self.get_return(path);
+                return self.get_return();
             }
             let mut token = if self.i == self.tokens.len() {
                 last_token.clone()
@@ -418,10 +418,10 @@ impl Parser {
             self.i += 1;
         }
 
-        self.get_return(path)
+        self.get_return()
     }
 
-    fn get_return(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
+    fn get_return(&mut self) -> (ASTModule, Vec<CompilationError>) {
         let module = ASTModule {
             body: self.body.clone(),
             functions: self.functions.clone(),
@@ -795,22 +795,6 @@ impl Parser {
         self.parser_data[l - n - 1] = parser_data;
     }
 
-    /*
-    fn get_index_from_token(&self, token: &Token) -> ASTIndex {
-        ASTIndex {
-            file_name: self.file_name.clone(),
-            row: token.row,
-            column: token.column,
-        }
-    }
-
-     */
-
-    fn get_before_last_token_kind_n(&self, n: usize) -> Option<&TokenKind> {
-        let index = self.i - n;
-        self.tokens.get(index).map(|it| &it.kind)
-    }
-
     fn process_function_call(&mut self, token: Token) -> Result<(), String> {
         if let TokenKind::Punctuation(PunctuationKind::Comma) = token.kind {
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
@@ -960,16 +944,6 @@ impl Parser {
         self.state.last()
     }
 
-    fn error_msg(&self, message: &str) -> String {
-        let token_option = self.tokens.get(self.i);
-
-        if let Some(token) = token_option {
-            format!("{}: {}", message, token.position)
-        } else {
-            format!("{} {:?} : in end of file", message, self.file_name)
-        }
-    }
-
     fn debug(&self, message: &str) {
         debug!("{}", message);
         debug!("i {}", self.i);
@@ -1117,23 +1091,10 @@ impl Parser {
         None
     }
 
-    fn next_token(&self) -> Option<&Token> {
-        self.tokens.get(self.i + 1)
-    }
-
     fn before_last_parser_data(&self) -> Option<ParserData> {
         let i = self.parser_data.len();
         if i > 1 {
             self.parser_data.get(i - 2).cloned()
-        } else {
-            None
-        }
-    }
-
-    fn get_parser_data(&self, index: usize) -> Option<&ParserData> {
-        let len = self.parser_data.len();
-        if index < len {
-            self.parser_data.get(len - index - 1)
         } else {
             None
         }
@@ -1559,7 +1520,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."));
+        let (module, _errors) = parser.parse(Path::new("."));
 
         let function_call = ASTFunctionCall {
             function_name: "println".to_string(),
@@ -1611,7 +1572,7 @@ mod tests {
 
         let mut parser = Parser::new(lexer, None);
 
-        let (module, errors) = parser.parse(Path::new("."));
+        let (module, _errors) = parser.parse(Path::new("."));
 
         let function_call = ASTFunctionCall {
             function_name: "Option::Some".to_string(),

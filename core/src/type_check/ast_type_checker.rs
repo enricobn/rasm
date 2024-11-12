@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use linked_hash_map::{Iter, LinkedHashMap};
+use linked_hash_map::LinkedHashMap;
 
 use crate::{
     codegen::val_context::{ASTIndex, ValContext},
@@ -53,10 +53,6 @@ impl ResolvedGenericTypes {
             self.map.insert(key, new_type);
         }
         Ok(())
-    }
-
-    pub fn iter(&self) -> Iter<String, ASTType> {
-        self.map.iter()
     }
 
     pub fn insert(&mut self, key: String, value: ASTType) -> Option<ASTType> {
@@ -256,11 +252,17 @@ impl<'a> ASTTypeChecker<'a> {
         */
 
         for par in &function.parameters {
+            let position = par.position.clone();
             let par = par
                 .clone()
                 .fix_generics(&function.signature().generics_prefix(module_id));
-            // TODO check error
-            val_context.insert_par(par.name.clone(), par, module_id, module_source);
+            if let Err(e) = val_context.insert_par(par.name.clone(), par, module_id, module_source)
+            {
+                self.errors.push(ASTTypeCheckError::new(
+                    ASTIndex::new(module_id.clone(), module_source.clone(), position),
+                    e,
+                ));
+            }
         }
 
         // in function body cannot be consts, but we need already defined ones...
@@ -347,12 +349,16 @@ impl<'a> ASTTypeChecker<'a> {
                         ASTIndex::new(module_id.clone(), module_source.clone(), index.clone());
                     if let Some(entry) = self.result.get(&e_index) {
                         if let Some(filter) = &entry.filter {
-                            if let ASTTypeFilter::Exact(ast_type, module_id) = filter {
-                                if *is_const {
-                                    statics.insert_let(key.clone(), ast_type.clone(), &index);
+                            if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
+                                let insert_result = if *is_const {
+                                    statics.insert_let(key.clone(), ast_type.clone(), &index)
                                 } else {
                                     // TODO error
-                                    val_context.insert_let(key.clone(), ast_type.clone(), &index);
+                                    val_context.insert_let(key.clone(), ast_type.clone(), &index)
+                                };
+
+                                if let Err(e) = insert_result {
+                                    self.errors.push(ASTTypeCheckError::new(index.clone(), e));
                                 }
                             }
                             self.result.insert(
@@ -440,7 +446,7 @@ impl<'a> ASTTypeChecker<'a> {
                     ));
                 }
             }
-            ASTExpression::Value(value_type, position) => {
+            ASTExpression::Value(value_type, _position) => {
                 self.result.insert(
                     index.clone(),
                     ASTTypeCheckEntry::primitive(
@@ -511,10 +517,10 @@ impl<'a> ASTTypeChecker<'a> {
                     module_source,
                 );
 
-                if let Some(ASTTypeFilter::Exact(brt, position)) =
+                if let Some(ASTTypeFilter::Exact(brt, _position)) =
                     body_return_type.and_then(|it| it.filter)
                 {
-                    let type_filter = if let Some((return_type, parameters)) =
+                    let type_filter = if let Some((_return_type, parameters)) =
                         expected_last_statement_type_and_paramters
                     {
                         ASTTypeFilter::Exact(
@@ -598,7 +604,7 @@ impl<'a> ASTTypeChecker<'a> {
             call.position.clone(),
         );
 
-        if let Some(t) = self.result.get(&index) {
+        if let Some(_t) = self.result.get(&index) {
             println!("OPTIMIZED get_call_type_map");
             return;
         }
@@ -666,7 +672,7 @@ impl<'a> ASTTypeChecker<'a> {
             let generics = parameters_types
                 .iter()
                 .filter_map(|p| {
-                    if let ASTType::Generic(g_p, g_name) = p {
+                    if let ASTType::Generic(_g_p, g_name) = p {
                         Some(g_name.clone())
                     } else {
                         None
@@ -981,7 +987,7 @@ impl<'a> ASTTypeChecker<'a> {
         resolved_generic_types: &mut ResolvedGenericTypes,
     ) -> Vec<ASTTypeCheckError> {
         let mut errors = Vec::new();
-        if let ASTTypeFilter::Exact(effective_type, t_module_id) = effective_filter {
+        if let ASTTypeFilter::Exact(effective_type, _t_module_id) = effective_filter {
             //if !effective_type.is_generic() {
             match Self::resolve_generic_types_from_effective_type(generic_type, effective_type) {
                 Ok(rgt) => {
