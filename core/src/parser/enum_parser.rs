@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
@@ -59,7 +58,6 @@ impl EnumParser {
         parser: &dyn ParserTrait,
         type_parameters: &[String],
         n: usize,
-        path: Option<PathBuf>,
     ) -> Result<Option<(Vec<ASTEnumVariantDef>, usize)>, String> {
         //println!("parse_variants n {}", n);
         let mut enum_variants_matcher = TokensMatcher::default();
@@ -255,7 +253,7 @@ mod tests {
         ) -> Result<Option<(ASTEnumDef, usize)>, String> {
             if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
                 if let Some((variants, next_i)) =
-                    self.parse_variants(parser, &type_parameters, next_i - parser.get_i(), None)?
+                    self.parse_variants(parser, &type_parameters, next_i - parser.get_i())?
                 {
                     let index = token.position.clone();
                     return Ok(Some((
@@ -686,8 +684,7 @@ mod tests {
 
         let sut = EnumParser::new();
 
-        sut.parse_variants(&parser, type_parameters, n, None)
-            .unwrap()
+        sut.parse_variants(&parser, type_parameters, n).unwrap()
     }
 
     fn try_parse_variant(source: &str, type_parameters: &[String]) -> Option<TokensMatcherResult> {

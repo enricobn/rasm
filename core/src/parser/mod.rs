@@ -178,10 +178,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
-        if self.i > 0 {
-            panic!("Cannot parse twice");
-        }
+    pub fn parse(mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
         let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
 
         let mut count = 0;
@@ -284,7 +281,7 @@ impl Parser {
                 },
                 Some(ParserState::FunctionDefReturnType) => {
                     if let Some(ParserData::FunctionDef(mut def)) = self.last_parser_data() {
-                        match TypeParser::new(self).try_parse_ast_type(0, &def.generic_types) {
+                        match TypeParser::new(&self).try_parse_ast_type(0, &def.generic_types) {
                             Ok(result) => {
                                 if let Some((ast_type, next_i)) = result {
                                     self.i = next_i;
@@ -304,12 +301,7 @@ impl Parser {
                 }
                 Some(ParserState::EnumDef) => {
                     if let Some(ParserData::EnumDef(mut def)) = self.last_parser_data() {
-                        match ENUM_PARSER.parse_variants(
-                            self,
-                            &def.type_parameters,
-                            0,
-                            Some(path.to_path_buf()),
-                        ) {
+                        match ENUM_PARSER.parse_variants(&self, &def.type_parameters, 0) {
                             Ok(result) => {
                                 if let Some((variants, next_i)) = result {
                                     def.variants = variants;
@@ -331,7 +323,7 @@ impl Parser {
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
                         match STRUCT_PARSER.parse_properties(
-                            self,
+                            &self,
                             &def.type_parameters,
                             &def.name,
                             0,
@@ -421,7 +413,7 @@ impl Parser {
         self.get_return()
     }
 
-    fn get_return(&mut self) -> (ASTModule, Vec<CompilationError>) {
+    fn get_return(self) -> (ASTModule, Vec<CompilationError>) {
         let module = ASTModule {
             body: self.body.clone(),
             functions: self.functions.clone(),
@@ -430,7 +422,7 @@ impl Parser {
             types: self.types.clone(),
         };
 
-        (module, self.errors.clone())
+        (module, self.errors)
     }
 
     fn add_error(&mut self, message: String) {
@@ -1473,7 +1465,7 @@ mod tests {
     fn function_def_with_type_parameters() {
         let lexer = Lexer::new("fn p<T,T1>() {}".into());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (module, _) = parser.parse(Path::new(""));
 
@@ -1518,7 +1510,7 @@ mod tests {
     fn function_call_with_generics() {
         let lexer = Lexer::new("println<i32>(20);".into());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (module, _errors) = parser.parse(Path::new("."));
 
@@ -1542,7 +1534,7 @@ mod tests {
     fn function_call_with_generics_1() {
         let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it); }".into());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (module, _) = parser.parse(Path::new("."));
 
@@ -1570,7 +1562,7 @@ mod tests {
     fn enum_constructor() {
         let lexer = Lexer::new("Option::Some(20);".into());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (module, _errors) = parser.parse(Path::new("."));
 
@@ -1627,7 +1619,7 @@ mod tests {
 
         let lexer = Lexer::new("something(current.len -2);".to_string());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (_, errors) = parser.parse(Path::new("."));
 
@@ -1645,7 +1637,7 @@ mod tests {
 
         let lexer = Lexer::new("something(,1);".to_string());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (_, errors) = parser.parse(Path::new("."));
 
@@ -1662,7 +1654,7 @@ mod tests {
 
         let lexer = Lexer::new("something(current.len, -2);".to_string());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
 
         let (_, errors) = parser.parse(Path::new("."));
 
@@ -1673,7 +1665,7 @@ mod tests {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
+        let parser = Parser::new(lexer, Some(path.to_path_buf()));
         let (module, errors) = parser.parse(path);
         if !errors.is_empty() {
             for error in errors {
@@ -1688,7 +1680,7 @@ mod tests {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
-        let mut parser = Parser::new(lexer, Some(path.to_path_buf()));
+        let parser = Parser::new(lexer, Some(path.to_path_buf()));
         parser.parse(path)
     }
 }
