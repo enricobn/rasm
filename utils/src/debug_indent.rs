@@ -77,8 +77,8 @@ pub fn dedent_to_log() {
 macro_rules! debug_i {
     ($ ( $ a: expr), *) => {
         unsafe {
-            $crate::utils::debug_indent::INDENT.with(|indent| {
-                let s = if !$crate::utils::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
+            $crate::debug_indent::INDENT.with(|indent| {
+                let s = if !$crate::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
                     "".into()
                 } else {
                     "|  ".repeat(*indent.borrow())
@@ -87,7 +87,7 @@ macro_rules! debug_i {
             });
         }
         if log::log_enabled!(log::Level::Debug) {
-            $crate::utils::debug_indent::write_to_log(& format ! ( $( $ a), * ));
+            $crate::debug_indent::write_to_log(& format ! ( $( $ a), * ));
         }
     };
 }
@@ -96,14 +96,14 @@ macro_rules! debug_i {
 macro_rules! indent {
     () => {
         unsafe {
-            if $crate::utils::debug_indent::ENABLE_INDENT {
-                $crate::utils::debug_indent::INDENT.with(|indent| {
+            if $crate::debug_indent::ENABLE_INDENT {
+                $crate::debug_indent::INDENT.with(|indent| {
                     *indent.borrow_mut() += 1;
                 });
             }
         }
         if log::log_enabled!(log::Level::Debug) {
-            $crate::utils::debug_indent::indent_to_log();
+            $crate::debug_indent::indent_to_log();
         }
     };
 }
@@ -112,14 +112,24 @@ macro_rules! indent {
 macro_rules! dedent {
     () => {
         unsafe {
-            if $crate::utils::debug_indent::ENABLE_INDENT {
-                $crate::utils::debug_indent::INDENT.with(|indent| {
+            if $crate::debug_indent::ENABLE_INDENT {
+                $crate::debug_indent::INDENT.with(|indent| {
                     *indent.borrow_mut() -= 1;
                 });
             }
         }
         if log::log_enabled!(log::Level::Debug) {
-            $crate::utils::debug_indent::dedent_to_log();
+            $crate::debug_indent::dedent_to_log();
         }
     };
+}
+
+mod tests {
+
+    #[test]
+    pub fn test() {
+        indent!();
+        debug_i!("debug");
+        dedent!();
+    }
 }

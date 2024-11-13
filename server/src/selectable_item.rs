@@ -18,7 +18,7 @@
 
 use crate::file_token::FileToken;
 use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
-use rasm_core::utils::OptionDisplay;
+use rasm_utils::OptionDisplay;
 use std::fmt::{Display, Formatter};
 use std::io;
 

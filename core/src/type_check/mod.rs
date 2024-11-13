@@ -4,7 +4,7 @@ use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::{debug_i, dedent, indent};
+use rasm_utils::{debug_i, dedent, indent};
 
 pub mod call_stack;
 pub mod functions_container;
@@ -320,11 +320,10 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
     use crate::type_check::resolve_generic_types_from_effective_type;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
-    use crate::utils::tests::test_namespace;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -347,13 +346,13 @@ mod tests {
     #[test]
     fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
         let generic_type = EnhASTType::Custom {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "List".into(),
             param_types: vec![generic("T")],
             index: EnhASTIndex::none(),
         };
         let effective_type = EnhASTType::Custom {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "List".into(),
             param_types: vec![i32()],
             index: EnhASTIndex::none(),

@@ -18,6 +18,7 @@
 
 use linked_hash_map::LinkedHashMap;
 use log::info;
+use rasm_utils::OptionDisplay;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
@@ -35,11 +36,11 @@ use crate::codegen::c::options::COptions;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
 };
+use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::{CompilationError, CompilationErrorKind};
@@ -51,7 +52,6 @@ use crate::transformations::typed_functions_creator::{
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
-use crate::utils::OptionDisplay;
 
 use super::c::typed_function_creator::TypedFunctionsCreatorC;
 

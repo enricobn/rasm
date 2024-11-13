@@ -16,6 +16,8 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use rasm_utils::OptionDisplay;
+
 use crate::codegen::c::any::CInclude;
 use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
@@ -25,7 +27,6 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
 };
-use crate::utils::OptionDisplay;
 
 use super::any::CLambdas;
 use super::code_gen_c::CodeGenC;

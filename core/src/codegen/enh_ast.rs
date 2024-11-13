@@ -1558,19 +1558,18 @@ mod tests {
     };
     use crate::parser::ast::ASTModifiers;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::tests::test_namespace;
 
     #[test]
     fn display_custom_type() {
         let inner_type = EnhASTType::Custom {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "Option".to_owned(),
             param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::String)],
             index: EnhASTIndex::none(),
         };
 
         let ast_type = EnhASTType::Custom {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
             index: EnhASTIndex::none(),
@@ -1581,14 +1580,14 @@ mod tests {
     #[test]
     fn display_function_def() {
         let inner_type = EnhASTType::Custom {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "Option".to_owned(),
             param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
             index: EnhASTIndex::none(),
         };
 
         let ast_type = EnhASTType::Custom {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "List".to_owned(),
             param_types: vec![inner_type],
             index: EnhASTIndex::none(),

@@ -24,8 +24,7 @@ use crate::type_check::functions_container::EnhTypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{get_new_native_call, substitute, verify};
-use crate::utils::SliceDisplay;
-use crate::{debug_i, dedent, indent};
+use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {

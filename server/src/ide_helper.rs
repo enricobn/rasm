@@ -709,7 +709,7 @@ mod tests {
     use rasm_core::commandline::CommandLineOptions;
     use rasm_core::parser::ast::ASTPosition;
     use rasm_core::project::RasmProject;
-    use rasm_core::utils::{OptionDisplay, SliceDisplay};
+    use rasm_utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
     use crate::ide_helper::IDEHelperBuilder;

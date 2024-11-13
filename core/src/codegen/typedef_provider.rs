@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use itertools::Itertools;
+use rasm_utils::find_one;
 use std::iter::zip;
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
@@ -24,7 +25,6 @@ use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
     CustomTypedTypeDef,
 };
-use crate::utils::find_one;
 
 pub trait TypeDefProvider {
     fn enums(&self) -> &[ASTTypedEnumDef];

@@ -1177,7 +1177,7 @@ mod tests {
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
     use rasm_core::project::RasmProject;
-    use rasm_core::utils::{OptionDisplay, SliceDisplay};
+    use rasm_utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionItem, CompletionTrigger};
     use crate::reference_finder::{CompletionResult, ReferenceFinder};

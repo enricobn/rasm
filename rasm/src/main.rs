@@ -9,7 +9,7 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
-use rasm_core::debug_i;
+use rasm_utils::debug_i;
 
 use rasm_core::project::RasmProject;
 use rasm_server::server::rasm_server;

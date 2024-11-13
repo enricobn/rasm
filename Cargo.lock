@@ -3029,6 +3029,7 @@ dependencies = [
  "rasm-core",
  "rasm-server",
  "rasm-ui",
+ "rasm-utils",
  "tempdir",
  "test-log",
  "test_bin",
@@ -3054,6 +3055,7 @@ dependencies = [
  "log",
  "pad",
  "pathdiff",
+ "rasm-utils",
  "rayon",
  "regex",
  "rust-embed",
@@ -3078,6 +3080,7 @@ dependencies = [
  "linked-hash-map",
  "log",
  "rasm-core",
+ "rasm-utils",
  "rayon",
  "serde",
  "serde_json",
@@ -3096,6 +3099,14 @@ dependencies = [
  "log",
  "rasm-core",
  "walkdir",
+]
+
+[[package]]
+name = "rasm-utils"
+version = "0.1.0-alpha.0"
+dependencies = [
+ "linked-hash-map",
+ "log",
 ]
 
 [[package]]

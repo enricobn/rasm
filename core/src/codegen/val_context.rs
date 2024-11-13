@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use linked_hash_map::LinkedHashMap;
+use rasm_utils::debug_i;
 
-use crate::debug_i;
 use crate::parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind};
 use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
 

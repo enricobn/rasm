@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rasm_utils::{OptionDisplay, SliceDisplay};
+
 use crate::{
     codegen::{
         enh_ast::{
@@ -12,7 +14,6 @@ use crate::{
         statics::Statics,
     },
     type_check::type_check_error::TypeCheckError,
-    utils::{OptionDisplay, SliceDisplay},
 };
 
 use super::{
@@ -549,6 +550,8 @@ mod tests {
         path::{Path, PathBuf},
     };
 
+    use rasm_utils::OptionDisplay;
+
     use crate::{
         codegen::{
             c::options::COptions,
@@ -561,7 +564,6 @@ mod tests {
         commandline::CommandLineOptions,
         project::RasmProject,
         type_check::function_type_checker::FunctionTypeChecker,
-        utils::OptionDisplay,
     };
 
     use super::FunctionTypeCheckerResult;

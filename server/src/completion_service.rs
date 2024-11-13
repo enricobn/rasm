@@ -35,7 +35,7 @@ use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
-use rasm_core::utils::OptionDisplay;
+use rasm_utils::OptionDisplay;
 
 use crate::file_token::FileToken;
 

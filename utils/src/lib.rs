@@ -122,11 +122,7 @@ where
 pub mod tests {
     use std::collections::HashMap;
 
-    use crate::{codegen::enh_ast::EnhASTNameSpace, utils::MyToString};
-
-    pub fn test_namespace() -> EnhASTNameSpace {
-        EnhASTNameSpace::new("test".to_string(), "test".to_string())
-    }
+    use crate::MyToString;
 
     #[test]
     pub fn test_hashmap_mytostring() {

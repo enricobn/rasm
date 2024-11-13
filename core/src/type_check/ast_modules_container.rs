@@ -1,16 +1,14 @@
 use std::{collections::HashMap, fmt::Display, iter::zip};
 
 use itertools::Itertools;
+use rasm_utils::OptionDisplay;
 
-use crate::{
-    parser::{
-        ast::{
-            ASTEnumDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef, ASTType,
-            ASTTypeDef, BuiltinTypeKind,
-        },
-        builtin_functions::BuiltinFunctions,
+use crate::parser::{
+    ast::{
+        ASTEnumDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef, ASTType,
+        ASTTypeDef, BuiltinTypeKind,
     },
-    utils::OptionDisplay,
+    builtin_functions::BuiltinFunctions,
 };
 
 pub type ModuleId = String;

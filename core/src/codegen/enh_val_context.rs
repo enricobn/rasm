@@ -1,8 +1,8 @@
 use linked_hash_map::{Iter, LinkedHashMap};
+use rasm_utils::debug_i;
 
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::{EnhValKind, TypedValKind};
-use crate::debug_i;
 use crate::type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};
 
 #[derive(Clone, Debug)]

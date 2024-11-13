@@ -10,6 +10,7 @@ use pad::PadStr;
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
+use rasm_utils::{debug_i, OptionDisplay};
 use snailquote::unescape;
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
@@ -32,7 +33,6 @@ use crate::codegen::text_macro::{
     RefType, TextMacro, TextMacroEval, TextMacroEvaluator,
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::debug_i;
 use crate::errors::CompilationError;
 use crate::parser::ast::ASTValueType;
 use crate::transformations::typed_functions_creator::{
@@ -46,7 +46,6 @@ use crate::type_check::typed_ast::{
     DefaultFunctionCall,
 };
 use crate::type_check::used_functions::UsedFunctions;
-use crate::utils::OptionDisplay;
 
 pub mod backend;
 pub mod c;

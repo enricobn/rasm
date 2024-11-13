@@ -24,7 +24,6 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use crate::codegen::compile_target::CompileTarget;
-use crate::{debug_i, dedent, indent};
 use log::info;
 
 use crate::codegen::enh_ast::{
@@ -43,7 +42,7 @@ use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
 use crate::type_check::typed_ast::DefaultFunction;
 use crate::type_check::{resolve_generic_types_from_effective_type, substitute};
-use crate::utils::{OptionDisplay, SliceDisplay};
+use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 
 type InputModule = EnhancedASTModule;
 type OutputModule = EnhancedASTModule;
@@ -1734,7 +1733,6 @@ mod tests {
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::convert_to_typed_module;
-    use crate::utils::tests::test_namespace;
 
     #[test]
     pub fn fibonacci() {
@@ -1769,7 +1767,7 @@ mod tests {
         assert_eq!(
             0,
             TypeCheck::generic_type_coeff(&EnhASTType::Custom {
-                namespace: test_namespace(),
+                namespace: EnhASTNameSpace::global(),
                 param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
                 name: "".to_owned(),
                 index: EnhASTIndex::none()
@@ -1782,7 +1780,7 @@ mod tests {
         assert_eq!(
             usize::MAX / 100 / 100,
             TypeCheck::generic_type_coeff(&EnhASTType::Custom {
-                namespace: test_namespace(),
+                namespace: EnhASTNameSpace::global(),
                 param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "".to_owned())],
                 name: "".to_owned(),
                 index: EnhASTIndex::none()

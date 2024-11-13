@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
+use rasm_utils::debug_i;
 use regex::Regex;
 
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -15,7 +16,6 @@ use crate::codegen::enh_ast::{
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
-use crate::debug_i;
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
 use crate::parser::ast;
@@ -27,7 +27,7 @@ use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind,
     DefaultFunctionCall,
 };
-use crate::utils::{OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay};
 
 thread_local! {
     static COUNT : RefCell<usize> = RefCell::new(0);
@@ -1534,7 +1534,6 @@ mod tests {
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
-    use crate::utils::tests::test_namespace;
 
     #[test]
     fn call() {
@@ -1617,7 +1616,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1655,7 +1654,7 @@ mod tests {
         let mut statics = Statics::new();
 
         let function_def = ASTTypedFunctionDef {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1710,7 +1709,7 @@ mod tests {
     #[test]
     fn test_get_macros() {
         let function_def = ASTTypedFunctionDef {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             name: "aFun".into(),
             original_name: "aFun".into(),
             parameters: vec![ASTTypedParameterDef {
@@ -1786,7 +1785,7 @@ mod tests {
             index: EnhASTIndex::none(),
             resolved_generic_types: ResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             rank: 0,
         };
 

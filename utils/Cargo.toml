@@ -1,0 +1,9 @@
+[package]
+name = "rasm-utils"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+linked-hash-map.workspace = true
+log.workspace = true

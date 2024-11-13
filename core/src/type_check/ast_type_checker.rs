@@ -1,10 +1,10 @@
 use std::{collections::HashMap, fmt::Display};
 
 use linked_hash_map::LinkedHashMap;
+use rasm_utils::{debug_i, dedent, indent};
 
 use crate::{
     codegen::val_context::{ASTIndex, ValContext},
-    debug_i, dedent, indent,
     parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
         ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
@@ -1257,6 +1257,8 @@ mod tests {
         time::Instant,
     };
 
+    use rasm_utils::OptionDisplay;
+
     use crate::{
         codegen::{
             c::options::COptions,
@@ -1269,7 +1271,6 @@ mod tests {
         parser::ast::{ASTModule, ASTPosition},
         project::RasmProject,
         type_check::ast_modules_container::ASTModulesContainer,
-        utils::OptionDisplay,
     };
 
     use super::{ASTTypeChecker, ASTTypeCheckerResult};

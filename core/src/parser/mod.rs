@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use log::debug;
 
 use crate::codegen::enh_ast::EnhASTIndex;
-use crate::debug_i;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
@@ -26,7 +25,7 @@ use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserState::StructDef;
-use crate::utils::{OptionDisplay, SliceDisplay};
+use rasm_utils::{debug_i, OptionDisplay, SliceDisplay};
 
 mod asm_def_parser;
 pub mod ast;

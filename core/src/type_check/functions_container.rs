@@ -3,6 +3,7 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
+use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 
 use crate::codegen::enh_ast::{
     EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex, EnhASTType,
@@ -10,8 +11,6 @@ use crate::codegen::enh_ast::{
 };
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::type_check::type_check_error::TypeCheckError;
-use crate::utils::{OptionDisplay, SliceDisplay};
-use crate::{debug_i, dedent, indent};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionsContainer {
@@ -810,7 +809,7 @@ mod tests {
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::{
         EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
-        EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind,
+        EnhASTNameSpace, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
@@ -820,7 +819,6 @@ mod tests {
     use crate::type_check::functions_container::EnhTypeFilter::Exact;
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::utils::tests::test_namespace;
     use std::path::PathBuf;
 
     #[test]
@@ -871,7 +869,7 @@ mod tests {
         sut.add_function("add".to_string(), function_def);
 
         let call = EnhASTFunctionCall {
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![
@@ -980,7 +978,7 @@ mod tests {
             original_name: name.into(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             rank: 0,
         }
     }
@@ -1005,7 +1003,7 @@ mod tests {
             original_name: name.into(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             rank: 0,
         }
     }
@@ -1033,7 +1031,7 @@ mod tests {
             original_name: "add".into(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
-            namespace: test_namespace(),
+            namespace: EnhASTNameSpace::global(),
             rank: 0,
         }
     }

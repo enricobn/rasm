@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "rasm", "server"]
+members = ["core", "rasm", "server", "utils"]
 resolver = "2"
 
 [workspace.package]
@@ -11,6 +11,7 @@ license = "GPL-3.0-or-later"
 rasm-core = { path = "./core" }
 rasm-server = { path = "./server" }
 rasm-ui = { path = "./ui" }
+rasm-utils = { path = "./utils" }
 
 auto_impl = "1.1.0"
 backtrace = "0.3"

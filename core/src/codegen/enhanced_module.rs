@@ -1,5 +1,7 @@
 use std::iter::zip;
 
+use rasm_utils::debug_i;
+
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
 use crate::errors::{self, CompilationError};
@@ -9,11 +11,10 @@ use crate::codegen::enh_ast::{
     EnhASTIndex, EnhASTModule, EnhASTNameSpace, EnhASTStatement, EnhASTStructDef, EnhASTType,
     EnhASTTypeDef,
 };
-use crate::debug_i;
 use crate::parser::ast;
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
-use crate::type_check::functions_container::{FunctionsContainer, EnhTypeFilter};
+use crate::type_check::functions_container::{EnhTypeFilter, FunctionsContainer};
 use crate::type_check::type_check_error::TypeCheckError;
 
 use super::enh_ast::EnhModuleInfo;

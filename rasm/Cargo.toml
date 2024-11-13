@@ -13,6 +13,8 @@ log.workspace = true
 rasm-core.workspace = true
 rasm-server.workspace = true
 rasm-ui.workspace = true
+rasm-utils.workspace = true
+
 toml.workspace = true
 
 [dev-dependencies]
