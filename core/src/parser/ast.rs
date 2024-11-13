@@ -3,8 +3,6 @@ use std::hash::Hash;
 use std::iter::zip;
 use std::ops::Deref;
 
-use crate::type_check::ast_modules_container::ModuleId;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTPosition {
     pub row: usize,
@@ -63,12 +61,12 @@ pub struct ASTFunctionSignature {
 }
 
 impl ASTFunctionSignature {
-    pub fn generics_prefix(&self, module_id: &ModuleId) -> String {
-        format!("{}_{}", module_id, self.name)
+    pub fn generics_prefix(&self, prefix: &str) -> String {
+        format!("{}_{}", prefix, self.name)
     }
 
-    pub fn fix_generics(self, module_id: &ModuleId) -> Self {
-        let generics_prefix = self.generics_prefix(module_id);
+    pub fn fix_generics(self, prefix: &str) -> Self {
+        let generics_prefix = self.generics_prefix(prefix);
         let mut result = self;
         result.parameters_types = result
             .parameters_types
