@@ -338,7 +338,7 @@ impl TextMacroEvaluator {
                     )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         match &f.body {
-                            ASTTypedFunctionBody::RASMBody(body) => {}
+                            ASTTypedFunctionBody::RASMBody(_body) => {}
                             ASTTypedFunctionBody::NativeBody(body) => {
                                 println!("body\n{body}");
                             }
@@ -528,7 +528,7 @@ impl TextMacroEvaluator {
                         //println!("parse_typed_argument {ast_type}");
                         let eh_ast_type =
                             EnhASTType::from_ast(path, namespace.clone(), ast_type.clone());
-                        let t = if let ast::ASTType::Generic(position, _name) = ast_type {
+                        let t = if let ast::ASTType::Generic(_position, _name) = ast_type {
                             if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
                                 t
                             } else {
@@ -629,7 +629,7 @@ impl TextMacroEvaluator {
             function_def,
             body,
             type_def_provider,
-            &|name, params| true,
+            &|_name, _params| true,
         )
     }
 
@@ -1518,7 +1518,6 @@ impl PrintRefMacro {
 mod tests {
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
-    use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
     use crate::parser::ast::ASTModifiers;
     use linked_hash_map::LinkedHashMap;
@@ -1810,8 +1809,6 @@ mod tests {
 
     #[test]
     fn parse_param() {
-        let statics = Statics::new();
-
         let function_def = ASTTypedFunctionDef {
             namespace: EnhASTNameSpace::global(),
             name: "f".to_string(),
@@ -1842,9 +1839,5 @@ mod tests {
             format!("{}", result.get(0).unwrap().0),
             "$call(Plain(aFun, None, None), Ref($par, Some(i32), Some(i32)))"
         );
-    }
-
-    fn target() -> CompileTarget {
-        CompileTarget::Nasmi386(AsmOptions::default())
     }
 }
