@@ -3,6 +3,8 @@ use std::hash::Hash;
 use std::iter::zip;
 use std::ops::Deref;
 
+use derivative::Derivative;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTPosition {
     pub row: usize,

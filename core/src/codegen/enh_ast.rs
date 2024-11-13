@@ -4,6 +4,8 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use derivative::Derivative;
+
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;

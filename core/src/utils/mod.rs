@@ -6,7 +6,6 @@ use std::slice::Iter;
 
 use linked_hash_map::LinkedHashMap;
 
-#[macro_use]
 pub mod debug_indent;
 
 // TODO is it useful?
