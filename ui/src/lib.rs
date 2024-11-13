@@ -118,7 +118,7 @@ impl UI {
             pane_state.split(pane_grid::Axis::Vertical, pane, UIPane::ModuleCode)
         {
             pane_state.resize(split, 0.2);
-            if let Some((info_pane, split)) =
+            if let Some((_info_pane, split)) =
                 pane_state.split(pane_grid::Axis::Horizontal, module_pane, UIPane::Info)
             {
                 pane_state.resize(split, 0.8);
@@ -161,7 +161,7 @@ impl UI {
     }
 
     fn view<'a>(&'a self) -> Element<'a, Message> {
-        iced::widget::pane_grid(&self.pane_state, |id, pane, maximized| match pane {
+        iced::widget::pane_grid(&self.pane_state, |_id, pane, _maximized| match pane {
             UIPane::ProjectTree => pane_grid::Content::new(self.project_tree()),
             UIPane::ModuleCode => match &self.current_module {
                 Some(s) => pane_grid::Content::new(self.show_module(s)),
