@@ -19,11 +19,11 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::TypedValKind;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::new_type_check2::TypeCheck;
-use crate::parser::ast::{ASTModifiers, ASTValueType};
 use crate::type_check::functions_container::EnhTypeFilter;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{get_new_native_call, substitute, verify};
+use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1975,10 +1975,10 @@ mod tests {
         EnhASTEnumDef, EnhASTIndex, EnhASTNameSpace, EnhASTStructDef, EnhASTType,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
-    use crate::parser::ast::ASTModifiers;
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::typed_ast::{typed_type, ASTTypedType, ConvContext};
     use linked_hash_map::LinkedHashMap;
+    use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
     pub fn get_def_typed_type() {

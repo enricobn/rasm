@@ -1728,11 +1728,11 @@ mod tests {
     use crate::codegen::AsmOptions;
     use crate::commandline::CommandLineOptions;
     use crate::new_type_check2::TypeCheck;
-    use crate::parser::ast::ASTModifiers;
     use crate::project::RasmProject;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::convert_to_typed_module;
+    use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
     pub fn fibonacci() {

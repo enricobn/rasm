@@ -814,11 +814,11 @@ mod tests {
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
-    use crate::parser::ast::{ASTModifiers, ASTValueType};
     use crate::project::{RasmConfig, RasmPackage, RasmProject};
     use crate::type_check::functions_container::EnhTypeFilter::Exact;
     use crate::type_check::functions_container::FunctionsContainer;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
     use std::path::PathBuf;
 
     #[test]

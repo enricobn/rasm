@@ -28,12 +28,12 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
-use crate::parser::ast::ASTValueType;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef, ASTTypedType,
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
+use rasm_parser::parser::ast::ASTValueType;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::any::CStructs;

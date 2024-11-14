@@ -32,13 +32,13 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
-use crate::parser::ast::ASTValueType;
 use crate::transformations::typed_functions_creator::struct_has_references;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
 };
 use linked_hash_map::LinkedHashMap;
+use rasm_parser::parser::ast::ASTValueType;
 
 use super::text_macro::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
 use super::typed_function_creator::TypedFunctionsCreatorC;

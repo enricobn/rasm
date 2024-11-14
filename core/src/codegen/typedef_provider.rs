@@ -20,11 +20,11 @@ use rasm_utils::find_one;
 use std::iter::zip;
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
-use crate::parser::ast::ASTModifiers;
 use crate::type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
     CustomTypedTypeDef,
 };
+use rasm_parser::parser::ast::ASTModifiers;
 
 pub trait TypeDefProvider {
     fn enums(&self) -> &[ASTTypedEnumDef];

@@ -3,8 +3,8 @@ use std::fmt::Display;
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
-use crate::parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind};
 use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
+use rasm_parser::parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ASTIndex {

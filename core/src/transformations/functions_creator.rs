@@ -4,14 +4,14 @@ use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, CodeGenAsm};
-use crate::parser::ast::{
+use rasm_parser::parser::ast::{
     ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTFunctionSignature, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
     ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
 };
 
 use crate::codegen::enh_ast::{self, EnhModuleInfo};
-use crate::parser::builtin_functions::BuiltinFunctions;
+use rasm_parser::parser::builtin_functions::BuiltinFunctions;
 
 pub trait FunctionsCreator {
     fn create(&self, module: &mut ASTModule, statics: &mut Statics, info: &EnhModuleInfo) {

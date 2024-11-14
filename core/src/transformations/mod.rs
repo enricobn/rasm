@@ -1,7 +1,7 @@
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::EnhModuleInfo;
 use crate::codegen::statics::Statics;
-use crate::parser::ast::ASTModule;
+use rasm_parser::parser::ast::ASTModule;
 
 pub mod functions_creator;
 pub mod globals_creator;

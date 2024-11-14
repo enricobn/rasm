@@ -21,8 +21,8 @@ use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::EnhModuleInfo;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
 use crate::transformations::functions_creator::FunctionsCreator;
+use rasm_parser::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
 
 use super::code_gen_c::CodeGenC;
 
