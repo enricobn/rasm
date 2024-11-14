@@ -213,7 +213,6 @@ impl TokensMatcherTrait for ParameterMatcher {
                         LinkedHashMap::new(),
                         next_i - parser.get_i(),
                         1,
-                        parser.file_name(),
                     );
                     groups_results.insert("parameter_type".into(), vec![types_result]);
                     return Some(TokensMatcherResult::new(
@@ -222,7 +221,6 @@ impl TokensMatcherTrait for ParameterMatcher {
                         groups_results,
                         next_i - parser.get_i(),
                         1,
-                        parser.file_name(),
                     ));
                 }
             }

@@ -506,8 +506,7 @@ impl RasmProject {
         // let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
         // let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
 
-        let (module, errors) =
-            Parser::new(Lexer::new(module_src.clone()), None).parse(&Path::new(""));
+        let (module, errors) = Parser::new(Lexer::new(module_src.clone())).parse();
 
         if !errors.is_empty() {
             println!("generated test code:\n{module_src}");
@@ -796,8 +795,8 @@ impl RasmProject {
 
         if let Some(content) = self.in_memory_files.get(file) {
             let lexer = Lexer::new(content.clone());
-            let parser = Parser::new(lexer, Some(file.clone()));
-            let (module, errors) = parser.parse(main_path);
+            let parser = Parser::new(lexer);
+            let (module, errors) = parser.parse();
             return (
                 module,
                 errors
@@ -809,8 +808,8 @@ impl RasmProject {
 
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
-                let parser = Parser::new(lexer, Some(file.clone()));
-                let (module, errors) = parser.parse(main_path);
+                let parser = Parser::new(lexer);
+                let (module, errors) = parser.parse();
                 (
                     module,
                     errors
@@ -840,8 +839,8 @@ impl RasmProject {
         // and we can get errors trying to open it for example in an IDE
         let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap());
 
-        let parser = Parser::new(lexer, None);
-        let (module, errors) = parser.parse(main_path);
+        let parser = Parser::new(lexer);
+        let (module, errors) = parser.parse();
         (
             module,
             errors

@@ -515,7 +515,7 @@ impl TextMacroEvaluator {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
                 )
             } else {
-                let parser = TypeParserHelper::new(None, par_type_name);
+                let parser = TypeParserHelper::new(par_type_name);
                 // Parser::new(lexer, None);
 
                 let type_parser = TypeParser::new(&parser);
@@ -695,17 +695,15 @@ impl TextMacroEvaluator {
 
 struct TypeParserHelper {
     type_tokens: Vec<Token>,
-    file_name: Option<PathBuf>,
 }
 
 impl TypeParserHelper {
-    fn new(file_name: Option<PathBuf>, type_str: &str) -> Self {
+    fn new(type_str: &str) -> Self {
         let lexer = Lexer::new(type_str.into());
         // TODO errors
         let (tokens, _errors) = lexer.process();
         Self {
             type_tokens: tokens,
-            file_name,
         }
     }
 }
@@ -717,10 +715,6 @@ impl ParserTrait for TypeParserHelper {
 
     fn get_token_n(&self, n: usize) -> Option<&Token> {
         self.type_tokens.get(n)
-    }
-
-    fn file_name(&self) -> Option<PathBuf> {
-        self.file_name.clone()
     }
 }
 

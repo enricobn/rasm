@@ -241,8 +241,6 @@ impl<'a> TypeParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::lexer::tokens::Token;
     use crate::lexer::Lexer;
     use crate::parser::ast::{lambda_unit, ASTPosition};
@@ -252,17 +250,15 @@ mod tests {
 
     struct TypeParserHelper {
         type_tokens: Vec<Token>,
-        file_name: Option<PathBuf>,
     }
 
     impl TypeParserHelper {
-        fn new(file_name: Option<PathBuf>, type_str: &str) -> Self {
+        fn new(type_str: &str) -> Self {
             let lexer = Lexer::new(type_str.into());
             // TODO errors
             let (tokens, _errors) = lexer.process();
             Self {
                 type_tokens: tokens,
-                file_name,
             }
         }
     }
@@ -274,10 +270,6 @@ mod tests {
 
         fn get_token_n(&self, n: usize) -> Option<&Token> {
             self.type_tokens.get(n)
-        }
-
-        fn file_name(&self) -> Option<PathBuf> {
-            self.file_name.clone()
         }
     }
 
@@ -378,7 +370,7 @@ mod tests {
 
     #[test]
     fn parse_list_str() {
-        let parser = TypeParserHelper::new(None, "List<str>");
+        let parser = TypeParserHelper::new("List<str>");
         let type_parser = TypeParser::new(&parser);
 
         match type_parser.try_parse_ast_type(0, &[]).unwrap() {
