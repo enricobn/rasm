@@ -9,6 +9,8 @@ env_logger.workspace = true
 log.workspace = true
 # local deps
 rasm-core.workspace = true
+rasm-parser.workspace = true
+
 # others
 iced = "0.13.1"
 walkdir = "2.3"

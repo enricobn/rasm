@@ -13,9 +13,12 @@ use crate::project::RasmProject;
 
 use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
-use crate::parser::ast::{self, ASTModifiers, ASTPosition, ASTType, ASTValueType, BuiltinTypeKind};
+use rasm_parser::parser::ast::{
+    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
+    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, ASTValueType, BuiltinTypeKind,
+};
 
 use super::val_context::ASTIndex;
 
@@ -231,7 +234,7 @@ impl EnhASTFunctionDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        function: ast::ASTFunctionDef,
+        function: ASTFunctionDef,
     ) -> Self {
         Self {
             original_name: function.name.clone(),
@@ -248,7 +251,7 @@ impl EnhASTFunctionDef {
             ),
             body: {
                 match function.body {
-                    ast::ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
+                    ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
                         statements
                             .into_iter()
                             .map(|it| {
@@ -256,9 +259,7 @@ impl EnhASTFunctionDef {
                             })
                             .collect(),
                     ),
-                    ast::ASTFunctionBody::NativeBody(value) => {
-                        EnhASTFunctionBody::NativeBody(value)
-                    }
+                    ASTFunctionBody::NativeBody(value) => EnhASTFunctionBody::NativeBody(value),
                 }
             },
             inline: function.inline,
@@ -293,7 +294,7 @@ impl EnhASTLambdaDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        lambda: ast::ASTLambdaDef,
+        lambda: ASTLambdaDef,
     ) -> Self {
         Self {
             parameter_names: lambda
@@ -656,20 +657,16 @@ impl EnhASTType {
         }
     }
 
-    pub fn from_ast(
-        path: Option<PathBuf>,
-        namespace: EnhASTNameSpace,
-        ast_type: ast::ASTType,
-    ) -> Self {
+    pub fn from_ast(path: Option<PathBuf>, namespace: EnhASTNameSpace, ast_type: ASTType) -> Self {
         match ast_type {
-            ast::ASTType::Builtin(kind) => {
+            ASTType::Builtin(kind) => {
                 let builtin = match kind {
-                    ast::BuiltinTypeKind::Bool => EnhBuiltinTypeKind::Bool,
-                    ast::BuiltinTypeKind::Char => EnhBuiltinTypeKind::Char,
-                    ast::BuiltinTypeKind::I32 => EnhBuiltinTypeKind::I32,
-                    ast::BuiltinTypeKind::F32 => EnhBuiltinTypeKind::F32,
-                    ast::BuiltinTypeKind::String => EnhBuiltinTypeKind::String,
-                    ast::BuiltinTypeKind::Lambda {
+                    BuiltinTypeKind::Bool => EnhBuiltinTypeKind::Bool,
+                    BuiltinTypeKind::Char => EnhBuiltinTypeKind::Char,
+                    BuiltinTypeKind::I32 => EnhBuiltinTypeKind::I32,
+                    BuiltinTypeKind::F32 => EnhBuiltinTypeKind::F32,
+                    BuiltinTypeKind::String => EnhBuiltinTypeKind::String,
+                    BuiltinTypeKind::Lambda {
                         parameters,
                         return_type,
                     } => EnhBuiltinTypeKind::Lambda {
@@ -687,10 +684,10 @@ impl EnhASTType {
                 };
                 EnhASTType::Builtin(builtin)
             }
-            ast::ASTType::Generic(astposition, name) => {
+            ASTType::Generic(astposition, name) => {
                 EnhASTType::Generic(EnhASTIndex::from_position(path.clone(), &astposition), name)
             }
-            ast::ASTType::Custom {
+            ASTType::Custom {
                 name,
                 param_types,
                 position: index,
@@ -700,14 +697,14 @@ impl EnhASTType {
                 param_types: EnhASTType::from_asts(path.clone(), namespace.clone(), param_types),
                 index: EnhASTIndex::from_position(path, &index),
             },
-            ast::ASTType::Unit => EnhASTType::Unit,
+            ASTType::Unit => EnhASTType::Unit,
         }
     }
 
     pub fn from_asts(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        asts: Vec<ast::ASTType>,
+        asts: Vec<ASTType>,
     ) -> Vec<EnhASTType> {
         asts.into_iter()
             .map(|it| EnhASTType::from_ast(path.clone(), namespace.clone(), it))
@@ -794,7 +791,7 @@ impl EnhASTParameterDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        parameter: ast::ASTParameterDef,
+        parameter: ASTParameterDef,
     ) -> Self {
         Self {
             name: parameter.name,
@@ -806,7 +803,7 @@ impl EnhASTParameterDef {
     pub fn from_asts(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        parameters: Vec<ast::ASTParameterDef>,
+        parameters: Vec<ASTParameterDef>,
     ) -> Vec<EnhASTParameterDef> {
         parameters
             .into_iter()
@@ -838,7 +835,7 @@ impl EnhASTStructPropertyDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        property: ast::ASTStructPropertyDef,
+        property: ASTStructPropertyDef,
     ) -> Self {
         Self {
             name: property.name,
@@ -883,7 +880,7 @@ impl EnhASTFunctionCall {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        call: ast::ASTFunctionCall,
+        call: ASTFunctionCall,
     ) -> Self {
         Self {
             namespace: namespace.clone(),
@@ -991,8 +988,9 @@ impl Display for EnhASTIndex {
     }
 }
 
+/*
 impl ASTValueType {
-    pub fn to_enh_type(&self) -> EnhASTType {
+    pub fn value_type_to_enh_type(&self) -> EnhASTType {
         match self {
             ASTValueType::String(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
             ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
@@ -1001,7 +999,7 @@ impl ASTValueType {
             ASTValueType::F32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
         }
     }
-    pub fn to_typed_type(&self) -> ASTTypedType {
+    pub fn value_type_to_typed_type(&self) -> ASTTypedType {
         match self {
             ASTValueType::String(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
@@ -1011,6 +1009,7 @@ impl ASTValueType {
         }
     }
 }
+    */
 
 // TODO can we do partialeq? It depends on ASTIndex
 #[derive(Debug, Clone, PartialEq)]
@@ -1053,27 +1052,29 @@ impl EnhASTExpression {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        expr: ast::ASTExpression,
+        expr: ASTExpression,
     ) -> Self {
         match expr {
-            ast::ASTExpression::ASTFunctionCallExpression(call) => {
+            ASTExpression::ASTFunctionCallExpression(call) => {
                 EnhASTExpression::ASTFunctionCallExpression(EnhASTFunctionCall::from_ast(
                     path.clone(),
                     namespace.clone(),
                     call,
                 ))
             }
-            ast::ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
+            ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
                 name,
                 EnhASTIndex::from_position(path.clone(), &position),
             ),
-            ast::ASTExpression::Value(value_type, position) => EnhASTExpression::Value(
+            ASTExpression::Value(value_type, position) => EnhASTExpression::Value(
                 value_type,
                 EnhASTIndex::from_position(path.clone(), &position),
             ),
-            ast::ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(
-                EnhASTLambdaDef::from_ast(path.clone(), namespace.clone(), lambda),
-            ),
+            ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(EnhASTLambdaDef::from_ast(
+                path.clone(),
+                namespace.clone(),
+                lambda,
+            )),
         }
     }
 }
@@ -1132,13 +1133,13 @@ impl EnhASTStatement {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        statement: ast::ASTStatement,
+        statement: ASTStatement,
     ) -> Self {
         match statement {
-            ast::ASTStatement::Expression(expr) => EnhASTStatement::Expression(
+            ASTStatement::Expression(expr) => EnhASTStatement::Expression(
                 EnhASTExpression::from_ast(path.clone(), namespace.clone(), expr),
             ),
-            ast::ASTStatement::LetStatement(name, astexpression, is_const, position) => {
+            ASTStatement::LetStatement(name, astexpression, is_const, position) => {
                 let expr =
                     EnhASTExpression::from_ast(path.clone(), namespace.clone(), astexpression);
                 EnhASTStatement::LetStatement(
@@ -1200,7 +1201,7 @@ impl EnhASTModule {
         self.types.extend(module.types);
     }
 
-    pub fn from_ast(module: ast::ASTModule, info: EnhModuleInfo) -> Self {
+    pub fn from_ast(module: ASTModule, info: EnhModuleInfo) -> Self {
         Self {
             path: info.path.clone().unwrap(),
             body: module
@@ -1317,7 +1318,7 @@ impl EnhASTEnumDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        enum_def: ast::ASTEnumDef,
+        enum_def: ASTEnumDef,
     ) -> Self {
         Self {
             namespace: namespace.clone(),
@@ -1369,7 +1370,7 @@ impl EnhASTEnumVariantDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        variant_def: ast::ASTEnumVariantDef,
+        variant_def: ASTEnumVariantDef,
     ) -> Self {
         Self {
             name: variant_def.name,
@@ -1435,7 +1436,7 @@ impl EnhASTStructDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        struct_def: ast::ASTStructDef,
+        struct_def: ASTStructDef,
     ) -> Self {
         Self {
             namespace: namespace.clone(),
@@ -1505,7 +1506,7 @@ impl EnhASTTypeDef {
     pub fn from_ast(
         path: Option<PathBuf>,
         namespace: EnhASTNameSpace,
-        type_def: ast::ASTTypeDef,
+        type_def: ASTTypeDef,
     ) -> Self {
         Self {
             namespace: namespace.clone(),
@@ -1556,8 +1557,8 @@ mod tests {
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };
-    use crate::parser::ast::ASTModifiers;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
     fn display_custom_type() {

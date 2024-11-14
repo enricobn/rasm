@@ -37,10 +37,10 @@ use crate::reference_finder::ReferenceFinder;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
-use rasm_core::lexer::Lexer;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::type_check_error::TypeCheckError;
+use rasm_parser::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
+use rasm_parser::lexer::Lexer;
 
 pub fn rasm_server(project: RasmProject) {
     //init_log();

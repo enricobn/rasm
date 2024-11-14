@@ -20,8 +20,8 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
 use crate::codegen::enh_ast::EnhASTIndex;
-use crate::parser::ParserError;
 use crate::type_check::type_check_error::TypeCheckError;
+use rasm_parser::parser::ParserError;
 
 #[derive(Clone, Debug)]
 pub struct CompilationError {

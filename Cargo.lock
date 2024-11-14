@@ -3096,6 +3096,7 @@ dependencies = [
  "linked-hash-map",
  "log",
  "rasm-core",
+ "rasm-parser",
  "rasm-utils",
  "rayon",
  "serde",
@@ -3114,6 +3115,7 @@ dependencies = [
  "iced",
  "log",
  "rasm-core",
+ "rasm-parser",
  "walkdir",
 ]
 

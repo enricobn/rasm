@@ -5,6 +5,7 @@ use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
 
+use crate::codegen::c::code_gen_c::value_type_to_typed_type;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
     EnhASTEnumDef, EnhASTEnumVariantDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall,
@@ -1218,7 +1219,7 @@ pub fn get_type_of_typed_expression(
                 ));
             }
         }
-        ASTTypedExpression::Value(val_type, _) => val_type.to_typed_type(),
+        ASTTypedExpression::Value(val_type, _) => value_type_to_typed_type(val_type),
         ASTTypedExpression::Lambda(lambda_def) => {
             let mut context = TypedValContext::new(Some(context));
 

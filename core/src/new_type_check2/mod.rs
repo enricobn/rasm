@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::iter::zip;
 use std::ops::Deref;
 
+use crate::codegen::c::code_gen_c::value_type_to_enh_type;
 use crate::codegen::compile_target::CompileTarget;
 use log::info;
 
@@ -1018,7 +1019,7 @@ impl TypeCheck {
                             None
                         }
                     }
-                    EnhASTExpression::Value(vt, _) => Some(vt.to_enh_type()),
+                    EnhASTExpression::Value(vt, _) => Some(value_type_to_enh_type(vt)),
                     EnhASTExpression::Any(t) => Some(t.clone()),
                     _ => None,
                 }
@@ -1503,7 +1504,7 @@ impl TypeCheck {
                 }
             },
             EnhASTExpression::Value(value_type, _) => {
-                EnhTypeFilter::Exact(value_type.to_enh_type())
+                EnhTypeFilter::Exact(value_type_to_enh_type(value_type))
             }
             EnhASTExpression::Lambda(def) => {
                 if def.body.is_empty() {

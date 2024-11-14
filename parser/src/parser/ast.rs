@@ -4,6 +4,7 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use derivative::Derivative;
+use itertools::Itertools;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTPosition {
@@ -60,6 +61,31 @@ pub struct ASTFunctionSignature {
     pub parameters_types: Vec<ASTType>,
     pub return_type: ASTType,
     pub modifiers: ASTModifiers,
+}
+
+impl Display for ASTFunctionSignature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let generics = if self.generics.is_empty() {
+            ""
+        } else {
+            &format!("<{}>", self.generics.iter().join(", "))
+        };
+
+        write!(
+            f,
+            "{}{}({})",
+            self.name,
+            generics,
+            self.parameters_types
+                .iter()
+                .map(|it| format!("{it}"))
+                .join(", ")
+        )?;
+        if !self.return_type.is_unit() {
+            write!(f, " -> {}", self.return_type)?;
+        }
+        Ok(())
+    }
 }
 
 impl ASTFunctionSignature {

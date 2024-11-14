@@ -14,10 +14,11 @@ use iced::{
 };
 use rasm_core::{
     codegen::{enh_ast::EnhModuleInfo, val_context::ASTIndex},
-    lexer::{tokens::TokenKind, Lexer},
-    parser::ast::{ASTModule, ASTType, BuiltinTypeKind},
     type_check::ast_modules_container::ASTTypeFilter,
 };
+
+use rasm_parser::lexer::{tokens::TokenKind, Lexer};
+use rasm_parser::parser::ast::{ASTModule, ASTType, BuiltinTypeKind};
 
 use crate::{Message, SelectedModule, UI};
 

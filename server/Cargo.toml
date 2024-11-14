@@ -11,9 +11,12 @@ chrono.workspace = true
 linked-hash-map.workspace = true
 log.workspace = true
 rayon.workspace = true
+
 # local deps
 rasm-core.workspace = true
+rasm-parser.workspace = true
 rasm-utils.workspace = true
+
 # others
 axum = "0.6"
 serde = { version = "1.0", features = ["derive"] }

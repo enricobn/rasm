@@ -10,11 +10,11 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm, TypedValKind};
-use crate::parser::ast::ASTValueType;
 use crate::type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
+use rasm_parser::parser::ast::ASTValueType;
 
 #[auto_impl(Box)]
 pub trait FunctionCallParameters {

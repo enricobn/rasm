@@ -3,12 +3,11 @@ use std::{collections::HashMap, fmt::Display};
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{debug_i, dedent, indent};
 
-use crate::{
-    codegen::val_context::{ASTIndex, ValContext},
-    parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
-        ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
-    },
+use crate::codegen::val_context::{ASTIndex, ValContext};
+
+use rasm_parser::parser::ast::{
+    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
+    ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
 };
 
 use super::ast_modules_container::{
@@ -1268,10 +1267,10 @@ mod tests {
             val_context::{ASTIndex, ValContext},
         },
         commandline::CommandLineOptions,
-        parser::ast::{ASTModule, ASTPosition},
         project::RasmProject,
         type_check::ast_modules_container::ASTModulesContainer,
     };
+    use rasm_parser::parser::ast::{ASTModule, ASTPosition};
 
     use super::{ASTTypeChecker, ASTTypeCheckerResult};
 

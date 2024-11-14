@@ -8,12 +8,12 @@ use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind, E
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ASTIndex, ValContext};
 use rasm_core::commandline::CommandLineOptions;
-use rasm_core::parser::ast::{ASTModule, ASTPosition, ASTType};
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::ast_modules_container::{
     ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo,
 };
 use rasm_core::type_check::ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker};
+use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTType};
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::selectable_item::{SelectableItem, SelectableItemTarget};
@@ -707,8 +707,8 @@ mod tests {
     use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTType};
     use rasm_core::codegen::statics::Statics;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::parser::ast::ASTPosition;
     use rasm_core::project::RasmProject;
+    use rasm_parser::parser::ast::ASTPosition;
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};

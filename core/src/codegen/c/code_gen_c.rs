@@ -24,7 +24,7 @@ use crate::codegen::c::text_macro::{
     CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
@@ -792,7 +792,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             self.string_literal_return(statics, before, s);
         } else {
             let v = self.value_to_string(value_type);
-            let t = value_type.to_typed_type();
+            let t = value_type_to_typed_type(value_type);
             self.code_manipulator.add(
                 before,
                 &format!(
@@ -1249,6 +1249,26 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             ASTValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
             ASTValueType::F32(v) => format!("{v}"),
         }
+    }
+}
+
+pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {
+    match value_type {
+        ASTValueType::String(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+        ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
+        ASTValueType::I32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
+        ASTValueType::Char(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
+        ASTValueType::F32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
+    }
+}
+
+pub fn value_type_to_typed_type(value_type: &ASTValueType) -> ASTTypedType {
+    match value_type {
+        ASTValueType::String(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+        ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
+        ASTValueType::I32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+        ASTValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+        ASTValueType::F32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
     }
 }
 

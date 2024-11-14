@@ -4,6 +4,7 @@ use rasm_utils::{OptionDisplay, SliceDisplay};
 
 use crate::{
     codegen::{
+        c::code_gen_c::value_type_to_enh_type,
         enh_ast::{
             EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
             EnhASTFunctionSignature, EnhASTIndex, EnhASTParameterDef, EnhASTStatement, EnhASTType,
@@ -196,7 +197,7 @@ impl<'a> FunctionTypeChecker<'a> {
             EnhASTExpression::Value(value_type, index) => {
                 result.insert(
                     index.clone(),
-                    EnhTypeFilter::Exact(value_type.to_enh_type()),
+                    EnhTypeFilter::Exact(value_type_to_enh_type(value_type)),
                 );
             }
             EnhASTExpression::Lambda(lambda) => {

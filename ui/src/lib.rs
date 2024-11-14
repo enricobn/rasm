@@ -14,13 +14,13 @@ use module_view::TEXT_SCROLLABLE_ID;
 use rasm_core::{
     codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
     commandline::CommandLineOptions,
-    parser::ast::{ASTFunctionDef, ASTPosition},
     project::RasmProject,
     type_check::{
         ast_modules_container::ASTModulesContainer,
         ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
     },
 };
+use rasm_parser::parser::ast::{ASTFunctionDef, ASTPosition};
 
 mod module_view;
 mod project_tree;

@@ -39,11 +39,11 @@ use walkdir::WalkDir;
 use crate::codegen::get_std_lib_path;
 use crate::codegen::statics::Statics;
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::lexer::Lexer;
-use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
-use crate::parser::ast::{ASTModule, ASTStatement, ASTType};
-use crate::parser::Parser;
 use crate::transformations::enrich_module;
+use rasm_parser::lexer::Lexer;
+use rasm_parser::parser::ast::ASTExpression::ASTFunctionCallExpression;
+use rasm_parser::parser::ast::{ASTModule, ASTStatement, ASTType};
+use rasm_parser::parser::Parser;
 
 #[derive(Debug, Clone)]
 pub struct RasmProject {

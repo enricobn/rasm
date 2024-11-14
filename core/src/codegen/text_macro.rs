@@ -16,17 +16,17 @@ use crate::codegen::enh_ast::{
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
-use crate::lexer::tokens::Token;
-use crate::lexer::Lexer;
-use crate::parser::ast;
-use crate::parser::type_parser::TypeParser;
-use crate::parser::ParserTrait;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use crate::type_check::substitute;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind,
     DefaultFunctionCall,
 };
+use rasm_parser::lexer::tokens::Token;
+use rasm_parser::lexer::Lexer;
+use rasm_parser::parser::ast;
+use rasm_parser::parser::type_parser::TypeParser;
+use rasm_parser::parser::ParserTrait;
 use rasm_utils::{OptionDisplay, SliceDisplay};
 
 thread_local! {
@@ -1513,8 +1513,8 @@ mod tests {
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
-    use crate::parser::ast::ASTModifiers;
     use linked_hash_map::LinkedHashMap;
+    use rasm_parser::parser::ast::ASTModifiers;
 
     use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,

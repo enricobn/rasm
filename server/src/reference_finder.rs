@@ -16,11 +16,11 @@ use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
-use rasm_core::parser::ast::ASTValueType;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
+use rasm_parser::parser::ast::ASTValueType;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::reference_context::ReferenceContext;

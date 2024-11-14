@@ -1,6 +1,5 @@
 use std::{collections::HashMap, fmt::Display, iter::zip};
 
-use itertools::Itertools;
 use rasm_utils::OptionDisplay;
 
 use rasm_parser::parser::{
@@ -58,31 +57,6 @@ impl ASTFunctionSignatureEntry {
             source,
             position,
         }
-    }
-}
-
-impl Display for ASTFunctionSignature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let generics = if self.generics.is_empty() {
-            ""
-        } else {
-            &format!("<{}>", self.generics.iter().join(", "))
-        };
-
-        write!(
-            f,
-            "{}{}({})",
-            self.name,
-            generics,
-            self.parameters_types
-                .iter()
-                .map(|it| format!("{it}"))
-                .join(", ")
-        )?;
-        if !self.return_type.is_unit() {
-            write!(f, " -> {}", self.return_type)?;
-        }
-        Ok(())
     }
 }
 
@@ -391,7 +365,7 @@ impl ASTTypeFilter {
             ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
                 ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                    crate::parser::ast::BuiltinTypeKind::Lambda {
+                    BuiltinTypeKind::Lambda {
                         parameters,
                         return_type,
                     } => {
@@ -419,10 +393,11 @@ impl ASTTypeFilter {
 mod tests {
     use std::{env, path::PathBuf};
 
+    use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
+
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
         commandline::CommandLineOptions,
-        parser::ast::{ASTPosition, ASTType, BuiltinTypeKind},
         project::RasmProject,
     };
 

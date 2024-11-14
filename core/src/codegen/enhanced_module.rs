@@ -11,11 +11,11 @@ use crate::codegen::enh_ast::{
     EnhASTIndex, EnhASTModule, EnhASTNameSpace, EnhASTStatement, EnhASTStructDef, EnhASTType,
     EnhASTTypeDef,
 };
-use crate::parser::ast;
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
 use crate::type_check::functions_container::{EnhTypeFilter, FunctionsContainer};
 use crate::type_check::type_check_error::TypeCheckError;
+use rasm_parser::parser::ast;
 
 use super::enh_ast::EnhModuleInfo;
 

@@ -29,12 +29,12 @@ use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
-use rasm_core::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use rasm_parser::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
 use rasm_utils::OptionDisplay;
 
 use crate::file_token::FileToken;
@@ -629,9 +629,9 @@ mod tests {
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::parser::ast::ASTModifiers;
     use rasm_core::project::RasmProject;
     use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use rasm_parser::parser::ast::ASTModifiers;
 
     use crate::completion_service::{CompletionItem, CompletionResult, CompletionService};
 
