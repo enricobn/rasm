@@ -5,12 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-env_logger.workspace = true
-log.workspace = true
 # local deps
 rasm-core.workspace = true
 rasm-parser.workspace = true
 
+# workspace
+env_logger.workspace = true
+walkdir.workspace = true
+
 # others
 iced = "0.13.1"
-walkdir = "2.3"
+log.workspace = true

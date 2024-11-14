@@ -5,7 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-anymap = "0.12.1"
+# local deps
+rasm-parser.workspace = true
+rasm-utils.workspace = true
+
+# workspace
 auto_impl.workspace = true
 backtrace.workspace = true
 chrono.workspace = true
@@ -32,6 +36,5 @@ tempdir.workspace = true
 toml.workspace = true
 walkdir.workspace = true
 
-# local deps
-rasm-parser.workspace = true
-rasm-utils.workspace = true
+# others
+anymap = "0.12.1"

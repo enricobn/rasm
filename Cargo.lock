@@ -3091,7 +3091,6 @@ version = "0.1.0-alpha.0"
 dependencies = [
  "axum",
  "chrono",
- "clap",
  "env_logger",
  "linked-hash-map",
  "log",
