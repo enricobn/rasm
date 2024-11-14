@@ -1,0 +1,3 @@
+vecRange(0, n).forEach({ it ->
+    println(it);
+});

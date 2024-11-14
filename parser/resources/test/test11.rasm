@@ -1,0 +1,7 @@
+// test11.rasm file
+callLambda({ print();print();});
+
+fn callLambda(lambda: fn() -> ()) {}
+
+fn aFUnction(n: i32) {}
+

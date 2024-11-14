@@ -3055,6 +3055,7 @@ dependencies = [
  "log",
  "pad",
  "pathdiff",
+ "rasm-parser",
  "rasm-utils",
  "rayon",
  "regex",
@@ -3067,6 +3068,21 @@ dependencies = [
  "tempdir",
  "toml",
  "walkdir",
+]
+
+[[package]]
+name = "rasm-parser"
+version = "0.1.0-alpha.0"
+dependencies = [
+ "derivative",
+ "itertools",
+ "lazy_static",
+ "linked-hash-map",
+ "log",
+ "rasm-utils",
+ "snailquote",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]

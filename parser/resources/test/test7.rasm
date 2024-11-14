@@ -1,0 +1,2 @@
+// test7.rasm file
+fn add(s: str) {}

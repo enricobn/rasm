@@ -33,4 +33,5 @@ toml.workspace = true
 walkdir.workspace = true
 
 # local deps
+rasm-parser.workspace = true
 rasm-utils.workspace = true

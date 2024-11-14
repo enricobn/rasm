@@ -1,0 +1,2 @@
+// test9.rasm file
+print(add(10, 20));
