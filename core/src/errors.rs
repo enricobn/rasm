@@ -17,14 +17,25 @@
  */
 
 use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
 
 use crate::codegen::enh_ast::EnhASTIndex;
+use crate::parser::ParserError;
 use crate::type_check::type_check_error::TypeCheckError;
 
 #[derive(Clone, Debug)]
 pub struct CompilationError {
     pub index: EnhASTIndex,
     pub error_kind: CompilationErrorKind,
+}
+
+impl CompilationError {
+    pub fn from_parser_error(error: ParserError, file_name: Option<PathBuf>) -> Self {
+        Self {
+            index: EnhASTIndex::new(file_name, error.row(), error.column()),
+            error_kind: CompilationErrorKind::Parser(error.message),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

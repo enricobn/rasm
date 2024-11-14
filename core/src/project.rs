@@ -796,16 +796,28 @@ impl RasmProject {
 
         if let Some(content) = self.in_memory_files.get(file) {
             let lexer = Lexer::new(content.clone());
-            let mut parser = Parser::new(lexer, Some(file.clone()));
+            let parser = Parser::new(lexer, Some(file.clone()));
             let (module, errors) = parser.parse(main_path);
-            return (module, errors);
+            return (
+                module,
+                errors
+                    .into_iter()
+                    .map(|it| CompilationError::from_parser_error(it, Some(file.clone())))
+                    .collect::<Vec<_>>(),
+            );
         }
 
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
-                let mut parser = Parser::new(lexer, Some(file.clone()));
+                let parser = Parser::new(lexer, Some(file.clone()));
                 let (module, errors) = parser.parse(main_path);
-                (module, errors)
+                (
+                    module,
+                    errors
+                        .into_iter()
+                        .map(|it| CompilationError::from_parser_error(it, Some(file.clone())))
+                        .collect::<Vec<_>>(),
+                )
             }
             Err(err) => {
                 panic!("An error occurred: {}", err)
@@ -828,11 +840,14 @@ impl RasmProject {
         // and we can get errors trying to open it for example in an IDE
         let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap());
 
-        let mut parser = Parser::new(lexer, None);
+        let parser = Parser::new(lexer, None);
         let (module, errors) = parser.parse(main_path);
         (
             module,
-            errors,
+            errors
+                .into_iter()
+                .map(|it| CompilationError::from_parser_error(it, Some(main_path.to_path_buf())))
+                .collect::<Vec<_>>(),
             EnhModuleInfo::new(Some(main_path.to_path_buf()), namespace),
         )
     }

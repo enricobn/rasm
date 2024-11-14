@@ -5,8 +5,6 @@ use std::path::{Path, PathBuf};
 
 use log::debug;
 
-use crate::codegen::enh_ast::EnhASTIndex;
-use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
@@ -54,6 +52,31 @@ lazy_static! {
     };
 }
 
+pub struct ParserError {
+    position: ASTPosition,
+    pub message: String,
+}
+
+impl ParserError {
+    pub fn new(position: ASTPosition, message: String) -> Self {
+        Self { position, message }
+    }
+
+    pub fn row(&self) -> usize {
+        self.position.row
+    }
+
+    pub fn column(&self) -> usize {
+        self.position.column
+    }
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} : {}", self.message, self.position)
+    }
+}
+
 pub struct Parser {
     tokens: Vec<Token>,
     body: Vec<ASTStatement>,
@@ -65,7 +88,7 @@ pub struct Parser {
     structs: Vec<ASTStructDef>,
     file_name: Option<PathBuf>,
     types: Vec<ASTTypeDef>,
-    errors: Vec<CompilationError>,
+    errors: Vec<ParserError>,
 }
 
 #[derive(Clone, Debug)]
@@ -156,10 +179,7 @@ impl Parser {
 
         let errors = lexer_errors
             .into_iter()
-            .map(|it| CompilationError {
-                index: EnhASTIndex::new(file_name.clone(), it.row, it.column),
-                error_kind: CompilationErrorKind::Lexer(it.message),
-            })
+            .map(|it| ParserError::new(ASTPosition::new(it.row, it.column), it.message))
             .collect();
 
         Self {
@@ -177,7 +197,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(mut self, path: &Path) -> (ASTModule, Vec<CompilationError>) {
+    pub fn parse(mut self, path: &Path) -> (ASTModule, Vec<ParserError>) {
         let last_token = Token::new(TokenKind::EndOfLine, 0, 0);
 
         let mut count = 0;
@@ -412,7 +432,7 @@ impl Parser {
         self.get_return()
     }
 
-    fn get_return(self) -> (ASTModule, Vec<CompilationError>) {
+    fn get_return(self) -> (ASTModule, Vec<ParserError>) {
         let module = ASTModule {
             body: self.body.clone(),
             functions: self.functions.clone(),
@@ -427,16 +447,13 @@ impl Parser {
     fn add_error(&mut self, message: String) {
         debug_i!("parser error: {message}");
 
-        let index = self
+        let position = self
             .get_token_n(0)
             .or_else(|| self.tokens.last())
             .map(|it| it.position.clone())
             .unwrap_or_else(|| ASTPosition::new(0, 0));
 
-        self.errors.push(CompilationError {
-            index: EnhASTIndex::from_position(self.file_name.clone(), &index),
-            error_kind: CompilationErrorKind::Parser(message),
-        });
+        self.errors.push(ParserError::new(position, message));
     }
 
     ///
@@ -987,19 +1004,15 @@ impl Parser {
                             n = next_i - self.i;
                         }
                         Ok(None) => {
-                            self.errors.push(CompilationError {
-                                error_kind: CompilationErrorKind::Parser(
-                                    "Cannot parse type.".to_string(),
-                                ),
-                                index: self.get_index(n),
-                            });
+                            self.errors.push(ParserError::new(
+                                self.get_position(n),
+                                "Cannot parse type.".to_string(),
+                            ));
                             break;
                         }
                         Err(err) => {
-                            self.errors.push(CompilationError {
-                                error_kind: CompilationErrorKind::Parser(err),
-                                index: self.get_index(n),
-                            });
+                            self.errors
+                                .push(ParserError::new(self.get_position(n), err));
                             break;
                         }
                     }
@@ -1367,10 +1380,6 @@ pub trait ParserTrait {
             .unwrap_or(ASTPosition::none())
     }
 
-    fn get_index(&self, n: usize) -> EnhASTIndex {
-        EnhASTIndex::from_position(self.file_name().clone(), &self.get_position(n))
-    }
-
     fn wrap_error(&self, message: &str) -> String {
         format!("{message}: {}", self.get_position(0))
     }
@@ -1382,13 +1391,14 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
-    use crate::errors::{CompilationError, CompilationErrorKind};
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModifiers, ASTModule,
         ASTPosition, ASTStatement, ASTType, ASTValueType, BuiltinTypeKind,
     };
     use crate::parser::Parser;
+
+    use super::ParserError;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1588,10 +1598,7 @@ mod tests {
         assert_eq!(1, errors.len());
 
         let error = errors.remove(0);
-        assert_eq!(
-            error.error_kind,
-            CompilationErrorKind::Parser("Unexpected token `->`".to_string())
-        );
+        assert_eq!(error.message, "Unexpected token `->`".to_string());
     }
 
     #[test]
@@ -1606,10 +1613,7 @@ mod tests {
 
         let error = errors.remove(0);
 
-        assert_eq!(
-            error.error_kind,
-            CompilationErrorKind::Parser("Unexpected end of block.".to_string())
-        );
+        assert_eq!(error.message, "Unexpected end of block.".to_string());
     }
 
     #[test]
@@ -1675,7 +1679,7 @@ mod tests {
         module
     }
 
-    fn parse_with_errors(source: &str) -> (ASTModule, Vec<CompilationError>) {
+    fn parse_with_errors(source: &str) -> (ASTModule, Vec<ParserError>) {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
