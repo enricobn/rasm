@@ -3,47 +3,51 @@ use std::fmt::Display;
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
-use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
+use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ASTIndex {
+    module_namespace: ModuleNamespace,
     module_id: ModuleId,
-    module_source: ModuleSource,
     position: ASTPosition,
 }
 
 impl ASTIndex {
-    pub fn new(module_id: ModuleId, module_source: ModuleSource, position: ASTPosition) -> Self {
+    pub fn new(
+        module_namespace: ModuleNamespace,
+        module_id: ModuleId,
+        position: ASTPosition,
+    ) -> Self {
         Self {
+            module_namespace,
             module_id,
-            module_source,
             position,
         }
     }
 
     pub fn none() -> Self {
         Self {
-            module_id: String::new(),
-            module_source: String::new(),
+            module_namespace: ModuleNamespace(String::new()),
+            module_id: ModuleId(String::new()),
             position: ASTPosition::none(),
         }
     }
 
     pub fn mv_right(&self, offset: usize) -> Self {
         Self {
+            module_namespace: self.module_namespace.clone(),
             module_id: self.module_id.clone(),
-            module_source: self.module_source.clone(),
             position: self.position.clone().mv_right(offset),
         }
     }
 
-    pub fn id(&self) -> &ModuleId {
-        &self.module_id
+    pub fn module_namespace(&self) -> &ModuleNamespace {
+        &self.module_namespace
     }
 
-    pub fn source(&self) -> &ModuleSource {
-        &self.module_source
+    pub fn module_id(&self) -> &ModuleId {
+        &self.module_id
     }
 
     pub fn position(&self) -> &ASTPosition {
@@ -51,7 +55,7 @@ impl ASTIndex {
     }
 
     pub fn info(&self) -> ModuleInfo {
-        ModuleInfo::new(self.module_id.clone(), self.module_source.clone())
+        ModuleInfo::new(self.module_namespace.clone(), self.module_id.clone())
     }
 }
 
@@ -60,7 +64,7 @@ impl Display for ASTIndex {
         write!(
             f,
             "{}:{}:{}",
-            self.module_source, self.position.row, self.position.column
+            self.module_id, self.position.row, self.position.column
         )
     }
 }
@@ -79,11 +83,11 @@ impl ValKind {
         }
     }
 
-    pub fn index(&self, module_id: &ModuleId, module_source: &ModuleSource) -> ASTIndex {
+    pub fn index(&self, module_namespace: &ModuleNamespace, module_id: &ModuleId) -> ASTIndex {
         match self {
             ValKind::ParameterRef(_, astparameter_def) => ASTIndex::new(
+                module_namespace.clone(),
                 module_id.clone(),
-                module_source.clone(),
                 astparameter_def.position.clone(),
             ),
             ValKind::LetRef(_, _, astindex) => astindex.clone(),
@@ -118,8 +122,8 @@ impl ValContext {
         &mut self,
         key: String,
         par: ASTParameterDef,
-        id: &ModuleId,
-        source: &ModuleSource,
+        id: &ModuleNamespace,
+        source: &ModuleId,
     ) -> Result<Option<ValKind>, String> {
         let result = self.value_to_address.insert(
             key.clone(),

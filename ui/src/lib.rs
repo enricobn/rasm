@@ -83,7 +83,7 @@ impl UI {
 
         for (module, info) in modules {
             bodies.push((module.body.clone(), info.clone()));
-            modules_container.add(&module, info.module_id(), info.module_source(), false);
+            modules_container.add(&module, info.module_namespace(), info.module_id(), false);
         }
 
         let mut ast_type_checker = ASTTypeChecker::new(&modules_container);
@@ -95,8 +95,8 @@ impl UI {
                 &mut static_val_context,
                 &body,
                 None,
+                &info.module_namespace(),
                 &info.module_id(),
-                &info.module_source(),
             );
         }
 
@@ -259,8 +259,8 @@ impl UI {
                     &mut tmp_static_val_context,
                     &module.body,
                     None,
+                    &info.module_namespace(),
                     &info.module_id(),
-                    &info.module_source(),
                 );
 
                 for function in module.functions {
@@ -268,8 +268,8 @@ impl UI {
                     ast_type_checker.add_function(
                         &function, //.fix_namespaces(&em).fix_generics(),
                         static_val_context,
+                        &info.module_namespace(),
                         &info.module_id(),
-                        &info.module_source(),
                     );
                     println!(
                         "function {} takes {:?}",

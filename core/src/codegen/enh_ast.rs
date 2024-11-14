@@ -11,7 +11,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
 
-use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleSource};
+use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleNamespace};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
 use rasm_parser::parser::ast::{
@@ -33,20 +33,20 @@ impl EnhModuleInfo {
         Self { path, namespace }
     }
 
-    pub fn module_id(&self) -> ModuleId {
-        self.namespace.safe_name()
+    pub fn module_namespace(&self) -> ModuleNamespace {
+        ModuleNamespace(self.namespace.safe_name())
     }
 
-    pub fn module_source(&self) -> ModuleSource {
-        self.path.clone().unwrap().to_string_lossy().to_string()
+    pub fn module_id(&self) -> ModuleId {
+        ModuleId(self.path.clone().unwrap().to_string_lossy().to_string())
     }
 
     pub fn index(&self, position: ASTPosition) -> ASTIndex {
-        ASTIndex::new(self.module_id(), self.module_source(), position)
+        ASTIndex::new(self.module_namespace(), self.module_id(), position)
     }
 
     pub fn module_info(&self) -> ModuleInfo {
-        ModuleInfo::new(self.module_id(), self.module_source())
+        ModuleInfo::new(self.module_namespace(), self.module_id())
     }
 }
 

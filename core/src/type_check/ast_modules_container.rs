@@ -10,51 +10,69 @@ use rasm_parser::parser::{
     builtin_functions::BuiltinFunctions,
 };
 
-pub type ModuleId = String;
-pub type ModuleSource = String;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ModuleNamespace(pub String);
+
+impl Display for ModuleNamespace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ModuleId(pub String);
+
+impl Display for ModuleId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ModuleInfo {
-    id: ModuleId,
-    source: ModuleSource,
+    module_id: ModuleId,
+    namespace: ModuleNamespace,
 }
 
 impl ModuleInfo {
-    pub fn new(id: ModuleId, source: ModuleSource) -> Self {
-        Self { id, source }
+    pub fn new(namespace: ModuleNamespace, module_id: ModuleId) -> Self {
+        Self {
+            namespace,
+            module_id,
+        }
     }
 
     pub fn global() -> Self {
-        Self::new(String::new(), String::new())
+        Self::new(ModuleNamespace(String::new()), ModuleId(String::new()))
     }
 
-    pub fn id(&self) -> &ModuleId {
-        &self.id
+    pub fn id(&self) -> &ModuleNamespace {
+        &self.namespace
     }
 
-    pub fn source(&self) -> &ModuleSource {
-        &self.source
+    pub fn source(&self) -> &ModuleId {
+        &self.module_id
     }
 }
 
 pub struct ASTFunctionSignatureEntry {
     pub signature: ASTFunctionSignature,
-    pub id: ModuleId,
-    pub source: ModuleSource,
+    pub namespace: ModuleNamespace,
+    pub module_id: ModuleId,
     pub position: ASTPosition,
 }
 
 impl ASTFunctionSignatureEntry {
     pub fn new(
         signature: ASTFunctionSignature,
-        id: ModuleId,
-        source: ModuleSource,
+        namespace: ModuleNamespace,
+        module_id: ModuleId,
         position: ASTPosition,
     ) -> Self {
         Self {
             signature,
-            id,
-            source,
+            namespace,
+            module_id,
             position,
         }
     }
@@ -80,8 +98,8 @@ impl ASTModulesContainer {
     pub fn add(
         &mut self,
         module: &ASTModule,
-        id: ModuleId,
-        source: ModuleSource,
+        namespace: ModuleNamespace,
+        module_id: ModuleId,
         add_builtin: bool,
     ) {
         if add_builtin {
@@ -92,9 +110,9 @@ impl ASTModulesContainer {
                         .entry(signature.name.clone())
                         .or_insert(Vec::new());
                     signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.fix_generics(&id),
-                        id.clone(),
-                        source.clone(),
+                        signature.fix_generics(&namespace.0),
+                        namespace.clone(),
+                        module_id.clone(),
                         ASTPosition::none(), // TODO I don't have the position of the signature
                     ));
                 }
@@ -107,9 +125,9 @@ impl ASTModulesContainer {
                         .entry(signature.name.clone())
                         .or_insert(Vec::new());
                     signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.fix_generics(&id),
-                        id.clone(),
-                        source.clone(),
+                        signature.fix_generics(&namespace.0),
+                        namespace.clone(),
+                        module_id.clone(),
                         ASTPosition::none(), // TODO I don't have the position of the signature
                     ));
                 }
@@ -122,7 +140,7 @@ impl ASTModulesContainer {
                 .entry(enum_def.name.clone())
                 .or_insert(Vec::new());
             enum_defs.push((
-                ModuleInfo::new(id.clone(), source.clone()),
+                ModuleInfo::new(namespace.clone(), module_id.clone()),
                 enum_def.clone(),
             ));
         }
@@ -133,7 +151,7 @@ impl ASTModulesContainer {
                 .entry(struct_def.name.clone())
                 .or_insert(Vec::new());
             struct_defs.push((
-                ModuleInfo::new(id.clone(), source.clone()),
+                ModuleInfo::new(namespace.clone(), module_id.clone()),
                 struct_def.clone(),
             ));
         }
@@ -144,7 +162,7 @@ impl ASTModulesContainer {
                 .entry(type_def.name.clone())
                 .or_insert(Vec::new());
             type_defs.push((
-                ModuleInfo::new(id.clone(), source.clone()),
+                ModuleInfo::new(namespace.clone(), module_id.clone()),
                 type_def.clone(),
             ));
         }
@@ -156,9 +174,9 @@ impl ASTModulesContainer {
                 .entry(signature.name.clone())
                 .or_insert(Vec::new());
             signatures.push(ASTFunctionSignatureEntry::new(
-                signature.fix_generics(&id),
-                id.clone(),
-                source.clone(),
+                signature.fix_generics(&namespace.0),
+                namespace.clone(),
+                module_id.clone(),
                 function.position.clone(),
             ));
         }
@@ -185,7 +203,7 @@ impl ASTModulesContainer {
         function_to_call: &str,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
-        function_call_module_id: &ModuleId,
+        function_call_module_namespace: &ModuleNamespace,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         if let Some(signatures) = self.signatures.get(function_to_call) {
             let result = signatures
@@ -194,11 +212,14 @@ impl ASTModulesContainer {
                     entry.signature.parameters_types.len() == parameter_types_filter.len()
                 })
                 .filter(|entry| {
-                    entry.signature.modifiers.public || &entry.id == function_call_module_id
+                    entry.signature.modifiers.public
+                        || &entry.namespace == function_call_module_namespace
                 })
                 .filter(|entry| {
                     zip(parameter_types_filter, &entry.signature.parameters_types).all(
-                        |(filter, parameter)| filter.is_compatible(&parameter, &entry.id, self),
+                        |(filter, parameter)| {
+                            filter.is_compatible(&parameter, &entry.namespace, self)
+                        },
                     )
                 })
                 .collect::<Vec<_>>();
@@ -240,43 +261,43 @@ impl ASTModulesContainer {
 
     pub fn get_enum_def(
         &self,
-        from_module_id: &ModuleId,
+        from_module_id: &ModuleNamespace,
         name: &str,
     ) -> Option<&(ModuleInfo, ASTEnumDef)> {
         self.enum_defs.get(name).and_then(|it| {
             it.iter()
-                .find(|(info, e)| e.modifiers.public || &info.id == from_module_id)
+                .find(|(info, e)| e.modifiers.public || &info.namespace == from_module_id)
         })
     }
 
     pub fn get_struct_def(
         &self,
-        from_module_id: &ModuleId,
+        from_module_id: &ModuleNamespace,
         name: &str,
     ) -> Option<&(ModuleInfo, ASTStructDef)> {
         self.struct_defs.get(name).and_then(|it| {
             it.iter()
-                .find(|(info, e)| e.modifiers.public || &info.id == from_module_id)
+                .find(|(info, e)| e.modifiers.public || &info.namespace == from_module_id)
         })
     }
 
     pub fn get_type_def(
         &self,
-        from_module_id: &ModuleId,
+        from_module_id: &ModuleNamespace,
         name: &str,
     ) -> Option<&(ModuleInfo, ASTTypeDef)> {
         self.type_defs.get(name).and_then(|it| {
             it.iter()
-                .find(|(info, e)| e.modifiers.public || &info.id == from_module_id)
+                .find(|(info, e)| e.modifiers.public || &info.namespace == from_module_id)
         })
     }
 
     fn is_equals(
         &self,
         a_type: &ASTType,
-        an_id: &ModuleId,
+        an_id: &ModuleNamespace,
         with_type: &ASTType,
-        with_id: &ModuleId,
+        with_id: &ModuleNamespace,
     ) -> bool {
         match a_type {
             ASTType::Builtin(a_kind) => {
@@ -355,12 +376,12 @@ impl ASTTypeFilter {
     pub fn is_compatible(
         &self,
         ast_type: &ASTType,
-        module_id: &ModuleId,
+        module_id: &ModuleNamespace,
         container: &ASTModulesContainer,
     ) -> bool {
         match self {
             ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
-                container.is_equals(ast_type, module_id, f_ast_type, &f_module_info.id)
+                container.is_equals(ast_type, module_id, f_ast_type, &f_module_info.namespace)
             }
             ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
@@ -399,9 +420,10 @@ mod tests {
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
         commandline::CommandLineOptions,
         project::RasmProject,
+        type_check::ast_modules_container::ModuleNamespace,
     };
 
-    use super::{ASTModulesContainer, ASTTypeFilter, ModuleInfo};
+    use super::{ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo};
 
     #[test]
     pub fn test_add() {
@@ -414,7 +436,7 @@ mod tests {
                 exact_builtin(BuiltinTypeKind::I32),
             ],
             None,
-            &String::new(),
+            &ModuleNamespace(String::new()),
         );
         assert_eq!(1, functions.len());
     }
@@ -437,7 +459,7 @@ mod tests {
                 }),
             ],
             None,
-            &String::new(),
+            &ModuleNamespace(String::new()),
         );
         assert_eq!(1, functions.len());
     }
@@ -465,12 +487,14 @@ mod tests {
             */
             container.add(
                 &module,
-                info.namespace.safe_name(),
-                info.path
-                    .as_ref()
-                    .map(|it| it.to_string_lossy().to_string())
-                    .unwrap_or(String::new())
-                    .to_string(),
+                ModuleNamespace(info.namespace.safe_name()),
+                ModuleId(
+                    info.path
+                        .as_ref()
+                        .map(|it| it.to_string_lossy().to_string())
+                        .unwrap_or(String::new())
+                        .to_string(),
+                ),
                 false, // modules fromRasmProject contains already builtin functions
             );
         }

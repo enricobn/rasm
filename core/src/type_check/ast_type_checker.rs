@@ -12,7 +12,7 @@ use rasm_parser::parser::ast::{
 
 use super::ast_modules_container::{
     ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo,
-    ModuleSource,
+    ModuleNamespace,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -235,8 +235,8 @@ impl<'a> ASTTypeChecker<'a> {
         &mut self,
         function: &ASTFunctionDef,
         static_val_context: &ValContext,
+        module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
-        module_source: &ModuleSource,
     ) {
         let mut val_context = ValContext::new(None);
 
@@ -253,11 +253,12 @@ impl<'a> ASTTypeChecker<'a> {
             let position = par.position.clone();
             let par = par
                 .clone()
-                .fix_generics(&function.signature().generics_prefix(module_id));
-            if let Err(e) = val_context.insert_par(par.name.clone(), par, module_id, module_source)
+                .fix_generics(&function.signature().generics_prefix(&module_namespace.0));
+            if let Err(e) =
+                val_context.insert_par(par.name.clone(), par, module_namespace, module_id)
             {
                 self.errors.push(ASTTypeCheckError::new(
-                    ASTIndex::new(module_id.clone(), module_source.clone(), position),
+                    ASTIndex::new(module_namespace.clone(), module_id.clone(), position),
                     e,
                 ));
             }
@@ -274,8 +275,8 @@ impl<'a> ASTTypeChecker<'a> {
                     &mut tmp_static_val_context,
                     body,
                     Some(&function.return_type),
+                    module_namespace,
                     module_id,
-                    module_source,
                 );
             }
             ASTFunctionBody::NativeBody(_body) => {}
@@ -288,8 +289,8 @@ impl<'a> ASTTypeChecker<'a> {
         statics: &mut ValContext,
         body: &Vec<ASTStatement>,
         expected_last_statement_type: Option<&ASTType>,
+        module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
-        module_source: &ModuleSource,
     ) -> Option<ASTTypeCheckEntry> {
         let mut return_type = None;
         /*
@@ -310,8 +311,8 @@ impl<'a> ASTTypeChecker<'a> {
                                     val_context,
                                     statics,
                                     Some(*elst),
+                                    module_namespace,
                                     module_id,
-                                    module_source,
                                 )
                             } else {
                                 self.add_expr(
@@ -319,32 +320,39 @@ impl<'a> ASTTypeChecker<'a> {
                                     val_context,
                                     statics,
                                     None,
+                                    module_namespace,
                                     module_id,
-                                    module_source,
                                 )
                             };
 
                             let index = ASTIndex::new(
+                                module_namespace.clone(),
                                 module_id.clone(),
-                                module_source.clone(),
                                 e.position(),
                             );
                             return_type = self.result.get(&index).cloned();
                         } else {
-                            self.add_expr(e, val_context, statics, None, module_id, module_source);
+                            self.add_expr(
+                                e,
+                                val_context,
+                                statics,
+                                None,
+                                module_namespace,
+                                module_id,
+                            );
                         }
                     } else {
-                        self.add_expr(e, val_context, statics, None, module_id, module_source);
+                        self.add_expr(e, val_context, statics, None, module_namespace, module_id);
                     }
                 }
                 ASTStatement::LetStatement(key, e, is_const, index) => {
-                    self.add_expr(e, val_context, statics, None, module_id, module_source);
+                    self.add_expr(e, val_context, statics, None, module_namespace, module_id);
 
                     let e_index =
-                        ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
+                        ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
 
                     let index =
-                        ASTIndex::new(module_id.clone(), module_source.clone(), index.clone());
+                        ASTIndex::new(module_namespace.clone(), module_id.clone(), index.clone());
                     if let Some(entry) = self.result.get(&e_index) {
                         if let Some(filter) = &entry.filter {
                             if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
@@ -381,10 +389,10 @@ impl<'a> ASTTypeChecker<'a> {
         val_context: &mut ValContext,
         statics: &mut ValContext,
         expected_expression_type: Option<&ASTType>,
+        module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
-        module_source: &ModuleSource,
     ) {
-        let index = ASTIndex::new(module_id.clone(), module_source.clone(), expr.position());
+        let index = ASTIndex::new(module_namespace.clone(), module_id.clone(), expr.position());
 
         if self.result.get(&index).is_some() {
             // println!("OPTIMIZED get_expr_type_map");
@@ -398,8 +406,8 @@ impl<'a> ASTTypeChecker<'a> {
                     val_context,
                     statics,
                     expected_expression_type,
+                    module_namespace,
                     module_id,
-                    module_source,
                 );
             }
             ASTExpression::ValueRef(name, _) => {
@@ -409,10 +417,10 @@ impl<'a> ASTTypeChecker<'a> {
                         ASTTypeCheckEntry::reference(
                             ASTTypeFilter::Exact(
                                 kind.ast_type(),
-                                ModuleInfo::new(module_id.clone(), module_source.clone()),
+                                ModuleInfo::new(module_namespace.clone(), module_id.clone()),
                             ),
                             name.to_owned(),
-                            kind.index(module_id, module_source),
+                            kind.index(module_namespace, module_id),
                         ),
                     );
                 } else if let Some(kind) = statics.get(name) {
@@ -421,10 +429,10 @@ impl<'a> ASTTypeChecker<'a> {
                         ASTTypeCheckEntry::reference(
                             ASTTypeFilter::Exact(
                                 kind.ast_type(),
-                                ModuleInfo::new(module_id.clone(), module_source.clone()),
+                                ModuleInfo::new(module_namespace.clone(), module_id.clone()),
                             ),
                             name.to_owned(),
-                            kind.index(module_id, module_source),
+                            kind.index(module_namespace, module_id),
                         ),
                     );
                 } else {
@@ -440,7 +448,7 @@ impl<'a> ASTTypeChecker<'a> {
                     ASTTypeCheckEntry::primitive(
                         ASTTypeFilter::Exact(
                             value_type.to_type(),
-                            ModuleInfo::new(module_id.clone(), module_source.clone()),
+                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
                         ),
                         value_type.token_len(),
                     ),
@@ -459,8 +467,8 @@ impl<'a> ASTTypeChecker<'a> {
                             lambda.parameter_names.iter().zip(parameters.iter())
                         {
                             let par_index = ASTIndex::new(
+                                module_namespace.clone(),
                                 module_id.clone(),
-                                module_source.clone(),
                                 par_position.clone(),
                             );
                             if let Err(e) = lambda_val_context.insert_par(
@@ -470,8 +478,8 @@ impl<'a> ASTTypeChecker<'a> {
                                     ast_type: ast_type.clone(),
                                     position: par_position.clone(),
                                 },
+                                module_namespace,
                                 module_id,
-                                module_source,
                             ) {
                                 self.errors.push(ASTTypeCheckError::new(par_index, e));
                             } else {
@@ -481,8 +489,8 @@ impl<'a> ASTTypeChecker<'a> {
                                         ASTTypeFilter::Exact(
                                             ast_type.clone(),
                                             ModuleInfo::new(
+                                                module_namespace.clone(),
                                                 module_id.clone(),
-                                                module_source.clone(),
                                             ),
                                         ),
                                         name.to_owned(),
@@ -501,8 +509,8 @@ impl<'a> ASTTypeChecker<'a> {
                     statics,
                     &lambda.body,
                     expected_last_statement_type_and_paramters.map(|it| it.0),
+                    module_namespace,
                     module_id,
-                    module_source,
                 );
 
                 if let Some(ASTTypeFilter::Exact(brt, _position)) =
@@ -516,7 +524,7 @@ impl<'a> ASTTypeChecker<'a> {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(brt),
                             }),
-                            ModuleInfo::new(module_id.clone(), module_source.clone()),
+                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
                         )
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
@@ -532,7 +540,7 @@ impl<'a> ASTTypeChecker<'a> {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(return_type.clone()),
                             }),
-                            ModuleInfo::new(module_id.clone(), module_source.clone()),
+                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
                         )
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
@@ -583,12 +591,12 @@ impl<'a> ASTTypeChecker<'a> {
         val_context: &mut ValContext,
         statics: &mut ValContext,
         expected_expression_type: Option<&ASTType>,
+        module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
-        module_source: &ModuleSource,
     ) {
         let index = ASTIndex::new(
+            module_namespace.clone(),
             module_id.clone(),
-            module_source.clone(),
             call.position.clone(),
         );
 
@@ -607,7 +615,7 @@ impl<'a> ASTTypeChecker<'a> {
         let mut inner = ASTTypeChecker::new(&self.modules_container);
 
         for e in &call.parameters {
-            let e_index = ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
+            let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
 
             // it's almost impossible to determine the right type of lambda without knowing the expected type, since the parameters
             // types cannot be determind, here we are calculating only the types for filtering ther functions,
@@ -622,7 +630,7 @@ impl<'a> ASTTypeChecker<'a> {
                     )),
                 );
             } else {
-                self.add_expr(e, val_context, statics, None, module_id, module_source);
+                self.add_expr(e, val_context, statics, None, module_namespace, module_id);
             }
         }
 
@@ -637,7 +645,7 @@ impl<'a> ASTTypeChecker<'a> {
         let mut parameter_types_filters = Vec::new();
 
         for e in &call.parameters {
-            let e_index = ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
+            let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
             if let Some(ast_type) = self.result.get(&e_index).and_then(|it| it.filter.clone()) {
                 parameter_types_filters.push(ast_type.clone());
             } else {
@@ -678,8 +686,8 @@ impl<'a> ASTTypeChecker<'a> {
 
             let entry = ASTFunctionSignatureEntry::new(
                 lambda_signature,
+                module_namespace.clone(),
                 module_id.clone(),
-                module_source.clone(),
                 call.position.clone(),
             );
 
@@ -690,8 +698,8 @@ impl<'a> ASTTypeChecker<'a> {
                 val_context,
                 statics,
                 expected_expression_type,
+                module_namespace,
                 module_id,
-                module_source,
                 true,
             );
 
@@ -702,7 +710,7 @@ impl<'a> ASTTypeChecker<'a> {
             &call.function_name,
             &parameter_types_filters,
             expected_expression_type,
-            module_id,
+            module_namespace,
         );
 
         if functions.is_empty() {
@@ -761,8 +769,8 @@ impl<'a> ASTTypeChecker<'a> {
                                     (
                                         it.signature.clone(),
                                         ASTIndex::new(
-                                            it.id.clone(),
-                                            it.source.clone(),
+                                            it.namespace.clone(),
+                                            it.module_id.clone(),
                                             it.position.clone(),
                                         ),
                                     )
@@ -779,7 +787,7 @@ impl<'a> ASTTypeChecker<'a> {
                 /*
                 for (e, t) in zip(&call.parameters, &found_function.signature.parameters_types) {
                     let e_index =
-                        ASTIndex::new(module_id.clone(), module_source.clone(), e.position());
+                        ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
 
                     self.result.remove(&e_index);
 
@@ -788,8 +796,8 @@ impl<'a> ASTTypeChecker<'a> {
                         val_context,
                         statics,
                         Some(t),
+                        module_namespace,
                         module_id,
-                        module_source,
                     );
                 }
                 */
@@ -801,8 +809,8 @@ impl<'a> ASTTypeChecker<'a> {
                     val_context,
                     statics,
                     expected_expression_type,
+                    module_namespace,
                     module_id,
-                    module_source,
                     false,
                 );
             }
@@ -817,14 +825,14 @@ impl<'a> ASTTypeChecker<'a> {
         val_context: &mut ValContext,
         statics: &mut ValContext,
         expected_expression_type: Option<&ASTType>,
+        call_module_namespace: &ModuleNamespace,
         call_module_id: &ModuleId,
-        call_module_source: &ModuleSource,
         is_lambda: bool,
     ) {
         let function_signature = &function_signature_entry.signature;
         let index = ASTIndex::new(
+            call_module_namespace.clone(),
             call_module_id.clone(),
-            call_module_source.clone(),
             call.position.clone(),
         );
 
@@ -850,8 +858,8 @@ impl<'a> ASTTypeChecker<'a> {
 
             for (i, e) in call.parameters.iter().enumerate() {
                 let e_index = ASTIndex::new(
+                    call_module_namespace.clone(),
                     call_module_id.clone(),
-                    call_module_source.clone(),
                     e.position(),
                 );
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
@@ -865,8 +873,8 @@ impl<'a> ASTTypeChecker<'a> {
                     val_context,
                     statics,
                     Some(&ast_type),
+                    call_module_namespace,
                     call_module_id,
-                    call_module_source,
                 );
 
                 if let Some(ref calculated_type_filter) =
@@ -931,13 +939,13 @@ impl<'a> ASTTypeChecker<'a> {
                 ASTTypeCheckEntry::new(
                     Some(ASTTypeFilter::Exact(
                         return_type,
-                        ModuleInfo::new(call_module_id.clone(), call_module_source.clone()),
+                        ModuleInfo::new(call_module_namespace.clone(), call_module_id.clone()),
                     )),
                     ASTTypeCheckInfo::LambdaCall(
                         function_signature.clone(),
                         ASTIndex::new(
-                            function_signature_entry.id.clone(),
-                            function_signature_entry.source.clone(),
+                            function_signature_entry.namespace.clone(),
+                            function_signature_entry.module_id.clone(),
                             function_signature_entry.position.clone(),
                         ),
                     ),
@@ -949,15 +957,15 @@ impl<'a> ASTTypeChecker<'a> {
                 ASTTypeCheckEntry::new(
                     Some(ASTTypeFilter::Exact(
                         return_type,
-                        ModuleInfo::new(call_module_id.clone(), call_module_source.clone()),
+                        ModuleInfo::new(call_module_namespace.clone(), call_module_id.clone()),
                     )),
                     ASTTypeCheckInfo::Call(
                         call.function_name.clone(),
                         vec![(
                             function_signature.clone(),
                             ASTIndex::new(
-                                function_signature_entry.id.clone(),
-                                function_signature_entry.source.clone(),
+                                function_signature_entry.namespace.clone(),
+                                function_signature_entry.module_id.clone(),
                                 function_signature_entry.position.clone(),
                             ),
                         )],
@@ -1293,7 +1301,7 @@ mod tests {
         let mut container = ASTModulesContainer::new();
 
         for (module, info) in modules.iter() {
-            container.add(module, info.module_id(), info.module_source(), false);
+            container.add(module, info.module_namespace(), info.module_id(), false);
         }
 
         let mut statics = ValContext::new(None);
@@ -1308,8 +1316,8 @@ mod tests {
             function_type_checker.add_function(
                 &function,
                 &mut statics,
+                &info.module_namespace(),
                 &info.module_id(),
-                &info.module_source(),
             );
         }
     }
@@ -1327,8 +1335,8 @@ mod tests {
         */
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(1, 5),
         ));
 
@@ -1348,8 +1356,8 @@ mod tests {
         let (types_map, info) = check_body(file);
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(1, 5),
         ));
 
@@ -1375,8 +1383,8 @@ mod tests {
         let (types_map, info) = check_body(file);
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(1, 5),
         ));
 
@@ -1402,8 +1410,8 @@ mod tests {
         let (types_map, info) = check_body(file);
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(1, 5),
         ));
 
@@ -1429,8 +1437,8 @@ mod tests {
         let (types_map, info) = check_body(file);
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(1, 5),
         ));
 
@@ -1450,8 +1458,8 @@ mod tests {
         let (types_map, info) = check_function(file, "endsWith");
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(3, 9),
         ));
 
@@ -1471,8 +1479,8 @@ mod tests {
         let (types_map, info) = check_function(file, "endsWith");
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(4, 22),
         ));
 
@@ -1485,8 +1493,8 @@ mod tests {
         );
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(3, 19),
         ));
 
@@ -1506,8 +1514,8 @@ mod tests {
         let (types_map, info) = check_function(file, "generic");
 
         let r_value = types_map.get(&ASTIndex::new(
+            info.module_namespace(),
             info.module_id(),
-            info.module_source(),
             ASTPosition::new(9, 13),
         ));
 
@@ -1545,7 +1553,7 @@ mod tests {
         let mut container = ASTModulesContainer::new();
 
         for (module, info) in modules.iter() {
-            container.add(module, info.module_id(), info.module_source(), false);
+            container.add(module, info.module_namespace(), info.module_id(), false);
         }
 
         println!(
@@ -1565,16 +1573,16 @@ mod tests {
                 &mut static_val_context,
                 &module.body,
                 None,
+                &info.module_namespace(),
                 &info.module_id(),
-                &info.module_source(),
             );
 
             for function in module.functions.into_iter() {
                 function_type_checker.add_function(
                     &function,
                     &static_val_context,
+                    &info.module_namespace(),
                     &info.module_id(),
-                    &info.module_source(),
                 );
             }
         }
@@ -1591,8 +1599,8 @@ mod tests {
                 &mut static_val_context,
                 &module.body,
                 None,
+                &info.module_namespace(),
                 &info.module_id(),
-                &info.module_source(),
             );
             ftc.result
         })
@@ -1610,8 +1618,8 @@ mod tests {
             ftc.add_function(
                 &function,
                 &mut static_val_context,
+                &info.module_namespace(),
                 &info.module_id(),
-                &info.module_source(),
             );
             ftc.result
         })
@@ -1658,7 +1666,7 @@ mod tests {
         let mut container = ASTModulesContainer::new();
 
         for (module, info) in modules.iter() {
-            container.add(module, info.module_id(), info.module_source(), false);
+            container.add(module, info.module_namespace(), info.module_id(), false);
         }
 
         (project, container)

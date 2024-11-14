@@ -10,7 +10,7 @@ use rasm_core::codegen::val_context::{ASTIndex, ValContext};
 use rasm_core::commandline::CommandLineOptions;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::ast_modules_container::{
-    ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo,
+    ASTModulesContainer, ASTTypeFilter, ModuleInfo, ModuleNamespace,
 };
 use rasm_core::type_check::ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker};
 use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTType};
@@ -42,7 +42,12 @@ impl IDEHelperBuilder {
         let mut modules_container = ASTModulesContainer::new();
 
         for (module, info, add_builtin) in self.entries.values() {
-            modules_container.add(module, info.module_id(), info.module_source(), *add_builtin);
+            modules_container.add(
+                module,
+                info.module_namespace(),
+                info.module_id(),
+                *add_builtin,
+            );
         }
 
         let mut static_val_context = ValContext::new(None);
@@ -60,16 +65,16 @@ impl IDEHelperBuilder {
                 &mut static_val_context,
                 &module.body,
                 None,
+                &info.module_namespace(),
                 &info.module_id(),
-                &info.module_source(),
             );
 
             for function in module.functions.iter() {
                 function_type_checker.add_function(
                     &function,
                     &static_val_context,
+                    &info.module_namespace(),
                     &info.module_id(),
-                    &info.module_source(),
                 );
 
                 let start = enh_index_from_ast_position(&info, &function.position);
@@ -236,7 +241,7 @@ impl IDEHelperBuilder {
             let ct_start = enh_index_from_ast_position(&info, position);
 
             if let Some(ct_index) =
-                IDEHelper::get_custom_type_index(modules_container, &info.module_id(), name)
+                IDEHelper::get_custom_type_index(modules_container, &info.module_namespace(), name)
             {
                 let (_, ct_info, _) = self.entries.get(&ct_index.info()).unwrap();
 
@@ -485,7 +490,7 @@ impl IDEHelper {
         let filter = ASTTypeFilter::Exact(ast_type.clone(), module_info.clone());
         let mut items = Vec::new();
         for function in modules_container.signatures().iter() {
-            if !function.signature.modifiers.public && &function.id != module_info.id() {
+            if !function.signature.modifiers.public && &function.namespace != module_info.id() {
                 continue;
             }
             if let Some(p) = prefix {
@@ -513,7 +518,7 @@ impl IDEHelper {
     ) -> Result<CompletionResult, io::Error> {
         let mut items = Vec::new();
         for function in modules_container.signatures() {
-            if !function.signature.modifiers.public && &function.id != module_info.id() {
+            if !function.signature.modifiers.public && &function.namespace != module_info.id() {
                 continue;
             }
             if function.signature.name.starts_with(prefix) {
@@ -667,7 +672,7 @@ impl IDEHelper {
 
     fn get_custom_type_index(
         modules_container: &ASTModulesContainer,
-        module_id: &ModuleId,
+        module_id: &ModuleNamespace,
         name: &str,
     ) -> Option<ASTIndex> {
         if let Some((id, def)) = modules_container.get_enum_def(module_id, name) {
