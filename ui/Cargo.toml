@@ -9,10 +9,5 @@ license.workspace = true
 rasm-core.workspace = true
 rasm-parser.workspace = true
 
-# workspace
-env_logger.workspace = true
-walkdir.workspace = true
-
 # others
 iced = "0.13.1"
-log.workspace = true
