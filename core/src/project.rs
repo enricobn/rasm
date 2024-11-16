@@ -406,7 +406,7 @@ impl RasmProject {
         result
     }
 
-    pub fn get_catalog(
+    pub fn catalog(
         &self,
         statics: &mut Statics,
         for_tests: bool,
@@ -1020,7 +1020,7 @@ mod tests {
         let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
 
         let mut statics = Statics::new();
-        let (catalog, _errors) = sut.get_catalog(
+        let (catalog, _errors) = sut.catalog(
             &mut statics,
             false,
             &CompileTarget::C(COptions::default()),
@@ -1035,6 +1035,9 @@ mod tests {
                 .unwrap(),
         ));
 
-        assert_eq!("helloworld_helloworld", format!("{}", info.unwrap().namespace()));
+        assert_eq!(
+            "helloworld_helloworld",
+            format!("{}", info.unwrap().namespace())
+        );
     }
 }

@@ -63,4 +63,27 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
         }
         None
     }
+
+    fn catalog(
+        &self,
+    ) -> Vec<(
+        &ASTModule,
+        &EnhModuleId,
+        &EnhASTNameSpace,
+        &ModuleId,
+        &ModuleNamespace,
+    )> {
+        self.map
+            .iter()
+            .map(|(id, entry)| {
+                (
+                    &entry.module,
+                    id,
+                    &entry.enh_namespace,
+                    &entry.id,
+                    &entry.namespace,
+                )
+            })
+            .collect::<Vec<_>>()
+    }
 }

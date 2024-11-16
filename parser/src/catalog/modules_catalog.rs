@@ -1,6 +1,6 @@
 use crate::parser::ast::ASTModule;
 
-use super::{ModuleId, ModuleInfo};
+use super::{ModuleId, ModuleInfo, ModuleNamespace};
 
 pub trait ModulesCatalog<ID, NAMESPACE> {
     fn module(&self, id: &ID) -> Option<&ASTModule>;
@@ -8,4 +8,6 @@ pub trait ModulesCatalog<ID, NAMESPACE> {
     fn info(&self, id: &ID) -> Option<ModuleInfo>;
 
     fn catalog_info(&self, id: &ModuleId) -> Option<(&ID, &NAMESPACE)>;
+
+    fn catalog(&self) -> Vec<(&ASTModule, &ID, &NAMESPACE, &ModuleId, &ModuleNamespace)>;
 }

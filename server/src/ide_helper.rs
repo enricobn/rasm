@@ -7,9 +7,11 @@ use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::ValContext;
 use rasm_core::commandline::CommandLineOptions;
+use rasm_core::errors::CompilationError;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker};
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind};
 use rasm_utils::OptionDisplay;
@@ -135,11 +137,11 @@ pub enum IDECompletionType {
     Identifier(String),
 }
 
-pub struct IDEHelperBuilder {
-    entries: HashMap<ModuleId, (ASTModule, ModuleNamespace, bool)>,
+pub struct IDEHelperBuilder<'a> {
+    entries: HashMap<ModuleId, (&'a ASTModule, ModuleNamespace, bool)>,
 }
 
-impl IDEHelperBuilder {
+impl<'a> IDEHelperBuilder<'a> {
     pub fn new() -> Self {
         Self {
             entries: HashMap::new(),
@@ -148,7 +150,7 @@ impl IDEHelperBuilder {
 
     pub fn add(
         mut self,
-        module: ASTModule,
+        module: &'a ASTModule,
         id: ModuleId,
         namespace: ModuleNamespace,
         add_builtin: bool,
@@ -338,26 +340,43 @@ impl IDEHelperBuilder {
     }
 }
 
-pub fn get_ide_helper_from_project(project: &RasmProject) -> IDEHelper {
+pub fn get_ide_helper_from_catalog<ID, NAMESPACE>(
+    catalog: &dyn ModulesCatalog<ID, NAMESPACE>,
+    add_builtin: bool,
+) -> IDEHelper {
+    let mut builder = IDEHelperBuilder::new();
+
+    for (module, _id, _namespace, module_id, module_namespace) in catalog.catalog() {
+        builder = builder.add(
+            &module,
+            module_id.clone(),
+            module_namespace.clone(),
+            add_builtin,
+        );
+    }
+
+    builder.build()
+}
+
+pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
     let mut statics = Statics::new();
 
     let mut builder = IDEHelperBuilder::new();
 
-    for (module, info) in project
-        .get_all_modules(
-            &mut statics,
-            false,
-            &CompileTarget::C(COptions::default()),
-            false,
-            &env::temp_dir().join("tmp"),
-            &CommandLineOptions::default(),
-        )
-        .0
-    {
-        builder = builder.add(module, info.module_id(), info.module_namespace(), false);
+    let (modules, errors) = project.get_all_modules(
+        &mut statics,
+        false,
+        &CompileTarget::C(COptions::default()),
+        false,
+        &env::temp_dir().join("tmp"),
+        &CommandLineOptions::default(),
+    );
+
+    for (module, info) in modules.iter() {
+        builder = builder.add(&module, info.module_id(), info.module_namespace(), false);
     }
 
-    builder.build()
+    (builder.build(), errors)
 }
 
 pub struct IDEHelper {
@@ -762,7 +781,9 @@ mod tests {
     use crate::completion_service::{CompletionResult, CompletionTrigger};
     use crate::ide_helper::IDEHelperBuilder;
 
-    use super::{IDEHelper, IDESelectableItem, IDESelectableItemTarget};
+    use super::{
+        get_ide_helper_from_project, IDEHelper, IDESelectableItem, IDESelectableItemTarget,
+    };
 
     #[test]
     fn simple() {
@@ -1392,49 +1413,8 @@ mod tests {
         let file_name = Path::new(project_path);
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let mut statics = Statics::new();
-
-        let mut builder = IDEHelperBuilder::new();
-
-        for (module, info) in project
-            .get_all_modules(
-                &mut statics,
-                false,
-                &CompileTarget::C(COptions::default()),
-                false,
-                &env::temp_dir().join("tmp"),
-                &CommandLineOptions::default(),
-            )
-            .0
-        {
-            builder = builder.add(module, info.module_id(), info.module_namespace(), false);
-        }
-
-        (project, builder.build())
-    }
-
-    fn get_helper_for_project(project: &RasmProject) -> IDEHelper {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
-
-        let mut statics = Statics::new();
-
-        let mut builder = IDEHelperBuilder::new();
-
-        for (module, info) in project
-            .get_all_modules(
-                &mut statics,
-                false,
-                &CompileTarget::C(COptions::default()),
-                false,
-                &env::temp_dir().join("tmp"),
-                &CommandLineOptions::default(),
-            )
-            .0
-        {
-            builder = builder.add(module, info.module_id(), info.module_namespace(), false);
-        }
-
-        builder.build()
+        let (helper, _errors) = get_ide_helper_from_project(&project);
+        (project, helper)
     }
 
     fn get_completion_values(
@@ -1450,7 +1430,7 @@ mod tests {
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let helper = get_helper_for_project(&project);
+        let (helper, _errors) = get_ide_helper_from_project(&project);
 
         let path = project
             .from_relative_to_root(PathBuf::from(file_name).as_path())
@@ -1491,7 +1471,7 @@ mod tests {
 
         let helper = IDEHelperBuilder::new()
             .add(
-                module,
+                &module,
                 module_info.id().clone(),
                 module_info.namespace().clone(),
                 true,
@@ -1529,7 +1509,7 @@ mod tests {
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let helper = get_helper_for_project(&project);
+        let (helper, _errors) = get_ide_helper_from_project(&project);
 
         let index = get_index(&&project, file_name, row, col);
 
