@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 use std::{env, io};
 
 use rasm_core::codegen::c::options::COptions;
@@ -130,32 +129,6 @@ pub enum IDECompletionTrigger {
     Invoked,
     Character(char),
     IncompleteCompletion,
-}
-
-pub enum IDECompletableItemResult {
-    Found(IDECompletableItem),
-    NotFound(String),
-}
-
-#[derive(Clone)]
-pub struct IDECompletableItem {
-    start: ASTIndex,
-    len: usize,
-    ast_type: ASTType,
-}
-
-impl IDECompletableItem {
-    fn new(start: ASTIndex, len: usize, ast_type: ASTType) -> Self {
-        Self {
-            start,
-            len,
-            ast_type,
-        }
-    }
-
-    fn contains(&self, index: &ASTIndex) -> bool {
-        IDERange::new(self.start.clone(), self.len).contains(index)
-    }
 }
 
 pub enum IDECompletionType {
@@ -402,20 +375,6 @@ impl IDEHelper {
             modules_container,
             selectable_items,
         }
-    }
-
-    pub fn get_module_info_from_path(&self, path: &PathBuf) -> Option<ModuleInfo> {
-        todo!();
-        /*
-        for (info, v) in self.module_info_to_enh_info.iter() {
-            if let Some(ref p) = v.path {
-                if p == path {
-                    return Some(info.clone());
-                }
-            }
-        }
-        None
-        */
     }
 
     pub fn find(&self, index: &ASTIndex) -> Vec<IDESelectableItem> {
@@ -788,10 +747,7 @@ impl IDEHelper {
 #[cfg(test)]
 mod tests {
     use std::env;
-    use std::io::Write;
     use std::path::{Path, PathBuf};
-
-    use env_logger::Builder;
 
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
@@ -1404,10 +1360,6 @@ mod tests {
         assert_eq!(expected, found);
     }
 
-    fn stdlib_path() -> PathBuf {
-        PathBuf::from("../stdlib").canonicalize().unwrap()
-    }
-
     fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> ASTIndex {
         let path = Path::new(file_n);
 
@@ -1485,21 +1437,6 @@ mod tests {
         }
 
         builder.build()
-    }
-
-    fn init_log() {
-        Builder::from_default_env()
-            .format(|buf, record| {
-                writeln!(
-                    buf,
-                    "{} [{}] - {}",
-                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
-                    record.level(),
-                    record.args()
-                )
-            })
-            .try_init()
-            .unwrap_or(());
     }
 
     fn get_completion_values(
