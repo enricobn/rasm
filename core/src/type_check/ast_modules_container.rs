@@ -46,11 +46,11 @@ impl ModuleInfo {
         Self::new(ModuleNamespace(String::new()), ModuleId(String::new()))
     }
 
-    pub fn id(&self) -> &ModuleNamespace {
+    pub fn namespace(&self) -> &ModuleNamespace {
         &self.namespace
     }
 
-    pub fn source(&self) -> &ModuleId {
+    pub fn id(&self) -> &ModuleId {
         &self.module_id
     }
 }
