@@ -5,13 +5,13 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use derivative::Derivative;
+use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::new_type_check2::TypeCheck;
 use crate::project::RasmProject;
 
-use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleNamespace};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
 use rasm_parser::parser::ast::{
@@ -19,8 +19,6 @@ use rasm_parser::parser::ast::{
     ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
     ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, ASTValueType, BuiltinTypeKind,
 };
-
-use super::val_context::ASTIndex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EnhModuleInfo {

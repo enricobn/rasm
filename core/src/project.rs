@@ -29,6 +29,7 @@ use crate::commandline::CommandLineOptions;
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use pathdiff::diff_paths;
+use rasm_parser::catalog::ModuleInfo;
 use rayon::prelude::*;
 use rust_embed::RustEmbed;
 use serde::Deserialize;
@@ -521,6 +522,25 @@ impl RasmProject {
             module,
             EnhModuleInfo::new(Some(PathBuf::new()), EnhASTNameSpace::global()),
         );
+    }
+
+    pub fn path_to_module_info(&self, path: &str) -> Option<ModuleInfo> {
+        if self.from_file {
+            let main_src_file = self.main_src_file().unwrap().canonicalize().unwrap();
+            if main_src_file == PathBuf::from(path).canonicalize().unwrap() {
+                let name = main_src_file
+                    .with_extension("")
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+
+                let namespace = EnhASTNameSpace::new(self.config.package.name.clone(), name);
+
+                return Some(EnhModuleInfo::new(Some(main_src_file), namespace).module_info());
+            }
+        }
+        None
     }
 
     fn get_modules(

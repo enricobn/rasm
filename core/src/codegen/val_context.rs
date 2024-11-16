@@ -1,73 +1,10 @@
-use std::fmt::Display;
-
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
-use crate::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleNamespace};
-use rasm_parser::parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind};
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ASTIndex {
-    module_namespace: ModuleNamespace,
-    module_id: ModuleId,
-    position: ASTPosition,
-}
-
-impl ASTIndex {
-    pub fn new(
-        module_namespace: ModuleNamespace,
-        module_id: ModuleId,
-        position: ASTPosition,
-    ) -> Self {
-        Self {
-            module_namespace,
-            module_id,
-            position,
-        }
-    }
-
-    pub fn none() -> Self {
-        Self {
-            module_namespace: ModuleNamespace(String::new()),
-            module_id: ModuleId(String::new()),
-            position: ASTPosition::none(),
-        }
-    }
-
-    pub fn mv_right(&self, offset: usize) -> Self {
-        Self {
-            module_namespace: self.module_namespace.clone(),
-            module_id: self.module_id.clone(),
-            position: self.position.clone().mv_right(offset),
-        }
-    }
-
-    pub fn module_namespace(&self) -> &ModuleNamespace {
-        &self.module_namespace
-    }
-
-    pub fn module_id(&self) -> &ModuleId {
-        &self.module_id
-    }
-
-    pub fn position(&self) -> &ASTPosition {
-        &self.position
-    }
-
-    pub fn info(&self) -> ModuleInfo {
-        ModuleInfo::new(self.module_namespace.clone(), self.module_id.clone())
-    }
-}
-
-impl Display for ASTIndex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}:{}:{}",
-            self.module_id, self.position.row, self.position.column
-        )
-    }
-}
+use rasm_parser::{
+    catalog::{ASTIndex, ModuleId, ModuleNamespace},
+    parser::ast::{ASTParameterDef, ASTType, BuiltinTypeKind},
+};
 
 #[derive(Clone, Debug)]
 pub enum ValKind {

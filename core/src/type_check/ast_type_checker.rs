@@ -3,17 +3,17 @@ use std::{collections::HashMap, fmt::Display};
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{debug_i, dedent, indent};
 
-use crate::codegen::val_context::{ASTIndex, ValContext};
+use crate::codegen::val_context::ValContext;
 
-use rasm_parser::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
-    ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
+use rasm_parser::{
+    catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
+    parser::ast::{
+        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
+        ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
+    },
 };
 
-use super::ast_modules_container::{
-    ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo,
-    ModuleNamespace,
-};
+use super::ast_modules_container::{ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter};
 
 #[derive(Debug, Clone, PartialEq)]
 struct ResolvedGenericTypes {
@@ -1268,17 +1268,17 @@ mod tests {
 
     use crate::{
         codegen::{
-            c::options::COptions,
-            compile_target::CompileTarget,
-            enh_ast::EnhModuleInfo,
-            statics::Statics,
-            val_context::{ASTIndex, ValContext},
+            c::options::COptions, compile_target::CompileTarget, enh_ast::EnhModuleInfo,
+            statics::Statics, val_context::ValContext,
         },
         commandline::CommandLineOptions,
         project::RasmProject,
         type_check::ast_modules_container::ASTModulesContainer,
     };
-    use rasm_parser::parser::ast::{ASTModule, ASTPosition};
+    use rasm_parser::{
+        catalog::ASTIndex,
+        parser::ast::{ASTModule, ASTPosition},
+    };
 
     use super::{ASTTypeChecker, ASTTypeCheckerResult};
 

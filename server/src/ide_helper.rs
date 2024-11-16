@@ -5,13 +5,12 @@ use std::{env, io};
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::val_context::{ASTIndex, ValContext};
+use rasm_core::codegen::val_context::ValContext;
 use rasm_core::commandline::CommandLineOptions;
 use rasm_core::project::RasmProject;
-use rasm_core::type_check::ast_modules_container::{
-    ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo, ModuleNamespace,
-};
+use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker};
+use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind};
 use rasm_utils::OptionDisplay;
 
@@ -752,10 +751,9 @@ mod tests {
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::val_context::ASTIndex;
     use rasm_core::commandline::CommandLineOptions;
     use rasm_core::project::RasmProject;
-    use rasm_core::type_check::ast_modules_container::{ModuleId, ModuleInfo, ModuleNamespace};
+    use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
     use rasm_parser::parser::ast::{ASTPosition, ASTType};
     use rasm_parser::parser::Parser;
@@ -1259,7 +1257,7 @@ mod tests {
     }
 
     #[test]
-    fn c() {
+    fn incomplete_source_completion() {
         let result = get_completion_values_from_str(
             "let s = \"\";\n\
             let a = s.\n\

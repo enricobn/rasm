@@ -2,58 +2,16 @@ use std::{collections::HashMap, fmt::Display, iter::zip};
 
 use rasm_utils::OptionDisplay;
 
-use rasm_parser::parser::{
-    ast::{
-        ASTEnumDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef, ASTType,
-        ASTTypeDef, BuiltinTypeKind,
+use rasm_parser::{
+    catalog::{ModuleId, ModuleInfo, ModuleNamespace},
+    parser::{
+        ast::{
+            ASTEnumDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef, ASTType,
+            ASTTypeDef, BuiltinTypeKind,
+        },
+        builtin_functions::BuiltinFunctions,
     },
-    builtin_functions::BuiltinFunctions,
 };
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ModuleNamespace(pub String);
-
-impl Display for ModuleNamespace {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ModuleId(pub String);
-
-impl Display for ModuleId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ModuleInfo {
-    module_id: ModuleId,
-    namespace: ModuleNamespace,
-}
-
-impl ModuleInfo {
-    pub fn new(namespace: ModuleNamespace, module_id: ModuleId) -> Self {
-        Self {
-            namespace,
-            module_id,
-        }
-    }
-
-    pub fn global() -> Self {
-        Self::new(ModuleNamespace(String::new()), ModuleId(String::new()))
-    }
-
-    pub fn namespace(&self) -> &ModuleNamespace {
-        &self.namespace
-    }
-
-    pub fn id(&self) -> &ModuleId {
-        &self.module_id
-    }
-}
 
 pub struct ASTFunctionSignatureEntry {
     pub signature: ASTFunctionSignature,
@@ -266,7 +224,7 @@ impl ASTModulesContainer {
     ) -> Option<&(ModuleInfo, ASTEnumDef)> {
         self.enum_defs.get(name).and_then(|it| {
             it.iter()
-                .find(|(info, e)| e.modifiers.public || &info.namespace == from_module_id)
+                .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
         })
     }
 
@@ -277,7 +235,7 @@ impl ASTModulesContainer {
     ) -> Option<&(ModuleInfo, ASTStructDef)> {
         self.struct_defs.get(name).and_then(|it| {
             it.iter()
-                .find(|(info, e)| e.modifiers.public || &info.namespace == from_module_id)
+                .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
         })
     }
 
@@ -288,7 +246,7 @@ impl ASTModulesContainer {
     ) -> Option<&(ModuleInfo, ASTTypeDef)> {
         self.type_defs.get(name).and_then(|it| {
             it.iter()
-                .find(|(info, e)| e.modifiers.public || &info.namespace == from_module_id)
+                .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
         })
     }
 
@@ -381,7 +339,7 @@ impl ASTTypeFilter {
     ) -> bool {
         match self {
             ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
-                container.is_equals(ast_type, module_id, f_ast_type, &f_module_info.namespace)
+                container.is_equals(ast_type, module_id, f_ast_type, f_module_info.namespace())
             }
             ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
